@@ -94,6 +94,10 @@ const WalletsAdd = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdvancedOptionsEnabled]);
 
+  useEffect(() => {
+    setSelectedWalletType(ButtonSelected.ONCHAIN);
+  }, []);
+
   const entropyGenerated = newEntropy => {
     let entropyTitle;
     if (!newEntropy) {
@@ -289,7 +293,7 @@ const WalletsAdd = () => {
             onPress={handleOnBitcoinButtonPressed}
             style={styles.button}
           />
-          <LightningButton
+          {/* <LightningButton
             active={selectedWalletType === ButtonSelected.OFFCHAIN}
             onPress={handleOnLightningButtonPressed}
             style={styles.button}
@@ -303,11 +307,11 @@ const WalletsAdd = () => {
               text="LDK"
             />
           ) : null}
-          <VaultButton active={selectedWalletType === ButtonSelected.VAULT} onPress={handleOnVaultButtonPressed} style={styles.button} />
+          <VaultButton active={selectedWalletType === ButtonSelected.VAULT} onPress={handleOnVaultButtonPressed} style={styles.button} /> */}
         </View>
 
         <View style={styles.advanced}>
-          {(() => {
+          {/* {(() => {
             if (selectedWalletType === ButtonSelected.ONCHAIN && isAdvancedOptionsEnabled) {
               return (
                 <View>
@@ -365,7 +369,7 @@ const WalletsAdd = () => {
           })()}
           {isAdvancedOptionsEnabled && selectedWalletType === ButtonSelected.ONCHAIN && !isLoading && (
             <BlueButtonLink style={styles.import} title={entropyButtonText} onPress={navigateToEntropy} />
-          )}
+          )} */}
           <BlueSpacing20 />
           <View style={styles.createButton}>
             {!isLoading ? (

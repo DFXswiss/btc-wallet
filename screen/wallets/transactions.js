@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   View,
   I18nManager,
+  Image,
 } from 'react-native';
 import { Icon } from 'react-native-elements';
 import { useRoute, useNavigation, useTheme, useFocusEffect } from '@react-navigation/native';
@@ -35,6 +36,20 @@ import LNNodeBar from '../../components/LNNodeBar';
 import TransactionsNavigationHeader from '../../components/TransactionsNavigationHeader';
 import { TransactionListItem } from '../../components/TransactionListItem';
 import alert from '../../components/Alert';
+// require('../img/lnd-shape-rtl.png')
+import BtnDfx from '../img/dfx_buttons/btn_dfx.png'
+import BtnDfxEn from '../img/dfx_buttons/btn_dfx_en.png'
+import BtnDfxDe from '../img/dfx_buttons/btn_dfx_de.png'
+import BtnDfxFr from '../img/dfx_buttons/btn_dfx_fr.png'
+import BtnDfxIt from '../img/dfx_buttons/btn_dfx_it.png'
+import BtnDfxEs from '../img/dfx_buttons/btn_dfx_es.png'
+
+import {
+  signIn,
+  signUp,
+  getSignMessage,
+  paymentUrl,
+} from './dfx/ApiService';
 
 const fs = require('../../blue_modules/fs');
 const BlueElectrum = require('../../blue_modules/BlueElectrum');
@@ -256,12 +271,12 @@ const WalletTransactions = () => {
             The idea is to avoid showing on iOS an appstore/market style app that goes against the TOS.
 
            */}
-          {wallet.getTransactions().length > 0 &&
+          {/* {wallet.getTransactions().length > 0 &&
             wallet.chain !== Chain.OFFCHAIN &&
             wallet.type !== LightningLdkWallet.type &&
-            renderSellFiat()}
-          {wallet.chain === Chain.OFFCHAIN && renderMarketplaceButton()}
-          {wallet.chain === Chain.OFFCHAIN && Platform.OS === 'ios' && renderLappBrowserButton()}
+            renderSellFiat()} */}
+          {/* {wallet.chain === Chain.OFFCHAIN && renderMarketplaceButton()} */}
+          {/* {wallet.chain === Chain.OFFCHAIN && Platform.OS === 'ios' && renderLappBrowserButton()} */}
         </View>
         {wallet.type === LightningLdkWallet.type && (lnNodeInfo.canSend > 0 || lnNodeInfo.canReceive > 0) && (
           <View style={[styles.marginHorizontal18, styles.marginBottom18]}>
@@ -555,6 +570,54 @@ const WalletTransactions = () => {
     }
   };
 
+  async function onMyDfxButtonPress() {
+    setIsLoading(true)
+    const address = wallet?.external_addresses_cache?.[0]
+    const message = `By_signing_this_message,_you_confirm_that_you_are_the_sole_owner_of_the_provided_Blockchain_address._Your_ID:_${address}`
+    const signMessage = await getSignMessage(address).catch()
+
+    const signature = await wallet.signMessage(signMessage.message ?? message, address)
+
+    await signIn({ address, signature })
+      .then(async respWithToken => {
+        openMyDFX(respWithToken)
+      })
+      .catch(async resp => {
+
+        // try sign up
+        await signUp({ address, signature, walletId: 2, usedRef: null })
+          .then(async respWithToken => {
+            openMyDFX(respWithToken)
+          })
+          .catch(async resp => {
+            if (resp.message !== undefined) {
+              throw new Error(resp.message)
+            }
+            throw new Error(resp)
+          })
+          .finally(() => setIsLoading(false))
+      })
+  }
+
+  async function openMyDFX (token) {
+    const urlEnding = `/login?token=${token}`
+    await Linking.openURL(`${paymentUrl}${urlEnding}`)
+    setIsLoading(false)
+  }
+
+  const dfxButtons = [
+    {
+      img: {
+        de: BtnDfxDe,
+        en: BtnDfx, // BtnDfxEn,
+        fr: BtnDfxFr,
+        it: BtnDfxIt,
+        es: BtnDfxEs
+      },
+      onPress: onMyDfxButtonPress, // openDfxServices
+    },
+  ];
+
   return (
     <View style={styles.flex}>
       <StatusBar barStyle="light-content" backgroundColor={WalletGradient.headerColorFor(wallet.type)} animated />
@@ -593,6 +656,16 @@ const WalletTransactions = () => {
           }
         }}
       />
+      <View style={{flexDirection: 'row', marginTop: 16 }}>
+        <View style={{ flexGrow: 1 }} />
+        <View style={{ height: 110 }}>
+          {dfxButtons.map((b, i) => (
+            <ImageButton key={i} source={/* dfxButtons.img[language] ?? */ b.img.en} onPress={async () => await b.onPress()} />
+          ))}
+        </View>
+        <View style={{ flexGrow: 1 }} />
+      </View>
+      
       <View style={[styles.list, stylesHook.list]}>
         <FlatList
           ListHeaderComponent={renderListHeaderComponent}
@@ -618,13 +691,13 @@ const WalletTransactions = () => {
               </Text>
               {isLightning() && <Text style={styles.emptyTxsLightning}>{loc.wallets.list_empty_txs2_lightning}</Text>}
 
-              {!isLightning() && (
+              {/* {!isLightning() && (
                 <TouchableOpacity onPress={navigateToBuyBitcoin} style={styles.buyBitcoin} accessibilityRole="button">
                   <Text testID="NoTxBuyBitcoin" style={styles.buyBitcoinText}>
                     {loc.wallets.list_tap_here_to_buy}
                   </Text>
                 </TouchableOpacity>
-              )}
+              )} */}
             </ScrollView>
           }
           {...(isElectrumDisabled ? {} : { refreshing: isLoading, onRefresh: refreshTransactions })}
@@ -792,20 +865,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '600',
   },
-  buyBitcoin: {
-    backgroundColor: '#007AFF',
-    minWidth: 260,
-    borderRadius: 8,
-    alignSelf: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-  },
-  buyBitcoinText: {
-    fontSize: 15,
-    color: '#fff',
-    textAlign: 'center',
-    fontWeight: '600',
-  },
+  // buyBitcoin: {
+  //   backgroundColor: '#007AFF',
+  //   minWidth: 260,
+  //   borderRadius: 8,
+  //   alignSelf: 'center',
+  //   paddingVertical: 14,
+  //   paddingHorizontal: 32,
+  // },
+  // buyBitcoinText: {
+  //   fontSize: 15,
+  //   color: '#fff',
+  //   textAlign: 'center',
+  //   fontWeight: '600',
+  // },
   sendIcon: {
     transform: [{ rotate: I18nManager.isRTL ? '-225deg' : '225deg' }],
   },
@@ -813,3 +886,23 @@ const styles = StyleSheet.create({
     transform: [{ rotate: I18nManager.isRTL ? '45deg' : '-45deg' }],
   },
 });
+
+export function ImageButton(props) {
+  const styles = StyleSheet.create({
+    button: {
+      aspectRatio: 1,
+      flex: 2
+    },
+    image: {
+      height: '100%',
+      resizeMode: 'contain',
+      width: '100%'
+    }
+  })
+
+  return (
+    <TouchableOpacity style={styles.button} {...props}>
+      <Image source={props.source} style={styles.image} />
+    </TouchableOpacity>
+  )
+}

@@ -559,7 +559,7 @@ export const BlueHeaderDefaultMain = props => {
       >
         {props.leftText}
       </Text>
-      <PlusIcon onPress={props.onNewWalletPress} Component={TouchableOpacity} />
+      {/* <PlusIcon onPress={props.onNewWalletPress} Component={TouchableOpacity} /> */}
     </View>
   );
 };

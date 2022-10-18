@@ -157,15 +157,20 @@ const WalletCarouselItem = ({ item, index, onPress, handleLongPress, isSelectedW
     Animated.spring(scaleValue, props).start();
   };
 
-  if (!item)
-    return (
-      <NewWalletPanel
-        onPress={() => {
-          onPressedOut();
-          onPress(index);
-        }}
-      />
-    );
+  if (!item) {
+    if (index === 0) {
+      return (
+        <NewWalletPanel
+          onPress={() => {
+            onPressedOut();
+            onPress(index);
+          }}
+        />
+      )
+    } else {
+      return null;
+    }
+  }
 
   const opacity = isSelectedWallet === false ? 0.5 : 1.0;
   let image;

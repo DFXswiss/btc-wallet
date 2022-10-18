@@ -34,9 +34,13 @@ const About = () => {
       alignItems: 'center',
       marginTop: 54,
     },
+    // logo: {
+    //   width: 102,
+    //   height: 124,
+    // },
     logo: {
-      width: 102,
-      height: 124,
+      aspectRatio: 409 / 128,
+      height: 90,
     },
     textFree: {
       maxWidth: 260,
@@ -94,9 +98,9 @@ const About = () => {
     Linking.openURL('https://twitter.com/bluewalletio');
   };
 
-  const handleOnDiscordPress = () => {
-    Linking.openURL('https://discord.gg/btWq2Aby2z');
-  };
+  // const handleOnDiscordPress = () => {
+  //   Linking.openURL('https://discord.gg/btWq2Aby2z');
+  // };
 
   const handleOnTelegramPress = () => {
     Linking.openURL('https://t.me/bluewallethat');
@@ -124,8 +128,12 @@ const About = () => {
     <ScrollView testID="AboutScrollView" contentInsetAdjustmentBehavior="automatic">
       <BlueCard>
         <View style={styles.center}>
-          <Image style={styles.logo} source={require('../../img/bluebeast.png')} />
-          <Text style={styles.textFree}>{loc.settings.about_free}</Text>
+          <Image style={styles.logo} source={require('../../img/DFX_logo.png')} />
+          <BlueSpacing20 />
+          {/* <Text style={styles.textFree}>{loc.settings.about_free}</Text> */}
+          <Text style={styles.textFree}>
+            Die DFX Bitcoin-only Wallet ist ein Softfork von bluewallet.io mit integrierter Kauf und Verkaufsoption der DFX AG.
+          </Text>
           <Text style={styles.textBackup}>{formatStringAddTwoWhiteSpaces(loc.settings.about_backup)}</Text>
           {((Platform.OS === 'android' && hasGmsSync()) || Platform.OS !== 'android') && (
             <BlueButton onPress={handleOnRatePress} title={loc.settings.about_review + ' ⭐🙏'} />
@@ -150,7 +158,7 @@ const About = () => {
         onPress={handleOnTelegramPress}
         title={loc.settings.about_sm_telegram}
       />
-      <BlueListItem
+      {/* <BlueListItem
         leftIcon={{
           name: 'discord',
           type: 'font-awesome-5',
@@ -158,7 +166,7 @@ const About = () => {
         }}
         onPress={handleOnDiscordPress}
         title={loc.settings.about_sm_discord}
-      />
+      /> */}
       <BlueCard>
         <View style={styles.buildWith}>
           <BlueSpacing20 />

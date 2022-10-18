@@ -82,7 +82,7 @@ const GeneralSettings = () => {
           <BlueSpacing20 />
         </>
       ) : null}
-      <BlueListItem
+      {/* <BlueListItem
         Component={TouchableWithoutFeedback}
         title={loc.settings.general_adv_mode}
         switch={{ onValueChange: onAdvancedModeSwitch, value: isAdancedModeSwitchEnabled, testID: 'AdvancedMode' }}
@@ -95,7 +95,7 @@ const GeneralSettings = () => {
         Component={TouchableWithoutFeedback}
         title="Legacy URv1 QR"
         switch={{ onValueChange: onLegacyURv1Switch, value: isURv1SwitchEnabled }}
-      />
+      /> */}
       <BlueSpacing20 />
     </ScrollView>
   );

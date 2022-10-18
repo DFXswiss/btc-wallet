@@ -1304,30 +1304,32 @@ const SendDetails = () => {
       );
     }
 
-    return (
-      <View style={styles.select}>
-        {!isLoading && isEditable && (
-          <TouchableOpacity
-            accessibilityRole="button"
-            style={styles.selectTouch}
-            onPress={() => navigation.navigate('SelectWallet', { onWalletSelect, chainType: Chain.ONCHAIN })}
-          >
-            <Text style={styles.selectText}>{loc.wallets.select_wallet.toLowerCase()}</Text>
-            <Icon name={I18nManager.isRTL ? 'angle-left' : 'angle-right'} size={18} type="font-awesome" color="#9aa0aa" />
-          </TouchableOpacity>
-        )}
-        <View style={styles.selectWrap}>
-          <TouchableOpacity
-            accessibilityRole="button"
-            style={styles.selectTouch}
-            onPress={() => navigation.navigate('SelectWallet', { onWalletSelect, chainType: Chain.ONCHAIN })}
-            disabled={!isEditable || isLoading}
-          >
-            <Text style={[styles.selectLabel, stylesHook.selectLabel]}>{wallet.getLabel()}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
+    return null
+
+    // return (
+    //   <View style={styles.select}>
+    //     {!isLoading && isEditable && (
+    //       <TouchableOpacity
+    //         accessibilityRole="button"
+    //         style={styles.selectTouch}
+    //         onPress={() => navigation.navigate('SelectWallet', { onWalletSelect, chainType: Chain.ONCHAIN })}
+    //       >
+    //         <Text style={styles.selectText}>{loc.wallets.select_wallet.toLowerCase()}</Text>
+    //         <Icon name={I18nManager.isRTL ? 'angle-left' : 'angle-right'} size={18} type="font-awesome" color="#9aa0aa" />
+    //       </TouchableOpacity>
+    //     )}
+    //     <View style={styles.selectWrap}>
+    //       <TouchableOpacity
+    //         accessibilityRole="button"
+    //         style={styles.selectTouch}
+    //         onPress={() => navigation.navigate('SelectWallet', { onWalletSelect, chainType: Chain.ONCHAIN })}
+    //         disabled={!isEditable || isLoading}
+    //       >
+    //         <Text style={[styles.selectLabel, stylesHook.selectLabel]}>{wallet.getLabel()}</Text>
+    //       </TouchableOpacity>
+    //     </View>
+    //   </View>
+    // );
   };
 
   const renderBitcoinTransactionInfoFields = params => {

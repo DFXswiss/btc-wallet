@@ -11,7 +11,7 @@ import { FiatUnit } from '../../models/fiatUnit';
 
 const currency = require('../../blue_modules/currency');
 
-export default class BuyBitcoin extends Component {
+/* export default */ class BuyBitcoin extends Component {
   static contextType = BlueStorageContext;
   constructor(props, context) {
     super(props);
