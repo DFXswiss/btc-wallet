@@ -1,9 +1,9 @@
 platform :ios, '13.0'
-workspace 'BlueWallet'
+workspace 'DFX Bitcoin Wallet'
 require_relative '../node_modules/react-native/scripts/react_native_pods'
 require_relative '../node_modules/@react-native-community/cli-platform-ios/native_modules'
 
-target 'BlueWallet' do
+target 'DFX Bitcoin Wallet' do
   config = use_native_modules!
 
   use_react_native!(
@@ -37,6 +37,6 @@ target 'BlueWallet' do
   
 end
 
-target 'WidgetsExtension' do
-  pod 'SwiftSocket', :git => 'https://github.com/swiftsocket/SwiftSocket.git', :branch => 'master'
-end
+# target 'WidgetsExtension' do
+#   pod 'SwiftSocket', :git => 'https://github.com/swiftsocket/SwiftSocket.git', :branch => 'master'
+# end

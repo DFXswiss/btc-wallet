@@ -2,8 +2,8 @@ PODS:
   - boost (1.76.0)
   - BugsnagReactNative (7.17.2):
     - React-Core
-  - BVLinearGradient (2.5.6):
-    - React
+  - BVLinearGradient (2.6.1):
+    - React-Core
   - CocoaAsyncSocket (7.6.5)
   - DoubleConversion (1.1.6)
   - FBLazyVector (0.67.4)
@@ -414,7 +414,7 @@ PODS:
     - React-Core
   - RNReactNativeHapticFeedback (1.14.0):
     - React-Core
-  - RNReanimated (2.9.0):
+  - RNReanimated (2.9.1):
     - DoubleConversion
     - FBLazyVector
     - FBReactNativeSpec
@@ -454,7 +454,6 @@ PODS:
     - React-Core
   - RNWatch (1.0.11):
     - React
-  - SwiftSocket (2.0.2)
   - Yoga (1.14.0)
   - YogaKit (1.18.1):
     - Yoga (~> 1.14)
@@ -556,7 +555,6 @@ DEPENDENCIES:
   - RNSVG (from `../node_modules/react-native-svg`)
   - RNVectorIcons (from `../node_modules/react-native-vector-icons`)
   - RNWatch (from `../node_modules/react-native-watch-connectivity`)
-  - SwiftSocket (from `https://github.com/swiftsocket/SwiftSocket.git`, branch `master`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
@@ -719,21 +717,13 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-vector-icons"
   RNWatch:
     :path: "../node_modules/react-native-watch-connectivity"
-  SwiftSocket:
-    :branch: master
-    :git: https://github.com/swiftsocket/SwiftSocket.git
   Yoga:
     :path: "../node_modules/react-native/ReactCommon/yoga"
-
-CHECKOUT OPTIONS:
-  SwiftSocket:
-    :commit: 97b7599da90f9c07ecf65551718706dc30e6838e
-    :git: https://github.com/swiftsocket/SwiftSocket.git
 
 SPEC CHECKSUMS:
   boost: a7c83b31436843459a1961bfd74b96033dc77234
   BugsnagReactNative: 9ed4343f2d164c69d2d8ad57722b4662501935c9
-  BVLinearGradient: e3aad03778a456d77928f594a649e96995f1c872
+  BVLinearGradient: efd57481aeeee5552f78be717994e13c7fb17cda
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   DoubleConversion: 831926d9b8bf8166fd87886c4abab286c2422662
   FBLazyVector: f7b0632c6437e312acf6349288d9aa4cb6d59030
@@ -808,17 +798,16 @@ SPEC CHECKSUMS:
   RNQuickAction: 6d404a869dc872cde841ad3147416a670d13fa93
   RNRate: 94f57c773e155ca0d0aeeba9c10a32bce9030daf
   RNReactNativeHapticFeedback: 1e3efeca9628ff9876ee7cdd9edec1b336913f8c
-  RNReanimated: 8fdb0c1f908502c45f68939b3cf6c06c830eff95
+  RNReanimated: b5b17149593e7c05e4ec5c0efea1f21e05829510
   RNScreens: 4830eb40e0793b38849965cd27f4f3a7d7bc65c1
   RNSecureKeyStore: f1ad870e53806453039f650720d2845c678d89c8
   RNShare: 4406f61af043027b695c3a0b8f39e2c2bdacde12
   RNSVG: 302bfc9905bd8122f08966dc2ce2d07b7b52b9f8
   RNVectorIcons: fcc2f6cb32f5735b586e66d14103a74ce6ad61f8
   RNWatch: dae6c858a2051dbdcfb00b9a86cf4d90400263b4
-  SwiftSocket: c8d482e867ae4d3eb4c769e9382e123c1f1f833b
   Yoga: d6b6a80659aa3e91aaba01d0012e7edcbedcbecd
   YogaKit: f782866e155069a2cca2517aafea43200b01fd5a
 
-PODFILE CHECKSUM: 53c058f42bf11a3d01891a40676ea8f9c6a9ecf9
+PODFILE CHECKSUM: 6ad3f92f86795338eec7fd1bd2497efc1c7d5c6e
 
-COCOAPODS: 1.10.1
+COCOAPODS: 1.11.3

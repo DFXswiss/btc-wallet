@@ -33,7 +33,6 @@ import { HistoryType } from './models/HistoryType'
 import { CryptoRoute } from './models/CryptoRoute'
 // import * as Updates from 'expo-updates'
 import { BankAccount, BankAccountData, BankAccountDto, fromBankAccountDto, toBankAccountDto } from './models/BankAccount'
-// import { noop } from 'lodash'
 
 const PROD = {
   dfxApiUrl: 'https://api.dfx.swiss/v1',
@@ -335,9 +334,9 @@ const fetchFrom = async <T>(
 
   const BaseUrl = DfxBaseUrl
 
-  console.log('URL--> ', `${BaseUrl}/${url}`)
-  console.log('METHOD --> ', method)
-  ;(data != null) && console.log('data --> ', data)
+  // console.log('URL--> ', `${BaseUrl}/${url}`)
+  // console.log('METHOD --> ', method)
+  // ;(data != null) && console.log('data --> ', data)
 
   return (
     await AuthService.Session(options?.withoutJWT, options?.apiDomain).then((session) => buildInit(method, session, data, options?.noJson))

@@ -572,11 +572,12 @@ const WalletTransactions = () => {
 
   async function onMyDfxButtonPress() {
     setIsLoading(true)
+
     const address = wallet?.external_addresses_cache?.[0]
     const message = `By_signing_this_message,_you_confirm_that_you_are_the_sole_owner_of_the_provided_Blockchain_address._Your_ID:_${address}`
-    const signMessage = await getSignMessage(address).catch()
+    const signMessage = await getSignMessage(address).catch(() => undefined)
 
-    const signature = await wallet.signMessage(signMessage.message ?? message, address)
+    const signature = await wallet.signMessage(signMessage?.message ?? message, address)
 
     await signIn({ address, signature })
       .then(async respWithToken => {
