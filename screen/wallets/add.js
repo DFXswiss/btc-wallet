@@ -54,7 +54,7 @@ const WalletsAdd = () => {
   const { addWallet, saveToDisk, isAdancedModeEnabled, wallets } = useContext(BlueStorageContext);
   const [isLoading, setIsLoading] = useState(true);
   const [walletBaseURI, setWalletBaseURI] = useState('');
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedIndex, setSelectedIndex] = useState(2);
   const [label, setLabel] = useState('');
   const [isAdvancedOptionsEnabled, setIsAdvancedOptionsEnabled] = useState(false);
   const [selectedWalletType, setSelectedWalletType] = useState(false);
