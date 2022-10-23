@@ -95,7 +95,7 @@ const About = () => {
   };
 
   const handleOnTwitterPress = () => {
-    Linking.openURL('https://twitter.com/bluewalletio');
+    Linking.openURL('https://twitter.com/DFX_Swiss');
   };
 
   // const handleOnDiscordPress = () => {
@@ -103,10 +103,10 @@ const About = () => {
   // };
 
   const handleOnTelegramPress = () => {
-    Linking.openURL('https://t.me/bluewallethat');
+    Linking.openURL('https://t.me/DFX_swiss');
   };
   const handleOnGithubPress = () => {
-    Linking.openURL('https://github.com/BlueWallet/BlueWallet');
+    Linking.openURL('https://github.com/DFXswiss/btc-wallet');
   };
   const handleOnRatePress = () => {
     const options = {
@@ -115,7 +115,7 @@ const About = () => {
       preferredAndroidMarket: AndroidMarket.Google,
       preferInApp: Platform.OS !== 'android',
       openAppStoreIfInAppFails: true,
-      fallbackPlatformURL: 'https://bluewallet.io',
+      fallbackPlatformURL: 'https://dfx.swiss/',
     };
     Rate.rate(options, success => {
       if (success) {
