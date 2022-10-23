@@ -140,7 +140,7 @@ const UnlockWith = () => {
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="default" />
       <View style={styles.container}>
-        <View style={{justifyContent: 'center', alignItems: 'center', marginTop: 250}}>
+        <View style={{ top: "38 %", justifyContent: 'center', alignItems: 'center'}}>
           <Image source={icon} style={{ aspectRatio: 1, height: 90 }} />
         </View>
         {/* <LottieView source={require('./img/bluewalletsplash.json')} autoPlay loop={false} onAnimationFinish={onAnimationFinish} /> */}
