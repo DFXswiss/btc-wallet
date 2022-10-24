@@ -103,15 +103,15 @@ const About = () => {
   // };
 
   const handleOnTelegramPress = () => {
-    Linking.openURL('https://t.me/DFX_swiss');
+    Linking.openURL('https://t.me/DFXswiss_en');
   };
   const handleOnGithubPress = () => {
     Linking.openURL('https://github.com/DFXswiss/btc-wallet');
   };
   const handleOnRatePress = () => {
     const options = {
-      AppleAppID: '1376878040',
-      GooglePackageName: 'io.bluewallet.bluewallet',
+      AppleAppID: '6443845399',
+      GooglePackageName: '',
       preferredAndroidMarket: AndroidMarket.Google,
       preferInApp: Platform.OS !== 'android',
       openAppStoreIfInAppFails: true,
