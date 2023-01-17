@@ -5,12 +5,12 @@ buildscript {
         minSdkVersion = 28
         supportLibVersion = "28.0.0"
         buildToolsVersion = "30.0.3"
-        compileSdkVersion = 30
-        targetSdkVersion = 30
+        compileSdkVersion = 31
+        targetSdkVersion = 31
         googlePlayServicesVersion = "16.+"
         googlePlayServicesIidVersion = "16.0.1"
         firebaseVersion = "17.3.4"
-        firebaseMessagingVersion = "20.2.1"
+        firebaseMessagingVersion = "21.1.0"
         ndkVersion = "23.0.7599858"
     }
     repositories {
@@ -73,9 +73,8 @@ subprojects {
     afterEvaluate {project ->
         if (project.hasProperty("android")) {
             android {
-                compileSdkVersion 30
                 buildToolsVersion '30.0.3'
-                compileSdkVersion 29
+                compileSdkVersion 31
                  defaultConfig {
                     minSdkVersion 28
                 }

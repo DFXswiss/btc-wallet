@@ -1,4 +1,4 @@
-package io.bluewallet.bluewallet;
+package com.defichain.app.dfx.bitcoin;
 
 import android.app.Application;
 import android.content.Context;

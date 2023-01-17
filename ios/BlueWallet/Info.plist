@@ -4,7 +4,7 @@
 <dict>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>io.bluewallet.bluewallet.fetchTxsForWallet</string>
+		<string>com.defichain.app.dfx.bitcoin.fetchTxsForWallet</string>
 	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
@@ -177,8 +177,8 @@
 	<string>This alert should not show up as we do not require this data</string>
 	<key>NSUserActivityTypes</key>
 	<array>
-		<string>io.bluewallet.bluewallet.receiveonchain</string>
-		<string>io.bluewallet.bluewallet.xpub</string>
+		<string>com.defichain.app.dfx.bitcoin.receiveonchain</string>
+		<string>com.defichain.app.dfx.bitcoin.xpub</string>
 	</array>
 	<key>UIAppFonts</key>
 	<array>
