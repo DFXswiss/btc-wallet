@@ -72,3 +72,6 @@ artifacts/
 *.mx
 *.realm
 *.realm.lock
+
+# Ruby
+vendor/*
