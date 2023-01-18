@@ -66,7 +66,7 @@ const DrawerList = props => {
 
   const renderWalletsCarousel = (
     <WalletsCarousel
-      data={wallets.concat(false)}
+      data={wallets.concat(wallets && wallets.length > 0 ? [] : [false])}
       extraData={[wallets]}
       onPress={handleClick}
       handleLongPress={handleLongPress}

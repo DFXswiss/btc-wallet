@@ -15,7 +15,7 @@ HandoffComponent.propTypes = {
 };
 
 HandoffComponent.activityTypes = {
-  ReceiveOnchain: 'io.bluewallet.bluewallet.receiveonchain',
-  Xpub: 'io.bluewallet.bluewallet.xpub',
-  ViewInBlockExplorer: 'io.bluewallet.bluewallet.blockexplorer',
+  ReceiveOnchain: 'com.defichain.app.dfx.bitcoin.receiveonchain',
+  Xpub: 'com.defichain.app.dfx.bitcoin.xpub',
+  ViewInBlockExplorer: 'com.defichain.app.dfx.bitcoin.blockexplorer',
 };

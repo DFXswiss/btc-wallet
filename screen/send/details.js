@@ -4,7 +4,6 @@ import {
   Alert,
   Dimensions,
   FlatList,
-  I18nManager,
   Keyboard,
   KeyboardAvoidingView,
   LayoutAnimation,
@@ -59,7 +58,7 @@ const SendDetails = () => {
   const [width, setWidth] = useState(Dimensions.get('window').width);
   const [isLoading, setIsLoading] = useState(false);
   const [wallet, setWallet] = useState(null);
-  const [walletSelectionOrCoinsSelectedHidden, setWalletSelectionOrCoinsSelectedHidden] = useState(false);
+  const [coinsSelectedHidden, setCoinsSelectedHidden] = useState(false);
   const [isAmountToolbarVisibleForAndroid, setIsAmountToolbarVisibleForAndroid] = useState(false);
   const [isFeeSelectionModalVisible, setIsFeeSelectionModalVisible] = useState(false);
   const [optionsVisible, setOptionsVisible] = useState(false);
@@ -109,12 +108,12 @@ const SendDetails = () => {
   // keyboad effects
   useEffect(() => {
     const _keyboardDidShow = () => {
-      setWalletSelectionOrCoinsSelectedHidden(true);
+      setCoinsSelectedHidden(true);
       setIsAmountToolbarVisibleForAndroid(true);
     };
 
     const _keyboardDidHide = () => {
-      setWalletSelectionOrCoinsSelectedHidden(false);
+      setCoinsSelectedHidden(false);
       setIsAmountToolbarVisibleForAndroid(false);
     };
 
@@ -586,11 +585,6 @@ const SendDetails = () => {
     setIsLoading(false);
   };
 
-  const onWalletSelect = wallet => {
-    setWallet(wallet);
-    navigation.pop();
-  };
-
   /**
    * same as `importTransaction`, but opens camera instead.
    *
@@ -1060,9 +1054,6 @@ const SendDetails = () => {
     feeModalCustomText: {
       color: colors.buttonAlternativeTextColor,
     },
-    selectLabel: {
-      color: colors.buttonTextColor,
-    },
     of: {
       color: colors.feeText,
     },
@@ -1287,8 +1278,8 @@ const SendDetails = () => {
     );
   };
 
-  const renderWalletSelectionOrCoinsSelected = () => {
-    if (walletSelectionOrCoinsSelectedHidden) return null;
+  const renderCoinsSelected = () => {
+    if (coinsSelectedHidden) return null;
     if (utxo !== null) {
       return (
         <View style={styles.select}>
@@ -1304,30 +1295,7 @@ const SendDetails = () => {
       );
     }
 
-    return (
-      <View style={styles.select}>
-        {!isLoading && isEditable && (
-          <TouchableOpacity
-            accessibilityRole="button"
-            style={styles.selectTouch}
-            onPress={() => navigation.navigate('SelectWallet', { onWalletSelect, chainType: Chain.ONCHAIN })}
-          >
-            <Text style={styles.selectText}>{loc.wallets.select_wallet.toLowerCase()}</Text>
-            <Icon name={I18nManager.isRTL ? 'angle-left' : 'angle-right'} size={18} type="font-awesome" color="#9aa0aa" />
-          </TouchableOpacity>
-        )}
-        <View style={styles.selectWrap}>
-          <TouchableOpacity
-            accessibilityRole="button"
-            style={styles.selectTouch}
-            onPress={() => navigation.navigate('SelectWallet', { onWalletSelect, chainType: Chain.ONCHAIN })}
-            disabled={!isEditable || isLoading}
-          >
-            <Text style={[styles.selectLabel, stylesHook.selectLabel]}>{wallet.getLabel()}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
+    return null;
   };
 
   const renderBitcoinTransactionInfoFields = params => {
@@ -1497,7 +1465,7 @@ const SendDetails = () => {
           ),
         })}
 
-        {renderWalletSelectionOrCoinsSelected()}
+        {renderCoinsSelected()}
       </View>
     </TouchableWithoutFeedback>
   );
@@ -1601,23 +1569,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     marginHorizontal: 24,
     alignItems: 'center',
-  },
-  selectTouch: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  selectText: {
-    color: '#9aa0aa',
-    fontSize: 14,
-    marginRight: 8,
-  },
-  selectWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 4,
-  },
-  selectLabel: {
-    fontSize: 14,
   },
   of: {
     alignSelf: 'flex-end',

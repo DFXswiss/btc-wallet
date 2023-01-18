@@ -36,8 +36,8 @@ const About = () => {
       marginTop: 54,
     },
     logo: {
-      width: 102,
-      height: 124,
+      aspectRatio: 409 / 128,
+      height: 32,
     },
     textFree: {
       maxWidth: 260,
@@ -92,27 +92,25 @@ const About = () => {
   };
 
   const handleOnTwitterPress = () => {
-    Linking.openURL('https://twitter.com/bluewalletio');
-  };
-
-  const handleOnDiscordPress = () => {
-    Linking.openURL('https://discord.gg/btWq2Aby2z');
+    Linking.openURL('https://twitter.com/DFX_Swiss');
   };
 
   const handleOnTelegramPress = () => {
-    Linking.openURL('https://t.me/bluewallethat');
+    Linking.openURL('https://t.me/DFXswiss_en');
   };
+
   const handleOnGithubPress = () => {
-    Linking.openURL('https://github.com/BlueWallet/BlueWallet');
+    Linking.openURL('https://github.com/DFXSwiss/btc-wallet');
   };
+
   const handleOnRatePress = () => {
     const options = {
-      AppleAppID: '1376878040',
-      GooglePackageName: 'io.bluewallet.bluewallet',
+      AppleAppID: '6443845399',
+      GooglePackageName: '',
       preferredAndroidMarket: AndroidMarket.Google,
       preferInApp: Platform.OS !== 'android',
       openAppStoreIfInAppFails: true,
-      fallbackPlatformURL: 'https://bluewallet.io',
+      fallbackPlatformURL: 'https://dfx.swiss',
     };
     Rate.rate(options, success => {
       if (success) {
@@ -125,7 +123,7 @@ const About = () => {
     <ScrollView testID="AboutScrollView" contentInsetAdjustmentBehavior="automatic">
       <BlueCard>
         <View style={styles.center}>
-          <Image style={styles.logo} source={require('../../img/bluebeast.png')} />
+          <Image style={styles.logo} source={require('../../img/DFX_logo.png')} />
           <Text style={styles.textFree}>{loc.settings.about_free}</Text>
           <Text style={styles.textBackup}>{formatStringAddTwoWhiteSpaces(loc.settings.about_backup)}</Text>
           {((Platform.OS === 'android' && hasGmsSync()) || Platform.OS !== 'android') && (
@@ -150,15 +148,6 @@ const About = () => {
         }}
         onPress={handleOnTelegramPress}
         title={loc.settings.about_sm_telegram}
-      />
-      <BlueListItem
-        leftIcon={{
-          name: 'discord',
-          type: 'font-awesome-5',
-          color: '#7289da',
-        }}
-        onPress={handleOnDiscordPress}
-        title={loc.settings.about_sm_discord}
       />
       <BlueCard>
         <View style={styles.buildWith}>

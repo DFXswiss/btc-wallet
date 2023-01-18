@@ -18,15 +18,10 @@ const NetworkSettings = () => {
     navigate('TorSettings');
   };
 
-  const navigateToLightningSettings = () => {
-    navigate('LightningSettings');
-  };
-
   return (
     <SafeBlueArea>
       <ScrollView>
         <BlueListItem title={loc.settings.network_electrum} onPress={navigateToElectrumSettings} testID="ElectrumSettings" chevron />
-        <BlueListItem title={loc.settings.lightning_settings} onPress={navigateToLightningSettings} testID="LightningSettings" chevron />
         {Notifications.isNotificationsCapable && (
           <BlueListItem
             title={loc.settings.notifications}

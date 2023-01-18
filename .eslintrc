@@ -2,7 +2,8 @@
   "parser": "@typescript-eslint/parser",
   "plugins": [
     "@typescript-eslint",
-    "react-native" // for no-inline-styles rule
+    "react-native", // for no-inline-styles rule
+    "prettier"
   ],
   "extends": [
     "standard",
@@ -70,7 +71,8 @@
   },
   "globals": { "fetch": false },
   "settings": {
-    "react": { // this is for eslint-plugin-react
+    "react": {
+      // this is for eslint-plugin-react
       "version": "detect" // React version. "detect" automatically picks the version you have installed.
     }
   }

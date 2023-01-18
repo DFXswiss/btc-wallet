@@ -23,7 +23,7 @@ import { Chain } from './models/bitcoinUnits';
 import OnAppLaunch from './class/on-app-launch';
 import DeeplinkSchemaMatch from './class/deeplink-schema-match';
 import loc from './loc';
-import { BlueDefaultTheme, BlueDarkTheme } from './components/themes';
+import { BlueDarkTheme } from './components/themes';
 import InitRoot from './Navigation';
 import BlueClipboard from './blue_modules/clipboard';
 import { isDesktop } from './blue_modules/environment';
@@ -125,11 +125,7 @@ const App = () => {
 
   useEffect(() => {
     if (colorScheme) {
-      if (colorScheme === 'light') {
-        changeNavigationBarColor(BlueDefaultTheme.colors.background, true, true);
-      } else {
-        changeNavigationBarColor(BlueDarkTheme.colors.buttonBackgroundColor, false, true);
-      }
+      changeNavigationBarColor(BlueDarkTheme.colors.buttonBackgroundColor, false, true);
     }
   }, [colorScheme]);
 
@@ -369,8 +365,8 @@ const App = () => {
   return (
     <SafeAreaProvider>
       <View style={styles.root}>
-        <StatusBar barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
-        <NavigationContainer ref={navigationRef} theme={colorScheme === 'dark' ? BlueDarkTheme : BlueDefaultTheme}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        <NavigationContainer ref={navigationRef} theme={BlueDarkTheme}>
           <InitRoot />
           <Notifications onProcessNotifications={processPushNotifications} />
         </NavigationContainer>

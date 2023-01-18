@@ -26,7 +26,6 @@ import NetworkTransactionFees, { NetworkTransactionFee, NetworkTransactionFeeTyp
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@react-navigation/native';
 import { BlueCurrentTheme } from './components/themes';
-import PlusIcon from './components/icons/PlusIcon';
 import loc, { formatStringAddTwoWhiteSpaces } from './loc';
 
 const { height, width } = Dimensions.get('window');
@@ -559,7 +558,6 @@ export const BlueHeaderDefaultMain = props => {
       >
         {props.leftText}
       </Text>
-      <PlusIcon onPress={props.onNewWalletPress} Component={TouchableOpacity} />
     </View>
   );
 };

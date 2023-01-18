@@ -2,7 +2,6 @@ import React, { useContext, useEffect, useState } from 'react';
 import { View, Image, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator, useColorScheme, LayoutAnimation } from 'react-native';
 import { Icon } from 'react-native-elements';
 import Biometric from './class/biometrics';
-import LottieView from 'lottie-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackActions, useNavigation, useRoute } from '@react-navigation/native';
 import { BlueStorageContext } from './blue_modules/storage-context';
@@ -15,13 +14,11 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
   },
   biometric: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    marginBottom: 58,
+    paddingTop: 30,
   },
   biometricRow: {
     justifyContent: 'center',
@@ -30,6 +27,9 @@ const styles = StyleSheet.create({
   icon: {
     width: 64,
     height: 64,
+  },
+  splashContainer: {
+    flex: 0,
   },
 });
 
@@ -43,6 +43,8 @@ const UnlockWith = () => {
   const [animationDidFinish, setAnimationDidFinish] = useState(false);
   const colorScheme = useColorScheme();
 
+  const splash = require('./img/splash/splash.png');
+
   const initialRender = async () => {
     let biometricType = false;
     if (await Biometric.isBiometricUseCapableAndEnabled()) {
@@ -54,6 +56,13 @@ const UnlockWith = () => {
 
   useEffect(() => {
     initialRender();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    setTimeout(() => {
+      onAnimationFinish();
+    }, 1000);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -132,8 +141,10 @@ const UnlockWith = () => {
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="default" />
       <View style={styles.container}>
-        <LottieView source={require('./img/bluewalletsplash.json')} autoPlay loop={false} onAnimationFinish={onAnimationFinish} />
-        <View style={styles.biometric}>{animationDidFinish && <View style={styles.biometricRow}>{renderUnlockOptions()}</View>}</View>
+        <View style={styles.splashContainer}>
+          <Image style={styles.splash} source={splash} />
+          <View style={styles.biometric}>{animationDidFinish && <View style={styles.biometricRow}>{renderUnlockOptions()}</View>}</View>
+        </View>
       </View>
     </SafeAreaView>
   );

@@ -53,7 +53,7 @@ const nStyles = StyleSheet.create({
 const NewWalletPanel = ({ onPress }) => {
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
-  const itemWidth = width * 0.82 > 375 ? 375 : width * 0.82;
+  const itemWidth = width * 0.92 > 375 ? 375 : width * 0.92;
   const isLargeScreen = Platform.OS === 'android' ? isTablet() : (width >= Dimensions.get('screen').width / 2 && isTablet()) || isDesktop;
   const nStylesHooks = StyleSheet.create({
     container: isLargeScreen
@@ -141,7 +141,7 @@ const WalletCarouselItem = ({ item, index, onPress, handleLongPress, isSelectedW
   const { colors } = useTheme();
   const { walletTransactionUpdateStatus } = useContext(BlueStorageContext);
   const { width } = useWindowDimensions();
-  const itemWidth = width * 0.82 > 375 ? 375 : width * 0.82;
+  const itemWidth = width * 0.96 > 375 ? 375 : width * 0.96;
   const isLargeScreen = Platform.OS === 'android' ? isTablet() : (width >= Dimensions.get('screen').width / 2 && isTablet()) || isDesktop;
   const onPressedIn = () => {
     const props = { duration: 50 };

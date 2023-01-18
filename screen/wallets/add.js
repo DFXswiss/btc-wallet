@@ -13,52 +13,29 @@ import {
   useColorScheme,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  BlueText,
-  BlueListItem,
-  LightningButton,
-  BitcoinButton,
-  VaultButton,
-  BlueFormLabel,
-  BlueButton,
-  BlueButtonLink,
-  BlueSpacing20,
-} from '../../BlueComponents';
+import { BlueText, BlueListItem, BlueFormLabel, BlueButton, BlueButtonLink, BlueSpacing20 } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
-import {
-  HDSegwitBech32Wallet,
-  SegwitP2SHWallet,
-  HDSegwitP2SHWallet,
-  LightningCustodianWallet,
-  AppStorage,
-  LightningLdkWallet,
-} from '../../class';
+import { HDSegwitBech32Wallet, SegwitP2SHWallet, HDSegwitP2SHWallet, AppStorage } from '../../class';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { useTheme, useNavigation } from '@react-navigation/native';
 import { Chain } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
-import { LdkButton } from '../../components/LdkButton';
 import alert from '../../components/Alert';
 const A = require('../../blue_modules/analytics');
 
 const ButtonSelected = Object.freeze({
   ONCHAIN: Chain.ONCHAIN,
-  OFFCHAIN: Chain.OFFCHAIN,
-  VAULT: 'VAULT',
-  LDK: 'LDK',
 });
 
 const WalletsAdd = () => {
   const { colors } = useTheme();
-  const { addWallet, saveToDisk, isAdancedModeEnabled, wallets } = useContext(BlueStorageContext);
+  const { addWallet, saveToDisk, isAdancedModeEnabled } = useContext(BlueStorageContext);
   const [isLoading, setIsLoading] = useState(true);
   const [walletBaseURI, setWalletBaseURI] = useState('');
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedIndex, setSelectedIndex] = useState(2);
   const [label, setLabel] = useState('');
   const [isAdvancedOptionsEnabled, setIsAdvancedOptionsEnabled] = useState(false);
-  const [selectedWalletType, setSelectedWalletType] = useState(false);
-  const [backdoorPressed, setBackdoorPressed] = useState(1);
   const { navigate, goBack } = useNavigation();
   const [entropy, setEntropy] = useState();
   const [entropyButtonText, setEntropyButtonText] = useState(loc.wallets.add_entropy_provide);
@@ -83,6 +60,7 @@ const WalletsAdd = () => {
       backgroundColor: colors.inputBackgroundColor,
     },
   };
+  const selectedWalletType = ButtonSelected.ONCHAIN;
 
   useEffect(() => {
     AsyncStorage.getItem(AppStorage.LNDHUB)
@@ -115,119 +93,32 @@ const WalletsAdd = () => {
   const createWallet = async () => {
     setIsLoading(true);
 
-    let w;
+    const w = new HDSegwitP2SHWallet();
+    w.setLabel(label || loc.wallets.details_title);
 
-    if (selectedWalletType === ButtonSelected.OFFCHAIN) {
-      createLightningWallet(w);
-    } else if (selectedWalletType === ButtonSelected.ONCHAIN) {
-      if (selectedIndex === 2) {
-        // zero index radio - HD segwit
-        w = new HDSegwitP2SHWallet();
-        w.setLabel(label || loc.wallets.details_title);
-      } else if (selectedIndex === 1) {
-        // btc was selected
-        // index 1 radio - segwit single address
-        w = new SegwitP2SHWallet();
-        w.setLabel(label || loc.wallets.details_title);
-      } else {
-        // btc was selected
-        // index 2 radio - hd bip84
-        w = new HDSegwitBech32Wallet();
-        w.setLabel(label || loc.wallets.details_title);
+    if (entropy) {
+      try {
+        await w.generateFromEntropy(entropy);
+      } catch (e) {
+        console.log(e.toString());
+        alert(e.toString());
+        goBack();
+        return;
       }
-      if (selectedWalletType === ButtonSelected.ONCHAIN) {
-        if (entropy) {
-          try {
-            await w.generateFromEntropy(entropy);
-          } catch (e) {
-            console.log(e.toString());
-            alert(e.toString());
-            goBack();
-            return;
-          }
-        } else {
-          await w.generate();
-        }
-        addWallet(w);
-        await saveToDisk();
-        A(A.ENUM.CREATED_WALLET);
-        ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
-        if (w.type === HDSegwitP2SHWallet.type || w.type === HDSegwitBech32Wallet.type) {
-          navigate('PleaseBackup', {
-            walletID: w.getID(),
-          });
-        } else {
-          goBack();
-        }
-      }
-    } else if (selectedWalletType === ButtonSelected.VAULT) {
-      setIsLoading(false);
-      navigate('WalletsAddMultisig', { walletLabel: label.trim().length > 0 ? label : loc.multisig.default_label });
-    } else if (selectedWalletType === ButtonSelected.LDK) {
-      setIsLoading(false);
-      createLightningLdkWallet(w);
+    } else {
+      await w.generate();
     }
-  };
-
-  const createLightningLdkWallet = async wallet => {
-    const foundLdk = wallets.find(w => w.type === LightningLdkWallet.type);
-    if (foundLdk) {
-      return alert('LDK wallet already exists');
-    }
-    setIsLoading(true);
-    wallet = new LightningLdkWallet();
-    wallet.setLabel(label || loc.wallets.details_title);
-
-    await wallet.generate();
-    await wallet.init();
-    setIsLoading(false);
-    addWallet(wallet);
+    addWallet(w);
     await saveToDisk();
-
     A(A.ENUM.CREATED_WALLET);
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
-    navigate('PleaseBackupLdk', {
-      walletID: wallet.getID(),
-    });
-  };
-
-  const createLightningWallet = async wallet => {
-    wallet = new LightningCustodianWallet();
-    wallet.setLabel(label || loc.wallets.details_title);
-
-    try {
-      const lndhub = walletBaseURI?.trim();
-      if (lndhub) {
-        const isValidNodeAddress = await LightningCustodianWallet.isValidNodeAddress(lndhub);
-        if (isValidNodeAddress) {
-          wallet.setBaseURI(lndhub);
-          await wallet.init();
-        } else {
-          throw new Error('The provided node address is not valid LNDHub node.');
-        }
-      }
-      await wallet.createAccount();
-      await wallet.authorize();
-    } catch (Err) {
-      setIsLoading(false);
-      console.warn('lnd create failure', Err);
-      if (Err.message) {
-        return alert(Err.message);
-      } else {
-        return alert(loc.wallets.add_lndhub_error);
-      }
-      // giving app, not adding anything
+    if (w.type === HDSegwitP2SHWallet.type || w.type === HDSegwitBech32Wallet.type) {
+      navigate('PleaseBackup', {
+        walletID: w.getID(),
+      });
+    } else {
+      goBack();
     }
-    A(A.ENUM.CREATED_LIGHTNING_WALLET);
-    await wallet.generate();
-    addWallet(wallet);
-    await saveToDisk();
-
-    A(A.ENUM.CREATED_WALLET);
-    ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
-    navigate('PleaseBackupLNDHub', {
-      walletID: wallet.getID(),
-    });
   };
 
   const navigateToEntropy = () => {
@@ -236,29 +127,6 @@ const WalletsAdd = () => {
 
   const navigateToImportWallet = () => {
     navigate('ImportWallet');
-  };
-
-  const handleOnVaultButtonPressed = () => {
-    Keyboard.dismiss();
-    setSelectedWalletType(ButtonSelected.VAULT);
-  };
-
-  const handleOnBitcoinButtonPressed = () => {
-    Keyboard.dismiss();
-    setSelectedWalletType(ButtonSelected.ONCHAIN);
-  };
-
-  const handleOnLightningButtonPressed = () => {
-    setBackdoorPressed(prevState => {
-      return prevState + 1;
-    });
-    Keyboard.dismiss();
-    setSelectedWalletType(ButtonSelected.OFFCHAIN);
-  };
-
-  const handleOnLdkButtonPressed = async () => {
-    Keyboard.dismiss();
-    setSelectedWalletType(ButtonSelected.LDK);
   };
 
   return (
@@ -280,30 +148,6 @@ const WalletsAdd = () => {
             editable={!isLoading}
             underlineColorAndroid="transparent"
           />
-        </View>
-        <BlueFormLabel>{loc.wallets.add_wallet_type}</BlueFormLabel>
-        <View style={styles.buttons}>
-          <BitcoinButton
-            testID="ActivateBitcoinButton"
-            active={selectedWalletType === ButtonSelected.ONCHAIN}
-            onPress={handleOnBitcoinButtonPressed}
-            style={styles.button}
-          />
-          <LightningButton
-            active={selectedWalletType === ButtonSelected.OFFCHAIN}
-            onPress={handleOnLightningButtonPressed}
-            style={styles.button}
-          />
-          {backdoorPressed > 10 ? (
-            <LdkButton
-              active={selectedWalletType === ButtonSelected.LDK}
-              onPress={handleOnLdkButtonPressed}
-              style={styles.button}
-              subtext={LightningLdkWallet.getPackageVersion()}
-              text="LDK"
-            />
-          ) : null}
-          <VaultButton active={selectedWalletType === ButtonSelected.VAULT} onPress={handleOnVaultButtonPressed} style={styles.button} />
         </View>
 
         <View style={styles.advanced}>
@@ -368,16 +212,7 @@ const WalletsAdd = () => {
           )}
           <BlueSpacing20 />
           <View style={styles.createButton}>
-            {!isLoading ? (
-              <BlueButton
-                testID="Create"
-                title={loc.wallets.add_create}
-                disabled={!selectedWalletType || (selectedWalletType === Chain.OFFCHAIN && (walletBaseURI ?? '').trim().length === 0)}
-                onPress={createWallet}
-              />
-            ) : (
-              <ActivityIndicator />
-            )}
+            {!isLoading ? <BlueButton testID="Create" title={loc.wallets.add_create} onPress={createWallet} /> : <ActivityIndicator />}
           </View>
           {!isLoading && (
             <BlueButtonLink
@@ -420,17 +255,6 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 8,
     color: '#81868e',
-  },
-  buttons: {
-    flexDirection: 'column',
-    marginHorizontal: 20,
-    marginTop: 16,
-    borderWidth: 0,
-    minHeight: 100,
-  },
-  button: {
-    width: '100%',
-    height: 'auto',
   },
   advanced: {
     marginHorizontal: 20,
