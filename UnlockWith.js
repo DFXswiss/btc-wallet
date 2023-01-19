@@ -52,17 +52,12 @@ const UnlockWith = () => {
     }
 
     setBiometricType(biometricType);
+
+    onAnimationFinish();
   };
 
   useEffect(() => {
     initialRender();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    setTimeout(() => {
-      onAnimationFinish();
-    }, 1000);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -109,10 +104,7 @@ const UnlockWith = () => {
       } else if (biometricType === Biometric.FaceID && !isStorageEncryptedEnabled) {
         return (
           <TouchableOpacity accessibilityRole="button" disabled={isAuthenticating} onPress={unlockWithBiometrics}>
-            <Image
-              source={colorScheme === 'dark' ? require('./img/faceid-default.png') : require('./img/faceid-dark.png')}
-              style={styles.icon}
-            />
+            <Image source={colorScheme === 'dark' ? require('./img/faceid-default.png') : require('./img/faceid-dark.png')} style={styles.icon} />
           </TouchableOpacity>
         );
       } else if (isStorageEncryptedEnabled) {
