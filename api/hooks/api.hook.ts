@@ -1,5 +1,6 @@
 import { useAuthContext } from '../contexts/auth.context';
 import { ApiError } from '../definitions/error';
+import Config from 'react-native-config';
 
 export interface ApiInterface {
   call: <T>(config: CallConfig) => Promise<T>;
@@ -34,7 +35,7 @@ export function useApi(): ApiInterface {
 
   async function fetchFrom<T>(config: CallConfig): Promise<T> {
     return fetch(
-      `${process.env.REACT_APP_API_URL}/${config.url}`,
+      `${Config.REACT_APP_API_URL}/${config.url}`,
       buildInit(config.method, authenticationToken, config.data, config.noJson),
     ).then(response => {
       if (response.status === config.specialHandling?.statusCode) {

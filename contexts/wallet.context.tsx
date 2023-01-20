@@ -13,19 +13,18 @@ export function useWalletContext(): WalletInterface {
 }
 
 export function WalletContextProvider(props: PropsWithChildren<any>): JSX.Element {
-  const { wallets } = useContext(BlueStorageContext);
+  const { wallets, selectedWallet } = useContext(BlueStorageContext);
+  const wallet = wallets.find((w: { getID: () => any }) => w.getID() === selectedWallet);
   const [address, setAddress] = useState<string>();
 
   useEffect(() => {
-    if (wallets?.length === 0) return;
-    setAddress(wallets[0]._address);
-  }, [wallets]);
+    if (!wallet) return;
+    setAddress(wallet.external_addresses_cache[0]);
+  }, [wallet]);
 
   async function signMessage(message: string, address: string): Promise<string> {
     try {
-      console.log(message, address);
-      return '';
-      // return await sign(address, message);
+      return await wallets[0].signMessage(message, address);
     } catch (e: any) {
       // TODO (Krysh): real error handling
       console.error(e.message, e.code);

@@ -34,6 +34,7 @@ import { TransactionListItem } from '../../components/TransactionListItem';
 import alert from '../../components/Alert';
 import DfxButton from '../img/dfx_buttons/btn_dfx.png';
 import { ImageButton } from '../../components/ImageButton';
+import { useSessionContext } from '../../contexts/session.context';
 
 const fs = require('../../blue_modules/fs');
 const BlueElectrum = require('../../blue_modules/BlueElectrum');
@@ -57,6 +58,7 @@ const WalletTransactions = () => {
   const { setParams, setOptions, navigate } = useNavigation();
   const { colors } = useTheme();
   const walletActionButtonsRef = useRef();
+  const { openPayment } = useSessionContext();
 
   const stylesHook = StyleSheet.create({
     listHeaderText: {
@@ -467,7 +469,7 @@ const WalletTransactions = () => {
       />
       <View style={styles.dfxButtonContainer}>
         <View style={styles.dfxIcons}>
-          <ImageButton source={DfxButton} onPress={() => console.log('implement me')} />
+          <ImageButton source={DfxButton} onPress={openPayment} />
         </View>
       </View>
       <View style={[styles.list, stylesHook.list]}>

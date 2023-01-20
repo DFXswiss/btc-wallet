@@ -1,13 +1,17 @@
 import React, { createContext, PropsWithChildren, useContext, useEffect, useRef, useState } from 'react';
+import { Linking } from 'react-native';
 import { ApiError } from '../api/definitions/error';
 import { useApiSession } from '../api/hooks/api-session.hook';
 import { useWalletContext } from './wallet.context';
+import Config from 'react-native-config';
+import { useAuthContext } from '../api/contexts/auth.context';
 
 export interface SessionInterface {
   address?: string;
   isLoggedIn: boolean;
   needsSignUp: boolean;
   isProcessing: boolean;
+  openPayment: () => Promise<void>;
   login: () => Promise<void>;
   signUp: () => Promise<void>;
   logout: () => Promise<void>;
@@ -20,7 +24,8 @@ export function useSessionContext(): SessionInterface {
 }
 
 export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Element {
-  const { isLoggedIn, getSignMessage, createSession, deleteSession } = useApiSession();
+  const { isLoggedIn, authenticationToken } = useAuthContext();
+  const { getSignMessage, createSession, deleteSession } = useApiSession();
   const { address, signMessage } = useWalletContext();
   const [needsSignUp, setNeedsSignUp] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -56,7 +61,7 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
   }, [address]);
 
   async function login(): Promise<void> {
-    if (!address) return; // TODO (Krysh) add real error handling
+    if (!address) throw new Error('No address found');
     createApiSession(address);
   }
 
@@ -74,11 +79,19 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
     await deleteSession();
   }
 
+  async function openPayment(): Promise<void> {
+    if (!authenticationToken) {
+      await login();
+    }
+    return Linking.openURL(`${Config.REACT_APP_PAY_URL}/login?token=${authenticationToken}`);
+  }
+
   const context = {
     address,
     isLoggedIn,
     needsSignUp,
     isProcessing,
+    openPayment,
     login,
     signUp,
     logout,

@@ -4,6 +4,7 @@ import { User } from '../definitions/user';
 import { useCountry } from '../hooks/country.hook';
 import { useUser } from '../hooks/user.hook';
 import { useAuthContext } from './auth.context';
+import Config from 'react-native-config';
 
 interface UserInterface {
   user?: User;
@@ -30,7 +31,7 @@ export function UserContextProvider(props: PropsWithChildren<any>): JSX.Element 
   const [isUserLoading, setIsUserLoading] = useState<boolean>(false);
   const [isUserUpdating, setIsUserUpdating] = useState<boolean>(false);
 
-  const refLink = user?.ref && `${process.env.REACT_APP_REF_URL}${user.ref}`;
+  const refLink = user?.ref && `${Config.REACT_APP_REF_URL}${user.ref}`;
   let userLinkAction: () => void | undefined;
 
   useEffect(() => {
