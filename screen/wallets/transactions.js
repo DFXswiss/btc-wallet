@@ -221,7 +221,13 @@ const WalletTransactions = () => {
       <View style={styles.flex}>
         <View style={styles.listHeaderTextRow}>
           <Text style={[styles.listHeaderText, stylesHook.listHeaderText]}>{loc.transactions.list_title}</Text>
-          <TouchableOpacity accessibilityRole="button" testID="refreshTransactions" style={style} onPress={refreshTransactions} disabled={isLoading}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            testID="refreshTransactions"
+            style={style}
+            onPress={refreshTransactions}
+            disabled={isLoading}
+          >
             <Icon name="refresh" type="font-awesome" color={colors.feeText} />
           </TouchableOpacity>
         </View>
@@ -267,7 +273,9 @@ const WalletTransactions = () => {
     });
   };
 
-  const renderItem = item => <TransactionListItem item={item.item} itemPriceUnit={itemPriceUnit} timeElapsed={timeElapsed} walletID={walletID} />;
+  const renderItem = item => (
+    <TransactionListItem item={item.item} itemPriceUnit={itemPriceUnit} timeElapsed={timeElapsed} walletID={walletID} />
+  );
 
   const onBarCodeRead = ret => {
     if (!isLoading) {
