@@ -29,10 +29,11 @@ import { FContainer, FButton } from '../../components/FloatButtons';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { isDesktop, isMacCatalina } from '../../blue_modules/environment';
 import BlueClipboard from '../../blue_modules/clipboard';
-import LNNodeBar from '../../components/LNNodeBar';
 import TransactionsNavigationHeader from '../../components/TransactionsNavigationHeader';
 import { TransactionListItem } from '../../components/TransactionListItem';
 import alert from '../../components/Alert';
+import DfxButton from '../img/dfx_buttons/btn_dfx.png';
+import { ImageButton } from '../../components/ImageButton';
 
 const fs = require('../../blue_modules/fs');
 const BlueElectrum = require('../../blue_modules/BlueElectrum');
@@ -55,18 +56,11 @@ const WalletTransactions = () => {
   const [pageSize, setPageSize] = useState(20);
   const { setParams, setOptions, navigate } = useNavigation();
   const { colors } = useTheme();
-  const [lnNodeInfo, setLnNodeInfo] = useState({ canReceive: 0, canSend: 0 });
   const walletActionButtonsRef = useRef();
 
   const stylesHook = StyleSheet.create({
     listHeaderText: {
       color: colors.foregroundColor,
-    },
-    browserButton2: {
-      backgroundColor: colors.lightButton,
-    },
-    marketpalceText1: {
-      color: colors.cta2,
     },
     list: {
       backgroundColor: colors.background,
@@ -138,7 +132,6 @@ const WalletTransactions = () => {
     if (wallet.getLastTxFetch() === 0) {
       refreshTransactions();
     }
-    refreshLnNodeInfo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -158,12 +151,6 @@ const WalletTransactions = () => {
     return false;
   };
 
-  const refreshLnNodeInfo = () => {
-    if (wallet.type === LightningLdkWallet.type) {
-      setLnNodeInfo({ canReceive: wallet.getReceivableBalance(), canSend: wallet.getBalance() });
-    }
-  };
-
   /**
    * Forcefully fetches TXs and balance for wallet
    */
@@ -174,7 +161,6 @@ const WalletTransactions = () => {
     let noErr = true;
     let smthChanged = false;
     try {
-      refreshLnNodeInfo();
       // await BlueElectrum.ping();
       await BlueElectrum.waitTillConnected();
       /** @type {LegacyWallet} */
@@ -233,45 +219,13 @@ const WalletTransactions = () => {
 
     return (
       <View style={styles.flex}>
-        <View style={styles.listHeader}>{wallet.chain === Chain.OFFCHAIN && renderLappBrowserButton()}</View>
-        {wallet.type === LightningLdkWallet.type && (lnNodeInfo.canSend > 0 || lnNodeInfo.canReceive > 0) && (
-          <View style={[styles.marginHorizontal18, styles.marginBottom18]}>
-            <LNNodeBar canSend={lnNodeInfo.canSend} canReceive={lnNodeInfo.canReceive} itemPriceUnit={itemPriceUnit} />
-          </View>
-        )}
         <View style={styles.listHeaderTextRow}>
           <Text style={[styles.listHeaderText, stylesHook.listHeaderText]}>{loc.transactions.list_title}</Text>
-          <TouchableOpacity
-            accessibilityRole="button"
-            testID="refreshTransactions"
-            style={style}
-            onPress={refreshTransactions}
-            disabled={isLoading}
-          >
+          <TouchableOpacity accessibilityRole="button" testID="refreshTransactions" style={style} onPress={refreshTransactions} disabled={isLoading}>
             <Icon name="refresh" type="font-awesome" color={colors.feeText} />
           </TouchableOpacity>
         </View>
       </View>
-    );
-  };
-
-  const renderLappBrowserButton = () => {
-    return (
-      <TouchableOpacity
-        accessibilityRole="button"
-        onPress={() => {
-          navigate('LappBrowserRoot', {
-            screen: 'LappBrowser',
-            params: {
-              walletID,
-              url: 'https://duckduckgo.com',
-            },
-          });
-        }}
-        style={[styles.browserButton2, stylesHook.browserButton2]}
-      >
-        <Text style={[styles.marketpalceText1, stylesHook.marketpalceText1]}>{loc.wallets.list_ln_browser}</Text>
-      </TouchableOpacity>
     );
   };
 
@@ -313,9 +267,7 @@ const WalletTransactions = () => {
     });
   };
 
-  const renderItem = item => (
-    <TransactionListItem item={item.item} itemPriceUnit={itemPriceUnit} timeElapsed={timeElapsed} walletID={walletID} />
-  );
+  const renderItem = item => <TransactionListItem item={item.item} itemPriceUnit={itemPriceUnit} timeElapsed={timeElapsed} walletID={walletID} />;
 
   const onBarCodeRead = ret => {
     if (!isLoading) {
@@ -505,6 +457,11 @@ const WalletTransactions = () => {
           }
         }}
       />
+      <View style={styles.dfxButtonContainer}>
+        <View style={styles.dfxIcons}>
+          <ImageButton source={DfxButton} onPress={() => console.log('implement me')} />
+        </View>
+      </View>
       <View style={[styles.list, stylesHook.list]}>
         <FlatList
           ListHeaderComponent={renderListHeaderComponent}
@@ -619,12 +576,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 40,
   },
-  marginHorizontal18: {
-    marginHorizontal: 18,
-  },
-  marginBottom18: {
-    marginBottom: 18,
-  },
   walletDetails: {
     justifyContent: 'center',
     alignItems: 'flex-end',
@@ -632,16 +583,9 @@ const styles = StyleSheet.create({
   activityIndicator: {
     marginVertical: 20,
   },
-  listHeader: {
-    marginLeft: 16,
-    marginRight: 16,
-    marginVertical: 16,
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
   listHeaderTextRow: {
     flex: 1,
+    marginTop: 12,
     marginHorizontal: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -651,20 +595,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontWeight: 'bold',
     fontSize: 24,
-  },
-  browserButton2: {
-    borderRadius: 9,
-    minHeight: 49,
-    paddingHorizontal: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexDirection: 'row',
-    alignSelf: 'auto',
-    flexGrow: 1,
-    marginHorizontal: 4,
-  },
-  marketpalceText1: {
-    fontSize: 18,
   },
   list: {
     flex: 1,
@@ -686,5 +616,16 @@ const styles = StyleSheet.create({
   },
   receiveIcon: {
     transform: [{ rotate: I18nManager.isRTL ? '45deg' : '-45deg' }],
+  },
+  dfxButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    paddingTop: 16,
+    paddingBottom: 16,
+    borderBottomColor: '#202020',
+    borderBottomWidth: 1,
+  },
+  dfxIcons: {
+    height: 67,
   },
 });
