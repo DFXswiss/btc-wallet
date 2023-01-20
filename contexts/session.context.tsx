@@ -1,0 +1,88 @@
+import React, { createContext, PropsWithChildren, useContext, useEffect, useRef, useState } from 'react';
+import { ApiError } from '../api/definitions/error';
+import { useApiSession } from '../api/hooks/api-session.hook';
+import { useWalletContext } from './wallet.context';
+
+export interface SessionInterface {
+  address?: string;
+  isLoggedIn: boolean;
+  needsSignUp: boolean;
+  isProcessing: boolean;
+  login: () => Promise<void>;
+  signUp: () => Promise<void>;
+  logout: () => Promise<void>;
+}
+
+const SessionContext = createContext<SessionInterface>(undefined as any);
+
+export function useSessionContext(): SessionInterface {
+  return useContext(SessionContext);
+}
+
+export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Element {
+  const { isLoggedIn, getSignMessage, createSession, deleteSession } = useApiSession();
+  const { address, signMessage } = useWalletContext();
+  const [needsSignUp, setNeedsSignUp] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [signature, setSignature] = useState<string>();
+
+  async function createApiSession(address: string): Promise<void> {
+    if (isLoggedIn) return;
+    const message = await getSignMessage(address);
+    const signature = await signMessage(message, address);
+    setIsProcessing(true);
+    return createSession(address, signature, false)
+      .catch((error: ApiError) => {
+        if (error.statusCode === 404) {
+          setSignature(signature);
+          setNeedsSignUp(true);
+        }
+      })
+      .finally(() => setIsProcessing(false));
+  }
+
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    if (address) {
+      createApiSession(address);
+    } else {
+      deleteSession();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address]);
+
+  async function login(): Promise<void> {
+    if (!address) return; // TODO (Krysh) add real error handling
+    createApiSession(address);
+  }
+
+  async function signUp(): Promise<void> {
+    if (!address || !signature) return; // TODO (Krysh) add real error handling
+    setIsProcessing(true);
+    return createSession(address, signature, true).finally(() => {
+      setSignature(undefined);
+      setNeedsSignUp(false);
+      setIsProcessing(false);
+    });
+  }
+
+  async function logout(): Promise<void> {
+    await deleteSession();
+  }
+
+  const context = {
+    address,
+    isLoggedIn,
+    needsSignUp,
+    isProcessing,
+    login,
+    signUp,
+    logout,
+  };
+
+  return <SessionContext.Provider value={context}>{props.children}</SessionContext.Provider>;
+}

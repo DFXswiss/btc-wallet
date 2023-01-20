@@ -11,6 +11,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import alert from '../../components/Alert';
 import { HDSegwitBech32Wallet } from '../../class';
+import Config from 'react-native-config';
 
 const A = require('../../blue_modules/analytics');
 const branch = require('../../current-branch.json');
@@ -234,6 +235,7 @@ const About = () => {
         w, h = {width}, {height}
       </BlueTextCentered>
       <BlueTextCentered>Unique ID: {getUniqueId()}</BlueTextCentered>
+      {Config.DFX_ENV !== undefined && Config.DFX_ENV !== 'prd' && <BlueTextCentered>Environment: {Config.DFX_ENV}</BlueTextCentered>}
       <View style={styles.copyToClipboard}>
         <TouchableOpacity
           accessibilityRole="button"
