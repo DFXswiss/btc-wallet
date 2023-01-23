@@ -1,4 +1,4 @@
-import React, { createContext, PropsWithChildren, useContext } from 'react';
+import React, { createContext, PropsWithChildren, useContext, useEffect, useState } from 'react';
 import { BlueStorageContext } from '../blue_modules/storage-context';
 
 interface WalletInterface {
@@ -15,7 +15,13 @@ export function useWalletContext(): WalletInterface {
 export function WalletContextProvider(props: PropsWithChildren<any>): JSX.Element {
   const { wallets, selectedWallet } = useContext(BlueStorageContext);
   const wallet = wallets.find((w: { getID: () => any }) => w.getID() === selectedWallet);
-  const address = wallet ? wallet.external_addresses_cache[0] : undefined;
+  const [address, setAddress] = useState<string>();
+
+  useEffect(() => {
+    if (wallet) {
+      setAddress(wallet.external_addresses_cache[0]);
+    }
+  }, [wallet]);
 
   async function signMessage(message: string, address: string): Promise<string> {
     try {

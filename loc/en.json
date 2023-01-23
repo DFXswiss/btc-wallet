@@ -592,5 +592,11 @@
     "auth_answer": "You have successfully authenticated at {hostname}!",
     "could_not_auth": "We couldn’t authenticate you to {hostname}.",
     "authenticate": "Authenticate"
+  },
+  "signUp": {
+    "title": "Terms & Conditions",
+    "text": "Please read our terms and conditions and click on \"Accept\" to confirm.",
+    "link": "Terms and conditions DFX Swiss",
+    "accept": "Accept"
   }
 }

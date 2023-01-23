@@ -1,4 +1,4 @@
-import React, { createContext, PropsWithChildren, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, PropsWithChildren, useContext, useEffect, useState } from 'react';
 import { Linking } from 'react-native';
 import { ApiError } from '../api/definitions/error';
 import { useApiSession } from '../api/hooks/api-session.hook';
@@ -46,12 +46,7 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
       .finally(() => setIsProcessing(false));
   }
 
-  const firstRender = useRef(true);
   useEffect(() => {
-    if (firstRender.current) {
-      firstRender.current = false;
-      return;
-    }
     if (address) {
       createApiSession(address);
     } else {
@@ -83,6 +78,7 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
     if (!authenticationToken) {
       await login();
     }
+    if (!authenticationToken) return;
     return Linking.openURL(`${Config.REACT_APP_PAY_URL}/login?token=${authenticationToken}`);
   }
 

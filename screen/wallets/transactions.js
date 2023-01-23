@@ -58,7 +58,7 @@ const WalletTransactions = () => {
   const { setParams, setOptions, navigate } = useNavigation();
   const { colors } = useTheme();
   const walletActionButtonsRef = useRef();
-  const { openPayment } = useSessionContext();
+  const { needsSignUp, openPayment } = useSessionContext();
 
   const stylesHook = StyleSheet.create({
     listHeaderText: {
@@ -136,6 +136,10 @@ const WalletTransactions = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (needsSignUp) navigate('SignUp');
+  }, [needsSignUp, navigate]);
 
   // if description of transaction has been changed we want to show new one
   useFocusEffect(

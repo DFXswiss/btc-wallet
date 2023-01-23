@@ -19,7 +19,7 @@ export function useAuth(): AuthInterface {
   }
 
   async function signUp(address: string, signature: string): Promise<SignIn> {
-    return call({ url: AuthUrl.signUp, method: 'POST', data: { address, signature, walletId: 9 } });
+    return call({ url: AuthUrl.signUp, method: 'POST', data: { address, signature, walletId: 12 } });
   }
 
   return { getSignMessage, signIn, signUp };

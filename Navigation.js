@@ -83,6 +83,7 @@ import { isDesktop, isTablet, isHandset } from './blue_modules/environment';
 import SettingsPrivacy from './screen/settings/SettingsPrivacy';
 import LNDViewAdditionalInvoicePreImage from './screen/lnd/lndViewAdditionalInvoicePreImage';
 import LdkViewLogs from './screen/wallets/ldkViewLogs';
+import SignUp from './screen/wallets/dfx/sign-up';
 
 const WalletsStack = createNativeStackNavigator();
 
@@ -96,6 +97,7 @@ const WalletsRoot = () => {
       <WalletsStack.Screen name="LdkOpenChannel" component={LdkOpenChannel} options={LdkOpenChannel.navigationOptions(theme)} />
       <WalletsStack.Screen name="LdkInfo" component={LdkInfo} options={LdkInfo.navigationOptions(theme)} />
       <WalletsStack.Screen name="WalletDetails" component={WalletDetails} options={WalletDetails.navigationOptions(theme)} />
+      <WalletsStack.Screen name="SignUp" component={SignUp} options={SignUp.navigationOptions(theme)} />
       <WalletsStack.Screen name="LdkViewLogs" component={LdkViewLogs} options={LdkViewLogs.navigationOptions(theme)} />
       <WalletsStack.Screen name="TransactionDetails" component={TransactionDetails} options={TransactionDetails.navigationOptions(theme)} />
       <WalletsStack.Screen name="TransactionStatus" component={TransactionStatus} options={TransactionStatus.navigationOptions(theme)} />
