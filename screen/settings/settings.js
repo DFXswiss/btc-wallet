@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { ScrollView, StyleSheet, Platform, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 import navigationStyle from '../../components/navigationStyle';
 import { BlueListItem, BlueHeaderDefaultSub } from '../../BlueComponents';
@@ -15,6 +15,7 @@ const styles = StyleSheet.create({
 
 const Settings = () => {
   const { navigate } = useNavigation();
+  const { walletID } = useRoute().params;
   // By simply having it here, it'll re-render the UI if language is changed
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { language } = useContext(BlueStorageContext);
@@ -25,6 +26,16 @@ const Settings = () => {
       <ScrollView style={styles.root}>
         {Platform.OS === 'android' ? <BlueHeaderDefaultSub leftText={loc.settings.header} /> : <></>}
         <BlueListItem title={loc.settings.general} onPress={() => navigate('GeneralSettings')} testID="GeneralSettings" chevron />
+        <BlueListItem
+          title={loc.wallets.details_title}
+          onPress={() =>
+            navigate('WalletDetails', {
+              walletID,
+            })
+          }
+          testID="WalletDetails"
+          chevron
+        />
         <BlueListItem title={loc.settings.currency} onPress={() => navigate('Currency')} testID="Currency" chevron />
         <BlueListItem title={loc.settings.language} onPress={() => navigate('Language')} testID="Language" chevron />
         <BlueListItem title={loc.settings.encrypt_title} onPress={() => navigate('EncryptStorage')} testID="SecurityButton" chevron />

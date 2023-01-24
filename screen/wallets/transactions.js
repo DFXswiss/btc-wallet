@@ -555,11 +555,11 @@ WalletTransactions.navigationOptions = navigationStyle({}, (options, { theme, na
     headerRight: () => (
       <TouchableOpacity
         accessibilityRole="button"
-        testID="WalletDetails"
+        testID="Settings"
         disabled={route.params.isLoading === true}
         style={styles.walletDetails}
         onPress={() =>
-          navigation.navigate('WalletDetails', {
+          navigation.navigate('Settings', {
             walletID: route.params.walletID,
           })
         }
@@ -577,6 +577,8 @@ WalletTransactions.navigationOptions = navigationStyle({}, (options, { theme, na
     },
     headerTintColor: '#FFFFFF',
     headerBackTitleVisible: false,
+    headerHideBackButton: true,
+    gestureEnabled: false,
   };
 });
 
