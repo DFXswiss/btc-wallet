@@ -112,9 +112,6 @@ const WalletsAdd = () => {
     await saveToDisk();
     A(A.ENUM.CREATED_WALLET);
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
-    navigate('PleaseBackup', {
-      walletID: w.getID(),
-    });
   };
 
   const navigateToEntropy = () => {

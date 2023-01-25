@@ -21,7 +21,6 @@ import {
   BlueButtonLink,
   BlueText,
   BlueSpacing20,
-  BlueAlertWalletExportReminder,
   BlueCard,
   BlueSpacing40,
 } from '../../BlueComponents';
@@ -53,7 +52,7 @@ const ReceiveDetails = () => {
   const [showPendingBalance, setShowPendingBalance] = useState(false);
   const [showConfirmedBalance, setShowConfirmedBalance] = useState(false);
   const [showAddress, setShowAddress] = useState(false);
-  const { navigate, goBack, setParams } = useNavigation();
+  const { goBack, setParams } = useNavigation();
   const { colors } = useTheme();
   const [intervalMs, setIntervalMs] = useState(5000);
   const [eta, setEta] = useState('');
@@ -340,22 +339,7 @@ const ReceiveDetails = () => {
     useCallback(() => {
       const task = InteractionManager.runAfterInteractions(async () => {
         if (wallet) {
-          if (!wallet.getUserHasSavedExport()) {
-            BlueAlertWalletExportReminder({
-              onSuccess: obtainWalletAddress,
-              onFailure: () => {
-                goBack();
-                navigate('WalletExportRoot', {
-                  screen: 'WalletExport',
-                  params: {
-                    walletID: wallet.getID(),
-                  },
-                });
-              },
-            });
-          } else {
-            obtainWalletAddress();
-          }
+          obtainWalletAddress();
         } else if (!wallet && address) {
           setAddressBIP21Encoded(address);
         }

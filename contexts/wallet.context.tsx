@@ -1,8 +1,9 @@
-import React, { createContext, PropsWithChildren, useContext, useEffect, useState } from 'react';
+import React, { createContext, PropsWithChildren, useContext, useState } from 'react';
 import { BlueStorageContext } from '../blue_modules/storage-context';
 
 interface WalletInterface {
   address?: string;
+  discover: () => Promise<void>;
   signMessage: (message: string, address: string) => Promise<string>;
 }
 
@@ -13,19 +14,32 @@ export function useWalletContext(): WalletInterface {
 }
 
 export function WalletContextProvider(props: PropsWithChildren<any>): JSX.Element {
-  const { wallets, selectedWallet } = useContext(BlueStorageContext);
-  const wallet = wallets.find((w: { getID: () => any }) => w.getID() === selectedWallet);
+  const { wallets, isElectrumDisabled, saveToDisk, sleep } = useContext(BlueStorageContext);
   const [address, setAddress] = useState<string>();
 
-  useEffect(() => {
-    if (wallet) {
-      setAddress(wallet.external_addresses_cache[0]);
+  function getWallet(): any {
+    return wallets[0];
+  }
+
+  async function discoverAddresses(): Promise<string> {
+    if (address) return address;
+    const wallet = getWallet();
+    let newAddress;
+    try {
+      if (!isElectrumDisabled) newAddress = await Promise.race([wallet.getAddressAsync(), sleep(1000)]);
+    } catch (_) {}
+    if (newAddress === undefined) {
+      console.warn('either sleep expired or getAddressAsync threw an exception');
+      newAddress = wallet._getExternalAddressByIndex(wallet.getNextFreeAddressIndex());
+    } else {
+      await saveToDisk(); // caching whatever getAddressAsync() generated internally
     }
-  }, [wallet]);
+    return newAddress;
+  }
 
   async function signMessage(message: string, address: string): Promise<string> {
     try {
-      return await wallet.signMessage(message, address);
+      return await getWallet().signMessage(message, address);
     } catch (e: any) {
       // TODO (Krysh): real error handling
       console.error(e.message, e.code);
@@ -33,8 +47,14 @@ export function WalletContextProvider(props: PropsWithChildren<any>): JSX.Elemen
     }
   }
 
+  async function discover(): Promise<void> {
+    if (!getWallet()) return;
+    return discoverAddresses().then(setAddress);
+  }
+
   const context: WalletInterface = {
     address,
+    discover,
     signMessage,
   };
 

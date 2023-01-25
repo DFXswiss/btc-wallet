@@ -35,6 +35,7 @@ import alert from '../../components/Alert';
 import DfxButton from '../img/dfx_buttons/btn_dfx.png';
 import { ImageButton } from '../../components/ImageButton';
 import { useSessionContext } from '../../contexts/session.context';
+import { useWalletContext } from '../../contexts/wallet.context';
 
 const fs = require('../../blue_modules/fs');
 const BlueElectrum = require('../../blue_modules/BlueElectrum');
@@ -59,6 +60,7 @@ const WalletTransactions = () => {
   const { colors } = useTheme();
   const walletActionButtonsRef = useRef();
   const { needsSignUp, openPayment } = useSessionContext();
+  const { discover } = useWalletContext();
 
   const stylesHook = StyleSheet.create({
     listHeaderText: {
@@ -125,6 +127,7 @@ const WalletTransactions = () => {
     const newWallet = wallets.find(w => w.getID() === walletID);
     if (newWallet) {
       setParams({ walletID, isLoading: false });
+      discover().catch(console.error);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletID]);
@@ -556,6 +559,7 @@ WalletTransactions.navigationOptions = navigationStyle({}, (options, { theme, na
       <TouchableOpacity
         accessibilityRole="button"
         testID="Settings"
+        disabled={(route?.params?.isLoading ?? true) === true}
         style={styles.walletDetails}
         onPress={() =>
           route?.params?.walletID &&
