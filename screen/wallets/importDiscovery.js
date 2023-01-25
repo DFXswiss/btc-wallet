@@ -40,11 +40,15 @@ const ImportWalletDiscovery = () => {
     },
   });
 
-  const saveWallet = wallet => {
+  const saveWallet = async wallet => {
     if (importing.current) return;
     importing.current = true;
-    addAndSaveWallet(wallet);
-    navigation.dangerouslyGetParent().pop();
+    await addAndSaveWallet(wallet);
+    navigation.navigate('WalletTransactions', {
+      walletID: wallet.getID(),
+      walletType: wallet.type,
+      key: `WalletTransactions-${wallet.getID()}`,
+    });
   };
 
   useEffect(() => {

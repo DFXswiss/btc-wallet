@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { createNativeStackNavigator } from 'react-native-screens/native-stack';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { Platform, useWindowDimensions, Dimensions, I18nManager } from 'react-native';
@@ -22,7 +22,6 @@ import NetworkSettings from './screen/settings/NetworkSettings';
 import NotificationSettings from './screen/settings/notificationSettings';
 import DefaultView from './screen/settings/defaultView';
 
-import WalletsList from './screen/wallets/list';
 import WalletTransactions from './screen/wallets/transactions';
 import AddWallet from './screen/wallets/add';
 import WalletsAddMultisig from './screen/wallets/addMultisig';
@@ -84,16 +83,35 @@ import SettingsPrivacy from './screen/settings/SettingsPrivacy';
 import LNDViewAdditionalInvoicePreImage from './screen/lnd/lndViewAdditionalInvoicePreImage';
 import LdkViewLogs from './screen/wallets/ldkViewLogs';
 import SignUp from './screen/wallets/dfx/sign-up';
+import { BlueStorageContext } from './blue_modules/storage-context';
 
 const WalletsStack = createNativeStackNavigator();
 
 const WalletsRoot = () => {
   const theme = useTheme();
+  const { wallets } = useContext(BlueStorageContext);
 
   return (
     <WalletsStack.Navigator screenOptions={{ headerHideShadow: true }}>
-      <WalletsStack.Screen name="WalletsList" component={WalletsList} options={WalletsList.navigationOptions(theme)} />
+      {wallets?.length === 0 && (
+        <>
+          <WalletsStack.Screen name="AddWallet" component={AddWallet} options={AddWallet.navigationOptions(theme)} />
+          <WalletsStack.Screen name="ImportWallet" component={ImportWallet} options={ImportWallet.navigationOptions(theme)} />
+          <WalletsStack.Screen
+            name="ImportWalletDiscovery"
+            component={ImportWalletDiscovery}
+            options={ImportWalletDiscovery.navigationOptions(theme)}
+          />
+          <WalletsStack.Screen
+            name="ImportCustomDerivationPath"
+            component={ImportCustomDerivationPath}
+            options={ImportCustomDerivationPath.navigationOptions(theme)}
+          />
+          <WalletsStack.Screen name="ImportSpeed" component={ImportSpeed} options={ImportSpeed.navigationOptions(theme)} />
+        </>
+      )}
       <WalletsStack.Screen name="WalletTransactions" component={WalletTransactions} options={WalletTransactions.navigationOptions(theme)} />
+      <WalletsStack.Screen name="PleaseBackup" component={PleaseBackup} options={PleaseBackup.navigationOptions(theme)} />
       <WalletsStack.Screen name="LdkOpenChannel" component={LdkOpenChannel} options={LdkOpenChannel.navigationOptions(theme)} />
       <WalletsStack.Screen name="LdkInfo" component={LdkInfo} options={LdkInfo.navigationOptions(theme)} />
       <WalletsStack.Screen name="WalletDetails" component={WalletDetails} options={WalletDetails.navigationOptions(theme)} />

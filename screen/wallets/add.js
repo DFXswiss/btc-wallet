@@ -112,13 +112,9 @@ const WalletsAdd = () => {
     await saveToDisk();
     A(A.ENUM.CREATED_WALLET);
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
-    if (w.type === HDSegwitP2SHWallet.type || w.type === HDSegwitBech32Wallet.type) {
-      navigate('PleaseBackup', {
-        walletID: w.getID(),
-      });
-    } else {
-      goBack();
-    }
+    navigate('PleaseBackup', {
+      walletID: w.getID(),
+    });
   };
 
   const navigateToEntropy = () => {
@@ -230,8 +226,8 @@ const WalletsAdd = () => {
 
 WalletsAdd.navigationOptions = navigationStyle(
   {
-    closeButton: true,
     headerHideBackButton: true,
+    gestureEnabled: false,
   },
   opts => ({ ...opts, title: loc.wallets.add_title }),
 );
