@@ -32,7 +32,7 @@ import BlueClipboard from '../../blue_modules/clipboard';
 import TransactionsNavigationHeader from '../../components/TransactionsNavigationHeader';
 import { TransactionListItem } from '../../components/TransactionListItem';
 import alert from '../../components/Alert';
-import DfxButton from '../img/dfx_buttons/btn_dfx.png';
+import DfxButton from '../img/dfx/buttons/open-payment.png';
 import { ImageButton } from '../../components/ImageButton';
 import { useSessionContext } from '../../contexts/session.context';
 import { useWalletContext } from '../../contexts/wallet.context';
@@ -113,7 +113,7 @@ const WalletTransactions = () => {
     setDataSource(wallet.getTransactions(15));
     setOptions({
       headerStyle: {
-        backgroundColor: WalletGradient.headerColorFor(wallet.type),
+        backgroundColor: 'transparent',
         borderBottomWidth: 0,
         elevation: 0,
         // shadowRadius: 0,
@@ -573,7 +573,7 @@ WalletTransactions.navigationOptions = navigationStyle({}, (options, { theme, na
     ),
     title: '',
     headerStyle: {
-      backgroundColor: WalletGradient.headerColorFor(null),
+      backgroundColor: 'transparent',
       borderBottomWidth: 0,
       elevation: 0,
       // shadowRadius: 0,
@@ -642,7 +642,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingTop: 16,
     paddingBottom: 16,
-    borderBottomColor: '#202020',
+    borderBottomColor: '#113759',
     borderBottomWidth: 1,
   },
   dfxIcons: {

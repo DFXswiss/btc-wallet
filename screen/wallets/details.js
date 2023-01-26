@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   delete: {
-    color: '#d0021b',
+    color: '#e73955',
     fontSize: 15,
     fontWeight: '500',
     textAlign: 'center',
@@ -467,7 +467,7 @@ const WalletDetails = () => {
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <View>
             <BlueCard style={styles.address}>
-              <StatusBar barStyle="default" />
+              <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
               {(() => {
                 if (

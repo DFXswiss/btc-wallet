@@ -56,7 +56,8 @@ var webln = {
     var id = Math.random(); // eslint-disable-line
     window.ReactNativeWebView.postMessage(JSON.stringify({ makeInvoice: RequestInvoiceArgs, id }));
     return new Promise(function (resolve, reject) {
-      var interval = setInterval(function () { // eslint-disable-line
+      var interval = setInterval(function () {
+        // eslint-disable-line
         if (bluewalletResponses[id]) {
           clearInterval(interval);
           resolve(bluewalletResponses[id]);
@@ -439,7 +440,7 @@ export default class Browser extends Component {
     return (
       <SafeBlueArea>
         <View style={styles.safeRoot}>
-          <StatusBar barStyle="default" />
+          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
           <Button
             icon={{

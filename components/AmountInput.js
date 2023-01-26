@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   },
   secondaryText: {
     fontSize: 16,
-    color: '#9BA0A9',
+    color: '#B8C4D8',
     fontWeight: '600',
   },
   changeAmountUnit: {

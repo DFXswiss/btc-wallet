@@ -40,6 +40,10 @@ const About = () => {
       aspectRatio: 409 / 128,
       height: 32,
     },
+    smallLogo: {
+      height: 18,
+      margin: 8,
+    },
     textFree: {
       maxWidth: 260,
       marginVertical: 24,
@@ -124,7 +128,7 @@ const About = () => {
     <ScrollView testID="AboutScrollView" contentInsetAdjustmentBehavior="automatic">
       <BlueCard>
         <View style={styles.center}>
-          <Image style={styles.logo} source={require('../../img/DFX_logo.png')} />
+          <Image style={styles.logo} source={require('../../img/dfx/logo.png')} />
           <Text style={styles.textFree}>{loc.settings.about_free}</Text>
           <Text style={styles.textBackup}>{formatStringAddTwoWhiteSpaces(loc.settings.about_backup)}</Text>
           {((Platform.OS === 'android' && hasGmsSync()) || Platform.OS !== 'android') && (
@@ -133,20 +137,12 @@ const About = () => {
         </View>
       </BlueCard>
       <BlueListItem
-        leftIcon={{
-          name: 'twitter',
-          type: 'font-awesome',
-          color: '#1da1f2',
-        }}
+        leftAvatar={<Image style={styles.smallLogo} source={require('../../img/dfx/twitter.png')} />}
         onPress={handleOnTwitterPress}
         title={loc.settings.about_sm_twitter}
       />
       <BlueListItem
-        leftIcon={{
-          name: 'telegram',
-          type: 'font-awesome',
-          color: '#0088cc',
-        }}
+        leftAvatar={<Image style={styles.smallLogo} source={require('../../img/dfx/telegram.png')} />}
         onPress={handleOnTelegramPress}
         title={loc.settings.about_sm_telegram}
       />

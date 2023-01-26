@@ -53,7 +53,7 @@ const AddressInput = ({
         testID="AddressInput"
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="#81868e"
+        placeholderTextColor="#65728A"
         value={address}
         style={styles.input}
         editable={!isLoading && editable}
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 8,
     minHeight: 33,
-    color: '#81868e',
+    color: '#65728A',
   },
   scan: {
     height: 36,

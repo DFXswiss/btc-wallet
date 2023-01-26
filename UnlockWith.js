@@ -134,7 +134,7 @@ const UnlockWith = () => {
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="default" />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       <View style={styles.container}>
         <View style={styles.splashContainer}>
           <Image style={styles.splash} source={splash} />

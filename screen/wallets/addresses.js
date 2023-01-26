@@ -142,7 +142,7 @@ const WalletAddresses = () => {
 
   return (
     <View style={[styles.root, stylesHook.root]}>
-      <StatusBar barStyle="default" />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       <FlatList
         contentContainerStyle={stylesHook.root}
         ref={addressList}

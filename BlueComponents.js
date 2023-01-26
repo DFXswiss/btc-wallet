@@ -391,7 +391,7 @@ export const BlueListItem = React.memo(props => {
 
   return (
     <ListItem
-      containerStyle={props.containerStyle ?? { backgroundColor: 'transparent' }}
+      containerStyle={props.containerStyle ?? { backgroundColor: 'transparent', borderBottomColor: '#113759' }}
       Component={props.Component ?? TouchableOpacity}
       bottomDivider={props.bottomDivider !== undefined ? props.bottomDivider : true}
       topDivider={props.topDivider !== undefined ? props.topDivider : false}

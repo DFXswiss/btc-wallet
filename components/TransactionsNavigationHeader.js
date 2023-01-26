@@ -1,11 +1,9 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { Image, Text, TouchableOpacity, View, InteractionManager, I18nManager, StyleSheet } from 'react-native';
+import { Image, Text, TouchableOpacity, View, InteractionManager, I18nManager, StyleSheet, Dimensions } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
-import LinearGradient from 'react-native-linear-gradient';
 import { LightningCustodianWallet, LightningLdkWallet, MultisigHDWallet } from '../class';
 import { BitcoinUnit } from '../models/bitcoinUnits';
-import WalletGradient from '../class/wallet-gradient';
 import Biometric from '../class/biometrics';
 import loc, { formatBalance } from '../loc';
 import { BlueStorageContext } from '../blue_modules/storage-context';
@@ -164,25 +162,8 @@ export default class TransactionsNavigationHeader extends Component {
       formatBalance(this.state.wallet.getBalance(), this.state.wallet.getPreferredBalanceUnit(), true).toString();
 
     return (
-      <LinearGradient
-        colors={WalletGradient.gradientsFor(this.state.wallet.type)}
-        style={styles.lineaderGradient}
-        {...WalletGradient.linearGradientProps(this.state.wallet.type)}
-      >
-        <Image
-          source={(() => {
-            switch (this.state.wallet.type) {
-              case LightningLdkWallet.type:
-              case LightningCustodianWallet.type:
-                return I18nManager.isRTL ? require('../img/lnd-shape-rtl.png') : require('../img/lnd-shape.png');
-              case MultisigHDWallet.type:
-                return I18nManager.isRTL ? require('../img/vault-shape-rtl.png') : require('../img/vault-shape.png');
-              default:
-                return I18nManager.isRTL ? require('../img/btc-shape-rtl.png') : require('../img/btc-shape.png');
-            }
-          })()}
-          style={styles.chainIcon}
-        />
+      <View style={styles.lineaderGradient}>
+        <Image source={require('../img/dfx/wallet-card.png')} style={styles.chainIcon} />
         <Text testID="WalletLabel" numberOfLines={1} style={styles.walletLabel}>
           {this.state.wallet.getLabel()}
         </Text>
@@ -255,10 +236,12 @@ export default class TransactionsNavigationHeader extends Component {
             </View>
           </TouchableOpacity>
         )}
-      </LinearGradient>
+      </View>
     );
   }
 }
+
+const fullWidth = Dimensions.get('window').width;
 
 const styles = StyleSheet.create({
   lineaderGradient: {
@@ -267,11 +250,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   chainIcon: {
-    width: 99,
-    height: 94,
     position: 'absolute',
+    width: fullWidth,
+    left: 0,
     bottom: 0,
-    right: 0,
   },
   walletLabel: {
     backgroundColor: 'transparent',
