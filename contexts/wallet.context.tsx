@@ -18,10 +18,10 @@ export function WalletContextProvider(props: PropsWithChildren<any>): JSX.Elemen
   const [address, setAddress] = useState<string>();
 
   function getWallet(): any {
-    return wallets[0];
+    return wallets?.[0];
   }
 
-  async function discoverAddresses(): Promise<string> {
+  async function discoverAddress(): Promise<string> {
     if (address) return address;
     const wallet = getWallet();
     let newAddress;
@@ -49,7 +49,7 @@ export function WalletContextProvider(props: PropsWithChildren<any>): JSX.Elemen
 
   async function discover(): Promise<void> {
     if (!getWallet()) return;
-    return discoverAddresses().then(setAddress);
+    return discoverAddress().then(setAddress);
   }
 
   const context: WalletInterface = {
