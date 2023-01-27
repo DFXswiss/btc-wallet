@@ -216,7 +216,7 @@ const TransactionsDetails = () => {
         type={HandoffComponent.activityTypes.ViewInBlockExplorer}
         url={`https://mempool.space/tx/${tx.hash}`}
       />
-      <StatusBar barStyle="default" />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       <BlueCard>
         <View>
           <TextInput

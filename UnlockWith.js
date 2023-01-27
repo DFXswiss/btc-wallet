@@ -42,7 +42,7 @@ const UnlockWith = () => {
   const [animationDidFinish, setAnimationDidFinish] = useState(false);
   const colorScheme = useColorScheme();
 
-  const splash = require('./img/splash/splash.png');
+  const splash = require('./img/dfx/splash.png');
 
   const initialRender = async () => {
     let biometricType = false;

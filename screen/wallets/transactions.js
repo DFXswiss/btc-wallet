@@ -440,7 +440,7 @@ const WalletTransactions = () => {
 
   return (
     <View style={styles.flex}>
-      <StatusBar barStyle="light-content" backgroundColor={WalletGradient.headerColorFor(wallet.type)} animated />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent animated />
       <TransactionsNavigationHeader
         wallet={wallet}
         width={width}
