@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   View,
   I18nManager,
+  useWindowDimensions,
 } from 'react-native';
 import { Icon } from 'react-native-elements';
 import { useRoute, useNavigation, useTheme, useFocusEffect } from '@react-navigation/native';
@@ -61,6 +62,7 @@ const WalletTransactions = () => {
   const walletActionButtonsRef = useRef();
   const { needsSignUp, openPayment } = useSessionContext();
   const { discover } = useWalletContext();
+  const { width } = useWindowDimensions();
 
   const stylesHook = StyleSheet.create({
     listHeaderText: {
@@ -441,6 +443,7 @@ const WalletTransactions = () => {
       <StatusBar barStyle="light-content" backgroundColor={WalletGradient.headerColorFor(wallet.type)} animated />
       <TransactionsNavigationHeader
         wallet={wallet}
+        width={width}
         onWalletUnitChange={passedWallet =>
           InteractionManager.runAfterInteractions(async () => {
             setItemPriceUnit(passedWallet.getPreferredBalanceUnit());

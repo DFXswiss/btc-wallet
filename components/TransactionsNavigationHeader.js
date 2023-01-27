@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { Image, Text, TouchableOpacity, View, InteractionManager, I18nManager, StyleSheet, Dimensions } from 'react-native';
+import { Image, Text, TouchableOpacity, View, InteractionManager, I18nManager, StyleSheet } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { LightningCustodianWallet, LightningLdkWallet, MultisigHDWallet } from '../class';
 import { BitcoinUnit } from '../models/bitcoinUnits';
@@ -16,6 +16,7 @@ export default class TransactionsNavigationHeader extends Component {
     onWalletUnitChange: PropTypes.func,
     navigation: PropTypes.shape(),
     onManageFundsPressed: PropTypes.func,
+    width: PropTypes.number,
   };
 
   static actionKeys = {
@@ -163,7 +164,7 @@ export default class TransactionsNavigationHeader extends Component {
 
     return (
       <View style={styles.lineaderGradient}>
-        <Image source={require('../img/dfx/wallet-card.png')} style={styles.chainIcon} />
+        <Image source={require('../img/dfx/wallet-card.png')} style={[styles.chainIcon, { width: this.props.width }]} />
         <Text testID="WalletLabel" numberOfLines={1} style={styles.walletLabel}>
           {this.state.wallet.getLabel()}
         </Text>
@@ -241,8 +242,6 @@ export default class TransactionsNavigationHeader extends Component {
   }
 }
 
-const fullWidth = Dimensions.get('window').width;
-
 const styles = StyleSheet.create({
   lineaderGradient: {
     padding: 15,
@@ -251,7 +250,6 @@ const styles = StyleSheet.create({
   },
   chainIcon: {
     position: 'absolute',
-    width: fullWidth,
     left: 0,
     bottom: 0,
   },

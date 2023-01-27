@@ -1,7 +1,5 @@
 import React, { useContext } from 'react';
 import { createNativeStackNavigator } from 'react-native-screens/native-stack';
-import { createDrawerNavigator } from '@react-navigation/drawer';
-import { Platform, useWindowDimensions, Dimensions, I18nManager } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 
 import Settings from './screen/settings/settings';
@@ -77,8 +75,7 @@ import LnurlPay from './screen/lnd/lnurlPay';
 import LnurlPaySuccess from './screen/lnd/lnurlPaySuccess';
 import LnurlAuth from './screen/lnd/lnurlAuth';
 import UnlockWith from './UnlockWith';
-import DrawerList from './screen/wallets/drawerList';
-import { isDesktop, isTablet, isHandset } from './blue_modules/environment';
+import { isDesktop } from './blue_modules/environment';
 import SettingsPrivacy from './screen/settings/SettingsPrivacy';
 import LNDViewAdditionalInvoicePreImage from './screen/lnd/lndViewAdditionalInvoicePreImage';
 import LdkViewLogs from './screen/wallets/ldkViewLogs';
@@ -356,25 +353,6 @@ const ReorderWalletsStackRoot = () => {
   );
 };
 
-const Drawer = createDrawerNavigator();
-function DrawerRoot() {
-  const dimensions = useWindowDimensions();
-  const isLargeScreen =
-    Platform.OS === 'android' ? isTablet() : (dimensions.width >= Dimensions.get('screen').width / 2 && isTablet()) || isDesktop;
-  const drawerStyle = { width: isLargeScreen ? 320 : '0%' };
-
-  return (
-    <Drawer.Navigator
-      drawerStyle={drawerStyle}
-      drawerType={isLargeScreen ? 'permanent' : null}
-      drawerContent={props => (isLargeScreen ? <DrawerList {...props} /> : null)}
-      drawerPosition={I18nManager.isRTL ? 'right' : 'left'}
-    >
-      <Drawer.Screen name="Navigation" component={Navigation} options={{ headerShown: false, gestureEnabled: false }} />
-    </Drawer.Navigator>
-  );
-}
-
 const ReceiveDetailsStack = createNativeStackNavigator();
 const ReceiveDetailsStackRoot = () => {
   const theme = useTheme();
@@ -439,11 +417,7 @@ const InitRoot = () => (
       component={ReorderWalletsStackRoot}
       options={{ headerShown: false, gestureEnabled: false, stackPresentation: isDesktop ? 'containedModal' : 'modal' }}
     />
-    <InitStack.Screen
-      name={isHandset ? 'Navigation' : 'DrawerRoot'}
-      component={isHandset ? Navigation : DrawerRoot}
-      options={{ headerShown: false, replaceAnimation: 'push' }}
-    />
+    <InitStack.Screen name="Navigation" component={Navigation} options={{ headerShown: false, replaceAnimation: 'push' }} />
   </InitStack.Navigator>
 );
 
