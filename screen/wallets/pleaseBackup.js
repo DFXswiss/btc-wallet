@@ -7,10 +7,13 @@ import navigationStyle from '../../components/navigationStyle';
 import Privacy from '../../blue_modules/Privacy';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
+import { Checkbox } from '../../components/Checkbox';
+import { Icon } from 'react-native-elements';
 
 const PleaseBackup = () => {
-  const { wallets } = useContext(BlueStorageContext);
+  const { wallets, saveToDisk } = useContext(BlueStorageContext);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAccepted, setIsAccpted] = useState(false);
   const { walletID } = useRoute().params;
   const wallet = wallets.find(w => w.getID() === walletID);
   const navigation = useNavigation();
@@ -20,21 +23,22 @@ const PleaseBackup = () => {
       backgroundColor: colors.elevated,
     },
     word: {
-      backgroundColor: colors.inputBackgroundColor,
+      backgroundColor: '#2D2B47',
     },
     wortText: {
       color: colors.labelText,
     },
-
-    successText: {
-      color: colors.foregroundColor,
+    infoText: {
+      color: colors.brandingColor,
     },
-    pleaseText: {
-      color: colors.foregroundColor,
+    text: {
+      color: colors.backupText,
     },
   });
 
-  const handleBackButton = useCallback(() => {
+  const handleBackButton = useCallback(async () => {
+    wallet.setUserHasSavedExport(true);
+    await saveToDisk();
     navigation.dangerouslyGetParent().pop();
     return true;
   }, [navigation]);
@@ -51,18 +55,19 @@ const PleaseBackup = () => {
   }, []);
 
   const renderSecret = () => {
-    const component = [];
-    for (const [index, secret] of wallet.getSecret().split(/\s/).entries()) {
-      const text = `${index + 1}. ${secret}  `;
-      component.push(
-        <View style={[styles.word, stylesHook.word]} key={`${index}`}>
-          <Text style={[styles.wortText, stylesHook.wortText]} textBreakStrategy="simple">
-            {text}
-          </Text>
-        </View>,
-      );
-    }
-    return component;
+    return wallet
+      .getSecret()
+      .split(/\s/)
+      .map((secret, index) => {
+        const text = `${index + 1}.  ${secret}  `;
+        return (
+          <View style={[styles.word, stylesHook.word]} key={`${index}`}>
+            <Text style={[styles.wortText, stylesHook.wortText]} textBreakStrategy="simple">
+              {text}
+            </Text>
+          </View>
+        );
+      });
   };
 
   return isLoading ? (
@@ -73,14 +78,20 @@ const PleaseBackup = () => {
     <SafeBlueArea style={stylesHook.flex}>
       <ScrollView contentContainerStyle={styles.flex} testID="PleaseBackupScrollView">
         <View style={styles.please}>
-          <Text style={[styles.pleaseText, stylesHook.pleaseText]}>{loc.pleasebackup.text}</Text>
+          <Text style={styles.subtitle}>{loc.pleasebackup.subtitle}</Text>
+          <Text style={[styles.subtext, stylesHook.text]}>{loc.pleasebackup.description}</Text>
+        </View>
+        <View style={styles.infoContainer}>
+          <Icon name="info-outline" type="material" color={colors.brandingColor} size={18} />
+          <Text style={[styles.infoText, stylesHook.infoText]}>{loc.pleasebackup.info}</Text>
         </View>
         <View style={styles.list}>
           <View style={styles.secret}>{renderSecret()}</View>
         </View>
         <View style={styles.bottomContainer}>
+          <Checkbox text={loc.pleasebackup.confirm} onChanged={setIsAccpted} />
           <View style={styles.bottom}>
-            <BlueButton testID="PleasebackupOk" onPress={handleBackButton} title={loc.pleasebackup.ok} />
+            <BlueButton testID="PleasebackupOk" onPress={handleBackButton} disabled={!isAccepted} title={loc._.continue} />
           </View>
         </View>
       </ScrollView>
@@ -88,14 +99,7 @@ const PleaseBackup = () => {
   );
 };
 
-PleaseBackup.navigationOptions = navigationStyle(
-  {
-    gestureEnabled: false,
-    swipeEnabled: false,
-    headerHideBackButton: true,
-  },
-  opts => ({ ...opts, title: loc.pleasebackup.title }),
-);
+PleaseBackup.navigationOptions = navigationStyle({}, opts => ({ ...opts, title: loc.pleasebackup.title }));
 
 const styles = StyleSheet.create({
   loading: {
@@ -104,7 +108,6 @@ const styles = StyleSheet.create({
   },
   flex: {
     flex: 1,
-    justifyContent: 'space-around',
   },
   word: {
     marginRight: 8,
@@ -113,42 +116,64 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
     paddingLeft: 8,
     paddingRight: 8,
-    borderRadius: 4,
+    borderRadius: 6,
+    minWidth: '47%',
   },
   wortText: {
-    fontWeight: 'bold',
     textAlign: 'left',
     fontSize: 17,
   },
   please: {
-    flexGrow: 1,
+    alignItems: 'center',
     paddingHorizontal: 16,
   },
   list: {
-    flexGrow: 8,
+    flexGrow: 2,
     paddingHorizontal: 16,
   },
   bottomContainer: {
     flex: 1,
+    flexGrow: 1,
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'flex-end',
+    paddingHorizontal: 20,
   },
   bottom: {
-    paddingVertical: 16,
+    paddingTop: 30,
+    paddingBottom: 16,
     paddingHorizontal: 16,
     alignContent: 'center',
     minHeight: 44,
-    minWidth: 200,
+    minWidth: 220,
   },
-  successText: {
+  subtitle: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 18,
+    paddingTop: 20,
+  },
+  subtext: {
+    backgroundColor: 'transparent',
+    fontSize: 14,
+    writingDirection: I18nManager.isRTL ? 'rtl' : 'ltr',
     textAlign: 'center',
-    fontWeight: 'bold',
+    marginTop: 4,
   },
-  pleaseText: {
-    marginVertical: 16,
-    fontSize: 16,
-    fontWeight: '500',
+  infoContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 243, 137, 0.9)',
+    borderRadius: 8,
+    marginHorizontal: 20,
+    marginTop: 40,
+    marginBottom: 15,
+    padding: 7,
+    paddingRight: 20,
+  },
+  infoText: {
+    backgroundColor: 'transparent',
+    fontSize: 14,
+    marginHorizontal: 5,
     writingDirection: I18nManager.isRTL ? 'rtl' : 'ltr',
   },
   secret: {

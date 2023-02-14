@@ -99,7 +99,22 @@
   },
   "backupExplanation": {
     "title": "Backup phrase",
-    "text": "TODO fancy text",
+    "subtitle": "Recovery phrase backup",
+    "text": "Find a safe and private place. Set a pen and some paper to write down your recovery phrase.",
+    "items": [
+      {
+        "title": "Secret words",
+        "text": "Your recovery phrase is a list of 12 secret words in a predefined order that back up your private key."
+      },
+      {
+        "title": "Unrestorable",
+        "text": "if you lose your recovery phrase, you will de unable to access your funds, as nobody will be able to restore it."
+      },
+      {
+        "title": "Only Chance",
+        "text": "This phrase is your only chance to recover access to your funds if your DFX Bitcoin App or usual device is unavailable for you."
+      }
+    ],
     "ready": "Ready"
   },
   "pleasebackup": {
@@ -110,7 +125,11 @@
     "ok_lnd": "OK, I have saved it",
     "text": "Please take a moment to write down this mnemonic phrase on a piece of paper.\nIt’s your backup and you can use it to recover the wallet.",
     "text_lnd": "Please save this wallet backup. It allows you to restore the wallet in case of loss.",
-    "title": "Your wallet has been created"
+    "title": "Backup phrase",
+    "subtitle": "Your Recovery phrase",
+    "info": "Never share recovery phrase with anyone, store it securely!",
+    "description": "Write down these words in the right order and save them somewhere safe.",
+    "confirm": "I understand that if I lose my recovery phrase, I will not be able to access my funds."
   },
   "receive": {
     "details_create": "Create",
@@ -466,7 +485,8 @@
     "warning_do_not_disclose": "Warning! Do not disclose.",
     "add_ln_wallet_first": "You must first add a Lightning wallet.",
     "identity_pubkey": "Identity Pubkey",
-    "xpub_title": "Wallet XPUB"
+    "xpub_title": "Wallet XPUB",
+    "backupSeed": "Backup not verified"
   },
   "multisig": {
     "multisig_vault": "Vault",

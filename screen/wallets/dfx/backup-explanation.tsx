@@ -1,22 +1,23 @@
 import React from 'react';
-import { I18nManager, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { I18nManager, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import navigationStyle from '../../../components/navigationStyle';
 import loc from '../../../loc';
 import { useTheme } from '@react-navigation/native';
 import { BlueButton, SafeBlueArea } from '../../../BlueComponents';
 import { navigate } from '../../../NavigationService';
 import { useWalletContext } from '../../../contexts/wallet.context';
+import { Icon } from 'react-native-elements';
 
 const BackupExplanation = () => {
   const { colors } = useTheme();
   const { walletID } = useWalletContext();
 
   const stylesHook = StyleSheet.create({
-    flex: {
+    container: {
       backgroundColor: colors.elevated,
     },
     text: {
-      color: colors.text,
+      color: colors.backupText,
     },
   });
 
@@ -29,11 +30,40 @@ const BackupExplanation = () => {
     });
   };
 
+  const icons = [
+    {
+      name: 'file-document-outline',
+      type: 'material-community',
+      size: 18,
+    },
+    {
+      name: 'restore',
+      type: 'material',
+      size: 20,
+    },
+    {
+      name: 'key',
+      type: 'octicon',
+      size: 18,
+    },
+  ];
+
   return (
-    <SafeBlueArea style={stylesHook.flex}>
-      <ScrollView style={styles.container}>
-        <View style={styles.textContainer}>
-          <Text style={[styles.text, stylesHook.text]}>{loc.backupExplanation.text}</Text>
+    <SafeBlueArea style={stylesHook.container}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+        <Image source={require('../../img/dfx/backup-phrase.png')} />
+        <Text style={styles.subtitle}>{loc.backupExplanation.subtitle}</Text>
+        <Text style={[styles.subtext, stylesHook.text]}>{loc.backupExplanation.text}</Text>
+        <View style={styles.itemsContainer}>
+          {loc.backupExplanation.items.map((item: { title: string; text: string }, index: number) => (
+            <View key={index} style={styles.itemTitleContainer}>
+              <Icon name={icons[index].name} type={icons[index].type} size={icons[index].size} color="#F5516C" />
+              <View style={styles.itemTextContainer}>
+                <Text style={styles.itemTitle}>{item.title}</Text>
+                <Text style={[styles.itemText, stylesHook.text]}>{item.text}</Text>
+              </View>
+            </View>
+          ))}
         </View>
         <View style={styles.buttonContainer}>
           <View style={styles.button}>
@@ -47,16 +77,45 @@ const BackupExplanation = () => {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     padding: 16,
   },
-  textContainer: {
+  contentContainer: {
     flex: 1,
-    justifyContent: 'flex-end',
+    alignItems: 'center',
   },
-  text: {
+  subtitle: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 18,
+    paddingTop: 20,
+  },
+  subtext: {
     backgroundColor: 'transparent',
-    fontSize: 19,
+    fontSize: 14,
+    writingDirection: I18nManager.isRTL ? 'rtl' : 'ltr',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  itemsContainer: {
+    flex: 1,
+    padding: 30,
+  },
+  itemTitleContainer: {
+    flexDirection: 'row',
+    paddingTop: 20,
+  },
+  itemTextContainer: {
+    flexDirection: 'column',
+    paddingHorizontal: 10,
+  },
+  itemTitle: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  itemText: {
+    backgroundColor: 'transparent',
+    fontSize: 14,
     writingDirection: I18nManager.isRTL ? 'rtl' : 'ltr',
   },
   buttonContainer: {
@@ -67,14 +126,13 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   button: {
-    paddingVertical: 16,
     alignContent: 'center',
     minHeight: 44,
-    minWidth: 200,
+    minWidth: 220,
   },
 });
 
-BackupExplanation.navigationOptions = navigationStyle({}, opts => ({
+BackupExplanation.navigationOptions = navigationStyle({ closeButton: true }, opts => ({
   ...opts,
   headerTitle: loc.backupExplanation.title,
   headerHideBackButton: true,

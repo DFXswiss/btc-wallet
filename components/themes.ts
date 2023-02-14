@@ -65,6 +65,7 @@ export const BlueDefaultTheme = {
     changeText: '#F38C47',
     receiveBackground: '#D1F9D6',
     receiveText: '#37C0A1',
+    backupText: '#B8C4D8',
   },
 };
 
