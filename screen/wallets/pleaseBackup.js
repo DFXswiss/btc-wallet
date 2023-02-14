@@ -78,8 +78,10 @@ const PleaseBackup = () => {
         <View style={styles.list}>
           <View style={styles.secret}>{renderSecret()}</View>
         </View>
-        <View style={styles.bottom}>
-          <BlueButton testID="PleasebackupOk" onPress={handleBackButton} title={loc.pleasebackup.ok} />
+        <View style={styles.bottomContainer}>
+          <View style={styles.bottom}>
+            <BlueButton testID="PleasebackupOk" onPress={handleBackButton} title={loc.pleasebackup.ok} />
+          </View>
         </View>
       </ScrollView>
     </SafeBlueArea>
@@ -126,10 +128,18 @@ const styles = StyleSheet.create({
     flexGrow: 8,
     paddingHorizontal: 16,
   },
-  bottom: {
-    flexGrow: 2,
+  bottomContainer: {
+    flex: 1,
+    flexDirection: 'column',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
+  },
+  bottom: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    alignContent: 'center',
+    minHeight: 44,
+    minWidth: 200,
   },
   successText: {
     textAlign: 'center',

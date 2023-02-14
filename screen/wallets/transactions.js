@@ -274,12 +274,19 @@ const WalletTransactions = () => {
       });
     }
   };
+
   const navigateToSendScreen = () => {
     navigate('SendDetailsRoot', {
       screen: 'SendDetails',
       params: {
         walletID: wallet.getID(),
       },
+    });
+  };
+
+  const navigateToBackupScreen = () => {
+    navigate('BackupSeedRoot', {
+      screen: 'BackupExplanation',
     });
   };
 
@@ -479,6 +486,9 @@ const WalletTransactions = () => {
       <View style={styles.dfxButtonContainer}>
         <View style={styles.dfxIcons}>
           <ImageButton source={DfxButton} onPress={openPayment} />
+        </View>
+        <View style={styles.dfxIcons}>
+          <ImageButton source={DfxButton} onPress={navigateToBackupScreen} />
         </View>
       </View>
       <View style={[styles.list, stylesHook.list]}>

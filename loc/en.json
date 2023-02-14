@@ -97,6 +97,11 @@
     "success": "Success",
     "title": "Plausible Deniability"
   },
+  "backupExplanation": {
+    "title": "Backup phrase",
+    "text": "TODO fancy text",
+    "ready": "Ready"
+  },
   "pleasebackup": {
     "ask": "Have you saved your wallet’s backup phrase? This backup phrase is required to access your funds in case you lose this device. Without the backup phrase, your funds will be permanently lost.",
     "ask_no": "No, I have not",

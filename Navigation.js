@@ -81,6 +81,7 @@ import LNDViewAdditionalInvoicePreImage from './screen/lnd/lndViewAdditionalInvo
 import LdkViewLogs from './screen/wallets/ldkViewLogs';
 import SignUp from './screen/wallets/dfx/sign-up';
 import { BlueStorageContext } from './blue_modules/storage-context';
+import BackupExplanation from './screen/wallets/dfx/backup-explanation';
 
 const WalletsStack = createNativeStackNavigator();
 
@@ -108,7 +109,6 @@ const WalletsRoot = () => {
         </>
       )}
       <WalletsStack.Screen name="WalletTransactions" component={WalletTransactions} options={WalletTransactions.navigationOptions(theme)} />
-      <WalletsStack.Screen name="PleaseBackup" component={PleaseBackup} options={PleaseBackup.navigationOptions(theme)} />
       <WalletsStack.Screen name="LdkOpenChannel" component={LdkOpenChannel} options={LdkOpenChannel.navigationOptions(theme)} />
       <WalletsStack.Screen name="LdkInfo" component={LdkInfo} options={LdkInfo.navigationOptions(theme)} />
       <WalletsStack.Screen name="WalletDetails" component={WalletDetails} options={WalletDetails.navigationOptions(theme)} />
@@ -172,6 +172,17 @@ const WalletsRoot = () => {
       />
       <WalletsStack.Screen name="WalletAddresses" component={WalletAddresses} options={WalletAddresses.navigationOptions(theme)} />
     </WalletsStack.Navigator>
+  );
+};
+
+const BackupSeedStack = createNativeStackNavigator();
+const BackupSeedRoot = () => {
+  const theme = useTheme();
+  return (
+    <BackupSeedStack.Navigator screenOptions={{ headerHideShadow: true }}>
+      <BackupSeedStack.Screen name="BackupExplanation" component={BackupExplanation} options={BackupExplanation.navigationOptions(theme)} />
+      <BackupSeedStack.Screen name="PleaseBackup" component={PleaseBackup} options={PleaseBackup.navigationOptions(theme)} />
+    </BackupSeedStack.Navigator>
   );
 };
 
@@ -466,6 +477,7 @@ const Navigation = () => {
     <RootStack.Navigator initialRouteName="UnlockWithScreenRoot" screenOptions={{ headerHideShadow: true }}>
       {/* stacks */}
       <RootStack.Screen name="WalletsRoot" component={WalletsRoot} options={{ headerShown: false, translucent: false }} />
+      <RootStack.Screen name="BackupSeedRoot" component={BackupSeedRoot} options={NavigationDefaultOptions} />
       <RootStack.Screen name="AddWalletRoot" component={AddWalletRoot} options={NavigationDefaultOptions} />
       <RootStack.Screen name="SendDetailsRoot" component={SendDetailsRoot} options={NavigationDefaultOptions} />
       <RootStack.Screen name="LNDCreateInvoiceRoot" component={LNDCreateInvoiceRoot} options={NavigationDefaultOptions} />

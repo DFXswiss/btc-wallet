@@ -3,7 +3,7 @@ import { I18nManager, Linking, StyleSheet, Text, View } from 'react-native';
 import navigationStyle from '../../../components/navigationStyle';
 import loc from '../../../loc';
 import { useNavigation, useTheme } from '@react-navigation/native';
-import { BlueButton, BlueButtonLink } from '../../../BlueComponents';
+import { BlueButton, BlueButtonLink, SafeBlueArea } from '../../../BlueComponents';
 import Config from 'react-native-config';
 import { useSessionContext } from '../../../contexts/session.context';
 
@@ -12,7 +12,10 @@ const SignUp = () => {
   const { signUp } = useSessionContext();
   const { goBack } = useNavigation();
 
-  const styleHook = StyleSheet.create({
+  const stylesHook = StyleSheet.create({
+    flex: {
+      backgroundColor: colors.evelated,
+    },
     text: {
       color: colors.text,
     },
@@ -27,24 +30,26 @@ const SignUp = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.textContainer}>
-        <Text style={[styles.text, styleHook.text]}>{loc.signUp.text}</Text>
-        <BlueButtonLink style={styles.link} title={loc.signUp.link} onPress={handleOnLinkPress} />
-      </View>
-      <View style={styles.buttonContainer}>
-        <View style={styles.button}>
-          <BlueButton onPress={handleOnSignUp} title={loc.signUp.accept} testID="AcceptSignUp" />
+    <SafeBlueArea style={stylesHook.flex}>
+      <View style={styles.container}>
+        <View style={styles.textContainer}>
+          <Text style={[styles.text, stylesHook.text]}>{loc.signUp.text}</Text>
+          <BlueButtonLink style={styles.link} title={loc.signUp.link} onPress={handleOnLinkPress} />
+        </View>
+        <View style={styles.buttonContainer}>
+          <View style={styles.button}>
+            <BlueButton onPress={handleOnSignUp} title={loc.signUp.accept} testID="AcceptSignUp" />
+          </View>
         </View>
       </View>
-    </View>
+    </SafeBlueArea>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 10,
+    padding: 16,
   },
   textContainer: {
     flex: 1,
@@ -66,8 +71,6 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   button: {
-    marginVertical: 4,
-    marginHorizontal: 4,
     alignContent: 'center',
     alignSelf: 'stretch',
     minHeight: 44,

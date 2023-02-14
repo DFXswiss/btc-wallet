@@ -2,6 +2,7 @@ import React, { createContext, PropsWithChildren, useContext, useState } from 'r
 import { BlueStorageContext } from '../blue_modules/storage-context';
 
 interface WalletInterface {
+  walletID?: string;
   address?: string;
   discover: () => Promise<void>;
   signMessage: (message: string, address: string) => Promise<string>;
@@ -43,6 +44,7 @@ export function WalletContextProvider(props: PropsWithChildren<any>): JSX.Elemen
   }
 
   const context: WalletInterface = {
+    walletID: wallets?.[0]?.getID(),
     address,
     discover,
     signMessage,
