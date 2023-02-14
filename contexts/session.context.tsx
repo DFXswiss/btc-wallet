@@ -58,7 +58,7 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
   async function login(openAlert?: (text: string) => void): Promise<void> {
     openAlert?.(`Step 2 of 3\naddress: ${address}`);
     if (!address) throw new Error('No address found');
-    createApiSession(address);
+    return createApiSession(address);
   }
 
   async function signUp(): Promise<void> {
