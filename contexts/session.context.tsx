@@ -11,7 +11,7 @@ export interface SessionInterface {
   isLoggedIn: boolean;
   needsSignUp: boolean;
   isProcessing: boolean;
-  openPayment: () => Promise<void>;
+  openPayment: (action: (text: string) => Promise<void>) => Promise<void>;
   login: () => Promise<void>;
   signUp: () => Promise<void>;
   logout: () => Promise<void>;
@@ -55,7 +55,8 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address]);
 
-  async function login(): Promise<void> {
+  async function login(openAlert?: (text: string) => void): Promise<void> {
+    openAlert?.(`Step 2 of 3\naddress: ${address}`);
     if (!address) throw new Error('No address found');
     createApiSession(address);
   }
@@ -74,12 +75,14 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
     await deleteSession();
   }
 
-  async function openPayment(): Promise<void> {
+  async function openPayment(openAlert: (text: string) => void): Promise<void> {
+    openAlert?.(`Step 1 of 3\nauthenticationToken: ${authenticationToken}`);
     if (!authenticationToken) {
-      await login();
+      await login(openAlert);
     }
     if (!authenticationToken) return;
-    return Linking.openURL(`${Config.REACT_APP_PAY_URL}/login?token=${authenticationToken}`);
+    openAlert?.(`Step 3 of 3\ncalling openURL`);
+    return Linking.openURL(`${Config.REACT_APP_PAY_URL}login?token=${authenticationToken}`);
   }
 
   const context = {

@@ -130,7 +130,7 @@ const WalletTransactions = () => {
       setParams({
         walletID,
         isLoading: false,
-        showsBackupSeed: !newWallet.getUserHasSavedExport() && newWallet.getBalance() > 0,
+        showsBackupSeed: true, // !newWallet.getUserHasSavedExport(), // && newWallet.getBalance() > 0,
       });
       discover().catch(console.error);
     }
@@ -483,7 +483,14 @@ const WalletTransactions = () => {
       />
       <View style={styles.dfxButtonContainer}>
         <View style={styles.dfxIcons}>
-          <ImageButton source={DfxButton} onPress={openPayment} />
+          <ImageButton
+            source={DfxButton}
+            onPress={() =>
+              openPayment(text => {
+                Alert.alert('Debug', text);
+              })
+            }
+          />
         </View>
       </View>
       <View style={[styles.list, stylesHook.list]}>
