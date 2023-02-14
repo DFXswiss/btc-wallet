@@ -620,8 +620,9 @@
   },
   "signUp": {
     "title": "Terms & Conditions",
-    "text": "Please read our terms and conditions and click on \"Accept\" to confirm.",
+    "text": "Please read our terms and conditions",
     "link": "Terms and conditions DFX Swiss",
+    "confirm": "I have read and agree to the terms and conditions.",
     "accept": "Accept"
   }
 }

@@ -10,7 +10,6 @@ import {
   StatusBar,
   TextInput,
   StyleSheet,
-  useColorScheme,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlueText, BlueListItem, BlueFormLabel, BlueButton, BlueButtonLink, BlueSpacing20 } from '../../BlueComponents';
@@ -94,7 +93,7 @@ const WalletsAdd = () => {
     setIsLoading(true);
 
     const w = new HDSegwitP2SHWallet();
-    w.setLabel(label || loc.wallets.details_title);
+    w.setLabel(label);
 
     if (entropy) {
       try {
@@ -245,7 +244,7 @@ const styles = StyleSheet.create({
   textInputCommon: {
     flex: 1,
     marginHorizontal: 8,
-    color: '#81868e',
+    color: '#ffffff',
   },
   advanced: {
     marginHorizontal: 20,

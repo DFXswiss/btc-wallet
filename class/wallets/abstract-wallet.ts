@@ -117,7 +117,7 @@ export class AbstractWallet {
    */
   getLabel(): string {
     if (this.label.trim().length === 0) {
-      return 'Wallet';
+      return 'DFX Bitcoin Wallet';
     }
     return this.label;
   }

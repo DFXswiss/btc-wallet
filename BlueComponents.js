@@ -261,7 +261,16 @@ export const BlueButtonLink = forwardRef((props, ref) => {
       {...props}
       ref={ref}
     >
-      <Text style={{ color: colors.foregroundColor, textAlign: 'center', fontSize: 16 }}>{props.title}</Text>
+      <Text
+        style={{
+          color: colors.foregroundColor,
+          textAlign: 'center',
+          fontSize: 16,
+          textDecorationLine: props.hasUnderline ? 'underline' : 'none',
+        }}
+      >
+        {props.title}
+      </Text>
     </TouchableOpacity>
   );
 });

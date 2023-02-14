@@ -183,9 +183,7 @@ export const BlueStorageProvider = ({ children }) => {
       Alert.alert('', 'This wallet has been previously imported.');
       return;
     }
-    const emptyWalletLabel = new LegacyWallet().getLabel();
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
-    if (w.getLabel() === emptyWalletLabel) w.setLabel(loc.wallets.import_imported + ' ' + w.typeReadable);
     w.setUserHasSavedExport(true);
     addWallet(w);
     await saveToDisk();
