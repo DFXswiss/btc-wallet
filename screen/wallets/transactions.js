@@ -625,7 +625,6 @@ const styles = StyleSheet.create({
   },
   backupSeed: {
     height: 34,
-    marginTop: 10,
     padding: 8,
     backgroundColor: '#FFF389',
     borderRadius: 8,

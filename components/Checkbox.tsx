@@ -24,7 +24,7 @@ export function Checkbox({ text, onChanged, initialValue = false }: CheckboxProp
 
   useEffect(() => {
     onChanged(isClicked);
-  }, [isClicked]);
+  }, [isClicked, onChanged]);
 
   return (
     <TouchableOpacity style={styles.container} onPress={() => setIsClicked(!isClicked)}>
