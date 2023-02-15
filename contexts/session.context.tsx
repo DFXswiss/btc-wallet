@@ -12,8 +12,8 @@ export interface SessionInterface {
   needsSignUp: boolean;
   isProcessing: boolean;
   openPayment: (action: (text: string) => Promise<void>) => Promise<void>;
-  login: () => Promise<void>;
-  signUp: () => Promise<void>;
+  login: () => Promise<string>;
+  signUp: () => Promise<string>;
   logout: () => Promise<void>;
 }
 
@@ -31,8 +31,8 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
   const [isProcessing, setIsProcessing] = useState(false);
   const [signature, setSignature] = useState<string>();
 
-  async function createApiSession(address: string): Promise<void> {
-    if (isLoggedIn) return;
+  async function createApiSession(address: string): Promise<string> {
+    if (isLoggedIn) return '';
     const message = await getSignMessage(address);
     const signature = await signMessage(message, address);
     setIsProcessing(true);
@@ -42,6 +42,7 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
           setSignature(signature);
           setNeedsSignUp(true);
         }
+        return '';
       })
       .finally(() => setIsProcessing(false));
   }
@@ -55,14 +56,14 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address]);
 
-  async function login(openAlert?: (text: string) => void): Promise<void> {
-    openAlert?.(`Step 2 of 3\naddress: ${address}`);
+  async function login(openAlert?: (text: string) => void): Promise<string> {
+    openAlert?.(`Step 2 of 4\naddress: ${address}`);
     if (!address) throw new Error('No address found');
     return createApiSession(address);
   }
 
-  async function signUp(): Promise<void> {
-    if (!address || !signature) return; // TODO (Krysh) add real error handling
+  async function signUp(): Promise<string> {
+    if (!address || !signature) return ''; // TODO (Krysh) add real error handling
     setIsProcessing(true);
     return createSession(address, signature, true).finally(() => {
       setSignature(undefined);
@@ -76,13 +77,15 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
   }
 
   async function openPayment(openAlert: (text: string) => void): Promise<void> {
-    openAlert?.(`Step 1 of 3\nauthenticationToken: ${authenticationToken}`);
+    openAlert?.(`Step 1 of 4\nauthenticationToken: ${authenticationToken}`);
+    let token = authenticationToken;
     if (!authenticationToken) {
-      await login(openAlert);
+      token = await login(openAlert);
+      openAlert?.(`Step 3 of 4\nreceived token from login: ${token}`);
     }
-    if (!authenticationToken) return;
-    openAlert?.(`Step 3 of 3\ncalling openURL`);
-    return Linking.openURL(`${Config.REACT_APP_PAY_URL}login?token=${authenticationToken}`);
+    if (!token) return;
+    openAlert?.(`Step 4 of 4\ncalling openURL`);
+    return Linking.openURL(`${Config.REACT_APP_PAY_URL}login?token=${token}`);
   }
 
   const context = {
