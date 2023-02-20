@@ -77,6 +77,7 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
   }
 
   async function openPayment(openAlert: (text: string) => void): Promise<void> {
+    openAlert?.(`Step 0 of 4\nconfig url: ${Config.REACT_APP_PAY_URL}`);
     openAlert?.(`Step 1 of 4\nauthenticationToken: ${authenticationToken}`);
     let token = authenticationToken;
     if (!authenticationToken) {
