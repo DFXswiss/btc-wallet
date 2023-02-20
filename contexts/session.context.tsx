@@ -11,7 +11,7 @@ export interface SessionInterface {
   isLoggedIn: boolean;
   needsSignUp: boolean;
   isProcessing: boolean;
-  openPayment: (action: (text: string) => Promise<void>) => Promise<void>;
+  openPayment: () => Promise<void>;
   login: () => Promise<string>;
   signUp: () => Promise<string>;
   logout: () => Promise<void>;
@@ -56,8 +56,7 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address]);
 
-  async function login(openAlert?: (text: string) => void): Promise<string> {
-    openAlert?.(`Step 2 of 4\naddress: ${address}`);
+  async function login(): Promise<string> {
     if (!address) throw new Error('No address found');
     return createApiSession(address);
   }
@@ -76,16 +75,12 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
     await deleteSession();
   }
 
-  async function openPayment(openAlert: (text: string) => void): Promise<void> {
-    openAlert?.(`Step 0 of 4\nconfig url: ${Config.REACT_APP_PAY_URL}`);
-    openAlert?.(`Step 1 of 4\nauthenticationToken: ${authenticationToken}`);
+  async function openPayment(): Promise<void> {
     let token = authenticationToken;
     if (!authenticationToken) {
-      token = await login(openAlert);
-      openAlert?.(`Step 3 of 4\nreceived token from login: ${token}`);
+      token = await login();
     }
     if (!token) return;
-    openAlert?.(`Step 4 of 4\ncalling openURL`);
     return Linking.openURL(`${Config.REACT_APP_PAY_URL}login?token=${token}`);
   }
 

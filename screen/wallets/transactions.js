@@ -130,7 +130,7 @@ const WalletTransactions = () => {
       setParams({
         walletID,
         isLoading: false,
-        showsBackupSeed: true, // !newWallet.getUserHasSavedExport(), // && newWallet.getBalance() > 0,
+        showsBackupSeed: !newWallet.getUserHasSavedExport() && newWallet.getBalance() > 0,
       });
       discover().catch(console.error);
     }
@@ -153,9 +153,7 @@ const WalletTransactions = () => {
     if (needsSignUp) {
       navigate('SignUp');
     } else {
-      openPayment(text => {
-        Alert.alert('Debug', text);
-      });
+      openPayment();
     }
   };
 
