@@ -12,8 +12,8 @@ export interface SessionInterface {
   needsSignUp: boolean;
   isProcessing: boolean;
   openPayment: () => Promise<void>;
-  login: () => Promise<void>;
-  signUp: () => Promise<void>;
+  login: () => Promise<string>;
+  signUp: () => Promise<string>;
   logout: () => Promise<void>;
 }
 
@@ -31,8 +31,8 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
   const [isProcessing, setIsProcessing] = useState(false);
   const [signature, setSignature] = useState<string>();
 
-  async function createApiSession(address: string): Promise<void> {
-    if (isLoggedIn) return;
+  async function createApiSession(address: string): Promise<string> {
+    if (isLoggedIn) return '';
     const message = await getSignMessage(address);
     const signature = await signMessage(message, address);
     setIsProcessing(true);
@@ -42,6 +42,7 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
           setSignature(signature);
           setNeedsSignUp(true);
         }
+        return '';
       })
       .finally(() => setIsProcessing(false));
   }
@@ -55,13 +56,13 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address]);
 
-  async function login(): Promise<void> {
+  async function login(): Promise<string> {
     if (!address) throw new Error('No address found');
-    createApiSession(address);
+    return createApiSession(address);
   }
 
-  async function signUp(): Promise<void> {
-    if (!address || !signature) return; // TODO (Krysh) add real error handling
+  async function signUp(): Promise<string> {
+    if (!address || !signature) return ''; // TODO (Krysh) add real error handling
     setIsProcessing(true);
     return createSession(address, signature, true).finally(() => {
       setSignature(undefined);
@@ -75,11 +76,12 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
   }
 
   async function openPayment(): Promise<void> {
+    let token = authenticationToken;
     if (!authenticationToken) {
-      await login();
+      token = await login();
     }
-    if (!authenticationToken) return;
-    return Linking.openURL(`${Config.REACT_APP_PAY_URL}/login?token=${authenticationToken}`);
+    if (!token) return;
+    return Linking.openURL(`${Config.REACT_APP_PAY_URL}login?token=${token}`);
   }
 
   const context = {

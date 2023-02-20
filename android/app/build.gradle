@@ -1,5 +1,10 @@
 apply plugin: "com.android.application"
 apply plugin: "kotlin-android"
+
+project.ext.envConfigFiles = [
+    debug: ".env.loc",
+    release: ".env.prd",
+]
 apply from: project(':react-native-config').projectDir.getPath() + "/dotenv.gradle"
 
 import com.android.build.OutputFile
