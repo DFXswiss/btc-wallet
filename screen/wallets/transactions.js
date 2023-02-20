@@ -149,6 +149,16 @@ const WalletTransactions = () => {
     if (needsSignUp) navigate('SignUp');
   }, [needsSignUp, navigate]);
 
+  const handleOpenPayment = () => {
+    if (needsSignUp) {
+      navigate('SignUp');
+    } else {
+      openPayment(text => {
+        Alert.alert('Debug', text);
+      });
+    }
+  };
+
   // if description of transaction has been changed we want to show new one
   useFocusEffect(
     useCallback(() => {
@@ -483,14 +493,7 @@ const WalletTransactions = () => {
       />
       <View style={styles.dfxButtonContainer}>
         <View style={styles.dfxIcons}>
-          <ImageButton
-            source={DfxButton}
-            onPress={() =>
-              openPayment(text => {
-                Alert.alert('Debug', text);
-              })
-            }
-          />
+          <ImageButton source={DfxButton} onPress={handleOpenPayment} />
         </View>
       </View>
       <View style={[styles.list, stylesHook.list]}>
