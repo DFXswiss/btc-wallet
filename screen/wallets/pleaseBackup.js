@@ -9,6 +9,7 @@ import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { Checkbox } from '../../components/Checkbox';
 import { Icon } from 'react-native-elements';
+import { ThemedCheckbox } from '../../components/ThemedCheckbox';
 
 const PleaseBackup = () => {
   const { wallets, saveToDisk } = useContext(BlueStorageContext);
@@ -89,7 +90,7 @@ const PleaseBackup = () => {
           <View style={styles.secret}>{renderSecret()}</View>
         </View>
         <View style={styles.bottomContainer}>
-          <Checkbox text={loc.pleasebackup.confirm} onChanged={setIsAccpted} />
+          <ThemedCheckbox text={loc.pleasebackup.confirm} onChanged={setIsAccpted} />
           <View style={styles.bottom}>
             <BlueButton testID="PleasebackupOk" onPress={handleBackButton} disabled={!isAccepted} title={loc._.continue} />
           </View>

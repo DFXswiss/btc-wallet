@@ -7,6 +7,7 @@ import { BlueButton, BlueButtonLink, SafeBlueArea } from '../../../BlueComponent
 import Config from 'react-native-config';
 import { useSessionContext } from '../../../contexts/session.context';
 import { Checkbox } from '../../../components/Checkbox';
+import { ThemedCheckbox } from '../../../components/ThemedCheckbox';
 
 const SignUp = () => {
   const { colors } = useTheme();
@@ -39,7 +40,7 @@ const SignUp = () => {
           <BlueButtonLink style={styles.link} title={loc.signUp.link} onPress={handleOnLinkPress} hasUnderline />
         </View>
         <View style={styles.buttonContainer}>
-          <Checkbox text={loc.signUp.confirm} onChanged={setIsAccepted} />
+          <ThemedCheckbox text={loc.signUp.confirm} onChanged={setIsAccepted} />
           <View style={styles.button}>
             <BlueButton onPress={handleOnSignUp} title={loc.signUp.accept} disabled={!isAccepted} testID="AcceptSignUp" />
           </View>
