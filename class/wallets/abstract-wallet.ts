@@ -47,6 +47,7 @@ export class AbstractWallet {
   chain: Chain;
   hideBalance: boolean;
   userHasSavedExport: boolean;
+  userHasBackedUpSeed: boolean;
   _hideTransactionsInWalletsList: boolean;
   _utxoMetadata: Record<string, UtxoMetadata>;
   use_with_hardware_wallet: boolean; // eslint-disable-line camelcase
@@ -70,6 +71,7 @@ export class AbstractWallet {
     this.chain = Chain.ONCHAIN;
     this.hideBalance = false;
     this.userHasSavedExport = false;
+    this.userHasBackedUpSeed = false;
     this._hideTransactionsInWalletsList = false;
     this._utxoMetadata = {};
     this.use_with_hardware_wallet = false;
@@ -101,6 +103,14 @@ export class AbstractWallet {
 
   setUserHasSavedExport(value: boolean): void {
     this.userHasSavedExport = value;
+  }
+
+  getUserHasBackedUpSeed(): boolean {
+    return this.userHasBackedUpSeed;
+  }
+
+  setUserHasBackedUpSeed(value: boolean): void {
+    this.userHasBackedUpSeed = value;
   }
 
   getHideTransactionsInWalletsList(): boolean {

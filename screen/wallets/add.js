@@ -16,7 +16,7 @@ import { BlueText, BlueListItem, BlueFormLabel, BlueButton, BlueButtonLink, Blue
 import navigationStyle from '../../components/navigationStyle';
 import { HDSegwitBech32Wallet, SegwitP2SHWallet, HDSegwitP2SHWallet, AppStorage } from '../../class';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
-import { useTheme, useNavigation } from '@react-navigation/native';
+import { useTheme, useNavigation, StackActions } from '@react-navigation/native';
 import { Chain } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
@@ -35,7 +35,7 @@ const WalletsAdd = () => {
   const [selectedIndex, setSelectedIndex] = useState(2);
   const [label, setLabel] = useState('');
   const [isAdvancedOptionsEnabled, setIsAdvancedOptionsEnabled] = useState(false);
-  const { navigate, goBack } = useNavigation();
+  const { navigate, goBack, dispatch } = useNavigation();
   const [entropy, setEntropy] = useState();
   const [entropyButtonText, setEntropyButtonText] = useState(loc.wallets.add_entropy_provide);
   const stylesHook = {
@@ -111,6 +111,7 @@ const WalletsAdd = () => {
     await saveToDisk();
     A(A.ENUM.CREATED_WALLET);
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
+    dispatch(StackActions.replace('Navigation'));
   };
 
   const navigateToEntropy = () => {

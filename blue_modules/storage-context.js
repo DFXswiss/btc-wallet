@@ -185,6 +185,7 @@ export const BlueStorageProvider = ({ children }) => {
     }
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
     w.setUserHasSavedExport(true);
+    w.setUserHasBackedUpSeed(true);
     addWallet(w);
     await saveToDisk();
     A(A.ENUM.CREATED_WALLET);

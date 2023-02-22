@@ -35,7 +35,7 @@ import {
   LightningLdkWallet,
 } from '../../class';
 import loc, { formatBalanceWithoutSuffix } from '../../loc';
-import { useTheme, useRoute, useNavigation } from '@react-navigation/native';
+import { useTheme, useRoute, useNavigation, StackActions } from '@react-navigation/native';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
@@ -129,7 +129,7 @@ const WalletDetails = () => {
   const { isAdancedModeEnabled } = useContext(BlueStorageContext);
   const [isAdvancedModeEnabledRender, setIsAdvancedModeEnabledRender] = useState(false);
   const [hideTransactionsInWalletsList, setHideTransactionsInWalletsList] = useState(!wallet.getHideTransactionsInWalletsList());
-  const { goBack, navigate, setOptions, popToTop } = useNavigation();
+  const { goBack, navigate, setOptions, dispatch } = useNavigation();
   const { colors } = useTheme();
   const [masterFingerprint, setMasterFingerprint] = useState();
   const walletTransactionsLength = useMemo(() => wallet.getTransactions().length, [wallet]);
@@ -228,7 +228,7 @@ const WalletDetails = () => {
   const navigateToOverviewAndDeleteWallet = () => {
     setIsLoading(true);
     Notifications.unsubscribe(wallet.getAllExternalAddresses(), [], []);
-    popToTop();
+    dispatch(StackActions.replace('AddWalletRoot'));
     deleteWallet(wallet);
     saveToDisk(true);
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });

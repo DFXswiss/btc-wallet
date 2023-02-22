@@ -80,34 +80,16 @@ import SettingsPrivacy from './screen/settings/SettingsPrivacy';
 import LNDViewAdditionalInvoicePreImage from './screen/lnd/lndViewAdditionalInvoicePreImage';
 import LdkViewLogs from './screen/wallets/ldkViewLogs';
 import SignUp from './screen/wallets/dfx/sign-up';
-import { BlueStorageContext } from './blue_modules/storage-context';
 import BackupExplanation from './screen/wallets/dfx/backup-explanation';
+import { BlueStorageContext } from './blue_modules/storage-context';
 
 const WalletsStack = createNativeStackNavigator();
 
 const WalletsRoot = () => {
   const theme = useTheme();
-  const { wallets } = useContext(BlueStorageContext);
 
   return (
     <WalletsStack.Navigator screenOptions={{ headerHideShadow: true }}>
-      {wallets?.length === 0 && (
-        <>
-          <WalletsStack.Screen name="AddWallet" component={AddWallet} options={AddWallet.navigationOptions(theme)} />
-          <WalletsStack.Screen name="ImportWallet" component={ImportWallet} options={ImportWallet.navigationOptions(theme)} />
-          <WalletsStack.Screen
-            name="ImportWalletDiscovery"
-            component={ImportWalletDiscovery}
-            options={ImportWalletDiscovery.navigationOptions(theme)}
-          />
-          <WalletsStack.Screen
-            name="ImportCustomDerivationPath"
-            component={ImportCustomDerivationPath}
-            options={ImportCustomDerivationPath.navigationOptions(theme)}
-          />
-          <WalletsStack.Screen name="ImportSpeed" component={ImportSpeed} options={ImportSpeed.navigationOptions(theme)} />
-        </>
-      )}
       <WalletsStack.Screen name="WalletTransactions" component={WalletTransactions} options={WalletTransactions.navigationOptions(theme)} />
       <WalletsStack.Screen name="LdkOpenChannel" component={LdkOpenChannel} options={LdkOpenChannel.navigationOptions(theme)} />
       <WalletsStack.Screen name="LdkInfo" component={LdkInfo} options={LdkInfo.navigationOptions(theme)} />
@@ -473,12 +455,16 @@ const ExportMultisigCoordinationSetupRoot = () => {
 const RootStack = createNativeStackNavigator();
 const NavigationDefaultOptions = { headerShown: false, stackPresentation: isDesktop ? 'containedModal' : 'modal' };
 const Navigation = () => {
+  const { wallets } = useContext(BlueStorageContext);
   return (
-    <RootStack.Navigator initialRouteName="UnlockWithScreenRoot" screenOptions={{ headerHideShadow: true }}>
+    <RootStack.Navigator
+      initialRouteName={wallets.length === 0 ? 'AddWalletRoot' : 'WalletsRoot'}
+      screenOptions={{ headerHideShadow: true }}
+    >
       {/* stacks */}
       <RootStack.Screen name="WalletsRoot" component={WalletsRoot} options={{ headerShown: false, translucent: false }} />
       <RootStack.Screen name="BackupSeedRoot" component={BackupSeedRoot} options={NavigationDefaultOptions} />
-      <RootStack.Screen name="AddWalletRoot" component={AddWalletRoot} options={NavigationDefaultOptions} />
+      <RootStack.Screen name="AddWalletRoot" component={AddWalletRoot} options={{ headerShown: false, translucent: false }} />
       <RootStack.Screen name="SendDetailsRoot" component={SendDetailsRoot} options={NavigationDefaultOptions} />
       <RootStack.Screen name="LNDCreateInvoiceRoot" component={LNDCreateInvoiceRoot} options={NavigationDefaultOptions} />
       <RootStack.Screen name="ScanLndInvoiceRoot" component={ScanLndInvoiceRoot} options={NavigationDefaultOptions} />

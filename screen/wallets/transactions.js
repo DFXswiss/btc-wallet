@@ -130,7 +130,7 @@ const WalletTransactions = () => {
       setParams({
         walletID,
         isLoading: false,
-        showsBackupSeed: !newWallet.getUserHasSavedExport() && newWallet.getBalance() > 0,
+        showsBackupSeed: !newWallet.getUserHasBackedUpSeed() && newWallet.getBalance() > 0,
       });
       discover().catch(console.error);
     }

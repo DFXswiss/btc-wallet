@@ -7,7 +7,6 @@ import navigationStyle from '../../components/navigationStyle';
 import Privacy from '../../blue_modules/Privacy';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
-import { Checkbox } from '../../components/Checkbox';
 import { Icon } from 'react-native-elements';
 import { ThemedCheckbox } from '../../components/ThemedCheckbox';
 
@@ -37,20 +36,24 @@ const PleaseBackup = () => {
     },
   });
 
-  const handleBackButton = useCallback(async () => {
-    wallet.setUserHasSavedExport(true);
-    await saveToDisk();
-    navigation.dangerouslyGetParent().pop();
-    return true;
-  }, [navigation]);
+  const handleBackButton = useCallback(
+    async hasConfirmed => {
+      wallet.setUserHasBackedUpSeed(hasConfirmed);
+      await saveToDisk();
+      navigation.dangerouslyGetParent().pop();
+      return true;
+    },
+    [navigation],
+  );
 
   useEffect(() => {
     Privacy.enableBlur();
     setIsLoading(false);
-    BackHandler.addEventListener('hardwareBackPress', handleBackButton);
+    const listener = () => handleBackButton(false);
+    BackHandler.addEventListener('hardwareBackPress', listener);
     return () => {
       Privacy.disableBlur();
-      BackHandler.removeEventListener('hardwareBackPress', handleBackButton);
+      BackHandler.removeEventListener('hardwareBackPress', listener);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -92,7 +95,12 @@ const PleaseBackup = () => {
         <View style={styles.bottomContainer}>
           <ThemedCheckbox text={loc.pleasebackup.confirm} onChanged={setIsAccpted} />
           <View style={styles.bottom}>
-            <BlueButton testID="PleasebackupOk" onPress={handleBackButton} disabled={!isAccepted} title={loc._.continue} />
+            <BlueButton
+              testID="PleasebackupOk"
+              onPress={() => handleBackButton(isAccepted)}
+              disabled={!isAccepted}
+              title={loc._.continue}
+            />
           </View>
         </View>
       </ScrollView>
