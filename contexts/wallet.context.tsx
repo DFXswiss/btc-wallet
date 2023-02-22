@@ -1,4 +1,4 @@
-import React, { createContext, PropsWithChildren, useContext, useState } from 'react';
+import React, { createContext, PropsWithChildren, useContext, useEffect, useState } from 'react';
 import { BlueStorageContext } from '../blue_modules/storage-context';
 
 interface WalletInterface {
@@ -17,6 +17,10 @@ export function useWalletContext(): WalletInterface {
 export function WalletContextProvider(props: PropsWithChildren<any>): JSX.Element {
   const { wallets } = useContext(BlueStorageContext);
   const [address, setAddress] = useState<string>();
+
+  useEffect(() => {
+    if (wallets.length === 0) setAddress(undefined);
+  }, [wallets]);
 
   function getWallet(): any {
     return wallets?.[0];

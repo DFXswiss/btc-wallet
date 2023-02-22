@@ -117,11 +117,11 @@ const SendDetails = () => {
       setIsAmountToolbarVisibleForAndroid(false);
     };
 
-    Keyboard.addListener('keyboardDidShow', _keyboardDidShow);
-    Keyboard.addListener('keyboardDidHide', _keyboardDidHide);
+    const didShow = Keyboard.addListener('keyboardDidShow', _keyboardDidShow);
+    const didHide = Keyboard.addListener('keyboardDidHide', _keyboardDidHide);
     return () => {
-      Keyboard.removeAllListeners('keyboardDidShow');
-      Keyboard.removeAllListeners('keyboardDidHide');
+      didShow.remove();
+      didHide.remove();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

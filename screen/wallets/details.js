@@ -45,6 +45,7 @@ import { AbstractHDElectrumWallet } from '../../class/wallets/abstract-hd-electr
 import alert from '../../components/Alert';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import { writeFileAndExport } from '../../blue_modules/fs';
+import { useSessionContext } from '../../contexts/session.context';
 
 const prompt = require('../../helpers/prompt');
 
@@ -120,6 +121,7 @@ const styles = StyleSheet.create({
 
 const WalletDetails = () => {
   const { saveToDisk, wallets, deleteWallet, setSelectedWallet, txMetadata } = useContext(BlueStorageContext);
+  const { logout } = useSessionContext();
   const { walletID } = useRoute().params;
   const [isLoading, setIsLoading] = useState(false);
   const [backdoorPressed, setBackdoorPressed] = useState(0);
@@ -231,6 +233,7 @@ const WalletDetails = () => {
     dispatch(StackActions.replace('AddWalletRoot'));
     deleteWallet(wallet);
     saveToDisk(true);
+    logout();
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
   };
 

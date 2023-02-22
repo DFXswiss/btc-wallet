@@ -72,6 +72,7 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
   }
 
   async function logout(): Promise<void> {
+    setNeedsSignUp(false);
     await deleteSession();
   }
 
