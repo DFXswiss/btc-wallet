@@ -99,7 +99,7 @@
   },
   "backupExplanation": {
     "title": "Phrase Backup",
-    "subtitle": "Wiederherstellungsphrase Backup",
+    "subtitle": "Backup Wiederherstellungsphrase",
     "text": "Suchen Sie sich einen sicheren und privaten Ort. Legen Sie einen Stift und etwas Papier bereit, um Ihre Wiederherstellungsphrase aufzuschreiben.",
     "items": [
       {
@@ -483,7 +483,7 @@
     "add_ln_wallet_first": "Bitte zuerst ein Lightning-Wallet hinzufügen.",
     "identity_pubkey": "Pubkey-Identität",
     "xpub_title": "Wallet xPub",
-    "backupSeed": "Sicherung nicht verifiziert"
+    "backupSeed": "Backup nicht verifiziert"
   },
   "multisig": {
     "multisig_vault": "Tresor",

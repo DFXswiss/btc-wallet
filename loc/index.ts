@@ -344,7 +344,7 @@ export function _leaveNumbersAndDots(newInputValue: string) {
 }
 
 /**
- * @see https://github.com/DFX Bitcoin Wallet/DFX Bitcoin Wallet/issues/3466
+ * @see https://github.com/BlueWallet/BlueWallet/issues/3466
  */
 export function formatStringAddTwoWhiteSpaces(text: string): string {
   return `${text}  `;
