@@ -479,7 +479,8 @@
     "warning_do_not_disclose": "Attention! Ne pas divulguer",
     "add_ln_wallet_first": "Vous devez d'abord ajouter un portefeuille Lightning.",
     "identity_pubkey": "Clé publique identité",
-    "xpub_title": "XPUB portefeuille"
+    "xpub_title": "XPUB portefeuille",
+    "backupSeed": "Sauvegarde non vérifiée"
   },
   "multisig": {
     "multisig_vault": "Coffre",

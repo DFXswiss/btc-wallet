@@ -481,7 +481,8 @@
     "warning_do_not_disclose": "¡Advertencia! No comparta esta información",
     "add_ln_wallet_first": "Primero tienes que agregar una cartera Lightning.",
     "identity_pubkey": "Identity Pubkey",
-    "xpub_title": "XPUB de la cartera"
+    "xpub_title": "XPUB de la cartera",
+    "backupSeed": "Copia de seguridad no verificada"
   },
   "multisig": {
     "multisig_vault": "Vault",

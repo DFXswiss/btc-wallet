@@ -438,7 +438,8 @@
     "take_photo": "Scatta una foto",
     "xpub_copiedToClipboard": "Copiata negli appunti.",
     "pull_to_refresh": "Tira verso il basso per aggiornare",
-    "xpub_title": "XPUB del Portafoglio"
+    "xpub_title": "XPUB del Portafoglio",
+    "backupSeed": "Backup non verificato"
   },
   "multisig": {
     "multisig_vault": "Cassaforte",

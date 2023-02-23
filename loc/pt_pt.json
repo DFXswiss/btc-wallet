@@ -339,7 +339,8 @@
     "select_wallet": "Seleccione uma Wallet",
     "take_photo": "Tirar foto",
     "xpub_copiedToClipboard": "copiado para o clipboard",
-    "xpub_title": "XPUB da wallet"
+    "xpub_title": "XPUB da wallet",
+    "backupSeed": "Cópias de segurança não verificadas"
   },
   "multisig": {
     "confirm": "Confirmar",

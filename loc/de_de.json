@@ -482,7 +482,8 @@
     "warning_do_not_disclose": "Warnung! Nicht veröffentlichen",
     "add_ln_wallet_first": "Bitte zuerst ein Lightning-Wallet hinzufügen.",
     "identity_pubkey": "Pubkey-Identität",
-    "xpub_title": "Wallet xPub"
+    "xpub_title": "Wallet xPub",
+    "backupSeed": "Sicherung nicht verifiziert"
   },
   "multisig": {
     "multisig_vault": "Tresor",
