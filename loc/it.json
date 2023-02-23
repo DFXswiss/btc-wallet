@@ -96,6 +96,26 @@
     "success": "Fatto",
     "title": "Negazione Plausibile"
   },
+  "backupExplanation": {
+    "title": "Frase di backup",
+    "subtitle": "Frase di recupero backup",
+    "text": "Trovate un luogo sicuro e riservato. Prendete carta e penna per scrivere la vostra frase di recupero.",
+    "items": [
+      {
+        "title": "Parole segrete",
+        "text": "La frase di recupero è un elenco di 12 parole segrete, in un ordine predefinito, che costituiscono il backup della chiave privata."
+      },
+      {
+        "title": "Non ripristinabile",
+        "text": "Se perdete la vostra frase di recupero, non potrete accedere ai vostri fondi, perché nessuno sarà in grado di ripristinarli."
+      },
+      {
+        "title": "Unica possibilità",
+        "text": "Questa frase è l'unica possibilità di recuperare l'accesso ai vostri fondi se la vostra App DFX Bitcoin o il vostro dispositivo abituale non sono disponibili."
+      }
+    ],
+    "ready": "Pronto"
+  },
   "pleasebackup": {
     "ask": "Hai registrato la frase di backup del tuo portafoglio? Il backup della frase è necessario per accedere ai tuoi fondi nel caso che tu perda questo apparecchio. Senza la frase di backup i tuoi fondi saranno persi definitivamente.",
     "ask_no": "No",
@@ -104,7 +124,11 @@
     "ok_lnd": "OK, l'ho salvato",
     "text": "Per favore prenditi un momento per scrivere questa frase mnemonica su un foglio di carta.\nÈ il tuo backup e puoi usarlo per recuperare il wallet.",
     "text_lnd": "Salva questo backup di wallet. Ti consente di ripristinare il wallet in caso di perdita.",
-    "title": "Il tuo portafoglio è stato creato"
+    "title": "Frase di backup",
+    "subtitle": "La vostra frase di recupero",
+    "info": "Non condividete mai la frase di recupero con nessuno, conservatela in modo sicuro!",
+    "description": "Scrivete queste parole nell'ordine giusto e salvatele in un posto sicuro.",
+    "confirm": "Sono consapevole che se perdo la mia frase di recupero, non potrò accedere ai miei fondi."
   },
   "receive": {
     "details_create": "Crea",
@@ -470,5 +494,12 @@
     "type_change": "Resto",
     "type_receive": "Ricevi",
     "transactions": "Transazioni"
+  },
+  "signUp": {
+    "title": "Termini e condizioni generali",
+    "text": "Si prega di leggere i nostri Termini e Condizioni Generali",
+    "link": "Termini e condizioni generali DFX Swiss",
+    "confirm": "Ho letto e accetto i Termini e le Condizioni Generali.",
+    "accept": "Accetto"
   }
 }

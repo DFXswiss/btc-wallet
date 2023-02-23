@@ -97,6 +97,26 @@
     "success": "Completado",
     "title": "Negación plausible"
   },
+  "backupExplanation": {
+    "title": "Frase de recuperación",
+    "subtitle": "Recuperación frase copia de seguridad",
+    "text": "Encuentre un lugar seguro y privado. Prepara un bolígrafo y papel para escribir tu frase de recuperación.",
+    "items": [
+      {
+        "title": "Palabras secretas",
+        "text": "Tu frase de recuperación es una lista de 12 palabras secretas en un orden predefinido que respaldan tu clave privada."
+      },
+      {
+        "title": "No se puede recuperar",
+        "text": "Si pierdes tu frase de recuperación, no podrás acceder a tus fondos, ya que nadie podrá restaurarla."
+      },
+      {
+        "title": "Única oportunidad",
+        "text": "Esta frase es su única oportunidad de recuperar el acceso a sus fondos si su DFX Bitcoin App o dispositivo habitual no está disponible para usted."
+      }
+    ],
+    "ready": "Listo"
+  },
   "pleasebackup": {
     "ask": "¿Has guardado la frase de respaldo de tu cartera? Esta frase de respaldo es necesaria para acceder a tus fondos si pierdes este dispositivo. Sin la frase de respaldo, tus fondos se perderán permanentemente.",
     "ask_no": "No, no lo he hecho",
@@ -105,7 +125,11 @@
     "ok_lnd": "OK, lo he guardado",
     "text": "Por favor, apunta esta frase mnemotécnica en un papel. Será tu copia de seguridad y te permitirá restaurar la cartera en otro dispositivo.",
     "text_lnd": "Por favor guarda la copia de seguridad de esta cartera. Te permitirá restaurarla en caso de pérdida.",
-    "title": "Tu cartera ha sido creada"
+    "title": "Frase de recuperación",
+    "subtitle": "Su frase de recuperación",
+    "info": "Nunca compartas la frase de recuperación con nadie, ¡guárdala de forma segura!",
+    "description": "Escriba estas palabras en el orden correcto y guárdelas en un lugar seguro.",
+    "confirm": "Entiendo que si pierdo mi frase de recuperación, no podré acceder a mis fondos."
   },
   "receive": {
     "details_create": "Crear",
@@ -588,5 +612,12 @@
     "auth_answer": "¡Te has autenticado con éxito en {hostname}!",
     "could_not_auth": "No pudimos autenticarte en {hostname}.",
     "authenticate": "Autenticar"
+  },
+  "signUp": {
+    "title": "Condiciones generales",
+    "text": "Lea nuestras Condiciones Generales",
+    "link": "Condiciones generales DFX Swiss",
+    "confirm": "He leído y acepto las Condiciones Generales.",
+    "accept": "Acepto"
   }
 }

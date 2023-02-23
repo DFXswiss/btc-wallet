@@ -97,6 +97,26 @@
     "success": "Erfolg!",
     "title": "Glaubhafte Täuschung"
   },
+  "backupExplanation": {
+    "title": "Phrase Backup",
+    "subtitle": "Wiederherstellungsphrase Backup",
+    "text": "Suchen Sie sich einen sicheren und privaten Ort. Legen Sie einen Stift und etwas Papier bereit, um Ihre Wiederherstellungsphrase aufzuschreiben.",
+    "items": [
+      {
+        "title": "Geheime Wörter",
+        "text": "Ihre Wiederherstellungsphrase ist eine Liste von 12 geheimen Wörtern in einer vordefinierten Reihenfolge, die Ihren privaten Schlüssel sichern."
+      },
+      {
+        "title": "Nicht wiederherstellbar",
+        "text": "Wenn Sie Ihre Wiederherstellungsphrase verlieren, können Sie nicht mehr auf Ihr Guthaben zugreifen, da niemand in der Lage ist, es wiederherzustellen."
+      },
+      {
+        "title": "Einzige Chance",
+        "text": "Diese Phrase ist Ihre einzige Chance, den Zugang zu Ihrem Guthaben wiederherzustellen, wenn Ihre DFX Bitcoin App oder Ihr gewohntes Gerät für Sie nicht mehr verfügbar ist."
+      }
+    ],
+    "ready": "Bereit"
+  },
   "pleasebackup": {
     "ask": "Hast du die Wiederherstellungs-Phrase deines Wallets gesichert? Ohne Sie kannst du nicht mehr auf deine bitcoin zugreifen und sie wären für immer verloren, sollte dein Gerät verloren oder kaputt gehen.",
     "ask_no": "Nein, habe ich nicht.",
@@ -105,7 +125,11 @@
     "ok_lnd": "OK. Die Sicherung ist erstellt.",
     "text": "Nimm Dir Zeit die mnemonischen Wörter auf ein Papier zu schreiben.\nDie Wörter sind dein Backup zur Wallet-Wiederherstellung.",
     "text_lnd": "Zur Wiederherstellung des Wallet im Verlustfall bitte dieses Wallet-Backup sichern. ",
-    "title": "Dein Wallet ist erstellt."
+    "title": "Phrase Backup",
+    "subtitle": "Ihre Wiederherstellungsphrase",
+    "info": "Geben Sie die Wiederherstellungsphrase niemals an andere weiter, sondern bewahren Sie sie sicher auf!",
+    "description": "Schreiben Sie diese Wörter in der richtigen Reihenfolge auf und bewahren Sie sie an einem sicheren Ort auf.",
+    "confirm": "Mir ist klar, dass ich bei Verlust meiner Wiederherstellungsphrase nicht mehr auf mein Guthaben zugreifen kann."
   },
   "receive": {
     "details_create": "Erstelle",
@@ -589,5 +613,12 @@
     "auth_answer": "Erfolgreich authentifiziert bei {hostname}!",
     "could_not_auth": "Authentifizierung bei {hostname} fehlgeschlagen.",
     "authenticate": "Authentifizieren"
+  },
+  "signUp": {
+    "title": "Allgemeinen Geschäftsbedingungen",
+    "text": "Bitte lesen Sie unsere Allgemeinen Geschäftsbedingungen",
+    "link": "Allgemeinen Geschäftsbedingungen DFX Swiss",
+    "confirm": "Ich habe die Allgemeinen Geschäftsbedingungen gelesen und stimme ihnen zu.",
+    "accept": "Akzeptieren"
   }
 }

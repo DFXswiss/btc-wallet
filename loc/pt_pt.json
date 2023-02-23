@@ -68,11 +68,36 @@
     "success": "Sucesso",
     "title": "Negação plausível"
   },
+  "backupExplanation": {
+    "title": "Frase de apoio",
+    "subtitle": "Recuperação de frase de reserva",
+    "text": "Encontrar um lugar seguro e privado. Coloque uma caneta e algum papel para anotar a sua frase de recuperação.",
+    "items": [
+      {
+        "title": "Palavras secretas",
+        "text": "A sua frase de recuperação é uma lista de 12 palavras secretas, numa ordem pré-definida, que servem de suporte à sua chave privada."
+      },
+      {
+        "title": "Inacreditável",
+        "text": "se perder a sua frase de recuperação, não poderá aceder aos seus fundos, uma vez que ninguém poderá restaurá-la."
+      },
+      {
+        "title": "Única Oportunidade",
+        "text": "Esta frase é a sua única hipótese de recuperar o acesso aos seus fundos se o seu DFX Bitcoin App ou dispositivo normal não estiver disponível para si."
+      }
+    ],
+    "ready": "Pronto"
+  },
   "pleasebackup": {
     "ask": "Salvou a frase de backup da sua carteira? Esta frase de backup é necessária para pode ter acesso aos fundos em caso de perder este dispositivo. Sem a frase de backup, os fundos serão perdidos permanentemente.",
     "ask_no": "Não, eu não tenho",
     "ask_yes": "Sim, eu fiz",
-    "text_lnd": "Por favor, reserve um momento para guardar este backup. É o seu backup que lhe permite restaurar a carteira em outro dispositivo."
+    "text_lnd": "Por favor, reserve um momento para guardar este backup. É o seu backup que lhe permite restaurar a carteira em outro dispositivo.",
+    "title": "Frase de apoio",
+    "subtitle": "A sua frase de recuperação",
+    "info": "Nunca partilhe a frase de recuperação com ninguém, guarde-a em segurança!",
+    "description": "Escreva estas palavras na ordem certa e guarde-as num lugar seguro.",
+    "confirm": "Compreendo que se eu perder a minha frase de recuperação, não poderei ter acesso aos meus fundos."
   },
   "receive": {
     "details_create": "Criar",
@@ -331,5 +356,12 @@
     "sign_placeholder_address": "Endereço",
     "type_receive": "receber",
     "transactions": "transacções"
+  },
+  "signUp": {
+    "title": "Termos e condições gerais",
+    "text": "Por favor leia os nossos Termos e Condições Gerais",
+    "link": "Termos e Condições Gerais DFX Swiss",
+    "confirm": "Li e concordo com os Termos e Condições Gerais.",
+    "accept": "Aceito"
   }
 }

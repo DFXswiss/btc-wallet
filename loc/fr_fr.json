@@ -97,6 +97,26 @@
     "success": "Succès",
     "title": "Déni plausible"
   },
+  "backupExplanation": {
+    "title": "Phrase de sauvegarde",
+    "subtitle": "Récupération de la phrase de sauvegarde",
+    "text": "Trouvez un endroit sûr et privé. Mettez un stylo et du papier pour écrire votre phrase de récupération.",
+    "items": [
+      {
+        "title": "Mots secrets",
+        "text": "Votre phrase de récupération est une liste de 12 mots secrets dans un ordre prédéfini qui sauvegardent votre clé privée."
+      },
+      {
+        "title": "Unrestorable",
+        "text": "Si vous perdez votre phrase de récupération, vous ne pourrez plus accéder à vos fonds, car personne ne pourra la restaurer."
+      },
+      {
+        "title": "Seule chance",
+        "text": "Cette phrase est votre seule chance de récupérer l'accès à vos fonds si votre DFX Bitcoin App ou votre appareil habituel est indisponible pour vous."
+      }
+    ],
+    "ready": "Prêt"
+  },
   "pleasebackup": {
     "ask": "Avez-vous noté la phrase de sauvegarde de votre portefeuille ? Cette phrase de sauvegarde est nécessaire pour accéder à vos fonds en cas de perte de votre appareil. Sans ce backup, vos fonds pourraient être perdus pour toujours.",
     "ask_no": "Non",
@@ -105,7 +125,11 @@
     "ok_lnd": "OK, je l'ai sauvegardée.",
     "text": "Veuillez prendre un moment pour noter cette phrase de sauvegarde sur papier.\nC'est votre backup et vous pouvez l'utiliser pour restaurer votre portefeuille.",
     "text_lnd": "Veuillez sauvegarder cette sauvegarde de portefeuille. Elle vous permettra de restaurer le portefeuille en cas de perte.",
-    "title": "Votre portefeuille a été créé"
+    "title": "Phrase de sauvegarde",
+    "subtitle": "Votre phrase de récupération",
+    "info": "Ne partagez jamais votre phrase de rétablissement avec quiconque, conservez-la en toute sécurité !",
+    "description": "Notez ces mots dans le bon ordre et sauvegardez-les dans un endroit sûr.",
+    "confirm": "Je comprends que si je perds ma phrase de récupération, je ne pourrai pas accéder à mes fonds."
   },
   "receive": {
     "details_create": "Créer",
@@ -586,5 +610,12 @@
     "auth_answer": "Vous vous êtes authentifié avec succès à {hostname}!",
     "could_not_auth": "Nous n'avons pas pu vous authentifier à {hostname}.",
     "authenticate": "Authentifier"
+  },
+  "signUp": {
+    "title": "Conditions générales",
+    "text": "Veuillez lire nos conditions générales",
+    "link": "Conditions générales DFX Swiss",
+    "confirm": "J'ai lu et j'accepte les conditions générales.",
+    "accept": "Accepter"
   }
 }
