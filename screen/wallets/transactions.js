@@ -35,7 +35,6 @@ import alert from '../../components/Alert';
 import DfxButton from '../img/dfx/buttons/open-payment.png';
 import { ImageButton } from '../../components/ImageButton';
 import { useSessionContext } from '../../contexts/session.context';
-import { useWalletContext } from '../../contexts/wallet.context';
 
 const fs = require('../../blue_modules/fs');
 const BlueElectrum = require('../../blue_modules/BlueElectrum');
@@ -60,8 +59,8 @@ const WalletTransactions = () => {
   const { colors } = useTheme();
   const walletActionButtonsRef = useRef();
   const { needsSignUp, openPayment } = useSessionContext();
-  const { discover } = useWalletContext();
   const { width } = useWindowDimensions();
+  const [isHandlingOpenPayment, setIsHandlingOpenPayment] = useState(false);
 
   const stylesHook = StyleSheet.create({
     listHeaderText: {
@@ -132,10 +131,9 @@ const WalletTransactions = () => {
         isLoading: false,
         showsBackupSeed: !newWallet.getUserHasBackedUpSeed() && newWallet.getBalance() > 0,
       });
-      discover().catch(console.error);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wallets, wallet, walletID]);
+  }, [wallets, walletID]);
 
   // refresh transactions if it never hasn't been done. It could be a fresh imported wallet
   useEffect(() => {
@@ -150,10 +148,14 @@ const WalletTransactions = () => {
   }, [needsSignUp, navigate]);
 
   const handleOpenPayment = () => {
+    setIsHandlingOpenPayment(true);
     if (needsSignUp) {
       navigate('SignUp');
+      setIsHandlingOpenPayment(false);
     } else {
-      openPayment();
+      openPayment()
+        .catch(console.error)
+        .finally(() => setIsHandlingOpenPayment(false));
     }
   };
 
@@ -491,7 +493,7 @@ const WalletTransactions = () => {
       />
       <View style={styles.dfxButtonContainer}>
         <View style={styles.dfxIcons}>
-          <ImageButton source={DfxButton} onPress={handleOpenPayment} />
+          <ImageButton source={DfxButton} onPress={handleOpenPayment} disabled={isHandlingOpenPayment} />
         </View>
       </View>
       <View style={[styles.list, stylesHook.list]}>

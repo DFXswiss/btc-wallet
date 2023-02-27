@@ -1,10 +1,9 @@
-import React, { createContext, PropsWithChildren, useContext, useEffect, useState } from 'react';
+import React, { createContext, PropsWithChildren, useContext, useMemo } from 'react';
 import { BlueStorageContext } from '../blue_modules/storage-context';
 
 interface WalletInterface {
   walletID?: string;
   address?: string;
-  discover: () => Promise<void>;
   signMessage: (message: string, address: string) => Promise<string>;
 }
 
@@ -15,44 +14,24 @@ export function useWalletContext(): WalletInterface {
 }
 
 export function WalletContextProvider(props: PropsWithChildren<any>): JSX.Element {
-  const { wallets } = useContext(BlueStorageContext);
-  const [address, setAddress] = useState<string>();
+  const { wallets, walletsInitialized } = useContext(BlueStorageContext);
 
-  useEffect(() => {
-    if (wallets.length === 0) setAddress(undefined);
-  }, [wallets]);
-
-  function getWallet(): any {
-    return wallets?.[0];
-  }
-
-  async function discoverAddress(): Promise<string> {
-    if (address) return address;
-    const wallet = getWallet();
-    return wallet._getExternalAddressByIndex(0);
-  }
-
-  async function signMessage(message: string, address: string): Promise<string> {
-    try {
-      return await getWallet().signMessage(message, address);
-    } catch (e: any) {
-      // TODO (Krysh): real error handling
-      console.error(e.message, e.code);
-      throw e;
-    }
-  }
-
-  async function discover(): Promise<void> {
-    if (!getWallet()) return;
-    return discoverAddress().then(setAddress);
-  }
-
-  const context: WalletInterface = {
-    walletID: wallets?.[0]?.getID(),
-    address,
-    discover,
-    signMessage,
-  };
+  const context: WalletInterface = useMemo(() => {
+    return {
+      walletID: wallets?.[0]?.getID(),
+      address: wallets?.[0]?._getExternalAddressByIndex(0),
+      signMessage: async (message: string, address: string): Promise<string> => {
+        try {
+          return await wallets?.[0].signMessage(message, address);
+        } catch (e: any) {
+          // TODO (Krysh): real error handling
+          console.error(e.message, e.code);
+          throw e;
+        }
+      },
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wallets, walletsInitialized]);
 
   return <WalletContext.Provider value={context}>{props.children}</WalletContext.Provider>;
 }
