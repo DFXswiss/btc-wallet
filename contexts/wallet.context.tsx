@@ -22,7 +22,7 @@ export function WalletContextProvider(props: PropsWithChildren<any>): JSX.Elemen
       address: wallets?.[0]?._getExternalAddressByIndex(0),
       signMessage: async (message: string, address: string): Promise<string> => {
         try {
-          return await wallets?.[0].signMessage(message, address);
+          return await wallets?.[0]?.signMessage(message, address);
         } catch (e: any) {
           // TODO (Krysh): real error handling
           console.error(e.message, e.code);
