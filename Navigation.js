@@ -82,6 +82,7 @@ import LdkViewLogs from './screen/wallets/ldkViewLogs';
 import SignUp from './screen/wallets/dfx/sign-up';
 import BackupExplanation from './screen/wallets/dfx/backup-explanation';
 import { BlueStorageContext } from './blue_modules/storage-context';
+import Sell from './screen/dfx/sell';
 
 const WalletsStack = createNativeStackNavigator();
 
@@ -452,6 +453,17 @@ const ExportMultisigCoordinationSetupRoot = () => {
   );
 };
 
+const DeeplinkStack = createNativeStackNavigator();
+const DeeplinkStackRoot = () => {
+  const theme = useTheme();
+
+  return (
+    <DeeplinkStack.Navigator name="Deeplink" screenOptions={{ headerHideShadow: true }} initialRouteName="Sell">
+      <DeeplinkStack.Screen name="Sell" component={Sell} options={Sell.navigationOptions(theme)} />
+    </DeeplinkStack.Navigator>
+  );
+};
+
 const RootStack = createNativeStackNavigator();
 const NavigationDefaultOptions = { headerShown: false, stackPresentation: isDesktop ? 'containedModal' : 'modal' };
 const Navigation = () => {
@@ -492,6 +504,8 @@ const Navigation = () => {
           stackPresentation: isDesktop ? 'containedModal' : 'fullScreenModal',
         }}
       />
+
+      <RootStack.Screen name="DeeplinkRoot" component={DeeplinkStackRoot} options={NavigationDefaultOptions} />
     </RootStack.Navigator>
   );
 };

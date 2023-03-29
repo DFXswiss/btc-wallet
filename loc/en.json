@@ -626,5 +626,8 @@
     "link": "Terms and conditions DFX Swiss",
     "confirm": "I have read and agree to the terms and conditions.",
     "accept": "Accept"
+  },
+  "sell": {
+    "header": "Sell"
   }
 }

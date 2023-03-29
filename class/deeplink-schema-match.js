@@ -17,7 +17,8 @@ class DeeplinkSchemaMatch {
       lowercaseString.startsWith('lightning:') ||
       lowercaseString.startsWith('blue:') ||
       lowercaseString.startsWith('bluewallet:') ||
-      lowercaseString.startsWith('lapp:')
+      lowercaseString.startsWith('lapp:') ||
+      lowercaseString.startsWith('bitcoindfx:')
     );
   }
 
@@ -186,7 +187,12 @@ class DeeplinkSchemaMatch {
     } else {
       const urlObject = url.parse(event.url, true); // eslint-disable-line n/no-deprecated-api
       (async () => {
-        if (urlObject.protocol === 'bluewallet:' || urlObject.protocol === 'lapp:' || urlObject.protocol === 'blue:') {
+        if (
+          urlObject.protocol === 'bluewallet:' ||
+          urlObject.protocol === 'lapp:' ||
+          urlObject.protocol === 'blue:' ||
+          urlObject.protocol === 'bitcoindfx:'
+        ) {
           switch (urlObject.host) {
             case 'openlappbrowser': {
               console.log('opening LAPP', urlObject.query.url);
@@ -262,6 +268,11 @@ class DeeplinkSchemaMatch {
                 },
               ]);
               break;
+            case 'home':
+              completionHandler(['WalletsRoot', { screen: 'WalletTransactions' }]);
+              break;
+            case 'sell':
+              completionHandler(['DeeplinkRoot', { screen: 'Sell', params: urlObject.query }]);
           }
         }
       })();
