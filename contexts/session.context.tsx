@@ -13,6 +13,7 @@ export interface SessionInterface {
   isNotAllowedInCountry: boolean;
   isProcessing: boolean;
   openPayment: () => Promise<void>;
+  openBuy: () => Promise<void>;
   login: () => Promise<string>;
   signUp: () => Promise<string>;
   logout: () => Promise<void>;
@@ -82,13 +83,24 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
     await deleteSession();
   }
 
-  async function openPayment(): Promise<void> {
+  async function retrieveToken(): Promise<string | null | undefined> {
     let token = authenticationToken;
     if (!authenticationToken) {
       token = await login();
     }
+    return token;
+  }
+
+  async function openPayment(): Promise<void> {
+    const token = await retrieveToken();
     if (!token) return;
     return Linking.openURL(`${Config.REACT_APP_PAY_URL}login?token=${token}`);
+  }
+
+  async function openBuy(): Promise<void> {
+    const token = await retrieveToken();
+    if (!token) return;
+    return Linking.openURL(`${Config.REACT_APP_SRV_URL}buy?session=${token}&blockchain=Bitcoin&app-identifier=bitcoindfx`);
   }
 
   const context = {
@@ -98,6 +110,7 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
     isNotAllowedInCountry,
     isProcessing,
     openPayment,
+    openBuy,
     login,
     signUp,
     logout,
