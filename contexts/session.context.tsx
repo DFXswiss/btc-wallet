@@ -10,6 +10,7 @@ export interface SessionInterface {
   address?: string;
   isLoggedIn: boolean;
   needsSignUp: boolean;
+  isNotAllowedInCountry: boolean;
   isProcessing: boolean;
   openPayment: () => Promise<void>;
   login: () => Promise<string>;
@@ -30,6 +31,7 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
   const [needsSignUp, setNeedsSignUp] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [signature, setSignature] = useState<string>();
+  const [isNotAllowedInCountry, setIsNotAllowedInCountry] = useState(false);
 
   async function createApiSession(address: string): Promise<string> {
     if (isLoggedIn) return '';
@@ -38,6 +40,10 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
     setIsProcessing(true);
     return createSession(address, signature, false)
       .catch((error: ApiError) => {
+        if (error.statusCode === 403) {
+          setIsNotAllowedInCountry(true);
+        }
+
         if (error.statusCode === 404) {
           setSignature(signature);
           setNeedsSignUp(true);
@@ -89,6 +95,7 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
     address,
     isLoggedIn,
     needsSignUp,
+    isNotAllowedInCountry,
     isProcessing,
     openPayment,
     login,

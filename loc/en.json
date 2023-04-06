@@ -21,7 +21,9 @@
     "downloads_folder": "Downloads Folder"
   },
   "alert": {
-    "default": "Alert"
+    "default": "Alert",
+    "availability": "Availability",
+    "not_available": "Unfortunately, DFX services are not available in your country."
   },
   "azteco": {
     "codeIs": "Your voucher code is",

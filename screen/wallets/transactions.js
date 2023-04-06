@@ -58,7 +58,7 @@ const WalletTransactions = () => {
   const { setParams, setOptions, navigate } = useNavigation();
   const { colors } = useTheme();
   const walletActionButtonsRef = useRef();
-  const { needsSignUp, openPayment } = useSessionContext();
+  const { isNotAllowedInCountry, needsSignUp, openPayment } = useSessionContext();
   const { width } = useWindowDimensions();
   const [isHandlingOpenPayment, setIsHandlingOpenPayment] = useState(false);
 
@@ -96,6 +96,10 @@ const WalletTransactions = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const showNotAvailableInCountryAlert = () => {
+    Alert.alert(loc.alert.availability, loc.alert.not_available, [{ text: loc._.ok }], { cancelable: false });
+  };
 
   useEffect(() => {
     setOptions({ headerTitle: walletTransactionUpdateStatus === walletID ? loc.transactions.updating : '' });
@@ -144,18 +148,23 @@ const WalletTransactions = () => {
   }, []);
 
   useEffect(() => {
-    if (needsSignUp) navigate('SignUp');
-  }, [needsSignUp, navigate]);
+    if (needsSignUp && !isNotAllowedInCountry) navigate('SignUp');
+  }, [needsSignUp, isNotAllowedInCountry, navigate]);
 
   const handleOpenPayment = () => {
     setIsHandlingOpenPayment(true);
-    if (needsSignUp) {
-      navigate('SignUp');
+    if (isNotAllowedInCountry) {
+      showNotAvailableInCountryAlert();
       setIsHandlingOpenPayment(false);
     } else {
-      openPayment()
-        .catch(console.error)
-        .finally(() => setIsHandlingOpenPayment(false));
+      if (needsSignUp) {
+        navigate('SignUp');
+        setIsHandlingOpenPayment(false);
+      } else {
+        openPayment()
+          .catch(console.error)
+          .finally(() => setIsHandlingOpenPayment(false));
+      }
     }
   };
 
