@@ -32,7 +32,7 @@ import BlueClipboard from '../../blue_modules/clipboard';
 import TransactionsNavigationHeader from '../../components/TransactionsNavigationHeader';
 import { TransactionListItem } from '../../components/TransactionListItem';
 import alert from '../../components/Alert';
-import DfxButton from '../img/dfx/buttons/open-payment.png';
+import DfxButton from '../img/dfx/buttons/dfx-services.png';
 import { ImageButton } from '../../components/ImageButton';
 import { useSessionContext } from '../../contexts/session.context';
 import { useAssetContext } from '../../api/contexts/asset.context';
