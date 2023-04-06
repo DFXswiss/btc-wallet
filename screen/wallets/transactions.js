@@ -45,7 +45,8 @@ const buttonFontSize =
     : PixelRatio.roundToNearestPixel(Dimensions.get('window').width / 26);
 
 const WalletTransactions = () => {
-  const { wallets, saveToDisk, setSelectedWallet, walletTransactionUpdateStatus, isElectrumDisabled } = useContext(BlueStorageContext);
+  const { wallets, saveToDisk, setSelectedWallet, refreshAllWalletTransactions, walletTransactionUpdateStatus, isElectrumDisabled } =
+    useContext(BlueStorageContext);
   const walletID = wallets[0]?.getID();
   const [isLoading, setIsLoading] = useState(false);
   const { name } = useRoute();
@@ -187,6 +188,7 @@ const WalletTransactions = () => {
     try {
       // await BlueElectrum.ping();
       await BlueElectrum.waitTillConnected();
+      await refreshAllWalletTransactions(wallet.getID(), false);
       /** @type {LegacyWallet} */
       const balanceStart = +new Date();
       const oldBalance = wallet.getBalance();
