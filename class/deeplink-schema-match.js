@@ -268,7 +268,7 @@ class DeeplinkSchemaMatch {
                 },
               ]);
               break;
-            case 'home':
+            case 'buy':
               completionHandler(['WalletsRoot', { screen: 'WalletTransactions' }]);
               break;
             // case 'sell':
