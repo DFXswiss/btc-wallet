@@ -35,7 +35,7 @@ import alert from '../../components/Alert';
 import DfxButton from '../img/dfx/buttons/dfx-services.png';
 import { ImageButton } from '../../components/ImageButton';
 import { useSessionContext } from '../../contexts/session.context';
-import { useAssetContext } from '../../api/contexts/asset.context';
+import Config from 'react-native-config';
 
 const fs = require('../../blue_modules/fs');
 const BlueElectrum = require('../../blue_modules/BlueElectrum');
@@ -60,10 +60,9 @@ const WalletTransactions = () => {
   const { setParams, setOptions, navigate } = useNavigation();
   const { colors } = useTheme();
   const walletActionButtonsRef = useRef();
-  const { isNotAllowedInCountry, needsSignUp, openPayment, openBuy } = useSessionContext();
-  const { assets } = useAssetContext();
+  const { isNotAllowedInCountry, needsSignUp, openServices } = useSessionContext();
   const { width } = useWindowDimensions();
-  const [isHandlingOpenPayment, setIsHandlingOpenPayment] = useState(false);
+  const [isHandlingOpenServices, setIsHandlingOpenServices] = useState(false);
 
   const stylesHook = StyleSheet.create({
     listHeaderText: {
@@ -154,25 +153,16 @@ const WalletTransactions = () => {
     if (needsSignUp && !isNotAllowedInCountry) navigate('SignUp');
   }, [needsSignUp, isNotAllowedInCountry, navigate]);
 
-  const handleOpenPayment = () => {
-    setIsHandlingOpenPayment(true);
+  const handleOpenServices = () => {
     if (isNotAllowedInCountry) {
       showNotAvailableInCountryAlert();
-      setIsHandlingOpenPayment(false);
     } else {
-      if (needsSignUp) {
-        navigate('SignUp');
-        setIsHandlingOpenPayment(false);
-      } else {
-        openPayment()
-          .catch(console.error)
-          .finally(() => setIsHandlingOpenPayment(false));
-      }
+      console.log(Config.REACT_APP_API_URL);
+      setIsHandlingOpenServices(true);
+      openServices()
+        .then(() => setIsHandlingOpenServices(false))
+        .catch(console.error);
     }
-  };
-
-  const handleOpenBuy = () => {
-    openBuy();
   };
 
   // if description of transaction has been changed we want to show new one
@@ -510,10 +500,7 @@ const WalletTransactions = () => {
       />
       <View style={styles.dfxButtonContainer}>
         <View style={styles.dfxIcons}>
-          <ImageButton source={DfxButton} onPress={handleOpenPayment} disabled={isHandlingOpenPayment} />
-        </View>
-        <View style={styles.dfxIcons}>
-          <ImageButton source={DfxButton} onPress={handleOpenBuy} disabled={isHandlingOpenPayment} />
+          <ImageButton source={DfxButton} onPress={handleOpenServices} disabled={isHandlingOpenServices} />
         </View>
       </View>
       <View style={[styles.list, stylesHook.list]}>
