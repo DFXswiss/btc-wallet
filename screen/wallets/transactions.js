@@ -35,7 +35,6 @@ import alert from '../../components/Alert';
 import DfxButton from '../img/dfx/buttons/dfx-services.png';
 import { ImageButton } from '../../components/ImageButton';
 import { useSessionContext } from '../../contexts/session.context';
-import Config from 'react-native-config';
 
 const fs = require('../../blue_modules/fs');
 const BlueElectrum = require('../../blue_modules/BlueElectrum');
@@ -157,7 +156,6 @@ const WalletTransactions = () => {
     if (isNotAllowedInCountry) {
       showNotAvailableInCountryAlert();
     } else {
-      console.log(Config.REACT_APP_API_URL);
       setIsHandlingOpenServices(true);
       openServices()
         .then(() => setIsHandlingOpenServices(false))
