@@ -92,7 +92,7 @@ const WalletsAdd = () => {
   const createWallet = async () => {
     setIsLoading(true);
 
-    const w = new SegwitP2SHWallet();
+    const w = new HDSegwitP2SHWallet();
     w.setLabel(label);
 
     if (entropy) {
