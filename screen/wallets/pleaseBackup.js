@@ -80,7 +80,7 @@ const PleaseBackup = () => {
     </View>
   ) : (
     <SafeBlueArea style={stylesHook.flex}>
-      <ScrollView contentContainerStyle={styles.flex} testID="PleaseBackupScrollView">
+      <ScrollView contentContainerStyle={styles.scrollableContainer} testID="PleaseBackupScrollView">
         <View style={styles.please}>
           <Text style={styles.subtitle}>{loc.pleasebackup.subtitle}</Text>
           <Text style={[styles.subtext, stylesHook.text]}>{loc.pleasebackup.description}</Text>
@@ -115,8 +115,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
-  flex: {
-    flex: 1,
+  scrollableContainer: {
+    flexGrow: 1,
+    flexShrink: 0,
   },
   word: {
     marginRight: 8,
@@ -142,7 +143,6 @@ const styles = StyleSheet.create({
   },
   bottomContainer: {
     flex: 1,
-    flexGrow: 1,
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'flex-end',

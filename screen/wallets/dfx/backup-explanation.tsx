@@ -50,24 +50,26 @@ const BackupExplanation = () => {
 
   return (
     <SafeBlueArea style={stylesHook.container}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-        <Image source={require('../../img/dfx/backup-phrase.png')} />
-        <Text style={styles.subtitle}>{loc.backupExplanation.subtitle}</Text>
-        <Text style={[styles.subtext, stylesHook.text]}>{loc.backupExplanation.text}</Text>
-        <View style={styles.itemsContainer}>
-          {loc.backupExplanation.items.map((item: { title: string; text: string }, index: number) => (
-            <View key={index} style={styles.itemTitleContainer}>
-              <Icon name={icons[index].name} type={icons[index].type} size={icons[index].size} color="#F5516C" />
-              <View style={styles.itemTextContainer}>
-                <Text style={styles.itemTitle}>{item.title}</Text>
-                <Text style={[styles.itemText, stylesHook.text]}>{item.text}</Text>
+      <ScrollView contentContainerStyle={styles.scrollableContainer}>
+        <View style={styles.contentContainer}>
+          <Image source={require('../../img/dfx/backup-phrase.png')} />
+          <Text style={styles.subtitle}>{loc.backupExplanation.subtitle}</Text>
+          <Text style={[styles.subtext, stylesHook.text]}>{loc.backupExplanation.text}</Text>
+          <View style={styles.itemsContainer}>
+            {loc.backupExplanation.items.map((item: { title: string; text: string }, index: number) => (
+              <View key={index} style={styles.itemTitleContainer}>
+                <Icon name={icons[index].name} type={icons[index].type} size={icons[index].size} color="#F5516C" />
+                <View style={styles.itemTextContainer}>
+                  <Text style={styles.itemTitle}>{item.title}</Text>
+                  <Text style={[styles.itemText, stylesHook.text]}>{item.text}</Text>
+                </View>
               </View>
+            ))}
+          </View>
+          <View style={styles.buttonContainer}>
+            <View style={styles.button}>
+              <BlueButton onPress={navigateToBackup} title={loc.backupExplanation.ready} testID="BackupExplanationReady" />
             </View>
-          ))}
-        </View>
-        <View style={styles.buttonContainer}>
-          <View style={styles.button}>
-            <BlueButton onPress={navigateToBackup} title={loc.backupExplanation.ready} testID="BackupExplanationReady" />
           </View>
         </View>
       </ScrollView>
@@ -76,12 +78,14 @@ const BackupExplanation = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 16,
+  scrollableContainer: {
+    flexGrow: 1,
+    flexShrink: 0,
   },
   contentContainer: {
     flex: 1,
     alignItems: 'center',
+    padding: 16,
   },
   subtitle: {
     color: '#FFFFFF',
@@ -120,7 +124,6 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     flex: 1,
-    flexGrow: 1,
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'flex-end',
