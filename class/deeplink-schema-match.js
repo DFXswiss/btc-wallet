@@ -271,9 +271,9 @@ class DeeplinkSchemaMatch {
             case 'buy':
               completionHandler(['WalletsRoot', { screen: 'WalletTransactions' }]);
               break;
-            // case 'sell':
-            //   completionHandler(['DeeplinkRoot', { screen: 'Sell', params: urlObject.query }]);
-            //   break;
+            case 'sell':
+              completionHandler(['DeeplinkRoot', { screen: 'Sell', params: urlObject.query }]);
+              break;
           }
         }
       })();
