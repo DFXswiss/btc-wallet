@@ -157,7 +157,7 @@ const WalletTransactions = () => {
       showNotAvailableInCountryAlert();
     } else {
       setIsHandlingOpenServices(true);
-      openServices()
+      openServices(wallet.getBalance())
         .then(() => setIsHandlingOpenServices(false))
         .catch(console.error);
     }

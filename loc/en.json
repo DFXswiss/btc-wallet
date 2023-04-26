@@ -631,7 +631,7 @@
     "header": "Confirm Sell",
     "bankAccount": "To your bank account",
     "currency": "Your currency",
-    "info": "You wil be notified by email when bank transfer to your account is done.",
+    "info": "You will be notified by email when the bank transfer to your account is done.",
     "confirm": "Cash out to bank account"
   }
 }

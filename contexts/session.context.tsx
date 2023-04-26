@@ -12,7 +12,7 @@ export interface SessionInterface {
   needsSignUp: boolean;
   isNotAllowedInCountry: boolean;
   isProcessing: boolean;
-  openServices: () => Promise<void>;
+  openServices: (balance: string) => Promise<void>;
   login: () => Promise<string>;
   signUp: () => Promise<string>;
   logout: () => Promise<void>;
@@ -90,10 +90,12 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
     return token;
   }
 
-  async function openServices(): Promise<void> {
+  async function openServices(balance: string): Promise<void> {
     const token = await retrieveToken();
     if (!token) return;
-    return Linking.openURL(encodeURI(`${Config.REACT_APP_SRV_URL}?session=${token}&blockchain=Bitcoin&redirect-uri=bitcoindfx://`));
+    return Linking.openURL(
+      encodeURI(`${Config.REACT_APP_SRV_URL}?session=${token}&blockchain=Bitcoin&balances=${balance}@BTC&redirect-uri=bitcoindfx://`),
+    );
   }
 
   const context = {

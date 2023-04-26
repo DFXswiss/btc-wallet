@@ -55,9 +55,6 @@ const Sell = () => {
   useEffect(() => {
     setIsTransactionReplaceable(wallet.type === HDSegwitBech32Wallet.type);
 
-    // we are ready!
-    setIsLoading(false);
-
     // load cached fees
     AsyncStorage.getItem(NetworkTransactionFee.StorageKey)
       .then(res => {
