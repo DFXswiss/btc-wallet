@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useContext, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useContext, useRef, useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -47,10 +47,10 @@ const buttonFontSize =
 const WalletTransactions = () => {
   const { wallets, saveToDisk, setSelectedWallet, refreshAllWalletTransactions, walletTransactionUpdateStatus, isElectrumDisabled } =
     useContext(BlueStorageContext);
-  const walletID = wallets[0]?.getID();
+  const walletID = useMemo(() => wallets[0]?.getID(), [wallets]);
   const [isLoading, setIsLoading] = useState(false);
   const { name } = useRoute();
-  const wallet = wallets.find(w => w.getID() === walletID);
+  const wallet = useMemo(() => wallets.find(w => w.getID() === walletID), [wallets, walletID]);
   const [itemPriceUnit, setItemPriceUnit] = useState(wallet.getPreferredBalanceUnit());
   const [dataSource, setDataSource] = useState(wallet.getTransactions(15));
   const [timeElapsed, setTimeElapsed] = useState(0);
