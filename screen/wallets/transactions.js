@@ -35,6 +35,7 @@ import alert from '../../components/Alert';
 import DfxButton from '../img/dfx/buttons/dfx-services.png';
 import { ImageButton } from '../../components/ImageButton';
 import { useSessionContext } from '../../contexts/session.context';
+import BigNumber from 'bignumber.js';
 
 const fs = require('../../blue_modules/fs');
 const BlueElectrum = require('../../blue_modules/BlueElectrum');
@@ -157,7 +158,7 @@ const WalletTransactions = () => {
       showNotAvailableInCountryAlert();
     } else {
       setIsHandlingOpenServices(true);
-      openServices(wallet.getBalance())
+      openServices(new BigNumber(wallet.getBalance()).dividedBy(10 ^ 8).toString())
         .then(() => setIsHandlingOpenServices(false))
         .catch(console.error);
     }
