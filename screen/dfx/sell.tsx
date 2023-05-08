@@ -148,11 +148,11 @@ const Sell = () => {
     return change;
   };
 
-  return isLoading ? (
+  return isLoading || !sell ? (
     <View style={[styles.loading, stylesHook.container]}>
       <ActivityIndicator />
     </View>
-  ) : sell ? (
+  ) : (
     <SafeBlueArea style={stylesHook.container}>
       <ScrollView contentContainerStyle={styles.contentContainer}>
         <View style={styles.contentContainer}>
@@ -182,8 +182,6 @@ const Sell = () => {
         </View>
       </ScrollView>
     </SafeBlueArea>
-  ) : (
-    <></>
   );
 };
 

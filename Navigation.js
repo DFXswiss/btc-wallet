@@ -460,9 +460,9 @@ const DeeplinkStackRoot = () => {
   return (
     <DeeplinkStack.Navigator name="Deeplink" screenOptions={{ headerHideShadow: true }} initialRouteName="Sell">
       <DeeplinkStack.Screen name="Sell" component={Sell} options={Sell.navigationOptions(theme)} />
-      <SendDetailsStack.Screen name="Confirm" component={Confirm} options={Confirm.navigationOptions(theme)} />
-      <SendDetailsStack.Screen name="CreateTransaction" component={SendCreate} options={SendCreate.navigationOptions(theme)} />{' '}
-      <SendDetailsStack.Screen
+      <DeeplinkStack.Screen name="Confirm" component={Confirm} options={Confirm.navigationOptions(theme)} />
+      <DeeplinkStack.Screen name="CreateTransaction" component={SendCreate} options={SendCreate.navigationOptions(theme)} />
+      <DeeplinkStack.Screen
         name="Success"
         component={Success}
         options={{
