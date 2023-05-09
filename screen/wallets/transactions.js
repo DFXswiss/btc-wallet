@@ -141,13 +141,13 @@ const WalletTransactions = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallets, walletID]);
 
-  // refresh transactions if it never hasn't been done. It could be a fresh imported wallet
   useEffect(() => {
-    if (wallet.getLastTxFetch() === 0) {
-      refreshTransactions();
-    }
+    if (!wallet) return;
+    refreshAllWalletTransactions()
+      .then(() => refreshTransactions())
+      .catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [wallet]);
 
   useEffect(() => {
     if (needsSignUp && !isNotAllowedInCountry) navigate('SignUp');
@@ -192,7 +192,6 @@ const WalletTransactions = () => {
     try {
       // await BlueElectrum.ping();
       await BlueElectrum.waitTillConnected();
-      await refreshAllWalletTransactions(wallet.getID(), false);
       /** @type {LegacyWallet} */
       const balanceStart = +new Date();
       const oldBalance = wallet.getBalance();
@@ -221,7 +220,7 @@ const WalletTransactions = () => {
     if (noErr && smthChanged) {
       console.log('saving to disk');
       await saveToDisk(); // caching
-      //    setDataSource([...getTransactionsSliced(limit)]);
+      setDataSource([...getTransactionsSliced(limit)]);
     }
     setIsLoading(false);
     setTimeElapsed(prev => prev + 1);
