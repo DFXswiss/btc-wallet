@@ -14,6 +14,7 @@ import { AbstractHDElectrumWallet } from '../../class/wallets/abstract-hd-electr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetworkTransactionFees, { NetworkTransactionFee } from '../../models/networkTransactionFees';
 import BigNumber from 'bignumber.js';
+const currency = require('../../blue_modules/currency');
 
 type SellRouteProps = RouteProp<
   {
@@ -90,7 +91,7 @@ const Sell = () => {
     const changeAddress = await getChangeAddressAsync();
     const requestedSatPerByte = Number(networkTransactionFees.mediumFee);
     const lutxo = wallet.getUtxo();
-    const targets = [{ address: sell?.deposit.address }];
+    const targets = [{ address: sell?.deposit.address, value: currency.btcToSatoshi(amount) }];
     const { tx, outputs, psbt, fee } = wallet.createTransaction(
       lutxo,
       targets,
