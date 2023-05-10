@@ -39,6 +39,7 @@ import BigNumber from 'bignumber.js';
 
 const fs = require('../../blue_modules/fs');
 const BlueElectrum = require('../../blue_modules/BlueElectrum');
+const currency = require('../../blue_modules/currency');
 
 const buttonFontSize =
   PixelRatio.roundToNearestPixel(Dimensions.get('window').width / 26) > 22
@@ -158,9 +159,9 @@ const WalletTransactions = () => {
       showNotAvailableInCountryAlert();
     } else {
       setIsHandlingOpenServices(true);
-      openServices(new BigNumber(wallet.getBalance()).dividedBy(10 ** 8).toString())
+      openServices(new BigNumber(currency.satoshiToBTC(wallet.getBalance())).toString())
         .catch(e =>
-          Alert.alert('Something went wrong', `Could not retrieve address from wallet\n${e}`, [
+          Alert.alert('Something went wrong', '' + e, [
             {
               text: loc._.ok,
               onPress: () => {},
