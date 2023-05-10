@@ -159,8 +159,16 @@ const WalletTransactions = () => {
     } else {
       setIsHandlingOpenServices(true);
       openServices(new BigNumber(wallet.getBalance()).dividedBy(10 ** 8).toString())
-        .then(() => setIsHandlingOpenServices(false))
-        .catch(console.error);
+        .catch(e =>
+          Alert.alert('Something went wrong', `Could not retrieve address from wallet\n${e}`, [
+            {
+              text: loc._.ok,
+              onPress: () => {},
+              style: 'default',
+            },
+          ]),
+        )
+        .finally(() => setIsHandlingOpenServices(false));
     }
   };
 
