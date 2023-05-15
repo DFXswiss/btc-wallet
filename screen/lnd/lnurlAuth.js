@@ -51,7 +51,8 @@ const LnurlAuth = () => {
   const authenticate = useCallback(() => {
     wallet
       .authenticate(LN)
-      .then(() => {
+      .then(r => {
+        console.log(r);
         setAuthState(AuthState.SUCCESS);
         setErrMsg('');
       })

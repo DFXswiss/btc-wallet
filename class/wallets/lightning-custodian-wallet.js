@@ -3,7 +3,18 @@ import Frisbee from 'frisbee';
 import bolt11 from 'bolt11';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import { isTorDaemonDisabled } from '../../blue_modules/environment';
+import OAuth from '../oauth';
 const torrific = require('../../blue_modules/torrific');
+
+const config = {
+  clientID: 'test_client',
+  clientSecret: 'test_secret',
+  callbackURL: 'bitcoindfx://ln-oauth-callback',
+  scope: 'account:read',
+  authorizationURL: 'https://app.regtest.getalby.com/oauth',
+  tokenURL: 'https://api.regtest.getalby.com/oauth/token',
+};
+
 export class LightningCustodianWallet extends LegacyWallet {
   static type = 'lightningCustodianWallet';
   static typeReadable = 'Lightning';
@@ -71,6 +82,10 @@ export class LightningCustodianWallet extends LegacyWallet {
     this._api = new Frisbee({
       baseURI: this.baseURI,
     });
+    if (this.baseURI && this.baseURI.includes('getalby')) {
+      console.log('krysh-debug', 'initialized albyApi');
+      this._albyApi = new Frisbee({ baseURI: 'https://api.getalby.com' });
+    }
     const isTorDisabled = await isTorDaemonDisabled();
 
     if (!isTorDisabled && this.baseURI && this.baseURI?.indexOf('.onion') !== -1) {
@@ -275,6 +290,20 @@ export class LightningCustodianWallet extends LegacyWallet {
     this.access_token = json.access_token;
     this._refresh_token_created_ts = +new Date();
     this._access_token_created_ts = +new Date();
+  }
+
+  async authorizeAlby() {
+    if (!this._albyApi) return;
+
+    const client = new OAuth(
+      config.clientID,
+      config.clientSecret,
+      config.callbackURL,
+      config.authorizationURL,
+      config.tokenURL,
+      config.scope,
+    );
+    return client.authenticate().then(console.log);
   }
 
   async checkLogin() {
@@ -670,6 +699,33 @@ export class LightningCustodianWallet extends LegacyWallet {
 
   authenticate(lnurl) {
     return lnurl.authenticate(this.secret);
+  }
+
+  async fetchUser() {
+    if (!this._albyApi) return;
+    console.log('krysh-debug accessing albyApi');
+    const response = await this._albyApi.get('/user/me', {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer' + ' ' + this.access_token,
+      },
+    });
+
+    const json = response.body;
+    if (typeof json === 'undefined') {
+      throw new Error('API failure: ' + response.err + ' ' + JSON.stringify(response.body));
+    }
+
+    if (json && json.error) {
+      throw new Error('API error: ' + json.message + ' (code ' + json.code + ')');
+    }
+
+    if (!json.payment_hash) {
+      throw new Error('API unexpected response: ' + JSON.stringify(response.body));
+    }
+
+    console.log('krysh-debug', json);
   }
 }
 

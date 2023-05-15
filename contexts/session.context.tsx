@@ -27,7 +27,7 @@ export function useSessionContext(): SessionInterface {
 export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Element {
   const { isLoggedIn, authenticationToken } = useAuthContext();
   const { getSignMessage, createSession, deleteSession } = useApiSession();
-  const { address, signMessage } = useWalletContext();
+  const { address, signMessage, authenticate } = useWalletContext();
   const [needsSignUp, setNeedsSignUp] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [signature, setSignature] = useState<string>();
@@ -85,6 +85,7 @@ export function SessionContextProvider(props: PropsWithChildren<any>): JSX.Eleme
   async function retrieveToken(): Promise<string | null | undefined> {
     let token = authenticationToken;
     if (!authenticationToken) {
+      if (!address) await authenticate();
       token = await login();
     }
     return token;

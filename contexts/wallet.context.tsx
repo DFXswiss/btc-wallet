@@ -5,6 +5,8 @@ interface WalletInterface {
   walletID?: string;
   address?: string;
   signMessage: (message: string, address: string) => Promise<string>;
+  // move to an own hook
+  authenticate: () => Promise<void>;
 }
 
 const WalletContext = createContext<WalletInterface>(undefined as any);
@@ -38,6 +40,11 @@ export function WalletContextProvider(props: PropsWithChildren<any>): JSX.Elemen
           console.error(e.message, e.code);
           throw e;
         }
+      },
+      authenticate: async (): Promise<void> => {
+        const wallet = wallets?.[0];
+        if (!wallet) return undefined;
+        wallet.authorizeAlby().then(console.warn);
       },
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

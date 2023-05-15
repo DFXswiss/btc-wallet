@@ -135,6 +135,7 @@
     "frisbee": "3.1.4",
     "junderw-crc32c": "1.2.0",
     "jwt-decode": "^3.1.2",
+    "lnurl": "^0.24.2",
     "lottie-ios": "3.4.4",
     "lottie-react-native": "5.1.4",
     "metro-react-native-babel-preset": "0.73.6",

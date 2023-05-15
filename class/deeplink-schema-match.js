@@ -111,6 +111,7 @@ class DeeplinkSchemaMatch {
       console.log(e);
     }
     if (isBothBitcoinAndLightning) {
+      console.log('krysh isBothBitcoinAndLightning');
       completionHandler([
         'SelectWallet',
         {
@@ -121,6 +122,7 @@ class DeeplinkSchemaMatch {
         },
       ]);
     } else if (DeeplinkSchemaMatch.isBitcoinAddress(event.url)) {
+      console.log('krysh isBitcoinAddress');
       completionHandler([
         'SendDetailsRoot',
         {
@@ -131,6 +133,7 @@ class DeeplinkSchemaMatch {
         },
       ]);
     } else if (DeeplinkSchemaMatch.isLightningInvoice(event.url)) {
+      console.log('krysh isLightningInvoice');
       completionHandler([
         'ScanLndInvoiceRoot',
         {
@@ -141,19 +144,35 @@ class DeeplinkSchemaMatch {
         },
       ]);
     } else if (DeeplinkSchemaMatch.isLnUrl(event.url)) {
+      const data = event.url.replace('lightning:', '').replace('LIGHTNING:', '');
+      const url = Lnurl.getUrlFromLnurl(data);
       // at this point we can not tell if it is lnurl-pay or lnurl-withdraw since it needs additional async call
       // to the server, which is undesirable here, so LNDCreateInvoice screen will handle it for us and will
       // redirect user to LnurlPay screen if necessary
-      completionHandler([
-        'LNDCreateInvoiceRoot',
-        {
-          screen: 'LNDCreateInvoice',
-          params: {
-            uri: event.url.replace('lightning:', '').replace('LIGHTNING:', ''),
-          },
-        },
-      ]);
+      completionHandler(
+        url.includes(Lnurl.TAG_LOGIN_REQUEST) && context.wallets.length > 0
+          ? [
+              'WalletsRoot',
+              {
+                screen: 'LnurlAuth',
+                params: {
+                  lnurl: data,
+                  walletID: context.wallets[0].getID(),
+                },
+              },
+            ]
+          : [
+              'LNDCreateInvoiceRoot',
+              {
+                screen: 'LNDCreateInvoice',
+                params: {
+                  uri: event.url.replace('lightning:', '').replace('LIGHTNING:', ''),
+                },
+              },
+            ],
+      );
     } else if (Lnurl.isLightningAddress(event.url)) {
+      console.log('krysh isLightningAddress');
       // this might be not just an email but a lightning addres
       // @see https://lightningaddress.com
       completionHandler([
@@ -166,6 +185,7 @@ class DeeplinkSchemaMatch {
         },
       ]);
     } else if (Azteco.isRedeemUrl(event.url)) {
+      console.log('krysh isRedeemUrl');
       completionHandler([
         'AztecoRedeemRoot',
         {
@@ -174,6 +194,7 @@ class DeeplinkSchemaMatch {
         },
       ]);
     } else if (new WatchOnlyWallet().setSecret(event.url).init().valid()) {
+      console.log('krysh WatchOnlyWallet');
       completionHandler([
         'AddWalletRoot',
         {
@@ -185,6 +206,7 @@ class DeeplinkSchemaMatch {
         },
       ]);
     } else {
+      console.log('krysh else');
       const urlObject = url.parse(event.url, true); // eslint-disable-line n/no-deprecated-api
       (async () => {
         if (
@@ -273,6 +295,9 @@ class DeeplinkSchemaMatch {
               break;
             case 'sell':
               completionHandler(['DeeplinkRoot', { screen: 'Sell', params: urlObject.query }]);
+              break;
+            case 'ln-oauth-callback':
+              console.log('krysh-debug', urlObject.query);
               break;
           }
         }
