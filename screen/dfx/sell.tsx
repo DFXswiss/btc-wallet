@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { RouteProp, useNavigation, useRoute, useTheme } from '@react-navigation/native';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BlueButton, SafeBlueArea } from '../../BlueComponents';
 import { navigationStyleTx } from '../../components/navigationStyle';
 import loc from '../../loc';
@@ -120,6 +120,16 @@ const Sell = () => {
     });
   }
 
+  function handleError(e: any) {
+    Alert.alert('Something went wrong', '' + e, [
+      {
+        text: loc._.ok,
+        onPress: () => {},
+        style: 'default',
+      },
+    ]);
+  }
+
   const getChangeAddressAsync = async () => {
     if (changeAddress) return changeAddress; // cache
 
@@ -177,7 +187,7 @@ const Sell = () => {
           </View>
           <View style={styles.buttonContainer}>
             <View style={styles.button}>
-              <BlueButton onPress={() => handleConfirm()} title={loc.sell.confirm} testID="SellConfirm" />
+              <BlueButton onPress={() => handleConfirm().catch(handleError)} title={loc.sell.confirm} testID="SellConfirm" />
             </View>
           </View>
         </View>
