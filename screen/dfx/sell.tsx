@@ -89,7 +89,7 @@ const Sell = () => {
   async function handleConfirm() {
     if (!wallet) return;
     const changeAddress = await getChangeAddressAsync();
-    const requestedSatPerByte = Number(networkTransactionFees.mediumFee);
+    const requestedSatPerByte = Number(networkTransactionFees.fastestFee);
     const lutxo = wallet.getUtxo();
     const targets = [{ address: sell?.deposit.address, value: currency.btcToSatoshi(amount) }];
     const { tx, outputs, psbt, fee } = wallet.createTransaction(
