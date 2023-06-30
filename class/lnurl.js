@@ -302,6 +302,10 @@ export default class Lnurl {
   }
 
   authenticate(secret) {
+    // if (this._lnurl && this._lnurl.includes('getalby') && this._lnurl.includes(Lnurl.TAG_LOGIN_REQUEST)) {
+    //   return this.authenticateAlby(secret);
+    // }
+
     return new Promise((resolve, reject) => {
       if (!this._lnurl) throw new Error('this._lnurl is not set');
 
@@ -331,6 +335,27 @@ export default class Lnurl {
       hmac.end();
     });
   }
+
+  // authenticateAlby(secret) {
+  //   return new Promise((resolve, reject) => {
+  //     if (!this._lnurl) throw new Error('this._lnurl is not set');
+
+  //     // implement whole PKCE process
+  //     // https://guides.getalby.com/alby-wallet-api/reference/authorization#pkce
+
+  //     const url = parse(Lnurl.getUrlFromLnurl(this._lnurl), true);
+
+  //     this.fetchGet(`${url.href}&sig=${derSignature.toString('hex')}&key=${publicKey.toString('hex')}`)
+  //       .then(reply => {
+  //         if (reply.status === 'OK') {
+  //           resolve();
+  //         } else {
+  //           reject(reply.reason);
+  //         }
+  //       })
+  //       .catch(err => reject(err));
+  //   });
+  // }
 
   static isLightningAddress(address) {
     // ensure only 1 `@` present:
