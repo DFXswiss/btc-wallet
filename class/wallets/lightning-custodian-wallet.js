@@ -4,6 +4,7 @@ import bolt11 from 'bolt11';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import { isTorDaemonDisabled } from '../../blue_modules/environment';
 const torrific = require('../../blue_modules/torrific');
+
 export class LightningCustodianWallet extends LegacyWallet {
   static type = 'lightningCustodianWallet';
   static typeReadable = 'Lightning';

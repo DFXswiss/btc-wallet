@@ -34,7 +34,6 @@ export function WalletContextProvider(props: PropsWithChildren<any>): JSX.Elemen
         try {
           return await wallets?.[0]?.signMessage(message, address);
         } catch (e: any) {
-          // TODO (Krysh): real error handling
           console.error(e.message, e.code);
           throw e;
         }

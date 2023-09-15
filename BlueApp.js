@@ -25,6 +25,7 @@ import {
 } from './class/';
 import { randomBytes } from './class/rng';
 import alert from './components/Alert';
+import { LightningLdsWallet } from './class/wallets/lightning-lds-wallet';
 
 const encryption = require('./blue_modules/encryption');
 const Realm = require('realm');
@@ -393,7 +394,8 @@ class AppStorage {
           case SLIP39SegwitBech32Wallet.type:
             unserializedWallet = SLIP39SegwitBech32Wallet.fromJson(key);
             break;
-          case LightningCustodianWallet.type: {
+          case LightningCustodianWallet.type:
+          case LightningLdsWallet.type: {
             /** @type {LightningCustodianWallet} */
             unserializedWallet = LightningCustodianWallet.fromJson(key);
             let lndhub = false;

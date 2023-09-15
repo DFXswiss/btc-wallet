@@ -16,12 +16,12 @@ import { useNavigation } from '@react-navigation/native';
 import { useLds } from '../../../api/lds/hooks/lds.hook';
 import { useWalletContext } from '../../../contexts/wallet.context';
 import { BlueStorageContext } from '../../../blue_modules/storage-context';
-import { LightningCustodianWallet } from '../../../class';
 import { Chain, WalletLabel } from '../../../models/bitcoinUnits';
+import { LightningLdsWallet } from '../../../class/wallets/lightning-lds-wallet';
 
 const AddLightning = () => {
   const { navigate } = useNavigation();
-  const { address, signMessage } = useWalletContext();
+  const { address: address, signMessage } = useWalletContext();
   const { getUser } = useLds();
 
   const { addWallet, saveToDisk } = useContext(BlueStorageContext);
@@ -48,19 +48,19 @@ const AddLightning = () => {
 
   const create = async () => {
     if (useCustom) {
-      // TODO
+      // TODO (david)
     } else {
       if (!address) throw new Error('Address is not defined');
 
-      const user = await getUser(address, m => signMessage(m, address));
+      const { lightning } = await getUser(address, m => signMessage(m, address));
 
-      for (const lnWallet of user.lightning.wallets) {
+      for (const lnWallet of lightning.wallets) {
         if (lnWallet.lndhubAdminUrl) {
           const [secret, baseUri] = lnWallet.lndhubAdminUrl.split('@');
 
-          // TODO: taproot wallet?
+          // TODO (david): taproot wallet?
 
-          const wallet = new LightningCustodianWallet();
+          const wallet = LightningLdsWallet.create(lightning.address, lightning.addressLnurl, lightning.addressOwnershipProof);
           wallet.setLabel(WalletLabel[Chain.OFFCHAIN]);
           wallet.setBaseURI(baseUri);
           wallet.setSecret(secret);
@@ -94,20 +94,20 @@ const AddLightning = () => {
 
           {useCustom && (
             <>
-              {/* TODO: translation */}
+              {/* TODO (david): translation */}
               <BlueButtonLink
                 title="How to use your own LNDHub"
                 onPress={() => Linking.openURL('https://docs.dfx.swiss/en/faq.html#how-to-use-your-own-LND-Hub')}
               />
-              {/* TODO */}
+              {/* TODO (david) */}
             </>
           )}
 
           <BlueSpacingAuto />
 
-          {/* TODO: translation! */}
+          {/* TODO (david): translation! */}
           <Text style={styles.disclaimer}>
-            Please note that by adding an LNDHub provider you automatically accept the terms and conditions of the corresponding provider.
+            Please note that by adding an LND Hub provider you automatically accept the terms and conditions of the corresponding provider.
           </Text>
           <BlueButton title={loc._.continue} onPress={onCreate} disabled={useCustom} isLoading={isLoading} />
           <BlueSpacing20 />
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
 
 AddLightning.navigationOptions = navigationStyle({}, opts => ({
   ...opts,
-  headerTitle: 'Add LND Hub', // TODO: translation
+  headerTitle: 'Add LND Hub', // TODO (david): translation
   headerHideBackButton: true,
   gestureEnabled: false,
 }));

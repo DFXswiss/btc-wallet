@@ -27,7 +27,7 @@ import { FContainer, FButton } from '../../components/FloatButtons';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import BlueClipboard from '../../blue_modules/clipboard';
 import alert from '../../components/Alert';
-import { useSessionContext } from '../../api/session.context';
+import { useDfxSessionContext } from '../../api/dfx/contexts/session.context';
 import TransactionsNavigationHeader, { actionKeys } from '../../components/TransactionsNavigationHeader';
 import PropTypes from 'prop-types';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
@@ -61,7 +61,7 @@ const WalletHome = ({ navigation }) => {
   const { setParams, setOptions, navigate } = useNavigation();
   const { colors, scanImage } = useTheme();
   const walletActionButtonsRef = useRef();
-  const { isNotAllowedInCountry, needsSignUp, signUp } = useSessionContext();
+  const { isNotAllowedInCountry, needsSignUp, signUp } = useDfxSessionContext();
   const { width } = useWindowDimensions();
 
   const wallet = useMemo(() => wallets.find(w => w.getID() === walletID), [wallets, walletID]);
@@ -402,7 +402,7 @@ const WalletHome = ({ navigation }) => {
           }
         }}
       />
-      {/* TODO: tiles
+      {/* TODO (david): tiles
       <View style={styles.dfxButtonContainer}>
         <View style={styles.dfxIcons}></View>
       </View> */}

@@ -11,3 +11,8 @@ export const Chain = {
   OFFCHAIN: 'OFFCHAIN',
 } as const;
 export type Chain = (typeof Chain)[keyof typeof Chain];
+
+export const WalletLabel = {
+  ONCHAIN: 'Bitcoin On-Chain',
+  OFFCHAIN: 'Bitcoin Lightning',
+};

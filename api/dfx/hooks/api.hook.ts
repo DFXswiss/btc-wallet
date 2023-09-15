@@ -1,9 +1,7 @@
-import { useAuthContext } from '../contexts/auth.context';
-import { ApiError } from '../definitions/error';
 import Config from 'react-native-config';
 
 export interface ApiInterface {
-  call: <T>(config: CallConfig) => Promise<T>;
+  call: <T>(config: CallConfig, accessToken?: string) => Promise<T>;
 }
 
 export interface CallConfig {
@@ -20,8 +18,6 @@ interface SpecialHandling {
 }
 
 export function useApi(): ApiInterface {
-  const { authenticationToken, setAuthenticationToken } = useAuthContext();
-
   function buildInit(method: 'GET' | 'PUT' | 'POST' | 'DELETE', accessToken?: string | null, data?: any, noJson?: boolean): RequestInit {
     return {
       method,
@@ -33,31 +29,20 @@ export function useApi(): ApiInterface {
     };
   }
 
-  async function fetchFrom<T>(config: CallConfig): Promise<T> {
-    return fetch(
-      `${Config.REACT_APP_API_URL}/${config.url}`,
-      buildInit(config.method, authenticationToken, config.data, config.noJson),
-    ).then(response => {
-      if (response.status === config.specialHandling?.statusCode) {
-        config.specialHandling?.action?.();
-      }
-      if (response.ok) {
-        return response.json().catch(() => undefined);
-      }
-      return response.json().then(body => {
-        throw body;
-      });
-    });
-  }
-
-  async function call<T>(config: CallConfig): Promise<T> {
-    return fetchFrom<T>(config).catch((error: ApiError) => {
-      if (error.statusCode === 401) {
-        setAuthenticationToken(undefined);
-      }
-
-      throw error;
-    });
+  async function call<T>(config: CallConfig, accessToken?: string): Promise<T> {
+    return fetch(`${Config.REACT_APP_API_URL}/${config.url}`, buildInit(config.method, accessToken, config.data, config.noJson)).then(
+      response => {
+        if (response.status === config.specialHandling?.statusCode) {
+          config.specialHandling?.action?.();
+        }
+        if (response.ok) {
+          return response.json().catch(() => undefined);
+        }
+        return response.json().then(body => {
+          throw body;
+        });
+      },
+    );
   }
 
   return { call };

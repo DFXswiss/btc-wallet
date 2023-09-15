@@ -1,15 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface StoreInterface {
-  authenticationToken: {
-    get: () => Promise<string | null>;
-    set: (token: string) => Promise<void>;
+  dfxSession: {
+    get: () => Promise<Record<string, string>>;
+    set: (sessions: Record<string, string>) => Promise<void>;
     remove: () => Promise<void>;
   };
 }
 
 enum StoreKey {
-  AUTH_TOKEN = 'authenticationToken',
+  DFX_SESSION = 'dfx.session',
 }
 
 export function useStore(): StoreInterface {
@@ -26,10 +26,13 @@ export function useStore(): StoreInterface {
   }
 
   return {
-    authenticationToken: {
-      get: () => get(StoreKey.AUTH_TOKEN),
-      set: (value: string) => set(StoreKey.AUTH_TOKEN, value),
-      remove: () => remove(StoreKey.AUTH_TOKEN),
+    dfxSession: {
+      get: () =>
+        get(StoreKey.DFX_SESSION)
+          .then(r => (r ? JSON.parse(r) : {}))
+          .catch(() => ({})),
+      set: (sessions: Record<string, string>) => set(StoreKey.DFX_SESSION, JSON.stringify(sessions)),
+      remove: () => remove(StoreKey.DFX_SESSION),
     },
   };
 }
