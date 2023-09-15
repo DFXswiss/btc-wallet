@@ -4,9 +4,9 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 're
 import { BlueButton, SafeBlueArea } from '../../BlueComponents';
 import { navigationStyleTx } from '../../components/navigationStyle';
 import loc from '../../loc';
-import { useSell } from '../../api/hooks/sell.hook';
-import { useFiat } from '../../api/hooks/fiat.hook';
-import { SellInfo } from '../../api/definitions/sell';
+import { useSell } from '../../api/dfx/hooks/sell.hook';
+import { useFiat } from '../../api/dfx/hooks/fiat.hook';
+import { SellInfo } from '../../api/dfx/definitions/sell';
 import { Icon } from 'react-native-elements';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { HDSegwitBech32Wallet, WatchOnlyWallet } from '../../class';

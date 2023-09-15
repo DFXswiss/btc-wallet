@@ -160,7 +160,9 @@ const WalletDetails = () => {
     } catch (_) {}
     Notifications.unsubscribe(externalAddresses, [], []);
     dispatch(StackActions.replace('AddWalletRoot'));
-    deleteWallet(wallet);
+    for (const w of wallets) {
+      deleteWallet(w);
+    }
     saveToDisk(true);
     logout();
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
@@ -513,9 +515,7 @@ const WalletDetails = () => {
                   <View style={styles.row}>
                     {wallet.allowMasterFingerprint() && (
                       <View style={styles.marginRight16}>
-                        <Text style={[styles.textLabel2, stylesHook.textLabel2]}>
-                          {loc.wallets.details_master_fingerprint}
-                        </Text>
+                        <Text style={[styles.textLabel2, stylesHook.textLabel2]}>{loc.wallets.details_master_fingerprint}</Text>
                         <BlueText>{masterFingerprint ?? <ActivityIndicator />}</BlueText>
                       </View>
                     )}

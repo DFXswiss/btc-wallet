@@ -1,6 +1,6 @@
 import jwtDecode from 'jwt-decode';
 import React, { createContext, PropsWithChildren, useContext, useEffect, useState } from 'react';
-import { useStore } from '../../hooks/store.hook';
+import { useStore } from '../../../hooks/store.hook';
 import { Jwt } from '../definitions/jwt';
 
 interface AuthInterface {

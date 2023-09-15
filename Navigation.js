@@ -20,7 +20,7 @@ import NetworkSettings from './screen/settings/NetworkSettings';
 import NotificationSettings from './screen/settings/notificationSettings';
 import DefaultView from './screen/settings/defaultView';
 
-import WalletTransactions from './screen/wallets/transactions';
+import WalletHome from './screen/wallets/home';
 import AddWallet from './screen/wallets/add';
 import WalletsAddMultisig from './screen/wallets/addMultisig';
 import WalletsAddMultisigStep2 from './screen/wallets/addMultisigStep2';
@@ -85,6 +85,8 @@ import Sell from './screen/dfx/sell';
 import PaymentCode from './screen/wallets/paymentCode';
 import PaymentCodesList from './screen/wallets/paymentCodesList';
 import loc from './loc';
+import Asset from './screen/wallets/asset';
+import AddLightning from './screen/wallets/dfx/add-lightning';
 
 const WalletsStack = createNativeStackNavigator();
 
@@ -93,7 +95,9 @@ const WalletsRoot = () => {
 
   return (
     <WalletsStack.Navigator screenOptions={{ headerHideShadow: true }}>
-      <WalletsStack.Screen name="WalletTransactions" component={WalletTransactions} options={WalletTransactions.navigationOptions(theme)} />
+      <WalletsStack.Screen name="WalletTransactions" component={WalletHome} options={WalletHome.navigationOptions(theme)} />
+      <WalletsStack.Screen name="WalletAsset" component={Asset} options={Asset.navigationOptions(theme)} />
+      <WalletsStack.Screen name="AddLightning" component={AddLightning} options={AddLightning.navigationOptions(theme)} />
       <WalletsStack.Screen name="LdkOpenChannel" component={LdkOpenChannel} options={LdkOpenChannel.navigationOptions(theme)} />
       <WalletsStack.Screen name="LdkInfo" component={LdkInfo} options={LdkInfo.navigationOptions(theme)} />
       <WalletsStack.Screen name="WalletDetails" component={WalletDetails} options={WalletDetails.navigationOptions(theme)} />

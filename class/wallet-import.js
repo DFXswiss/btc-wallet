@@ -23,6 +23,7 @@ import {
 import loc from '../loc';
 import bip39WalletFormats from './bip39_wallet_formats.json'; // https://github.com/spesmilo/electrum/blob/master/electrum/bip39_wallet_formats.json
 import bip39WalletFormatsBlueWallet from './bip39_wallet_formats_bluewallet.json';
+import { WalletLabel } from '../models/bitcoinUnits';
 
 // https://github.com/bitcoinjs/bip32/blob/master/ts-src/bip32.ts#L43
 export const validateBip32 = path => path.match(/^(m\/)?(\d+'?\/)*\d+'?$/) !== null;
@@ -58,6 +59,7 @@ const startImport = (importTextOrig, askPassphrase = false, searchAccounts = fal
   };
   const reportWallet = wallet => {
     if (wallets.some(w => w.getID() === wallet.getID())) return; // do not add duplicates
+    wallet.setLabel(WalletLabel[wallet.chain]);
     wallets.push(wallet);
     onWallet(wallet);
   };

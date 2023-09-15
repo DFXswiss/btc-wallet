@@ -13,7 +13,7 @@ import { BluePrivateBalance } from '../BlueComponents';
 export default class TransactionsNavigationHeader extends Component {
   static propTypes = {
     wallet: PropTypes.shape().isRequired,
-    onWalletUnitChange: PropTypes.func,
+    onWalletChange: PropTypes.func,
     navigation: PropTypes.shape(),
     onManageFundsPressed: PropTypes.func,
     width: PropTypes.number,
@@ -50,7 +50,7 @@ export default class TransactionsNavigationHeader extends Component {
   };
 
   static getDerivedStateFromProps(props) {
-    return { wallet: props.wallet, onWalletUnitChange: props.onWalletUnitChange };
+    return { wallet: props.wallet, onWalletChange: props.onWalletChange };
   }
 
   static contextType = BlueStorageContext;
@@ -105,8 +105,9 @@ export default class TransactionsNavigationHeader extends Component {
     }
 
     wallet.hideBalance = !wallet.hideBalance;
-    this.setState({ wallet });
-    await this.context.saveToDisk();
+    this.setState({ wallet }, () => {
+      this.props.onWalletChange(wallet);
+    });
   };
 
   changeWalletBalanceUnit = () => {
@@ -128,7 +129,7 @@ export default class TransactionsNavigationHeader extends Component {
     }
 
     this.setState({ wallet, walletPreviousPreferredUnit }, () => {
-      this.props.onWalletUnitChange(wallet);
+      this.props.onWalletChange(wallet);
     });
   };
 
@@ -166,7 +167,7 @@ export default class TransactionsNavigationHeader extends Component {
       <View style={styles.lineaderGradient}>
         <Image source={require('../img/dfx/wallet-card.png')} style={[styles.chainIcon, { width: this.props.width }]} />
         <Text testID="WalletLabel" numberOfLines={1} style={styles.walletLabel}>
-          {loc.wallets.total}
+          {this.state.wallet.getLabel()}
         </Text>
         <ToolTipMenu
           onPress={this.changeWalletBalanceUnit}

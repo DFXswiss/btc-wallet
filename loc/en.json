@@ -415,7 +415,7 @@
     "add_title": "Add Wallet",
     "add_wallet_name": "Name",
     "add_wallet_type": "Type",
-    "add_disclaimer": "Please not that by using this self-custodial wallet you automatically accept the disclaimer.",
+    "add_disclaimer": "Please note that by using this self-custodial wallet you automatically accept the disclaimer.",
     "total": "Total",
     "balance": "Balance",
     "clipboard_bitcoin": "You have a Bitcoin address on your clipboard. Would you like to use it for a transaction?",
