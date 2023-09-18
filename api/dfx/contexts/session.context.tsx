@@ -9,6 +9,7 @@ import { Jwt } from '../definitions/jwt';
 import { useAuth } from '../hooks/auth.hook';
 import { BlueStorageContext } from '../../../blue_modules/storage-context';
 import { LightningLdsWallet } from '../../../class/wallets/lightning-lds-wallet';
+import Lnurl from '../../../class/lnurl';
 
 export interface SessionInterface {
   getAccessToken: (walletId: string) => Promise<string>;
@@ -93,11 +94,11 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
     } else {
       const wallet = wallets.find((w: any) => w.getID?.() === walletId);
       if (wallet.type === LightningLdsWallet.type) {
-        return createSession(wallet.lnurl, wallet.addressOwnershipProof);
+        return createSession(Lnurl.getLnurlFromAddress(wallet.lnAddress).toUpperCase(), wallet.addressOwnershipProof);
       }
-
-      return 'TODO (david): taproot?';
     }
+
+    throw new Error('TODO (david): taproot?');
   }
 
   async function getAccessToken(walletId: string): Promise<string> {

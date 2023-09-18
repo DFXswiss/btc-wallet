@@ -157,7 +157,7 @@ const Asset = ({ navigation }) => {
       setIsHandlingOpenServices(true);
       openServices(walletID, new BigNumber(currency.satoshiToBTC(wallet.getBalance())).toString())
         .catch(e =>
-          Alert.alert('Something went wrong', '' + e, [
+          Alert.alert('Something went wrong', e.message?.toString(), [
             {
               text: loc._.ok,
               onPress: () => {},

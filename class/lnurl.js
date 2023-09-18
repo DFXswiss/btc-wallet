@@ -33,6 +33,16 @@ export default class Lnurl {
     return null;
   }
 
+  static encode(url) {
+    const words = bech32.toWords(Buffer.from(url));
+    return bech32.encode('lnurl', words, 10000);
+  }
+
+  static decode(lnurl) {
+    const decoded = bech32.decode(lnurl, 10000);
+    return Buffer.from(bech32.fromWords(decoded.words)).toString();
+  }
+
   static getUrlFromLnurl(lnurlExample) {
     const found = Lnurl.findlnurl(lnurlExample);
     if (!found) {
@@ -46,8 +56,12 @@ export default class Lnurl {
       }
     }
 
-    const decoded = bech32.decode(found, 10000);
-    return Buffer.from(bech32.fromWords(decoded.words)).toString();
+    return this.decode(found);
+  }
+
+  static getLnurlFromAddress(address) {
+    const url = Lnurl.getUrlFromLnurl(address);
+    return url ? Lnurl.encode(url) : url;
   }
 
   static isLnurl(url) {

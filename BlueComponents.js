@@ -510,6 +510,31 @@ export const BlueFormLabel = props => {
   );
 };
 
+export const BlueFormInput = props => {
+  const { colors } = useTheme();
+
+  return (
+    <TextInput
+      underlineColorAndroid="transparent"
+      style={{
+        paddingHorizontal: 8,
+        paddingVertical: 16,
+        borderColor: colors.formBorder,
+        borderWidth: 1,
+        borderRadius: 4,
+        backgroundColor: colors.inputBackgroundColor,
+        color: colors.foregroundColor,
+        textAlignVertical: 'top',
+      }}
+      autoCorrect={false}
+      autoCapitalize="none"
+      spellCheck={false}
+      {...props}
+      selectTextOnFocus={false}
+    />
+  );
+};
+
 export const BlueFormMultiInput = props => {
   const { colors } = useTheme();
 

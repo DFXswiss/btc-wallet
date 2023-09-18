@@ -121,7 +121,7 @@ const Sell = () => {
   }
 
   function handleError(e: any) {
-    Alert.alert('Something went wrong', '' + e, [
+    Alert.alert('Something went wrong', e.message?.toString(), [
       {
         text: loc._.ok,
         onPress: () => {},
