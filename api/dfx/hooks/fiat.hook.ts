@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Fiat, FiatUrl } from '../definitions/fiat';
 import { useApi } from './api.hook';
 
@@ -29,9 +30,13 @@ export function useFiat(): FiatInterface {
     } as Record<string, string>,
   };
 
-  return {
-    getCurrencies,
-    toDescription: (currency: Fiat) => definitions.description[currency.name],
-    toSymbol: (currency: Fiat) => definitions.symbol[currency.name],
-  };
+  return useMemo(
+    () => ({
+      getCurrencies,
+      toDescription: (currency: Fiat) => definitions.description[currency.name],
+      toSymbol: (currency: Fiat) => definitions.symbol[currency.name],
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [call],
+  );
 }

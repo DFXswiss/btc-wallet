@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { AuthUrl, SignIn, SignMessage } from '../definitions/auth';
 import { useApi } from './api.hook';
 
@@ -22,5 +23,6 @@ export function useAuth(): AuthInterface {
     return call({ url: AuthUrl.signUp, method: 'POST', data: { address, signature, walletId: 12 } });
   }
 
-  return { getSignMessage, signIn, signUp };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => ({ getSignMessage, signIn, signUp }), [call]);
 }

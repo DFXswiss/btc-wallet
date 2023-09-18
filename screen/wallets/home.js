@@ -27,7 +27,6 @@ import { FContainer, FButton } from '../../components/FloatButtons';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import BlueClipboard from '../../blue_modules/clipboard';
 import alert from '../../components/Alert';
-import { useDfxSessionContext } from '../../api/dfx/contexts/session.context';
 import TransactionsNavigationHeader, { actionKeys } from '../../components/TransactionsNavigationHeader';
 import PropTypes from 'prop-types';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
@@ -61,7 +60,6 @@ const WalletHome = ({ navigation }) => {
   const { setParams, setOptions, navigate } = useNavigation();
   const { colors, scanImage } = useTheme();
   const walletActionButtonsRef = useRef();
-  const { isNotAllowedInCountry, needsSignUp, signUp } = useDfxSessionContext();
   const { width } = useWindowDimensions();
 
   const wallet = useMemo(() => wallets.find(w => w.getID() === walletID), [wallets, walletID]);
@@ -124,10 +122,6 @@ const WalletHome = ({ navigation }) => {
       .catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallet]);
-
-  useEffect(() => {
-    if (needsSignUp && !isNotAllowedInCountry) signUp();
-  }, [needsSignUp, signUp, isNotAllowedInCountry]);
 
   /**
    * Forcefully fetches TXs and balance for wallet

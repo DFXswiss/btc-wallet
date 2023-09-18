@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useMemo } from 'react';
 
 export interface StoreInterface {
   dfxSession: {
@@ -25,14 +26,17 @@ export function useStore(): StoreInterface {
     return AsyncStorage.removeItem(key);
   }
 
-  return {
-    dfxSession: {
-      get: () =>
-        get(StoreKey.DFX_SESSION)
-          .then(r => (r ? JSON.parse(r) : {}))
-          .catch(() => ({})),
-      set: (sessions: Record<string, string>) => set(StoreKey.DFX_SESSION, JSON.stringify(sessions)),
-      remove: () => remove(StoreKey.DFX_SESSION),
-    },
-  };
+  return useMemo(
+    () => ({
+      dfxSession: {
+        get: () =>
+          get(StoreKey.DFX_SESSION)
+            .then(r => (r ? JSON.parse(r) : {}))
+            .catch(() => ({})),
+        set: (sessions: Record<string, string>) => set(StoreKey.DFX_SESSION, JSON.stringify(sessions)),
+        remove: () => remove(StoreKey.DFX_SESSION),
+      },
+    }),
+    [],
+  );
 }

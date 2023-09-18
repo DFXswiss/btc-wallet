@@ -1,6 +1,7 @@
 import { ApiError } from '../definitions/error';
 import { CallConfig, useApi } from './api.hook';
 import { useDfxSessionContext } from '../contexts/session.context';
+import { useMemo } from 'react';
 
 export interface ApiAuthInterface {
   call: <T>(walletId: string, config: CallConfig) => Promise<T>;
@@ -22,5 +23,6 @@ export function useApiAuth(): ApiAuthInterface {
     );
   }
 
-  return { call };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => ({ call }), [apiCall]);
 }

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import Config from 'react-native-config';
 
 export interface ApiInterface {
@@ -34,5 +35,6 @@ export function useApi(): ApiInterface {
     });
   }
 
-  return { call };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => ({ call }), []);
 }

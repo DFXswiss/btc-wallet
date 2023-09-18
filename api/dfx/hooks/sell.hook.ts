@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Sell, SellInfo, SellPaymentInfo, SellUrl } from '../definitions/sell';
 import { useApiAuth } from './api-auth.hook';
 
@@ -17,5 +18,9 @@ export function useSell(): SellInterface {
     return call<SellInfo>(walletId, { url: SellUrl.get + '/' + id, method: 'GET' });
   }
 
-  return { receiveFor, getInfo };
+  return useMemo(
+    () => ({ receiveFor, getInfo }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [call],
+  );
 }
