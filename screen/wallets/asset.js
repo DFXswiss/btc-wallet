@@ -91,6 +91,7 @@ const Asset = ({ navigation }) => {
     txs = txs.sort(function (a, b) {
       return b.sort_ts - a.sort_ts;
     });
+
     return txs.slice(0, lmt);
   };
 
@@ -227,11 +228,13 @@ const Asset = ({ navigation }) => {
       setIsLoading(false);
       setTimeElapsed(prev => prev + 1);
     }
+
     if (noErr && smthChanged) {
       console.log('saving to disk');
       await saveToDisk(); // caching
-      setDataSource([...getTransactionsSliced(limit)]);
     }
+
+    setDataSource([...getTransactionsSliced(limit)]);
     setIsLoading(false);
     setTimeElapsed(prev => prev + 1);
   };

@@ -18,16 +18,16 @@ import {
 import { Icon } from 'react-native-elements';
 import { useRoute, useNavigation, useTheme } from '@react-navigation/native';
 import { Chain } from '../../models/bitcoinUnits';
-import { BlueAlertWalletExportReminder, BlueListItem, SecondButton } from '../../BlueComponents';
+import { BlueListItem, SecondButton } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
-import { LightningCustodianWallet, LightningLdkWallet, MultisigHDWallet, WatchOnlyWallet } from '../../class';
+import { WatchOnlyWallet } from '../../class';
 import ActionSheet from '../ActionSheet';
 import loc, { formatBalance } from '../../loc';
 import { FContainer, FButton } from '../../components/FloatButtons';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import BlueClipboard from '../../blue_modules/clipboard';
 import alert from '../../components/Alert';
-import TransactionsNavigationHeader, { actionKeys } from '../../components/TransactionsNavigationHeader';
+import TransactionsNavigationHeader from '../../components/TransactionsNavigationHeader';
 import PropTypes from 'prop-types';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
@@ -44,20 +44,13 @@ const buttonFontSize =
 const dummyLnWallet = { chain: Chain.OFFCHAIN, isDummy: true };
 
 const WalletHome = ({ navigation }) => {
-  const {
-    wallets: storedWallets,
-    saveToDisk,
-    setSelectedWallet,
-    refreshAllWalletTransactions,
-    walletTransactionUpdateStatus,
-    isElectrumDisabled,
-  } = useContext(BlueStorageContext);
+  const { wallets: storedWallets, saveToDisk, setSelectedWallet, isElectrumDisabled } = useContext(BlueStorageContext);
 
   const wallets = useMemo(() => (storedWallets.length === 1 ? [...storedWallets, dummyLnWallet] : storedWallets), [storedWallets]);
   const walletID = useMemo(() => wallets[0]?.getID(), [wallets]);
   const [isLoading, setIsLoading] = useState(false);
   const { name } = useRoute();
-  const { setParams, setOptions, navigate } = useNavigation();
+  const { setParams, navigate } = useNavigation();
   const { colors, scanImage } = useTheme();
   const walletActionButtonsRef = useRef();
   const { width } = useWindowDimensions();
@@ -82,23 +75,9 @@ const WalletHome = ({ navigation }) => {
   });
 
   useEffect(() => {
-    setOptions({ headerTitle: walletTransactionUpdateStatus === walletID ? loc.transactions.updating : '' });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [walletTransactionUpdateStatus]);
-
-  useEffect(() => {
     setIsLoading(true);
     setIsLoading(false);
     setSelectedWallet(wallet.getID());
-    setOptions({
-      headerStyle: {
-        backgroundColor: 'transparent',
-        borderBottomWidth: 0,
-        elevation: 0,
-        // shadowRadius: 0,
-        shadowOffset: { height: 0, width: 0 },
-      },
-    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletID]);
 
@@ -107,7 +86,6 @@ const WalletHome = ({ navigation }) => {
     if (newWallet) {
       setParams({
         walletID,
-        isLoading: false,
         showsBackupSeed: !newWallet.getUserHasBackedUpSeed(),
         backupWarning: newWallet.getBalance() > 0,
       });
@@ -116,90 +94,51 @@ const WalletHome = ({ navigation }) => {
   }, [wallets, walletID]);
 
   useEffect(() => {
-    if (!wallet) return;
-    refreshAllWalletTransactions()
-      .then(() => refreshTransactions())
-      .catch(console.error);
+    if (!wallets) return;
+    refreshBalances().catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wallet]);
+  }, [wallets]);
 
   /**
-   * Forcefully fetches TXs and balance for wallet
+   * Forcefully fetches balance for wallets
    */
-  const refreshTransactions = async () => {
+  const refreshBalances = async () => {
     if (isElectrumDisabled) return setIsLoading(false);
     if (isLoading) return;
+
     setIsLoading(true);
     let noErr = true;
     let smthChanged = false;
     try {
       // await BlueElectrum.ping();
       await BlueElectrum.waitTillConnected();
-      if (wallet.allowBIP47() && wallet.isBIP47Enabled()) {
-        const pcStart = +new Date();
-        await wallet.fetchBIP47SenderPaymentCodes();
-        const pcEnd = +new Date();
-        console.log(wallet.getLabel(), 'fetch payment codes took', (pcEnd - pcStart) / 1000, 'sec');
+
+      for (const w of wallets) {
+        smthChanged ||= await refreshBalance(w);
       }
-      const balanceStart = +new Date();
-      const oldBalance = wallet.getBalance();
-      await wallet.fetchBalance();
-      if (oldBalance !== wallet.getBalance()) smthChanged = true;
-      const balanceEnd = +new Date();
-      console.log(wallet.getLabel(), 'fetch balance took', (balanceEnd - balanceStart) / 1000, 'sec');
-      const start = +new Date();
-      const oldTxLen = wallet.getTransactions().length;
-      await wallet.fetchTransactions();
-      if (wallet.fetchPendingTransactions) {
-        await wallet.fetchPendingTransactions();
-      }
-      if (wallet.fetchUserInvoices) {
-        await wallet.fetchUserInvoices();
-      }
-      if (oldTxLen !== wallet.getTransactions().length) smthChanged = true;
-      const end = +new Date();
-      console.log(wallet.getLabel(), 'fetch tx took', (end - start) / 1000, 'sec');
     } catch (err) {
       noErr = false;
       alert(err.message);
       setIsLoading(false);
     }
+
     if (noErr && smthChanged) {
       console.log('saving to disk');
-      await saveToDisk(); // caching
-      //    setDataSource([...getTransactionsSliced(limit)]);
+      await saveToDisk();
     }
+
+    wallet.balance = 0;
+    await saveToDisk();
+
     setIsLoading(false);
   };
 
-  const onWalletSelect = async selectedWallet => {
-    if (selectedWallet) {
-      navigate('WalletTransactions', {
-        walletType: wallet.type,
-        walletID: wallet.getID(),
-        key: `WalletTransactions-${wallet.getID()}`,
-      });
-      /** @type {LightningCustodianWallet} */
-      let toAddress = false;
-      if (wallet.refill_addressess.length > 0) {
-        toAddress = wallet.refill_addressess[0];
-      } else {
-        try {
-          await wallet.fetchBtcAddress();
-          toAddress = wallet.refill_addressess[0];
-        } catch (Err) {
-          return alert(Err.message);
-        }
-      }
-      navigate('SendDetailsRoot', {
-        screen: 'SendDetails',
-        params: {
-          memo: loc.lnd.refill_lnd_balance,
-          address: toAddress,
-          walletID: selectedWallet.getID(),
-        },
-      });
-    }
+  const refreshBalance = async w => {
+    if (!w.getBalance) return false;
+
+    const oldBalance = w.getBalance();
+    await w.fetchBalance();
+    return oldBalance !== w.getBalance();
   };
 
   const navigateToSendScreen = () => {
@@ -324,35 +263,6 @@ const WalletHome = ({ navigation }) => {
     scanqrHelper(navigate, name, false).then(d => onBarScanned(d));
   };
 
-  const navigateToViewEditCosigners = () => {
-    navigate('ViewEditMultisigCosignersRoot', {
-      screen: 'ViewEditMultisigCosigners',
-      params: {
-        walletId: wallet.getID(),
-      },
-    });
-  };
-
-  const onManageFundsPressed = ({ id }) => {
-    if (id === actionKeys.Refill) {
-      const availableWallets = [...wallets.filter(item => item.chain === Chain.ONCHAIN && item.allowSend())];
-      if (availableWallets.length === 0) {
-        alert(loc.lnd.refill_create);
-      } else {
-        navigate('SelectWallet', { onWalletSelect, chainType: Chain.ONCHAIN });
-      }
-    } else if (id === actionKeys.RefillWithExternalWallet) {
-      if (wallet.getUserHasSavedExport()) {
-        navigate('ReceiveDetailsRoot', {
-          screen: 'ReceiveDetails',
-          params: {
-            walletID: wallet.getID(),
-          },
-        });
-      }
-    }
-  };
-
   return (
     <View style={styles.flex}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent animated />
@@ -366,35 +276,9 @@ const WalletHome = ({ navigation }) => {
               w.preferredBalanceUnit = total.preferredBalanceUnit;
               w.hideBalance = total.hideBalance;
             });
-            saveToDisk();
+            await saveToDisk();
           })
         }
-        onManageFundsPressed={id => {
-          if (wallet.type === MultisigHDWallet.type) {
-            navigateToViewEditCosigners();
-          } else if (wallet.type === LightningLdkWallet.type) {
-            navigate('LdkInfo', { walletID: wallet.getID() });
-          } else if (wallet.type === LightningCustodianWallet.type) {
-            if (wallet.getUserHasSavedExport()) {
-              onManageFundsPressed({ id });
-            } else {
-              BlueAlertWalletExportReminder({
-                onSuccess: async () => {
-                  wallet.setUserHasSavedExport(true);
-                  await saveToDisk();
-                  onManageFundsPressed({ id });
-                },
-                onFailure: () =>
-                  navigate('WalletExportRoot', {
-                    screen: 'WalletExport',
-                    params: {
-                      walletID: wallet.getID(),
-                    },
-                  }),
-              });
-            }
-          }
-        }}
       />
       {/* TODO (david): tiles
       <View style={styles.dfxButtonContainer}>
@@ -520,7 +404,6 @@ WalletHome.navigationOptions = navigationStyle({}, (options, { theme, navigation
       <TouchableOpacity
         accessibilityRole="button"
         testID="Settings"
-        disabled={(route?.params?.isLoading ?? true) === true}
         style={styles.walletDetails}
         onPress={() =>
           route?.params?.walletID &&
