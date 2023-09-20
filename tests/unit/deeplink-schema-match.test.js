@@ -137,7 +137,7 @@ describe.each(['', '//'])('unit - DeepLinkSchemaMatch', function (suffix) {
           url: `lightning:${suffix}lnbc10u1pwjqwkkpp5vlc3tttdzhpk9fwzkkue0sf2pumtza7qyw9vucxyyeh0yaqq66yqdq5f38z6mmwd3ujqar9wd6qcqzpgxq97zvuqrzjqvgptfurj3528snx6e3dtwepafxw5fpzdymw9pj20jj09sunnqmwqz9hx5qqtmgqqqqqqqlgqqqqqqgqjq5duu3fs9xq9vn89qk3ezwpygecu4p3n69wm3tnl28rpgn2gmk5hjaznemw0gy32wrslpn3g24khcgnpua9q04fttm2y8pnhmhhc2gncplz0zde`,
         },
         expected: [
-          'ScanLndInvoiceRoot',
+          'SendDetailsRoot',
           {
             screen: 'ScanLndInvoice',
             params: {
@@ -151,7 +151,7 @@ describe.each(['', '//'])('unit - DeepLinkSchemaMatch', function (suffix) {
           url: `bluewallet:lightning:${suffix}lnbc10u1pwjqwkkpp5vlc3tttdzhpk9fwzkkue0sf2pumtza7qyw9vucxyyeh0yaqq66yqdq5f38z6mmwd3ujqar9wd6qcqzpgxq97zvuqrzjqvgptfurj3528snx6e3dtwepafxw5fpzdymw9pj20jj09sunnqmwqz9hx5qqtmgqqqqqqqlgqqqqqqgqjq5duu3fs9xq9vn89qk3ezwpygecu4p3n69wm3tnl28rpgn2gmk5hjaznemw0gy32wrslpn3g24khcgnpua9q04fttm2y8pnhmhhc2gncplz0zde`,
         },
         expected: [
-          'ScanLndInvoiceRoot',
+          'SendDetailsRoot',
           {
             screen: 'ScanLndInvoice',
             params: {
@@ -225,7 +225,7 @@ describe.each(['', '//'])('unit - DeepLinkSchemaMatch', function (suffix) {
           url: 'lnaddress@zbd.gg',
         },
         expected: [
-          'ScanLndInvoiceRoot',
+          'SendDetailsRoot',
           {
             screen: 'ScanLndInvoice',
             params: {

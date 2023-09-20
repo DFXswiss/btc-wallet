@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useContext } from 'react';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { I18nManager, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
-import { Icon } from 'react-native-elements';
 
 import {
   BlueButton,
@@ -17,8 +16,8 @@ import {
 import navigationStyle from '../../components/navigationStyle';
 import AmountInput from '../../components/AmountInput';
 import Lnurl from '../../class/lnurl';
-import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
-import loc, { formatBalanceWithoutSuffix, formatBalance } from '../../loc';
+import { BitcoinUnit } from '../../models/bitcoinUnits';
+import loc, { formatBalance } from '../../loc';
 import Biometric from '../../class/biometrics';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import alert from '../../components/Alert';
@@ -42,22 +41,12 @@ const LnurlPay = () => {
   const [_LN, setLN] = useState();
   const [payButtonDisabled, setPayButtonDisabled] = useState(true);
   const [payload, setPayload] = useState();
-  const { setParams, pop, navigate } = useNavigation();
+  const { pop, navigate } = useNavigation();
   const [amount, setAmount] = useState();
   const { colors } = useTheme();
   const stylesHook = StyleSheet.create({
     root: {
       backgroundColor: colors.background,
-    },
-
-    walletWrapLabel: {
-      color: colors.buttonAlternativeTextColor,
-    },
-    walletWrapBalance: {
-      color: colors.buttonAlternativeTextColor,
-    },
-    walletWrapSats: {
-      color: colors.buttonAlternativeTextColor,
     },
   });
 
@@ -101,11 +90,6 @@ const LnurlPay = () => {
       setAmount(newAmount);
     }
   }, [payload]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const onWalletSelect = w => {
-    setParams({ walletID: w.getID() });
-    pop();
-  };
 
   const pay = async () => {
     setPayButtonDisabled(true);
@@ -154,7 +138,7 @@ const LnurlPay = () => {
         await LN.storeSuccess(decoded.payment_hash, wallet.last_paid_invoice_result.payment_preimage);
       }
 
-      navigate('ScanLndInvoiceRoot', {
+      navigate('SendDetailsRoot', {
         screen: 'LnurlPaySuccess',
         params: {
           paymentHash: decoded.payment_hash,
@@ -171,34 +155,6 @@ const LnurlPay = () => {
       return alert(Err.message);
     }
   };
-
-  const renderWalletSelectionButton = (
-    <View style={styles.walletSelectRoot}>
-      {!isLoading && (
-        <TouchableOpacity
-          accessibilityRole="button"
-          style={styles.walletSelectTouch}
-          onPress={() => navigate('SelectWallet', { onWalletSelect, chainType: Chain.OFFCHAIN })}
-        >
-          <Text style={styles.walletSelectText}>{loc.wallets.select_wallet.toLowerCase()}</Text>
-          <Icon name={I18nManager.isRTL ? 'angle-left' : 'angle-right'} size={18} type="font-awesome" color="#9aa0aa" />
-        </TouchableOpacity>
-      )}
-      <View style={styles.walletWrap}>
-        <TouchableOpacity
-          accessibilityRole="button"
-          style={styles.walletWrapTouch}
-          onPress={() => navigate('SelectWallet', { onWalletSelect, chainType: Chain.OFFCHAIN })}
-        >
-          <Text style={[styles.walletWrapLabel, stylesHook.walletWrapLabel]}>{wallet.getLabel()}</Text>
-          <Text style={[styles.walletWrapBalance, stylesHook.walletWrapBalance]}>
-            {formatBalanceWithoutSuffix(wallet.getBalance(), BitcoinUnit.SATS, false)}
-          </Text>
-          <Text style={[styles.walletWrapSats, stylesHook.walletWrapSats]}>{BitcoinUnit.SATS}</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
 
   const renderGotPayload = () => {
     return (
@@ -234,7 +190,6 @@ const LnurlPay = () => {
             <BlueSpacing20 />
           </BlueCard>
         </ScrollView>
-        {renderWalletSelectionButton}
       </SafeBlueArea>
     );
   };
@@ -258,43 +213,6 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     justifyContent: 'center',
-  },
-  walletSelectRoot: {
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
-  walletSelectTouch: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  walletSelectText: {
-    color: '#9aa0aa',
-    fontSize: 14,
-    marginRight: 8,
-  },
-  walletWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 4,
-  },
-  walletWrapTouch: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  walletWrapLabel: {
-    fontSize: 14,
-  },
-  walletWrapBalance: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 4,
-    marginRight: 4,
-  },
-  walletWrapSats: {
-    fontSize: 11,
-    fontWeight: '600',
-    textAlignVertical: 'bottom',
-    marginTop: 2,
   },
 });
 

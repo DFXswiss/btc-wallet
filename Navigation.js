@@ -251,6 +251,9 @@ const SendDetailsRoot = () => {
       />
       <SendDetailsStack.Screen name="SelectWallet" component={SelectWallet} options={SelectWallet.navigationOptions(theme)} />
       <SendDetailsStack.Screen name="CoinControl" component={CoinControl} options={CoinControl.navigationOptions(theme)} />
+      <SendDetailsStack.Screen name="ScanLndInvoice" component={ScanLndInvoice} options={ScanLndInvoice.navigationOptions(theme)} />
+      <SendDetailsStack.Screen name="LnurlPay" component={LnurlPay} options={LnurlPay.navigationOptions(theme)} />
+      <SendDetailsStack.Screen name="LnurlPaySuccess" component={LnurlPaySuccess} options={LnurlPaySuccess.navigationOptions(theme)} />
     </SendDetailsStack.Navigator>
   );
 };
@@ -279,22 +282,6 @@ const LNDCreateInvoiceRoot = () => {
         options={LNDViewAdditionalInvoicePreImage.navigationOptions(theme)}
       />
     </LNDCreateInvoiceStack.Navigator>
-  );
-};
-
-// LightningScanInvoiceStackNavigator === ScanLndInvoiceStack
-const ScanLndInvoiceStack = createNativeStackNavigator();
-const ScanLndInvoiceRoot = () => {
-  const theme = useTheme();
-
-  return (
-    <ScanLndInvoiceStack.Navigator screenOptions={{ headerHideShadow: true }}>
-      <ScanLndInvoiceStack.Screen name="ScanLndInvoice" component={ScanLndInvoice} options={ScanLndInvoice.navigationOptions(theme)} />
-      <ScanLndInvoiceStack.Screen name="SelectWallet" component={SelectWallet} options={SelectWallet.navigationOptions(theme)} />
-      <ScanLndInvoiceStack.Screen name="Success" component={Success} options={{ headerShown: false, gestureEnabled: false }} />
-      <ScanLndInvoiceStack.Screen name="LnurlPay" component={LnurlPay} options={LnurlPay.navigationOptions(theme)} />
-      <ScanLndInvoiceStack.Screen name="LnurlPaySuccess" component={LnurlPaySuccess} options={LnurlPaySuccess.navigationOptions(theme)} />
-    </ScanLndInvoiceStack.Navigator>
   );
 };
 
@@ -508,7 +495,6 @@ const Navigation = () => {
       <RootStack.Screen name="AddWalletRoot" component={AddWalletRoot} options={{ headerShown: false, translucent: false }} />
       <RootStack.Screen name="SendDetailsRoot" component={SendDetailsRoot} options={NavigationDefaultOptions} />
       <RootStack.Screen name="LNDCreateInvoiceRoot" component={LNDCreateInvoiceRoot} options={NavigationDefaultOptions} />
-      <RootStack.Screen name="ScanLndInvoiceRoot" component={ScanLndInvoiceRoot} options={NavigationDefaultOptions} />
       <RootStack.Screen name="AztecoRedeemRoot" component={AztecoRedeemRoot} options={NavigationDefaultOptions} />
       {/* screens */}
       <RootStack.Screen name="WalletExportRoot" component={WalletExportStackRoot} options={NavigationDefaultOptions} />

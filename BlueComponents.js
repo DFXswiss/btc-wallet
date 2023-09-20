@@ -27,6 +27,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@react-navigation/native';
 import { BlueCurrentTheme } from './components/themes';
 import loc, { formatStringAddTwoWhiteSpaces } from './loc';
+import PickerSelect from 'react-native-picker-select';
 
 const { height, width } = Dimensions.get('window');
 const aspectRatio = height / width;
@@ -937,3 +938,52 @@ export const BlueTabs = ({ active, onSwitch, tabs }) => (
     ))}
   </View>
 );
+
+export const BlueWalletSelect = ({ wallets, value, onChange }) => {
+  const { colors } = useTheme();
+
+  const pickerStyles = StyleSheet.create({
+    // eslint-disable-next-line react-native/no-unused-styles
+    inputIOS: {
+      paddingHorizontal: 8,
+      paddingVertical: 16,
+      paddingRight: 30, // to ensure the text is never behind the icon
+      borderColor: colors.formBorder,
+      borderWidth: 1,
+      borderRadius: 4,
+      backgroundColor: colors.inputBackgroundColor,
+      color: colors.foregroundColor,
+    },
+    // eslint-disable-next-line react-native/no-unused-styles
+    inputAndroid: {
+      paddingHorizontal: 8,
+      paddingVertical: 8,
+      paddingRight: 30, // to ensure the text is never behind the icon
+      borderColor: colors.formBorder,
+      borderWidth: 1,
+      borderRadius: 4,
+      backgroundColor: colors.inputBackgroundColor,
+      color: colors.foregroundColor,
+    },
+    // eslint-disable-next-line react-native/no-unused-styles
+    iconContainer: {
+      top: 0,
+      right: 15,
+      height: '100%',
+      justifyContent: 'center',
+    },
+  });
+
+  return (
+    <PickerSelect
+      value={value}
+      onValueChange={onChange}
+      items={wallets.map(w => ({ label: w.getLabel(), value: w.getID() }))}
+      placeholder={{}}
+      style={pickerStyles}
+      useNativeAndroidPickerStyle={false}
+      fixAndroidTouchableBug
+      Icon={() => <Icon size={18} name="sync-alt" type="material-icons" color={colors.foregroundColor} />}
+    />
+  );
+};

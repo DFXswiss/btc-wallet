@@ -333,7 +333,7 @@ const Asset = ({ navigation }) => {
       if (wallet.chain === Chain.ONCHAIN) {
         navigate('SendDetailsRoot', { screen: 'SendDetails', params });
       } else {
-        navigate('ScanLndInvoiceRoot', { screen: 'ScanLndInvoice', params });
+        navigate('SendDetailsRoot', { screen: 'ScanLndInvoice', params });
       }
     }
     setIsLoading(false);
@@ -349,7 +349,7 @@ const Asset = ({ navigation }) => {
 
   const sendButtonPress = () => {
     if (wallet.chain === Chain.OFFCHAIN) {
-      return navigate('ScanLndInvoiceRoot', { screen: 'ScanLndInvoice', params: { walletID: wallet.getID() } });
+      return navigate('SendDetailsRoot', { screen: 'ScanLndInvoice', params: { walletID: wallet.getID() } });
     }
 
     if (wallet.type === WatchOnlyWallet.type && wallet.isHd() && !wallet.useWithHardwareWalletEnabled()) {
@@ -582,12 +582,7 @@ const Asset = ({ navigation }) => {
             }
           />
         )}
-        <FButton
-          onPress={onScanButtonPressed}
-          onLongPress={sendButtonLongPress}
-          icon={<Image resizeMode="stretch" source={scanImage} />}
-          text={loc.send.details_scan}
-        />
+        <FButton onPress={onScanButtonPressed} icon={<Image resizeMode="stretch" source={scanImage} />} text={loc.send.details_scan} />
         {(wallet.allowSend() || (wallet.type === WatchOnlyWallet.type && wallet.isHd())) && (
           <FButton
             onLongPress={sendButtonLongPress}

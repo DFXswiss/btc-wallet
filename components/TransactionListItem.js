@@ -196,7 +196,7 @@ export const TransactionListItem = React.memo(({ item, itemPriceUnit = BitcoinUn
           }
           const loaded = await LN.loadSuccessfulPayment(paymentHash);
           if (loaded) {
-            NavigationService.navigate('ScanLndInvoiceRoot', {
+            NavigationService.navigate('SendDetailsRoot', {
               screen: 'LnurlPaySuccess',
               params: {
                 paymentHash,

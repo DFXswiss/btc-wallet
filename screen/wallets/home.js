@@ -168,7 +168,7 @@ const WalletHome = ({ navigation }) => {
 
   const sendButtonPress = () => {
     if (wallet.chain === Chain.OFFCHAIN) {
-      return navigate('ScanLndInvoiceRoot', { screen: 'ScanLndInvoice', params: { walletID: wallet.getID() } });
+      return navigate('SendDetailsRoot', { screen: 'ScanLndInvoice', params: { walletID: wallet.getID() } });
     }
 
     if (wallet.type === WatchOnlyWallet.type && wallet.isHd() && !wallet.useWithHardwareWalletEnabled()) {

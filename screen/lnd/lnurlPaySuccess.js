@@ -115,7 +115,7 @@ export default class LnurlPaySuccess extends Component {
             {repeatable ? (
               <BlueButton
                 onPress={() => {
-                  this.props.navigation.navigate('ScanLndInvoiceRoot', {
+                  this.props.navigation.navigate('SendDetailsRoot', {
                     screen: 'LnurlPay',
                     params: {
                       lnurl,

@@ -1,28 +1,25 @@
 import React, { useCallback, useContext, useEffect, useState } from 'react';
-import {
-  Text,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  View,
-  TouchableOpacity,
-  StatusBar,
-  Keyboard,
-  ScrollView,
-  StyleSheet,
-  I18nManager,
-} from 'react-native';
-import { Icon } from 'react-native-elements';
+import { ActivityIndicator, KeyboardAvoidingView, View, StatusBar, Keyboard, ScrollView, StyleSheet } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { useFocusEffect, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 
-import { BlueButton, BlueCard, BlueDismissKeyboardInputAccessory, BlueLoading, SafeBlueArea } from '../../BlueComponents';
+import {
+  BlueButton,
+  BlueCard,
+  BlueDismissKeyboardInputAccessory,
+  BlueLoading,
+  SafeBlueArea,
+  BlueWalletSelect,
+  BlueFormInput,
+  BlueText,
+} from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
 import AddressInput from '../../components/AddressInput';
 import AmountInput from '../../components/AmountInput';
 import Lnurl from '../../class/lnurl';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import Biometric from '../../class/biometrics';
-import loc, { formatBalanceWithoutSuffix } from '../../loc';
+import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import alert from '../../components/Alert';
 const currency = require('../../blue_modules/currency');
@@ -36,9 +33,8 @@ const ScanLndInvoice = () => {
   const [wallet, setWallet] = useState(
     wallets.find(item => item.getID() === walletID) || wallets.find(item => item.chain === Chain.OFFCHAIN),
   );
-  const { navigate, setParams, goBack, pop } = useNavigation();
+  const { navigate, setParams, goBack, replace } = useNavigation();
   const [isLoading, setIsLoading] = useState(false);
-  const [renderWalletSelectionButtonHidden, setRenderWalletSelectionButtonHidden] = useState(false);
   const [destination, setDestination] = useState('');
   const [unit, setUnit] = useState(BitcoinUnit.SATS);
   const [decoded, setDecoded] = useState();
@@ -46,29 +42,20 @@ const ScanLndInvoice = () => {
   const [isAmountInitiallyEmpty, setIsAmountInitiallyEmpty] = useState();
   const [expiresIn, setExpiresIn] = useState();
   const stylesHook = StyleSheet.create({
-    walletWrapLabel: {
-      color: colors.buttonAlternativeTextColor,
-    },
-    walletWrapBalance: {
-      color: colors.buttonAlternativeTextColor,
-    },
-    walletWrapSats: {
-      color: colors.buttonAlternativeTextColor,
-    },
     root: {
       backgroundColor: colors.elevated,
     },
+    expiresIn: {
+      color: colors.feeText,
+      fontSize: 12,
+      marginBottom: 5,
+      marginHorizontal: 30,
+    },
+    fee: {
+      fontSize: 14,
+      color: colors.feeText,
+    },
   });
-
-  useEffect(() => {
-    console.log('scanLndInvoice useEffect');
-    Keyboard.addListener('keyboardDidShow', _keyboardDidShow);
-    Keyboard.addListener('keyboardDidHide', _keyboardDidHide);
-    return () => {
-      Keyboard.removeAllListeners('keyboardDidShow');
-      Keyboard.removeAllListeners('keyboardDidHide');
-    };
-  }, []);
 
   useEffect(() => {
     if (walletID && wallet?.getID() !== walletID) {
@@ -136,15 +123,6 @@ const ScanLndInvoice = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uri]);
-
-  const _keyboardDidShow = () => {
-    setRenderWalletSelectionButtonHidden(true);
-  };
-
-  const _keyboardDidHide = () => {
-    setRenderWalletSelectionButtonHidden(false);
-  };
-
   const processInvoice = data => {
     if (Lnurl.isLnurl(data)) return processLnurlPay(data);
     if (Lnurl.isLightningAddress(data)) return processLnurlPay(data);
@@ -152,7 +130,7 @@ const ScanLndInvoice = () => {
   };
 
   const processLnurlPay = data => {
-    navigate('ScanLndInvoiceRoot', {
+    navigate('SendDetailsRoot', {
       screen: 'LnurlPay',
       params: {
         lnurl: data,
@@ -246,34 +224,6 @@ const ScanLndInvoice = () => {
     // return decoded.num_satoshis <= 0 || isLoading || isNaN(decoded.num_satoshis);
   };
 
-  const naviageToSelectWallet = () => {
-    navigate('SelectWallet', { onWalletSelect, chainType: Chain.OFFCHAIN });
-  };
-
-  const renderWalletSelectionButton = () => {
-    if (renderWalletSelectionButtonHidden) return;
-    const walletLabel = wallet.getLabel();
-    return (
-      <View style={styles.walletSelectRoot}>
-        {!isLoading && (
-          <TouchableOpacity accessibilityRole="button" style={styles.walletSelectTouch} onPress={naviageToSelectWallet}>
-            <Text style={styles.walletSelectText}>{loc.wallets.select_wallet.toLowerCase()}</Text>
-            <Icon name={I18nManager.isRTL ? 'angle-left' : 'angle-right'} size={18} type="font-awesome" color="#9aa0aa" />
-          </TouchableOpacity>
-        )}
-        <View style={styles.walletWrap}>
-          <TouchableOpacity accessibilityRole="button" disabled={isLoading} style={styles.walletWrapTouch} onPress={naviageToSelectWallet}>
-            <Text style={[styles.walletWrapLabel, stylesHook.walletWrapLabel]}>{walletLabel}</Text>
-            <Text style={[styles.walletWrapBalance, stylesHook.walletWrapBalance]}>
-              {formatBalanceWithoutSuffix(wallet.getBalance(), BitcoinUnit.SATS, false)}
-            </Text>
-            <Text style={[styles.walletWrapSats, stylesHook.walletWrapSats]}>{BitcoinUnit.SATS}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
-
   const getFees = () => {
     const min = Math.floor(decoded.num_satoshis * 0.003);
     const max = Math.floor(decoded.num_satoshis * 0.01) + 1;
@@ -284,9 +234,15 @@ const ScanLndInvoice = () => {
     processTextForInvoice(destination);
   };
 
-  const onWalletSelect = selectedWallet => {
-    setParams({ walletID: selectedWallet.getID() });
-    pop();
+  const onWalletChange = id => {
+    const newWallet = wallets.find(w => w.getID() === id);
+    if (!newWallet) return;
+
+    if (newWallet.chain !== Chain.OFFCHAIN) {
+      return replace('SendDetails', { walletID: id });
+    }
+
+    setParams({ walletID: id });
   };
 
   if (wallet === undefined || !wallet) {
@@ -303,7 +259,11 @@ const ScanLndInvoice = () => {
       <View style={[styles.root, stylesHook.root]}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <KeyboardAvoidingView enabled behavior="position" keyboardVerticalOffset={20}>
-            <View style={styles.scrollMargin}>
+            <View style={styles.pickerContainer}>
+              <BlueWalletSelect wallets={wallets} value={wallet?.getID()} onChange={onWalletChange} />
+            </View>
+
+            <View>
               <AmountInput
                 pointerEvents={isAmountInitiallyEmpty ? 'auto' : 'none'}
                 isLoading={isLoading}
@@ -316,48 +276,54 @@ const ScanLndInvoice = () => {
               />
             </View>
 
-            <BlueCard>
-              <AddressInput
-                onChangeText={text => {
-                  text = text.trim();
-                  setDestination(text);
-                }}
-                onBarScanned={processInvoice}
-                address={destination}
-                isLoading={isLoading}
-                placeholder={loc.lnd.placeholder}
-                inputAccessoryViewID={BlueDismissKeyboardInputAccessory.InputAccessoryViewID}
-                launchedBy={name}
-                onBlur={onBlur}
-                keyboardType="email-address"
-              />
-              <View style={styles.description}>
-                <Text numberOfLines={0} style={styles.descriptionText}>
-                  {decoded !== undefined ? decoded.description : ''}
-                </Text>
+            <AddressInput
+              onChangeText={text => {
+                text = text.trim();
+                setDestination(text);
+              }}
+              onBarScanned={processInvoice}
+              address={destination}
+              isLoading={isLoading}
+              placeholder={loc.lnd.placeholder}
+              inputAccessoryViewID={BlueDismissKeyboardInputAccessory.InputAccessoryViewID}
+              launchedBy={name}
+              onBlur={onBlur}
+              keyboardType="email-address"
+            />
+
+            {expiresIn !== undefined && (
+              <View>
+                <BlueText style={stylesHook.expiresIn}>{expiresIn}</BlueText>
               </View>
-              {expiresIn !== undefined && (
+            )}
+
+            <View style={styles.noteContainer}>
+              <BlueFormInput
+                placeholder={loc.send.details_note_placeholder}
+                placeholderTextColor={colors.feeText}
+                value={decoded?.description}
+                onChangeText={console.log}
+                editable={false}
+                color={colors.feeText}
+              />
+            </View>
+
+            <View style={styles.fee}>
+              <BlueText style={stylesHook.fee}>{loc.send.create_fee}</BlueText>
+              <BlueText style={stylesHook.fee}>{decoded?.num_satoshis > 0 ? getFees() : '-'}</BlueText>
+            </View>
+            <BlueCard>
+              {isLoading ? (
                 <View>
-                  <Text style={styles.expiresIn}>{expiresIn}</Text>
-                  {decoded && decoded.num_satoshis > 0 && (
-                    <Text style={styles.expiresIn}>{loc.formatString(loc.lnd.potentialFee, { fee: getFees() })}</Text>
-                  )}
+                  <ActivityIndicator />
+                </View>
+              ) : (
+                <View>
+                  <BlueButton title={loc.lnd.payButton} onPress={pay} disabled={shouldDisablePayButton()} />
                 </View>
               )}
-              <BlueCard>
-                {isLoading ? (
-                  <View>
-                    <ActivityIndicator />
-                  </View>
-                ) : (
-                  <View>
-                    <BlueButton title={loc.lnd.payButton} onPress={pay} disabled={shouldDisablePayButton()} />
-                  </View>
-                )}
-              </BlueCard>
             </BlueCard>
           </KeyboardAvoidingView>
-          {renderWalletSelectionButton()}
         </ScrollView>
       </View>
       <BlueDismissKeyboardInputAccessory />
@@ -375,47 +341,9 @@ ScanLndInvoice.navigationOptions = navigationStyle(
 );
 
 const styles = StyleSheet.create({
-  walletSelectRoot: {
-    marginBottom: 16,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
   loadingIndicator: {
     flex: 1,
     justifyContent: 'center',
-  },
-  walletSelectTouch: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  walletSelectText: {
-    color: '#9aa0aa',
-    fontSize: 14,
-    marginRight: 8,
-  },
-  walletWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 4,
-  },
-  walletWrapTouch: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  walletWrapLabel: {
-    fontSize: 14,
-  },
-  walletWrapBalance: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 4,
-    marginRight: 4,
-  },
-  walletWrapSats: {
-    fontSize: 11,
-    fontWeight: '600',
-    textAlignVertical: 'bottom',
-    marginTop: 2,
   },
   root: {
     flex: 1,
@@ -424,26 +352,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
   },
-  scrollMargin: {
-    marginTop: 60,
-  },
-  description: {
+  pickerContainer: { marginHorizontal: 16 },
+  noteContainer: { marginHorizontal: 20, marginTop: 10 },
+  fee: {
     flexDirection: 'row',
     marginHorizontal: 20,
+    marginTop: 8,
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: 0,
-    borderRadius: 4,
-  },
-  descriptionText: {
-    color: '#81868e',
-    fontWeight: '500',
-    fontSize: 14,
-  },
-  expiresIn: {
-    writingDirection: I18nManager.isRTL ? 'rtl' : 'ltr',
-    color: '#81868e',
-    fontSize: 12,
-    left: 20,
-    top: 10,
   },
 });
