@@ -258,33 +258,6 @@ const SendDetailsRoot = () => {
   );
 };
 
-const LNDCreateInvoiceStack = createNativeStackNavigator();
-const LNDCreateInvoiceRoot = () => {
-  const theme = useTheme();
-
-  return (
-    <LNDCreateInvoiceStack.Navigator screenOptions={{ headerHideShadow: true }}>
-      <LNDCreateInvoiceStack.Screen
-        name="LNDCreateInvoice"
-        component={LNDCreateInvoice}
-        options={LNDCreateInvoice.navigationOptions(theme)}
-      />
-      <LNDCreateInvoiceStack.Screen name="SelectWallet" component={SelectWallet} options={SelectWallet.navigationOptions(theme)} />
-      <LNDCreateInvoiceStack.Screen name="LNDViewInvoice" component={LNDViewInvoice} options={LNDViewInvoice.navigationOptions(theme)} />
-      <LNDCreateInvoiceStack.Screen
-        name="LNDViewAdditionalInvoiceInformation"
-        component={LNDViewAdditionalInvoiceInformation}
-        options={LNDViewAdditionalInvoiceInformation.navigationOptions(theme)}
-      />
-      <LNDCreateInvoiceStack.Screen
-        name="LNDViewAdditionalInvoicePreImage"
-        component={LNDViewAdditionalInvoicePreImage}
-        options={LNDViewAdditionalInvoicePreImage.navigationOptions(theme)}
-      />
-    </LNDCreateInvoiceStack.Navigator>
-  );
-};
-
 const LDKOpenChannelStack = createNativeStackNavigator();
 const LDKOpenChannelRoot = () => {
   const theme = useTheme();
@@ -346,6 +319,23 @@ const ReceiveDetailsStackRoot = () => {
   return (
     <ReceiveDetailsStack.Navigator name="ReceiveDetailsRoot" screenOptions={{ headerHideShadow: true }} initialRouteName="ReceiveDetails">
       <ReceiveDetailsStack.Screen name="ReceiveDetails" component={ReceiveDetails} options={ReceiveDetails.navigationOptions(theme)} />
+      <ReceiveDetailsStack.Screen
+        name="LNDCreateInvoice"
+        component={LNDCreateInvoice}
+        options={LNDCreateInvoice.navigationOptions(theme)}
+      />
+      <ReceiveDetailsStack.Screen name="SelectWallet" component={SelectWallet} options={SelectWallet.navigationOptions(theme)} />
+      <ReceiveDetailsStack.Screen name="LNDViewInvoice" component={LNDViewInvoice} options={LNDViewInvoice.navigationOptions(theme)} />
+      <ReceiveDetailsStack.Screen
+        name="LNDViewAdditionalInvoiceInformation"
+        component={LNDViewAdditionalInvoiceInformation}
+        options={LNDViewAdditionalInvoiceInformation.navigationOptions(theme)}
+      />
+      <ReceiveDetailsStack.Screen
+        name="LNDViewAdditionalInvoicePreImage"
+        component={LNDViewAdditionalInvoicePreImage}
+        options={LNDViewAdditionalInvoicePreImage.navigationOptions(theme)}
+      />
     </ReceiveDetailsStack.Navigator>
   );
 };
@@ -494,7 +484,6 @@ const Navigation = () => {
       <RootStack.Screen name="BackupSeedRoot" component={BackupSeedRoot} options={NavigationDefaultOptions} />
       <RootStack.Screen name="AddWalletRoot" component={AddWalletRoot} options={{ headerShown: false, translucent: false }} />
       <RootStack.Screen name="SendDetailsRoot" component={SendDetailsRoot} options={NavigationDefaultOptions} />
-      <RootStack.Screen name="LNDCreateInvoiceRoot" component={LNDCreateInvoiceRoot} options={NavigationDefaultOptions} />
       <RootStack.Screen name="AztecoRedeemRoot" component={AztecoRedeemRoot} options={NavigationDefaultOptions} />
       {/* screens */}
       <RootStack.Screen name="WalletExportRoot" component={WalletExportStackRoot} options={NavigationDefaultOptions} />

@@ -84,7 +84,7 @@ class DeeplinkSchemaMatch {
               },
             ]);
           } else if (action === 'openReceive') {
-            completionHandler(['LNDCreateInvoiceRoot', { screen: 'LNDCreateInvoice', params: { walletID: wallet.getID() } }]);
+            completionHandler(['ReceiveDetailsRoot', { screen: 'LNDCreateInvoice', params: { walletID: wallet.getID() } }]);
           }
         }
       }
@@ -147,7 +147,7 @@ class DeeplinkSchemaMatch {
       // to the server, which is undesirable here, so LNDCreateInvoice screen will handle it for us and will
       // redirect user to LnurlPay screen if necessary
       completionHandler([
-        'LNDCreateInvoiceRoot',
+        'ReceiveDetailsRoot',
         {
           screen: 'LNDCreateInvoice',
           params: {

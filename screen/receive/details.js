@@ -23,6 +23,8 @@ import {
   BlueSpacing20,
   BlueCard,
   BlueSpacing40,
+  BlueWalletSelect,
+  BlueDismissKeyboardInputAccessory,
 } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
 import BottomModal from '../../components/BottomModal';
@@ -52,7 +54,7 @@ const ReceiveDetails = () => {
   const [showPendingBalance, setShowPendingBalance] = useState(false);
   const [showConfirmedBalance, setShowConfirmedBalance] = useState(false);
   const [showAddress, setShowAddress] = useState(false);
-  const { goBack, setParams } = useNavigation();
+  const { goBack, setParams, replace } = useNavigation();
   const { colors } = useTheme();
   const [intervalMs, setIntervalMs] = useState(5000);
   const [eta, setEta] = useState('');
@@ -441,9 +443,21 @@ const ReceiveDetails = () => {
     }
   };
 
+  const onWalletChange = id => {
+    const newWallet = wallets.find(w => w.getID() === id);
+    if (!newWallet) return;
+
+    if (newWallet.chain !== Chain.ONCHAIN) {
+      return replace('LNDCreateInvoice', { walletID: id });
+    }
+  };
+
   return (
     <View style={[styles.root, stylesHook.root]}>
       <StatusBar barStyle="light-content" />
+      <View style={styles.pickerContainer}>
+        <BlueWalletSelect wallets={wallets} value={wallet?.getID()} onChange={onWalletChange} />
+      </View>
       {address !== undefined && showAddress && (
         <HandoffComponent title={loc.send.details_address} type={HandoffComponent.activityTypes.ReceiveOnchain} userInfo={{ address }} />
       )}
@@ -518,6 +532,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
     minHeight: 33,
   },
+  pickerContainer: { marginHorizontal: 16 },
 });
 
 ReceiveDetails.navigationOptions = navigationStyle(

@@ -144,7 +144,7 @@
   "receive": {
     "details_create": "Create",
     "details_label": "Description",
-    "details_setAmount": "Receive with amount",
+    "details_setAmount": "Advanced functions",
     "details_share": "Share",
     "header": "Receive",
     "maxSats": "Maximum amount is {max} sats",

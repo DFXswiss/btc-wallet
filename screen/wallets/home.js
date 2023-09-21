@@ -327,7 +327,7 @@ const WalletHome = ({ navigation }) => {
             text={loc.receive.header}
             onPress={() => {
               if (wallet.chain === Chain.OFFCHAIN) {
-                navigate('LNDCreateInvoiceRoot', { screen: 'LNDCreateInvoice', params: { walletID: wallet.getID() } });
+                navigate('ReceiveDetailsRoot', { screen: 'LNDCreateInvoice', params: { walletID: wallet.getID() } });
               } else {
                 navigate('ReceiveDetailsRoot', { screen: 'ReceiveDetails', params: { walletID: wallet.getID() } });
               }

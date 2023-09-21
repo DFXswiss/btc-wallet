@@ -211,7 +211,7 @@ describe.each(['', '//'])('unit - DeepLinkSchemaMatch', function (suffix) {
           url: 'https://lnbits.com/?lightning=LNURL1DP68GURN8GHJ7MRWVF5HGUEWVDHK6TMHD96XSERJV9MJ7CTSDYHHVVF0D3H82UNV9UM9JDENFPN5SMMK2359J5RKWVMKZ5ZVWAV4VJD63TM',
         },
         expected: [
-          'LNDCreateInvoiceRoot',
+          'ReceiveDetailsRoot',
           {
             screen: 'LNDCreateInvoice',
             params: {

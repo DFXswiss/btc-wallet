@@ -142,7 +142,7 @@
   "receive": {
     "details_create": "Erstelle",
     "details_label": "Beschreibung",
-    "details_setAmount": "Zu erhaltender Betrag",
+    "details_setAmount": "Erweitere Funktionen",
     "details_share": "Teilen",
     "header": "Erhalten",
     "maxSats": "Der größtmögliche Betrag ist {max} sats",

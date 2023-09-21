@@ -321,19 +321,19 @@ const Asset = ({ navigation }) => {
     <TransactionListItem item={item.item} itemPriceUnit={itemPriceUnit} timeElapsed={timeElapsed} walletID={walletID} />
   );
 
-  const onBarCodeRead = ret => {
-    if (!ret) return;
+  const onBarCodeRead = value => {
+    if (!value) return;
 
     if (!isLoading) {
       setIsLoading(true);
-      const params = {
+      const navParams = {
         walletID: wallet.getID(),
-        uri: ret.data ? ret.data : ret,
+        uri: value,
       };
       if (wallet.chain === Chain.ONCHAIN) {
-        navigate('SendDetailsRoot', { screen: 'SendDetails', params });
+        navigate('SendDetailsRoot', { screen: 'SendDetails', params: navParams });
       } else {
-        navigate('SendDetailsRoot', { screen: 'ScanLndInvoice', params });
+        navigate('SendDetailsRoot', { screen: 'ScanLndInvoice', params: navParams });
       }
     }
     setIsLoading(false);
@@ -344,7 +344,7 @@ const Asset = ({ navigation }) => {
   };
 
   const copyFromClipboard = async () => {
-    onBarCodeRead({ data: await BlueClipboard().getClipboardContent() });
+    onBarCodeRead(await BlueClipboard().getClipboardContent());
   };
 
   const sendButtonPress = () => {
@@ -441,7 +441,7 @@ const Asset = ({ navigation }) => {
   };
 
   const onScanButtonPressed = () => {
-    scanqrHelper(navigate, name, false).then(d => onBarCodeRead({ data: d }));
+    scanqrHelper(navigate, name, false).then(d => onBarCodeRead(d));
   };
 
   const navigateToViewEditCosigners = () => {
@@ -570,7 +570,7 @@ const Asset = ({ navigation }) => {
             text={loc.receive.header}
             onPress={() => {
               if (wallet.chain === Chain.OFFCHAIN) {
-                navigate('LNDCreateInvoiceRoot', { screen: 'LNDCreateInvoice', params: { walletID: wallet.getID() } });
+                navigate('ReceiveDetailsRoot', { screen: 'LNDCreateInvoice', params: { walletID: wallet.getID() } });
               } else {
                 navigate('ReceiveDetailsRoot', { screen: 'ReceiveDetails', params: { walletID: wallet.getID() } });
               }
@@ -643,12 +643,6 @@ const styles = StyleSheet.create({
     color: '#9aa0aa',
     textAlign: 'center',
     marginVertical: 16,
-  },
-  emptyTxsLightning: {
-    fontSize: 18,
-    color: '#9aa0aa',
-    textAlign: 'center',
-    fontWeight: '600',
   },
   sendIcon: {
     transform: [{ rotate: I18nManager.isRTL ? '-225deg' : '225deg' }],
