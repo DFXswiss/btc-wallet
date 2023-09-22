@@ -155,7 +155,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
     const lang = getAppLanguage();
 
     return Linking.openURL(
-      encodeURI(`${Config.REACT_APP_SRV_URL}/${service}?session=${token}&balances=${balance}@BTC&redirect-uri=bitcoindfx://&lang=${lang}`),
+      encodeURI(`${Config.REACT_APP_SRV_URL}/${service}?session=${token}&balances=${balance}@BTC&redirect-uri=dfxtaro://&lang=${lang}`),
     );
   }
 

@@ -105,7 +105,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>bitcoindfx</string>
+			<string>dfxtaro</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>bitcoin</string>
@@ -113,7 +113,7 @@
 				<string>bluewallet</string>
 				<string>lapp</string>
 				<string>blue</string>
-				<string>bitcoindfx</string>
+				<string>dfxtaro</string>
 			</array>
 		</dict>
 	</array>

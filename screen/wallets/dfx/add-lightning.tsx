@@ -28,7 +28,7 @@ const AddLightning = () => {
   const { getUser } = useLds();
   const { colors } = useTheme();
 
-  const { addWallet, saveToDisk } = useContext(BlueStorageContext);
+  const { addAndSaveWallet } = useContext(BlueStorageContext);
 
   const [isLoading, setIsLoading] = useState(false);
   const [useCustom, setUseCustom] = useState(false);
@@ -90,8 +90,7 @@ const AddLightning = () => {
     await wallet.fetchPendingTransactions();
     await wallet.fetchBalance();
 
-    addWallet(wallet);
-    await saveToDisk();
+    await addAndSaveWallet(wallet);
   };
 
   return (
@@ -133,7 +132,7 @@ const AddLightning = () => {
               </View>
               <BlueButtonLink
                 title="How to use your own LND Hub"
-                onPress={() => Linking.openURL('https://docs.dfx.swiss/en/faq.html#how-to-use-your-own-LND-Hub')}
+                onPress={() => Linking.openURL('https://docs.dfx.swiss/en/faq.html#how-to-use-your-own-lnd-hub')}
               />
             </>
           )}

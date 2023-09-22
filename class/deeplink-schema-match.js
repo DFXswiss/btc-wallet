@@ -1,14 +1,8 @@
-import { LightningCustodianWallet, WatchOnlyWallet } from './';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import RNFS from 'react-native-fs';
 import URL from 'url';
 import { Chain } from '../models/bitcoinUnits';
 import Lnurl from './lnurl';
-import Azteco from './azteco';
 const bitcoin = require('bitcoinjs-lib');
 const bip21 = require('bip21');
-const BlueApp = require('../BlueApp');
-const AppStorage = BlueApp.AppStorage;
 
 class DeeplinkSchemaMatch {
   static hasSchema(schemaString) {
@@ -20,7 +14,7 @@ class DeeplinkSchemaMatch {
       lowercaseString.startsWith('blue:') ||
       lowercaseString.startsWith('bluewallet:') ||
       lowercaseString.startsWith('lapp:') ||
-      lowercaseString.startsWith('bitcoindfx:')
+      lowercaseString.startsWith('dfxtaro:')
     );
   }
 
@@ -88,7 +82,7 @@ class DeeplinkSchemaMatch {
           }
         }
       }
-    } else if (DeeplinkSchemaMatch.isPossiblySignedPSBTFile(event.url)) {
+    } /* else if (DeeplinkSchemaMatch.isPossiblySignedPSBTFile(event.url)) {
       RNFS.readFile(decodeURI(event.url))
         .then(file => {
           if (file) {
@@ -105,8 +99,9 @@ class DeeplinkSchemaMatch {
         })
         .catch(e => console.warn(e));
       return;
-    }
-    let isBothBitcoinAndLightning;
+    } */
+
+    /* let isBothBitcoinAndLightning;
     try {
       isBothBitcoinAndLightning = DeeplinkSchemaMatch.isBothBitcoinAndLightning(event.url);
     } catch (e) {
@@ -122,7 +117,7 @@ class DeeplinkSchemaMatch {
           },
         },
       ]);
-    } else if (DeeplinkSchemaMatch.isBitcoinAddress(event.url)) {
+    } else */ if (DeeplinkSchemaMatch.isBitcoinAddress(event.url)) {
       completionHandler([
         'SendDetailsRoot',
         {
@@ -167,7 +162,7 @@ class DeeplinkSchemaMatch {
           },
         },
       ]);
-    } else if (Azteco.isRedeemUrl(event.url)) {
+    } /* else if (Azteco.isRedeemUrl(event.url)) {
       completionHandler([
         'AztecoRedeemRoot',
         {
@@ -186,17 +181,17 @@ class DeeplinkSchemaMatch {
           },
         },
       ]);
-    } else {
+    } */ else {
       const urlObject = URL.parse(event.url, true); // eslint-disable-line n/no-deprecated-api
       (async () => {
         if (
           urlObject.protocol === 'bluewallet:' ||
           urlObject.protocol === 'lapp:' ||
           urlObject.protocol === 'blue:' ||
-          urlObject.protocol === 'bitcoindfx:'
+          urlObject.protocol === 'dfxtaro:'
         ) {
           switch (urlObject.host) {
-            case 'openlappbrowser': {
+            /* case 'openlappbrowser': {
               console.log('opening LAPP', urlObject.query.url);
               // searching for LN wallet:
               let haveLnWallet = false;
@@ -269,7 +264,7 @@ class DeeplinkSchemaMatch {
                   url: DeeplinkSchemaMatch.getUrlFromSetLndhubUrlAction(event.url),
                 },
               ]);
-              break;
+              break; */
             case 'buy':
               completionHandler(['WalletsRoot', { screen: 'WalletTransactions' }]);
               break;

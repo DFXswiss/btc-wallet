@@ -2,6 +2,7 @@ import { useAsyncStorage } from '@react-native-async-storage/async-storage';
 import Clipboard from '@react-native-clipboard/clipboard';
 
 const BlueClipboard = () => {
+  const defaultValue = false;
   const STORAGE_KEY = 'ClipboardReadAllowed';
   const { getItem, setItem } = useAsyncStorage(STORAGE_KEY);
 
@@ -9,13 +10,13 @@ const BlueClipboard = () => {
     try {
       const clipboardAccessAllowed = await getItem();
       if (clipboardAccessAllowed === null) {
-        await setItem(JSON.stringify(true));
-        return true;
+        await setItem(JSON.stringify(defaultValue));
+        return defaultValue;
       }
       return !!JSON.parse(clipboardAccessAllowed);
     } catch {
-      await setItem(JSON.stringify(true));
-      return true;
+      await setItem(JSON.stringify(defaultValue));
+      return defaultValue;
     }
   };
 

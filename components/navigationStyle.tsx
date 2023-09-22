@@ -41,7 +41,6 @@ const navigationStyle = (
     ...opts
   }: NavigationOptions & {
     closeButton?: boolean;
-
     closeButtonFunc?: (deps: { navigation: any; route: any }) => React.ReactElement;
   },
   formatter: OptionsFormatter,

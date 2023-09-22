@@ -183,12 +183,17 @@ const Asset = ({ navigation }) => {
 
   useEffect(() => {
     if (!wallet) return;
+
     refreshAllWalletTransactions()
       .then(() => refreshTransactions())
       .catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallet]);
 
+  useEffect(() => {
+    setDataSource([...getTransactionsSliced(limit)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wallets]);
 
   const handleOpenServices = service => {
     if (isNotAllowedInCountry) {
@@ -272,8 +277,6 @@ const Asset = ({ navigation }) => {
       console.log('saving to disk');
       await saveToDisk(); // caching
     }
-
-    setDataSource([...getTransactionsSliced(limit)]);
     setIsLoading(false);
     setTimeElapsed(prev => prev + 1);
   };
@@ -302,16 +305,6 @@ const Asset = ({ navigation }) => {
       <View style={styles.flex}>
         <View style={styles.listHeaderTextRow}>
           <Text style={[styles.listHeaderText, stylesHook.listHeaderText]}>{loc.transactions.list_title}</Text>
-          {/* <TouchableOpacity
-            accessibilityRole="button"
-            testID="refreshTransactions"
-            style={style}
-            onPress={refreshTransactions}
-            disabled={isLoading}
-          >
-            <Text>Hallo</Text>
-            <Icon name="refresh" type="font-awesome" color={colors.feeText} />
-          </TouchableOpacity> */}
         </View>
       </View>
     );

@@ -192,7 +192,6 @@ export const BlueStorageProvider = ({ children }) => {
     addWallet(w);
     await saveToDisk();
     A(A.ENUM.CREATED_WALLET);
-    Alert.alert('', w.type === WatchOnlyWallet.type ? loc.wallets.import_success_watchonly : loc.wallets.import_success);
     Notifications.majorTomToGroundControl(w.getAllExternalAddresses(), [], []);
     // start balance fetching at the background
     await w.fetchBalance();

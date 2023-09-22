@@ -1,8 +1,4 @@
-import wif from 'wif';
-import bip38 from 'bip38';
-
 import {
-  HDAezeedWallet,
   HDLegacyBreadwalletWallet,
   HDLegacyElectrumSeedP2PKHWallet,
   HDLegacyP2PKHWallet,
@@ -10,9 +6,6 @@ import {
   HDSegwitElectrumSeedP2WPKHWallet,
   HDSegwitP2SHWallet,
   LegacyWallet,
-  LightningCustodianWallet,
-  LightningLdkWallet,
-  MultisigHDWallet,
   SLIP39LegacyP2PKHWallet,
   SLIP39SegwitBech32Wallet,
   SLIP39SegwitP2SHWallet,
@@ -88,11 +81,11 @@ const startImport = (importTextOrig, askPassphrase = false, searchAccounts = fal
     let password;
 
     // BIP38 password required
-    if (text.startsWith('6P')) {
+    /* if (text.startsWith('6P')) {
       do {
         password = await onPassword(loc.wallets.looks_like_bip38, loc.wallets.enter_bip38_password);
       } while (!password);
-    }
+    } */
 
     // HD BIP39 wallet password is optinal
     const hd = new HDSegwitBech32Wallet();
@@ -102,14 +95,14 @@ const startImport = (importTextOrig, askPassphrase = false, searchAccounts = fal
     }
 
     // AEZEED password needs to be correct
-    const aezeed = new HDAezeedWallet();
+    /* const aezeed = new HDAezeedWallet();
     aezeed.setSecret(text);
     if (await aezeed.mnemonicInvalidPassword()) {
       do {
         password = await onPassword('', loc.wallets.enter_bip38_password);
         aezeed.setPassphrase(password);
       } while (await aezeed.mnemonicInvalidPassword());
-    }
+    } */
 
     // SLIP39 wallet password is optinal
     if (askPassphrase && text.includes('\n')) {
@@ -136,16 +129,16 @@ const startImport = (importTextOrig, askPassphrase = false, searchAccounts = fal
     }
 
     // is it bip38 encrypted
-    if (text.startsWith('6P')) {
+    /* if (text.startsWith('6P')) {
       const decryptedKey = await bip38.decryptAsync(text, password);
 
       if (decryptedKey) {
         text = wif.encode(0x80, decryptedKey.privateKey, decryptedKey.compressed);
       }
-    }
+    } */
 
     // is it multisig?
-    yield { progress: 'multisignature' };
+    /* yield { progress: 'multisignature' };
     const ms = new MultisigHDWallet();
     ms.setSecret(text);
     if (ms.getN() > 0 && ms.getM() > 0) {
@@ -180,7 +173,7 @@ const startImport = (importTextOrig, askPassphrase = false, searchAccounts = fal
         await ldk.init();
         yield { wallet: ldk };
       }
-    }
+    } */
 
     // check bip39 wallets
     yield { progress: 'bip39' };
@@ -322,13 +315,13 @@ const startImport = (importTextOrig, askPassphrase = false, searchAccounts = fal
     }
 
     // maybe its a watch-only address?
-    yield { progress: 'watch only' };
+    /* yield { progress: 'watch only' };
     const watchOnly = new WatchOnlyWallet();
     watchOnly.setSecret(text);
     if (watchOnly.valid()) {
       await watchOnly.fetchBalance();
       yield { wallet: watchOnly };
-    }
+    } */
 
     // electrum p2wpkh-p2sh
     yield { progress: 'electrum p2wpkh-p2sh' };
@@ -349,13 +342,13 @@ const startImport = (importTextOrig, askPassphrase = false, searchAccounts = fal
     }
 
     // is it AEZEED?
-    yield { progress: 'aezeed' };
+    /* yield { progress: 'aezeed' };
     const aezeed2 = new HDAezeedWallet();
     aezeed2.setSecret(text);
     aezeed2.setPassphrase(password);
     if (await aezeed2.validateMnemonicAsync()) {
       yield { wallet: aezeed2 }; // not fetching txs or balances, fuck it, yolo, life is too short
-    }
+    } */
 
     // if it is multi-line string, then it is probably SLIP39 wallet
     // each line - one share
