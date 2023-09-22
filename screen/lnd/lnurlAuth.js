@@ -1,16 +1,11 @@
 import React, { useState, useContext, useCallback, useMemo } from 'react';
-import { I18nManager, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Icon } from 'react-native-elements';
-
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { BlueButton, BlueCard, BlueLoading, BlueSpacing20, BlueSpacing40, BlueText, SafeBlueArea } from '../../BlueComponents';
-
 import navigationStyle from '../../components/navigationStyle';
 import Lnurl from '../../class/lnurl';
-import { Chain } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
-import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
-import selectWallet from '../../helpers/select-wallet';
+import { useRoute, useTheme } from '@react-navigation/native';
 import URL from 'url';
 import { SuccessView } from '../send/success';
 
@@ -23,7 +18,6 @@ const AuthState = {
 
 const LnurlAuth = () => {
   const { wallets } = useContext(BlueStorageContext);
-  const { name } = useRoute();
   const { walletID, lnurl } = useRoute().params;
   const wallet = useMemo(() => wallets.find(w => w.getID() === walletID), [wallets, walletID]);
   const LN = useMemo(() => new Lnurl(lnurl), [lnurl]);
@@ -33,24 +27,21 @@ const LnurlAuth = () => {
   );
   const [authState, setAuthState] = useState(AuthState.USER_PROMPT);
   const [errMsg, setErrMsg] = useState('');
-  const { setParams, navigate } = useNavigation();
   const { colors } = useTheme();
   const stylesHook = StyleSheet.create({
     root: {
       backgroundColor: colors.background,
     },
-    walletWrapLabel: {
-      color: colors.buttonAlternativeTextColor,
-    },
   });
 
-  const showSelectWalletScreen = useCallback(() => {
-    selectWallet(navigate, name, Chain.OFFCHAIN).then(w => setParams({ walletID: w.getID() }));
-  }, [navigate, name, setParams]);
-
   const authenticate = useCallback(() => {
+    const address = Lnurl.getLnurlFromAddress(wallet.lnAddress);
+    const signature = wallet.addressOwnershipProof;
+    const additionalParams =
+      parsedLnurl.hostname?.includes('dfx.swiss') && address && signature ? { address: address.toUpperCase(), signature } : undefined;
+
     wallet
-      .authenticate(LN)
+      .authenticate(LN, additionalParams)
       .then(() => {
         setAuthState(AuthState.SUCCESS);
         setErrMsg('');
@@ -59,7 +50,7 @@ const LnurlAuth = () => {
         setAuthState(AuthState.ERROR);
         setErrMsg(err);
       });
-  }, [wallet, LN]);
+  }, [wallet, parsedLnurl.hostname, LN]);
 
   if (!parsedLnurl || !wallet || authState === AuthState.IN_PROGRESS)
     return (
@@ -67,22 +58,6 @@ const LnurlAuth = () => {
         <BlueLoading />
       </View>
     );
-
-  const renderWalletSelectionButton = authState === AuthState.USER_PROMPT && (
-    <View style={styles.walletSelectRoot}>
-      {authState !== AuthState.IN_PROGRESS && (
-        <TouchableOpacity accessibilityRole="button" style={styles.walletSelectTouch} onPress={showSelectWalletScreen}>
-          <Text style={styles.walletSelectText}>{loc.wallets.select_wallet.toLowerCase()}</Text>
-          <Icon name={I18nManager.isRTL ? 'angle-left' : 'angle-right'} size={18} type="font-awesome" color="#9aa0aa" />
-        </TouchableOpacity>
-      )}
-      <View style={styles.walletWrap}>
-        <TouchableOpacity accessibilityRole="button" style={styles.walletWrapTouch} onPress={showSelectWalletScreen}>
-          <Text style={[styles.walletWrapLabel, stylesHook.walletWrapLabel]}>{wallet.getLabel()}</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
 
   return (
     <SafeBlueArea style={styles.root}>
@@ -98,7 +73,6 @@ const LnurlAuth = () => {
               <BlueSpacing40 />
             </BlueCard>
           </ScrollView>
-          {renderWalletSelectionButton}
         </>
       )}
 
@@ -142,31 +116,6 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     justifyContent: 'center',
-  },
-  walletSelectRoot: {
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
-  walletSelectTouch: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  walletSelectText: {
-    color: '#9aa0aa',
-    fontSize: 14,
-    marginRight: 8,
-  },
-  walletWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 4,
-  },
-  walletWrapTouch: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  walletWrapLabel: {
-    fontSize: 14,
   },
 });
 

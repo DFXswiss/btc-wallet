@@ -673,8 +673,8 @@ export class LightningCustodianWallet extends LegacyWallet {
     return false;
   }
 
-  authenticate(lnurl) {
-    return lnurl.authenticate(this.secret);
+  authenticate(lnurl, additionalParams) {
+    return lnurl.authenticate(this.secret, additionalParams);
   }
 }
 

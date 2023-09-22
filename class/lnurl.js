@@ -315,7 +315,7 @@ export default class Lnurl {
     return this.getMin();
   }
 
-  authenticate(secret) {
+  authenticate(secret, additionalParams) {
     return new Promise((resolve, reject) => {
       if (!this._lnurl) throw new Error('this._lnurl is not set');
 
@@ -331,7 +331,14 @@ export default class Lnurl {
           const signatureObj = secp256k1.sign(Buffer.from(url.query.k1, 'hex'), privateKeyBuf);
           const derSignature = secp256k1.signatureExport(signatureObj.signature);
 
-          const reply = await this.fetchGet(`${url.href}&sig=${derSignature.toString('hex')}&key=${publicKey.toString('hex')}`);
+          let replyUrl = `${url.href}&sig=${derSignature.toString('hex')}&key=${publicKey.toString('hex')}`;
+          if (additionalParams) {
+            for (const [key, val] of Object.entries(additionalParams)) {
+              replyUrl += `&${key}=${val}`;
+            }
+          }
+
+          const reply = await this.fetchGet(replyUrl);
           if (reply.status === 'OK') {
             resolve();
           } else {
