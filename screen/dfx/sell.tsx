@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { RouteProp, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BlueButton, SafeBlueArea } from '../../BlueComponents';
@@ -14,6 +14,7 @@ import { AbstractHDElectrumWallet } from '../../class/wallets/abstract-hd-electr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetworkTransactionFees, { NetworkTransactionFee } from '../../models/networkTransactionFees';
 import BigNumber from 'bignumber.js';
+import { Chain } from '../../models/bitcoinUnits';
 const currency = require('../../blue_modules/currency');
 
 type SellRouteProps = RouteProp<
@@ -21,6 +22,7 @@ type SellRouteProps = RouteProp<
     params: {
       routeId: string;
       amount: string;
+      'wallet-id': string;
     };
   },
   'params'
@@ -30,15 +32,13 @@ const Sell = () => {
   const navigation = useNavigation();
   const { wallets, sleep } = useContext(BlueStorageContext);
   const { colors } = useTheme();
-  const { routeId, amount } = useRoute<SellRouteProps>().params;
+  const { routeId, amount, 'wallet-id': walletId } = useRoute<SellRouteProps>().params;
   const { getInfo: getSellInfo } = useSell();
   const { toDescription } = useFiat();
   const [isLoading, setIsLoading] = useState(true);
   const [sell, setSell] = useState<SellInfo>();
 
-  const wallet = useMemo(() => wallets?.[0], [wallets]);
   const [changeAddress, setChangeAddress] = useState<string>();
-  const [isTransactionReplaceable, setIsTransactionReplaceable] = useState(false);
   const [networkTransactionFees, setNetworkTransactionFees] = useState(new NetworkTransactionFee(3, 2, 1));
 
   const stylesHook = StyleSheet.create({
@@ -54,70 +54,80 @@ const Sell = () => {
   });
 
   useEffect(() => {
-    setIsTransactionReplaceable(wallet.type === HDSegwitBech32Wallet.type);
-
-    // load cached fees
-    AsyncStorage.getItem(NetworkTransactionFee.StorageKey)
-      .then(res => {
-        if (!res) return;
-        const fees = JSON.parse(res);
-        if (!fees?.fastestFee) return;
-        setNetworkTransactionFees(fees);
-      })
-      .catch(e => console.log('loading cached recommendedFees error', e));
-
-    // load fresh fees from servers
-    NetworkTransactionFees.recommendedFees()
-      .then(async fees => {
-        if (!fees?.fastestFee) return;
-        setNetworkTransactionFees(fees);
-        await AsyncStorage.setItem(NetworkTransactionFee.StorageKey, JSON.stringify(fees));
-      })
-      .catch(e => console.log('loading recommendedFees error', e));
-  }, [wallet]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!routeId) {
+    if (!walletId || !routeId) {
       return;
     }
-    getSellInfo(+routeId)
+
+    getSellInfo(walletId, +routeId)
       .then(setSell)
       .catch(() => {})
       .finally(() => setIsLoading(false));
-  }, [routeId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [walletId, routeId]);
 
   async function handleConfirm() {
+    const wallet = wallets.find((w: any) => w.getID() === walletId);
     if (!wallet) return;
-    const changeAddress = await getChangeAddressAsync();
-    const requestedSatPerByte = Number(networkTransactionFees.fastestFee);
-    const lutxo = wallet.getUtxo();
-    const targets = [{ address: sell?.deposit.address, value: currency.btcToSatoshi(amount) }];
-    const { tx, outputs, psbt, fee } = wallet.createTransaction(
-      lutxo,
-      targets,
-      requestedSatPerByte,
-      changeAddress,
-      isTransactionReplaceable ? HDSegwitBech32Wallet.defaultRBFSequence : HDSegwitBech32Wallet.finalRBFSequence,
-    );
 
-    let recipients = outputs.filter(({ address }: { address: string }) => address !== changeAddress);
+    if (wallet.chain === Chain.ONCHAIN) {
+      const isTransactionReplaceable = wallet.type === HDSegwitBech32Wallet.type;
 
-    if (recipients.length === 0) {
-      // special case. maybe the only destination in this transaction is our own change address..?
-      // (ez can be the case for single-address wallet when doing self-payment for consolidation)
-      recipients = outputs;
+      // load cached fees
+      AsyncStorage.getItem(NetworkTransactionFee.StorageKey)
+        .then(res => {
+          if (!res) return;
+          const fees = JSON.parse(res);
+          if (!fees?.fastestFee) return;
+          setNetworkTransactionFees(fees);
+        })
+        .catch(e => console.log('loading cached recommendedFees error', e));
+
+      // load fresh fees from servers
+      NetworkTransactionFees.recommendedFees()
+        .then(async fees => {
+          if (!fees?.fastestFee) return;
+          setNetworkTransactionFees(fees);
+          await AsyncStorage.setItem(NetworkTransactionFee.StorageKey, JSON.stringify(fees));
+        })
+        .catch(e => console.log('loading recommendedFees error', e));
+
+      const changeAddress = await getChangeAddressAsync(wallet);
+      const requestedSatPerByte = Number(networkTransactionFees.fastestFee);
+      const lutxo = wallet.getUtxo();
+      const targets = [{ address: sell?.deposit.address, value: currency.btcToSatoshi(amount) }];
+      const { tx, outputs, psbt, fee } = wallet.createTransaction(
+        lutxo,
+        targets,
+        requestedSatPerByte,
+        changeAddress,
+        isTransactionReplaceable ? HDSegwitBech32Wallet.defaultRBFSequence : HDSegwitBech32Wallet.finalRBFSequence,
+      );
+
+      let recipients = outputs.filter(({ address }: { address: string }) => address !== changeAddress);
+
+      if (recipients.length === 0) {
+        // special case. maybe the only destination in this transaction is our own change address..?
+        // (ez can be the case for single-address wallet when doing self-payment for consolidation)
+        recipients = outputs;
+      }
+
+      navigation.navigate('Confirm', {
+        fee: new BigNumber(fee).dividedBy(100000000).toNumber(),
+        memo: '',
+        walletID: wallet.getID(),
+        tx: tx.toHex(),
+        recipients,
+        satoshiPerByte: requestedSatPerByte,
+        payjoinUrl: undefined,
+        psbt,
+      });
+    } else {
+      navigation.navigate('LnurlPay', {
+        lnurl: sell?.deposit.address,
+        walletID: wallet.getID(),
+        amountSat: currency.btcToSatoshi(amount),
+      });
     }
-
-    navigation.navigate('Confirm', {
-      fee: new BigNumber(fee).dividedBy(100000000).toNumber(),
-      memo: '',
-      walletID: wallet.getID(),
-      tx: tx.toHex(),
-      recipients,
-      satoshiPerByte: requestedSatPerByte,
-      payjoinUrl: undefined,
-      psbt,
-    });
   }
 
   function handleError(e: any) {
@@ -130,7 +140,7 @@ const Sell = () => {
     ]);
   }
 
-  const getChangeAddressAsync = async () => {
+  const getChangeAddressAsync = async (wallet: any) => {
     if (changeAddress) return changeAddress; // cache
 
     let change;

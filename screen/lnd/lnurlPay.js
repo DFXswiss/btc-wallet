@@ -33,7 +33,7 @@ const _cacheFiatToSat = {};
 
 const LnurlPay = () => {
   const { wallets } = useContext(BlueStorageContext);
-  const { walletID, lnurl } = useRoute().params;
+  const { walletID, lnurl, amountSat } = useRoute().params;
   /** @type {LightningCustodianWallet} */
   const wallet = wallets.find(w => w.getID() === walletID);
   const [unit, setUnit] = useState(wallet.getPreferredBalanceUnit());
@@ -73,7 +73,7 @@ const LnurlPay = () => {
       /** @type {Lnurl} */
       const LN = _LN;
       let originalSatAmount;
-      let newAmount = (originalSatAmount = LN.getMin());
+      let newAmount = (originalSatAmount = amountSat ?? LN.getMin());
       if (!newAmount) {
         alert('Internal error: incorrect LNURL amount');
         return;

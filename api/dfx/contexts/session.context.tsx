@@ -151,12 +151,12 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
   }
 
   async function openServices(walletId: string, balance: string, service: DfxService): Promise<void> {
-    const token = await getAccessToken(walletId);
+    const token = encodeURIComponent(await getAccessToken(walletId));
     const lang = getAppLanguage();
+    const redirectUri = encodeURIComponent(`dfxtaro://?wallet-id=${walletId}`);
 
-    return Linking.openURL(
-      encodeURI(`${Config.REACT_APP_SRV_URL}/${service}?session=${token}&balances=${balance}@BTC&redirect-uri=dfxtaro://&lang=${lang}`),
-    );
+    const url = `${Config.REACT_APP_SRV_URL}/${service}?session=${token}&balances=${balance}@BTC&redirect-uri=${redirectUri}&lang=${lang}`;
+    return Linking.openURL(url);
   }
 
   async function reset(): Promise<void> {

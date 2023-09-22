@@ -452,6 +452,8 @@ const DeeplinkStackRoot = () => {
           gestureEnabled: false,
         }}
       />
+      <SendDetailsStack.Screen name="LnurlPay" component={LnurlPay} options={LnurlPay.navigationOptions(theme)} />
+      <SendDetailsStack.Screen name="LnurlPaySuccess" component={LnurlPaySuccess} options={LnurlPaySuccess.navigationOptions(theme)} />
     </DeeplinkStack.Navigator>
   );
 };
