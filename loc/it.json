@@ -26,7 +26,8 @@
     "pick_image": "Scegli immagine dalla libreria",
     "pick_file": "Scegli un file",
     "enter_amount": "Inserisci l'importo",
-    "qr_custom_input_button": "Tocca 10 volte per inserire un input personalizzato"
+    "qr_custom_input_button": "Tocca 10 volte per inserire un input personalizzato",
+    "add": "Aggiungi"
   },
   "alert": {
     "default": "Avviso"
@@ -138,7 +139,7 @@
   "receive": {
     "details_create": "Crea",
     "details_label": "Descrizione",
-    "details_setAmount": "Ricevi con importo",
+    "details_setAmount": "Funzioni avanzate",
     "details_share": "Condividi",
     "header": "Ricevi",
     "maxSats": "L'importo massimo è {max} sats",
@@ -403,17 +404,24 @@
     "add_lightning": "Lightning",
     "add_lightning_explain": "Per invio con transazioni istantanee",
     "add_lndhub": "Connetti al tuo LNDHub",
+    "add_lndhub_custom": "Personalizzazione",
     "add_lndhub_error": "L'indirizzo fornito è un nodo LNDHub invalido.",
     "add_lndhub_placeholder": "L'indirizzo del tuo nodo",
+    "add_lndhub_disclaimer": "Si noti che aggiungendo un provider LNDHub si accettano automaticamente i termini e le condizioni del provider corrispondente.",
+    "add_lndhub_signature": "Firma DFX",
+    "add_lndhub_url": "URL ammin LNDHub",
+    "add_lndhub_instructions": "Come utilizzare il proprio LNDHub",
     "add_placeholder": "Il mio primo wallet",
-    "add_title": "Aggiungi Portafoglio",
+    "add_title": "Creare Portafoglio",
     "add_wallet_name": "Nome Portafoglio",
     "add_wallet_type": "Tipo",
     "add_disclaimer": "Si prega di notare che utilizzando questo portafoglio self-custodial si accetta automaticamente il disclaimer.",
+    "total": "Totale",
     "balance": "Saldo",
     "clipboard_bitcoin": "Negli appunti è presente un indirizzo Bitcoin. Desideri usarlo per una transazione?",
     "clipboard_lightning": "Negli appunti è presente una fattura Lightning. Desideri usarla per una transazione?",
     "details_address": "Indirizzo",
+    "details_ln_address": "Indirizzo Lightning",
     "details_advanced": "Avanzato",
     "details_are_you_sure": "Sei sicuro?",
     "details_connected_to": "Connesso a",
@@ -488,7 +496,10 @@
     "warning_do_not_disclose": "Attenzione! Non rivelare.",
     "add_ln_wallet_first": "Devi prima aggiungere un portafoglio Lightning.",
     "identity_pubkey": "Identity Pubkey",
-    "xpub_title": "XPUB del Portafoglio"
+    "xpub_title": "XPUB del Portafoglio",
+    "backupSeed": "Backup del portafoglio",
+    "backupSeedWarning": "Backup non verificato",
+    "external_services": "Servizi esterni"
   },
   "multisig": {
     "multisig_vault": "Cassaforte",

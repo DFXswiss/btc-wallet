@@ -418,7 +418,7 @@
     "add_lndhub_url": "LNDHub admin URL",
     "add_lndhub_instructions": "How to use your own LNDHub",
     "add_placeholder": "my first wallet",
-    "add_title": "Add Wallet",
+    "add_title": "Create Wallet",
     "add_wallet_name": "Name",
     "add_wallet_type": "Type",
     "add_disclaimer": "Please note that by using this self-custodial wallet you automatically accept the disclaimer.",
@@ -427,7 +427,7 @@
     "clipboard_bitcoin": "You have a Bitcoin address on your clipboard. Would you like to use it for a transaction?",
     "clipboard_lightning": "You have a Lightning invoice on your clipboard. Would you like to use it for a transaction?",
     "details_address": "Address",
-    "details_ln_address": "Lightning Adresse",
+    "details_ln_address": "Lightning address",
     "details_advanced": "Advanced",
     "details_are_you_sure": "Are you sure?",
     "details_connected_to": "Connected to",
@@ -505,7 +505,7 @@
     "xpub_title": "Wallet XPUB",
     "backupSeed": "Backup your wallet",
     "backupSeedWarning": "Backup not verified",
-    "external_services": "External Services"
+    "external_services": "External services"
   },
   "multisig": {
     "multisig_vault": "Vault",

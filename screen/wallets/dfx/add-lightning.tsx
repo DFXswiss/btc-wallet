@@ -174,7 +174,6 @@ const styles = StyleSheet.create({
 AddLightning.navigationOptions = navigationStyle({}, opts => ({
   ...opts,
   headerTitle: loc.wallets.add_lndhub,
-  headerHideBackButton: true,
   gestureEnabled: false,
 }));
 

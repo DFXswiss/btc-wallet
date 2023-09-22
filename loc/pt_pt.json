@@ -13,7 +13,8 @@
     "save": "Salvar",
     "seed": "Seed",
     "success": "Sucesso",
-    "wallet_key": "Chave da carteira"
+    "wallet_key": "Chave da carteira",
+    "add": "Adicionar"
   },
   "azteco": {
     "codeIs": "O seu código é",
@@ -102,7 +103,7 @@
   "receive": {
     "details_create": "Criar",
     "details_label": "Descrição",
-    "details_setAmount": "Quantia a receber",
+    "details_setAmount": "Funções avançadas",
     "details_share": "partilhar",
     "header": "receber"
   },
@@ -292,12 +293,19 @@
     "add_lightning": "Lightning",
     "add_lightning_explain": "Para gastar com transações instantâneas",
     "add_lndhub": "Conecte-se ao seu LNDHub",
+    "add_lndhub_custom": "Personalizado",
     "add_lndhub_placeholder": "seu endereço de nó",
-    "add_title": "adicionar wallet",
+    "add_lndhub_disclaimer": "Tenha em atenção que, ao adicionar um fornecedor LNDHub, aceita automaticamente os termos e condições do fornecedor correspondente.",
+    "add_lndhub_signature": "Assinatura DFX",
+    "add_lndhub_url": "URL de admin do LNDHub",
+    "add_lndhub_instructions": "Como utilizar o seu próprio LNDHub",
+    "add_title": "Criar wallet",
     "add_wallet_name": "nome",
     "add_wallet_type": "tipo",
     "add_disclaimer": "Tenha em atenção que, ao utilizar esta carteira self-custodial, aceita automaticamente a declaração de exoneração de responsabilidade.",
+    "total": "Total",
     "details_address": "Endereço",
+    "details_ln_address": "Endereço Lightning",
     "details_advanced": "Avançado",
     "details_are_you_sure": "Tem a certeza?",
     "details_connected_to": "Conectado a",
@@ -324,7 +332,7 @@
     "import_title": "importar",
     "list_create_a_button": "Adicionar agora",
     "list_create_a_wallet": "Adicionar uma wallet",
-    "list_empty_txs1": "As suas transacções aparecerão aqui,",
+    "list_empty_txs1": "As suas transacções aparecerão aqui",
     "list_empty_txs1_lightning": "A wallet Lightning deve ser usada para as suas transações diárias. As taxas são muito baixas e a velocidade muito elevada",
     "list_empty_txs2_lightning": "\nPara começar a usar toque em \"gerir fundos\" e recarregue o seu saldo.",
     "list_latest_transaction": "últimas transacções",
@@ -339,7 +347,9 @@
     "select_wallet": "Seleccione uma Wallet",
     "xpub_copiedToClipboard": "copiado para o clipboard",
     "xpub_title": "XPUB da wallet",
-    "backupSeed": "Cópias de segurança não verificadas"
+    "backupSeed": "Cópia de segurança",
+    "backupSeedWarning": "Cópias de segurança não verificadas",
+    "external_services": "Serviços externos"
   },
   "multisig": {
     "confirm": "Confirmar",

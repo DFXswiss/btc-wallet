@@ -20,7 +20,8 @@
     "file_saved": "Le fichier {filePath} a été enregistré dans votre {destination}.",
     "downloads_folder": "Dossier des téléchargements",
     "pick_file": "Choisir un fichier",
-    "enter_amount": "Entrer un montant"
+    "enter_amount": "Entrer un montant",
+    "add": "Ajouter"
   },
   "alert": {
     "default": "Alerte"
@@ -136,7 +137,7 @@
   "receive": {
     "details_create": "Créer",
     "details_label": "Description",
-    "details_setAmount": "Recevoir avec un montant spécifique",
+    "details_setAmount": "Fonctions avancées",
     "details_share": "partager",
     "header": "Recevoir",
     "maxSats": "Le montant maximal est de {max} sats",
@@ -397,17 +398,24 @@
     "add_lightning": "Lightning",
     "add_lightning_explain": "Pour payer avec des transactions instantanées",
     "add_lndhub": "Connexion à votre LNDHub",
+    "add_lndhub_custom": "Personnaliser",
     "add_lndhub_error": "L'adresse de nœud fournie est un nœud LNDHub non valide.",
     "add_lndhub_placeholder": "l'adresse de votre noeud",
+    "add_lndhub_disclaimer": "Veuillez noter qu'en ajoutant un fournisseur LNDHub, vous acceptez automatiquement les termes et conditions du fournisseur correspondant.",
+    "add_lndhub_signature": "Signature DFX",
+    "add_lndhub_url": "URL de admin du LNDHub",
+    "add_lndhub_instructions": "Comment utiliser votre propre LNDHub",
     "add_placeholder": "mon premier portefeuille",
-    "add_title": "ajouter un portefeuille",
+    "add_title": "Créer un portefeuille",
     "add_wallet_name": "nom du portefeuille",
     "add_wallet_type": "type",
-    "add_disclaimer" : "Veuillez noter qu'en utilisant ce portefeuille self-custodial, vous acceptez automatiquement l'avis de non-responsabilité.",
+    "add_disclaimer": "Veuillez noter qu'en utilisant ce portefeuille self-custodial, vous acceptez automatiquement l'avis de non-responsabilité.",
+    "total": "Total",
     "balance": "Solde",
     "clipboard_bitcoin": "Vous avez une adresse bitcoin dans votre presse-papier. Voulez vous l'utiliser pour une transaction ?",
     "clipboard_lightning": "Vous avez une facture Ligthning dans votre presse-papier. Voulez vous l'utiliser pour une transaction ?",
     "details_address": "Adresse",
+    "details_ln_address": "Adresse Lightning",
     "details_advanced": "Avancé",
     "details_are_you_sure": "Êtes vous sur?",
     "details_connected_to": "Connecté à",
@@ -481,7 +489,9 @@
     "add_ln_wallet_first": "Vous devez d'abord ajouter un portefeuille Lightning.",
     "identity_pubkey": "Clé publique identité",
     "xpub_title": "XPUB portefeuille",
-    "backupSeed": "Sauvegarde non vérifiée"
+    "backupSeed": "Sauvegarde du portefeuille",
+    "backupSeedWarning": "Sauvegarde non vérifiée",
+    "external_services": "Services externes"
   },
   "multisig": {
     "multisig_vault": "Coffre",

@@ -425,7 +425,7 @@
     "clipboard_bitcoin": "Willst Du die Bitcoin Adresse in der Zwischenablage für eine Transaktion verwenden?",
     "clipboard_lightning": "Willst Du die Lightning Rechnung in der Zwischenablage für eine Transaktion verwenden?",
     "details_address": "Adresse",
-    "details_ln_address": "Lightning Adresse",
+    "details_ln_address": "Lightning-Adresse",
     "details_advanced": "Fortgeschritten",
     "details_are_you_sure": "Bist du dir sicher?",
     "details_connected_to": "Verbunden mit",

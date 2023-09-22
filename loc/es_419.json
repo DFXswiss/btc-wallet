@@ -26,7 +26,8 @@
     "pick_image": "Elegir imagen de la biblioteca",
     "pick_file": "Escoge un archivo",
     "enter_amount": "Ingresa la cantidad",
-    "qr_custom_input_button": "Pulsa 10 veces para ingresar una entrada personalizada"
+    "qr_custom_input_button": "Pulsa 10 veces para ingresar una entrada personalizada",
+    "add": "Añadir"
   },
   "alert": {
     "default": "Alerta"
@@ -118,7 +119,7 @@
   "receive": {
     "details_create": "Crear",
     "details_label": "Descripción",
-    "details_setAmount": "Recibir con monto",
+    "details_setAmount": "Funciones avanzadas",
     "details_share": "Compartir",
     "header": "Recibir",
     "maxSats": "La cantidad máxima es {max} sats",
@@ -382,16 +383,24 @@
     "add_lightning": "Lightning",
     "add_lightning_explain": "Para gastar con transacciones instantáneas",
     "add_lndhub": "Conectar a tu LNDHub",
+    "add_lndhub_custom": "Personalizar",
     "add_lndhub_error": "La dirección de nodo proporcionada es un nodo LNDHub inválido.",
     "add_lndhub_placeholder": "Tu Dirección de Nodo",
+    "add_lndhub_disclaimer": "Tenga en cuenta que al añadir un proveedor de LNDHub acepta automáticamente los términos y condiciones del proveedor correspondiente.",
+    "add_lndhub_signature": "Firma DFX",
+    "add_lndhub_url": "URL de admin de LNDHub",
+    "add_lndhub_instructions": "Cómo utilizar su propio LNDHub",
     "add_placeholder": "mi primera billetera",
-    "add_title": "Agregar Billetera",
+    "add_title": "Crear Billetera",
     "add_wallet_name": "Nombre",
     "add_wallet_type": "Tipo",
+    "add_disclaimer": "Por favor, ten en cuenta que al usar esta cartera self-custodial aceptas automáticamente el descargo de responsabilidad.",
+    "total": "Total",
     "balance": "Balance",
     "clipboard_bitcoin": "Tienes una dirección de Bitcoin en tu portapapeles. ¿te gustaría usarlo para una transacción?",
     "clipboard_lightning": "Tienes una factura Lightning en tu portapapeles. ¿Te gustaría usarlo para una transacción?",
     "details_address": "Dirección",
+    "details_ln_address": "Dirección Lightning",
     "details_advanced": "Avanzado",
     "details_are_you_sure": "¿Estás seguro?",
     "details_connected_to": "Conectado a",
@@ -442,7 +451,7 @@
     "list_create_a_button": "Agrega ahora",
     "list_create_a_wallet": "Agrega una billetera",
     "list_create_a_wallet_text": "Es gratis y puedes crear \ntantas como quieras.",
-    "list_empty_txs1": "Tus transacciones aparecerán aquí.",
+    "list_empty_txs1": "Tus transacciones aparecerán aquí",
     "list_empty_txs1_lightning": "La billetera Lightning debe usarse para tus transacciones diarias. Las tarifas son injustamente baratas y la velocidad es increíblemente rápida.",
     "list_empty_txs2": "Comienza con tu billetera.",
     "list_empty_txs2_lightning": "\nPara comenzar a usarla, toca Administrar Fondos y recarga tu saldo.",
@@ -466,7 +475,10 @@
     "warning_do_not_disclose": "¡Advertencia! No revelar.",
     "add_ln_wallet_first": "Primero debes agregar una billetera Lightning.",
     "identity_pubkey": "Identidad Pubkey",
-    "xpub_title": "XPUB de la billetera"
+    "xpub_title": "XPUB de la billetera",
+    "backupSeed": "Copia de seguridad",
+    "backupSeedWarning": "Copia de seguridad no verificada",
+    "external_services": "Servicios externos"
   },
   "multisig": {
     "multisig_vault": "Bóveda",
