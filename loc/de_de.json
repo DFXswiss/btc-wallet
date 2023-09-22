@@ -26,7 +26,8 @@
     "pick_image": "Bild aus Bibliothek wählen",
     "pick_file": "Datei auswählen",
     "enter_amount": "Betrag eingeben",
-    "qr_custom_input_button": "10x antippen für individuelle Eingabe"
+    "qr_custom_input_button": "10x antippen für individuelle Eingabe",
+    "add": "Hinzufügen"
   },
   "alert": {
     "default": "Warnung"
@@ -407,8 +408,13 @@
     "add_lightning": "Lightning",
     "add_lightning_explain": "Für Ausgaben mit sofortigen Transaktionen",
     "add_lndhub": "LNDHub Verbindung",
+    "add_lndhub_custom": "Benutzerdefiniert",
     "add_lndhub_error": "Die eingegebene Adresse ist kein gültiger LNDHub Konten.",
     "add_lndhub_placeholder": "Bitcoin Knoten-Adresse",
+    "add_lndhub_disclaimer": "Bitte beachte, dass Du mit dem Hinzufügen eines LNDHub-Anbieters automatisch die Allgemeinen Geschäftsbedingungen des entsprechenden Anbieters akzeptierst.",
+    "add_lndhub_signature": "DFX Signatur",
+    "add_lndhub_url": "LNDHub Admin URL",
+    "add_lndhub_instructions": "Wie man einen eigenen LNDHub verwendet",
     "add_placeholder": "Mein Wallet",
     "add_title": "Wallet erstellen",
     "add_wallet_name": "Wallet Name",
@@ -419,6 +425,7 @@
     "clipboard_bitcoin": "Willst Du die Bitcoin Adresse in der Zwischenablage für eine Transaktion verwenden?",
     "clipboard_lightning": "Willst Du die Lightning Rechnung in der Zwischenablage für eine Transaktion verwenden?",
     "details_address": "Adresse",
+    "details_ln_address": "Lightning Adresse",
     "details_advanced": "Fortgeschritten",
     "details_are_you_sure": "Bist du dir sicher?",
     "details_connected_to": "Verbunden mit",

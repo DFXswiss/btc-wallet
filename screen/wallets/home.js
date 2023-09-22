@@ -311,7 +311,8 @@ const WalletHome = ({ navigation }) => {
                 : {
                     rightElement: (
                       <SecondButton
-                        title="Add"
+                        title={loc._.add}
+                        icon={{ name: 'plus', type: 'font-awesome', color: 'white', size: 12 }}
                         onPress={() => navigate('WalletsRoot', { screen: 'AddLightning', params: { walletID: wallet.getID() } })}
                       />
                     ),

@@ -95,7 +95,6 @@ const AddLightning = () => {
 
   return (
     <SafeBlueArea>
-      {/* TODO (david): translations (whole file) */}
       <ScrollView contentContainerStyle={styles.scrollableContainer}>
         <View style={styles.contentContainer}>
           <SelectButton active={!useCustom} onPress={() => setUseCustom(false)}>
@@ -103,13 +102,13 @@ const AddLightning = () => {
           </SelectButton>
           <BlueSpacing10 />
           <SelectButton active={useCustom} onPress={() => setUseCustom(true)}>
-            <BlueText>Custom</BlueText>
+            <BlueText>{loc.wallets.add_lndhub_custom}</BlueText>
           </SelectButton>
 
           {useCustom && (
             <>
               <View style={styles.inputContainer}>
-                <BlueText style={styles.inputLabel}>Lightning address</BlueText>
+                <BlueText style={styles.inputLabel}>{loc.wallets.details_ln_address}</BlueText>
                 <BlueFormInput
                   placeholder="user@provider.domain"
                   placeholderTextColor={colors.feeText}
@@ -118,10 +117,10 @@ const AddLightning = () => {
                   onChangeText={setCustomAddress}
                 />
 
-                <BlueText style={styles.inputLabel}>DFX signature</BlueText>
+                <BlueText style={styles.inputLabel}>{loc.wallets.add_lndhub_signature}</BlueText>
                 <BlueFormInput placeholder="..." placeholderTextColor={colors.feeText} value={signature} onChangeText={setSignature} />
 
-                <BlueText style={styles.inputLabel}>LND Hub admin URL</BlueText>
+                <BlueText style={styles.inputLabel}>{loc.wallets.add_lndhub_url}</BlueText>
                 <BlueFormInput
                   placeholder="lndhub://admin:..."
                   placeholderTextColor={colors.feeText}
@@ -131,7 +130,7 @@ const AddLightning = () => {
                 />
               </View>
               <BlueButtonLink
-                title="How to use your own LND Hub"
+                title={loc.wallets.add_lndhub_instructions}
                 onPress={() => Linking.openURL('https://docs.dfx.swiss/en/faq.html#how-to-use-your-own-lnd-hub')}
               />
             </>
@@ -139,9 +138,7 @@ const AddLightning = () => {
 
           <BlueSpacingAuto />
 
-          <Text style={styles.disclaimer}>
-            Please note that by adding an LND Hub provider you automatically accept the terms and conditions of the corresponding provider.
-          </Text>
+          <Text style={styles.disclaimer}>{loc.wallets.add_lndhub_disclaimer}</Text>
           <BlueButton title={loc._.continue} onPress={onCreate} disabled={useCustom && !dataValid} isLoading={isLoading} />
           <BlueSpacing20 />
           {/* @ts-ignore component in JS */}
@@ -176,7 +173,7 @@ const styles = StyleSheet.create({
 
 AddLightning.navigationOptions = navigationStyle({}, opts => ({
   ...opts,
-  headerTitle: 'Add LND Hub', // TODO (david): translation
+  headerTitle: loc.wallets.add_lndhub,
   headerHideBackButton: true,
   gestureEnabled: false,
 }));

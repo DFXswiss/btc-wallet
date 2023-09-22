@@ -26,7 +26,8 @@
     "pick_image": "Choose image from library",
     "pick_file": "Choose a file",
     "enter_amount": "Enter amount",
-    "qr_custom_input_button": "Tap 10 times to enter custom input"
+    "qr_custom_input_button": "Tap 10 times to enter custom input",
+    "add": "Hinzufügen"
   },
   "alert": {
     "default": "Alert",
@@ -409,8 +410,13 @@
     "add_lightning": "Lightning",
     "add_lightning_explain": "For spending with instant transactions",
     "add_lndhub": "Connect to your LNDHub",
+    "add_lndhub_custom": "Custom",
     "add_lndhub_error": "The provided node address is an invalid LNDHub node.",
     "add_lndhub_placeholder": "Your Node Address",
+    "add_lndhub_disclaimer": "Please note that by adding an LNDHub provider you automatically accept the terms and conditions of the corresponding provider.",
+    "add_lndhub_signature": "DFX signature",
+    "add_lndhub_url": "LNDHub admin URL",
+    "add_lndhub_instructions": "How to use your own LNDHub",
     "add_placeholder": "my first wallet",
     "add_title": "Add Wallet",
     "add_wallet_name": "Name",
@@ -421,6 +427,7 @@
     "clipboard_bitcoin": "You have a Bitcoin address on your clipboard. Would you like to use it for a transaction?",
     "clipboard_lightning": "You have a Lightning invoice on your clipboard. Would you like to use it for a transaction?",
     "details_address": "Address",
+    "details_ln_address": "Lightning Adresse",
     "details_advanced": "Advanced",
     "details_are_you_sure": "Are you sure?",
     "details_connected_to": "Connected to",
