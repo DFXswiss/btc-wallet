@@ -495,7 +495,8 @@
     "identity_pubkey": "Pubkey-Identität",
     "xpub_title": "Wallet xPub",
     "backupSeed": "Wallet Backup",
-    "backupSeedWarning": "Backup nicht verifiziert"
+    "backupSeedWarning": "Backup nicht verifiziert",
+    "external_services": "Externe Services"
   },
   "multisig": {
     "multisig_vault": "Tresor",

@@ -304,9 +304,12 @@ const styles = StyleSheet.create({
   },
 });
 
-LNDViewInvoice.navigationOptions = navigationStyle({ closeButton: true }, opts => ({
-  ...opts,
-  title: loc.lndViewInvoice.lightning_invoice,
-}));
+LNDViewInvoice.navigationOptions = navigationStyle(
+  { closeButton: true, closeButtonFunc: ({ navigation }) => navigation.getParent()?.pop() },
+  opts => ({
+    ...opts,
+    title: loc.lndViewInvoice.lightning_invoice,
+  }),
+);
 
 export default LNDViewInvoice;

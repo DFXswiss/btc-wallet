@@ -464,7 +464,7 @@
     "list_create_a_button": "Aggiungi ora",
     "list_create_a_wallet": "Aggiungi un portafoglio",
     "list_create_a_wallet_text": "È gratuito e puoi crearne\nquanti ne vuoi.",
-    "list_empty_txs1": "Le tue transazioni appariranno qui,",
+    "list_empty_txs1": "Le tue transazioni appariranno qui",
     "list_empty_txs1_lightning": "Il portafoglio Lightning dovrebbe essere utilizzato per le tue transazioni quotidiane. Le commissioni sono bassissime e la velocità delle transazioni è incredibile.",
     "list_empty_txs2": "Inizia con il tuo wallet.",
     "list_empty_txs2_lightning": "\nPer iniziare ad usarlo, seleziona Gestisci Fondi e ricarica il tuo saldo.",

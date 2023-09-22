@@ -10,13 +10,23 @@ import { useAuth } from '../hooks/auth.hook';
 import { BlueStorageContext } from '../../../blue_modules/storage-context';
 import { LightningLdsWallet } from '../../../class/wallets/lightning-lds-wallet';
 import Lnurl from '../../../class/lnurl';
+import loc from '../../../loc';
+import { useApi } from '../hooks/api.hook';
+import { User, UserUrl } from '../definitions/user';
+import { SignIn } from '../definitions/auth';
+import { useLanguageContext } from './language.context';
+
+export enum DfxService {
+  BUY = 'buy',
+  SELL = 'sell',
+}
 
 export interface SessionInterface {
   getAccessToken: (walletId: string) => Promise<string>;
   resetAccessToken: (walletId: string) => void;
   isProcessing: boolean;
   isNotAllowedInCountry: boolean;
-  openServices: (walletId: string, balance: string) => Promise<void>;
+  openServices: (walletId: string, balance: string, service: DfxService) => Promise<void>;
   reset: () => Promise<void>;
 }
 
@@ -30,7 +40,9 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
   const { wallets } = useContext(BlueStorageContext);
   const { walletID: mainWalletId, address: mainAddress, signMessage } = useWalletContext();
   const { getSignMessage, signIn, signUp } = useAuth();
+  const { call } = useApi();
   const { dfxSession } = useStore();
+  const { languages } = useLanguageContext();
 
   const [sessions, setSessions] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
@@ -68,10 +80,28 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
     });
   }
 
+  function getAppLanguage(): string | undefined {
+    return loc.getLanguage()?.split('_')[0]?.toUpperCase();
+  }
+
+  async function updateLanguage(token: SignIn): Promise<SignIn> {
+    try {
+      const language = languages?.find(l => l.symbol === getAppLanguage());
+      if (language) {
+        const update: Partial<User> = { language };
+        await call({ url: UserUrl.change, method: 'PUT', data: update }, token.accessToken);
+      }
+    } catch (e) {
+      console.error('Failed to update language:', e);
+    }
+
+    return token;
+  }
+
   function createSession(address: string, signature: string): Promise<string> {
     return signIn(address, signature)
       .catch((e: ApiError) => {
-        if (e.statusCode === 404) return signUp(address, signature);
+        if (e.statusCode === 404) return signUp(address, signature).then(updateLanguage);
         if (e.statusCode === 403) setIsNotAllowedInCountry(true);
 
         throw e;
@@ -94,7 +124,10 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
     } else {
       const wallet = wallets.find((w: any) => w.getID?.() === walletId);
       if (wallet.type === LightningLdsWallet.type) {
-        return createSession(Lnurl.getLnurlFromAddress(wallet.lnAddress).toUpperCase(), wallet.addressOwnershipProof);
+        const address = Lnurl.getLnurlFromAddress(wallet.lnAddress);
+        if (!address) throw new Error('Address is not defined');
+
+        return createSession(address.toUpperCase(), wallet.addressOwnershipProof);
       }
     }
 
@@ -117,10 +150,13 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
     updateSession(walletId);
   }
 
-  async function openServices(walletId: string, balance: string): Promise<void> {
+  async function openServices(walletId: string, balance: string, service: DfxService): Promise<void> {
     const token = await getAccessToken(walletId);
+    const lang = getAppLanguage();
 
-    return Linking.openURL(encodeURI(`${Config.REACT_APP_SRV_URL}?session=${token}&balances=${balance}@BTC&redirect-uri=bitcoindfx://`));
+    return Linking.openURL(
+      encodeURI(`${Config.REACT_APP_SRV_URL}/${service}?session=${token}&balances=${balance}@BTC&redirect-uri=bitcoindfx://&lang=${lang}`),
+    );
   }
 
   async function reset(): Promise<void> {

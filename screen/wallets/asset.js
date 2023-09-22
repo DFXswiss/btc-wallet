@@ -20,7 +20,7 @@ import {
 import { Icon } from 'react-native-elements';
 import { useRoute, useNavigation, useTheme, useFocusEffect } from '@react-navigation/native';
 import { Chain } from '../../models/bitcoinUnits';
-import { BlueAlertWalletExportReminder } from '../../BlueComponents';
+import { BlueAlertWalletExportReminder, BlueText } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
 import { LightningCustodianWallet, LightningLdkWallet, MultisigHDWallet, WatchOnlyWallet } from '../../class';
 import ActionSheet from '../ActionSheet';
@@ -31,12 +31,20 @@ import { isDesktop } from '../../blue_modules/environment';
 import BlueClipboard from '../../blue_modules/clipboard';
 import { TransactionListItem } from '../../components/TransactionListItem';
 import alert from '../../components/Alert';
-import DfxButton from '../../img/dfx/buttons/dfx-services.png';
 import { ImageButton } from '../../components/ImageButton';
-import { useDfxSessionContext } from '../../api/dfx/contexts/session.context';
+import { DfxService, useDfxSessionContext } from '../../api/dfx/contexts/session.context';
 import BigNumber from 'bignumber.js';
 import TransactionsNavigationHeader, { actionKeys } from '../../components/TransactionsNavigationHeader';
 import PropTypes from 'prop-types';
+
+import BuyEn from '../../img/dfx/buttons/buy_en.png';
+import SellEn from '../../img/dfx/buttons/sell_en.png';
+import BuyDe from '../../img/dfx/buttons/buy_de.png';
+import SellDe from '../../img/dfx/buttons/sell_de.png';
+import BuyFr from '../../img/dfx/buttons/buy_fr.png';
+import SellFr from '../../img/dfx/buttons/sell_fr.png';
+import BuyIt from '../../img/dfx/buttons/buy_it.png';
+import SellIt from '../../img/dfx/buttons/sell_it.png';
 
 const scanqrHelper = require('../../helpers/scan-qr');
 const fs = require('../../blue_modules/fs');
@@ -67,12 +75,42 @@ const Asset = ({ navigation }) => {
   const { width } = useWindowDimensions();
   const [isHandlingOpenServices, setIsHandlingOpenServices] = useState(false);
 
+  const getButtonImages = lang => {
+    switch (lang) {
+      case 'en':
+        return [BuyEn, SellEn];
+      case 'de_de':
+        return [BuyDe, SellDe];
+      case 'fr_fr':
+        return [BuyFr, SellFr];
+      case 'it':
+        return [BuyIt, SellIt];
+      default:
+        return [BuyEn, SellEn];
+    }
+  };
+
+  const language = loc.getLanguage()?.toLowerCase();
+  const buttonImages = useMemo(() => getButtonImages(language), [language]);
+
   const stylesHook = StyleSheet.create({
     listHeaderText: {
       color: colors.foregroundColor,
     },
     list: {
       backgroundColor: colors.background,
+    },
+    dfxContainer: {
+      backgroundColor: '#0A345A',
+      alignItems: 'center',
+    },
+    dfxButtonContainer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginVertical: 10,
+      height: 70,
+      gap: 10,
     },
   });
 
@@ -151,12 +189,13 @@ const Asset = ({ navigation }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallet]);
 
-  const handleOpenServices = () => {
+
+  const handleOpenServices = service => {
     if (isNotAllowedInCountry) {
       showNotAvailableInCountryAlert();
     } else {
       setIsHandlingOpenServices(true);
-      openServices(walletID, new BigNumber(currency.satoshiToBTC(wallet.getBalance())).toString())
+      openServices(walletID, new BigNumber(currency.satoshiToBTC(wallet.getBalance())).toString(), service)
         .catch(e =>
           Alert.alert('Something went wrong', e.message?.toString(), [
             {
@@ -519,12 +558,28 @@ const Asset = ({ navigation }) => {
           }
         }}
       />
-      <View style={styles.dfxButtonContainer}>
-        <View style={styles.dfxIcons}>
+      <View style={stylesHook.dfxContainer}>
+        <BlueText>{loc.wallets.external_services}</BlueText>
+        <View style={stylesHook.dfxButtonContainer}>
           {isProcessing ? (
             <ActivityIndicator />
           ) : (
-            <ImageButton source={DfxButton} onPress={handleOpenServices} disabled={isHandlingOpenServices} />
+            <>
+              <View>
+                <ImageButton
+                  source={buttonImages[0]}
+                  onPress={() => handleOpenServices(DfxService.BUY)}
+                  disabled={isHandlingOpenServices}
+                />
+              </View>
+              <View>
+                <ImageButton
+                  source={buttonImages[1]}
+                  onPress={() => handleOpenServices(DfxService.SELL)}
+                  disabled={isHandlingOpenServices}
+                />
+              </View>
+            </>
           )}
         </View>
       </View>
@@ -649,17 +704,5 @@ const styles = StyleSheet.create({
   },
   receiveIcon: {
     transform: [{ rotate: I18nManager.isRTL ? '45deg' : '-45deg' }],
-  },
-  dfxButtonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    paddingTop: 16,
-    paddingBottom: 16,
-    borderBottomColor: '#113759',
-    borderBottomWidth: 1,
-  },
-  dfxIcons: {
-    height: 67,
-    justifyContent: 'center',
   },
 });

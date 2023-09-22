@@ -456,7 +456,7 @@
     "list_create_a_button": "Ajouter maintenant",
     "list_create_a_wallet": "Ajouter un portefeuille",
     "list_create_a_wallet_text": "Cest gratuit et vous pouvez en créer \nautant que vous voulez.",
-    "list_empty_txs1": "Vos transactions apparaîtront ici,",
+    "list_empty_txs1": "Vos transactions apparaîtront ici",
     "list_empty_txs1_lightning": "Un portefeuille Lightning devrait être utilisé pour les transactions quotidiennes. Les frais sont très bas et la vitesse est étourdissante.",
     "list_empty_txs2": "Commencez avec votre portefeuille.",
     "list_empty_txs2_lightning": "\nPour commencer à l'utiliser taper sur \"Gérer les fonds\" et alimentez votre solde.",
