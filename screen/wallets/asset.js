@@ -20,9 +20,9 @@ import {
 import { Icon } from 'react-native-elements';
 import { useRoute, useNavigation, useTheme, useFocusEffect } from '@react-navigation/native';
 import { Chain } from '../../models/bitcoinUnits';
-import { BlueAlertWalletExportReminder, BlueText } from '../../BlueComponents';
+import { BlueText } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
-import { LightningCustodianWallet, LightningLdkWallet, MultisigHDWallet, WatchOnlyWallet } from '../../class';
+import { WatchOnlyWallet } from '../../class';
 import ActionSheet from '../ActionSheet';
 import loc from '../../loc';
 import { FContainer, FButton } from '../../components/FloatButtons';
@@ -34,7 +34,7 @@ import alert from '../../components/Alert';
 import { ImageButton } from '../../components/ImageButton';
 import { DfxService, useDfxSessionContext } from '../../api/dfx/contexts/session.context';
 import BigNumber from 'bignumber.js';
-import TransactionsNavigationHeader, { actionKeys } from '../../components/TransactionsNavigationHeader';
+import TransactionsNavigationHeader from '../../components/TransactionsNavigationHeader';
 import PropTypes from 'prop-types';
 
 import BuyEn from '../../img/dfx/buttons/buy_en.png';
@@ -310,36 +310,6 @@ const Asset = ({ navigation }) => {
     );
   };
 
-  const onWalletSelect = async selectedWallet => {
-    if (selectedWallet) {
-      navigate('WalletTransactions', {
-        walletType: wallet.type,
-        walletID: wallet.getID(),
-        key: `WalletTransactions-${wallet.getID()}`,
-      });
-      /** @type {LightningCustodianWallet} */
-      let toAddress = false;
-      if (wallet.refill_addressess.length > 0) {
-        toAddress = wallet.refill_addressess[0];
-      } else {
-        try {
-          await wallet.fetchBtcAddress();
-          toAddress = wallet.refill_addressess[0];
-        } catch (Err) {
-          return alert(Err.message);
-        }
-      }
-      navigate('SendDetailsRoot', {
-        screen: 'SendDetails',
-        params: {
-          memo: loc.lnd.refill_lnd_balance,
-          address: toAddress,
-          walletID: selectedWallet.getID(),
-        },
-      });
-    }
-  };
-
   const navigateToSendScreen = () => {
     navigate('SendDetailsRoot', {
       screen: 'SendDetails',
@@ -476,35 +446,6 @@ const Asset = ({ navigation }) => {
     scanqrHelper(navigate, name, false).then(d => onBarCodeRead(d));
   };
 
-  const navigateToViewEditCosigners = () => {
-    navigate('ViewEditMultisigCosignersRoot', {
-      screen: 'ViewEditMultisigCosigners',
-      params: {
-        walletId: wallet.getID(),
-      },
-    });
-  };
-
-  const onManageFundsPressed = ({ id }) => {
-    if (id === actionKeys.Refill) {
-      const availableWallets = [...wallets.filter(item => item.chain === Chain.ONCHAIN && item.allowSend())];
-      if (availableWallets.length === 0) {
-        alert(loc.lnd.refill_create);
-      } else {
-        navigate('SelectWallet', { onWalletSelect, chainType: Chain.ONCHAIN });
-      }
-    } else if (id === actionKeys.RefillWithExternalWallet) {
-      if (wallet.getUserHasSavedExport()) {
-        navigate('ReceiveDetailsRoot', {
-          screen: 'ReceiveDetails',
-          params: {
-            walletID: wallet.getID(),
-          },
-        });
-      }
-    }
-  };
-
   const getItemLayout = (_, index) => ({
     length: 64,
     offset: 64 * index,
@@ -524,32 +465,6 @@ const Asset = ({ navigation }) => {
             saveToDisk();
           })
         }
-        onManageFundsPressed={id => {
-          if (wallet.type === MultisigHDWallet.type) {
-            navigateToViewEditCosigners();
-          } else if (wallet.type === LightningLdkWallet.type) {
-            navigate('LdkInfo', { walletID: wallet.getID() });
-          } else if (wallet.type === LightningCustodianWallet.type) {
-            if (wallet.getUserHasSavedExport()) {
-              onManageFundsPressed({ id });
-            } else {
-              BlueAlertWalletExportReminder({
-                onSuccess: async () => {
-                  wallet.setUserHasSavedExport(true);
-                  await saveToDisk();
-                  onManageFundsPressed({ id });
-                },
-                onFailure: () =>
-                  navigate('WalletExportRoot', {
-                    screen: 'WalletExport',
-                    params: {
-                      walletID: wallet.getID(),
-                    },
-                  }),
-              });
-            }
-          }
-        }}
       />
       <View style={stylesHook.dfxContainer}>
         <BlueText>{loc.wallets.external_services}</BlueText>

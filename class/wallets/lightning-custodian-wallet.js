@@ -143,8 +143,9 @@ export class LightningCustodianWallet extends LegacyWallet {
       throw new Error('API failure: ' + response.err + ' ' + JSON.stringify(response.originalResponse));
     }
 
-    if (json && json.error) {
-      throw new Error('API error: ' + json.message + ' (code ' + json.code + ')');
+    if (json && (json.error || !json.payment_preimage)) {
+      const message = json.message ?? json.detail;
+      throw new Error(`API error: ${message}` + (json.code ? ` (code ${json.code})` : ''));
     }
 
     this.last_paid_invoice_result = json;
