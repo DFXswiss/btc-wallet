@@ -158,15 +158,6 @@ const Asset = ({ navigation }) => {
     setIsLoading(false);
     setSelectedWallet(wallet.getID());
     setDataSource(wallet.getTransactions(15));
-    setOptions({
-      headerStyle: {
-        backgroundColor: 'transparent',
-        borderBottomWidth: 0,
-        elevation: 0,
-        // shadowRadius: 0,
-        shadowOffset: { height: 0, width: 0 },
-      },
-    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletID]);
 
@@ -566,7 +557,15 @@ const Asset = ({ navigation }) => {
 
 export default Asset;
 
-Asset.navigationOptions = navigationStyle({});
+Asset.navigationOptions = navigationStyle({
+  headerStyle: {
+    backgroundColor: 'transparent',
+    borderBottomWidth: 0,
+    elevation: 0,
+    // shadowRadius: 0,
+    shadowOffset: { height: 0, width: 0 },
+  },
+});
 
 Asset.propTypes = {
   navigation: PropTypes.shape(),

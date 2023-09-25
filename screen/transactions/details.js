@@ -409,15 +409,4 @@ const styles = StyleSheet.create({
 
 export default TransactionsDetails;
 
-TransactionsDetails.navigationOptions = navigationStyle({ headerTitle: loc.transactions.details_title }, (options, { theme }) => {
-  return {
-    ...options,
-    headerStyle: {
-      backgroundColor: theme.colors.customHeader,
-      borderBottomWidth: 0,
-      elevation: 0,
-      shadowOpacity: 0,
-      shadowOffset: { height: 0, width: 0 },
-    },
-  };
-});
+TransactionsDetails.navigationOptions = navigationStyle({ headerTitle: loc.transactions.details_title });

@@ -537,18 +537,4 @@ const styles = StyleSheet.create({
   },
 });
 
-TransactionsStatus.navigationOptions = navigationStyle(
-  {
-    headerTitle: '',
-  },
-  (options, { theme }) => ({
-    ...options,
-    headerStyle: {
-      backgroundColor: theme.colors.customHeader,
-      borderBottomWidth: 0,
-      elevation: 0,
-      shadowOpacity: 0,
-      shadowOffset: { height: 0, width: 0 },
-    },
-  }),
-);
+TransactionsStatus.navigationOptions = navigationStyle({ headerTitle: '' });
