@@ -14,7 +14,8 @@
     "seed": "Seed",
     "success": "Sucesso",
     "wallet_key": "Chave da carteira",
-    "add": "Adicionar"
+    "add": "Adicionar",
+    "repeat": "Repetir"
   },
   "azteco": {
     "codeIs": "O seu código é",

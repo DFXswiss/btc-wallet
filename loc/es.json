@@ -19,7 +19,8 @@
     "invalid_animated_qr_code_fragment": "Fragmento de código QR inválido. Por favor inténtalo de nuevo.",
     "file_saved": "El archivo {filePath} se ha guardado en tu {destination}.",
     "downloads_folder": "Carpeta de descargas",
-    "add": "Añadir"
+    "add": "Añadir",
+    "repeat": "Repetir"
   },
   "alert": {
     "default": "Atención"

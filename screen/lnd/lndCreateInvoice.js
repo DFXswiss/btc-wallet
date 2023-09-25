@@ -49,7 +49,7 @@ const LNDCreateInvoice = () => {
   const [amount, setAmount] = useState();
   const [isLoading, setIsLoading] = useState(true);
   const [description, setDescription] = useState('');
-  const [lnurlParams, setLNURLParams] = useState();
+  const [lnurlParams, setLnurlParams] = useState();
   const [isCustomModalVisible, setIsCustomModalVisible] = useState(false);
 
   const styleHooks = StyleSheet.create({
@@ -79,7 +79,7 @@ const LNDCreateInvoice = () => {
       wallet.current.setUserHasSavedExport(true);
       await saveToDisk();
       if (uri) {
-        processLnurl(uri);
+        await processLnurl(uri);
       }
     } catch (e) {
       console.log(e);
@@ -127,10 +127,9 @@ const LNDCreateInvoice = () => {
     }, [wallet]),
   );
 
-  const createInvoice = async () => {
+  const createInvoice = async (invoiceAmount = amount, invoiceDescription = description, withdrawParams = lnurlParams) => {
     setIsLoading(true);
     try {
-      let invoiceAmount = amount;
       switch (unit) {
         case BitcoinUnit.SATS:
           invoiceAmount = parseInt(invoiceAmount, 10); // basically nop
@@ -144,8 +143,8 @@ const LNDCreateInvoice = () => {
           break;
       }
 
-      if (lnurlParams) {
-        const { min, max } = lnurlParams;
+      if (withdrawParams) {
+        const { min, max } = withdrawParams;
         if (invoiceAmount < min || invoiceAmount > max) {
           let text;
           if (invoiceAmount < min) {
@@ -166,7 +165,7 @@ const LNDCreateInvoice = () => {
         }
       }
 
-      const invoiceRequest = await wallet.current.addInvoice(invoiceAmount, description);
+      const invoiceRequest = await wallet.current.addInvoice(invoiceAmount, invoiceDescription);
       ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
 
       // lets decode payreq and subscribe groundcontrol so we can receive push notification when our invoice is paid
@@ -176,8 +175,8 @@ const LNDCreateInvoice = () => {
       Notifications.majorTomToGroundControl([], [decoded.payment_hash], []);
 
       // send to lnurl-withdraw callback url if that exists
-      if (lnurlParams) {
-        const { callback, k1 } = lnurlParams;
+      if (withdrawParams) {
+        const { callback, k1 } = withdrawParams;
         const callbackUrl = callback + (callback.indexOf('?') !== -1 ? '&' : '?') + 'k1=' + k1 + '&pr=' + invoiceRequest;
 
         let reply;
@@ -292,15 +291,19 @@ const LNDCreateInvoice = () => {
       }
 
       // setting the invoice creating screen with the parameters
-      setLNURLParams({
+      const withdrawParams = {
         k1: reply.k1,
         callback: reply.callback,
         fixed: reply.minWithdrawable === reply.maxWithdrawable,
         min: (reply.minWithdrawable || 0) / 1000,
         max: reply.maxWithdrawable / 1000,
-      });
+      };
+
+      setLnurlParams(withdrawParams);
       setAmount(newAmount);
       setDescription(reply.defaultDescription);
+
+      await createInvoice(newAmount, reply.defaultDescription, withdrawParams);
       setIsLoading(false);
     } catch (Err) {
       Keyboard.dismiss();
@@ -373,7 +376,7 @@ const LNDCreateInvoice = () => {
     setParams({ walletID: id });
   };
 
-  if (!wallet.current) {
+  if (!wallet.current || isLoading) {
     return (
       <View style={[styles.root, styleHooks.root]}>
         <StatusBar barStyle="light-content" />

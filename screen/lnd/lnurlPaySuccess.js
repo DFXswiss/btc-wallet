@@ -94,7 +94,7 @@ export default class LnurlPaySuccess extends Component {
           {(preamble || url || message) && (
             <BlueCard>
               <View style={styles.successContainer}>
-                <Text style={styles.successText}>{preamble}</Text>
+                <BlueText style={styles.successText}>{preamble}</BlueText>
                 {url ? (
                   <BlueButtonLink
                     title={url}
@@ -123,7 +123,7 @@ export default class LnurlPaySuccess extends Component {
                     },
                   });
                 }}
-                title="repeat" // TODO: translate this
+                title={loc._.repeat}
                 icon={{ name: 'refresh', type: 'font-awesome', color: '#9aa0aa' }}
               />
             ) : (

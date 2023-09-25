@@ -27,7 +27,8 @@
     "pick_file": "Choose a file",
     "enter_amount": "Enter amount",
     "qr_custom_input_button": "Tap 10 times to enter custom input",
-    "add": "Hinzufügen"
+    "add": "Add",
+    "repeat": "Repeat"
   },
   "alert": {
     "default": "Alert",

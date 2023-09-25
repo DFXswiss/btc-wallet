@@ -27,7 +27,8 @@
     "pick_file": "Escoge un archivo",
     "enter_amount": "Ingresa la cantidad",
     "qr_custom_input_button": "Pulsa 10 veces para ingresar una entrada personalizada",
-    "add": "Añadir"
+    "add": "Añadir",
+    "repeat": "Repetir"
   },
   "alert": {
     "default": "Alerta"

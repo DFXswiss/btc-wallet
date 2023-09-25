@@ -27,7 +27,8 @@
     "pick_file": "Datei auswählen",
     "enter_amount": "Betrag eingeben",
     "qr_custom_input_button": "10x antippen für individuelle Eingabe",
-    "add": "Hinzufügen"
+    "add": "Hinzufügen",
+    "repeat": "Wiederholen"
   },
   "alert": {
     "default": "Warnung"

@@ -21,7 +21,8 @@
     "downloads_folder": "Dossier des téléchargements",
     "pick_file": "Choisir un fichier",
     "enter_amount": "Entrer un montant",
-    "add": "Ajouter"
+    "add": "Ajouter",
+    "repeat": "Répéter"
   },
   "alert": {
     "default": "Alerte"
