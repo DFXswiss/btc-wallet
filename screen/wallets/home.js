@@ -84,7 +84,7 @@ const WalletHome = ({ navigation }) => {
       backgroundColor: colors.background,
     },
     comingSoon: {
-      color: colors.buttonDisabledTextColor,
+      color: colors.alternativeTextColor,
     },
   });
 
@@ -166,6 +166,7 @@ const WalletHome = ({ navigation }) => {
 
   const onBarScanned = value => {
     if (!value) return;
+
     DeeplinkSchemaMatch.navigationRouteFor({ url: value }, completionValue => {
       ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
       navigate(...completionValue);

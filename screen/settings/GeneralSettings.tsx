@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { ScrollView, Platform, Pressable, TouchableOpacity, StyleSheet } from 'react-native';
+import { ScrollView, Platform, Pressable, StyleSheet } from 'react-native';
 
 import navigationStyle from '../../components/navigationStyle';
 import { BlueLoading, BlueText, BlueSpacing20, BlueListItem, BlueCard } from '../../BlueComponents';
@@ -15,7 +15,7 @@ const styles = StyleSheet.create({
 });
 
 const GeneralSettings: React.FC = () => {
-  const { isAdvancedModeEnabled, setIsAdvancedModeEnabled, wallets, isHandOffUseEnabled, setIsHandOffUseEnabledAsyncStorage } =
+  const { isAdvancedModeEnabled, setIsAdvancedModeEnabled, isHandOffUseEnabled, setIsHandOffUseEnabledAsyncStorage } =
     useContext(BlueStorageContext);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdvancedModeSwitchEnabled, setIsAdvancedModeSwitchEnabled] = useState(false);
@@ -54,12 +54,6 @@ const GeneralSettings: React.FC = () => {
     <BlueLoading />
   ) : (
     <ScrollView style={[styles.root, stylesWithThemeHook.root]}>
-      {wallets.length > 1 && (
-        <>
-          {/* @ts-ignore: Fix later */}
-          <BlueListItem component={TouchableOpacity} onPress={() => navigate('DefaultView')} title={loc.settings.default_title} chevron />
-        </>
-      )}
       {/* @ts-ignore: Fix later */}
       <BlueListItem title={loc.settings.privacy} onPress={navigateToPrivacy} testID="SettingsPrivacy" chevron />
       {Platform.OS === 'ios' ? (

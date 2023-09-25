@@ -36,6 +36,8 @@ import { DfxService, useDfxSessionContext } from '../../api/dfx/contexts/session
 import BigNumber from 'bignumber.js';
 import TransactionsNavigationHeader from '../../components/TransactionsNavigationHeader';
 import PropTypes from 'prop-types';
+import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
+import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 
 import BuyEn from '../../img/dfx/buttons/buy_en.png';
 import SellEn from '../../img/dfx/buttons/sell_en.png';
@@ -315,19 +317,14 @@ const Asset = ({ navigation }) => {
   );
 
   const onBarCodeRead = value => {
-    if (!value) return;
+    if (!value || isLoading) return;
 
     if (!isLoading) {
       setIsLoading(true);
-      const navParams = {
-        walletID: wallet.getID(),
-        uri: value,
-      };
-      if (wallet.chain === Chain.ONCHAIN) {
-        navigate('SendDetailsRoot', { screen: 'SendDetails', params: navParams });
-      } else {
-        navigate('SendDetailsRoot', { screen: 'ScanLndInvoice', params: navParams });
-      }
+      DeeplinkSchemaMatch.navigationRouteFor({ url: value }, completionValue => {
+        ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
+        navigate(...completionValue);
+      });
     }
     setIsLoading(false);
   };
