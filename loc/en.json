@@ -506,7 +506,8 @@
     "xpub_title": "Wallet XPUB",
     "backupSeed": "Backup your wallet",
     "backupSeedWarning": "Backup not verified",
-    "external_services": "External services"
+    "external_services": "External services",
+    "coming_soon": "Coming soon"
   },
   "multisig": {
     "multisig_vault": "Vault",

@@ -504,7 +504,8 @@
     "xpub_title": "Wallet xPub",
     "backupSeed": "Wallet Backup",
     "backupSeedWarning": "Backup nicht verifiziert",
-    "external_services": "Externe Services"
+    "external_services": "Externe Services",
+    "coming_soon": "Bald verfügbar"
   },
   "multisig": {
     "multisig_vault": "Tresor",

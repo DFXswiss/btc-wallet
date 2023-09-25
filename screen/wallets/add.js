@@ -62,6 +62,11 @@ const WalletsAdd = () => {
       borderBottomColor: colors.formBorder,
       backgroundColor: colors.inputBackgroundColor,
     },
+    disclaimer: {
+      margin: 20,
+      color: colors.buttonDisabledTextColor,
+      textAlign: 'center',
+    },
   };
   const selectedWalletType = ButtonSelected.ONCHAIN;
 
@@ -137,7 +142,7 @@ const WalletsAdd = () => {
       <KeyboardAvoidingView enabled behavior={Platform.OS === 'ios' ? 'padding' : null} keyboardVerticalOffset={62}>
         {!isLoading && (
           <TouchableOpacity onPress={handleDisclaimerPress}>
-            <Text style={styles.disclaimer}>{loc.wallets.add_disclaimer}</Text>
+            <Text style={stylesHook.disclaimer}>{loc.wallets.add_disclaimer}</Text>
           </TouchableOpacity>
         )}
         <View style={styles.advanced}>
@@ -257,11 +262,6 @@ const styles = StyleSheet.create({
   },
   noPadding: {
     paddingHorizontal: 0,
-  },
-  disclaimer: {
-    margin: 20,
-    color: '#9aa0aa',
-    textAlign: 'center',
   },
 });
 

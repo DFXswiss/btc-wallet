@@ -42,11 +42,22 @@ const buttonFontSize =
     : PixelRatio.roundToNearestPixel(Dimensions.get('window').width / 26);
 
 const dummyLnWallet = { chain: Chain.OFFCHAIN, isDummy: true };
+const dummyTaroWallets = [
+  { chain: Chain.OFFCHAIN, isDummy: true, isTapRoot: true, asset: 'USD' },
+  { chain: Chain.OFFCHAIN, isDummy: true, isTapRoot: true, asset: 'EUR' },
+  { chain: Chain.OFFCHAIN, isDummy: true, isTapRoot: true, asset: 'CHF' },
+];
 
 const WalletHome = ({ navigation }) => {
-  const { wallets: storedWallets, saveToDisk, setSelectedWallet, isElectrumDisabled } = useContext(BlueStorageContext);
+  const { wallets, saveToDisk, setSelectedWallet, isElectrumDisabled } = useContext(BlueStorageContext);
 
-  const wallets = useMemo(() => (storedWallets.length === 1 ? [...storedWallets, dummyLnWallet] : storedWallets), [storedWallets]);
+  const displayWallets = useMemo(() => {
+    const tmpWallets = [...wallets];
+    tmpWallets.length === 1 && tmpWallets.push(dummyLnWallet);
+    tmpWallets.length === 2 && tmpWallets.push(...dummyTaroWallets);
+    return tmpWallets;
+  }, [wallets]);
+
   const walletID = useMemo(() => wallets[0]?.getID(), [wallets]);
   const [isLoading, setIsLoading] = useState(false);
   const { name } = useRoute();
@@ -71,6 +82,9 @@ const WalletHome = ({ navigation }) => {
     },
     list: {
       backgroundColor: colors.background,
+    },
+    comingSoon: {
+      color: colors.buttonDisabledTextColor,
     },
   });
 
@@ -286,16 +300,16 @@ const WalletHome = ({ navigation }) => {
       </View> */}
 
       <View style={[styles.list, stylesHook.list]}>
-        {wallets.map((w, i) => (
+        {displayWallets.map((w, i) => (
           <TouchableOpacity
             key={i}
             disabled={w.isDummy}
             onPress={() => navigate('WalletsRoot', { screen: 'WalletAsset', params: { walletID: w.getID() } })}
           >
             <BlueListItem
-              title="Bitcoin"
+              title={w.asset ?? 'Bitcoin'}
               subtitleNumberOfLines={1}
-              subtitle={w.chain === Chain.ONCHAIN ? 'On-chain' : 'Lightning'}
+              subtitle={w.chain === Chain.ONCHAIN ? 'On-chain' : w.isTapRoot ? 'Taro Protocol' : 'Lightning'}
               Component={View}
               {...(!w.isDummy
                 ? w.hideBalance
@@ -308,6 +322,8 @@ const WalletHome = ({ navigation }) => {
                       rightTitle: formatBalance(w.getBalance(), w.getPreferredBalanceUnit(), true).toString(),
                       rightTitleStyle: styles.walletBalance,
                     }
+                : w.isTapRoot
+                ? { rightTitle: loc.wallets.coming_soon, rightTitleStyle: stylesHook.comingSoon }
                 : {
                     rightElement: (
                       <SecondButton

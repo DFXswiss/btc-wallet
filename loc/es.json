@@ -492,7 +492,8 @@
     "xpub_title": "XPUB de la cartera",
     "backupSeed": "Copia de seguridad",
     "backupSeedWarning": "Copia de seguridad no verificada",
-    "external_services": "Servicios externos"
+    "external_services": "Servicios externos",
+    "coming_soon": "Pronto disponible"
   },
   "multisig": {
     "multisig_vault": "Vault",

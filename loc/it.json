@@ -500,7 +500,8 @@
     "xpub_title": "XPUB del Portafoglio",
     "backupSeed": "Backup del portafoglio",
     "backupSeedWarning": "Backup non verificato",
-    "external_services": "Servizi esterni"
+    "external_services": "Servizi esterni",
+    "coming_soon": "Disponibile a breve"
   },
   "multisig": {
     "multisig_vault": "Cassaforte",

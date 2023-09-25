@@ -350,7 +350,8 @@
     "xpub_title": "XPUB da wallet",
     "backupSeed": "Cópia de segurança",
     "backupSeedWarning": "Cópias de segurança não verificadas",
-    "external_services": "Serviços externos"
+    "external_services": "Serviços externos",
+    "coming_soon": "Disponível em breve"
   },
   "multisig": {
     "confirm": "Confirmar",

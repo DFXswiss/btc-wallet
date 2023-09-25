@@ -492,7 +492,8 @@
     "xpub_title": "XPUB portefeuille",
     "backupSeed": "Sauvegarde du portefeuille",
     "backupSeedWarning": "Sauvegarde non vérifiée",
-    "external_services": "Services externes"
+    "external_services": "Services externes",
+    "coming_soon": "Bientôt disponible"
   },
   "multisig": {
     "multisig_vault": "Coffre",
