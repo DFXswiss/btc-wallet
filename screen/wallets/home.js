@@ -97,15 +97,15 @@ const WalletHome = ({ navigation }) => {
 
   useEffect(() => {
     const newWallet = wallets.find(w => w.getID() === walletID);
-    if (newWallet) {
+    if (newWallet && totalWallet) {
       setParams({
         walletID,
         showsBackupSeed: !newWallet.getUserHasBackedUpSeed(),
-        backupWarning: newWallet.getBalance() > 0,
+        backupWarning: totalWallet.getBalance() > 0,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wallets, walletID]);
+  }, [wallets, walletID, totalWallet]);
 
   useEffect(() => {
     if (!wallets) return;

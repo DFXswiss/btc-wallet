@@ -32,7 +32,7 @@ const currency = require('../../blue_modules/currency');
 const _cacheFiatToSat = {};
 
 const LnurlPay = () => {
-  const { wallets } = useContext(BlueStorageContext);
+  const { wallets, fetchAndSaveWalletTransactions } = useContext(BlueStorageContext);
   const { walletID, lnurl, amountSat } = useRoute().params;
   /** @type {LightningCustodianWallet} */
   const wallet = wallets.find(w => w.getID() === walletID);
@@ -146,6 +146,7 @@ const LnurlPay = () => {
           fromWalletID: walletID,
         },
       });
+      fetchAndSaveWalletTransactions(wallet.getID());
       setIsLoading(false);
     } catch (Err) {
       console.log(Err.message);

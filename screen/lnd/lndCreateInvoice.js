@@ -354,7 +354,7 @@ const LNDCreateInvoice = () => {
                 testID="CustomAmountSaveButton"
                 style={[styles.modalButton, styleHooks.modalButton]}
                 title={loc.receive.details_create}
-                onPress={createInvoice}
+                onPress={() => createInvoice()}
               />
               <BlueSpacing20 />
             </View>

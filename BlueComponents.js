@@ -473,7 +473,7 @@ export const BlueListItem = React.memo(props => {
         )}
       </ListItem.Content>
       {(props.rightElement || props.rightTitle) && (
-        <ListItem.Content right>
+        <ListItem.Content right style={{ flex: 1 }}>
           {props.rightElement ?? (
             <ListItem.Title style={props.rightTitleStyle} numberOfLines={0} right>
               {props.rightTitle}
