@@ -38,7 +38,7 @@ const LnurlAuth = () => {
     const address = Lnurl.getLnurlFromAddress(wallet.lnAddress);
     const signature = wallet.addressOwnershipProof;
     const additionalParams =
-      parsedLnurl.hostname?.includes('dfx.swiss') && address && signature ? { address: address.toUpperCase(), signature } : undefined;
+      parsedLnurl.hostname?.endsWith('dfx.swiss') && address && signature ? { address: address.toUpperCase(), signature } : undefined;
 
     wallet
       .authenticate(LN, additionalParams)

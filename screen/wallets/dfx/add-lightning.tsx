@@ -66,10 +66,11 @@ const AddLightning = () => {
       const { lightning } = await getUser(address, m => signMessage(m, address));
 
       for (const lnWallet of lightning.wallets) {
-        if (lnWallet.lndhubAdminUrl) {
-          // TODO (david): taproot wallet?
+        if (lnWallet.asset.name === 'BTC' && lnWallet.lndhubAdminUrl) {
           await createWallet(lnWallet.lndhubAdminUrl, lightning.address, lightning.addressOwnershipProof);
         }
+
+        // TODO (david): taproot wallet?
       }
     }
 

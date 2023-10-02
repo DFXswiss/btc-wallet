@@ -47,6 +47,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
   const [sessions, setSessions] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAvailable, setIsAvailable] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     dfxSession.get().then(setSessions);
@@ -171,19 +172,25 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
   }
 
   useEffect(() => {
-    if (!wallets?.length) return;
+    if (!wallets?.length) {
+      setIsAvailable(false);
+      setIsInitialized(false);
+      return;
+    }
 
-    !isAvailable &&
+    !isInitialized &&
       !isProcessing &&
-      connect(wallets.map((w: any) => w.getID())).catch(e =>
-        Alert.alert('Something went wrong', e.message?.toString(), [
-          {
-            text: loc._.ok,
-            onPress: () => {},
-            style: 'default',
-          },
-        ]),
-      );
+      connect(wallets.map((w: any) => w.getID()))
+        .then(() => setIsInitialized(true))
+        .catch(e =>
+          Alert.alert('Something went wrong', e.message?.toString(), [
+            {
+              text: loc._.ok,
+              onPress: () => {},
+              style: 'default',
+            },
+          ]),
+        );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallets]);
 
