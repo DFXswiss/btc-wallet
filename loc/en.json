@@ -31,9 +31,7 @@
     "repeat": "Repeat"
   },
   "alert": {
-    "default": "Alert",
-    "availability": "Availability",
-    "not_available": "Unfortunately, DFX services are not available in your country."
+    "default": "Alert"
   },
   "azteco": {
     "codeIs": "Your voucher code is",
@@ -120,11 +118,11 @@
       },
       {
         "title": "Unrestorable",
-        "text": "if you lose your recovery phrase, you will de unable to access your funds, as nobody will be able to restore it."
+        "text": "if you lose your recovery phrase, you will be unable to access your funds, as nobody will be able to restore it."
       },
       {
         "title": "Only Chance",
-        "text": "This phrase is your only chance to recover access to your funds if your DFX Bitcoin App or usual device is unavailable for you."
+        "text": "This phrase is your only chance to recover access to your funds if your DFX Bitcoin App or usual device is unavailable to you."
       }
     ],
     "ready": "Ready"
