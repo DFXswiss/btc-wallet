@@ -44,6 +44,7 @@ import alert from '../../components/Alert';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import { writeFileAndExport } from '../../blue_modules/fs';
 import { useDfxSessionContext } from '../../api/dfx/contexts/session.context';
+import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 
 const prompt = require('../../helpers/prompt');
 
@@ -460,7 +461,7 @@ const WalletDetails = () => {
                 </>
               )}
 
-              {wallet.type === LightningCustodianWallet.type && (
+              {[LightningCustodianWallet.type, LightningLdsWallet.type].includes(wallet.type) && (
                 <>
                   <Text style={[styles.textLabel1, stylesHook.textLabel1]}>{loc.wallets.details_connected_to}</Text>
                   <BlueText>{wallet.getBaseURI()}</BlueText>
