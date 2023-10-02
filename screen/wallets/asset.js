@@ -73,7 +73,7 @@ const Asset = ({ navigation }) => {
   const { setParams, setOptions, navigate } = useNavigation();
   const { colors, scanImage } = useTheme();
   const walletActionButtonsRef = useRef();
-  const { isNotAllowedInCountry, openServices, isProcessing } = useDfxSessionContext();
+  const { isAvailable: isDfxAvailable, openServices, isProcessing: isDfxProcessing } = useDfxSessionContext();
   const { width } = useWindowDimensions();
   const [isHandlingOpenServices, setIsHandlingOpenServices] = useState(false);
 
@@ -105,13 +105,14 @@ const Asset = ({ navigation }) => {
     dfxContainer: {
       backgroundColor: '#0A345A',
       alignItems: 'center',
+      height: 110,
     },
     dfxButtonContainer: {
+      flexGrow: 1,
       flexDirection: 'row',
       justifyContent: 'center',
       alignItems: 'center',
       marginVertical: 10,
-      height: 70,
       gap: 10,
     },
   });
@@ -141,10 +142,6 @@ const Asset = ({ navigation }) => {
       clearInterval(interval);
     };
   }, []);
-
-  const showNotAvailableInCountryAlert = () => {
-    Alert.alert(loc.alert.availability, loc.alert.not_available, [{ text: loc._.ok }], { cancelable: false });
-  };
 
   useEffect(() => {
     setOptions({ headerTitle: walletTransactionUpdateStatus === walletID ? loc.transactions.updating : '' });
@@ -189,22 +186,18 @@ const Asset = ({ navigation }) => {
   }, [wallets]);
 
   const handleOpenServices = service => {
-    if (isNotAllowedInCountry) {
-      showNotAvailableInCountryAlert();
-    } else {
-      setIsHandlingOpenServices(true);
-      openServices(walletID, new BigNumber(currency.satoshiToBTC(wallet.getBalance())).toString(), service)
-        .catch(e =>
-          Alert.alert('Something went wrong', e.message?.toString(), [
-            {
-              text: loc._.ok,
-              onPress: () => {},
-              style: 'default',
-            },
-          ]),
-        )
-        .finally(() => setIsHandlingOpenServices(false));
-    }
+    setIsHandlingOpenServices(true);
+    openServices(walletID, new BigNumber(currency.satoshiToBTC(wallet.getBalance())).toString(), service)
+      .catch(e =>
+        Alert.alert('Something went wrong', e.message?.toString(), [
+          {
+            text: loc._.ok,
+            onPress: () => {},
+            style: 'default',
+          },
+        ]),
+      )
+      .finally(() => setIsHandlingOpenServices(false));
   };
 
   // if description of transaction has been changed we want to show new one
@@ -455,29 +448,33 @@ const Asset = ({ navigation }) => {
         }
       />
       <View style={stylesHook.dfxContainer}>
-        <BlueText>{loc.wallets.external_services}</BlueText>
-        <View style={stylesHook.dfxButtonContainer}>
-          {isProcessing ? (
-            <ActivityIndicator />
-          ) : (
-            <>
-              <View>
-                <ImageButton
-                  source={buttonImages[0]}
-                  onPress={() => handleOpenServices(DfxService.BUY)}
-                  disabled={isHandlingOpenServices}
-                />
-              </View>
-              <View>
-                <ImageButton
-                  source={buttonImages[1]}
-                  onPress={() => handleOpenServices(DfxService.SELL)}
-                  disabled={isHandlingOpenServices}
-                />
-              </View>
-            </>
-          )}
-        </View>
+        {isDfxAvailable && (
+          <>
+            <BlueText>{loc.wallets.external_services}</BlueText>
+            <View style={stylesHook.dfxButtonContainer}>
+              {isDfxProcessing ? (
+                <ActivityIndicator />
+              ) : (
+                <>
+                  <View>
+                    <ImageButton
+                      source={buttonImages[0]}
+                      onPress={() => handleOpenServices(DfxService.BUY)}
+                      disabled={isHandlingOpenServices}
+                    />
+                  </View>
+                  <View>
+                    <ImageButton
+                      source={buttonImages[1]}
+                      onPress={() => handleOpenServices(DfxService.SELL)}
+                      disabled={isHandlingOpenServices}
+                    />
+                  </View>
+                </>
+              )}
+            </View>
+          </>
+        )}
       </View>
 
       <View style={[styles.list, stylesHook.list]}>

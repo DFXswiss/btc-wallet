@@ -1,5 +1,5 @@
 import React, { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
-import { Linking } from 'react-native';
+import { Linking, Alert } from 'react-native';
 import { ApiError } from '../definitions/error';
 import { useWalletContext } from '../../../contexts/wallet.context';
 import Config from 'react-native-config';
@@ -25,7 +25,7 @@ export interface SessionInterface {
   getAccessToken: (walletId: string) => Promise<string>;
   resetAccessToken: (walletId: string) => void;
   isProcessing: boolean;
-  isNotAllowedInCountry: boolean;
+  isAvailable: boolean;
   openServices: (walletId: string, balance: string, service: DfxService) => Promise<void>;
   reset: () => Promise<void>;
 }
@@ -46,7 +46,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
 
   const [sessions, setSessions] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isNotAllowedInCountry, setIsNotAllowedInCountry] = useState(false);
+  const [isAvailable, setIsAvailable] = useState(false);
 
   useEffect(() => {
     dfxSession.get().then(setSessions);
@@ -98,36 +98,31 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
     return token;
   }
 
-  function createSession(address: string, signature: string): Promise<string> {
-    return signIn(address, signature)
+  async function createSession(address: string, signature: string): Promise<string> {
+    return await signIn(address, signature)
       .catch((e: ApiError) => {
         if (e.statusCode === 404) return signUp(address, signature).then(updateLanguage);
-        if (e.statusCode === 403) setIsNotAllowedInCountry(true);
 
         throw e;
       })
       .then(r => r.accessToken);
   }
 
-  async function login(address: string): Promise<string> {
-    const message = await getSignMessage(address);
-    const signature = await signMessage(message, address);
-
-    return createSession(address, signature);
-  }
-
   async function createAccessToken(walletId: string): Promise<string> {
     if (walletId === mainWalletId) {
       if (!mainAddress) throw new Error('Address is not defined');
 
-      return login(mainAddress);
+      const message = await getSignMessage(mainAddress);
+      const signature = await signMessage(message, mainAddress);
+
+      return await createSession(mainAddress, signature);
     } else {
       const wallet = wallets.find((w: any) => w.getID?.() === walletId);
       if (wallet.type === LightningLdsWallet.type) {
         const address = Lnurl.getLnurlFromAddress(wallet.lnAddress);
         if (!address) throw new Error('Address is not defined');
 
-        return createSession(address.toUpperCase(), wallet.addressOwnershipProof);
+        return await createSession(address.toUpperCase(), wallet.addressOwnershipProof);
       }
     }
 
@@ -150,7 +145,19 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
     updateSession(walletId);
   }
 
+  async function connect(walletIds: string[]): Promise<void> {
+    await Promise.all(walletIds.map(id => getAccessToken(id)))
+      .then(() => setIsAvailable(true))
+      .catch((e: ApiError) => {
+        if (e.statusCode === 403) return setIsAvailable(false);
+
+        throw e;
+      });
+  }
+
   async function openServices(walletId: string, balance: string, service: DfxService): Promise<void> {
+    if (!isAvailable) return;
+
     const token = encodeURIComponent(await getAccessToken(walletId));
     const lang = getAppLanguage();
     const redirectUri = encodeURIComponent(`dfxtaro://?wallet-id=${walletId}`);
@@ -163,17 +170,34 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
     dfxSession.remove();
   }
 
+  useEffect(() => {
+    if (!wallets?.length) return;
+
+    !isAvailable &&
+      !isProcessing &&
+      connect(wallets.map((w: any) => w.getID())).catch(e =>
+        Alert.alert('Something went wrong', e.message?.toString(), [
+          {
+            text: loc._.ok,
+            onPress: () => {},
+            style: 'default',
+          },
+        ]),
+      );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wallets]);
+
   const context = useMemo(
     () => ({
       getAccessToken,
       resetAccessToken,
-      isNotAllowedInCountry,
+      isAvailable,
       isProcessing,
       openServices,
       reset,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [mainWalletId, mainAddress, signMessage, getSignMessage, signIn, signUp, dfxSession, sessions, isProcessing, isNotAllowedInCountry],
+    [mainWalletId, mainAddress, signMessage, getSignMessage, signIn, signUp, dfxSession, sessions, isProcessing, isAvailable],
   );
 
   return <DfxSessionContext.Provider value={context}>{props.children}</DfxSessionContext.Provider>;

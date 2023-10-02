@@ -12,15 +12,15 @@ export function useAuth(): AuthInterface {
   const { call } = useApi();
 
   async function getSignMessage(address: string): Promise<string> {
-    return call<SignMessage>({ url: `${AuthUrl.signMessage}?address=${address}`, method: 'GET' }).then(result => result.message);
+    return await call<SignMessage>({ url: `${AuthUrl.signMessage}?address=${address}`, method: 'GET' }).then(result => result.message);
   }
 
   async function signIn(address: string, signature: string): Promise<SignIn> {
-    return call({ url: AuthUrl.signIn, method: 'POST', data: { address, signature } });
+    return await call({ url: AuthUrl.signIn, method: 'POST', data: { address, signature } });
   }
 
   async function signUp(address: string, signature: string): Promise<SignIn> {
-    return call({ url: AuthUrl.signUp, method: 'POST', data: { address, signature, walletId: 12 } });
+    return await call({ url: AuthUrl.signUp, method: 'POST', data: { address, signature, walletId: 12 } });
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps

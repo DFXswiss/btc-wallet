@@ -31,7 +31,7 @@ export function useApi(): ApiInterface {
   }
 
   async function call<T>(config: CallConfig, accessToken?: string): Promise<T> {
-    return fetch(`${Config.REACT_APP_API_URL}/${config.url}`, buildInit(config.method, accessToken, config.data, config.noJson)).then(
+    return await fetch(`${Config.REACT_APP_API_URL}/${config.url}`, buildInit(config.method, accessToken, config.data, config.noJson)).then(
       response => {
         if (response.status === config.specialHandling?.statusCode) {
           config.specialHandling?.action?.();
