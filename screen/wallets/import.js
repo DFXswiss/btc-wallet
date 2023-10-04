@@ -15,9 +15,7 @@ import {
 import navigationStyle from '../../components/navigationStyle';
 import Privacy from '../../blue_modules/Privacy';
 import loc from '../../loc';
-import { isMacCatalina } from '../../blue_modules/environment';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
-const fs = require('../../blue_modules/fs');
 
 const WalletsImport = () => {
   const navigation = useNavigation();
@@ -25,7 +23,7 @@ const WalletsImport = () => {
   const route = useRoute();
   const label = route?.params?.label ?? '';
   const triggerImport = route?.params?.triggerImport ?? false;
-  const { isAdancedModeEnabled } = useContext(BlueStorageContext);
+  const { isAdvancedModeEnabled } = useContext(BlueStorageContext);
   const [importText, setImportText] = useState(label);
   const [isToolbarVisibleForAndroid, setIsToolbarVisibleForAndroid] = useState(false);
   const [, setSpeedBackdoor] = useState(0);
@@ -74,7 +72,7 @@ const WalletsImport = () => {
   }, []);
 
   useEffect(() => {
-    isAdancedModeEnabled().then(setIsAdvancedModeEnabledRender);
+    isAdvancedModeEnabled().then(setIsAdvancedModeEnabledRender);
     if (triggerImport) importButtonPressed();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -87,8 +85,8 @@ const WalletsImport = () => {
     importMnemonic(textToImport);
   };
 
-  const importMnemonic = importText => {
-    navigation.navigate('ImportWalletDiscovery', { importText, askPassphrase, searchAccounts });
+  const importMnemonic = text => {
+    navigation.navigate('ImportWalletDiscovery', { importText: text, askPassphrase, searchAccounts });
   };
 
   const onBarScanned = value => {
@@ -98,18 +96,14 @@ const WalletsImport = () => {
   };
 
   const importScan = () => {
-    if (isMacCatalina) {
-      fs.showActionSheet().then(onBarScanned);
-    } else {
-      navigation.navigate('ScanQRCodeRoot', {
-        screen: 'ScanQRCode',
-        params: {
-          launchedBy: route.name,
-          onBarScanned,
-          showFileImportButton: true,
-        },
-      });
-    }
+    navigation.navigate('ScanQRCodeRoot', {
+      screen: 'ScanQRCode',
+      params: {
+        launchedBy: route.name,
+        onBarScanned,
+        showFileImportButton: true,
+      },
+    });
   };
 
   const speedBackdoorTap = () => {
@@ -155,7 +149,7 @@ const WalletsImport = () => {
   return (
     <SafeBlueArea style={styles.root}>
       <BlueSpacing20 />
-      <TouchableWithoutFeedback onPress={speedBackdoorTap} testID="SpeedBackdoor">
+      <TouchableWithoutFeedback accessibilityRole="button" onPress={speedBackdoorTap} testID="SpeedBackdoor">
         <BlueFormLabel>{loc.wallets.import_explanation}</BlueFormLabel>
       </TouchableWithoutFeedback>
       <BlueSpacing20 />

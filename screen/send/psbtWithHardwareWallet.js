@@ -1,21 +1,9 @@
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  TouchableOpacity,
-  ScrollView,
-  View,
-  TextInput,
-  Linking,
-  Platform,
-  Text,
-  StyleSheet,
-  findNodeHandle,
-} from 'react-native';
+import { ActivityIndicator, TouchableOpacity, ScrollView, View, TextInput, Linking, Platform, Text, StyleSheet } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import DocumentPicker from 'react-native-document-picker';
 import { useNavigation, useRoute, useTheme, useIsFocused } from '@react-navigation/native';
-import { isMacCatalina } from '../../blue_modules/environment';
 import RNFS from 'react-native-fs';
 import Biometric from '../../class/biometrics';
 
@@ -92,7 +80,7 @@ const PsbtWithHardwareWallet = () => {
         // (passed by reference)
       }
     } catch (Err) {
-      alert(Err);
+      alert(Err.message);
     }
   };
 
@@ -110,9 +98,9 @@ const PsbtWithHardwareWallet = () => {
     }
 
     if (deepLinkPSBT) {
-      const psbt = bitcoin.Psbt.fromBase64(deepLinkPSBT);
+      const newPsbt = bitcoin.Psbt.fromBase64(deepLinkPSBT);
       try {
-        const Tx = fromWallet.combinePsbt(routeParamsPSBT.current, psbt);
+        const Tx = fromWallet.combinePsbt(routeParamsPSBT.current, newPsbt);
         setTxHex(Tx.toHex());
       } catch (Err) {
         alert(Err);
@@ -220,18 +208,14 @@ const PsbtWithHardwareWallet = () => {
   };
 
   const openScanner = () => {
-    if (isMacCatalina) {
-      fs.showActionSheet({ anchor: findNodeHandle(openScannerButton.current) }).then(data => onBarScanned({ data }));
-    } else {
-      navigation.navigate('ScanQRCodeRoot', {
-        screen: 'ScanQRCode',
-        params: {
-          launchedBy: route.name,
-          showFileImportButton: false,
-          onBarScanned,
-        },
-      });
-    }
+    navigation.navigate('ScanQRCodeRoot', {
+      screen: 'ScanQRCode',
+      params: {
+        launchedBy: route.name,
+        showFileImportButton: false,
+        onBarScanned,
+      },
+    });
   };
 
   if (txHex) return _renderBroadcastHex();
@@ -266,8 +250,8 @@ const PsbtWithHardwareWallet = () => {
             <BlueSpacing20 />
             <SecondButton
               icon={{
-                name: 'file-import',
-                type: 'material-community',
+                name: 'login',
+                type: 'entypo',
                 color: colors.buttonTextColor,
               }}
               onPress={openSignedTransaction}

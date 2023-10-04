@@ -33,6 +33,16 @@ export default class Lnurl {
     return null;
   }
 
+  static encode(url) {
+    const words = bech32.toWords(Buffer.from(url));
+    return bech32.encode('lnurl', words, 10000);
+  }
+
+  static decode(lnurl) {
+    const decoded = bech32.decode(lnurl, 10000);
+    return Buffer.from(bech32.fromWords(decoded.words)).toString();
+  }
+
   static getUrlFromLnurl(lnurlExample) {
     const found = Lnurl.findlnurl(lnurlExample);
     if (!found) {
@@ -46,8 +56,12 @@ export default class Lnurl {
       }
     }
 
-    const decoded = bech32.decode(found, 10000);
-    return Buffer.from(bech32.fromWords(decoded.words)).toString();
+    return this.decode(found);
+  }
+
+  static getLnurlFromAddress(address) {
+    const url = Lnurl.getUrlFromLnurl(address);
+    return url ? Lnurl.encode(url) : url;
   }
 
   static isLnurl(url) {
@@ -117,7 +131,7 @@ export default class Lnurl {
 
     if (!decoded.expiry) decoded.expiry = '3600'; // default
 
-    if (parseInt(decoded.num_satoshis) === 0 && decoded.num_millisatoshis > 0) {
+    if (parseInt(decoded.num_satoshis, 10) === 0 && decoded.num_millisatoshis > 0) {
       decoded.num_satoshis = (decoded.num_millisatoshis / 1000).toString();
     }
 
@@ -154,7 +168,7 @@ export default class Lnurl {
     if (metadataHash !== decoded.description_hash) {
       throw new Error(`Invoice description_hash doesn't match metadata.`);
     }
-    if (parseInt(decoded.num_satoshis) !== Math.round(amountSat)) {
+    if (parseInt(decoded.num_satoshis, 10) !== Math.round(amountSat)) {
       throw new Error(`Invoice doesn't match specified amount, got ${decoded.num_satoshis}, expected ${Math.round(amountSat)}`);
     }
 
@@ -286,22 +300,22 @@ export default class Lnurl {
   }
 
   getCommentAllowed() {
-    return this?._lnurlPayServicePayload?.commentAllowed ? parseInt(this._lnurlPayServicePayload.commentAllowed) : false;
+    return this?._lnurlPayServicePayload?.commentAllowed ? parseInt(this._lnurlPayServicePayload.commentAllowed, 10) : false;
   }
 
   getMin() {
-    return this?._lnurlPayServicePayload?.min ? parseInt(this._lnurlPayServicePayload.min) : false;
+    return this?._lnurlPayServicePayload?.min ? parseInt(this._lnurlPayServicePayload.min, 10) : false;
   }
 
   getMax() {
-    return this?._lnurlPayServicePayload?.max ? parseInt(this._lnurlPayServicePayload.max) : false;
+    return this?._lnurlPayServicePayload?.max ? parseInt(this._lnurlPayServicePayload.max, 10) : false;
   }
 
   getAmount() {
     return this.getMin();
   }
 
-  authenticate(secret) {
+  authenticate(secret, additionalParams) {
     return new Promise((resolve, reject) => {
       if (!this._lnurl) throw new Error('this._lnurl is not set');
 
@@ -317,7 +331,14 @@ export default class Lnurl {
           const signatureObj = secp256k1.sign(Buffer.from(url.query.k1, 'hex'), privateKeyBuf);
           const derSignature = secp256k1.signatureExport(signatureObj.signature);
 
-          const reply = await this.fetchGet(`${url.href}&sig=${derSignature.toString('hex')}&key=${publicKey.toString('hex')}`);
+          let replyUrl = `${url.href}&sig=${derSignature.toString('hex')}&key=${publicKey.toString('hex')}`;
+          if (additionalParams) {
+            for (const [key, val] of Object.entries(additionalParams)) {
+              replyUrl += `&${key}=${val}`;
+            }
+          }
+
+          const reply = await this.fetchGet(replyUrl);
           if (reply.status === 'OK') {
             resolve();
           } else {

@@ -1,4 +1,3 @@
-/* eslint-disable react/prop-types */
 import React, { createContext, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
@@ -108,8 +107,8 @@ export const BlueStorageProvider = ({ children }) => {
     setWallets(BlueApp.getWallets());
   };
 
-  const setWalletsWithNewOrder = wallets => {
-    BlueApp.wallets = wallets;
+  const setWalletsWithNewOrder = wlts => {
+    BlueApp.wallets = wlts;
     saveToDisk();
   };
 
@@ -120,6 +119,10 @@ export const BlueStorageProvider = ({ children }) => {
         setWalletTransactionUpdateStatus(WalletTransactionsStatus.ALL);
       }
       await BlueElectrum.waitTillConnected();
+      const paymentCodesStart = Date.now();
+      await fetchSenderPaymentCodes(lastSnappedTo);
+      const paymentCodesEnd = Date.now();
+      console.log('fetch payment codes took', (paymentCodesEnd - paymentCodesStart) / 1000, 'sec');
       const balanceStart = +new Date();
       await fetchWalletBalances(lastSnappedTo);
       const balanceEnd = +new Date();
@@ -189,7 +192,6 @@ export const BlueStorageProvider = ({ children }) => {
     addWallet(w);
     await saveToDisk();
     A(A.ENUM.CREATED_WALLET);
-    Alert.alert('', w.type === WatchOnlyWallet.type ? loc.wallets.import_success_watchonly : loc.wallets.import_success);
     Notifications.majorTomToGroundControl(w.getAllExternalAddresses(), [], []);
     // start balance fetching at the background
     await w.fetchBalance();
@@ -198,8 +200,9 @@ export const BlueStorageProvider = ({ children }) => {
 
   let txMetadata = BlueApp.tx_metadata || {};
   const getTransactions = BlueApp.getTransactions;
-  const isAdancedModeEnabled = BlueApp.isAdancedModeEnabled;
+  const isAdvancedModeEnabled = BlueApp.isAdvancedModeEnabled;
 
+  const fetchSenderPaymentCodes = BlueApp.fetchSenderPaymentCodes;
   const fetchWalletBalances = BlueApp.fetchWalletBalances;
   const fetchWalletTransactions = BlueApp.fetchWalletTransactions;
   const getBalance = BlueApp.getBalance;
@@ -213,7 +216,7 @@ export const BlueStorageProvider = ({ children }) => {
   const decryptStorage = BlueApp.decryptStorage;
   const isPasswordInUse = BlueApp.isPasswordInUse;
   const cachedPassword = BlueApp.cachedPassword;
-  const setIsAdancedModeEnabled = BlueApp.setIsAdancedModeEnabled;
+  const setIsAdvancedModeEnabled = BlueApp.setIsAdvancedModeEnabled;
   const getHodlHodlSignatureKey = BlueApp.getHodlHodlSignatureKey;
   const addHodlHodlContract = BlueApp.addHodlHodlContract;
   const getHodlHodlContracts = BlueApp.getHodlHodlContracts;
@@ -238,7 +241,7 @@ export const BlueStorageProvider = ({ children }) => {
         setItem,
         getItem,
         getHodlHodlContracts,
-        isAdancedModeEnabled,
+        isAdvancedModeEnabled,
         fetchWalletBalances,
         fetchWalletTransactions,
         fetchAndSaveWalletTransactions,
@@ -259,7 +262,7 @@ export const BlueStorageProvider = ({ children }) => {
         getHodlHodlApiKey,
         decryptStorage,
         isPasswordInUse,
-        setIsAdancedModeEnabled,
+        setIsAdvancedModeEnabled,
         setPreferredFiatCurrency,
         preferredFiatCurrency,
         setLanguage,

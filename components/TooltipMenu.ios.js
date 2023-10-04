@@ -43,7 +43,7 @@ const ToolTipMenu = (props, ref) => {
   const previewQRCode = props.previewQRCode ?? false;
   const previewValue = props.previewValue;
   const disabled = props.disabled ?? false;
-  // eslint-disable-next-line react/prop-types
+
   const buttonStyle = props.buttonStyle;
   return isButton ? (
     <ContextMenuButton
@@ -59,11 +59,18 @@ const ToolTipMenu = (props, ref) => {
       }}
       style={buttonStyle}
     >
-      {props.onPress ? <TouchableOpacity onPress={props.onPress}>{props.children}</TouchableOpacity> : props.children}
+      {props.onPress ? (
+        <TouchableOpacity accessibilityRole="button" onPress={props.onPress}>
+          {props.children}
+        </TouchableOpacity>
+      ) : (
+        props.children
+      )}
     </ContextMenuButton>
   ) : (
     <ContextMenuView
       ref={ref}
+      internalCleanupMode="viewController"
       onPressMenuItem={({ nativeEvent }) => {
         props.onPressMenuItem(nativeEvent.actionKey);
       }}
@@ -81,7 +88,13 @@ const ToolTipMenu = (props, ref) => {
           }
         : {})}
     >
-      {props.onPress ? <TouchableOpacity onPress={props.onPress}>{props.children}</TouchableOpacity> : props.children}
+      {props.onPress ? (
+        <TouchableOpacity accessibilityRole="button" onPress={props.onPress}>
+          {props.children}
+        </TouchableOpacity>
+      ) : (
+        props.children
+      )}
     </ContextMenuView>
   );
 };

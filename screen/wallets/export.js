@@ -2,15 +2,15 @@ import React, { useState, useCallback, useContext, useRef, useEffect } from 'rea
 import { InteractionManager, ScrollView, ActivityIndicator, StatusBar, View, StyleSheet, AppState } from 'react-native';
 import { useTheme, useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 
-import { BlueSpacing20, SafeBlueArea, BlueText, BlueCopyTextToClipboard, BlueCard } from '../../BlueComponents';
+import { BlueSpacing20, SafeBlueArea, BlueText, BlueCard } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
 import Privacy from '../../blue_modules/Privacy';
 import Biometric from '../../class/biometrics';
-import { LegacyWallet, LightningCustodianWallet, SegwitBech32Wallet, SegwitP2SHWallet, WatchOnlyWallet } from '../../class';
+import { LegacyWallet, SegwitBech32Wallet, SegwitP2SHWallet } from '../../class';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import QRCodeComponent from '../../components/QRCodeComponent';
-import HandoffComponent from '../../components/handoff';
+import Secret from './secret';
 
 const WalletExport = () => {
   const { wallets, saveToDisk } = useContext(BlueStorageContext);
@@ -108,25 +108,9 @@ const WalletExport = () => {
         <BlueSpacing20 />
         {secrets.map(s => (
           <React.Fragment key={s}>
-            <QRCodeComponent isMenuAvailable={false} value={wallet.getSecret()} size={qrCodeSize} logoSize={70} />
-            {wallet.type !== WatchOnlyWallet.type && (
-              <BlueText style={[styles.warning, stylesHook.warning]}>{loc.wallets.warning_do_not_disclose}</BlueText>
-            )}
+            <Secret secret={s} />
             <BlueSpacing20 />
-            {wallet.type === LightningCustodianWallet.type || wallet.type === WatchOnlyWallet.type ? (
-              <BlueCopyTextToClipboard text={wallet.getSecret()} />
-            ) : (
-              <BlueText style={[styles.secret, styles.secretWritingDirection, stylesHook.secret]} testID="Secret">
-                {wallet.getSecret()}
-              </BlueText>
-            )}
-            {wallet.type === WatchOnlyWallet.type && (
-              <HandoffComponent
-                title={loc.wallets.xpub_title}
-                type={HandoffComponent.activityTypes.Xpub}
-                userInfo={{ xpub: wallet.getSecret() }}
-              />
-            )}
+            <QRCodeComponent isMenuAvailable={false} value={wallet.getSecret()} size={qrCodeSize} logoSize={70} />
           </React.Fragment>
         ))}
       </ScrollView>
@@ -147,16 +131,6 @@ const styles = StyleSheet.create({
   type: {
     fontSize: 17,
     fontWeight: '700',
-  },
-  secret: {
-    alignSelf: 'stretch',
-    textAlign: 'center',
-    paddingHorizontal: 16,
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  secretWritingDirection: {
-    writingDirection: 'ltr',
   },
 });
 

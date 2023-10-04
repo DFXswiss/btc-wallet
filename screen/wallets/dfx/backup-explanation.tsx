@@ -52,7 +52,7 @@ const BackupExplanation = () => {
     <SafeBlueArea style={stylesHook.container}>
       <ScrollView contentContainerStyle={styles.scrollableContainer}>
         <View style={styles.contentContainer}>
-          <Image source={require('../../img/dfx/backup-phrase.png')} />
+          <Image source={require('../../../img/dfx/backup-phrase.png')} />
           <Text style={styles.subtitle}>{loc.backupExplanation.subtitle}</Text>
           <Text style={[styles.subtext, stylesHook.text]}>{loc.backupExplanation.text}</Text>
           <View style={styles.itemsContainer}>

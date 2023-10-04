@@ -24,7 +24,7 @@ const LAST_UPDATED = 'LAST_UPDATED';
  */
 async function setPrefferedCurrency(item) {
   await AsyncStorage.setItem(PREFERRED_CURRENCY_STORAGE_KEY, JSON.stringify(item));
-  await DefaultPreference.setName('group.com.defichain.app.dfx.bitcoin');
+  await DefaultPreference.setName('group.swiss.dfx.bitcoin');
   await DefaultPreference.set('preferredCurrency', item.endPointKey);
   await DefaultPreference.set('preferredCurrencyLocale', item.locale.replace('-', '_'));
   WidgetCommunication.reloadAllTimelines();
@@ -32,7 +32,7 @@ async function setPrefferedCurrency(item) {
 
 async function getPreferredCurrency() {
   const preferredCurrency = await JSON.parse(await AsyncStorage.getItem(PREFERRED_CURRENCY_STORAGE_KEY));
-  await DefaultPreference.setName('group.com.defichain.app.dfx.bitcoin');
+  await DefaultPreference.setName('group.swiss.dfx.bitcoin');
   await DefaultPreference.set('preferredCurrency', preferredCurrency.endPointKey);
   await DefaultPreference.set('preferredCurrencyLocale', preferredCurrency.locale.replace('-', '_'));
   return preferredCurrency;
@@ -53,6 +53,9 @@ async function _restoreSavedPreferredFiatCurrencyFromStorage() {
     if (preferredFiatCurrency === null) {
       throw Error('No Preferred Fiat selected');
     }
+
+    preferredFiatCurrency = FiatUnit[preferredFiatCurrency.endPointKey] || preferredFiatCurrency;
+    // ^^^ in case configuration in json file changed (and is different from what we stored) we reload it
   } catch (_) {
     const deviceCurrencies = RNLocalize.getCurrencies();
     if (Object.keys(FiatUnit).some(unit => unit === deviceCurrencies[0])) {
@@ -94,7 +97,7 @@ async function updateExchangeRate() {
   } catch (Err) {
     console.log('Error encountered when attempting to update exchange rate...');
     console.warn(Err.message);
-    const rate = JSON.parse(await AsyncStorage.getItem(EXCHANGE_RATES_STORAGE_KEY));
+    rate = JSON.parse(await AsyncStorage.getItem(EXCHANGE_RATES_STORAGE_KEY));
     rate.LAST_UPDATED_ERROR = true;
     exchangeRates.LAST_UPDATED_ERROR = true;
     await AsyncStorage.setItem(EXCHANGE_RATES_STORAGE_KEY, JSON.stringify(rate));

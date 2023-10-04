@@ -18,7 +18,11 @@
     "wallet_key": "کلید کیف پول",
     "invalid_animated_qr_code_fragment": "کد QR جزئی متحرک نامعتبر است. لطفاً دوباره امتحان کنید.",
     "file_saved": "فایل {filePath} در {destination} شما ذخیره شد.",
-    "downloads_folder": "پوشهٔ دانلودها"
+    "downloads_folder": "پوشهٔ دانلودها",
+    "close": "بستن",
+    "refresh": "تازه‌سازی",
+    "more": "بیشتر",
+    "enter_amount": "مقدار را وارد کنید"
   },
   "alert": {
     "default": "هشدار"
@@ -56,7 +60,6 @@
     "node_alias": "نام مستعار گره",
     "expiresIn": "تا {time} دقیقهٔ دیگر منقضی می‌شود",
     "payButton": "پرداخت",
-    "placeholder": "صورت‌حساب",
     "open_channel": "بازکردن کانال",
     "funding_amount_placeholder": "مقدار تأمین وجه، برای مثال، ۰٫۰۰۱",
     "opening_channnel_for_from": "درحال بازکردن کانال برای کیف پول {forWalletLabel}، با تأمین وجه از {fromWalletLabel}",
@@ -68,7 +71,6 @@
     "refill_create": "جهت ادامه، لطفاً یک کیف پول بیت‌کوین جهت پرکردن ایجاد کنید.",
     "refill_external": "پرکردن با کیف پول خارجی",
     "refill_lnd_balance": "پرکردن موجودی کیف پول لایتنینگ",
-    "sameWalletAsInvoiceError": "شما نمی‌توانید صورت‌حسابی را با همان کیف پولی که برای ایجاد آن استفاده کرده‌اید بپردازید.",
     "title": "مدیریت دارایی",
     "can_send": "می‌تواند ارسال کند",
     "can_receive": "می‌تواند دریافت کند",
@@ -210,6 +212,8 @@
     "about_license": "پروانهٔ ام‌آی‌تی",
     "about_release_notes": "یادداشت‌های انتشار",
     "about_review": "برای ما یک بررسی بگذارید",
+    "performance_score": "امتیاز کارکرد: {num}",
+    "run_performance_test": "بررسی کارکرد",
     "about_selftest": "اجرای خودآزمایی",
     "about_selftest_electrum_disabled": "خودآزمایی در حالت آفلاین در دسترس نیست. لطفاً حالت آفلاین را غیرفعال کرده و مجدد تلاش کنید.",
     "about_selftest_ok": "تمام بررسی‌های داخلی با موفقیت انجام شدند. کیف پول به‌درستی کار می‌کند.",
@@ -278,7 +282,6 @@
     "lightning_saved": "تغییرات شما با موفقیت ذخیره شدند.",
     "lightning_settings": "تنظیمات لایتنینگ",
     "tor_settings": "تنظیمات تور",
-    "lightning_settings_explain": "برای اتصال به گره LND خود، لطفاً LNDHub را نصب کرده و آدرس آن را اینجا در تنظیمات قرار دهید. برای استفاده از LNDHub برنامهٔ DFX Bitcoin Wallet (به آدرس lndhub.io)، خالی بگذارید. لطفاً توجه داشته باشید که کیف پول‌های ایجادشده بعد از ذخیرهٔ تغییرات به LNDHub مشخص‌شده متصل خواهند شد.",
     "network": "شبکه",
     "network_broadcast": "انتشار تراکنش",
     "network_electrum": "سرور الکترام",
@@ -336,6 +339,7 @@
     "details_from": "ورودی",
     "details_inputs": "ورودی‌ها",
     "details_outputs": "خروجی‌ها",
+    "date": "تاریخ",
     "details_received": "دریافت‌شده",
     "transaction_note_saved": "یادداشت تراکنش با موفقیت ذخیره شد.",
     "details_show_in_block_explorer": "مشاهده در مرورگر بلاک",
@@ -410,10 +414,10 @@
     "import_passphrase_message": "درصورتی‌که از پس‌فریز (passphrase) استفاده کرده‌اید آن را وارد کنید",
     "import_error": "واردکردن ناموفق بود. لطفاً از معتبربودن دادهٔ ارائه‌شده اطمینان حاصل کنید.",
     "import_explanation": "لطفاً کلمه‌های سید، کلید عمومی، WIF، یا هر چیزی را که دارید وارد کنید. DFX Bitcoin Wallet تمام تلاش خود را برای حدس‌زدن قالب صحیح و واردکردن کیف پول شما انجام خواهد داد.",
-    "import_file": "واردکردن فایل",
     "import_imported": "وارد شد",
     "import_scan_qr": "اسکن یا واردکردن فایل",
     "import_success": "کیف پول شما با موفقیت وارد شد.",
+    "import_success_watchonly": "کیف پول شما با موفقیت وارد شد. هشدار: این یک کیف پول ناظر است، نمی‌توانید از آن خرج کنید",
     "import_search_accounts": "جستجوی حساب‌ها",
     "import_title": "واردکردن",
     "import_discovery_title": "کشف",
@@ -449,7 +453,6 @@
     "select_no_bitcoin": "هیچ کیف پول بیت‌کوینی درحال‌حاضر دردسترس نیست.",
     "select_no_bitcoin_exp": "یک کیف پول بیت‌کوین برای پرکردن کیف پول‌های لایتنینگ نیاز است. لطفاً یکی بسازید یا وارد کنید.",
     "select_wallet": "انتخاب کیف پول",
-    "take_photo": "گرفتن عکس",
     "xpub_copiedToClipboard": "در کلیپ‌بورد کپی شد.",
     "pull_to_refresh": "برای به‌روزسانی به پایین بکشید",
     "warning_do_not_disclose": "هشدار! فاش نکنید.",
@@ -586,5 +589,10 @@
     "auth_answer": "احراز در {hostname} با موفقیت انجام شد!",
     "could_not_auth": "قادر به احراز شما به {hostname} نبودیم.",
     "authenticate": "احراز"
+  },
+  "bip47": {
+    "payment_code": "کد پرداخت",
+    "payment_codes_list": "فهرست کدهای پرداخت",
+    "not_found": "کد پرداخت یافت نشد"
   }
 }

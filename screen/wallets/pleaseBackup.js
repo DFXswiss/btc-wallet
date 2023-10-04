@@ -7,13 +7,13 @@ import navigationStyle from '../../components/navigationStyle';
 import Privacy from '../../blue_modules/Privacy';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
-import { Icon } from 'react-native-elements';
 import { ThemedCheckbox } from '../../components/ThemedCheckbox';
+import Secret from './secret';
 
 const PleaseBackup = () => {
   const { wallets, saveToDisk } = useContext(BlueStorageContext);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAccepted, setIsAccpted] = useState(false);
+  const [isAccepted, setIsAccepted] = useState(false);
   const { walletID } = useRoute().params;
   const wallet = wallets.find(w => w.getID() === walletID);
   const navigation = useNavigation();
@@ -21,15 +21,6 @@ const PleaseBackup = () => {
   const stylesHook = StyleSheet.create({
     flex: {
       backgroundColor: colors.elevated,
-    },
-    word: {
-      backgroundColor: '#2D2B47',
-    },
-    wortText: {
-      color: colors.labelText,
-    },
-    infoText: {
-      color: colors.brandingColor,
     },
     text: {
       color: colors.backupText,
@@ -58,22 +49,6 @@ const PleaseBackup = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const renderSecret = () => {
-    return wallet
-      .getSecret()
-      .split(/\s/)
-      .map((secret, index) => {
-        const text = `${index + 1}.  ${secret}  `;
-        return (
-          <View style={[styles.word, stylesHook.word]} key={`${index}`}>
-            <Text style={[styles.wortText, stylesHook.wortText]} textBreakStrategy="simple">
-              {text}
-            </Text>
-          </View>
-        );
-      });
-  };
-
   return isLoading ? (
     <View style={[styles.loading, stylesHook.flex]}>
       <ActivityIndicator />
@@ -85,15 +60,11 @@ const PleaseBackup = () => {
           <Text style={styles.subtitle}>{loc.pleasebackup.subtitle}</Text>
           <Text style={[styles.subtext, stylesHook.text]}>{loc.pleasebackup.description}</Text>
         </View>
-        <View style={styles.infoContainer}>
-          <Icon name="info-outline" type="material" color={colors.brandingColor} size={18} />
-          <Text style={[styles.infoText, stylesHook.infoText]}>{loc.pleasebackup.info}</Text>
-        </View>
-        <View style={styles.list}>
-          <View style={styles.secret}>{renderSecret()}</View>
+        <View style={styles.secret}>
+          <Secret secret={wallet.getSecret()} />
         </View>
         <View style={styles.bottomContainer}>
-          <ThemedCheckbox text={loc.pleasebackup.confirm} onChanged={setIsAccpted} />
+          <ThemedCheckbox text={loc.pleasebackup.confirm} onChanged={setIsAccepted} />
           <View style={styles.bottom}>
             <BlueButton
               testID="PleasebackupOk"
@@ -119,27 +90,13 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     flexShrink: 0,
   },
-  word: {
-    marginRight: 8,
-    marginBottom: 8,
-    paddingTop: 6,
-    paddingBottom: 6,
-    paddingLeft: 8,
-    paddingRight: 8,
-    borderRadius: 6,
-    minWidth: '47%',
-  },
-  wortText: {
-    textAlign: 'left',
-    fontSize: 17,
-  },
   please: {
     alignItems: 'center',
     paddingHorizontal: 16,
   },
-  list: {
-    flexGrow: 2,
-    paddingHorizontal: 16,
+  secret: {
+    marginTop: 40,
+    marginBottom: 15,
   },
   bottomContainer: {
     flex: 1,
@@ -168,28 +125,6 @@ const styles = StyleSheet.create({
     writingDirection: I18nManager.isRTL ? 'rtl' : 'ltr',
     textAlign: 'center',
     marginTop: 4,
-  },
-  infoContainer: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255, 243, 137, 0.9)',
-    borderRadius: 8,
-    marginHorizontal: 20,
-    marginTop: 40,
-    marginBottom: 15,
-    padding: 7,
-    paddingRight: 20,
-  },
-  infoText: {
-    backgroundColor: 'transparent',
-    fontSize: 14,
-    marginHorizontal: 5,
-    writingDirection: I18nManager.isRTL ? 'rtl' : 'ltr',
-  },
-  secret: {
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    marginTop: 14,
-    flexDirection: I18nManager.isRTL ? 'row-reverse' : 'row',
   },
 });
 

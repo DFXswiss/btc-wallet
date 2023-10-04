@@ -44,9 +44,6 @@ const LNDViewInvoice = () => {
     expired: {
       backgroundColor: colors.success,
     },
-    additionalInfo: {
-      backgroundColor: colors.brandingColor,
-    },
   });
 
   useEffect(() => {
@@ -61,44 +58,32 @@ const LNDViewInvoice = () => {
   }, []);
 
   useEffect(() => {
-    setOptions(
-      isModal
-        ? {
-            headerStyle: {
-              borderBottomWidth: 0,
-              backgroundColor: colors.customHeader,
-              elevation: 0,
-              shadowOpacity: 0,
-              shadowOffset: { height: 0, width: 0 },
-            },
-            gestureEnabled: false,
-            headerHideBackButton: true,
+    isModal &&
+      setOptions({
+        headerStyle: {
+          borderBottomWidth: 0,
+          backgroundColor: colors.customHeader,
+          elevation: 0,
+          shadowOpacity: 0,
+          shadowOffset: { height: 0, width: 0 },
+        },
+        gestureEnabled: false,
+        headerHideBackButton: true,
 
-            headerRight: () => (
-              <TouchableOpacity
-                accessibilityRole="button"
-                style={styles.button}
-                onPress={() => {
-                  dangerouslyGetParent().pop();
-                }}
-                testID="NavigationCloseButton"
-              >
-                <Image source={closeImage} />
-              </TouchableOpacity>
-            ),
-          }
-        : {
-            headerRight: () => {},
-            headerStyle: {
-              backgroundColor: colors.customHeader,
-
-              borderBottomWidth: 0,
-              elevation: 0,
-              shadowOpacity: 0,
-              shadowOffset: { height: 0, width: 0 },
-            },
-          },
-    );
+        // eslint-disable-next-line react/no-unstable-nested-components
+        headerRight: () => (
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={styles.button}
+            onPress={() => {
+              dangerouslyGetParent().pop();
+            }}
+            testID="NavigationCloseButton"
+          >
+            <Image source={closeImage} />
+          </TouchableOpacity>
+        ),
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [colors, isModal]);
 
@@ -128,7 +113,7 @@ const LNDViewInvoice = () => {
                 fetchAndSaveWalletTransactions(walletID);
               } else {
                 const currentDate = new Date();
-                const now = (currentDate.getTime() / 1000) | 0;
+                const now = (currentDate.getTime() / 1000) | 0; // eslint-disable-line no-bitwise
                 const invoiceExpiration = updatedUserInvoice.timestamp + updatedUserInvoice.expire_time;
                 if (invoiceExpiration < now && !updatedUserInvoice.ispaid) {
                   // invoice expired :-(
@@ -169,10 +154,6 @@ const LNDViewInvoice = () => {
     Share.open({ message: `lightning:${invoice.payment_request}` }).catch(error => console.log(error));
   };
 
-  const handleOnViewAdditionalInformationPressed = () => {
-    navigate('LNDViewAdditionalInvoiceInformation', { walletID });
-  };
-
   useEffect(() => {
     if (invoice.ispaid && invoiceStatusChanged) {
       setInvoiceStatusChanged(true);
@@ -202,7 +183,7 @@ const LNDViewInvoice = () => {
 
     if (typeof invoice === 'object') {
       const currentDate = new Date();
-      const now = (currentDate.getTime() / 1000) | 0;
+      const now = (currentDate.getTime() / 1000) | 0; // eslint-disable-line no-bitwise
       const invoiceExpiration = invoice.timestamp + invoice.expire_time;
       if (invoice.ispaid || invoice.type === 'paid_invoice') {
         let amount = 0;
@@ -268,13 +249,6 @@ const LNDViewInvoice = () => {
             <BlueCopyTextToClipboard truncated text={invoice.payment_request} />
 
             <BlueButton onPress={handleOnSharePressed} title={loc.receive.details_share} />
-
-            <BlueSpacing20 />
-            <BlueButton
-              style={stylesHook.additionalInfo}
-              onPress={handleOnViewAdditionalInformationPressed}
-              title={loc.lndViewInvoice.additional_info}
-            />
           </View>
         </ScrollView>
       );
@@ -330,14 +304,12 @@ const styles = StyleSheet.create({
   },
 });
 
-LNDViewInvoice.navigationOptions = navigationStyle({}, (options, { theme }) => {
-  return {
-    ...options,
-    headerTitle: loc.lndViewInvoice.lightning_invoice,
-    headerStyle: {
-      backgroundColor: theme.colors.customHeader,
-    },
-  };
-});
+LNDViewInvoice.navigationOptions = navigationStyle(
+  { closeButton: true, closeButtonFunc: ({ navigation }) => navigation.getParent()?.pop() },
+  opts => ({
+    ...opts,
+    title: loc.lndViewInvoice.lightning_invoice,
+  }),
+);
 
 export default LNDViewInvoice;

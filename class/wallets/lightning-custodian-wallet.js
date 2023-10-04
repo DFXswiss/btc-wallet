@@ -4,6 +4,7 @@ import bolt11 from 'bolt11';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import { isTorDaemonDisabled } from '../../blue_modules/environment';
 const torrific = require('../../blue_modules/torrific');
+
 export class LightningCustodianWallet extends LegacyWallet {
   static type = 'lightningCustodianWallet';
   static typeReadable = 'Lightning';
@@ -68,6 +69,10 @@ export class LightningCustodianWallet extends LegacyWallet {
   }
 
   async init() {
+    // un-cache refill onchain addresses on cold start. should help for cases when certain lndhub
+    // is turned off permanently, so users cant pull refill address from cache and send money to a black hole
+    this.refill_addressess = [];
+
     this._api = new Frisbee({
       baseURI: this.baseURI,
     });
@@ -138,8 +143,9 @@ export class LightningCustodianWallet extends LegacyWallet {
       throw new Error('API failure: ' + response.err + ' ' + JSON.stringify(response.originalResponse));
     }
 
-    if (json && json.error) {
-      throw new Error('API error: ' + json.message + ' (code ' + json.code + ')');
+    if (json && (json.error || !json.payment_preimage)) {
+      const message = json.message ?? json.detail;
+      throw new Error(`API error: ${message}` + (json.code ? ` (code ${json.code})` : ''));
     }
 
     this.last_paid_invoice_result = json;
@@ -152,7 +158,7 @@ export class LightningCustodianWallet extends LegacyWallet {
    */
   async getUserInvoices(limit = false) {
     let limitString = '';
-    if (limit) limitString = '?limit=' + parseInt(limit);
+    if (limit) limitString = '?limit=' + parseInt(limit, 10);
     const response = await this._api.get('/getuserinvoices' + limitString, {
       headers: {
         'Access-Control-Allow-Origin': '*',
@@ -382,7 +388,7 @@ export class LightningCustodianWallet extends LegacyWallet {
 
       if (typeof tx.amt !== 'undefined' && typeof tx.fee !== 'undefined') {
         // lnd tx outgoing
-        tx.value = parseInt((tx.amt * 1 + tx.fee * 1) * -1);
+        tx.value = parseInt((tx.amt * 1 + tx.fee * 1) * -1, 10);
       }
 
       if (tx.type === 'paid_invoice') {
@@ -397,7 +403,7 @@ export class LightningCustodianWallet extends LegacyWallet {
 
       if (tx.type === 'user_invoice') {
         // incoming ln tx
-        tx.value = parseInt(tx.amt);
+        tx.value = parseInt(tx.amt, 10);
         tx.memo = tx.description || 'Lightning invoice';
       }
 
@@ -550,7 +556,7 @@ export class LightningCustodianWallet extends LegacyWallet {
 
     if (!decoded.expiry) decoded.expiry = '3600'; // default
 
-    if (parseInt(decoded.num_satoshis) === 0 && decoded.num_millisatoshis > 0) {
+    if (parseInt(decoded.num_satoshis, 10) === 0 && decoded.num_millisatoshis > 0) {
       decoded.num_satoshis = (decoded.num_millisatoshis / 1000).toString();
     }
 
@@ -668,8 +674,8 @@ export class LightningCustodianWallet extends LegacyWallet {
     return false;
   }
 
-  authenticate(lnurl) {
-    return lnurl.authenticate(this.secret);
+  authenticate(lnurl, additionalParams) {
+    return lnurl.authenticate(this.secret, additionalParams);
   }
 }
 

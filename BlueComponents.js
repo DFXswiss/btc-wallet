@@ -27,6 +27,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@react-navigation/native';
 import { BlueCurrentTheme } from './components/themes';
 import loc, { formatStringAddTwoWhiteSpaces } from './loc';
+import PickerSelect from 'react-native-picker-select';
 
 const { height, width } = Dimensions.get('window');
 const aspectRatio = height / width;
@@ -42,7 +43,9 @@ export const BlueButton = props => {
 
   let backgroundColor = props.backgroundColor ? props.backgroundColor : colors.mainColor || BlueCurrentTheme.colors.mainColor;
   let fontColor = props.buttonTextColor || colors.buttonTextColor;
-  if (props.disabled === true) {
+
+  const disabled = props.disabled || props.isLoading;
+  if (disabled === true) {
     backgroundColor = colors.buttonDisabledBackgroundColor;
     fontColor = colors.buttonDisabledTextColor;
   }
@@ -64,10 +67,17 @@ export const BlueButton = props => {
       }}
       accessibilityRole="button"
       {...props}
+      disabled={disabled}
     >
       <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
-        {props.icon && <Icon name={props.icon.name} type={props.icon.type} color={props.icon.color} />}
-        {props.title && <Text style={{ marginHorizontal: 8, fontSize: 16, color: fontColor, fontWeight: '500' }}>{props.title}</Text>}
+        {props.isLoading ? (
+          <ActivityIndicator />
+        ) : (
+          <>
+            {props.icon && <Icon name={props.icon.name} type={props.icon.type} color={props.icon.color} />}
+            {props.title && <Text style={{ marginHorizontal: 8, fontSize: 16, color: fontColor, fontWeight: '500' }}>{props.title}</Text>}
+          </>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -102,12 +112,33 @@ export const SecondButton = forwardRef((props, ref) => {
       ref={ref}
     >
       <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
-        {props.icon && <Icon name={props.icon.name} type={props.icon.type} color={props.icon.color} />}
+        {props.icon && <Icon name={props.icon.name} type={props.icon.type} color={props.icon.color} size={props.icon.size} />}
         {props.title && <Text style={{ marginHorizontal: 8, fontSize: 16, color: fontColor }}>{props.title}</Text>}
       </View>
     </TouchableOpacity>
   );
 });
+
+export const SelectButton = props => {
+  const { colors } = useTheme();
+  return (
+    <TouchableOpacity accessibilityRole="button" testID={props.testID} onPress={props.onPress}>
+      <View
+        style={{
+          borderColor: (props.active && colors.newBlue) || colors.buttonDisabledBackgroundColor,
+          borderWidth: 1.5,
+          borderRadius: 8,
+          backgroundColor: colors.buttonDisabledBackgroundColor,
+          minWidth: props.style?.width ?? '100%',
+          minHeight: props.style?.height ?? 'auto',
+          height: props.style?.height ?? 'auto',
+        }}
+      >
+        <View style={{ marginHorizontal: 16, marginVertical: 10, flexDirection: 'row', alignItems: 'center' }}>{props.children}</View>
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 export const BitcoinButton = props => {
   const { colors } = useTheme();
@@ -441,11 +472,13 @@ export const BlueListItem = React.memo(props => {
           </ListItem.Subtitle>
         )}
       </ListItem.Content>
-      {props.rightTitle && (
-        <ListItem.Content right>
-          <ListItem.Title style={props.rightTitleStyle} numberOfLines={0} right>
-            {props.rightTitle}
-          </ListItem.Title>
+      {(props.rightElement || props.rightTitle) && (
+        <ListItem.Content right style={{ flex: 1 }}>
+          {props.rightElement ?? (
+            <ListItem.Title style={props.rightTitleStyle} numberOfLines={0} right>
+              {props.rightTitle}
+            </ListItem.Title>
+          )}
         </ListItem.Content>
       )}
       {props.isLoading ? (
@@ -474,6 +507,31 @@ export const BlueFormLabel = props => {
         marginHorizontal: 20,
         writingDirection: I18nManager.isRTL ? 'rtl' : 'ltr',
       }}
+    />
+  );
+};
+
+export const BlueFormInput = props => {
+  const { colors } = useTheme();
+
+  return (
+    <TextInput
+      underlineColorAndroid="transparent"
+      style={{
+        paddingHorizontal: 8,
+        paddingVertical: 16,
+        borderColor: colors.formBorder,
+        borderWidth: 1,
+        borderRadius: 4,
+        backgroundColor: colors.inputBackgroundColor,
+        color: colors.foregroundColor,
+        textAlignVertical: 'top',
+      }}
+      autoCorrect={false}
+      autoCapitalize="none"
+      spellCheck={false}
+      {...props}
+      selectTextOnFocus={false}
     />
   );
 };
@@ -567,8 +625,18 @@ export const BlueHeaderDefaultMain = props => {
       >
         {props.leftText}
       </Text>
+      <PlusIcon
+        accessibilityRole="button"
+        accessibilityLabel={loc.wallets.add_title}
+        onPress={props.onNewWalletPress}
+        Component={TouchableOpacity}
+      />
     </View>
   );
+};
+
+export const BlueSpacingAuto = props => {
+  return <View {...props} style={{ flex: 1 }} />;
 };
 
 export const BlueSpacing = props => {
@@ -799,7 +867,7 @@ export class BlueReplaceFeeSuggestions extends Component {
                 paddingLeft: 5,
               }}
               onFocus={() => this.onCustomFeeTextChange(this.state.customFeeValue)}
-              defaultValue={`${this.props.transactionMinimum}`}
+              defaultValue={this.props.transactionMinimum}
               placeholder={loc.send.fee_satvbyte}
               placeholderTextColor="#81868e"
               inputAccessoryViewID={BlueDismissKeyboardInputAccessory.InputAccessoryViewID}
@@ -870,3 +938,52 @@ export const BlueTabs = ({ active, onSwitch, tabs }) => (
     ))}
   </View>
 );
+
+export const BlueWalletSelect = ({ wallets, value, onChange }) => {
+  const { colors } = useTheme();
+
+  const pickerStyles = StyleSheet.create({
+    // eslint-disable-next-line react-native/no-unused-styles
+    inputIOS: {
+      paddingHorizontal: 8,
+      paddingVertical: 16,
+      paddingRight: 30, // to ensure the text is never behind the icon
+      borderColor: colors.formBorder,
+      borderWidth: 1,
+      borderRadius: 4,
+      backgroundColor: colors.inputBackgroundColor,
+      color: colors.foregroundColor,
+    },
+    // eslint-disable-next-line react-native/no-unused-styles
+    inputAndroid: {
+      paddingHorizontal: 8,
+      paddingVertical: 8,
+      paddingRight: 30, // to ensure the text is never behind the icon
+      borderColor: colors.formBorder,
+      borderWidth: 1,
+      borderRadius: 4,
+      backgroundColor: colors.inputBackgroundColor,
+      color: colors.foregroundColor,
+    },
+    // eslint-disable-next-line react-native/no-unused-styles
+    iconContainer: {
+      top: 0,
+      right: 15,
+      height: '100%',
+      justifyContent: 'center',
+    },
+  });
+
+  return (
+    <PickerSelect
+      value={value}
+      onValueChange={onChange}
+      items={wallets.map(w => ({ label: w.getLabel(), value: w.getID() }))}
+      placeholder={{}}
+      style={pickerStyles}
+      useNativeAndroidPickerStyle={false}
+      fixAndroidTouchableBug
+      Icon={() => <Icon size={18} name="sync-alt" type="material-icons" color={colors.foregroundColor} />}
+    />
+  );
+};

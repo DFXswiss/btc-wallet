@@ -38,7 +38,7 @@ export class AbstractWallet {
   label: string;
   secret: string;
   balance: number;
-  unconfirmed_balance: number; // eslint-disable-line camelcase
+  unconfirmed_balance: number;
   _address: string | false;
   utxo: Utxo[];
   _lastTxFetch: number;
@@ -50,7 +50,7 @@ export class AbstractWallet {
   userHasBackedUpSeed: boolean;
   _hideTransactionsInWalletsList: boolean;
   _utxoMetadata: Record<string, UtxoMetadata>;
-  use_with_hardware_wallet: boolean; // eslint-disable-line camelcase
+  use_with_hardware_wallet: boolean;
   masterFingerprint: number | false;
 
   constructor() {
@@ -151,6 +151,18 @@ export class AbstractWallet {
       }
     }
     return BitcoinUnit.BTC;
+  }
+
+  async allowOnchainAddress(): Promise<boolean> {
+    throw new Error('allowOnchainAddress: Not implemented');
+  }
+
+  allowBIP47(): boolean {
+    return false;
+  }
+
+  switchBIP47(value: boolean): void {
+    throw new Error('switchBIP47: not implemented');
   }
 
   allowReceive(): boolean {
@@ -299,6 +311,27 @@ export class AbstractWallet {
       }
     }
 
+    // is it output descriptor?
+    if (this.secret.startsWith('wpkh(') || this.secret.startsWith('pkh(') || this.secret.startsWith('sh(')) {
+      const xpubIndex = Math.max(this.secret.indexOf('xpub'), this.secret.indexOf('ypub'), this.secret.indexOf('zpub'));
+      const fpAndPath = this.secret.substring(this.secret.indexOf('(') + 1, xpubIndex);
+      const xpub = this.secret.substring(xpubIndex).replace(/\(|\)/, '');
+      const pathIndex = fpAndPath.indexOf('/');
+      const path = 'm' + fpAndPath.substring(pathIndex);
+      const fp = fpAndPath.substring(0, pathIndex);
+
+      this._derivationPath = path;
+      const mfp = Buffer.from(fp, 'hex').reverse().toString('hex');
+      this.masterFingerprint = parseInt(mfp, 16);
+
+      if (this.secret.startsWith('wpkh(')) {
+        this.secret = this._xpubToZpub(xpub);
+      } else {
+        // nop
+        this.secret = xpub;
+      }
+    }
+
     return this;
   }
 
@@ -321,7 +354,7 @@ export class AbstractWallet {
    * @deprecated
    * TODO: be more precise on the type
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   createTx(): any {
     throw Error('not implemented');
   }
@@ -365,6 +398,10 @@ export class AbstractWallet {
   }
 
   useWithHardwareWalletEnabled(): boolean {
+    return false;
+  }
+
+  isBIP47Enabled(): boolean {
     return false;
   }
 

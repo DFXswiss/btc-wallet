@@ -12,12 +12,22 @@ import {
 const bitcoin = require('bitcoinjs-lib');
 const assert = require('assert');
 
+/**
+ * this testsuite is for test cases that require no wallets to be present
+ */
+
+beforeAll(async () => {
+  // reinstalling the app just for any case to clean up app's storage
+  await device.launchApp({ delete: true });
+}, 300_000);
+
 describe('BlueWallet UI Tests - no wallets', () => {
   it('selftest passes', async () => {
     const lockFile = '/tmp/travislock.' + hashIt('t1');
     if (process.env.TRAVIS) {
       if (require('fs').existsSync(lockFile)) return console.warn('skipping', JSON.stringify('t1'), 'as it previously passed on Travis');
     }
+    await device.launchApp({ newInstance: true });
     await waitFor(element(by.id('WalletsList')))
       .toBeVisible()
       .withTimeout(300 * 1000);
@@ -41,6 +51,7 @@ describe('BlueWallet UI Tests - no wallets', () => {
     if (process.env.TRAVIS) {
       if (require('fs').existsSync(lockFile)) return console.warn('skipping', JSON.stringify('t2'), 'as it previously passed on Travis');
     }
+    await device.launchApp({ newInstance: true });
     await yo('WalletsList');
 
     // go to settings, press SelfTest and wait for OK
@@ -52,10 +63,10 @@ describe('BlueWallet UI Tests - no wallets', () => {
     // privacy
     // trigger switches
     await element(by.id('SettingsPrivacy')).tap();
-    await element(by.id('ClipboardSwith')).tap();
-    await element(by.id('ClipboardSwith')).tap();
-    await element(by.id('QuickActionsSwith')).tap();
-    await element(by.id('QuickActionsSwith')).tap();
+    await element(by.id('ClipboardSwitch')).tap();
+    await element(by.id('ClipboardSwitch')).tap();
+    await element(by.id('QuickActionsSwitch')).tap();
+    await element(by.id('QuickActionsSwitch')).tap();
     await device.pressBack();
 
     // enable AdvancedMode
@@ -109,6 +120,7 @@ describe('BlueWallet UI Tests - no wallets', () => {
 
     // network -> lightning
     // change URI and revert it back
+    /* muted since https://lndhub.herokuapp.com is down
     await element(by.id('LightningSettings')).tap();
     await element(by.id('URIInput')).replaceText('invalid\n');
     await element(by.id('Save')).tap();
@@ -126,6 +138,7 @@ describe('BlueWallet UI Tests - no wallets', () => {
     await expect(element(by.text('Your changes have been saved successfully.'))).toBeVisible();
     await element(by.text('OK')).tap();
     await device.pressBack();
+    */
 
     // notifications
     // turn on notifications if available
@@ -176,6 +189,7 @@ describe('BlueWallet UI Tests - no wallets', () => {
     if (process.env.TRAVIS) {
       if (require('fs').existsSync(lockFile)) return console.warn('skipping', JSON.stringify('t3'), 'as it previously passed on Travis');
     }
+    await device.launchApp({ newInstance: true });
     await yo('WalletsList');
 
     await helperCreateWallet();
@@ -212,6 +226,7 @@ describe('BlueWallet UI Tests - no wallets', () => {
     if (process.env.TRAVIS) {
       if (require('fs').existsSync(lockFile)) return console.warn('skipping', JSON.stringify('t4'), 'as it previously passed on Travis');
     }
+    await device.launchApp({ newInstance: true });
     await yo('WalletsList');
 
     // lets create a wallet
@@ -365,6 +380,7 @@ describe('BlueWallet UI Tests - no wallets', () => {
     if (process.env.TRAVIS) {
       if (require('fs').existsSync(lockFile)) return console.warn('skipping', JSON.stringify('t5'), 'as it previously passed on Travis');
     }
+    await device.launchApp({ newInstance: true });
     await yo('WalletsList');
     await helperCreateWallet();
     await element(by.id('SettingsButton')).tap();
@@ -441,7 +457,7 @@ describe('BlueWallet UI Tests - no wallets', () => {
     if (process.env.TRAVIS) {
       if (require('fs').existsSync(lockFile)) return console.warn('skipping', JSON.stringify('t6'), 'as it previously passed on Travis');
     }
-
+    await device.launchApp({ newInstance: true });
     await yo('WalletsList');
     await element(by.id('WalletsList')).swipe('left', 'fast', 1); // in case emu screen is small and it doesnt fit
     // going to Import Wallet screen and importing mnemonic
@@ -568,7 +584,7 @@ describe('BlueWallet UI Tests - no wallets', () => {
     if (process.env.TRAVIS) {
       if (require('fs').existsSync(lockFile)) return console.warn('skipping', JSON.stringify('t6'), 'as it previously passed on Travis');
     }
-
+    await device.launchApp({ newInstance: true });
     await yo('WalletsList');
 
     // enable AdvancedMode to see derivation path in wallet details

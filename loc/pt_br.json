@@ -18,7 +18,15 @@
     "wallet_key": "Chave da Carteira",
     "invalid_animated_qr_code_fragment": "Código QR animado inválido, por favor tente novamente.",
     "file_saved": "Arquivo {filePath} foi salvo em {destination}.",
-    "downloads_folder": "Pasta de Downloads"
+    "downloads_folder": "Pasta de Downloads",
+    "close": "Fechar",
+    "change_input_currency": "Alterar moeda de entrada",
+    "refresh": "Atualizar",
+    "more": "Mais",
+    "pick_image": "Escolher imagem da biblioteca",
+    "pick_file": "Escolher arquivo",
+    "enter_amount": "Insira o valor",
+    "qr_custom_input_button": "Toque 10 vezes para inserir uma entrada personalizada"
   },
   "alert": {
     "default": "Alerta"
@@ -56,7 +64,7 @@
     "node_alias": "Apelido do nó",
     "expiresIn": "Expira em {time} minutos",
     "payButton": "Pagar",
-    "placeholder": "Fatura",
+    "placeholder": "Fatura ou endereço",
     "open_channel": "Abrir canal",
     "funding_amount_placeholder": "Quantidade de financiamento, por exemplo 0.001",
     "opening_channnel_for_from": "Abrindo canal para carteira {forWalletLabel}, com financiamento de {fromWalletLabel}",
@@ -182,7 +190,7 @@
     "input_done": "Feito",
     "input_paste": "Colar",
     "input_total": "Total:",
-    "permission_camera_message": "Precisamos sua permissão para usar a câmera.",
+    "permission_camera_message": "Precisamos de permissão para usar a câmera.",
     "psbt_sign": "Assinar uma transação",
     "open_settings": "Abrir Configurações",
     "permission_storage_later": "Me pergunte mais tarde",
@@ -210,6 +218,8 @@
     "about_license": "Licença MIT",
     "about_release_notes": "Notas de versão",
     "about_review": "Avalie a gente",
+    "performance_score": "Pontuação de performance: {num}",
+    "run_performance_test": "Teste de performance",
     "about_selftest": "Executar autoteste",
     "about_selftest_electrum_disabled": "Autoteste indisponível no modo Offline da Electrum. Desative o modo Offline e tente novamente.",
     "about_selftest_ok": "Todos os testes internos passaram com sucesso. A carteira funciona bem.",
@@ -416,6 +426,7 @@
     "import_imported": "Importada",
     "import_scan_qr": "Ler código ou importar arquivo",
     "import_success": "Sua carteira foi importada com sucesso.",
+    "import_success_watchonly": "A carteira foi importada.\nAVISO: Esta é uma carteira de consulta e você NÃO pode mover fundos com ela.",
     "import_search_accounts": "Procurar contas",
     "import_title": "Importar",
     "import_discovery_title": "Descoberta",
@@ -451,7 +462,6 @@
     "select_no_bitcoin": "Não há carteiras Bitcoin disponíveis no momento.",
     "select_no_bitcoin_exp": "É necessário ter uma carteira Bitcoin para recarregar as carteiras Lightning. Por favor, crie ou importe uma.",
     "select_wallet": "Escolher carteira",
-    "take_photo": "Tirar foto",
     "xpub_copiedToClipboard": "Copiado para a área de transferência",
     "pull_to_refresh": "Puxe para atualizar",
     "warning_do_not_disclose": "Cuidado! Não divulgue.",
@@ -588,5 +598,12 @@
     "auth_answer": "Você foi autenticado com sucesso em {hostname}!",
     "could_not_auth": "Nós não conseguimos autenticar você em {hostname}.",
     "authenticate": "Autenticar"
+  },
+  "bip47": {
+    "payment_code": "Código de pagamento",
+    "payment_codes_list": "Lista de códigos de pagamento",
+    "who_can_pay_me": "Quem pode me pagar:",
+    "purpose": "Código para compartilhar (BIP47)",
+    "not_found": "Código de pagamento não encontrado"
   }
 }

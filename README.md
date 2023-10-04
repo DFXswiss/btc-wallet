@@ -9,7 +9,7 @@ Thin Bitcoin Wallet.
 Built with React Native and Electrum.
 
 [![Appstore](https://bluewallet.io/uploads/app-store-badge-blue.svg)](https://itunes.apple.com/us/app/bluewallet-bitcoin-wallet/id1376878040?l=ru&ls=1&mt=8)
-[![Playstore](https://bluewallet.io/uploads/play-store-badge-blue.svg)](https://play.google.com/store/apps/details?id=com.defichain.app.dfx.bitcoin)
+[![Playstore](https://bluewallet.io/uploads/play-store-badge-blue.svg)](https://play.google.com/store/apps/details?id=swiss.dfx.bitcoin)
 
 Website: [bluewallet.io](https://bluewallet.io)
 
@@ -83,8 +83,7 @@ npx react-native run-ios
 npm run maccatalystpatches
 ```
 
-Once the patches are applied, open Xcode and select "My Mac" as destination. If you are running macOS Catalina, you may need to remove all iOS 14 Widget targets.
-
+Once the patches are applied, open Xcode and select "My Mac" as destination.
 
 ## TESTS
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useContext, useState } from 'react';
 import { View, Image, Text, StyleSheet, StatusBar, I18nManager, Pressable, useColorScheme, Platform } from 'react-native';
 import { BluePrivateBalance } from '../../BlueComponents';
-import DraggableFlatList, { ScaleDecorator } from '../../components/react-native-draggable-flatlist';
+import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
 import LinearGradient from 'react-native-linear-gradient';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { useNavigation, useTheme } from '@react-navigation/native';
@@ -103,6 +103,7 @@ const ReorderWallets = () => {
     return (
       <ScaleDecorator>
         <Pressable
+          accessibilityRole="button"
           disabled={isActive}
           onLongPress={drag}
           onPress={() => navigateToWallet(item)}

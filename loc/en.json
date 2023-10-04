@@ -18,12 +18,20 @@
     "wallet_key": "Wallet key",
     "invalid_animated_qr_code_fragment": "Invalid animated QRCode fragment. Please try again.",
     "file_saved": "File {filePath} has been saved in your {destination}.",
-    "downloads_folder": "Downloads Folder"
+    "downloads_folder": "Downloads Folder",
+    "close": "Close",
+    "change_input_currency": "Change input currency",
+    "refresh": "Refresh",
+    "more": "More",
+    "pick_image": "Choose image from library",
+    "pick_file": "Choose a file",
+    "enter_amount": "Enter amount",
+    "qr_custom_input_button": "Tap 10 times to enter custom input",
+    "add": "Add",
+    "repeat": "Repeat"
   },
   "alert": {
-    "default": "Alert",
-    "availability": "Availability",
-    "not_available": "Unfortunately, DFX services are not available in your country."
+    "default": "Alert"
   },
   "azteco": {
     "codeIs": "Your voucher code is",
@@ -58,7 +66,7 @@
     "node_alias": "Node alias",
     "expiresIn": "Expires in {time} minutes",
     "payButton": "Pay",
-    "placeholder": "Invoice",
+    "placeholder": "Invoice or address",
     "open_channel": "Open Channel",
     "funding_amount_placeholder": "Funding amount, for example 0.001",
     "opening_channnel_for_from": "Opening channel for wallet {forWalletLabel}, by funding from {fromWalletLabel}",
@@ -70,7 +78,7 @@
     "refill_create": "In order to proceed, please create a Bitcoin wallet to refill with.",
     "refill_external": "Refill with External Wallet",
     "refill_lnd_balance": "Refill Lightning Wallet Balance",
-    "sameWalletAsInvoiceError": "You can’t pay an invoice with the same wallet used to create it.",
+    "sameWalletAsInvoiceError": "You can't pay an invoice with the same wallet used to create it.",
     "title": "Manage Funds",
     "can_send": "Can Send",
     "can_receive": "Can Receive",
@@ -110,11 +118,11 @@
       },
       {
         "title": "Unrestorable",
-        "text": "if you lose your recovery phrase, you will de unable to access your funds, as nobody will be able to restore it."
+        "text": "if you lose your recovery phrase, you will be unable to access your funds, as nobody will be able to restore it."
       },
       {
         "title": "Only Chance",
-        "text": "This phrase is your only chance to recover access to your funds if your DFX Bitcoin App or usual device is unavailable for you."
+        "text": "This phrase is your only chance to recover access to your funds if your DFX Bitcoin App or usual device is unavailable to you."
       }
     ],
     "ready": "Ready"
@@ -136,7 +144,7 @@
   "receive": {
     "details_create": "Create",
     "details_label": "Description",
-    "details_setAmount": "Receive with amount",
+    "details_setAmount": "Advanced functions",
     "details_share": "Share",
     "header": "Receive",
     "maxSats": "Maximum amount is {max} sats",
@@ -307,7 +315,7 @@
     "lightning_saved": "Your changes have been saved successfully.",
     "lightning_settings": "Lightning Settings",
     "tor_settings": "Tor Settings",
-    "lightning_settings_explain": "To connect to your own LND node, please install LNDHub and put its URL here in settings. Leave blank to use DFX Bitcoin Wallet’s LNDHub (lndhub.io). Please note that only wallets created after saving changes will connect to the specified LNDHub.",
+    "lightning_settings_explain": "To connect to your own LND node, please install LNDHub and put its URL here in settings. Please note that only wallets created after saving changes will connect to the specified LNDHub.",
     "network": "Network",
     "network_broadcast": "Broadcast Transaction",
     "network_electrum": "Electrum Server",
@@ -401,16 +409,24 @@
     "add_lightning": "Lightning",
     "add_lightning_explain": "For spending with instant transactions",
     "add_lndhub": "Connect to your LNDHub",
+    "add_lndhub_custom": "Custom",
     "add_lndhub_error": "The provided node address is an invalid LNDHub node.",
     "add_lndhub_placeholder": "Your Node Address",
+    "add_lndhub_disclaimer": "Please note that by adding an LNDHub provider you automatically accept the terms and conditions of the corresponding provider.",
+    "add_lndhub_signature": "DFX signature",
+    "add_lndhub_url": "LNDHub admin URL",
+    "add_lndhub_instructions": "How to use your own LNDHub",
     "add_placeholder": "my first wallet",
-    "add_title": "Add Wallet",
+    "add_title": "Create Wallet",
     "add_wallet_name": "Name",
     "add_wallet_type": "Type",
+    "add_disclaimer": "Please note that by using this self-custodial wallet you automatically accept the disclaimer.",
+    "total": "Total",
     "balance": "Balance",
     "clipboard_bitcoin": "You have a Bitcoin address on your clipboard. Would you like to use it for a transaction?",
     "clipboard_lightning": "You have a Lightning invoice on your clipboard. Would you like to use it for a transaction?",
     "details_address": "Address",
+    "details_ln_address": "Lightning address",
     "details_advanced": "Advanced",
     "details_are_you_sure": "Are you sure?",
     "details_connected_to": "Connected to",
@@ -441,7 +457,6 @@
     "import_passphrase_message": "Enter passphrase if you have used any",
     "import_error": "Failed to import. Please make sure that the provided data is valid.",
     "import_explanation": "Please enter your seed words, public key, WIF, or anything you’ve got. DFX Bitcoin Wallet will do its best to guess the correct format and import your wallet.",
-    "import_file": "Import File",
     "import_imported": "Imported",
     "import_scan_qr": "Scan or import a file",
     "import_success": "Your wallet has been successfully imported.",
@@ -462,7 +477,7 @@
     "list_create_a_button": "Add now",
     "list_create_a_wallet": "Add a wallet",
     "list_create_a_wallet_text": "It’s free and you can create \nas many as you like.",
-    "list_empty_txs1": "Your transactions will appear here.",
+    "list_empty_txs1": "Your transactions will appear here",
     "list_empty_txs1_lightning": "Lightning wallet should be used for your daily transactions. Fees are unfairly cheap and the speed is blazing fast.",
     "list_empty_txs2": "Start with your wallet.",
     "list_empty_txs2_lightning": "\nTo start using it, tap on Manage Funds and topup your balance.",
@@ -481,14 +496,16 @@
     "select_no_bitcoin": "There are currently no Bitcoin wallets available.",
     "select_no_bitcoin_exp": "A Bitcoin wallet is required to refill Lightning wallets. Please create or import one.",
     "select_wallet": "Select Wallet",
-    "take_photo": "Take Photo",
     "xpub_copiedToClipboard": "Copied to clipboard.",
     "pull_to_refresh": "Pull to Refresh",
     "warning_do_not_disclose": "Warning! Do not disclose.",
     "add_ln_wallet_first": "You must first add a Lightning wallet.",
     "identity_pubkey": "Identity Pubkey",
     "xpub_title": "Wallet XPUB",
-    "backupSeed": "Backup not verified"
+    "backupSeed": "Backup your wallet",
+    "backupSeedWarning": "Backup not verified",
+    "external_services": "External services",
+    "coming_soon": "Coming soon"
   },
   "multisig": {
     "multisig_vault": "Vault",
@@ -620,14 +637,18 @@
     "could_not_auth": "We couldn’t authenticate you to {hostname}.",
     "authenticate": "Authenticate"
   },
-  "signUp": {
-    "title": "Terms & Conditions",
-    "text": "Please read our terms and conditions",
-    "link": "Terms and conditions DFX Swiss",
-    "confirm": "I have read and agree to the terms and conditions.",
-    "accept": "Accept"
+  "bip47": {
+    "payment_code": "Payment Code",
+    "payment_codes_list": "Payment Codes List",
+    "who_can_pay_me": "Who can pay me:",
+    "purpose": "Reusable and shareable code (BIP47)",
+    "not_found": "Payment code not found"
   },
   "sell": {
-    "header": "Sell"
+    "header": "Confirm Sell",
+    "bankAccount": "To your bank account",
+    "currency": "Your currency",
+    "info": "You will be notified by email when the bank transfer to your account is done.",
+    "confirm": "Cash out to bank account"
   }
 }

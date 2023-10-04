@@ -111,7 +111,7 @@ const About = () => {
   const handleOnRatePress = () => {
     const options = {
       AppleAppID: '6443845399',
-      GooglePackageName: 'com.defichain.app.dfx.bitcoin',
+      GooglePackageName: 'swiss.dfx.bitcoin',
       preferredAndroidMarket: AndroidMarket.Google,
       preferInApp: Platform.OS !== 'android',
       openAppStoreIfInAppFails: true,

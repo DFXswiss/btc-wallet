@@ -18,7 +18,9 @@
     "wallet_key": "Llave de la cartera",
     "invalid_animated_qr_code_fragment": "Fragmento de código QR inválido. Por favor inténtalo de nuevo.",
     "file_saved": "El archivo {filePath} se ha guardado en tu {destination}.",
-    "downloads_folder": "Carpeta de descargas"
+    "downloads_folder": "Carpeta de descargas",
+    "add": "Añadir",
+    "repeat": "Repetir"
   },
   "alert": {
     "default": "Atención"
@@ -56,7 +58,7 @@
     "node_alias": "Alias del nodo",
     "expiresIn": "Expira en {time} minutos",
     "payButton": "Pagar",
-    "placeholder": "Factura",
+    "placeholder": "Factura o dirección",
     "open_channel": "Abrir canal",
     "funding_amount_placeholder": "Importe de la financiación, por ejemplo 0,001",
     "opening_channnel_for_from": "Abrir canal para la cartera {forWalletLabel}, financiado desde {fromWalletLabel}",
@@ -134,7 +136,7 @@
   "receive": {
     "details_create": "Crear",
     "details_label": "Descripción",
-    "details_setAmount": "Recibir con monto",
+    "details_setAmount": "Funciones avanzadas",
     "details_share": "Compartir",
     "header": "Recibir",
     "maxSats": "La cantidad máxima es {max} sats",
@@ -302,7 +304,7 @@
     "lightning_saved": "Tus cambios se han guardado correctamente",
     "lightning_settings": "Configuración de Lightning",
     "tor_settings": "Configuración de Tor",
-    "lightning_settings_explain": "Para conectar a tu propio nodo LND, por favor instala LndHub y escribe su URL aquí, en la pantalla de configuración. Déjalo en blanco para usar el LNDHub (lndhub.io) de DFX Bitcoin Wallet. Las carteras creadas tras guardar los cambios se conectarán al LNDHub especificado.",
+    "lightning_settings_explain": "Para conectar a tu propio nodo LND, por favor instala LndHub y escribe su URL aquí, en la pantalla de configuración. Las carteras creadas tras guardar los cambios se conectarán al LNDHub especificado.",
     "network": "Red",
     "network_broadcast": "Emitir transacción",
     "network_electrum": "Servidor Electrum",
@@ -396,16 +398,24 @@
     "add_lightning": "Lightning",
     "add_lightning_explain": "Para pagos con transferencias instantáneas",
     "add_lndhub": "Conecta a tu LDNHub",
+    "add_lndhub_custom": "Personalizado",
     "add_lndhub_error": "La dirección proporcionada no es válida para un nodo LNDHub.",
     "add_lndhub_placeholder": "La dirección de tu nodo",
+    "add_lndhub_disclaimer": "Tenha em atenção que, ao adicionar um fornecedor LNDHub, aceita automaticamente os termos e condições do fornecedor correspondente.",
+    "add_lndhub_signature": "Assinatura DFX",
+    "add_lndhub_url": "URL de admin do LNDHub",
+    "add_lndhub_instructions": "Como utilizar o seu próprio LNDHub",
     "add_placeholder": "Mi primera cartera",
-    "add_title": "Añadir cartera",
+    "add_title": "Crear cartera",
     "add_wallet_name": "Nombre",
     "add_wallet_type": "Tipo de cartera",
+    "add_disclaimer": "Por favor, ten en cuenta que al usar esta cartera self-custodial aceptas automáticamente el descargo de responsabilidad.",
+    "total": "Total",
     "balance": "Balance",
     "clipboard_bitcoin": "Tienes una dirección de Bitcoin en tu portapapeles. ¿Quieres usarla para una transacción?",
     "clipboard_lightning": "Tienes una factura Lightning en tu portapapeles. ¿Quieres usarla para una transacción?",
     "details_address": "Dirección",
+    "details_ln_address": "Dirección Lightning",
     "details_advanced": "Avanzado",
     "details_are_you_sure": "¿Estás seguro?",
     "details_connected_to": "Conectado a",
@@ -436,7 +446,6 @@
     "import_passphrase_message": "Introduce la passphrase si has usado una",
     "import_error": "Error al importar. Por favor, asegúrate de que los datos introducidos son correctos.",
     "import_explanation": "Introduce las palabras de tu semilla, llave pública, WIF, o cualquier otra cosa que tengas. DFX Bitcoin Wallet hará lo posible para descifrar el formato correcto e importar tu cartera. ",
-    "import_file": "Importar archivo",
     "import_imported": "Importado",
     "import_scan_qr": "Escanear o importar un archivo",
     "import_success": "Tu cartera ha sido importada.",
@@ -475,14 +484,16 @@
     "select_no_bitcoin": "No hay carteras de Bitcoin disponibles.",
     "select_no_bitcoin_exp": "Una cartera de Bitcoin es necesaria para recargar una cartera Lightning. Por favor, cree o importe una.",
     "select_wallet": "Selecciona una cartera",
-    "take_photo": "Hacer una foto",
     "xpub_copiedToClipboard": "Copiado a portapapeles.",
     "pull_to_refresh": "Desliza el dedo de arriba a abajo para actualizar",
     "warning_do_not_disclose": "¡Advertencia! No comparta esta información",
     "add_ln_wallet_first": "Primero tienes que agregar una cartera Lightning.",
     "identity_pubkey": "Identity Pubkey",
     "xpub_title": "XPUB de la cartera",
-    "backupSeed": "Copia de seguridad no verificada"
+    "backupSeed": "Copia de seguridad",
+    "backupSeedWarning": "Copia de seguridad no verificada",
+    "external_services": "Servicios externos",
+    "coming_soon": "Pronto disponible"
   },
   "multisig": {
     "multisig_vault": "Vault",
@@ -614,11 +625,11 @@
     "could_not_auth": "No pudimos autenticarte en {hostname}.",
     "authenticate": "Autenticar"
   },
-  "signUp": {
-    "title": "Condiciones generales",
-    "text": "Lea nuestras Condiciones Generales",
-    "link": "Condiciones generales DFX Swiss",
-    "confirm": "He leído y acepto las Condiciones Generales.",
-    "accept": "Acepto"
+  "sell": {
+    "header": "Confirmar venta",
+    "bankAccount": "A tu cuenta bancaria",
+    "currency": "Tu divisa",
+    "info": "Serás notificado por correo electrónico cuando se realice la transferencia bancaria a tu cuenta.",
+    "confirm": "Cobrar en cuenta bancaria"
   }
 }

@@ -15,7 +15,7 @@ static EventEmitter *sharedInstance;
 RCT_EXPORT_MODULE();
 
 + (BOOL)requiresMainQueueSetup {
-    return YES;
+    return NO;
 }
 
 + (EventEmitter *)sharedInstance {
@@ -48,7 +48,7 @@ RCT_EXPORT_MODULE();
 RCT_REMAP_METHOD(getMostRecentUserActivity, resolve: (RCTPromiseResolveBlock)resolve
      reject:(RCTPromiseRejectBlock)reject)
 {
-  NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"group.com.defichain.app.dfx.bitcoin"];
+  NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"group.swiss.dfx.bitcoin"];
   resolve([defaults valueForKey:@"onUserActivityOpen"]);
 }
 

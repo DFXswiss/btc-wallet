@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import {
   Text,
+  Linking,
   ScrollView,
   ActivityIndicator,
   Keyboard,
@@ -10,17 +11,21 @@ import {
   StatusBar,
   TextInput,
   StyleSheet,
+  TouchableOpacity,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BlueText, BlueListItem, BlueFormLabel, BlueButton, BlueButtonLink, BlueSpacing20 } from '../../BlueComponents';
+import { BlueText, BlueListItem, BlueButton, BlueButtonLink, BlueSpacing20 } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
-import { HDSegwitBech32Wallet, SegwitP2SHWallet, HDSegwitP2SHWallet, AppStorage } from '../../class';
+import { HDSegwitBech32Wallet, SegwitP2SHWallet, HDSegwitP2SHWallet } from '../../class';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { useTheme, useNavigation, StackActions } from '@react-navigation/native';
-import { Chain } from '../../models/bitcoinUnits';
+import { WalletLabel, Chain } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import alert from '../../components/Alert';
+import Config from 'react-native-config';
+const BlueApp = require('../../BlueApp');
+const AppStorage = BlueApp.AppStorage;
 const A = require('../../blue_modules/analytics');
 
 const ButtonSelected = Object.freeze({
@@ -29,11 +34,10 @@ const ButtonSelected = Object.freeze({
 
 const WalletsAdd = () => {
   const { colors } = useTheme();
-  const { addWallet, saveToDisk, isAdancedModeEnabled } = useContext(BlueStorageContext);
+  const { addWallet, saveToDisk, isAdvancedModeEnabled } = useContext(BlueStorageContext);
   const [isLoading, setIsLoading] = useState(true);
   const [walletBaseURI, setWalletBaseURI] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(2);
-  const [label, setLabel] = useState('');
   const [isAdvancedOptionsEnabled, setIsAdvancedOptionsEnabled] = useState(false);
   const { navigate, goBack, dispatch } = useNavigation();
   const [entropy, setEntropy] = useState();
@@ -58,14 +62,19 @@ const WalletsAdd = () => {
       borderBottomColor: colors.formBorder,
       backgroundColor: colors.inputBackgroundColor,
     },
+    disclaimer: {
+      margin: 20,
+      color: colors.buttonDisabledTextColor,
+      textAlign: 'center',
+    },
   };
   const selectedWalletType = ButtonSelected.ONCHAIN;
 
   useEffect(() => {
     AsyncStorage.getItem(AppStorage.LNDHUB)
-      .then(url => setWalletBaseURI(url || 'https://lndhub.io'))
+      .then(url => setWalletBaseURI(url))
       .catch(() => setWalletBaseURI(''));
-    isAdancedModeEnabled()
+    isAdvancedModeEnabled()
       .then(setIsAdvancedOptionsEnabled)
       .finally(() => setIsLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -92,8 +101,8 @@ const WalletsAdd = () => {
   const createWallet = async () => {
     setIsLoading(true);
 
-    const w = new HDSegwitP2SHWallet();
-    w.setLabel(label);
+    const w = new HDSegwitBech32Wallet();
+    w.setLabel(WalletLabel[Chain.ONCHAIN]);
 
     if (entropy) {
       try {
@@ -122,25 +131,20 @@ const WalletsAdd = () => {
     navigate('ImportWallet');
   };
 
+  const handleDisclaimerPress = () => {
+    if (Config.REACT_APP_DISCLAIMER_URL) Linking.openURL(Config.REACT_APP_DISCLAIMER_URL);
+  };
+
   return (
     <ScrollView style={stylesHook.root}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       <BlueSpacing20 />
       <KeyboardAvoidingView enabled behavior={Platform.OS === 'ios' ? 'padding' : null} keyboardVerticalOffset={62}>
-        <BlueFormLabel>{loc.wallets.add_wallet_name}</BlueFormLabel>
-        <View style={[styles.label, stylesHook.label]}>
-          <TextInput
-            testID="WalletNameInput"
-            value={label}
-            placeholderTextColor="#81868e"
-            placeholder={loc.wallets.add_placeholder}
-            onChangeText={setLabel}
-            style={styles.textInputCommon}
-            editable={!isLoading}
-            underlineColorAndroid="transparent"
-          />
-        </View>
-
+        {!isLoading && (
+          <TouchableOpacity onPress={handleDisclaimerPress}>
+            <Text style={stylesHook.disclaimer}>{loc.wallets.add_disclaimer}</Text>
+          </TouchableOpacity>
+        )}
         <View style={styles.advanced}>
           {(() => {
             if (selectedWalletType === ButtonSelected.ONCHAIN && isAdvancedOptionsEnabled) {
@@ -230,17 +234,6 @@ WalletsAdd.navigationOptions = navigationStyle(
 const styles = StyleSheet.create({
   createButton: {
     flex: 1,
-  },
-  label: {
-    flexDirection: 'row',
-    borderWidth: 1,
-    borderBottomWidth: 0.5,
-    minHeight: 44,
-    height: 44,
-    marginHorizontal: 20,
-    alignItems: 'center',
-    marginVertical: 16,
-    borderRadius: 4,
   },
   textInputCommon: {
     flex: 1,

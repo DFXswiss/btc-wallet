@@ -16,9 +16,10 @@ import {
 } from 'react-native';
 import { NavigationContainer, CommonActions } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
+
 import { navigationRef } from './NavigationService';
 import * as NavigationService from './NavigationService';
-import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { Chain } from './models/bitcoinUnits';
 import OnAppLaunch from './class/on-app-launch';
 import DeeplinkSchemaMatch from './class/deeplink-schema-match';
@@ -149,7 +150,7 @@ const App = () => {
 
   const popInitialAction = async data => {
     if (data) {
-      const wallet = wallets.find(wallet => wallet.getID() === data.userInfo.url.split('wallet/')[1]);
+      const wallet = wallets.find(w => w.getID() === data.userInfo.url.split('wallet/')[1]);
       NavigationService.dispatch(
         CommonActions.navigate({
           name: 'WalletTransactions',
@@ -170,7 +171,7 @@ const App = () => {
         const isViewAllWalletsEnabled = await OnAppLaunch.isViewAllWalletsEnabled();
         if (!isViewAllWalletsEnabled) {
           const selectedDefaultWallet = await OnAppLaunch.getSelectedDefaultWallet();
-          const wallet = wallets.find(wallet => wallet.getID() === selectedDefaultWallet.getID());
+          const wallet = wallets.find(w => w.getID() === selectedDefaultWallet.getID());
           if (wallet) {
             NavigationService.dispatch(
               CommonActions.navigate({
@@ -189,7 +190,7 @@ const App = () => {
   };
 
   const walletQuickActions = data => {
-    const wallet = wallets.find(wallet => wallet.getID() === data.userInfo.url.split('wallet/')[1]);
+    const wallet = wallets.find(w => w.getID() === data.userInfo.url.split('wallet/')[1]);
     NavigationService.dispatch(
       CommonActions.navigate({
         name: 'WalletTransactions',
@@ -287,7 +288,7 @@ const App = () => {
       currency.updateExchangeRate();
       const processed = await processPushNotifications();
       if (processed) return;
-      const clipboard = await BlueClipboard.getClipboardContent();
+      const clipboard = await BlueClipboard().getClipboardContent();
       const isAddressFromStoredWallet = wallets.some(wallet => {
         if (wallet.chain === Chain.ONCHAIN) {
           // checking address validity is faster than unwrapping hierarchy only to compare it to garbage
@@ -328,38 +329,40 @@ const App = () => {
 
   const showClipboardAlert = ({ contentType }) => {
     ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
-    BlueClipboard.getClipboardContent().then(clipboard => {
-      if (Platform.OS === 'ios' || Platform.OS === 'macos') {
-        ActionSheet.showActionSheetWithOptions(
-          {
-            options: [loc._.cancel, loc._.continue],
+    BlueClipboard()
+      .getClipboardContent()
+      .then(clipboard => {
+        if (Platform.OS === 'ios' || Platform.OS === 'macos') {
+          ActionSheet.showActionSheetWithOptions(
+            {
+              options: [loc._.cancel, loc._.continue],
+              title: loc._.clipboard,
+              message: contentType === ClipboardContentType.BITCOIN ? loc.wallets.clipboard_bitcoin : loc.wallets.clipboard_lightning,
+              cancelButtonIndex: 0,
+            },
+            buttonIndex => {
+              if (buttonIndex === 1) {
+                handleOpenURL({ url: clipboard });
+              }
+            },
+          );
+        } else {
+          ActionSheet.showActionSheetWithOptions({
+            buttons: [
+              { text: loc._.cancel, style: 'cancel', onPress: () => {} },
+              {
+                text: loc._.continue,
+                style: 'default',
+                onPress: () => {
+                  handleOpenURL({ url: clipboard });
+                },
+              },
+            ],
             title: loc._.clipboard,
             message: contentType === ClipboardContentType.BITCOIN ? loc.wallets.clipboard_bitcoin : loc.wallets.clipboard_lightning,
-            cancelButtonIndex: 0,
-          },
-          buttonIndex => {
-            if (buttonIndex === 1) {
-              handleOpenURL({ url: clipboard });
-            }
-          },
-        );
-      } else {
-        ActionSheet.showActionSheetWithOptions({
-          buttons: [
-            { text: loc._.cancel, style: 'cancel', onPress: () => {} },
-            {
-              text: loc._.continue,
-              style: 'default',
-              onPress: () => {
-                handleOpenURL({ url: clipboard });
-              },
-            },
-          ],
-          title: loc._.clipboard,
-          message: contentType === ClipboardContentType.BITCOIN ? loc.wallets.clipboard_bitcoin : loc.wallets.clipboard_lightning,
-        });
-      }
-    });
+          });
+        }
+      });
   };
 
   return (

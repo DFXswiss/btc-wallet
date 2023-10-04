@@ -29,7 +29,7 @@ let lastTimeTriedToPay = 0;
 // this code has no use in RN, it gets copypasted in webview injected code
 //
 const bluewalletResponses = {};
-// eslint-disable-next-line
+// eslint-disable-next-line @typescript-eslint/no-unused-vars, no-var
 var webln = {
   enable: function () {
     window.ReactNativeWebView.postMessage(JSON.stringify({ enable: true }));
@@ -53,11 +53,11 @@ var webln = {
     });
   },
   makeInvoice: function (RequestInvoiceArgs) {
-    var id = Math.random(); // eslint-disable-line
+    var id = Math.random(); // eslint-disable-line no-var
     window.ReactNativeWebView.postMessage(JSON.stringify({ makeInvoice: RequestInvoiceArgs, id }));
     return new Promise(function (resolve, reject) {
+      // eslint-disable-next-line no-var
       var interval = setInterval(function () {
-        // eslint-disable-line
         if (bluewalletResponses[id]) {
           clearInterval(interval);
           resolve(bluewalletResponses[id]);
@@ -304,7 +304,7 @@ export default class Browser extends Component {
       fromWallet: context.wallets.find(w => w.getID() === props.route.params.walletID),
       canGoBack: false,
       pageIsLoading: false,
-      stateURL: url || 'https://wwww.duckduckgo.com/',
+      stateURL: url || 'https://www.duckduckgo.com/',
     };
     BackHandler.addEventListener('hardwareBackPress', this.handleBackButton.bind(this));
   }
@@ -359,7 +359,7 @@ export default class Browser extends Component {
                   text: 'Pay',
                   onPress: () => {
                     console.log('OK Pressed');
-                    this.props.navigation.navigate('ScanLndInvoiceRoot', {
+                    this.props.navigation.navigate('SendDetailsRoot', {
                       screen: 'ScanLndInvoice',
                       params: {
                         uri: json.sendPayment,

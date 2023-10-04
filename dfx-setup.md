@@ -19,6 +19,9 @@ https://reactnative.dev/docs/environment-setup
 If it is not working please try again with following guide
 https://medium.com/@kailin8591/get-started-with-react-native-on-mac-m1-7e19915b85ab
 
+### Change environment
+touch node_modules/react-native-config/ios/ReactNativeConfig/BuildDotenvConfig.rb
+
 ## Android
 
 Prerequesites:

@@ -5,9 +5,9 @@ import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 
 import { BlueButton, BlueCard, BlueLoading, BlueSpacing10, BlueSpacing20, BlueText, SafeBlueArea } from '../../BlueComponents';
-import TransactionIncomingIcon from '../components/icons/TransactionIncomingIcon';
-import TransactionOutgoingIcon from '../components/icons/TransactionOutgoingIcon';
-import TransactionPendingIcon from '../components/icons/TransactionPendingIcon';
+import TransactionIncomingIcon from '../../components/icons/TransactionIncomingIcon';
+import TransactionOutgoingIcon from '../../components/icons/TransactionOutgoingIcon';
+import TransactionPendingIcon from '../../components/icons/TransactionPendingIcon';
 import navigationStyle from '../../components/navigationStyle';
 import HandoffComponent from '../../components/handoff';
 import { HDSegwitBech32Transaction } from '../../class';
@@ -62,6 +62,7 @@ const TransactionsStatus = () => {
 
   useLayoutEffect(() => {
     setOptions({
+      // eslint-disable-next-line react/no-unstable-nested-components
       headerRight: () => (
         <TouchableOpacity
           accessibilityRole="button"
@@ -77,9 +78,9 @@ const TransactionsStatus = () => {
   }, [colors, tx]);
 
   useEffect(() => {
-    for (const tx of wallet.current.getTransactions()) {
-      if (tx.hash === hash) {
-        setTX(tx);
+    for (const newTx of wallet.current.getTransactions()) {
+      if (newTx.hash === hash) {
+        setTX(newTx);
         break;
       }
     }
@@ -191,8 +192,8 @@ const TransactionsStatus = () => {
   }, [tx, wallets]);
 
   useEffect(() => {
-    const walletID = wallet.current?.getID();
-    if (walletID) {
+    const wID = wallet.current?.getID();
+    if (wID) {
       setSelectedWallet(wallet.current?.getID());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -536,18 +537,4 @@ const styles = StyleSheet.create({
   },
 });
 
-TransactionsStatus.navigationOptions = navigationStyle(
-  {
-    headerTitle: '',
-  },
-  (options, { theme }) => ({
-    ...options,
-    headerStyle: {
-      backgroundColor: theme.colors.customHeader,
-      borderBottomWidth: 0,
-      elevation: 0,
-      shadowOpacity: 0,
-      shadowOffset: { height: 0, width: 0 },
-    },
-  }),
-);
+TransactionsStatus.navigationOptions = navigationStyle({ headerTitle: '' });

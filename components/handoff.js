@@ -15,7 +15,7 @@ HandoffComponent.propTypes = {
 };
 
 HandoffComponent.activityTypes = {
-  ReceiveOnchain: 'com.defichain.app.dfx.bitcoin.receiveonchain',
-  Xpub: 'com.defichain.app.dfx.bitcoin.xpub',
-  ViewInBlockExplorer: 'com.defichain.app.dfx.bitcoin.blockexplorer',
+  ReceiveOnchain: 'swiss.dfx.bitcoin.receiveonchain',
+  Xpub: 'swiss.dfx.bitcoin.xpub',
+  ViewInBlockExplorer: 'swiss.dfx.bitcoin.blockexplorer',
 };

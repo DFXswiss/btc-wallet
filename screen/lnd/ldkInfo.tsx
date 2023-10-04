@@ -81,8 +81,8 @@ const LdkInfo = () => {
         setChannels([]);
       }
       if (listChannels && Array.isArray(listChannels)) {
-        const inactiveChannels = listChannels.filter(channel => !channel.is_usable && channel.is_funding_locked);
-        setInactiveChannels(inactiveChannels);
+        const inactive = listChannels.filter(channel => !channel.is_usable && channel.is_funding_locked);
+        setInactiveChannels(inactive);
       } else {
         setInactiveChannels([]);
       }
@@ -296,7 +296,7 @@ const LdkInfo = () => {
     const channelData = channel.channel.item;
 
     return (
-      <TouchableOpacity onPress={() => showModal(channel)}>
+      <TouchableOpacity accessibilityRole="button" onPress={() => showModal(channel)}>
         <LNNodeBar
           disabled={!channelData.is_usable}
           canSend={Number(channelData.outbound_capacity_msat / 1000)}

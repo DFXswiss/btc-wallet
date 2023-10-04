@@ -20,8 +20,12 @@ DerivedData
 *.hmap
 *.ipa
 *.xcuserstate
+ios/.xcode.env.local
 *.hprof
 tmp.xcconfig
+.cxx/
+*.keystore
+!debug.keystore
 
 # Android/IntelliJ
 #
@@ -53,6 +57,7 @@ buck-out/
 */fastlane/report.xml
 */fastlane/Preview.html
 */fastlane/screenshots
+**/fastlane/test_output
 
 # Bundle artifact
 *.jsbundle
@@ -62,8 +67,13 @@ release-notes.json
 release-notes.txt
 current-branch.json
 
-ios/Pods/
+# Ruby / CocoaPods
+/ios/Pods/
+/vendor/bundle/
+ios/BlueWallet.xcodeproj/xcuserdata/
 
+# Temporary files created by Metro to check the health of the file watcher
+.metro-health-check*
 artifacts/
 
 # Editors
