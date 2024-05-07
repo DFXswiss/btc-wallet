@@ -38,7 +38,9 @@ const LnurlAuth = () => {
     const address = Lnurl.getLnurlFromAddress(wallet.lnAddress);
     const signature = wallet.addressOwnershipProof;
     const additionalParams =
-      parsedLnurl.hostname?.endsWith('dfx.swiss') && address && signature ? { address: address.toUpperCase(), signature } : undefined;
+      parsedLnurl.hostname?.endsWith('dfx.swiss') && address && signature
+        ? { address: address.toUpperCase(), signature, wallet: 'DFX Bitcoin' }
+        : undefined;
 
     wallet
       .authenticate(LN, additionalParams)
@@ -48,7 +50,8 @@ const LnurlAuth = () => {
       })
       .catch(err => {
         setAuthState(AuthState.ERROR);
-        setErrMsg(err);
+        const errorString = `${err}`;
+        setErrMsg(err instanceof Error ? err.message ?? errorString : errorString);
       });
   }, [wallet, parsedLnurl.hostname, LN]);
 

@@ -22,7 +22,7 @@ import { useRoute, useNavigation, useTheme, useFocusEffect } from '@react-naviga
 import { Chain } from '../../models/bitcoinUnits';
 import { BlueText } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
-import { WatchOnlyWallet } from '../../class';
+import { MultisigHDWallet, WatchOnlyWallet } from '../../class';
 import ActionSheet from '../ActionSheet';
 import loc from '../../loc';
 import { FContainer, FButton } from '../../components/FloatButtons';
@@ -64,6 +64,7 @@ const Asset = ({ navigation }) => {
   const { name, params } = useRoute();
   const walletID = params.walletID;
   const [isLoading, setIsLoading] = useState(false);
+  const multisigWallet = useMemo(() => wallets.find(w => w.type === MultisigHDWallet.type), [wallets]);
   const wallet = useMemo(() => wallets.find(w => w.getID() === walletID), [wallets, walletID]);
   const [itemPriceUnit, setItemPriceUnit] = useState(wallet.getPreferredBalanceUnit());
   const [dataSource, setDataSource] = useState(wallet.getTransactions(15));
@@ -192,7 +193,7 @@ const Asset = ({ navigation }) => {
         Alert.alert('Something went wrong', e.message?.toString(), [
           {
             text: loc._.ok,
-            onPress: () => {},
+            onPress: () => { },
             style: 'default',
           },
         ]),
@@ -215,6 +216,8 @@ const Asset = ({ navigation }) => {
 
     return false;
   };
+
+  const isMultiSig = () => wallet.type === MultisigHDWallet.type;
 
   /**
    * Forcefully fetches TXs and balance for wallet
@@ -309,15 +312,30 @@ const Asset = ({ navigation }) => {
     <TransactionListItem item={item.item} itemPriceUnit={itemPriceUnit} timeElapsed={timeElapsed} walletID={walletID} />
   );
 
+  const importPsbt = (base64Psbt) => {
+    try {
+      if (Boolean(multisigWallet) && multisigWallet.howManySignaturesCanWeMake()) {
+        navigation.navigate('SendDetailsRoot', {
+          screen: 'PsbtMultisig',
+          params: {
+            psbtBase64: base64Psbt,
+            walletID: multisigWallet.getID(),
+          }
+        });
+      }
+    } catch (_) { }
+  }
   const onBarCodeRead = value => {
     if (!value || isLoading) return;
 
-    if (!isLoading) {
-      setIsLoading(true);
+    setIsLoading(true);
+    if (DeeplinkSchemaMatch.isPossiblyPSBTString(value)) {
+      importPsbt(value);
+    } else {
       DeeplinkSchemaMatch.navigationRouteFor({ url: value }, completionValue => {
         ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
         navigate(...completionValue);
-      });
+      }, { walletID });
     }
     setIsLoading(false);
   };
@@ -350,7 +368,7 @@ const Asset = ({ navigation }) => {
             style: 'default',
           },
 
-          { text: loc._.cancel, onPress: () => {}, style: 'cancel' },
+          { text: loc._.cancel, onPress: () => { }, style: 'cancel' },
         ],
         { cancelable: false },
       );
@@ -389,7 +407,7 @@ const Asset = ({ navigation }) => {
       const buttons = [
         {
           text: loc._.cancel,
-          onPress: () => {},
+          onPress: () => { },
           style: 'cancel',
         },
         {
@@ -447,35 +465,39 @@ const Asset = ({ navigation }) => {
           })
         }
       />
-      <View style={stylesHook.dfxContainer}>
-        {isDfxAvailable && (
-          <>
-            <BlueText>{loc.wallets.external_services}</BlueText>
-            <View style={stylesHook.dfxButtonContainer}>
-              {isDfxProcessing ? (
-                <ActivityIndicator />
-              ) : (
-                <>
-                  <View>
-                    <ImageButton
-                      source={buttonImages[0]}
-                      onPress={() => handleOpenServices(DfxService.BUY)}
-                      disabled={isHandlingOpenServices}
-                    />
-                  </View>
-                  <View>
-                    <ImageButton
-                      source={buttonImages[1]}
-                      onPress={() => handleOpenServices(DfxService.SELL)}
-                      disabled={isHandlingOpenServices}
-                    />
-                  </View>
-                </>
-              )}
-            </View>
-          </>
-        )}
-      </View>
+      {
+        !isMultiSig() && (
+          <View style={stylesHook.dfxContainer}>
+            {isDfxAvailable && (
+              <>
+                <BlueText>{loc.wallets.external_services}</BlueText>
+                <View style={stylesHook.dfxButtonContainer}>
+                  {isDfxProcessing ? (
+                    <ActivityIndicator />
+                  ) : (
+                    <>
+                      <View>
+                        <ImageButton
+                          source={buttonImages[0]}
+                          onPress={() => handleOpenServices(DfxService.BUY)}
+                          disabled={isHandlingOpenServices}
+                        />
+                      </View>
+                      <View>
+                        <ImageButton
+                          source={buttonImages[1]}
+                          onPress={() => handleOpenServices(DfxService.SELL)}
+                          disabled={isHandlingOpenServices}
+                        />
+                      </View>
+                    </>
+                  )}
+                </View>
+              </>
+            )}
+          </View>
+        )
+      }
 
       <View style={[styles.list, stylesHook.list]}>
         <FlatList

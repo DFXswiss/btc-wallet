@@ -15,6 +15,7 @@ import { useApi } from '../hooks/api.hook';
 import { User, UserUrl } from '../definitions/user';
 import { SignIn } from '../definitions/auth';
 import { useLanguageContext } from './language.context';
+import { MultisigHDWallet } from '../../../class';
 
 export enum DfxService {
   BUY = 'buy',
@@ -180,13 +181,13 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
 
     !isInitialized &&
       !isProcessing &&
-      connect(wallets.map((w: any) => w.getID()))
+      connect(wallets.filter((w: any) => w.type !== MultisigHDWallet.type).map((w: any) => w.getID()))
         .then(() => setIsInitialized(true))
         .catch(e =>
           Alert.alert('Something went wrong', e.message?.toString(), [
             {
               text: loc._.ok,
-              onPress: () => {},
+              onPress: () => { },
               style: 'default',
             },
           ]),

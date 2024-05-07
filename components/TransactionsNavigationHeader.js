@@ -231,13 +231,6 @@ export default class TransactionsNavigationHeader extends Component {
             </View>
           </TouchableOpacity>
         )}
-        {this.state.wallet.type === MultisigHDWallet.type && (
-          <TouchableOpacity accessibilityRole="button" onPress={this.manageFundsPressed}>
-            <View style={styles.manageFundsButton}>
-              <Text style={styles.manageFundsButtonText}>{loc.multisig.manage_keys}</Text>
-            </View>
-          </TouchableOpacity>
-        )}
       </View>
     );
   }

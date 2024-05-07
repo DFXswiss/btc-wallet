@@ -374,7 +374,8 @@ export class LightningCustodianWallet extends LegacyWallet {
     this.pending_transactions_raw = this.pending_transactions_raw || [];
     this.user_invoices_raw = this.user_invoices_raw || [];
     this.transactions_raw = this.transactions_raw || [];
-    txs = txs.concat(this.pending_transactions_raw.slice(), this.transactions_raw.slice().reverse(), this.user_invoices_raw.slice()); // slice so array is cloned
+    const invoicesWithoutSignInTx = this.user_invoices_raw.filter(invoice => invoice.amt !== 1 || invoice.ispaid); // no show unpaid 1 sat invoices
+    txs = txs.concat(this.pending_transactions_raw.slice(), this.transactions_raw.slice().reverse(), invoicesWithoutSignInTx); // slice so array is cloned
     // transforming to how wallets/list screen expects it
     for (const tx of txs) {
       tx.walletID = this.getID();

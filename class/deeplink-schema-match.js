@@ -34,7 +34,12 @@ class DeeplinkSchemaMatch {
       return;
     }
 
-    if (event.url.toLowerCase().startsWith('bluewallet:bitcoin:') || event.url.toLowerCase().startsWith('bluewallet:lightning:')) {
+    if (
+      event.url.toLowerCase().startsWith('bluewallet:bitcoin:') ||
+      event.url.toLowerCase().startsWith('bluewallet:lightning:') ||
+      event.url.toLowerCase().startsWith('dfxtaro:bitcoin:') ||
+      event.url.toLowerCase().startsWith('dfxtaro:lightning:')
+    ) {
       event.url = event.url.substring(11);
     } else if (event.url.toLocaleLowerCase().startsWith('bluewallet://widget?action=')) {
       event.url = event.url.substring('bluewallet://'.length);
@@ -124,6 +129,7 @@ class DeeplinkSchemaMatch {
           screen: 'SendDetails',
           params: {
             uri: event.url.replace('://', ':'),
+            walletID: context.walletID,
           },
         },
       ]);
@@ -324,6 +330,14 @@ class DeeplinkSchemaMatch {
       (filePath.toLowerCase().startsWith('file:') || filePath.toLowerCase().startsWith('content:')) &&
       filePath.toLowerCase().endsWith('.psbt')
     );
+  }
+
+  static isPossiblyPSBTString(text) {
+    try {
+      return Boolean(bitcoin.Psbt.fromBase64(text))
+    } catch (e) {
+      return false;
+    }
   }
 
   static isBothBitcoinAndLightningOnWalletSelect(wallet, uri) {

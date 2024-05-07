@@ -2,27 +2,35 @@ import React, { useContext, useEffect, useState } from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Icon } from 'react-native-elements';
 import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 
-import { BlueButton, BlueCard, BlueText, SafeBlueArea } from '../../BlueComponents';
+import { BlueButton, BlueCard, BlueSpacing10, BlueText, SafeBlueArea } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
-import loc from '../../loc';
+import loc, { formatBalanceWithoutSuffix } from '../../loc';
 import { BitcoinUnit } from '../../models/bitcoinUnits';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import alert from '../../components/Alert';
+import Biometric from '../../class/biometrics';
+import Notifications from '../../blue_modules/notifications';
 const bitcoin = require('bitcoinjs-lib');
 const BigNumber = require('bignumber.js');
 const currency = require('../../blue_modules/currency');
+const BlueElectrum = require('../../blue_modules/BlueElectrum');
 
 const shortenAddress = addr => {
   return addr.substr(0, Math.floor(addr.length / 2) - 1) + '\n' + addr.substr(Math.floor(addr.length / 2) - 1, addr.length);
 };
 
 const PsbtMultisig = () => {
-  const { wallets } = useContext(BlueStorageContext);
+  const { wallets, fetchAndSaveWalletTransactions } = useContext(BlueStorageContext);
   const { navigate, setParams } = useNavigation();
   const { colors } = useTheme();
   const [flatListHeight, setFlatListHeight] = useState(0);
-  const { walletID, psbtBase64, memo, receivedPSBTBase64, launchedBy } = useRoute().params;
+  const { walletID, psbtBase64, receivedPSBTBase64, launchedBy, isTxSigned } = useRoute().params;
+  const [hasSigned, setHasSigned] = useState(isTxSigned);
+  const [isSignign, setIsSigning] = useState(false);
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [isBiometricUseCapableAndEnabled, setIsBiometricUseCapableAndEnabled] = useState(false);
   /** @type MultisigHDWallet */
   const wallet = wallets.find(w => w.getID() === walletID);
   const [psbt, setPsbt] = useState(bitcoin.Psbt.fromBase64(psbtBase64));
@@ -149,6 +157,11 @@ const PsbtMultisig = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [receivedPSBTBase64]);
 
+  useEffect(() => {
+    Biometric.isBiometricUseCapableAndEnabled().then(setIsBiometricUseCapableAndEnabled);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const _combinePSBT = () => {
     try {
       const receivedPSBT = bitcoin.Psbt.fromBase64(receivedPSBTBase64);
@@ -159,7 +172,50 @@ const PsbtMultisig = () => {
     }
   };
 
+  const onSign = async () => {
+    try {
+      setIsSigning(true);
+      setHasSigned(true);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      wallet.cosignPsbt(psbt);
+    } catch (_) { }
+    setIsSigning(false);
+  }
+
+  const broadcast = async transaction => {
+    await BlueElectrum.ping();
+    await BlueElectrum.waitTillConnected();
+
+    if (isBiometricUseCapableAndEnabled) {
+      if (!(await Biometric.unlockWithBiometrics())) {
+        return;
+      }
+    }
+
+    const result = await wallet.broadcastTx(transaction);
+    if (!result) {
+      throw new Error(loc.errors.broadcast);
+    }
+
+    return result;
+  };
+
+  const send = async (tx, fee) => {
+    await broadcast(tx);
+    const txid = bitcoin.Transaction.fromHex(tx).getId();
+    Notifications.majorTomToGroundControl([], [], [txid]);
+    ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
+    const amount = formatBalanceWithoutSuffix(totalSat, BitcoinUnit.BTC, false);
+    navigate('Success', {
+      fee: Number(fee),
+      amount,
+    });
+    await new Promise(resolve => setTimeout(resolve, 3000)); // sleep to make sure network propagates
+    fetchAndSaveWalletTransactions(walletID);
+  }
+
   const onConfirm = () => {
+    setIsBroadcasting(true);
     try {
       psbt.finalizeAllInputs();
     } catch (_) {} // ignore if it is already finalized
@@ -173,16 +229,11 @@ const PsbtMultisig = () => {
 
     try {
       const tx = psbt.extractTransaction().toHex();
-      const satoshiPerByte = Math.round(getFee() / psbt.extractTransaction().virtualSize());
-      navigate('Confirm', {
-        fee: new BigNumber(getFee()).dividedBy(100000000).toNumber(),
-        memo,
-        walletID,
-        tx,
-        recipients: targets,
-        satoshiPerByte,
-      });
+      const fee = new BigNumber(getFee()).dividedBy(100000000).toNumber();
+      send(tx, fee);
+      setIsBroadcasting(false);
     } catch (error) {
+      setIsBroadcasting(false);
       alert(error);
     }
   };
@@ -244,21 +295,6 @@ const PsbtMultisig = () => {
       <View>{destinationAddress()}</View>
     </View>
   );
-  const footer = (
-    <>
-      <View style={styles.bottomWrapper}>
-        <View style={styles.bottomFeesWrapper}>
-          <BlueText style={[styles.feeFiatText, stylesHook.feeFiatText]}>
-            {loc.formatString(loc.multisig.fee, { number: currency.satoshiToLocalCurrency(getFee()) })} -{' '}
-          </BlueText>
-          <BlueText>{loc.formatString(loc.multisig.fee_btc, { number: currency.satoshiToBTC(getFee()) })}</BlueText>
-        </View>
-      </View>
-      <View style={styles.marginConfirmButton}>
-        <BlueButton disabled={!isConfirmEnabled()} title={loc.multisig.confirm} onPress={onConfirm} testID="PsbtMultisigConfirmButton" />
-      </View>
-    </>
-  );
 
   const onLayout = e => {
     setFlatListHeight(e.nativeEvent.layout.height);
@@ -279,25 +315,24 @@ const PsbtMultisig = () => {
                 renderItem={_renderItem}
                 keyExtractor={(_item, index) => `${index}`}
                 ListHeaderComponent={header}
-                ListFooterComponent={footer}
+                ListFooterComponent={<View style={styles.footerSpacing} />}
               />
-              {isConfirmEnabled() && (
-                <View style={styles.height80}>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    testID="ExportSignedPsbt"
-                    style={[styles.provideSignatureButton, stylesHook.provideSignatureButton]}
-                    onPress={navigateToPSBTMultisigQRCode}
-                  >
-                    <Text style={[styles.provideSignatureButtonText, stylesHook.provideSignatureButtonText]}>
-                      {loc.multisig.export_signed_psbt}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
             </BlueCard>
           </View>
         </View>
+      </View>
+      <View style={styles.bottomWrapper}>
+        <View style={styles.bottomFeesWrapper}>
+          <BlueText style={[styles.feeFiatText, stylesHook.feeFiatText]}>
+            {loc.formatString(loc.multisig.fee, { number: currency.satoshiToLocalCurrency(getFee()) })} -{' '}
+          </BlueText>
+          <BlueText>{loc.formatString(loc.multisig.fee_btc, { number: currency.satoshiToBTC(getFee()) })}</BlueText>
+        </View>
+      </View>
+      <View style={styles.marginConfirmButton}>
+        <BlueButton disabled={hasSigned || isConfirmEnabled()} title={"Sign"} isLoading={isSignign} onPress={onSign} testID="PsbtMultisigSignButton" />
+        <BlueSpacing10 />
+        <BlueButton disabled={!isConfirmEnabled()} loading={isBroadcasting} title={loc.send.confirm_sendNow} onPress={onConfirm} testID="PsbtMultisigConfirmButton" />
       </View>
     </SafeBlueArea>
   );
@@ -397,6 +432,9 @@ const styles = StyleSheet.create({
   marginConfirmButton: { marginTop: 16, marginHorizontal: 32, marginBottom: 48 },
   height80: {
     height: 80,
+  },
+  footerSpacing: {
+    height: 100,
   },
 });
 
