@@ -1,5 +1,5 @@
-import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { View, Text, StatusBar, ScrollView, BackHandler, TouchableOpacity, StyleSheet, I18nManager, Image, Platform, ActivityIndicator } from 'react-native';
+import React, { useContext, useEffect, useRef, useState } from 'react';
+import { View, Text, StatusBar, ScrollView, BackHandler, TouchableOpacity, StyleSheet, I18nManager, Image } from 'react-native';
 import Share from 'react-native-share';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { Icon } from 'react-native-elements';
@@ -13,8 +13,6 @@ import {
   BlueCopyTextToClipboard,
   BlueSpacing20,
   BlueTextCentered,
-  SecondButton,
-  BlueSpacing10,
 } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
 import loc from '../../loc';
@@ -22,8 +20,6 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { BitcoinUnit } from '../../models/bitcoinUnits';
 import { SuccessView } from '../send/success';
 import LNDCreateInvoice from './lndCreateInvoice';
-import { useNFC } from '../../hooks/nfc.hook';
-import BoltCard from '../../class/boltcard';
 
 const LNDViewInvoice = () => {
   const { invoice, walletID } = useRoute().params;
@@ -36,25 +32,8 @@ const LNDViewInvoice = () => {
   const [invoiceStatusChanged, setInvoiceStatusChanged] = useState(false);
   const [qrCodeSize, setQRCodeSize] = useState(90);
   const fetchInvoiceInterval = useRef();
-  const [isLoadingNfcInvoice, setIsLoadingNfcInvoice] = useState(false);
   const isModal = useNavigationState(state => state.routeNames[0] === LNDCreateInvoice.routeName);
-  
-  const handleNfcRead = useCallback(
-    async payload => {
-      setIsLoadingNfcInvoice(true);
-      if (BoltCard.isBoltcardWidthdrawUrl(payload)) {
-        await stopReading();
-        const { isError, reason } = await BoltCard.widthdraw(payload, invoice.payment_request);
-        if (isError) {
-          alert(reason);
-          setIsLoadingNfcInvoice(false);
-        }
-      }
-    },
-    [invoice.payment_request],
-  );
-  const { isNfcActive, startReading, stopReading } = useNFC(handleNfcRead);
-  
+
   const stylesHook = StyleSheet.create({
     root: {
       backgroundColor: colors.background,
@@ -69,16 +48,6 @@ const LNDViewInvoice = () => {
       backgroundColor: colors.lightButton,
     },
   });
-
-  useEffect(() => {
-    if (!invoice?.payment_request || isLoading) return;
-    if (Platform.OS === 'android' && !isNfcActive) {
-      startReading();
-    }
-    return () => {
-      stopReading();
-    };
-  }, [invoice.payment_request, isLoading]);
 
   useEffect(() => {
     BackHandler.addEventListener('hardwareBackPress', handleBackButton);
@@ -272,24 +241,8 @@ const LNDViewInvoice = () => {
               </BlueText>
             )}
             <BlueCopyTextToClipboard truncated text={invoice.payment_request} />
-            <View>
-              <BlueButton onPress={handleOnSharePressed} title={loc.receive.details_share} />
-              <BlueSpacing10 />
-              {isLoadingNfcInvoice ? (
-                <ActivityIndicator />
-              ) : (
-                Platform.select({
-                  ios: (
-                    <SecondButton onPress={startReading} title={'Use Boltcard'} image={{ source: require('../../img/bolt-card.png') }} />
-                  ),
-                  android: (
-                    <View style={styles.buttonsContainer}>
-                      <Image source={require('../../img/bolt-card.png')} style={{ width: 40, height: 40 }} />
-                    </View>
-                  ),
-                })
-              )}
-            </View>
+
+            <BlueButton onPress={handleOnSharePressed} title={loc.receive.details_share} />
           </View>
         </ScrollView>
       );
@@ -341,9 +294,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginHorizontal: 16,
   },
-  buttonsContainer: {
-    alignItems: 'center',
-  }
 });
 
 LNDViewInvoice.navigationOptions = navigationStyle({}, opts => ({

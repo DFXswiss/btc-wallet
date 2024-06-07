@@ -291,8 +291,6 @@ PODS:
     - React-Core
   - react-native-ios-context-menu (1.15.3):
     - React-Core
-  - react-native-nfc-manager (3.14.14):
-    - React-Core
   - react-native-qrcode-local-image (1.0.4):
     - React
   - react-native-randombytes (3.6.1):
@@ -504,7 +502,6 @@ DEPENDENCIES:
   - react-native-idle-timer (from `../node_modules/react-native-idle-timer`)
   - react-native-image-picker (from `../node_modules/react-native-image-picker`)
   - react-native-ios-context-menu (from `../node_modules/react-native-ios-context-menu`)
-  - react-native-nfc-manager (from `../node_modules/react-native-nfc-manager`)
   - "react-native-qrcode-local-image (from `../node_modules/@remobile/react-native-qrcode-local-image`)"
   - react-native-randombytes (from `../node_modules/react-native-randombytes`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
@@ -621,8 +618,6 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-image-picker"
   react-native-ios-context-menu:
     :path: "../node_modules/react-native-ios-context-menu"
-  react-native-nfc-manager:
-    :path: "../node_modules/react-native-nfc-manager"
   react-native-qrcode-local-image:
     :path: "../node_modules/@remobile/react-native-qrcode-local-image"
   react-native-randombytes:
@@ -751,7 +746,6 @@ SPEC CHECKSUMS:
   react-native-idle-timer: f7f651542b39dce9b9473e4578cb64a255075f17
   react-native-image-picker: cd420f97f6ed6ff74fc4686d27dbcfdbd051db91
   react-native-ios-context-menu: e529171ba760a1af7f2ef0729f5a7f4d226171c5
-  react-native-nfc-manager: ead2cd1d1eaab139cc8b2dc5fbfe575eaa45efc4
   react-native-qrcode-local-image: 35ccb306e4265bc5545f813e54cc830b5d75bcfc
   react-native-randombytes: 421f1c7d48c0af8dbcd471b0324393ebf8fe7846
   react-native-safe-area-context: 9e40fb181dac02619414ba1294d6c2a807056ab9

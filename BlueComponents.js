@@ -112,7 +112,6 @@ export const SecondButton = forwardRef((props, ref) => {
       ref={ref}
     >
       <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
-        {props.image && <Image source={props.image.source} style={{ width: 45, height: 45, marginRight: 8 }} />}
         {props.icon && <Icon name={props.icon.name} type={props.icon.type} color={props.icon.color} size={props.icon.size} />}
         {props.title && <Text style={{ marginHorizontal: 8, fontSize: 16, color: fontColor }}>{props.title}</Text>}
       </View>
