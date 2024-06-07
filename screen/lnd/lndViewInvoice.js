@@ -39,10 +39,13 @@ const LNDViewInvoice = () => {
       backgroundColor: colors.background,
     },
     detailsText: {
-      color: colors.alternativeTextColor,
+      color: colors.buttonTextColor,
     },
     expired: {
       backgroundColor: colors.success,
+    },
+    details: {
+      backgroundColor: colors.lightButton,
     },
   });
 
@@ -69,23 +72,23 @@ const LNDViewInvoice = () => {
         },
         gestureEnabled: false,
         headerHideBackButton: true,
-
-        // eslint-disable-next-line react/no-unstable-nested-components
-        headerRight: () => (
-          <TouchableOpacity
-            accessibilityRole="button"
-            style={styles.button}
-            onPress={() => {
-              dangerouslyGetParent().pop();
-            }}
-            testID="NavigationCloseButton"
-          >
-            <Image source={closeImage} />
-          </TouchableOpacity>
-        ),
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [colors, isModal]);
+
+  useEffect(() => {
+    const isPaid = invoice.ispaid || invoice.type === 'paid_invoice';
+    if (isPaid) {
+      setOptions({
+        title: '',
+        headerRight: () => (
+          <TouchableOpacity accessibilityRole="button" style={[styles.details, stylesHook.details]} onPress={navigateToPreImageScreen}>
+            <Text style={[styles.detailsText, stylesHook.detailsText]}>{loc.send.create_details}</Text>
+          </TouchableOpacity>
+        ),
+      });
+    }
+  }, [invoice]);
 
   useEffect(() => {
     setSelectedWallet(walletID);
@@ -146,6 +149,7 @@ const LNDViewInvoice = () => {
 
   const navigateToPreImageScreen = () => {
     navigate('LNDViewAdditionalInvoicePreImage', {
+      invoice,
       preImageData: invoice.payment_preimage && typeof invoice.payment_preimage === 'string' ? invoice.payment_preimage : 'none',
     });
   };
@@ -200,23 +204,13 @@ const LNDViewInvoice = () => {
           <View style={styles.root}>
             <SuccessView
               amount={amount}
+              paymentHash={invoice.payment_hash}
+              fee={invoice.fee}
               amountUnit={BitcoinUnit.SATS}
               invoiceDescription={description}
               shouldAnimate={invoiceStatusChanged}
+              walletID={walletID}
             />
-            <View style={styles.detailsRoot}>
-              {invoice.payment_preimage && typeof invoice.payment_preimage === 'string' ? (
-                <TouchableOpacity accessibilityRole="button" style={styles.detailsTouch} onPress={navigateToPreImageScreen}>
-                  <Text style={[styles.detailsText, stylesHook.detailsText]}>{loc.send.create_details}</Text>
-                  <Icon
-                    name={I18nManager.isRTL ? 'angle-left' : 'angle-right'}
-                    size={18}
-                    type="font-awesome"
-                    color={colors.alternativeTextColor}
-                  />
-                </TouchableOpacity>
-              ) : undefined}
-            </View>
           </View>
         );
       }
@@ -271,18 +265,16 @@ const styles = StyleSheet.create({
   justifyContentCenter: {
     justifyContent: 'center',
   },
-  detailsRoot: {
-    justifyContent: 'flex-end',
-    marginBottom: 24,
+  details: {
     alignItems: 'center',
-  },
-  detailsTouch: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'center',
+    width: 80,
+    borderRadius: 8,
+    height: 34,
   },
   detailsText: {
-    fontSize: 14,
-    marginRight: 8,
+    fontSize: 15,
+    fontWeight: '600',
   },
   expired: {
     width: 120,
@@ -304,12 +296,9 @@ const styles = StyleSheet.create({
   },
 });
 
-LNDViewInvoice.navigationOptions = navigationStyle(
-  { closeButton: true, closeButtonFunc: ({ navigation }) => navigation.getParent()?.pop() },
-  opts => ({
-    ...opts,
-    title: loc.lndViewInvoice.lightning_invoice,
-  }),
-);
+LNDViewInvoice.navigationOptions = navigationStyle({}, opts => ({
+  ...opts,
+  title: loc.lndViewInvoice.lightning_invoice,
+}));
 
 export default LNDViewInvoice;

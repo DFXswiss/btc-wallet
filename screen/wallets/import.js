@@ -8,6 +8,7 @@ import {
   BlueDoneAndDismissKeyboardInputAccessory,
   BlueFormLabel,
   BlueFormMultiInput,
+  BlueSpacing10,
   BlueSpacing20,
   BlueText,
   SafeBlueArea,
@@ -35,9 +36,10 @@ const WalletsImport = () => {
     root: {
       paddingTop: 10,
       backgroundColor: colors.elevated,
+      flex: 1,
+      justifyContent: 'space-between',
     },
     center: {
-      flex: 1,
       marginHorizontal: 16,
       backgroundColor: colors.elevated,
     },
@@ -47,6 +49,9 @@ const WalletsImport = () => {
       marginHorizontal: 16,
       marginTop: 10,
       justifyContent: 'space-between',
+    },
+    formContainer: {
+      flexGrow: 0.5,
     },
   });
 
@@ -139,8 +144,9 @@ const WalletsImport = () => {
             testID="DoImport"
             onPress={importButtonPressed}
           />
-          <BlueSpacing20 />
+          <BlueSpacing10 />
           <BlueButtonLink title={loc.wallets.import_scan_qr} onPress={importScan} testID="ScanImport" />
+          <BlueSpacing20 />
         </>
       </View>
     </>
@@ -148,45 +154,48 @@ const WalletsImport = () => {
 
   return (
     <SafeBlueArea style={styles.root}>
-      <BlueSpacing20 />
-      <TouchableWithoutFeedback accessibilityRole="button" onPress={speedBackdoorTap} testID="SpeedBackdoor">
-        <BlueFormLabel>{loc.wallets.import_explanation}</BlueFormLabel>
-      </TouchableWithoutFeedback>
-      <BlueSpacing20 />
-      <BlueFormMultiInput
-        value={importText}
-        onBlur={onBlur}
-        onChangeText={setImportText}
-        testID="MnemonicInput"
-        inputAccessoryViewID={BlueDoneAndDismissKeyboardInputAccessory.InputAccessoryViewID}
-      />
-
-      {Platform.select({ android: !isToolbarVisibleForAndroid && renderOptionsAndImportButton, default: renderOptionsAndImportButton })}
-      {Platform.select({
-        ios: (
-          <BlueDoneAndDismissKeyboardInputAccessory
-            onClearTapped={() => {
-              setImportText('');
-            }}
-            onPasteTapped={text => {
-              setImportText(text);
-              Keyboard.dismiss();
-            }}
-          />
-        ),
-        android: isToolbarVisibleForAndroid && (
-          <BlueDoneAndDismissKeyboardInputAccessory
-            onClearTapped={() => {
-              setImportText('');
-              Keyboard.dismiss();
-            }}
-            onPasteTapped={text => {
-              setImportText(text);
-              Keyboard.dismiss();
-            }}
-          />
-        ),
-      })}
+      <View style={styles.formContainer}>
+        <BlueSpacing20 />
+        <TouchableWithoutFeedback accessibilityRole="button" onPress={speedBackdoorTap} testID="SpeedBackdoor">
+          <BlueFormLabel>{loc.wallets.import_explanation}</BlueFormLabel>
+        </TouchableWithoutFeedback>
+        <BlueSpacing20 />
+        <BlueFormMultiInput
+          value={importText}
+          onBlur={onBlur}
+          onChangeText={setImportText}
+          testID="MnemonicInput"
+          inputAccessoryViewID={BlueDoneAndDismissKeyboardInputAccessory.InputAccessoryViewID}
+        />
+      </View>
+      <View>
+        {Platform.select({ android: !isToolbarVisibleForAndroid && renderOptionsAndImportButton, default: renderOptionsAndImportButton })}
+        {Platform.select({
+          ios: (
+            <BlueDoneAndDismissKeyboardInputAccessory
+              onClearTapped={() => {
+                setImportText('');
+              }}
+              onPasteTapped={text => {
+                setImportText(text);
+                Keyboard.dismiss();
+              }}
+            />
+          ),
+          android: isToolbarVisibleForAndroid && (
+            <BlueDoneAndDismissKeyboardInputAccessory
+              onClearTapped={() => {
+                setImportText('');
+                Keyboard.dismiss();
+              }}
+              onPasteTapped={text => {
+                setImportText(text);
+                Keyboard.dismiss();
+              }}
+            />
+          ),
+        })}
+      </View>
     </SafeBlueArea>
   );
 };

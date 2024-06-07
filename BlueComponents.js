@@ -342,6 +342,7 @@ export class BlueCopyTextToClipboard extends Component {
   static propTypes = {
     text: PropTypes.string,
     truncated: PropTypes.bool,
+    textStyle: PropTypes.any,
   };
 
   static defaultProps = {
@@ -383,7 +384,7 @@ export class BlueCopyTextToClipboard extends Component {
           testID="BlueCopyTextToClipboard"
         >
           <Animated.Text
-            style={styleCopyTextToClipboard.address}
+            style={[styleCopyTextToClipboard.address, this.props.textStyle]}
             {...(this.props.truncated ? { numberOfLines: 1, ellipsizeMode: 'middle' } : { numberOfLines: 0 })}
             testID="AddressValue"
           >
@@ -662,10 +663,16 @@ export const BlueSpacing10 = props => {
   return <View {...props} style={{ height: 10, opacity: 0 }} />;
 };
 
-export const BlueDismissKeyboardInputAccessory = () => {
+export const BlueDismissKeyboardInputAccessory = ({ onPress } = {}) => {
   const { colors } = useTheme();
   BlueDismissKeyboardInputAccessory.InputAccessoryViewID = 'BlueDismissKeyboardInputAccessory';
 
+  const handleOnPress = () => {
+    if (onPress && typeof onPress === 'function') {
+      onPress();
+    }
+    Keyboard.dismiss();
+  };
   return Platform.OS !== 'ios' ? null : (
     <InputAccessoryView nativeID={BlueDismissKeyboardInputAccessory.InputAccessoryViewID}>
       <View
@@ -678,7 +685,7 @@ export const BlueDismissKeyboardInputAccessory = () => {
           alignItems: 'center',
         }}
       >
-        <BlueButtonLink title={loc.send.input_done} onPress={Keyboard.dismiss} />
+        <BlueButtonLink title={loc.send.input_done} onPress={handleOnPress} />
       </View>
     </InputAccessoryView>
   );

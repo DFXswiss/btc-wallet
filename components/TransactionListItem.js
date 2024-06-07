@@ -2,11 +2,9 @@
 import React, { useState, useMemo, useCallback, useContext, useEffect, useRef } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useTheme } from '@react-navigation/native';
 
 import { BitcoinUnit } from '../models/bitcoinUnits';
-import * as NavigationService from '../NavigationService';
 import loc, { formatBalanceWithoutSuffix, transactionTimeToReadable } from '../loc';
 import Lnurl from '../class/lnurl';
 import { BlueStorageContext } from '../blue_modules/storage-context';
@@ -187,29 +185,6 @@ export const TransactionListItem = React.memo(({ item, itemPriceUnit = BitcoinUn
     } else if (item.type === 'user_invoice' || item.type === 'payment_request' || item.type === 'paid_invoice') {
       const lightningWallet = wallets.filter(wallet => wallet?.getID() === item.walletID);
       if (lightningWallet.length === 1) {
-        try {
-          // is it a successful lnurl-pay?
-          const LN = new Lnurl(false, AsyncStorage);
-          let paymentHash = item.payment_hash;
-          if (typeof paymentHash === 'object') {
-            paymentHash = Buffer.from(paymentHash.data).toString('hex');
-          }
-          const loaded = await LN.loadSuccessfulPayment(paymentHash);
-          if (loaded) {
-            NavigationService.navigate('SendDetailsRoot', {
-              screen: 'LnurlPaySuccess',
-              params: {
-                paymentHash,
-                justPaid: false,
-                fromWalletID: lightningWallet[0].getID(),
-              },
-            });
-            return;
-          }
-        } catch (e) {
-          console.log(e);
-        }
-
         navigate('LNDViewInvoice', {
           invoice: item,
           walletID: lightningWallet[0].getID(),

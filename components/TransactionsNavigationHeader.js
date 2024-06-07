@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { Image, Text, TouchableOpacity, View, InteractionManager, I18nManager, StyleSheet } from 'react-native';
+import { Image, Text, TouchableOpacity, View, InteractionManager, I18nManager, StyleSheet, Linking } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { LightningCustodianWallet, LightningLdkWallet, MultisigHDWallet } from '../class';
 import { BitcoinUnit } from '../models/bitcoinUnits';
@@ -17,6 +17,11 @@ export default class TransactionsNavigationHeader extends Component {
     navigation: PropTypes.shape(),
     onManageFundsPressed: PropTypes.func,
     width: PropTypes.number,
+    showRBFWarning: PropTypes.bool,
+  };
+
+  static defaultProps = {
+    showRBFWarning: false,
   };
 
   static actionKeys = {
@@ -145,6 +150,8 @@ export default class TransactionsNavigationHeader extends Component {
     }
   };
 
+  goToRbfDocs = () => Linking.openURL('https://docs.dfx.swiss/en/faq.html#why-should-i-use-a-wallet-with-rfb-support');
+
   toolTipMenuActions = [
     {
       id: TransactionsNavigationHeader.actionKeys.Refill,
@@ -163,75 +170,92 @@ export default class TransactionsNavigationHeader extends Component {
       !this.state.wallet.hideBalance &&
       formatBalance(this.state.wallet.getBalance(), this.state.wallet.getPreferredBalanceUnit(), true).toString();
 
+    const stylesHook = StyleSheet.create({
+      lineaderGradient: {
+        minHeight: this.props.showRBFWarning ? 100 : 140,
+      },
+    });
+
     return (
-      <View style={styles.lineaderGradient}>
-        <Image source={require('../img/dfx/wallet-card.png')} style={[styles.chainIcon, { width: this.props.width }]} />
-        <Text testID="WalletLabel" numberOfLines={1} style={styles.walletLabel}>
-          {this.state.wallet.getLabel()}
-        </Text>
-        <ToolTipMenu
-          onPress={this.changeWalletBalanceUnit}
-          ref={this.menuRef}
-          title={loc.wallets.balance}
-          onPressMenuItem={this.onPressMenuItem}
-          actions={
-            this.state.wallet.hideBalance
-              ? [
-                  {
-                    id: TransactionsNavigationHeader.actionKeys.WalletBalanceVisibility,
-                    text: loc.transactions.details_balance_show,
-                    icon: TransactionsNavigationHeader.actionIcons.Eye,
-                  },
-                ]
-              : [
-                  {
-                    id: TransactionsNavigationHeader.actionKeys.WalletBalanceVisibility,
-                    text: loc.transactions.details_balance_hide,
-                    icon: TransactionsNavigationHeader.actionIcons.EyeSlash,
-                  },
-                  {
-                    id: TransactionsNavigationHeader.actionKeys.CopyToClipboard,
-                    text: loc.transactions.details_copy,
-                    icon: TransactionsNavigationHeader.actionIcons.Clipboard,
-                  },
-                ]
-          }
-        >
-          <View style={styles.balance}>
-            {this.state.wallet.hideBalance ? (
-              <BluePrivateBalance />
-            ) : (
-              <Text
-                testID="WalletBalance"
-                key={balance} // force component recreation on balance change. To fix right-to-left languages, like Farsi
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                style={styles.walletBalance}
-              >
-                {balance}
-              </Text>
-            )}
-          </View>
-        </ToolTipMenu>
-        {this.state.wallet.type === LightningCustodianWallet.type && this.state.allowOnchainAddress && (
+      <>
+        <View style={[styles.lineaderGradient, stylesHook.lineaderGradient]}>
+          <Image source={require('../img/dfx/wallet-card.png')} style={[styles.chainIcon, { width: this.props.width }]} />
+          <Text testID="WalletLabel" numberOfLines={1} style={styles.walletLabel}>
+            {this.state.wallet.getLabel()}
+          </Text>
           <ToolTipMenu
-            isMenuPrimaryAction
-            isButton
-            onPressMenuItem={this.manageFundsPressed}
-            actions={this.toolTipMenuActions}
-            buttonStyle={styles.manageFundsButton}
+            onPress={this.changeWalletBalanceUnit}
+            ref={this.menuRef}
+            title={loc.wallets.balance}
+            onPressMenuItem={this.onPressMenuItem}
+            actions={
+              this.state.wallet.hideBalance
+                ? [
+                    {
+                      id: TransactionsNavigationHeader.actionKeys.WalletBalanceVisibility,
+                      text: loc.transactions.details_balance_show,
+                      icon: TransactionsNavigationHeader.actionIcons.Eye,
+                    },
+                  ]
+                : [
+                    {
+                      id: TransactionsNavigationHeader.actionKeys.WalletBalanceVisibility,
+                      text: loc.transactions.details_balance_hide,
+                      icon: TransactionsNavigationHeader.actionIcons.EyeSlash,
+                    },
+                    {
+                      id: TransactionsNavigationHeader.actionKeys.CopyToClipboard,
+                      text: loc.transactions.details_copy,
+                      icon: TransactionsNavigationHeader.actionIcons.Clipboard,
+                    },
+                  ]
+            }
           >
-            <Text style={styles.manageFundsButtonText}>{loc.lnd.title}</Text>
-          </ToolTipMenu>
-        )}
-        {this.state.wallet.type === LightningLdkWallet.type && (
-          <TouchableOpacity accessibilityRole="button" onPress={this.manageFundsPressed}>
-            <View style={styles.manageFundsButton}>
-              <Text style={styles.manageFundsButtonText}>{loc.lnd.title}</Text>
+            <View style={styles.balance}>
+              {this.state.wallet.hideBalance ? (
+                <BluePrivateBalance />
+              ) : (
+                <Text
+                  testID="WalletBalance"
+                  key={balance} // force component recreation on balance change. To fix right-to-left languages, like Farsi
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  style={styles.walletBalance}
+                >
+                  {balance}
+                </Text>
+              )}
             </View>
+          </ToolTipMenu>
+          {this.state.wallet.type === LightningCustodianWallet.type && this.state.allowOnchainAddress && (
+            <ToolTipMenu
+              isMenuPrimaryAction
+              isButton
+              onPressMenuItem={this.manageFundsPressed}
+              actions={this.toolTipMenuActions}
+              buttonStyle={styles.manageFundsButton}
+            >
+              <Text style={styles.manageFundsButtonText}>{loc.lnd.title}</Text>
+            </ToolTipMenu>
+          )}
+          {this.state.wallet.type === LightningLdkWallet.type && (
+            <TouchableOpacity accessibilityRole="button" onPress={this.manageFundsPressed}>
+              <View style={styles.manageFundsButton}>
+                <Text style={styles.manageFundsButtonText}>{loc.lnd.title}</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+        </View>
+        {this.props.showRBFWarning && (
+          <TouchableOpacity style={styles.rbfWarning} onPress={this.goToRbfDocs}>
+            <Text style={styles.rbfWarningText}>{loc.wallets.warning}</Text>
+            <Text style={styles.rbfWarningText}>{loc.wallets.rbf_warning}</Text>
+            <Text style={styles.rbfWarningLink} onPress={this.goToRbfDocs}>
+              {loc.wallets.more_info}
+            </Text>
           </TouchableOpacity>
         )}
-      </View>
+      </>
     );
   }
 }
@@ -239,7 +263,6 @@ export default class TransactionsNavigationHeader extends Component {
 const styles = StyleSheet.create({
   lineaderGradient: {
     padding: 15,
-    minHeight: 140,
     justifyContent: 'center',
   },
   chainIcon: {
@@ -275,5 +298,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#FFFFFF',
     padding: 12,
+  },
+  rbfWarning: {
+    backgroundColor: '#FFEB3B',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  rbfWarningText: {
+    color: '#072440',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginVertical: 2,
+  },
+  rbfWarningLink: {
+    color: '#339CFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+    textDecorationLine: 'underline',
   },
 });

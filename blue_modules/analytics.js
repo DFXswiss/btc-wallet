@@ -1,20 +1,6 @@
-import { getUniqueId } from 'react-native-device-info';
-import Bugsnag from '@bugsnag/react-native';
 const BlueApp = require('../BlueApp');
 
 let userHasOptedOut = false;
-
-if (process.env.NODE_ENV !== 'development') {
-  Bugsnag.start({
-    collectUserIp: false,
-    user: {
-      id: getUniqueId(),
-    },
-    onError: function (event) {
-      return !userHasOptedOut;
-    },
-  });
-}
 
 BlueApp.isDoNotTrackEnabled().then(value => {
   if (value) userHasOptedOut = true;
@@ -38,7 +24,6 @@ A.setOptOut = value => {
 
 A.logError = errorString => {
   console.error(errorString);
-  Bugsnag.notify(new Error(String(errorString)));
 };
 
 module.exports = A;

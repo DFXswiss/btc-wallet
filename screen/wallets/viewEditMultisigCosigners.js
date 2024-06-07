@@ -1,7 +1,6 @@
 import React, { useContext, useRef, useState, useCallback, useEffect } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   InteractionManager,
   Keyboard,
@@ -49,7 +48,7 @@ const prompt = require('../../helpers/prompt');
 const ViewEditMultisigCosigners = () => {
   const hasLoaded = useRef(false);
   const { colors } = useTheme();
-  const { wallets, setWalletsWithNewOrder, isElectrumDisabled, isAdvancedModeEnabled } = useContext(BlueStorageContext);
+  const { wallets, isAdvancedModeEnabled } = useContext(BlueStorageContext);
   const { navigate, goBack } = useNavigation();
   const route = useRoute();
   const openScannerButtonRef = useRef();
@@ -58,8 +57,7 @@ const ViewEditMultisigCosigners = () => {
   const tempWallet = useRef(new MultisigHDWallet());
   const [wallet, setWallet] = useState();
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaveButtonDisabled, setIsSaveButtonDisabled] = useState(true);
-  const [currentlyEditingCosignerNum, setCurrentlyEditingCosignerNum] = useState(false);
+  const [currentlyEditingCosignerNum] = useState(false);
   const [isProvideMnemonicsModalVisible, setIsProvideMnemonicsModalVisible] = useState(false);
   const [isMnemonicsModalVisible, setIsMnemonicsModalVisible] = useState(false);
   const [isShareModalVisible, setIsShareModalVisible] = useState(false);
@@ -112,31 +110,6 @@ const ViewEditMultisigCosigners = () => {
     setTimeout(() => fs.writeFileAndExport(exportFilename, exportString), 1000);
   };
 
-  const onSave = async () => {
-    setIsLoading(true);
-
-    const isBiometricsEnabled = await Biometric.isBiometricUseCapableAndEnabled();
-
-    if (isBiometricsEnabled) {
-      if (!(await Biometric.unlockWithBiometrics())) {
-        setIsLoading(false);
-        return;
-      }
-    }
-
-    // eslint-disable-next-line prefer-const
-    let newWallets = wallets.filter(newWallet => {
-      return newWallet.getID() !== walletId;
-    });
-    if (!isElectrumDisabled) {
-      await wallet.fetchBalance();
-    }
-    newWallets.push(wallet);
-    navigate('WalletsList');
-    setTimeout(() => {
-      setWalletsWithNewOrder(newWallets);
-    }, 500);
-  };
   useFocusEffect(
     useCallback(() => {
       // useFocusEffect is called on willAppear (example: when camera dismisses). we want to avoid this.
@@ -286,19 +259,6 @@ const ViewEditMultisigCosigners = () => {
                 dashes={MultipleStepsListItemDashType.topAndBottom}
               />
             )}
-            <MultipleStepsListItem
-              showActivityIndicator={vaultKeyData.keyIndex === el.index + 1 && vaultKeyData.isLoading}
-              button={{
-                text: loc.multisig.i_have_mnemonics,
-                buttonType: MultipleStepsListItemButtohType.full,
-                disabled: vaultKeyData.isLoading,
-                onPress: () => {
-                  setCurrentlyEditingCosignerNum(el.index + 1);
-                  setIsProvideMnemonicsModalVisible(true);
-                },
-              }}
-              dashes={el.index === data.length - 1 ? MultipleStepsListItemDashType.top : MultipleStepsListItemDashType.topAndBottom}
-            />
           </View>
         ) : (
           <View>
@@ -333,49 +293,6 @@ const ViewEditMultisigCosigners = () => {
                 dashes={MultipleStepsListItemDashType.topAndBottom}
               />
             )}
-            <MultipleStepsListItem
-              showActivityIndicator={vaultKeyData.keyIndex === el.index + 1 && vaultKeyData.isLoading}
-              dashes={el.index === data.length - 1 ? MultipleStepsListItemDashType.top : MultipleStepsListItemDashType.topAndBottom}
-              button={{
-                text: loc.multisig.forget_this_seed,
-                disabled: vaultKeyData.isLoading,
-                buttonType: MultipleStepsListItemButtohType.full,
-                onPress: () => {
-                  Alert.alert(
-                    loc._.seed,
-                    loc.multisig.are_you_sure_seed_will_be_lost,
-                    [
-                      {
-                        text: loc._.ok,
-                        onPress: () => {
-                          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                          setVaultKeyData({
-                            ...vaultKeyData,
-                            isLoading: true,
-                            keyIndex: el.index + 1,
-                          });
-                          setTimeout(
-                            () =>
-                              xpubInsteadOfSeed(el.index + 1).finally(() => {
-                                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                                setVaultKeyData({
-                                  ...vaultKeyData,
-                                  isLoading: false,
-                                  keyIndex: el.index + 1,
-                                });
-                              }),
-                            100,
-                          );
-                        },
-                        style: 'destructive',
-                      },
-                      { text: loc._.cancel, onPress: () => {}, style: 'cancel' },
-                    ],
-                    { cancelable: false },
-                  );
-                },
-              }}
-            />
           </View>
         )}
       </View>
@@ -412,26 +329,8 @@ const ViewEditMultisigCosigners = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setWallet(wallet);
     setIsProvideMnemonicsModalVisible(false);
-    setIsSaveButtonDisabled(false);
     setImportText('');
     setAskPassphrase(false);
-  };
-
-  const xpubInsteadOfSeed = index => {
-    return new Promise((resolve, reject) => {
-      InteractionManager.runAfterInteractions(() => {
-        try {
-          wallet.replaceCosignerSeedWithXpub(index);
-        } catch (e) {
-          reject(e);
-          return alert(e.message);
-        }
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setWallet(wallet);
-        setIsSaveButtonDisabled(false);
-        resolve();
-      });
-    });
   };
 
   const scanOrOpenFile = () => {
@@ -554,8 +453,6 @@ const ViewEditMultisigCosigners = () => {
     );
   };
 
-  const footer = <BlueButton disabled={vaultKeyData.isLoading || isSaveButtonDisabled} title={loc._.save} onPress={onSave} />;
-
   return (
     <View style={[styles.root, stylesHook.root]}>
       <StatusBar barStyle="light-content" />
@@ -573,7 +470,6 @@ const ViewEditMultisigCosigners = () => {
           keyExtractor={(_item, index) => `${index}`}
         />
         <BlueSpacing10 />
-        {footer}
         <BlueSpacing40 />
       </KeyboardAvoidingView>
 

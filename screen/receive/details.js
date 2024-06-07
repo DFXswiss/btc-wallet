@@ -2,14 +2,16 @@ import React, { useCallback, useContext, useEffect, useRef, useState } from 'rea
 import {
   BackHandler,
   InteractionManager,
-  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
+  Text,
   TextInput,
+  TouchableOpacity,
   View,
+  Image
 } from 'react-native';
 import { useNavigation, useRoute, useTheme, useFocusEffect } from '@react-navigation/native';
 import Share from 'react-native-share';
@@ -18,19 +20,15 @@ import {
   BlueLoading,
   BlueCopyTextToClipboard,
   BlueButton,
-  BlueButtonLink,
   BlueText,
-  BlueSpacing20,
   BlueCard,
   BlueSpacing40,
   BlueWalletSelect,
   BlueDismissKeyboardInputAccessory,
 } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
-import BottomModal from '../../components/BottomModal';
 import { Chain, BitcoinUnit } from '../../models/bitcoinUnits';
 import HandoffComponent from '../../components/handoff';
-import AmountInput from '../../components/AmountInput';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import loc, { formatBalance } from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
@@ -39,18 +37,17 @@ import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { TransactionPendingIconBig } from '../../components/TransactionPendingIconBig';
 import * as BlueElectrum from '../../blue_modules/BlueElectrum';
 import { SuccessView } from '../send/success';
+import useInputAmount from '../../hooks/useInputAmount';
+import NetworkTransactionFees from '../../models/networkTransactionFees';
 const currency = require('../../blue_modules/currency');
 
 const ReceiveDetails = () => {
   const { walletID, address } = useRoute().params;
   const { wallets, saveToDisk, sleep, isElectrumDisabled, fetchAndSaveWalletTransactions } = useContext(BlueStorageContext);
   const wallet = wallets.find(w => w.getID() === walletID);
-  const [customLabel, setCustomLabel] = useState();
-  const [customAmount, setCustomAmount] = useState();
-  const [customUnit, setCustomUnit] = useState(BitcoinUnit.BTC);
+  const [customLabel, setCustomLabel] = useState('');
   const [bip21encoded, setBip21encoded] = useState();
   const [isCustom, setIsCustom] = useState(false);
-  const [isCustomModalVisible, setIsCustomModalVisible] = useState(false);
   const [showPendingBalance, setShowPendingBalance] = useState(false);
   const [showConfirmedBalance, setShowConfirmedBalance] = useState(false);
   const [showAddress, setShowAddress] = useState(false);
@@ -62,7 +59,9 @@ const ReceiveDetails = () => {
   const [initialUnconfirmed, setInitialUnconfirmed] = useState(0);
   const [displayBalance, setDisplayBalance] = useState('');
   const fetchAddressInterval = useRef();
-  const stylesHook = StyleSheet.create({
+  const { inputProps, amountSats, formattedUnit, changeToNextUnit } = useInputAmount();
+  
+   const stylesHook = StyleSheet.create({
     modalContent: {
       backgroundColor: colors.modal,
       borderTopColor: colors.foregroundColor,
@@ -134,15 +133,15 @@ const ReceiveDetails = () => {
             const rez = await BlueElectrum.multiGetTransactionByTxid([tx.tx_hash], 10, true);
             if (rez && rez[tx.tx_hash] && rez[tx.tx_hash].vsize) {
               const satPerVbyte = Math.round(tx.fee / rez[tx.tx_hash].vsize);
-              const fees = await BlueElectrum.estimateFees();
-              if (satPerVbyte >= fees.fast) {
-                setEta(loc.formatString(loc.transactions.eta_10m));
-              }
-              if (satPerVbyte >= fees.medium && satPerVbyte < fees.fast) {
-                setEta(loc.formatString(loc.transactions.eta_3h));
-              }
-              if (satPerVbyte < fees.medium) {
-                setEta(loc.formatString(loc.transactions.eta_1d));
+              const fees = await NetworkTransactionFees.recommendedFees();
+              if (satPerVbyte >= fees.fastestFee) {
+                setEta(loc.formatString(loc.transactions.eta_fastest));
+              } else if (satPerVbyte >= fees.mediumFee) {
+                setEta(loc.formatString(loc.transactions.eta_fast));
+              } else if (satPerVbyte >= fees.slowFee) {
+                setEta(loc.formatString(loc.transactions.eta_medium));
+              } else {
+                setEta(loc.formatString(loc.transactions.eta_slow));
               }
             }
           }
@@ -253,39 +252,51 @@ const ReceiveDetails = () => {
 
   const renderReceiveDetails = () => {
     return (
-      <ScrollView contentContainerStyle={[styles.root, stylesHook.root]} keyboardShouldPersistTaps="always">
+      <KeyboardAvoidingView
+        enabled={!Platform.isPad}
+        behavior="position"
+      >
         <View style={styles.scrollBody}>
-          {isCustom && (
-            <>
-              {getDisplayAmount() && (
-                <BlueText testID="CustomAmountText" style={[styles.amount, stylesHook.amount]} numberOfLines={1}>
-                  {getDisplayAmount()}
-                </BlueText>
-              )}
-              {customLabel?.length > 0 && (
-                <BlueText testID="CustomAmountDescriptionText" style={[styles.label, stylesHook.label]} numberOfLines={1}>
-                  {customLabel}
-                </BlueText>
-              )}
-            </>
-          )}
-
           <QRCodeComponent value={bip21encoded} />
-          <BlueCopyTextToClipboard text={isCustom ? bip21encoded : address} />
+          <BlueCopyTextToClipboard text={isCustom ? bip21encoded : address} textStyle={{ marginVertical: 24 }} />
         </View>
         <View style={styles.share}>
-          <BlueCard>
-            <BlueButtonLink
-              style={styles.link}
-              testID="SetCustomAmountButton"
-              title={loc.receive.details_setAmount}
-              onPress={showCustomAmountModal}
+          <View style={[styles.customAmount, stylesHook.customAmount]}>
+            <TextInput
+              placeholderTextColor="#81868e"
+              placeholder="Amount (optional)"
+              style={[styles.customAmountText, stylesHook.customAmountText]}
+              inputAccessoryViewID={BlueDismissKeyboardInputAccessory.InputAccessoryViewID}
+              {...inputProps}
             />
+            <Text style={styles.inputUnit}>{formattedUnit}</Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={loc._.change_input_currency}
+              style={styles.changeToNextUnitButton}
+              onPress={changeToNextUnit}
+            >
+              <Image source={require('../../img/round-compare-arrows-24-px.png')} />
+            </TouchableOpacity>
+          </View>
+          <View style={[styles.customAmount, stylesHook.customAmount]}>
+            <TextInput
+              onChangeText={setCustomLabel}
+              placeholderTextColor="#81868e"
+              placeholder={`${loc.receive.details_label} (optional)`}
+              value={customLabel || ''}
+              numberOfLines={1}
+              style={[styles.customAmountText, stylesHook.customAmountText]}
+              testID="CustomAmountDescription"
+              inputAccessoryViewID={BlueDismissKeyboardInputAccessory.InputAccessoryViewID}
+            />
+          </View>
+          <BlueCard>
             <BlueButton onPress={handleShareButtonPressed} title={loc.receive.details_share} />
           </BlueCard>
         </View>
-        {renderCustomAmountModal()}
-      </ScrollView>
+        <BlueDismissKeyboardInputAccessory />
+      </KeyboardAvoidingView>
     );
   };
 
@@ -353,94 +364,17 @@ const ReceiveDetails = () => {
     }, [wallet]),
   );
 
-  const dismissCustomAmountModal = () => {
-    Keyboard.dismiss();
-    setIsCustomModalVisible(false);
-  };
-
-  const showCustomAmountModal = () => {
-    setIsCustomModalVisible(true);
-  };
-
-  const createCustomAmountAddress = () => {
-    setIsCustom(true);
-    setIsCustomModalVisible(false);
-    let amount = customAmount;
-    switch (customUnit) {
-      case BitcoinUnit.BTC:
-        // nop
-        break;
-      case BitcoinUnit.SATS:
-        amount = currency.satoshiToBTC(customAmount);
-        break;
-      case BitcoinUnit.LOCAL_CURRENCY:
-        if (AmountInput.conversionCache[amount + BitcoinUnit.LOCAL_CURRENCY]) {
-          // cache hit! we reuse old value that supposedly doesnt have rounding errors
-          amount = currency.satoshiToBTC(AmountInput.conversionCache[amount + BitcoinUnit.LOCAL_CURRENCY]);
-        } else {
-          amount = currency.fiatToBTC(customAmount);
-        }
-        break;
+  useEffect(() => {
+    const btcAmout = Number(currency.satoshiToBTC(amountSats));
+    const hasOptional = btcAmout || customLabel;
+    setIsCustom(hasOptional);
+    if(hasOptional){
+      setBip21encoded(DeeplinkSchemaMatch.bip21encode(address, { amount: btcAmout, label: customLabel }));
     }
-    setBip21encoded(DeeplinkSchemaMatch.bip21encode(address, { amount, label: customLabel }));
-    setShowAddress(true);
-  };
-
-  const renderCustomAmountModal = () => {
-    return (
-      <BottomModal isVisible={isCustomModalVisible} onClose={dismissCustomAmountModal}>
-        <KeyboardAvoidingView enabled={!Platform.isPad} behavior={Platform.OS === 'ios' ? 'position' : null}>
-          <View style={[styles.modalContent, stylesHook.modalContent]}>
-            <AmountInput unit={customUnit} amount={customAmount || ''} onChangeText={setCustomAmount} onAmountUnitChange={setCustomUnit} />
-            <View style={[styles.customAmount, stylesHook.customAmount]}>
-              <TextInput
-                onChangeText={setCustomLabel}
-                placeholderTextColor="#81868e"
-                placeholder={loc.receive.details_label}
-                value={customLabel || ''}
-                numberOfLines={1}
-                style={[styles.customAmountText, stylesHook.customAmountText]}
-                testID="CustomAmountDescription"
-              />
-            </View>
-            <BlueSpacing20 />
-            <View>
-              <BlueButton
-                testID="CustomAmountSaveButton"
-                style={[styles.modalButton, stylesHook.modalButton]}
-                title={loc.receive.details_create}
-                onPress={createCustomAmountAddress}
-              />
-              <BlueSpacing20 />
-            </View>
-            <BlueSpacing20 />
-          </View>
-        </KeyboardAvoidingView>
-      </BottomModal>
-    );
-  };
-
+  }, [amountSats, customLabel]); 
+  
   const handleShareButtonPressed = () => {
     Share.open({ message: bip21encoded }).catch(error => console.log(error));
-  };
-
-  /**
-   * @returns {string} BTC amount, accounting for current `customUnit` and `customUnit`
-   */
-  const getDisplayAmount = () => {
-    if (Number(customAmount) > 0) {
-      switch (customUnit) {
-        case BitcoinUnit.BTC:
-          return customAmount + ' BTC';
-        case BitcoinUnit.SATS:
-          return currency.satoshiToBTC(customAmount) + ' BTC';
-        case BitcoinUnit.LOCAL_CURRENCY:
-          return currency.fiatToBTC(customAmount) + ' BTC';
-      }
-      return customAmount + ' ' + customUnit;
-    } else {
-      return null;
-    }
   };
 
   const onWalletChange = id => {
@@ -448,7 +382,7 @@ const ReceiveDetails = () => {
     if (!newWallet) return;
 
     if (newWallet.chain !== Chain.ONCHAIN) {
-      return replace('LNDCreateInvoice', { walletID: id });
+      return replace('LNDReceive', { walletID: id });
     }
   };
 
@@ -495,8 +429,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   scrollBody: {
-    marginTop: 32,
-    flexGrow: 1,
+    marginTop: 16,
     alignItems: 'center',
     paddingHorizontal: 16,
   },
@@ -533,6 +466,17 @@ const styles = StyleSheet.create({
     minHeight: 33,
   },
   pickerContainer: { marginHorizontal: 16 },
+  inputUnit:{
+    color: '#81868e',
+    fontSize: 16,
+    marginRight: 10,
+    marginLeft: 10,
+  },
+  changeToNextUnitButton:{
+    borderLeftColor: '#676b71',
+    borderLeftWidth: 1,
+    paddingHorizontal: 10,
+  }
 });
 
 ReceiveDetails.navigationOptions = navigationStyle(

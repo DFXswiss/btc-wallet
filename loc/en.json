@@ -82,7 +82,8 @@
     "title": "Manage Funds",
     "can_send": "Can Send",
     "can_receive": "Can Receive",
-    "view_logs": "View Logs"
+    "view_logs": "View Logs",
+    "next": "Next"
   },
   "lndViewInvoice": {
     "additional_info": "Additional Information",
@@ -93,7 +94,12 @@
     "please_pay": "Please pay",
     "preimage": "Preimage",
     "sats": "sats.",
-    "wasnt_paid_and_expired": "This invoice was not paid and has expired."
+    "wasnt_paid_and_expired": "This invoice was not paid and has expired.",
+    "payment_hash": "Payment Hash",
+    "value": "Value",
+    "description": "Description",
+    "memo": "Memo",
+    "domain": "Domain"
   },
   "plausibledeniability": {
     "create_fake_storage": "Create Encrypted Storage",
@@ -384,9 +390,10 @@
     "pending": "Pending",
     "pending_with_amount": "Pending {amt1} ({amt2})",
     "received_with_amount": "+{amt1} ({amt2})",
-    "eta_10m": "ETA: In ~10 minutes",
-    "eta_3h": "ETA: In ~3 hours",
-    "eta_1d": "ETA: In ~1 day",
+    "eta_fastest": "ETA: In ~9 minutes",
+    "eta_fast": "ETA: In ~10 to 30 minutes",
+    "eta_medium": "ETA: In ~30 minutes to 3 hours",
+    "eta_slow": "ETA: In ~1 day",
     "view_wallet": "View {walletLabel}",
     "list_title": "Transactions",
     "open_url_error": "Unable to open the link with the default browser. Please change your default browser and try again.",
@@ -399,6 +406,9 @@
     "updating": "Updating..."
   },
   "wallets": {
+    "main_wallet_label": "On-Chain Wallet",
+    "lightning_wallet_label": "Lightning Wallet",
+    "multi_sig_wallet_label": "Multi-Device Wallet",
     "add_bitcoin": "Bitcoin",
     "add_bitcoin_explain": "Simple and powerful Bitcoin wallet",
     "add_create": "Create",
@@ -429,6 +439,7 @@
     "details_ln_address": "Lightning address",
     "details_advanced": "Advanced",
     "details_are_you_sure": "Are you sure?",
+    "details_are_you_sure_main_wallet": "Are you sure?\nIf you delete the on-chain wallet, the entire app will be reset. The Multi-Device Wallet and Lightning Wallet will also be removed from this device.",
     "details_connected_to": "Connected to",
     "details_del_wb_err": "The provided balance amount doesn’t match this wallet’s balance. Please try again.",
     "details_del_wb_q": "This wallet has a balance. Before proceeding, please be aware that you will not be able to recover the funds without this wallet’s seed phrase. In order to avoid accidental removal, please enter your wallet’s balance of {balance} satoshis.",
@@ -489,6 +500,7 @@
     "list_title": "Wallets",
     "list_tryagain": "Try again",
     "no_ln_wallet_error": "Before paying a Lightning invoice, you must first add a Lightning wallet.",
+    "ownership_proof": "DFX Address Ownership Proof",
     "looks_like_bip38": "This looks like a password-protected private key (BIP38).",
     "reorder_title": "Re-order Wallets",
     "reorder_instructions": "Tap and hold a wallet to drag it across the list.",
@@ -505,7 +517,10 @@
     "backupSeed": "Backup your wallet",
     "backupSeedWarning": "Backup not verified",
     "external_services": "External services",
-    "coming_soon": "Coming soon"
+    "coming_soon": "Coming soon",
+    "warning": "Warning!",
+    "rbf_warning": "You are using an outdated wallet without RBF function.",
+    "more_info": "Click here for more information."
   },
   "multisig": {
     "multisig_vault": "Vault",
@@ -533,14 +548,10 @@
     "wrapped_segwit_title": "Best compatibility",
     "legacy_title": "Legacy",
     "co_sign_transaction": "Sign a transaction",
-    "what_is_vault": "A Vault is a",
-    "what_is_vault_numberOfWallets": " {m}-of-{n} multisig ",
-    "what_is_vault_wallet": "wallet.",
-    "vault_advanced_customize": "Vault Settings",
-    "needs": "It needs",
-    "what_is_vault_description_number_of_vault_keys": " {m} vault keys ",
-    "what_is_vault_description_to_spend": "to spend and a third one you \ncan use as backup.",
-    "what_is_vault_description_to_spend_other": "to spend.",
+    "what_is_multidevice": "A multi-device wallet is a Bitcoin wallet that consists of 3 devices. Three devices are required for commissioning. Two devices are always required to authorise a transaction.",
+    "prepare_devices": "Make sure that all 3 devices are ready and only then click the \"Lets's Start\" button on all 3 devices.",
+    "qr_flow": "A QR code is displayed on the next screen and a scan function is activated on the mobile phone. Each device must scan the two QR codes of the other 2 devices and is then ready for use.",
+    "done_explanation": "Only click on Done when all 3 devices have completed this process and all 3 devices have 3 green tick marks at the top.",
     "quorum": "{m} of {n} quorum",
     "quorum_header": "Quorum",
     "of": "of",
@@ -557,7 +568,7 @@
     "wallet_key_created": "Your Vault key was created. Take a moment to safely backup your mnemonic seed.",
     "are_you_sure_seed_will_be_lost": "Are you sure? Your mnemonic seed will be lost if you don’t have a backup.",
     "forget_this_seed": "Forget this seed and use the XPUB instead.",
-    "view_edit_cosigners": "View/Edit Cosigners",
+    "view_edit_cosigners": "View Cosigners",
     "this_cosigner_is_already_imported": "This cosigner is already imported.",
     "export_signed_psbt": "Export Signed PSBT",
     "input_fp": "Enter fingerprint",

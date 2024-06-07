@@ -7,12 +7,9 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   Switch,
-  Platform,
-  Linking,
   StyleSheet,
   StatusBar,
   ScrollView,
-  PermissionsAndroid,
   InteractionManager,
   ActivityIndicator,
   I18nManager,
@@ -34,17 +31,16 @@ import {
 } from '../../class';
 import loc, { formatBalanceWithoutSuffix } from '../../loc';
 import { useTheme, useRoute, useNavigation, StackActions } from '@react-navigation/native';
-import RNFS from 'react-native-fs';
-import Share from 'react-native-share';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import Notifications from '../../blue_modules/notifications';
-import { isDesktop } from '../../blue_modules/environment';
 import { AbstractHDElectrumWallet } from '../../class/wallets/abstract-hd-electrum-wallet';
 import alert from '../../components/Alert';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import { writeFileAndExport } from '../../blue_modules/fs';
 import { useDfxSessionContext } from '../../api/dfx/contexts/session.context';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
+import Clipboard from '@react-native-clipboard/clipboard';
+import { useWalletContext } from '../../contexts/wallet.context';
 
 const prompt = require('../../helpers/prompt');
 
@@ -89,6 +85,9 @@ const styles = StyleSheet.create({
   marginRight16: {
     marginRight: 16,
   },
+  addressProofContainer:{
+    height: 52,
+  },
 });
 
 const WalletDetails = () => {
@@ -97,13 +96,13 @@ const WalletDetails = () => {
   const { walletID } = useRoute().params;
   const [isLoading, setIsLoading] = useState(false);
   const [backdoorPressed, setBackdoorPressed] = useState(0);
-  const [backdoorBip47Pressed, setBackdoorBip47Pressed] = useState(0);
+  const [backdoorBip47Pressed] = useState(0);
   const wallet = useRef(wallets.find(w => w.getID() === walletID)).current;
   const [useWithHardwareWallet, setUseWithHardwareWallet] = useState(wallet.useWithHardwareWalletEnabled());
   const { isAdvancedModeEnabled } = useContext(BlueStorageContext);
   const [isAdvancedModeEnabledRender, setIsAdvancedModeEnabledRender] = useState(false);
   const [isBIP47Enabled, setIsBIP47Enabled] = useState(wallet.isBIP47Enabled());
-  const [hideTransactionsInWalletsList, setHideTransactionsInWalletsList] = useState(!wallet.getHideTransactionsInWalletsList());
+  const [hideTransactionsInWalletsList] = useState(!wallet.getHideTransactionsInWalletsList());
   const { navigate, dispatch } = useNavigation();
   const { colors } = useTheme();
   const [masterFingerprint, setMasterFingerprint] = useState();
@@ -117,6 +116,10 @@ const WalletDetails = () => {
     }
   }, [wallet]);
   const [lightningWalletInfo, setLightningWalletInfo] = useState({});
+  const { walletID: mainWalletId, getOwnershipProof } = useWalletContext();
+  const [ownershipProof, setOwnershipProof] = useState(wallet.addressOwnershipProof);
+  const [isCopied, setIsCopied] = useState(false);
+  const isMainWallet = useMemo(() => mainWalletId === walletID , [wallets]);
 
   useEffect(() => {
     if (isAdvancedModeEnabledRender && wallet.allowMasterFingerprint()) {
@@ -153,6 +156,29 @@ const WalletDetails = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletID]);
 
+  useEffect(() => {
+    if (isMainWallet && !ownershipProof) {
+      setTimeout(() => {
+        getOwnershipProof().then(setOwnershipProof).catch(console.error);
+      }, 1);
+    }
+  }, []);
+
+  const deleteAllWallets = () => {
+    dispatch(StackActions.replace('AddWalletRoot'));
+    for (const w of wallets) {
+      deleteWallet(w);
+    }
+    saveToDisk(true);
+    reset();
+  }
+
+  const deleteCurrentWallet = () => {
+    dispatch(StackActions.pop());
+    deleteWallet(wallet);
+    saveToDisk();
+  };
+
   const navigateToOverviewAndDeleteWallet = () => {
     setIsLoading(true);
     let externalAddresses = [];
@@ -160,27 +186,27 @@ const WalletDetails = () => {
       externalAddresses = wallet.getAllExternalAddresses();
     } catch (_) {}
     Notifications.unsubscribe(externalAddresses, [], []);
-    dispatch(StackActions.replace('AddWalletRoot'));
-    for (const w of wallets) {
-      deleteWallet(w);
+    if(isMainWallet){
+      deleteAllWallets();
+    }else{
+      deleteCurrentWallet();
     }
-    saveToDisk(true);
-    reset();
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
   };
 
   const presentWalletHasBalanceAlert = useCallback(async () => {
     ReactNativeHapticFeedback.trigger('notificationWarning', { ignoreAndroidSystemSettings: false });
+    const balanceToConfirm = isMainWallet ? wallets.reduce((acc, w) => acc + w.getBalance(), 0) : wallet.getBalance();
     try {
       const walletBalanceConfirmation = await prompt(
         loc.wallets.details_delete_wallet,
-        loc.formatString(loc.wallets.details_del_wb_q, { balance: wallet.getBalance() }),
+        loc.formatString(loc.wallets.details_del_wb_q, { balance: balanceToConfirm }),
         true,
         'plain-text',
         true,
         loc.wallets.details_delete,
       );
-      if (Number(walletBalanceConfirmation) === wallet.getBalance()) {
+      if (Number(walletBalanceConfirmation) === balanceToConfirm) {
         navigateToOverviewAndDeleteWallet();
       } else {
         ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
@@ -249,80 +275,6 @@ const WalletDetails = () => {
       },
     });
 
-  const exportInternals = async () => {
-    if (backdoorPressed < 10) return setBackdoorPressed(backdoorPressed + 1);
-    setBackdoorPressed(0);
-    if (wallet.type !== HDSegwitBech32Wallet.type) return;
-    const fileName = 'wallet-externals.json';
-    const contents = JSON.stringify(
-      {
-        _balances_by_external_index: wallet._balances_by_external_index,
-        _balances_by_internal_index: wallet._balances_by_internal_index,
-        _txs_by_external_index: wallet._txs_by_external_index,
-        _txs_by_internal_index: wallet._txs_by_internal_index,
-        _utxo: wallet._utxo,
-        next_free_address_index: wallet.next_free_address_index,
-        next_free_change_address_index: wallet.next_free_change_address_index,
-        internal_addresses_cache: wallet.internal_addresses_cache,
-        external_addresses_cache: wallet.external_addresses_cache,
-        _xpub: wallet._xpub,
-        gap_limit: wallet.gap_limit,
-        label: wallet.label,
-        _lastTxFetch: wallet._lastTxFetch,
-        _lastBalanceFetch: wallet._lastBalanceFetch,
-      },
-      null,
-      2,
-    );
-    if (Platform.OS === 'ios') {
-      const filePath = RNFS.TemporaryDirectoryPath + `/${fileName}`;
-      await RNFS.writeFile(filePath, contents);
-      Share.open({
-        url: 'file://' + filePath,
-        saveToFiles: isDesktop,
-      })
-        .catch(error => {
-          console.log(error);
-          alert(error.message);
-        })
-        .finally(() => {
-          RNFS.unlink(filePath);
-        });
-    } else if (Platform.OS === 'android') {
-      const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE, {
-        title: loc.send.permission_storage_title,
-        message: loc.send.permission_storage_message,
-        buttonNeutral: loc.send.permission_storage_later,
-        buttonNegative: loc._.cancel,
-        buttonPositive: loc._.ok,
-      });
-
-      if (granted === PermissionsAndroid.RESULTS.GRANTED || Platform.Version >= 33) {
-        console.log('Storage Permission: Granted');
-        const filePath = RNFS.DownloadDirectoryPath + `/${fileName}`;
-        try {
-          await RNFS.writeFile(filePath, contents);
-          alert(loc.formatString(loc.send.txSaved, { filePath: fileName }));
-        } catch (e) {
-          console.log(e);
-          alert(e.message);
-        }
-      } else {
-        console.log('Storage Permission: Denied');
-        Alert.alert(loc.send.permission_storage_title, loc.send.permission_storage_denied_message, [
-          {
-            text: loc.send.open_settings,
-            onPress: () => {
-              Linking.openSettings();
-            },
-            style: 'default',
-          },
-          { text: loc._.cancel, onPress: () => {}, style: 'cancel' },
-        ]);
-      }
-    }
-  };
-
   const purgeTransactions = async () => {
     if (backdoorPressed < 10) return setBackdoorPressed(backdoorPressed + 1);
     setBackdoorPressed(0);
@@ -373,9 +325,10 @@ const WalletDetails = () => {
 
   const handleDeleteButtonTapped = () => {
     ReactNativeHapticFeedback.trigger('notificationWarning', { ignoreAndroidSystemSettings: false });
+    const warningMessage = isMainWallet ? loc.wallets.details_are_you_sure_main_wallet : loc.wallets.details_are_you_sure;
     Alert.alert(
       loc.wallets.details_delete_wallet,
-      loc.wallets.details_are_you_sure,
+      warningMessage,
       [
         {
           text: loc.wallets.details_yes_delete,
@@ -387,7 +340,8 @@ const WalletDetails = () => {
                 return;
               }
             }
-            if (wallet.getBalance() > 0 && wallet.allowSend()) {
+            const walletHasBalance = isMainWallet ? wallets.some(w => w.getBalance() > 0) : wallet.getBalance() > 0;
+            if (walletHasBalance && wallet.allowSend()) {
               presentWalletHasBalanceAlert();
             } else {
               navigateToOverviewAndDeleteWallet();
@@ -400,6 +354,12 @@ const WalletDetails = () => {
       { cancelable: false },
     );
   };
+
+  const onCopyToClipboard = () => {
+    setIsCopied(true)
+    Clipboard.setString(ownershipProof);
+    setTimeout(() => setIsCopied(false), 2000)
+  }
 
   return (
     <ScrollView
@@ -476,15 +436,6 @@ const WalletDetails = () => {
               )}
               <BlueSpacing20 />
               <>
-                <Text onPress={exportInternals} style={[styles.textLabel2, stylesHook.textLabel2]}>
-                  {loc.transactions.list_title}
-                </Text>
-                <View style={styles.hardware}>
-                  <BlueText onPress={() => setBackdoorBip47Pressed(prevState => prevState + 1)}>{loc.wallets.details_display}</BlueText>
-                  <Switch value={hideTransactionsInWalletsList} onValueChange={setHideTransactionsInWalletsList} />
-                </View>
-              </>
-              <>
                 <Text onPress={purgeTransactions} style={[styles.textLabel2, stylesHook.textLabel2]}>
                   {loc.transactions.transactions_count}
                 </Text>
@@ -530,6 +481,22 @@ const WalletDetails = () => {
                   </View>
                 )}
               </View>
+              {wallet.type !== MultisigHDWallet.type && (
+                <>
+                  <Text style={[styles.textLabel2, stylesHook.textLabel2]}>{loc.wallets.ownership_proof}</Text>
+                  <View style={styles.addressProofContainer}>
+                    {isCopied ? (
+                      <View style={styles.address}>
+                        <BlueText style={stylesHook.textLabel2}>{loc.wallets.xpub_copiedToClipboard}</BlueText>
+                      </View>
+                    ) : ownershipProof ? (
+                      <BlueText onPress={onCopyToClipboard}>{ownershipProof}</BlueText>
+                    ) : (
+                      <ActivityIndicator />
+                    )}
+                  </View>
+                </>
+              )}
             </BlueCard>
             {(wallet instanceof AbstractHDElectrumWallet || (wallet.type === WatchOnlyWallet.type && wallet.isHd())) && (
               <BlueListItem onPress={navigateToAddresses} title={loc.wallets.details_show_addresses} chevron />
@@ -538,7 +505,9 @@ const WalletDetails = () => {
             <BlueCard style={styles.address}>
               <View>
                 <BlueSpacing20 />
-                <SecondButton onPress={navigateToWalletExport} testID="WalletExport" title={loc.wallets.details_export_backup} />
+                {wallet.type !== MultisigHDWallet.type && (
+                  <SecondButton onPress={navigateToWalletExport} testID="WalletExport" title={loc.wallets.details_export_backup} />
+                )}
                 {walletTransactionsLength > 0 && (
                   <>
                     <BlueSpacing20 />

@@ -18,7 +18,7 @@ export class NetworkTransactionFee {
 }
 
 export default class NetworkTransactionFees {
-  static recommendedFees() {
+  static electrumRecommendedFee() {
     // eslint-disable-next-line no-async-promise-executor
     return new Promise(async resolve => {
       try {
@@ -40,5 +40,21 @@ export default class NetworkTransactionFees {
         resolve(networkFee);
       }
     });
+  }
+
+  static async mempoolSpaceRecommendedFees() {
+    const response = await fetch('https://mempool.space/api/v1/fees/recommended');
+    const { fastestFee, halfHourFee, hourFee } = await response.json();
+    const networkFee = new NetworkTransactionFee(Number(fastestFee) + 1, halfHourFee, hourFee);
+    return networkFee;
+  }
+
+  static async recommendedFees() {
+    try {
+      return await NetworkTransactionFees.mempoolSpaceRecommendedFees();
+    } catch (error) {
+      // Fallback to Electrum
+      return NetworkTransactionFees.electrumRecommendedFee();
+    }
   }
 }

@@ -23,6 +23,7 @@ const WalletsAddMultisig = () => {
   const [format, setFormat] = useState(MultisigHDWallet.FORMAT_P2WSH);
   const { isAdvancedModeEnabled } = useContext(BlueStorageContext);
   const [isAdvancedModeEnabledRender, setIsAdvancedModeEnabledRender] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const stylesHook = StyleSheet.create({
     root: {
@@ -68,8 +69,11 @@ const WalletsAddMultisig = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const onLetsStartPress = () => {
+  const onLetsStartPress = async () => {
+    setIsLoading(true);
+    await new Promise(resolve => setTimeout(resolve, 100));
     navigate('WalletsAddMultisigStep2', { m, n, format, walletLabel });
+    setIsLoading(false);
   };
 
   const setFormatP2wsh = () => setFormat(MultisigHDWallet.FORMAT_P2WSH);
@@ -198,25 +202,20 @@ const WalletsAddMultisig = () => {
         <View style={styles.imageWrapper}>
           <LottieView source={require('../../img/msvault.json')} autoPlay ref={loadingAnimation} loop={false} />
         </View>
-        <BlueSpacing20 />
         <Text style={[styles.textdesc, stylesHook.textdesc]}>
-          {loc.multisig.what_is_vault}
-          <Text style={[styles.textdescBold, stylesHook.textdesc]}>
-            {loc.formatString(loc.multisig.what_is_vault_numberOfWallets, { m, n })}
-          </Text>
-          <Text style={[styles.textdesc, stylesHook.textdesc]}>{loc.multisig.what_is_vault_wallet}</Text>
+          <Text style={[styles.textdescBold, stylesHook.textdesc]}>{loc.multisig.what_is_multidevice}</Text>
         </Text>
-
         <BlueSpacing20 />
-
         <Text style={[styles.textdesc, stylesHook.textdesc]}>
-          {loc.multisig.needs}
-          <Text style={[styles.textdescBold, stylesHook.textdesc]}>
-            {loc.formatString(loc.multisig.what_is_vault_description_number_of_vault_keys, { m })}
-          </Text>
-          <Text style={[styles.textdesc, stylesHook.textdesc]}>
-            {m === 2 && n === 3 ? loc.multisig.what_is_vault_description_to_spend : loc.multisig.what_is_vault_description_to_spend_other}
-          </Text>
+          <Text style={[styles.textdescBold, stylesHook.textdesc]}>{loc.multisig.prepare_devices}</Text>
+        </Text>
+        <BlueSpacing20 />
+        <Text style={[styles.textdesc, stylesHook.textdesc]}>
+          <Text style={[styles.textdescBold, stylesHook.textdesc]}>{loc.multisig.qr_flow}</Text>
+        </Text>
+        <BlueSpacing20 />
+        <Text style={[styles.textdesc, stylesHook.textdesc]}>
+          <Text style={[styles.textdescBold, stylesHook.textdesc]}>{loc.multisig.done_explanation}</Text>
         </Text>
       </View>
       {isAdvancedModeEnabledRender && (
@@ -230,7 +229,12 @@ const WalletsAddMultisig = () => {
         </View>
       )}
       <View style={styles.buttonContainer}>
-        <BlueButton buttonTextColor={colors.buttonAlternativeTextColor} title={loc.multisig.lets_start} onPress={onLetsStartPress} />
+        <BlueButton
+          buttonTextColor={colors.buttonAlternativeTextColor}
+          title={loc.multisig.lets_start}
+          onPress={onLetsStartPress}
+          isLoading={isLoading}
+        />
       </View>
       {renderModal()}
     </SafeAreaView>
@@ -245,6 +249,8 @@ const styles = StyleSheet.create({
     alignContent: 'center',
     justifyContent: 'center',
     flex: 0.8,
+    padding: 24,
+    marginTop: 24,
   },
   modalContentShort: {
     paddingHorizontal: 24,
@@ -306,6 +312,7 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     flexDirection: 'row',
     height: 160,
+    marginBottom: 30,
   },
   rowCenter: {
     flexDirection: 'row',

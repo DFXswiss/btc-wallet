@@ -1,14 +1,17 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import LottieView from 'lottie-react-native';
 import { View, StyleSheet, SafeAreaView } from 'react-native';
 import { Text } from 'react-native-elements';
-import BigNumber from 'bignumber.js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
 
 import { BlueButton, BlueCard } from '../../BlueComponents';
 import { BitcoinUnit } from '../../models/bitcoinUnits';
 import loc from '../../loc';
+import TransactionIncomingIcon from '../../components/icons/TransactionIncomingIcon';
+import TransactionOutgoingIcon from '../../components/icons/TransactionOutgoingIcon';
+import Lnurl from '../../class/lnurl';
 
 const Success = () => {
   const pop = () => {
@@ -50,7 +53,13 @@ const Success = () => {
 
 export default Success;
 
-export const SuccessView = ({ amount, amountUnit, fee, invoiceDescription, shouldAnimate = true }) => {
+export const SuccessView = ({ amount, amountUnit, fee = 0, invoiceDescription, shouldAnimate = true, paymentHash, walletID }) => {
+  const { navigate } = useNavigation();
+  const [animationFinished, setAnimationFinished] = useState(false);
+  const [isRepeatable, setIsRepeatable] = useState(false);
+  const [description, setDescription] = useState('');
+  const [lnurl, setLnurl] = useState();
+
   const animationRef = useRef();
   const { colors } = useTheme();
 
@@ -73,57 +82,104 @@ export const SuccessView = ({ amount, amountUnit, fee, invoiceDescription, shoul
         animationRef.current?.reset();
         animationRef.current?.play();
       }, 100);
+      setTimeout(() => setAnimationFinished(true), 2000);
     }
   }, [colors, shouldAnimate]);
 
+  const loadPossibleLNURL = async () => {
+    try {
+      const LN = new Lnurl(false, AsyncStorage);
+      let localPaymentHash = paymentHash;
+      if (typeof localPaymentHash === 'object') {
+        localPaymentHash = Buffer.from(paymentHash.data).toString('hex');
+      }
+      const loaded = await LN.loadSuccessfulPayment(localPaymentHash);
+      if (loaded) {
+        setIsRepeatable(!LN.getDisposable());
+        setDescription(LN.getDescription());
+        setLnurl(LN.getLnurl());
+      }
+    } catch (_) {}
+  };
+
+  useEffect(() => {
+    loadPossibleLNURL();
+  }, [paymentHash]);
+
   return (
     <View style={styles.root}>
-      {amount || fee > 0 ? (
-        <BlueCard style={styles.amount}>
-          <View style={styles.view}>
-            {amount ? (
-              <>
-                <Text style={[styles.amountValue, stylesHook.amountValue]}>{amount}</Text>
-                <Text style={[styles.amountUnit, stylesHook.amountUnit]}>{' ' + loc.units[amountUnit]}</Text>
-              </>
-            ) : null}
+      <View>
+        {amount && (
+          <BlueCard style={styles.amount}>
+            <View style={styles.view}>
+              <Text style={[styles.amountValue, stylesHook.amountValue]}>{amount}</Text>
+              <Text style={[styles.amountUnit, stylesHook.amountUnit]}>{' ' + loc.units[amountUnit]}</Text>
+            </View>
+            <View style={styles.memo}>
+              <Text numberOfLines={0} style={styles.memoText}>
+                {description || invoiceDescription}
+              </Text>
+            </View>
+          </BlueCard>
+        )}
+        <View style={styles.iconsContainer}>
+          <View style={styles.ready}>
+            <LottieView
+              style={styles.lottie}
+              source={require('../../img/bluenice.json')}
+              autoPlay={shouldAnimate}
+              ref={animationRef}
+              loop={false}
+              progress={shouldAnimate ? 0 : 1}
+              colorFilters={[
+                {
+                  keypath: 'spark',
+                  color: colors.success,
+                },
+                {
+                  keypath: 'circle',
+                  color: colors.success,
+                },
+                {
+                  keypath: 'Oval',
+                  color: colors.successCheck,
+                },
+              ]}
+              resizeMode="center"
+            />
           </View>
-          {fee > 0 && (
-            <Text style={styles.feeText}>
-              {loc.send.create_fee}: {new BigNumber(fee).toFixed()} {loc.units[BitcoinUnit.BTC]}
-            </Text>
+          {(animationFinished || !shouldAnimate) && (
+            <View style={styles.txDirectionIcon}>{amount > 0 ? <TransactionIncomingIcon /> : <TransactionOutgoingIcon />}</View>
           )}
-          <Text numberOfLines={0} style={styles.feeText}>
-            {invoiceDescription}
-          </Text>
+        </View>
+        <BlueCard style={styles.amount}>
+          {amount < 0 && (
+            <View style={styles.view}>
+              <Text style={styles.feeText}>
+                {loc.send.create_fee.toLowerCase()}: {Math.abs(fee)} {loc.units[BitcoinUnit.SATS]}
+              </Text>
+            </View>
+          )}
         </BlueCard>
-      ) : null}
-
-      <View style={styles.ready}>
-        <LottieView
-          style={styles.lottie}
-          source={require('../../img/bluenice.json')}
-          autoPlay={shouldAnimate}
-          ref={animationRef}
-          loop={false}
-          progress={shouldAnimate ? 0 : 1}
-          colorFilters={[
-            {
-              keypath: 'spark',
-              color: colors.success,
-            },
-            {
-              keypath: 'circle',
-              color: colors.success,
-            },
-            {
-              keypath: 'Oval',
-              color: colors.successCheck,
-            },
-          ]}
-          resizeMode="center"
-        />
       </View>
+
+      {isRepeatable && (
+        <BlueCard>
+          <BlueButton
+            onPress={() => {
+              navigate('SendDetailsRoot', {
+                screen: 'LnurlPay',
+                params: {
+                  lnurl,
+                  walletID
+                },
+              });
+            }}
+            title={loc._.repeat}
+            icon={{ name: 'refresh', type: 'font-awesome', color: '#9aa0aa' }}
+          />
+        </BlueCard>
+      )}
     </View>
   );
 };
@@ -140,6 +196,7 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     paddingTop: 19,
+    justifyContent: 'space-between',
   },
   buttonContainer: {
     paddingHorizontal: 58,
@@ -171,13 +228,28 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     alignSelf: 'center',
   },
+  iconsContainer: {
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  txDirectionIcon: {
+    alignSelf: 'flex-end',
+  },
+  memo: {
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  memoText: {
+    color: '#9aa0aa',
+    fontSize: 14,
+  },
   ready: {
     width: 120,
     height: 120,
     borderRadius: 60,
     alignSelf: 'center',
     alignItems: 'center',
-    marginBottom: 53,
+    marginBottom: 13,
   },
   lottie: {
     width: 200,

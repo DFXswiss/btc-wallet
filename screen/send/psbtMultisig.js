@@ -1,10 +1,10 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { Icon } from 'react-native-elements';
 import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 
-import { BlueButton, BlueCard, BlueSpacing10, BlueText, SafeBlueArea } from '../../BlueComponents';
+import { BlueButton, BlueCard, BlueSpacing10, BlueSpacing40, BlueText, SafeBlueArea } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
 import loc, { formatBalanceWithoutSuffix } from '../../loc';
 import { BitcoinUnit } from '../../models/bitcoinUnits';
@@ -12,6 +12,7 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import alert from '../../components/Alert';
 import Biometric from '../../class/biometrics';
 import Notifications from '../../blue_modules/notifications';
+import { DynamicQRCode } from '../../components/DynamicQRCode';
 const bitcoin = require('bitcoinjs-lib');
 const BigNumber = require('bignumber.js');
 const currency = require('../../blue_modules/currency');
@@ -97,12 +98,7 @@ const PsbtMultisig = () => {
     else return _renderItemSigned(el);
   };
 
-  const navigateToPSBTMultisigQRCode = () => {
-    navigate('PsbtMultisigQRCode', { walletID, psbtBase64: psbt.toBase64(), isShowOpenScanner: isConfirmEnabled() });
-  };
-
   const _renderItemUnsigned = el => {
-    const renderProvideSignature = el.index === howManySignaturesWeHave;
     return (
       <View testID="ItemUnsigned">
         <View style={styles.itemUnsignedWrapper}>
@@ -115,21 +111,6 @@ const PsbtMultisig = () => {
             </Text>
           </View>
         </View>
-
-        {renderProvideSignature && (
-          <View>
-            <TouchableOpacity
-              accessibilityRole="button"
-              testID="ProvideSignature"
-              style={[styles.provideSignatureButton, stylesHook.provideSignatureButton]}
-              onPress={navigateToPSBTMultisigQRCode}
-            >
-              <Text style={[styles.provideSignatureButtonText, stylesHook.provideSignatureButtonText]}>
-                {loc.multisig.provide_signature}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </View>
     );
   };
@@ -305,7 +286,7 @@ const PsbtMultisig = () => {
       <View style={styles.container}>
         <View style={styles.mstopcontainer}>
           <View style={styles.mscontainer}>
-            <View style={[styles.msleft, { height: flatListHeight - 260 }]} />
+            <View style={[styles.msleft, { height: flatListHeight - 120 }]} />
           </View>
           <View style={styles.msright}>
             <BlueCard>
@@ -315,10 +296,8 @@ const PsbtMultisig = () => {
                 renderItem={_renderItem}
                 keyExtractor={(_item, index) => `${index}`}
                 ListHeaderComponent={header}
-                ListFooterComponent={<View style={styles.footerSpacing} />}
               />
             </BlueCard>
-          </View>
         </View>
       </View>
       <View style={styles.bottomWrapper}>
@@ -329,11 +308,32 @@ const PsbtMultisig = () => {
           <BlueText>{loc.formatString(loc.multisig.fee_btc, { number: currency.satoshiToBTC(getFee()) })}</BlueText>
         </View>
       </View>
-      <View style={styles.marginConfirmButton}>
-        <BlueButton disabled={hasSigned || isConfirmEnabled()} title={"Sign"} isLoading={isSignign} onPress={onSign} testID="PsbtMultisigSignButton" />
-        <BlueSpacing10 />
-        <BlueButton disabled={!isConfirmEnabled()} loading={isBroadcasting} title={loc.send.confirm_sendNow} onPress={onConfirm} testID="PsbtMultisigConfirmButton" />
       </View>
+      {isTxSigned ? (
+        <>
+          <BlueSpacing10 />
+          <DynamicQRCode value={psbt.toHex()} />
+          <BlueSpacing40 />
+        </>
+      ) : (
+        <View style={styles.marginConfirmButton}>
+          <BlueButton
+            disabled={hasSigned || isConfirmEnabled()}
+            title={'Sign'}
+            isLoading={isSignign}
+            onPress={onSign}
+            testID="PsbtMultisigSignButton"
+          />
+          <BlueSpacing10 />
+          <BlueButton
+            disabled={!isConfirmEnabled()}
+            loading={isBroadcasting}
+            title={loc.send.confirm_sendNow}
+            onPress={onConfirm}
+            testID="PsbtMultisigConfirmButton"
+          />
+        </View>
+      )}
     </SafeBlueArea>
   );
 };
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flexDirection: 'column',
-    paddingTop: 24,
+    paddingTop: 18,
     flex: 1,
   },
   containerText: {
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
   textFiat: {
     fontSize: 16,
     fontWeight: '500',
-    marginBottom: 30,
+    marginBottom: 22,
   },
   textBtc: {
     fontWeight: 'bold',
@@ -428,7 +428,6 @@ const styles = StyleSheet.create({
   flexDirectionRow: { flexDirection: 'row', paddingVertical: 12 },
   textBtcUnit: { justifyContent: 'flex-end' },
   bottomFeesWrapper: { justifyContent: 'center', alignItems: 'center', flexDirection: 'row' },
-  bottomWrapper: { marginTop: 16 },
   marginConfirmButton: { marginTop: 16, marginHorizontal: 32, marginBottom: 48 },
   height80: {
     height: 80,

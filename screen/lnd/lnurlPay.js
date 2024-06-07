@@ -7,8 +7,10 @@ import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import {
   BlueButton,
   BlueCard,
+  BlueCopyTextToClipboard,
   BlueDismissKeyboardInputAccessory,
   BlueLoading,
+  BlueSpacing10,
   BlueSpacing20,
   BlueText,
   SafeBlueArea,
@@ -17,11 +19,11 @@ import navigationStyle from '../../components/navigationStyle';
 import AmountInput from '../../components/AmountInput';
 import Lnurl from '../../class/lnurl';
 import { BitcoinUnit } from '../../models/bitcoinUnits';
-import loc, { formatBalance } from '../../loc';
+import loc from '../../loc';
 import Biometric from '../../class/biometrics';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import alert from '../../components/Alert';
-const prompt = require('../../helpers/prompt');
+import { Text } from 'react-native-elements';
 const currency = require('../../blue_modules/currency');
 
 /**
@@ -33,7 +35,7 @@ const _cacheFiatToSat = {};
 
 const LnurlPay = () => {
   const { wallets, fetchAndSaveWalletTransactions } = useContext(BlueStorageContext);
-  const { walletID, lnurl, amountSat } = useRoute().params;
+  const { walletID, lnurl, amountSat, destination, invoice, amountUnit, description } = useRoute().params;
   /** @type {LightningCustodianWallet} */
   const wallet = wallets.find(w => w.getID() === walletID);
   const [unit, setUnit] = useState(wallet.getPreferredBalanceUnit());
@@ -43,16 +45,22 @@ const LnurlPay = () => {
   const [payload, setPayload] = useState();
   const { pop, navigate } = useNavigation();
   const [amount, setAmount] = useState();
+  const [desc, setDesc] = useState();
   const { colors } = useTheme();
   const stylesHook = StyleSheet.create({
     root: {
       backgroundColor: colors.background,
     },
+    input: {
+      color: colors.alternativeTextColor2,
+    },
   });
 
   useEffect(() => {
-    if (lnurl) {
-      const ln = new Lnurl(lnurl, AsyncStorage);
+    const isLightningAddress = destination && Lnurl.isLightningAddress(destination);
+    if (lnurl || isLightningAddress) {
+      const recepient = isLightningAddress ? destination : lnurl;
+      const ln = new Lnurl(recepient, AsyncStorage);
       ln.callLnurlPayService()
         .then(setPayload)
         .catch(error => {
@@ -60,9 +68,18 @@ const LnurlPay = () => {
           pop();
         });
       setLN(ln);
+      setDesc(description);
       setIsLoading(false);
     }
   }, [lnurl, pop]);
+
+  useEffect(() => {
+    if (invoice) {
+      setAmount(amountSat);
+      setUnit(amountUnit);
+      setIsLoading(false);
+    }
+  }, [invoice]);
 
   useEffect(() => {
     setPayButtonDisabled(isLoading);
@@ -88,13 +105,54 @@ const LnurlPay = () => {
           break;
       }
       setAmount(newAmount);
+      setDesc(payload?.description);
     }
   }, [payload]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const pay = async () => {
-    setPayButtonDisabled(true);
+  const handleBolt11Invoice = async amountSats => {
     /** @type {Lnurl} */
     const LN = _LN;
+
+    let bolt11payload;
+    let comment;
+    if (LN.getCommentAllowed()) {
+      comment = description;
+    }
+
+    bolt11payload = await LN.requestBolt11FromLnurlPayService(amountSats, comment);
+    await wallet.payInvoice(bolt11payload.pr);
+    const decoded = wallet.decodeInvoice(bolt11payload.pr);
+    setPayButtonDisabled(false);
+
+    // success, probably
+    ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
+    if (wallet.last_paid_invoice_result && wallet.last_paid_invoice_result.payment_preimage) {
+      await LN.storeSuccess(decoded.payment_hash, wallet.last_paid_invoice_result.payment_preimage);
+    }
+
+    navigate('SendDetailsRoot', {
+      screen: 'LnurlPaySuccess',
+      params: {
+        paymentHash: decoded.payment_hash,
+        justPaid: true,
+        fromWalletID: walletID,
+      },
+    });
+  };
+
+  const handleLnInvoice = async amountSats => {
+    await wallet.payInvoice(invoice, amountSats);
+    const decoded = wallet.decodeInvoice(invoice);
+    navigate('Success', {
+      amount: amountSats,
+      amountUnit: BitcoinUnit.SATS,
+      invoiceDescription: decoded.description,
+    });
+    fetchAndSaveWalletTransactions(wallet.getID());
+  };
+
+  const pay = async () => {
+    setPayButtonDisabled(true);
 
     const isBiometricsEnabled = await Biometric.isBiometricUseCapableAndEnabled();
     if (isBiometricsEnabled) {
@@ -120,32 +178,13 @@ const LnurlPay = () => {
         break;
     }
 
-    let bolt11payload;
     try {
-      let comment;
-      if (LN.getCommentAllowed()) {
-        comment = await prompt('Comment', '', false, 'plain-text');
+      if (invoice) {
+        await handleLnInvoice(amountSats);
+      } else {
+        await handleBolt11Invoice(amountSats);
       }
 
-      bolt11payload = await LN.requestBolt11FromLnurlPayService(amountSats, comment);
-      await wallet.payInvoice(bolt11payload.pr);
-      const decoded = wallet.decodeInvoice(bolt11payload.pr);
-      setPayButtonDisabled(false);
-
-      // success, probably
-      ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
-      if (wallet.last_paid_invoice_result && wallet.last_paid_invoice_result.payment_preimage) {
-        await LN.storeSuccess(decoded.payment_hash, wallet.last_paid_invoice_result.payment_preimage);
-      }
-
-      navigate('SendDetailsRoot', {
-        screen: 'LnurlPaySuccess',
-        params: {
-          paymentHash: decoded.payment_hash,
-          justPaid: true,
-          fromWalletID: walletID,
-        },
-      });
       fetchAndSaveWalletTransactions(wallet.getID());
       setIsLoading(false);
     } catch (Err) {
@@ -157,26 +196,28 @@ const LnurlPay = () => {
     }
   };
 
+  const getFees = () => {
+    const min = 0;
+    const max = Math.floor(amount * 0.03);
+    return `${min} ${BitcoinUnit.SATS} - ${max} ${BitcoinUnit.SATS}`;
+  };
+
   const renderGotPayload = () => {
     return (
-      <SafeBlueArea>
-        <ScrollView contentContainertyle={{ justifyContent: 'space-around' }}>
+      <SafeBlueArea style={styles.payRoot}>
+        <ScrollView>
           <BlueCard>
             <AmountInput
               isLoading={isLoading}
               amount={amount && amount.toString()}
               onAmountUnitChange={setUnit}
               onChangeText={setAmount}
-              disabled={payload && payload.fixed}
+              disabled={true}
               unit={unit}
               inputAccessoryViewID={BlueDismissKeyboardInputAccessory.InputAccessoryViewID}
+              inputStyle={stylesHook.input}
+              unitStyle={stylesHook.input}
             />
-            <BlueText style={styles.alignSelfCenter}>
-              {loc.formatString(loc.lndViewInvoice.please_pay_between_and, {
-                min: formatBalance(payload?.min, unit),
-                max: formatBalance(payload?.max, unit),
-              })}
-            </BlueText>
             <BlueSpacing20 />
             {payload?.image && (
               <>
@@ -184,13 +225,40 @@ const LnurlPay = () => {
                 <BlueSpacing20 />
               </>
             )}
-            <BlueText style={styles.alignSelfCenter}>{payload?.description}</BlueText>
-            <BlueText style={styles.alignSelfCenter}>{payload?.domain}</BlueText>
-            <BlueSpacing20 />
-            {payButtonDisabled ? <BlueLoading /> : <BlueButton title={loc.lnd.payButton} onPress={pay} />}
-            <BlueSpacing20 />
+            {description && (
+              <>
+                <BlueText style={styles.alignSelfCenter}>{description}</BlueText>
+                <BlueSpacing10 />
+              </>
+            )}
+            {desc && (
+              <>
+                <BlueText style={styles.alignSelfCenter}>{desc}</BlueText>
+                <BlueSpacing10 />
+              </>
+            )}
+            {payload?.domain && (
+              <>
+                <BlueText style={styles.alignSelfCenter}>{payload?.domain}</BlueText>
+                <BlueSpacing10 />
+              </>
+            )}
+            {invoice && <BlueCopyTextToClipboard text={invoice} truncated />}
           </BlueCard>
         </ScrollView>
+        <View style={styles.buttonContainer}>
+          {payButtonDisabled ? (
+            <BlueLoading />
+          ) : (
+            <>
+              <Text style={styles.fees}>
+                {loc.send.create_fee}: {getFees()}
+              </Text>
+              <BlueButton title={loc.lnd.payButton} onPress={pay} />
+            </>
+          )}
+          <BlueSpacing20 />
+        </View>
       </SafeBlueArea>
     );
   };
@@ -214,6 +282,22 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     justifyContent: 'center',
+  },
+  buttonContainer: {
+    paddingHorizontal: 16,
+  },
+  payRoot: {
+    flex: 1,
+  },
+  fees: {
+    flexDirection: 'row',
+    color: '#37c0a1',
+    fontSize: 14,
+    marginVertical: 8,
+    marginHorizontal: 24,
+    paddingBottom: 6,
+    fontWeight: '500',
+    alignSelf: 'center',
   },
 });
 

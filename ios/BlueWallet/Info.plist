@@ -364,10 +364,5 @@
 			</dict>
 		</dict>
 	</array>
-	<key>bugsnag</key>
-	<dict>
-		<key>apiKey</key>
-		<string>xxx</string>
-	</dict>
 </dict>
 </plist>

@@ -12,7 +12,7 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { HDSegwitBech32Wallet, WatchOnlyWallet } from '../../class';
 import { AbstractHDElectrumWallet } from '../../class/wallets/abstract-hd-electrum-wallet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NetworkTransactionFees, { NetworkTransactionFee } from '../../models/networkTransactionFees';
+import { NetworkTransactionFee } from '../../models/networkTransactionFees';
 import BigNumber from 'bignumber.js';
 import { Chain } from '../../models/bitcoinUnits';
 const currency = require('../../blue_modules/currency');
@@ -72,24 +72,8 @@ const Sell = () => {
     if (wallet.chain === Chain.ONCHAIN) {
       const isTransactionReplaceable = wallet.type === HDSegwitBech32Wallet.type;
 
-      // load cached fees
-      AsyncStorage.getItem(NetworkTransactionFee.StorageKey)
-        .then(res => {
-          if (!res) return;
-          const fees = JSON.parse(res);
-          if (!fees?.fastestFee) return;
-          setNetworkTransactionFees(fees);
-        })
-        .catch(e => console.log('loading cached recommendedFees error', e));
-
-      // load fresh fees from servers
-      NetworkTransactionFees.recommendedFees()
-        .then(async fees => {
-          if (!fees?.fastestFee) return;
-          setNetworkTransactionFees(fees);
-          await AsyncStorage.setItem(NetworkTransactionFee.StorageKey, JSON.stringify(fees));
-        })
-        .catch(e => console.log('loading recommendedFees error', e));
+      const networkTransactionFees: NetworkTransactionFee = await AsyncStorage.getItem(NetworkTransactionFee.StorageKey)
+        .then(res => JSON.parse(res as string))
 
       const changeAddress = await getChangeAddressAsync(wallet);
       const requestedSatPerByte = Number(networkTransactionFees.fastestFee);

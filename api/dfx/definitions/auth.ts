@@ -1,9 +1,9 @@
-export const AuthUrl = { signMessage: 'auth/signMessage', signIn: 'auth/signIn', signUp: 'auth/signUp' };
+export const AuthUrl = { signMessage: 'auth/signMessage', auth: 'auth/'};
 
 export interface SignMessage {
   message: string;
 }
 
-export interface SignIn {
+export interface Auth {
   accessToken: string;
 }

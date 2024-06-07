@@ -1,10 +1,12 @@
 import React, { createContext, PropsWithChildren, useContext, useMemo } from 'react';
 import { BlueStorageContext } from '../blue_modules/storage-context';
+import { useAuth } from '../api/dfx/hooks/auth.hook';
 
 interface WalletInterface {
   walletID?: string;
   address?: string;
   signMessage: (message: string, address: string) => Promise<string>;
+  getOwnershipProof: () => Promise<string>;
 }
 
 const WalletContext = createContext<WalletInterface>(undefined as any);
@@ -14,7 +16,8 @@ export function useWalletContext(): WalletInterface {
 }
 
 export function WalletContextProvider(props: PropsWithChildren<any>): JSX.Element {
-  const { wallets, walletsInitialized } = useContext(BlueStorageContext);
+  const { wallets, walletsInitialized, saveToDisk } = useContext(BlueStorageContext);
+  const { getSignMessage } = useAuth();
 
   function getAddress(): string | undefined {
     const wallet = wallets?.[0];
@@ -24,6 +27,21 @@ export function WalletContextProvider(props: PropsWithChildren<any>): JSX.Elemen
     } else {
       return wallet.getAddress?.();
     }
+  }
+
+  const getOwnershipProof = async (): Promise<string> => {
+    const wallet = wallets?.[0];
+    if (!wallet) return '';
+
+    if (!wallet.addressOwnershipProof) {
+      const mainAddress = getAddress();
+      const m = getSignMessage(mainAddress as string);
+      const proof = await wallet.signMessage(m, mainAddress);
+      wallet.addressOwnershipProof = proof;
+      await saveToDisk();
+    }
+
+    return wallet.addressOwnershipProof
   }
 
   const context: WalletInterface = useMemo(() => {
@@ -38,6 +56,7 @@ export function WalletContextProvider(props: PropsWithChildren<any>): JSX.Elemen
           throw e;
         }
       },
+      getOwnershipProof
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallets, walletsInitialized]);

@@ -87,6 +87,7 @@ import PaymentCodesList from './screen/wallets/paymentCodesList';
 import loc from './loc';
 import Asset from './screen/wallets/asset';
 import AddLightning from './screen/wallets/dfx/add-lightning';
+import LNDReceive from './screen/lnd/lndReceive';
 
 const WalletsStack = createNativeStackNavigator();
 
@@ -323,6 +324,11 @@ const ReceiveDetailsStackRoot = () => {
         name="LNDCreateInvoice"
         component={LNDCreateInvoice}
         options={LNDCreateInvoice.navigationOptions(theme)}
+      />
+      <ReceiveDetailsStack.Screen
+        name="LNDReceive"
+        component={LNDReceive}
+        options={LNDReceive.navigationOptions(theme)}
       />
       <ReceiveDetailsStack.Screen name="SelectWallet" component={SelectWallet} options={SelectWallet.navigationOptions(theme)} />
       <ReceiveDetailsStack.Screen name="LNDViewInvoice" component={LNDViewInvoice} options={LNDViewInvoice.navigationOptions(theme)} />
