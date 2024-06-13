@@ -40,7 +40,8 @@ class DeeplinkSchemaMatch {
       event.url.toLowerCase().startsWith('dfxtaro:bitcoin:') ||
       event.url.toLowerCase().startsWith('dfxtaro:lightning:')
     ) {
-      event.url = event.url.substring(11);
+      event.url = event.url.replace('bluewallet:', '');
+      event.url = event.url.replace('dfxtaro:', '');
     } else if (event.url.toLocaleLowerCase().startsWith('bluewallet://widget?action=')) {
       event.url = event.url.substring('bluewallet://'.length);
     }
