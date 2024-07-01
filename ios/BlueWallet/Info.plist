@@ -364,5 +364,12 @@
 			</dict>
 		</dict>
 	</array>
+	<key>NFCReaderUsageDescription</key>
+	<string>DFX wallet needs to uses NFC to scan BoltCards.</string>
+	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
+	<array>
+		<string>D2760000850100</string>
+		<string>D2760000850101</string>
+	</array>
 </dict>
 </plist>

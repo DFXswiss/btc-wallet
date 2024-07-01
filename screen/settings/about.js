@@ -1,5 +1,16 @@
-import React, { useContext } from 'react';
-import { TouchableOpacity, ScrollView, Linking, Image, View, Text, StyleSheet, useWindowDimensions, Platform, Alert } from 'react-native';
+import React, { useContext, useState } from 'react';
+import {
+  TouchableOpacity,
+  ScrollView,
+  Linking,
+  Image,
+  View,
+  Text,
+  StyleSheet,
+  useWindowDimensions,
+  Platform,
+  Alert,
+} from 'react-native';
 import { useNavigation, useTheme } from '@react-navigation/native';
 import { Icon } from 'react-native-elements';
 import { getApplicationName, getVersion, getBundleId, getBuildNumber, getUniqueId, hasGmsSync } from 'react-native-device-info';
@@ -8,7 +19,6 @@ import { BlueButton, BlueCard, BlueListItem, BlueSpacing20, BlueTextCentered } f
 import navigationStyle from '../../components/navigationStyle';
 import loc, { formatStringAddTwoWhiteSpaces } from '../../loc';
 import Clipboard from '@react-native-clipboard/clipboard';
-import { BlueStorageContext } from '../../blue_modules/storage-context';
 import alert from '../../components/Alert';
 import { HDSegwitBech32Wallet } from '../../class';
 import Config from 'react-native-config';
@@ -20,7 +30,6 @@ const About = () => {
   const { navigate } = useNavigation();
   const { colors } = useTheme();
   const { width, height } = useWindowDimensions();
-  const { isElectrumDisabled } = useContext(BlueStorageContext);
   const styles = StyleSheet.create({
     copyToClipboard: {
       justifyContent: 'center',

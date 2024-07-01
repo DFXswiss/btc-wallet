@@ -174,7 +174,7 @@ const WalletDetails = () => {
   }
 
   const deleteCurrentWallet = () => {
-    dispatch(StackActions.pop());
+    navigate('WalletTransactions');
     deleteWallet(wallet);
     saveToDisk();
   };

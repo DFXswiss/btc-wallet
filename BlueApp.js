@@ -43,6 +43,8 @@ class AppStorage {
   static ADVANCED_MODE_ENABLED = 'advancedmodeenabled';
   static DO_NOT_TRACK = 'donottrack';
   static HANDOFF_STORAGE_KEY = 'HandOff';
+  static PAY_CARD = 'PAY_CARD';
+  static FF_LDS_DEV_API = 'ff_lds_dev_api';
 
   static keys2migrate = [AppStorage.HANDOFF_STORAGE_KEY, AppStorage.DO_NOT_TRACK, AppStorage.ADVANCED_MODE_ENABLED];
 
@@ -396,8 +398,8 @@ class AppStorage {
             break;
           case LightningCustodianWallet.type:
           case LightningLdsWallet.type: {
-            /** @type {LightningCustodianWallet} */
-            unserializedWallet = LightningCustodianWallet.fromJson(key);
+            unserializedWallet =
+              tempObj.type === LightningCustodianWallet.type ? LightningCustodianWallet.fromJson(key) : LightningLdsWallet.fromJson(key);
             let lndhub = false;
             try {
               lndhub = await AsyncStorage.getItem(AppStorage.LNDHUB);
@@ -835,6 +837,28 @@ class AppStorage {
 
   setIsAdvancedModeEnabled = async value => {
     await AsyncStorage.setItem(AppStorage.ADVANCED_MODE_ENABLED, value ? '1' : '');
+  };
+
+  isPayCardEnabled = async () => {
+    try {
+      return !!(await AsyncStorage.getItem(AppStorage.PAY_CARD));
+    } catch (_) {}
+    return false;
+  };
+
+  setIsPayCardEnabled = async value => {
+    await AsyncStorage.setItem(AppStorage.PAY_CARD, value ? '1' : '');
+  };
+
+  isLdsDevEnabled = async () => {
+    try {
+      return !!(await AsyncStorage.getItem(AppStorage.FF_LDS_DEV_API));
+    } catch (_) {}
+    return false;
+  };
+
+  setIsLdsDevEnabled = async value => {
+    await AsyncStorage.setItem(AppStorage.FF_LDS_DEV_API, value ? '1' : '');
   };
 
   isHandoffEnabled = async () => {

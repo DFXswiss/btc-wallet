@@ -176,15 +176,9 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
       !isProcessing &&
       connect(wallets.filter((w: any) => w.type !== MultisigHDWallet.type).map((w: any) => w.getID()))
         .then(() => setIsInitialized(true))
-        .catch(e =>
-          Alert.alert('Something went wrong', e.message?.toString(), [
-            {
-              text: loc._.ok,
-              onPress: () => { },
-              style: 'default',
-            },
-          ]),
-        );
+        .catch(e => {
+          console.error('DFX session init error: ', e.message?.toString());
+        });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallets]);
 

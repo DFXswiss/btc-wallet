@@ -43,7 +43,7 @@ const LnurlPay = () => {
   const [_LN, setLN] = useState();
   const [payButtonDisabled, setPayButtonDisabled] = useState(true);
   const [payload, setPayload] = useState();
-  const { pop, navigate } = useNavigation();
+  const { pop, navigate, goBack } = useNavigation();
   const [amount, setAmount] = useState();
   const [desc, setDesc] = useState();
   const { colors } = useTheme();
@@ -93,6 +93,7 @@ const LnurlPay = () => {
       let newAmount = (originalSatAmount = amountSat ?? LN.getMin());
       if (!newAmount) {
         alert('Internal error: incorrect LNURL amount');
+        goBack();
         return;
       }
       switch (unit) {
@@ -198,7 +199,7 @@ const LnurlPay = () => {
 
   const getFees = () => {
     const min = 0;
-    const max = Math.floor(amount * 0.03);
+    const max = Math.round(amountSat * 0.03);
     return `${min} ${BitcoinUnit.SATS} - ${max} ${BitcoinUnit.SATS}`;
   };
 
@@ -225,7 +226,7 @@ const LnurlPay = () => {
                 <BlueSpacing20 />
               </>
             )}
-            {description && (
+            {description && (desc !== description) && (
               <>
                 <BlueText style={styles.alignSelfCenter}>{description}</BlueText>
                 <BlueSpacing10 />

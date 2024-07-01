@@ -261,9 +261,9 @@ const LNDCreateInvoice = () => {
         // we are here by mistake. user wants to SEND to lnurl-pay, but he is on a screen that creates
         // invoices (including through lnurl-withdraw)
         navigate('SendDetailsRoot', {
-          screen: 'LnurlPay',
+          screen: 'ScanLndInvoice',
           params: {
-            lnurl: data,
+            uri: data,
             walletID: walletID ?? wallet.current.getID(),
           },
         });

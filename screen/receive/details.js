@@ -252,10 +252,8 @@ const ReceiveDetails = () => {
 
   const renderReceiveDetails = () => {
     return (
-      <KeyboardAvoidingView
-        enabled={!Platform.isPad}
-        behavior="position"
-      >
+      <ScrollView contentInsetAdjustmentBehavior="automatic">
+        <KeyboardAvoidingView enabled={!Platform.isPad} behavior="position" keyboardVerticalOffset={50}>
         <View style={styles.scrollBody}>
           <QRCodeComponent value={bip21encoded} />
           <BlueCopyTextToClipboard text={isCustom ? bip21encoded : address} textStyle={{ marginVertical: 24 }} />
@@ -297,6 +295,7 @@ const ReceiveDetails = () => {
         </View>
         <BlueDismissKeyboardInputAccessory />
       </KeyboardAvoidingView>
+      </ScrollView>
     );
   };
 

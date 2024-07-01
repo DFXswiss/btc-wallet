@@ -55,6 +55,11 @@ const hardcodedPeers = [
   { host: 'electrum1.bluewallet.io', ssl: '443' },
   { host: 'electrum.acinq.co', ssl: '50002' },
   { host: 'electrum.bitaroo.net', ssl: '50002' },
+  { host: 'VPS.hsmiths.com', tcp: '50001', ssl: '50002' },
+  { host: 'helicarrier.bauerj.eu', tcp: '50001', ssl: '50002' },
+  { host: 'node.xbt.eu', tcp: '50001', ssl: '50002' },
+  { host: 'electrumx.not.fyi', tcp: '50001', ssl: '50002' },
+  { host: 'kirsche.emzy.de', tcp: '50001', ssl: '50002' },
 ];
 
 /** @type {ElectrumClient} */
@@ -147,6 +152,7 @@ async function connectMain() {
     const ver = await mainClient.initElectrum({ client: 'bluewallet', version: '1.4' });
     if (ver && ver[0]) {
       console.log('connected to ', ver);
+      connectionAttempt = 0;
       serverName = ver[0];
       mainConnected = true;
       wasConnectedAtLeastOnce = true;
@@ -188,13 +194,11 @@ async function connectMain() {
     console.log('retry');
     connectionAttempt = connectionAttempt + 1;
     mainClient.close && mainClient.close();
-    if (connectionAttempt >= 5) {
-      presentNetworkErrorAlert(usingPeer);
-    } else {
       console.log('reconnection attempt #', connectionAttempt);
-      await new Promise(resolve => setTimeout(resolve, 500)); // sleep
+    // quadratic backoff: 1st retry 100ms, 2nd 400ms, 3rd 900ms, 4th 1.6secs, 5th 2.5secs, 6th 3.6secs ...
+    await new Promise(resolve => setTimeout(resolve, 100 * connectionAttempt * connectionAttempt));
+    if (connectionAttempt > 30) connectionAttempt = 0; // speedup again after 2min
       return connectMain();
-    }
   }
 }
 

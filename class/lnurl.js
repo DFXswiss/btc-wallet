@@ -177,7 +177,7 @@ export default class Lnurl {
 
   async callLnurlPayService() {
     if (!this._lnurl) throw new Error('this._lnurl is not set');
-    const url = Lnurl.getUrlFromLnurl(this._lnurl);
+    const url = Lnurl.getUrlFromLnurl(this._lnurl).replace('lightning:', '').replace('lightning=', '').replace('lnurlp://', 'https://');
     // calling the url
     const reply = await this.fetchGet(url);
 

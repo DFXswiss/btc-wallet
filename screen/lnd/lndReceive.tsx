@@ -10,11 +10,20 @@ import {
   Text,
   TouchableOpacity,
   ActivityIndicator,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import Share from 'react-native-share';
-import { BlueButton, BlueDismissKeyboardInputAccessory, BlueWalletSelect, BlueCard, BlueCopyTextToClipboard, BlueSpacing20, BlueSpacing40 } from '../../BlueComponents';
+import {
+  BlueButton,
+  BlueDismissKeyboardInputAccessory,
+  BlueWalletSelect,
+  BlueCopyTextToClipboard,
+  BlueSpacing40,
+  SecondButton,
+} from '../../BlueComponents';
 import QRCodeComponent from '../../components/QRCodeComponent';
 import navigationStyle from '../../components/navigationStyle';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
@@ -23,6 +32,8 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import Notifications from '../../blue_modules/notifications';
 import useInputAmount from '../../hooks/useInputAmount';
 import { SuccessView } from '../send/success';
+import { useNFC } from '../../hooks/nfc.hook';
+import BoltCard from '../../class/boltcard';
 
 interface RouteParams {
   walletID: string;
@@ -43,6 +54,9 @@ const LNDReceive = () => {
   const [invoiceRequest, setInvoiceRequest] = useState();
   const invoicePolling = useRef<NodeJS.Timer | undefined>();
   const [isPaid, setIsPaid] = useState(false);
+  const inputAmountRef = useRef<TextInput | null>(null);
+  const inputDescriptionRef = useRef<TextInput | null>(null);
+  const { isNfcActive, startReading, stopReading } = useNFC();
 
   const styleHooks = StyleSheet.create({
     customAmount: {
@@ -57,6 +71,13 @@ const LNDReceive = () => {
       backgroundColor: colors.elevated,
     },
   });
+
+  useEffect(() => {
+    return () => {
+      cancelInvoicePolling();
+      stopReading();
+    };
+  }, []);
 
   useEffect(() => {
     if (wallet.current && wallet.current.getID() !== walletID) {
@@ -82,15 +103,13 @@ const LNDReceive = () => {
       const userInvoices = await wallet.current.getUserInvoices(20);
       const updatedUserInvoice = userInvoices.find(i => i.payment_request === invoice);
       if (!updatedUserInvoice) {
-        cancelInvoicePolling();
-        setInvoiceRequest(undefined);
         return;
       }
 
       if (updatedUserInvoice.ispaid) {
         cancelInvoicePolling();
         setInvoiceRequest(undefined);
-        if(updatedUserInvoice.description){
+        if (updatedUserInvoice.description) {
           setDescription(updatedUserInvoice.description);
         }
         setIsPaid(true);
@@ -110,15 +129,36 @@ const LNDReceive = () => {
     }, 3000);
   };
 
+  const handleNfcRead = (pr: string) => async (payload: string) => {
+    setIsInvoiceLoading(true);
+    if (BoltCard.isBoltcardWidthdrawUrl(payload)) {
+      await stopReading();
+      const { isError, reason } = await BoltCard.widthdraw(payload, pr);
+      if (isError) {
+        alert(reason);
+        setIsInvoiceLoading(false);
+      }
+    }
+  };
+
+  const startNfcOnIos = () => {
+    if (isNfcActive) stopReading();
+    if (invoiceRequest) {
+      startReading(handleNfcRead(invoiceRequest));
+    }
+  };
+
   const generateInvoice = async () => {
-    if (!Keyboard.isVisible()) return;
+    if (isInvoiceLoading) return;
+    if (isNfcActive) stopReading();
+    setIsInvoiceLoading(true);
     Keyboard.dismiss();
 
     if (amountSats === 0 || isNaN(amountSats)) {
       setInvoiceRequest(undefined);
+      setIsInvoiceLoading(false);
       return;
     }
-    setIsInvoiceLoading(true);
     const invoiceRequest = await wallet.current.addInvoice(amountSats, description);
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
     const decoded = await wallet.current.decodeInvoice(invoiceRequest);
@@ -132,16 +172,9 @@ const LNDReceive = () => {
     }, 1000);
 
     setInvoiceRequest(invoiceRequest);
+    if (Platform.OS === 'android') startReading(handleNfcRead(invoiceRequest));
     setIsInvoiceLoading(false);
   };
-
-  useEffect(() => {
-    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', generateInvoice);
-    return () => {
-      keyboardDidHideListener.remove();
-      cancelInvoicePolling();
-    };
-  }, []);
 
   const onWalletChange = (id: string) => {
     const newWallet = wallets.find(w => w.getID() === id);
@@ -149,6 +182,13 @@ const LNDReceive = () => {
 
     if (newWallet.chain !== Chain.OFFCHAIN) {
       return replace('ReceiveDetails', { walletID: id });
+    }
+  };
+
+  const handleOnBlur = () => {
+    const isFocusOnSomeInput = inputAmountRef.current?.isFocused() || inputDescriptionRef.current?.isFocused();
+    if (!isFocusOnSomeInput) {
+      generateInvoice();
     }
   };
 
@@ -169,65 +209,90 @@ const LNDReceive = () => {
   }
 
   return (
-    <KeyboardAvoidingView behavior="position" style={[styles.root, styleHooks.root]}>
-      <TouchableWithoutFeedback onPress={generateInvoice} accessible={false}>
-        <View style={styles.allVerticalSpace}>
-          <View style={styles.pickerContainer}>
-            <BlueWalletSelect wallets={wallets} value={wallet.current?.getID()} onChange={onWalletChange} />
-          </View>
-          <View style={styles.allHeight}>
-            <View style={[styles.scrollBody]}>
-              <View style={styles.grow} />
-              {isInvoiceLoading ? (
-                <ActivityIndicator />
-              ) : (
-                <>
-                  <QRCodeComponent value={invoiceRequest ? invoiceRequest : wallet.current.lnAddress} />
-                  <BlueCopyTextToClipboard text={invoiceRequest || wallet.current.lnAddress} truncated={Boolean(invoiceRequest)} />
-                </>
-              )}
-              <View style={styles.grow} />
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false} style={styles.flex}>
+      <ScrollView contentContainerStyle={styles.grow}>
+        <KeyboardAvoidingView behavior="position" contentContainerStyle={[styleHooks.root, styles.flex]} style={[styles.flex]}>
+          <View style={[styles.flex, styles.grow]}>
+            <View style={styles.pickerContainer}>
+              <BlueWalletSelect wallets={wallets} value={wallet.current?.getID()} onChange={onWalletChange} />
             </View>
-            <View style={styles.share}>
-              <View style={[styles.customAmount, styleHooks.customAmount]}>
-                <TextInput
-                  placeholderTextColor="#81868e"
-                  placeholder="Amount (optional)"
-                  style={[styles.customAmountText, styleHooks.customAmountText]}
-                  inputAccessoryViewID={BlueDismissKeyboardInputAccessory.InputAccessoryViewID}
-                  onSubmitEditing={generateInvoice}
-                  {...inputProps}
-                />
-                <Text style={styles.inputUnit}>{formattedUnit}</Text>
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  accessibilityLabel={loc._.change_input_currency}
-                  style={styles.changeToNextUnitButton}
-                  onPress={changeToNextUnit}
-                >
-                  <Image source={require('../../img/round-compare-arrows-24-px.png')} />
-                </TouchableOpacity>
+            <View style={[styles.contentContainer]}>
+              <View style={[styles.scrollBody, styles.flex]}>
+                {isInvoiceLoading ? (
+                  <ActivityIndicator />
+                ) : (
+                  <>
+                    <QRCodeComponent value={invoiceRequest ? invoiceRequest : wallet.current.lnAddress} />
+                    <BlueCopyTextToClipboard
+                      text={invoiceRequest || wallet.current.lnAddress}
+                      truncated={Boolean(invoiceRequest)}
+                      textStyle={styles.copyText}
+                    />
+                  </>
+                )}
               </View>
-              <View style={[styles.customAmount, styleHooks.customAmount]}>
-                <TextInput
-                  onChangeText={setDescription}
-                  placeholder={`${loc.receive.details_label} (optional)`}
-                  value={description}
-                  numberOfLines={1}
-                  placeholderTextColor="#81868e"
-                  style={[styles.customAmountText, styleHooks.customAmountText]}
-                  onSubmitEditing={generateInvoice}
-                />
+              <View style={styles.share}>
+                <View style={[styles.customAmount, styleHooks.customAmount]}>
+                  <TextInput
+                    ref={inputAmountRef}
+                    placeholderTextColor="#81868e"
+                    placeholder="Amount (optional)"
+                    style={[styles.customAmountText, styleHooks.customAmountText]}
+                    inputAccessoryViewID={BlueDismissKeyboardInputAccessory.InputAccessoryViewID}
+                    onBlur={handleOnBlur}
+                    {...inputProps}
+                  />
+                  <Text style={styles.inputUnit}>{formattedUnit}</Text>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={loc._.change_input_currency}
+                    style={styles.changeToNextUnitButton}
+                    onPress={changeToNextUnit}
+                  >
+                    <Image source={require('../../img/round-compare-arrows-24-px.png')} />
+                  </TouchableOpacity>
+                </View>
+                <View style={[styles.customAmount, styleHooks.customAmount]}>
+                  <TextInput
+                    ref={inputDescriptionRef}
+                    onChangeText={setDescription}
+                    placeholder={`${loc.receive.details_label} (optional)`}
+                    value={description}
+                    numberOfLines={1}
+                    placeholderTextColor="#81868e"
+                    style={[styles.customAmountText, styleHooks.customAmountText]}
+                    onBlur={handleOnBlur}
+                  />
+                </View>
+                <View>
+                  {Platform.select({
+                    ios: (
+                      <View style={styles.iosNfcButtonContainer}>
+                        <SecondButton
+                          onPress={startNfcOnIos}
+                          disabled={!Boolean(invoiceRequest)}
+                          title={'Use Boltcard'}
+                          image={{ source: require('../../img/bolt-card.png') }}
+                        />
+                      </View>
+                    ),
+                    android: (
+                      <View style={styles.buttonsContainer}>
+                        <Image source={require('../../img/bolt-card.png')} style={{ width: 40, height: 40 }} />
+                      </View>
+                    ),
+                  })}
+                  <View>
+                    <BlueButton onPress={handleShareButtonPressed} title={loc.receive.details_share} />
+                  </View>
+                </View>
               </View>
-              <BlueCard>
-                <BlueButton onPress={handleShareButtonPressed} title={loc.receive.details_share} />
-              </BlueCard>
+              <BlueDismissKeyboardInputAccessory onPress={generateInvoice} />
             </View>
           </View>
-        </View>
-      </TouchableWithoutFeedback>
-      <BlueDismissKeyboardInputAccessory onPress={generateInvoice} />
-    </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </ScrollView>
+    </TouchableWithoutFeedback>
   );
 };
 
@@ -236,15 +301,20 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
   },
+  contentContainer: {
+    flex: 1,
+    flexGrow: 1,
+    justifyContent: 'space-between',
+  },
   scrollBody: {
     marginTop: 16,
-    flexGrow: 1,
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 16,
   },
   share: {
     justifyContent: 'flex-end',
-    paddingVertical: 16,
+    paddingVertical: 12,
     alignItems: 'center',
     marginBottom: 8,
   },
@@ -276,18 +346,25 @@ const styles = StyleSheet.create({
     borderLeftWidth: 1,
     paddingHorizontal: 10,
   },
-  allHeight: {
+  flex:{
     flex: 1,
   },
-  grow: {
+  grow:{
     flexGrow: 1,
-  },
-  allVerticalSpace: {
-    height: '100%',
   },
   doneButton: {
     paddingHorizontal: 16,
-  }
+  },
+  buttonsContainer: {
+    alignItems: 'center',
+    marginVertical: 5,
+  },
+  copyText: {
+    marginVertical: 16,
+  },
+  iosNfcButtonContainer: {
+    marginVertical: 10,
+  },
 });
 
 export default LNDReceive;

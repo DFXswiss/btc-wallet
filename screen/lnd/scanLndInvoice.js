@@ -1,8 +1,8 @@
-import React, { useCallback, useContext, useEffect, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, View, StatusBar, Keyboard, ScrollView, StyleSheet } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { useFocusEffect, useNavigation, useRoute, useTheme } from '@react-navigation/native';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   BlueButton,
   BlueCard,
@@ -22,16 +22,18 @@ import Biometric from '../../class/biometrics';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import alert from '../../components/Alert';
+import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 const currency = require('../../blue_modules/currency');
 
 const ScanLndInvoice = () => {
   const { wallets } = useContext(BlueStorageContext);
   const { colors } = useTheme();
-  const { walletID, uri, invoice } = useRoute().params;
+  const { walletID, uri } = useRoute().params;
   const name = useRoute().name;
   /** @type {LightningCustodianWallet} */
-  const [wallet, setWallet] = useState(
-    wallets.find(item => item.getID() === walletID) || wallets.find(item => item.chain === Chain.OFFCHAIN),
+  const wallet = useMemo(
+    () => wallets.find(item => item.getID() === walletID) || wallets.find(item => item.chain === Chain.OFFCHAIN),
+    [walletID, wallets],
   );
   const { navigate, setParams, goBack, replace } = useNavigation();
   const [isLoading, setIsLoading] = useState(false);
@@ -39,9 +41,10 @@ const ScanLndInvoice = () => {
   const [unit, setUnit] = useState(BitcoinUnit.SATS);
   const [decoded, setDecoded] = useState();
   const [amount, setAmount] = useState();
+  const [isAmountInputDisabled, setIsAmountInputDisabled] = useState(false);
   const [amountSat, setAmountSat] = useState();
-  const [isAmountInitiallyEmpty, setIsAmountInitiallyEmpty] = useState();
   const [desc, setDesc] = useState();
+  const [isDescDisabled, setIsDescDisabled] = useState(false);
   const [expiresIn, setExpiresIn] = useState();
   const stylesHook = StyleSheet.create({
     root: {
@@ -59,197 +62,6 @@ const ScanLndInvoice = () => {
     },
   });
 
-  useEffect(() => {
-    if (walletID && wallet?.getID() !== walletID) {
-      setWallet(wallets.find(w => w.getID() === walletID));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [walletID]);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!wallet) {
-        ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
-        goBack();
-        setTimeout(() => alert(loc.wallets.no_ln_wallet_error), 500);
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [wallet]),
-  );
-
-  useEffect(() => {
-    if (wallet && uri) {
-      if (Lnurl.isLnurl(uri)) return processLnurlPay(uri);
-      if (Lnurl.isLightningAddress(uri)) return setDestination(uri);
-
-      let data = uri;
-      // handling BIP21 w/BOLT11 support
-      const ind = data.indexOf('lightning=');
-      if (ind !== -1) {
-        data = data.substring(ind + 10).split('&')[0];
-      }
-
-      data = data.replace('LIGHTNING:', '').replace('lightning:', '');
-      console.log(data);
-
-      let newDecoded;
-      try {
-        newDecoded = wallet.decodeInvoice(data);
-
-        let newExpiresIn = (newDecoded.timestamp * 1 + newDecoded.expiry * 1) * 1000; // ms
-        if (+new Date() > newExpiresIn) {
-          newExpiresIn = loc.lnd.expired;
-        } else {
-          const time = Math.round((newExpiresIn - +new Date()) / (60 * 1000));
-          newExpiresIn = loc.formatString(loc.lnd.expiresIn, { time });
-        }
-        Keyboard.dismiss();
-        setParams({ uri: undefined, invoice: data });
-        setIsAmountInitiallyEmpty(newDecoded.num_satoshis === '0');
-        setDestination(data);
-        setIsLoading(false);
-        setUnit(BitcoinUnit.SATS);
-        setAmount(newDecoded.num_satoshis);
-        setAmountSat(newDecoded.num_satoshis);
-        setExpiresIn(newExpiresIn);
-        setDecoded(newDecoded);
-        setDesc(newDecoded.description);
-      } catch (Err) {
-        ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
-        Keyboard.dismiss();
-        setParams({ uri: undefined });
-        setTimeout(() => alert(Err.message), 10);
-        setIsLoading(false);
-        setAmount();
-        setAmountSat();
-        setDestination();
-        setExpiresIn();
-        setDecoded();
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uri]);
-
-  const processInvoice = data => {
-    if (Lnurl.isLnurl(data)) return processLnurlPay(data);
-    if (Lnurl.isLightningAddress(data)) return setDestination(data);
-    setParams({ uri: data });
-  };
-
-  const processLnurlPay = () => {
-    let error;
-    if(amountSat === 0) {
-      error = loc.send.details_amount_field_is_not_valid;
-    }else if(!Lnurl.isLightningAddress(destination)) {
-      error = loc.send.details_address_field_is_not_valid;
-    }
-
-    if (error) {
-      alert(error);
-      ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
-      return;
-    }
-    const isMax = amount === wallet.getBalance();
-    navigate('SendDetailsRoot', {
-      screen: 'LnurlPay',
-      params: {
-        destination: destination,
-        amountSat: isMax ? Math.floor(amount * 0.97) : amountSat, // max 3% fee set by LNBits
-        description: desc,
-        walletID: walletID || wallet.getID(),
-      },
-    });
-  };
-
-  const processInvoicePay = async () => {
-    if (!decoded) {
-      return null;
-    }
-
-    const isBiometricsEnabled = await Biometric.isBiometricUseCapableAndEnabled();
-
-    if (isBiometricsEnabled) {
-      if (!(await Biometric.unlockWithBiometrics())) {
-        return;
-      }
-    }
-
-    setIsLoading(true);
-
-    const newExpiresIn = (decoded.timestamp * 1 + decoded.expiry * 1) * 1000; // ms
-    if (+new Date() > newExpiresIn) {
-      setIsLoading(false);
-      ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
-      return alert(loc.lnd.errorInvoiceExpired);
-    }
-
-    const currentUserInvoices = wallet.user_invoices_raw; // not fetching invoices, as we assume they were loaded previously
-    if (currentUserInvoices.some(i => i.payment_hash === decoded.payment_hash)) {
-      setIsLoading(false);
-      ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
-      return alert(loc.lnd.sameWalletAsInvoiceError);
-    }
-
-    setIsLoading(false);
-    return navigate('SendDetailsRoot', {
-      screen: 'LnurlPay',
-      params: {
-        invoice: invoice,
-        amountSat: amountSat,
-        amountUnit: BitcoinUnit.SATS,
-        description: decoded.description,
-        walletID: walletID || wallet.getID(),
-      },
-    });
-  };
-
-  const next = () => {
-    if (wallet.getBalance() < amount) {
-      return alert(loc.send.details_total_exceeds_balance);
-    }
-
-    if (invoice) {
-      return processInvoicePay();
-    }
-    processLnurlPay(destination);
-  };
-
-  const processTextForInvoice = text => {
-    if (
-      text.toLowerCase().startsWith('lnb') ||
-      text.toLowerCase().startsWith('lightning:lnb') ||
-      Lnurl.isLnurl(text) ||
-      Lnurl.isLightningAddress(text)
-    ) {
-      processInvoice(text);
-    } else {
-      setDecoded(undefined);
-      setExpiresIn(undefined);
-      setDestination(text);
-    }
-  };
-
-  const shouldDisablePayButton = () => {
-    if (invoice && !decoded) {
-      return true;
-    } else {
-      if (!amount) {
-        return true;
-      }
-    }
-    return !(amount > 0);
-  };
-
-  const getFees = () => {
-    const min = 0;
-    const max = Math.floor(amountSat * 0.03);
-    return `${min} ${BitcoinUnit.SATS} - ${max} ${BitcoinUnit.SATS}`;
-  };
-
-  const onBlur = () => {
-    processTextForInvoice(destination);
-  };
-
   const onWalletChange = id => {
     const newWallet = wallets.find(w => w.getID() === id);
     if (!newWallet) return;
@@ -261,10 +73,171 @@ const ScanLndInvoice = () => {
     setParams({ walletID: id });
   };
 
-  const getAreInputsDisabled = () => {
-    if (invoice) {
-      return !decoded || isLoading || decoded.num_satoshis > 0;
+  useFocusEffect(
+    useCallback(() => {
+      if (!wallet) {
+        ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
+        goBack();
+        setTimeout(() => alert(loc.wallets.no_ln_wallet_error), 500);
+      } else {
+        setParams({ walletID: wallet.getID() });
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [wallet]),
+  );
+
+  const setLnurlDestination = async destinationString => {
+    setIsLoading(true);
+    const ln = new Lnurl(destinationString, AsyncStorage);
+    await ln.callLnurlPayService();
+    setDestination(destinationString);
+    setUnit(BitcoinUnit.SATS);
+    handleAmountInputChange(ln.getAmount() || 1, BitcoinUnit.SATS);
+    setIsAmountInputDisabled(false);
+    setDesc(ln.getDescription());
+    setIsDescDisabled(Boolean(ln.getDescription()));
+    setIsLoading(false);
+  };
+
+  const setLightningAddressDestination = destinationString => {
+    setDestination(destinationString);
+    setIsAmountInputDisabled(false);
+    setIsDescDisabled(false);
+  };
+
+  const setLightningInvoiceDestination = destinationString => {
+    let data = destinationString;
+    // handling BIP21 w/BOLT11 support
+    const ind = data.indexOf('lightning=');
+    if (ind !== -1) {
+      data = data.substring(ind + 10).split('&')[0];
     }
+    data = data.replace('LIGHTNING:', '').replace('lightning:', '');
+    setDestination(data);
+    const decodedInvoice = wallet.decodeInvoice(data);
+    setDecoded(decodedInvoice);
+    const { num_satoshis: sats, description } = decodedInvoice;
+    setUnit(BitcoinUnit.SATS);
+    handleAmountInputChange(sats.toString(), BitcoinUnit.SATS);
+    setIsAmountInputDisabled(true);
+    setDesc(description);
+    setIsDescDisabled(Boolean(description));
+    let newExpiresIn = (decodedInvoice.timestamp * 1 + decodedInvoice.expiry * 1) * 1000; // ms
+    if (+new Date() > newExpiresIn) {
+      newExpiresIn = loc.lnd.expired;
+    } else {
+      const time = Math.round((newExpiresIn - +new Date()) / (60 * 1000));
+      newExpiresIn = loc.formatString(loc.lnd.expiresIn, { time });
+    }
+    setExpiresIn(newExpiresIn);
+  };
+
+  const processDestination = destinationString => {
+    Keyboard.dismiss();
+    if (Lnurl.isLnurl(destinationString)) return setLnurlDestination(destinationString);
+    if (Lnurl.isLightningAddress(destinationString)) return setLightningAddressDestination(destinationString);
+    if (
+      DeeplinkSchemaMatch.isLightningInvoice(destinationString) ||
+      DeeplinkSchemaMatch.isBothBitcoinAndLightning(destinationString) ||
+      DeeplinkSchemaMatch.isTestnetLightningInvoice(destinationString)
+    )
+      return setLightningInvoiceDestination(destinationString);
+  };
+
+  const clearAllInputs = () => {
+    Keyboard.dismiss();
+    setAmount();
+    setAmountSat();
+    setDestination();
+    setExpiresIn();
+    setDecoded();
+    setDesc();
+    setIsAmountInputDisabled(false);
+    setIsDescDisabled(false);
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    if (wallet && uri) {
+      try {
+        processDestination(uri);
+      } catch (Err) {
+        ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
+        setTimeout(() => alert(Err.message), 10);
+        Keyboard.dismiss();
+        clearAllInputs();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uri]);
+
+  const onBlur = () => {
+    processDestination(destination);
+  };
+
+  const showError = errMessage => {
+    alert(errMessage);
+    ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
+  };
+
+  const processLnurlPay = () => {
+    if (amountSat <= 0) return showError(loc.send.details_amount_field_is_not_valid);
+
+    const isMax = amountSat === wallet.getBalance();
+    const maxFee = Math.round(amountSat * 0.03);
+    const remainingBalance = wallet.getBalance() - amountSat;
+    if (!isMax && maxFee > remainingBalance) return showError(loc.lnd.error_balance_for_insuficient_fee);
+
+    navigate('SendDetailsRoot', {
+      screen: 'LnurlPay',
+      params: {
+        lnurl: destination,
+        amountSat: isMax ? Math.floor(amountSat * 0.97) : amountSat, // max 3% fee set by LNBits
+        description: desc,
+        walletID: walletID || wallet.getID(),
+      },
+    });
+  };
+
+  const processInvoicePay = async () => {
+    if (!decoded) return null;
+    if (amountSat === 0) return showError(loc.lnd.error_tip_invoice_not_supported);
+
+    const newExpiresIn = (decoded.timestamp * 1 + decoded.expiry * 1) * 1000; // ms
+    if (+new Date() > newExpiresIn) return showError(loc.lnd.errorInvoiceExpired);
+
+    const currentUserInvoices = wallet.user_invoices_raw; // not fetching invoices, as we assume they were loaded previously
+    if (currentUserInvoices.some(i => i.payment_hash === decoded.payment_hash)) return showError(loc.lnd.sameWalletAsInvoiceError);
+
+    return navigate('SendDetailsRoot', {
+      screen: 'LnurlPay',
+      params: {
+        invoice: destination,
+        amountSat: amountSat,
+        amountUnit: BitcoinUnit.SATS,
+        description: decoded.description,
+        walletID: walletID || wallet.getID(),
+      },
+    });
+  };
+
+  const next = () => {
+    if (Lnurl.isLnurl(destination) || Lnurl.isLightningAddress(destination)) return processLnurlPay();
+    if (
+      DeeplinkSchemaMatch.isLightningInvoice(destination) ||
+      DeeplinkSchemaMatch.isBothBitcoinAndLightning(destination) ||
+      DeeplinkSchemaMatch.isTestnetLightningInvoice(destination)
+    )
+      return processInvoicePay();
+
+    // make sure we have a valid destination
+    alert(loc.send.details_address_field_is_not_valid);
+  };
+
+  const getFees = () => {
+    const min = 0;
+    const max = Math.floor(amountSat * 0.03);
+    return `${min} ${BitcoinUnit.SATS} - ${max} ${BitcoinUnit.SATS}`;
   };
 
   const onUseAllPressed = () => {
@@ -275,7 +248,7 @@ const ScanLndInvoice = () => {
 
   const handleAmountInputChange = (text, newUnit) => {
     setAmount(text);
-    
+
     let sats;
     switch (newUnit || unit) {
       case BitcoinUnit.BTC:
@@ -291,7 +264,7 @@ const ScanLndInvoice = () => {
     setAmountSat(sats);
   }
 
-  if (wallet === undefined || !wallet) {
+  if (isLoading) {
     return (
       <View style={[styles.loadingIndicator, stylesHook.root]}>
         <BlueLoading />
@@ -306,7 +279,7 @@ const ScanLndInvoice = () => {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <KeyboardAvoidingView enabled behavior="position" keyboardVerticalOffset={20}>
             <View style={styles.pickerContainer}>
-              <BlueWalletSelect wallets={wallets} value={wallet?.getID()} onChange={onWalletChange} />
+              <BlueWalletSelect wallets={wallets} value={walletID} onChange={onWalletChange} />
             </View>
 
             <View>
@@ -315,7 +288,7 @@ const ScanLndInvoice = () => {
                 amount={amount}
                 onAmountUnitChange={setUnit}
                 onChangeText={handleAmountInputChange}
-                disabled={getAreInputsDisabled()}
+                disabled={isAmountInputDisabled}
                 unit={unit}
                 inputAccessoryViewID={BlueDismissKeyboardInputAccessory.InputAccessoryViewID}
                 showMaxButton
@@ -328,7 +301,7 @@ const ScanLndInvoice = () => {
                 text = text.trim();
                 setDestination(text);
               }}
-              onBarScanned={processInvoice}
+              onBarScanned={processDestination}
               address={destination}
               isLoading={isLoading}
               placeholder={loc.lnd.placeholder}
@@ -350,7 +323,7 @@ const ScanLndInvoice = () => {
                 placeholderTextColor={colors.feeText}
                 value={desc}
                 onChangeText={setDesc}
-                editable={!getAreInputsDisabled()}
+                editable={!isDescDisabled}
                 color={colors.feeText}
               />
             </View>
@@ -366,7 +339,7 @@ const ScanLndInvoice = () => {
               </View>
             ) : (
               <View>
-                <BlueButton title={loc.lnd.next} onPress={next} disabled={shouldDisablePayButton()} />
+                <BlueButton title={loc.lnd.next} onPress={next} />
               </View>
             )}
           </BlueCard>

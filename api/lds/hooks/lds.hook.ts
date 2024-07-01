@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { User, UserUrl } from '../definitions/user';
 import { useApi } from './api.hook';
-import { ApiError } from '../../dfx/definitions/error';
 
 export interface LdsInterface {
   getUser: (address: string, signMessage: (message: string) => Promise<string>) => Promise<User>;
@@ -9,26 +8,18 @@ export interface LdsInterface {
 
 export function useLds(): LdsInterface {
   const { call } = useApi();
+  const getMessage = (address: string) => `By_signing_this_message,_you_confirm_to_lightning.space_that_you_are_the_sole_owner_of_the_provided_Blockchain_address._Your_ID:_${address}`;
 
   async function createSession(address: string, signature: string): Promise<string> {
     const data = { address, signature, wallet: 'DFX Bitcoin' };
 
-    return call<{ accessToken: string }>({ method: 'POST', url: 'auth/sign-in', data })
-      .catch((e: ApiError) => {
-        if (e.statusCode === 404) return call<{ accessToken: string }>({ method: 'POST', url: 'auth/sign-up', data });
-
-        throw e;
-      })
+    return call<{ accessToken: string }>({ method: 'POST', url: 'auth', data })
       .then(r => r.accessToken);
   }
 
-  async function getUser(address: string, signMessage: (message: string) => Promise<string>): Promise<User> {
-    // get sign message
-    const url = new URL('auth/sign-message');
-    url.searchParams.append('address', address);
-    const { message } = await call<{ message: string }>({ method: 'GET', url: url.toString() });
-
+  async function getUser(address: string, signMessage: (message: string) => Promise<string>): Promise<User> {    
     // sign up/in
+    const message  = getMessage(address);
     const signature = await signMessage(message);
     const token = await createSession(address, signature);
 

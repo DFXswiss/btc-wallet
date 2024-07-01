@@ -56,6 +56,7 @@ const Settings = () => {
         <BlueListItem title={loc.settings.encrypt_title} onPress={() => navigate('EncryptStorage')} testID="SecurityButton" chevron />
         <BlueListItem title={loc.settings.network} onPress={() => navigate('NetworkSettings')} testID="NetworkSettings" chevron />
         <BlueListItem title={loc.settings.tools} onPress={() => navigate('Tools')} testID="Tools" chevron />
+        <BlueListItem title="Feature Flags" onPress={() => navigate('FeatureFlags')} chevron />
         <BlueListItem title={loc.settings.about} onPress={() => navigate('About')} testID="AboutButton" chevron />
       </ScrollView>
     </>
