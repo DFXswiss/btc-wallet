@@ -1,4 +1,3 @@
-import Frisbee from 'frisbee';
 import URL from 'url';
 
 export default class Azteco {
@@ -11,14 +10,12 @@ export default class Azteco {
    * @returns {Promise<boolean>} Successfully redeemed or not. This method does not throw exceptions
    */
   static async redeem(voucher, address) {
-    const api = new Frisbee({
-      baseURI: 'https://azte.co/',
-    });
-    const url = `/blue_despatch.php?CODE_1=${voucher[0]}&CODE_2=${voucher[1]}&CODE_3=${voucher[2]}&CODE_4=${voucher[3]}&ADDRESS=${address}`;
+    const baseURI = 'https://azte.co/';
+    const url = `${baseURI}blue_despatch.php?CODE_1=${voucher[0]}&CODE_2=${voucher[1]}&CODE_3=${voucher[2]}&CODE_4=${voucher[3]}&ADDRESS=${address}`;
 
     try {
-      const response = await api.get(url);
-      return response && response.originalResponse && +response.originalResponse.status === 200;
+      const response = await fetch(url);
+      return response && response.status === 200;
     } catch (_) {
       return false;
     }

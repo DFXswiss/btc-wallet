@@ -1,6 +1,5 @@
 import PushNotificationIOS from '@react-native-community/push-notification-ios';
 import { Alert, Platform } from 'react-native';
-import Frisbee from 'frisbee';
 import { getApplicationName, getVersion, getSystemName, getSystemVersion, hasGmsSync, hasHmsSync } from 'react-native-device-info';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import loc from '../loc';
@@ -170,10 +169,8 @@ function Notifications(props) {
 
   function _getHeaders() {
     return {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json',
-      },
+      'Access-Control-Allow-Origin': '*',
+      'Content-Type': 'application/json',
     };
   }
 
@@ -196,20 +193,19 @@ function Notifications(props) {
     const pushToken = await Notifications.getPushToken();
     if (!pushToken || !pushToken.token || !pushToken.os) return;
 
-    const api = new Frisbee({ baseURI });
-
-    return await api.post(
-      '/majorTomToGroundControl',
-      Object.assign({}, _getHeaders(), {
-        body: {
-          addresses,
-          hashes,
-          txids,
-          token: pushToken.token,
-          os: pushToken.os,
-        },
+    const response = await fetch(`${baseURI}/majorTomToGroundControl`, {
+      method: 'POST',
+      headers: _getHeaders(),
+      body: JSON.stringify({
+        addresses,
+        hashes,
+        txids,
+        token: pushToken.token,
+        os: pushToken.os,
       }),
-    );
+    });
+
+    return response.json();
   };
 
   /**
@@ -226,20 +222,19 @@ function Notifications(props) {
     const pushToken = await Notifications.getPushToken();
     if (!pushToken || !pushToken.token || !pushToken.os) return;
 
-    const api = new Frisbee({ baseURI });
-
-    return await api.post(
-      '/unsubscribe',
-      Object.assign({}, _getHeaders(), {
-        body: {
-          addresses,
-          hashes,
-          txids,
-          token: pushToken.token,
-          os: pushToken.os,
-        },
+    const response = await fetch(`${baseURI}/unsubscribe`, {
+      method: 'POST',
+      headers: _getHeaders(),
+      body: JSON.stringify({
+        addresses,
+        hashes,
+        txids,
+        token: pushToken.token,
+        os: pushToken.os,
       }),
-    );
+    });
+
+    return response.json();
   };
 
   Notifications.isNotificationsEnabled = async function () {
@@ -262,17 +257,17 @@ function Notifications(props) {
   };
 
   Notifications.isGroundControlUriValid = async uri => {
-    const apiCall = new Frisbee({
-      baseURI: uri,
-    });
     let response;
     try {
-      response = await Promise.race([apiCall.get('/ping', _getHeaders()), _sleep(2000)]);
+      response = await Promise.race([
+        fetch(`${uri}/ping`, { headers: _getHeaders() }),
+        _sleep(2000),
+      ]);
     } catch (_) {}
 
-    if (!response || !response.body) return false; // either sleep expired or apiCall threw an exception
+    if (!response) return false; // either sleep expired or fetch threw an exception
 
-    const json = response.body;
+    const json = await response.json();
     if (json.description) return true;
 
     return false;
@@ -304,19 +299,16 @@ function Notifications(props) {
     const pushToken = await Notifications.getPushToken();
     if (!pushToken || !pushToken.token || !pushToken.os) return;
 
-    const api = new Frisbee({ baseURI });
-
     try {
-      await api.post(
-        '/setTokenConfiguration',
-        Object.assign({}, _getHeaders(), {
-          body: {
-            level_all: !!levelAll,
-            token: pushToken.token,
-            os: pushToken.os,
-          },
+      await fetch(`${baseURI}/setTokenConfiguration`, {
+        method: 'POST',
+        headers: _getHeaders(),
+        body: JSON.stringify({
+          level_all: !!levelAll,
+          token: pushToken.token,
+          os: pushToken.os,
         }),
-      );
+      });
     } catch (_) {}
   };
 
@@ -329,19 +321,21 @@ function Notifications(props) {
     const pushToken = await Notifications.getPushToken();
     if (!pushToken || !pushToken.token || !pushToken.os) return;
 
-    const api = new Frisbee({ baseURI });
-
     let response;
     try {
       response = await Promise.race([
-        api.post('/getTokenConfiguration', Object.assign({}, _getHeaders(), { body: { token: pushToken.token, os: pushToken.os } })),
+        fetch(`${baseURI}/getTokenConfiguration`, {
+          method: 'POST',
+          headers: _getHeaders(),
+          body: JSON.stringify({ token: pushToken.token, os: pushToken.os }),
+        }),
         _sleep(3000),
       ]);
     } catch (_) {}
 
-    if (!response || !response.body) return {}; // either sleep expired or apiCall threw an exception
+    if (!response) return {}; // either sleep expired or fetch threw an exception
 
-    return response.body;
+    return response.json();
   };
 
   Notifications.getStoredNotifications = async function () {
@@ -371,23 +365,20 @@ function Notifications(props) {
     const pushToken = await Notifications.getPushToken();
     if (!pushToken || !pushToken.token || !pushToken.os) return;
 
-    const api = new Frisbee({ baseURI });
-
     try {
       const lang = (await AsyncStorage.getItem('lang')) || 'en';
       const appVersion = getSystemName() + ' ' + getSystemVersion() + ';' + getApplicationName() + ' ' + getVersion();
 
-      await api.post(
-        '/setTokenConfiguration',
-        Object.assign({}, _getHeaders(), {
-          body: {
-            token: pushToken.token,
-            os: pushToken.os,
-            lang,
-            app_version: appVersion,
-          },
+      await fetch(`${baseURI}/setTokenConfiguration`, {
+        method: 'POST',
+        headers: _getHeaders(),
+        body: JSON.stringify({
+          token: pushToken.token,
+          os: pushToken.os,
+          lang,
+          app_version: appVersion,
         }),
-      );
+      });
     } catch (_) {}
   };
 

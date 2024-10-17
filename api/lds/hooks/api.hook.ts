@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useContext, useMemo } from 'react';
 import Config from 'react-native-config';
+import { BlueStorageContext } from '../../../blue_modules/storage-context';
 
 export interface ApiInterface {
   call: <T>(config: CallConfig) => Promise<T>;
@@ -13,6 +14,8 @@ export interface CallConfig {
 }
 
 export function useApi(): ApiInterface {
+  const { ldsDEV } = useContext(BlueStorageContext);
+
   function buildInit(method: 'GET' | 'PUT' | 'POST' | 'DELETE', accessToken?: string | null, data?: any): RequestInit {
     return {
       method,
@@ -25,7 +28,8 @@ export function useApi(): ApiInterface {
   }
 
   async function call<T>(config: CallConfig): Promise<T> {
-    return fetch(`${Config.REACT_APP_LDS_URL}/${config.url}`, buildInit(config.method, config.token, config.data)).then(response => {
+    const baseUrl = ldsDEV ? Config.REACT_APP_LDS_DEV_URL : Config.REACT_APP_LDS_URL;
+    return fetch(`${baseUrl}/${config.url}`, buildInit(config.method, config.token, config.data)).then(response => {
       if (response.ok) {
         return response.json().catch(() => undefined);
       }

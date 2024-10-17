@@ -44,7 +44,7 @@ const LNDCreateInvoice = () => {
   const { walletID, uri } = useRoute().params;
   const wallet = useRef(wallets.find(item => item.getID() === walletID) || wallets.find(item => item.chain === Chain.OFFCHAIN));
   const { colors } = useTheme();
-  const { navigate, dangerouslyGetParent, goBack, setParams, replace } = useNavigation();
+  const { navigate, getParent, goBack, setParams, replace } = useNavigation();
   const [unit, setUnit] = useState(wallet.current?.getPreferredBalanceUnit() || BitcoinUnit.BTC);
   const [amount, setAmount] = useState();
   const [isLoading, setIsLoading] = useState(true);
@@ -108,7 +108,7 @@ const LNDCreateInvoice = () => {
           BlueAlertWalletExportReminder({
             onSuccess: () => renderReceiveDetails(),
             onFailure: () => {
-              dangerouslyGetParent().pop();
+              getParent().pop();
               NavigationService.navigate('WalletExportRoot', {
                 screen: 'WalletExport',
                 params: {
@@ -260,10 +260,10 @@ const LNDCreateInvoice = () => {
       if (reply.tag === Lnurl.TAG_PAY_REQUEST) {
         // we are here by mistake. user wants to SEND to lnurl-pay, but he is on a screen that creates
         // invoices (including through lnurl-withdraw)
-        navigate('SendDetailsRoot', {
-          screen: 'LnurlPay',
+        replace('SendDetailsRoot', {
+          screen: 'ScanLndInvoice',
           params: {
-            lnurl: data,
+            uri: data,
             walletID: walletID ?? wallet.current.getID(),
           },
         });
@@ -486,7 +486,7 @@ LNDCreateInvoice.routeName = 'LNDCreateInvoice';
 LNDCreateInvoice.navigationOptions = navigationStyle(
   {
     closeButton: true,
-    headerHideBackButton: true,
+    headerBackVisible: false,
   },
   opts => ({ ...opts, title: loc.receive.header }),
 );

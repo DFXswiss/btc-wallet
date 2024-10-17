@@ -163,17 +163,7 @@ const startImport = (importTextOrig, askPassphrase = false, searchAccounts = fal
       await lnd.fetchBalance();
       yield { wallet: lnd };
     }
-
-    // is it LDK?
-    yield { progress: 'lightning' };
-    if (text.startsWith('ldk://')) {
-      const ldk = new LightningLdkWallet();
-      ldk.setSecret(text);
-      if (ldk.valid()) {
-        await ldk.init();
-        yield { wallet: ldk };
-      }
-    } */
+    */
 
     // check bip39 wallets
     yield { progress: 'bip39' };

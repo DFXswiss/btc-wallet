@@ -132,6 +132,8 @@
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<key>NFCReaderUsageDescription</key>
+	<string>DFX wallet needs to use NFC to scan BoltCards.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -363,6 +365,11 @@
 				</array>
 			</dict>
 		</dict>
+	</array>
+	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
+	<array>
+		<string>D2760000850100</string>
+		<string>D2760000850101</string>
 	</array>
 </dict>
 </plist>

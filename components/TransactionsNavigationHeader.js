@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { Image, Text, TouchableOpacity, View, InteractionManager, I18nManager, StyleSheet, Linking } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
-import { LightningCustodianWallet, LightningLdkWallet, MultisigHDWallet } from '../class';
+import { LightningCustodianWallet } from '../class';
 import { BitcoinUnit } from '../models/bitcoinUnits';
 import Biometric from '../class/biometrics';
 import loc, { formatBalance } from '../loc';
@@ -18,6 +18,7 @@ export default class TransactionsNavigationHeader extends Component {
     onManageFundsPressed: PropTypes.func,
     width: PropTypes.number,
     showRBFWarning: PropTypes.bool,
+    rightHeaderComponent: PropTypes.element,
   };
 
   static defaultProps = {
@@ -180,53 +181,58 @@ export default class TransactionsNavigationHeader extends Component {
       <>
         <View style={[styles.lineaderGradient, stylesHook.lineaderGradient]}>
           <Image source={require('../img/dfx/wallet-card.png')} style={[styles.chainIcon, { width: this.props.width }]} />
-          <Text testID="WalletLabel" numberOfLines={1} style={styles.walletLabel}>
-            {this.state.wallet.getLabel()}
-          </Text>
-          <ToolTipMenu
-            onPress={this.changeWalletBalanceUnit}
-            ref={this.menuRef}
-            title={loc.wallets.balance}
-            onPressMenuItem={this.onPressMenuItem}
-            actions={
-              this.state.wallet.hideBalance
-                ? [
-                    {
-                      id: TransactionsNavigationHeader.actionKeys.WalletBalanceVisibility,
-                      text: loc.transactions.details_balance_show,
-                      icon: TransactionsNavigationHeader.actionIcons.Eye,
-                    },
-                  ]
-                : [
-                    {
-                      id: TransactionsNavigationHeader.actionKeys.WalletBalanceVisibility,
-                      text: loc.transactions.details_balance_hide,
-                      icon: TransactionsNavigationHeader.actionIcons.EyeSlash,
-                    },
-                    {
-                      id: TransactionsNavigationHeader.actionKeys.CopyToClipboard,
-                      text: loc.transactions.details_copy,
-                      icon: TransactionsNavigationHeader.actionIcons.Clipboard,
-                    },
-                  ]
-            }
-          >
-            <View style={styles.balance}>
-              {this.state.wallet.hideBalance ? (
-                <BluePrivateBalance />
-              ) : (
-                <Text
-                  testID="WalletBalance"
-                  key={balance} // force component recreation on balance change. To fix right-to-left languages, like Farsi
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  style={styles.walletBalance}
-                >
-                  {balance}
-                </Text>
-              )}
+          <View style={styles.topContentContainer}>
+            <View>
+              <Text testID="WalletLabel" numberOfLines={1} style={styles.walletLabel}>
+                {this.state.wallet.getLabel()}
+              </Text>
+              <ToolTipMenu
+                onPress={this.changeWalletBalanceUnit}
+                ref={this.menuRef}
+                title={loc.wallets.balance}
+                onPressMenuItem={this.onPressMenuItem}
+                actions={
+                  this.state.wallet.hideBalance
+                    ? [
+                        {
+                          id: TransactionsNavigationHeader.actionKeys.WalletBalanceVisibility,
+                          text: loc.transactions.details_balance_show,
+                          icon: TransactionsNavigationHeader.actionIcons.Eye,
+                        },
+                      ]
+                    : [
+                        {
+                          id: TransactionsNavigationHeader.actionKeys.WalletBalanceVisibility,
+                          text: loc.transactions.details_balance_hide,
+                          icon: TransactionsNavigationHeader.actionIcons.EyeSlash,
+                        },
+                        {
+                          id: TransactionsNavigationHeader.actionKeys.CopyToClipboard,
+                          text: loc.transactions.details_copy,
+                          icon: TransactionsNavigationHeader.actionIcons.Clipboard,
+                        },
+                      ]
+                }
+              >
+                <View style={styles.balance}>
+                  {this.state.wallet.hideBalance ? (
+                    <BluePrivateBalance />
+                  ) : (
+                    <Text
+                      testID="WalletBalance"
+                      key={balance} // force component recreation on balance change. To fix right-to-left languages, like Farsi
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      style={styles.walletBalance}
+                    >
+                      {balance}
+                    </Text>
+                  )}
+                </View>
+              </ToolTipMenu>
             </View>
-          </ToolTipMenu>
+            {Boolean(this.props.rightHeaderComponent) && this.props.rightHeaderComponent}
+          </View>
           {this.state.wallet.type === LightningCustodianWallet.type && this.state.allowOnchainAddress && (
             <ToolTipMenu
               isMenuPrimaryAction
@@ -237,13 +243,6 @@ export default class TransactionsNavigationHeader extends Component {
             >
               <Text style={styles.manageFundsButtonText}>{loc.lnd.title}</Text>
             </ToolTipMenu>
-          )}
-          {this.state.wallet.type === LightningLdkWallet.type && (
-            <TouchableOpacity accessibilityRole="button" onPress={this.manageFundsPressed}>
-              <View style={styles.manageFundsButton}>
-                <Text style={styles.manageFundsButtonText}>{loc.lnd.title}</Text>
-              </View>
-            </TouchableOpacity>
           )}
         </View>
         {this.props.showRBFWarning && (
@@ -316,4 +315,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textDecorationLine: 'underline',
   },
+  topContentContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  }
 });

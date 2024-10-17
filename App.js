@@ -115,7 +115,7 @@ const App = () => {
 
   useEffect(() => {
     return () => {
-      Linking.removeEventListener('url', handleOpenURL);
+      Linking.removeEventListener?.('url', handleOpenURL);
       AppState.removeEventListener('change', handleAppStateChange);
       eventEmitter?.removeAllListeners('onNotificationReceived');
       eventEmitter?.removeAllListeners('openSettings');

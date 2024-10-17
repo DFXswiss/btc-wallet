@@ -13,6 +13,7 @@ import {
   InteractionManager,
   ActivityIndicator,
   I18nManager,
+  Pressable,
 } from 'react-native';
 import { BlueCard, BlueLoading, BlueSpacing10, BlueSpacing20, BlueText, SecondButton, BlueListItem } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
@@ -26,8 +27,7 @@ import {
   SegwitBech32Wallet,
   WatchOnlyWallet,
   MultisigHDWallet,
-  HDAezeedWallet,
-  LightningLdkWallet,
+  HDAezeedWallet
 } from '../../class';
 import loc, { formatBalanceWithoutSuffix } from '../../loc';
 import { useTheme, useRoute, useNavigation, StackActions } from '@react-navigation/native';
@@ -85,13 +85,13 @@ const styles = StyleSheet.create({
   marginRight16: {
     marginRight: 16,
   },
-  addressProofContainer:{
+  addressProofContainer: {
     height: 52,
   },
 });
 
 const WalletDetails = () => {
-  const { saveToDisk, wallets, deleteWallet, setSelectedWallet, txMetadata } = useContext(BlueStorageContext);
+  const { saveToDisk, wallets, deleteWallet, setSelectedWallet, txMetadata, isPosMode } = useContext(BlueStorageContext);
   const { reset } = useDfxSessionContext();
   const { walletID } = useRoute().params;
   const [isLoading, setIsLoading] = useState(false);
@@ -119,7 +119,7 @@ const WalletDetails = () => {
   const { walletID: mainWalletId, getOwnershipProof } = useWalletContext();
   const [ownershipProof, setOwnershipProof] = useState(wallet.addressOwnershipProof);
   const [isCopied, setIsCopied] = useState(false);
-  const isMainWallet = useMemo(() => mainWalletId === walletID , [wallets]);
+  const isMainWallet = useMemo(() => mainWalletId === walletID, [wallets]);
 
   useEffect(() => {
     if (isAdvancedModeEnabledRender && wallet.allowMasterFingerprint()) {
@@ -139,11 +139,6 @@ const WalletDetails = () => {
       color: colors.outputValue,
     },
   });
-  useEffect(() => {
-    if (wallet.type === LightningLdkWallet.type) {
-      wallet.getInfo().then(setLightningWalletInfo);
-    }
-  }, [wallet]);
   useLayoutEffect(() => {
     isAdvancedModeEnabled().then(setIsAdvancedModeEnabledRender);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -171,10 +166,10 @@ const WalletDetails = () => {
     }
     saveToDisk(true);
     reset();
-  }
+  };
 
   const deleteCurrentWallet = () => {
-    dispatch(StackActions.pop());
+    navigate('WalletTransactions');
     deleteWallet(wallet);
     saveToDisk();
   };
@@ -186,9 +181,9 @@ const WalletDetails = () => {
       externalAddresses = wallet.getAllExternalAddresses();
     } catch (_) {}
     Notifications.unsubscribe(externalAddresses, [], []);
-    if(isMainWallet){
+    if (isMainWallet) {
       deleteAllWallets();
-    }else{
+    } else {
       deleteCurrentWallet();
     }
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
@@ -256,14 +251,13 @@ const WalletDetails = () => {
         address: wallet.getAllExternalAddresses()[0], // works for both single address and HD wallets
       },
     });
-  const navigateToLdkViewLogs = () => {
-    navigate('LdkViewLogs', {
-      walletID,
-    });
-  };
-
   const navigateToAddresses = () =>
     navigate('WalletAddresses', {
+      walletID: wallet.getID(),
+    });
+
+  const navigateToBackupPayCardDetails = () =>
+    navigate('BackupBoltcard', {
       walletID: wallet.getID(),
     });
 
@@ -356,10 +350,20 @@ const WalletDetails = () => {
   };
 
   const onCopyToClipboard = () => {
-    setIsCopied(true)
+    setIsCopied(true);
     Clipboard.setString(ownershipProof);
-    setTimeout(() => setIsCopied(false), 2000)
-  }
+    setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const togglePosMode = async () => {
+    wallet.isPosMode = !wallet.isPosMode;
+    if (!wallet.isPosMode) {
+      wallet.adjustLnurlPayAmount(1, 1 * 100 * 1000 * 1000); 
+    }
+    await saveToDisk();
+  };
+
+  const showPosModeOptions = wallet.isPosMode || isPosMode;
 
   return (
     <ScrollView
@@ -391,19 +395,6 @@ const WalletDetails = () => {
               })()}
               <Text style={[styles.textLabel1, stylesHook.textLabel1]}>{loc.wallets.details_type}</Text>
               <Text style={[styles.textValue, stylesHook.textValue]}>{wallet.typeReadable}</Text>
-
-              {wallet.type === LightningLdkWallet.type && (
-                <>
-                  <Text style={[styles.textLabel2, stylesHook.textLabel2]}>{loc.wallets.identity_pubkey}</Text>
-                  {lightningWalletInfo?.identityPubkey ? (
-                    <>
-                      <BlueText>{lightningWalletInfo.identityPubkey}</BlueText>
-                    </>
-                  ) : (
-                    <ActivityIndicator />
-                  )}
-                </>
-              )}
               {wallet.type === MultisigHDWallet.type && (
                 <>
                   <Text style={[styles.textLabel2, stylesHook.textLabel2]}>{loc.wallets.details_multisig_type}</Text>
@@ -501,9 +492,29 @@ const WalletDetails = () => {
             {(wallet instanceof AbstractHDElectrumWallet || (wallet.type === WatchOnlyWallet.type && wallet.isHd())) && (
               <BlueListItem onPress={navigateToAddresses} title={loc.wallets.details_show_addresses} chevron />
             )}
+            {showPosModeOptions && wallet.type === LightningLdsWallet.type && (
+              <BlueListItem
+                Component={Pressable}
+                title={'Activate POS mode'}
+                switch={{ onValueChange: togglePosMode, value: wallet.isPosMode }}
+              />
+            )}
+            {showPosModeOptions && wallet.type === LightningLdsWallet.type && (
+              <BlueListItem
+                Component={Pressable}
+                title={'Go to cashier station'}
+                chevron
+                onPress={() => navigate('ReceiveDetailsRoot', { screen: 'CashierPos', params: { walletID: wallet.getID() } })}
+              />
+            )}
             {wallet.allowBIP47() && isBIP47Enabled && <BlueListItem onPress={navigateToPaymentCodes} title="Show payment codes" chevron />}
             <BlueCard style={styles.address}>
               <View>
+                {[LightningLdsWallet.type].includes(wallet.type) && wallet.getBoltcard() && (
+                  <>
+                    <SecondButton onPress={navigateToBackupPayCardDetails} title={'Backup Pay Card Details'} chevron />
+                  </>
+                )}
                 <BlueSpacing20 />
                 {wallet.type !== MultisigHDWallet.type && (
                   <SecondButton onPress={navigateToWalletExport} testID="WalletExport" title={loc.wallets.details_export_backup} />
@@ -535,7 +546,6 @@ const WalletDetails = () => {
                     />
                   </>
                 )}
-
                 {wallet.allowXpub() && (
                   <>
                     <BlueSpacing20 />
@@ -546,12 +556,6 @@ const WalletDetails = () => {
                   <>
                     <BlueSpacing20 />
                     <SecondButton onPress={navigateToSignVerify} testID="SignVerify" title={loc.addresses.sign_title} />
-                  </>
-                )}
-                {wallet.type === LightningLdkWallet.type && (
-                  <>
-                    <BlueSpacing20 />
-                    <SecondButton onPress={navigateToLdkViewLogs} testID="LdkLogs" title={loc.lnd.view_logs} />
                   </>
                 )}
                 <BlueSpacing20 />

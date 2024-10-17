@@ -8,21 +8,24 @@ import {
   BlueFormInput,
   BlueSpacing10,
   BlueSpacing20,
+  BlueSpacing40,
   BlueSpacingAuto,
   BlueText,
   SafeBlueArea,
   SecondButton,
   SelectButton,
 } from '../../../BlueComponents';
-import { useNavigation, useTheme } from '@react-navigation/native';
+import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import { useLds } from '../../../api/lds/hooks/lds.hook';
 import { useWalletContext } from '../../../contexts/wallet.context';
 import { BlueStorageContext } from '../../../blue_modules/storage-context';
 import { Chain, WalletLabel } from '../../../models/bitcoinUnits';
 import { LightningLdsWallet } from '../../../class/wallets/lightning-lds-wallet';
 import Lnurl from '../../../class/lnurl';
+import { AssetDetails, TaprootLdsWallet, TaprootLdsWalletType } from '../../../class/wallets/taproot-lds-wallet';
 
 const AddLightning = () => {
+  const { asset = TaprootLdsWalletType.BTC } = useRoute().params as { asset: TaprootLdsWalletType };
   const { navigate } = useNavigation();
   const { address, signMessage } = useWalletContext();
   const { getUser } = useLds();
@@ -31,6 +34,7 @@ const AddLightning = () => {
   const { addAndSaveWallet } = useContext(BlueStorageContext);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [useDFXswiss, setUseDFXswiss] = useState(false);
   const [useCustom, setUseCustom] = useState(false);
   const [customAddress, setCustomAddress] = useState<string>();
   const [signature, setSignature] = useState<string>();
@@ -58,7 +62,6 @@ const AddLightning = () => {
   const create = async () => {
     if (useCustom) {
       if (!dataValid) throw new Error('Invalid input');
-
       await createWallet(lndUrl, customAddress, signature);
     } else {
       if (!address) throw new Error('Address is not defined');
@@ -66,11 +69,20 @@ const AddLightning = () => {
       const { lightning } = await getUser(address, m => signMessage(m, address));
 
       for (const lnWallet of lightning.wallets) {
-        if (lnWallet.asset.name === 'BTC' && lnWallet.lndhubAdminUrl) {
+        // Lightinig BTC
+        if (lnWallet.asset.name === 'BTC' && asset === TaprootLdsWalletType.BTC && lnWallet.lndhubAdminUrl) {
           await createWallet(lnWallet.lndhubAdminUrl, lightning.address, lightning.addressOwnershipProof);
-        }
 
-        // TODO (david): taproot wallet?
+          // Taproot
+        } else if (lnWallet.asset.name === asset && lnWallet.lndhubAdminUrl) {
+          await createTaprootAsset(
+            lnWallet.lndhubAdminUrl,
+            lightning.address,
+            lightning.addressOwnershipProof,
+            lnWallet.asset as AssetDetails,
+            lnWallet.lnbitsWalletId,
+          );
+        }
       }
     }
 
@@ -94,15 +106,59 @@ const AddLightning = () => {
     await addAndSaveWallet(wallet);
   };
 
+  const createTaprootAsset = async (
+    lndhubAdminUrl: string,
+    lnAddress: string,
+    addressOwnershipProof: string,
+    assetDetails: AssetDetails,
+    lnbitsWalletId: string,
+  ) => {
+    const [secret, baseUri] = lndhubAdminUrl.split('@');
+
+    const wallet = TaprootLdsWallet.create(lnAddress, addressOwnershipProof, assetDetails, lnbitsWalletId);
+    wallet.setLabel(assetDetails.displayName);
+    wallet.setBaseURI(baseUri);
+    wallet.setSecret(secret);
+    await wallet.init();
+    await wallet.authorize();
+    await wallet.fetchTransactions();
+    await wallet.fetchUserInvoices();
+    await wallet.fetchPendingTransactions();
+    await wallet.fetchBalance();
+
+    await addAndSaveWallet(wallet);
+  };
   return (
     <SafeBlueArea>
       <ScrollView contentContainerStyle={styles.scrollableContainer}>
         <View style={styles.contentContainer}>
-          <SelectButton active={!useCustom} onPress={() => setUseCustom(false)}>
+          <SelectButton
+            active={!useCustom && !useDFXswiss}
+            onPress={() => {
+              setUseCustom(false);
+              setUseDFXswiss(false);
+            }}
+          >
             <BlueText>lightning.space</BlueText>
           </SelectButton>
           <BlueSpacing10 />
-          <SelectButton active={useCustom} onPress={() => setUseCustom(true)}>
+          <SelectButton
+            active={useDFXswiss}
+            onPress={() => {
+              setUseDFXswiss(true);
+              setUseCustom(false);
+            }}
+          >
+            <BlueText>DFX.swiss</BlueText>
+          </SelectButton>
+          <BlueSpacing10 />
+          <SelectButton
+            active={useCustom}
+            onPress={() => {
+              setUseCustom(true);
+              setUseDFXswiss(false);
+            }}
+          >
             <BlueText>{loc.wallets.add_lndhub_custom}</BlueText>
           </SelectButton>
 
@@ -136,11 +192,19 @@ const AddLightning = () => {
               />
             </>
           )}
-
+          {useDFXswiss && (
+            <>
+              <View style={styles.contentContainer}>
+                <BlueSpacing40 />
+                <BlueSpacing40 />
+                <BlueText style={styles.notAvailable}>{loc.wallets.add_lndhub_DFXswiss_not_available}</BlueText>
+              </View>
+            </>
+          )}
           <BlueSpacingAuto />
 
           <Text style={styles.disclaimer}>{loc.wallets.add_lndhub_disclaimer}</Text>
-          <BlueButton title={loc._.continue} onPress={onCreate} disabled={useCustom && !dataValid} isLoading={isLoading} />
+          <BlueButton title={loc._.continue} onPress={onCreate} disabled={(useCustom && !dataValid) || useDFXswiss} isLoading={isLoading} />
           <BlueSpacing20 />
           {/* @ts-ignore component in JS */}
           <SecondButton title={loc._.cancel} onPress={onBack} />
@@ -169,6 +233,12 @@ const styles = StyleSheet.create({
     margin: 20,
     color: '#9aa0aa',
     textAlign: 'center',
+  },
+  notAvailable: {
+    margin: 40,
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 18,
   },
 });
 

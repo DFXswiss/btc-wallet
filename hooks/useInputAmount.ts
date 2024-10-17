@@ -28,6 +28,7 @@ interface UseInputAmountResult {
   amountSats: number;
   inputAmount: string;
   changeToNextUnit: () => void;
+  resetInput: () => void;
 }
 
 const useInputAmount = (initialUnit?: BitcoinUnit): UseInputAmountResult => {
@@ -118,6 +119,12 @@ const useInputAmount = (initialUnit?: BitcoinUnit): UseInputAmountResult => {
 
   const formattedUnit = unit === BitcoinUnit.LOCAL_CURRENCY ? currency.getCurrencySymbol() :  loc.units[unit];
 
+  const resetInput = () => {
+    setInputAmount('');
+    setAmountSats(0);
+    setUnit(initialUnit || BitcoinUnit.SATS);
+  }
+
   const inputProps: TextInputProps = {
     ...inputPropsFixed,
     maxLength: maxLengthByUnit(unit),
@@ -125,7 +132,7 @@ const useInputAmount = (initialUnit?: BitcoinUnit): UseInputAmountResult => {
     onChangeText,
   };
 
-  return { unit, formattedUnit, amountSats, inputAmount, inputProps, changeToNextUnit };
+  return { unit, formattedUnit, amountSats, inputAmount, inputProps, changeToNextUnit, resetInput };
 };
 
 export default useInputAmount;

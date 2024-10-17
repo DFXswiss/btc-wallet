@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
 BackupExplanation.navigationOptions = navigationStyle({ closeButton: true }, opts => ({
   ...opts,
   headerTitle: loc.backupExplanation.title,
-  headerHideBackButton: true,
+  headerBackVisible: false,
   gestureEnabled: false,
 }));
 

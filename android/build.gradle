@@ -4,9 +4,9 @@ buildscript {
     ext {
         minSdkVersion = 28
         supportLibVersion = "28.0.0"
-        buildToolsVersion = "30.0.3"
-        compileSdkVersion = 33
-        targetSdkVersion = 33
+        buildToolsVersion = "34.0.0"
+        compileSdkVersion = 34
+        targetSdkVersion = 34
         googlePlayServicesVersion = "16.+"
         googlePlayServicesIidVersion = "16.0.1"
         firebaseVersion = "17.3.4"
@@ -23,7 +23,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath("com.android.tools.build:gradle:7.4.2")
+        classpath("com.android.tools.build:gradle")
         classpath 'com.google.gms:google-services:4.3.14'  // Google Services plugin
     	classpath("com.facebook.react:react-native-gradle-plugin")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
@@ -50,7 +50,6 @@ allprojects {
                 includeModule("com.facebook.fresco", "memory-type-java")
                 includeModule("com.facebook.fresco", "nativeimagefilters")
                 includeModule("com.facebook.stetho", "stetho")
-                includeModule("com.wei.android.lib", "fingerprintidentify")
             }
         }
             mavenCentral {
@@ -78,8 +77,8 @@ subprojects {
     afterEvaluate {project ->
         if (project.hasProperty("android")) {
             android {
-                buildToolsVersion '30.0.3'
-                compileSdkVersion 31
+                buildToolsVersion '34.0.0'
+                compileSdkVersion 34
                  defaultConfig {
                     minSdkVersion 28
                 }

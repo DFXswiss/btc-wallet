@@ -27,7 +27,7 @@ export const TransactionListItem = React.memo(({ item, itemPriceUnit = BitcoinUn
   const containerStyle = useMemo(
     () => ({
       backgroundColor: 'transparent',
-      borderBottomColor: colors.lightBorder,
+      borderColor: colors.lightBorder,
       paddingTop: 16,
       paddingBottom: 16,
       paddingRight: 0,

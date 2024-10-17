@@ -26,7 +26,8 @@ export default class Lnurl {
   }
 
   static findlnurl(bodyOfText) {
-    const res = /^(?:http.*[&?]lightning=|lightning:)?(lnurl1[02-9ac-hj-np-z]+)/.exec(bodyOfText.toLowerCase());
+    const cleanedText = bodyOfText.replace('mailto:', '').toLowerCase();
+    const res = /(?:http.*[&?]lightning=|lightning:)?(lnurl1[02-9ac-hj-np-z]+)/.exec(cleanedText);
     if (res) {
       return res[1];
     }
@@ -47,8 +48,9 @@ export default class Lnurl {
     const found = Lnurl.findlnurl(lnurlExample);
     if (!found) {
       if (Lnurl.isLightningAddress(lnurlExample)) {
-        const username = lnurlExample.split('@')[0].trim();
-        const host = lnurlExample.split('@')[1].trim();
+        const cleanedAddress = lnurlExample.replace('mailto:', '').toLowerCase();
+        const username = cleanedAddress.split('@')[0].trim();
+        const host = cleanedAddress.split('@')[1].trim();
         const proto = host.match(/\.onion$/) ? 'http' : 'https';
         return `${proto}://${host}/.well-known/lnurlp/${username}`;
       } else {
@@ -177,7 +179,7 @@ export default class Lnurl {
 
   async callLnurlPayService() {
     if (!this._lnurl) throw new Error('this._lnurl is not set');
-    const url = Lnurl.getUrlFromLnurl(this._lnurl);
+    const url = Lnurl.getUrlFromLnurl(this._lnurl).replace('lightning:', '').replace('lightning=', '').replace('lnurlp://', 'https://');
     // calling the url
     const reply = await this.fetchGet(url);
 
@@ -355,9 +357,16 @@ export default class Lnurl {
 
   static isLightningAddress(address) {
     // ensure only 1 `@` present:
-    if (address.split('@').length !== 2) return false;
+    if (address.replace('mailto:', '').split('@').length !== 2) return false;
     const splitted = address.split('@');
     return !!splitted[0].trim() && !!splitted[1].trim();
+  }
+
+  static getDomainFromLightningAddress(address){
+    if(!Lnurl.isLightningAddress(address)) return '';
+    const cleanedAddress = address.trim().replace('mailto:', '')
+    const splitted = cleanedAddress.split('@');
+    return splitted[1];
   }
 }
 

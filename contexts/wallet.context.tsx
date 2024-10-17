@@ -1,8 +1,10 @@
 import React, { createContext, PropsWithChildren, useContext, useMemo } from 'react';
 import { BlueStorageContext } from '../blue_modules/storage-context';
 import { useAuth } from '../api/dfx/hooks/auth.hook';
+import { AbstractWallet } from '../class';
 
 interface WalletInterface {
+  wallet?: AbstractWallet
   walletID?: string;
   address?: string;
   signMessage: (message: string, address: string) => Promise<string>;
@@ -46,6 +48,7 @@ export function WalletContextProvider(props: PropsWithChildren<any>): JSX.Elemen
 
   const context: WalletInterface = useMemo(() => {
     return {
+      wallet: wallets?.[0],
       walletID: wallets?.[0]?.getID?.(),
       address: getAddress(),
       signMessage: async (message: string, address: string): Promise<string> => {

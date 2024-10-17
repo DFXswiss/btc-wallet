@@ -1,4 +1,5 @@
 module.exports = {
+  preset: 'react-native',
   maxWorkers: 1,
   testTimeout: 333_000,
   verbose: true,

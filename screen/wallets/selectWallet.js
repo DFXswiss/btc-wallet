@@ -8,13 +8,13 @@ import { SafeBlueArea, BlueText, BlueSpacing20, BluePrivateBalance } from '../..
 import navigationStyle from '../../components/navigationStyle';
 import WalletGradient from '../../class/wallet-gradient';
 import loc, { formatBalance, transactionTimeToReadable } from '../../loc';
-import { LightningLdkWallet, MultisigHDWallet, LightningCustodianWallet } from '../../class';
+import { MultisigHDWallet, LightningCustodianWallet } from '../../class';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 
 const SelectWallet = () => {
   const { chainType, onWalletSelect, availableWallets, noWalletExplanationText } = useRoute().params;
   const [isLoading, setIsLoading] = useState(true);
-  const { pop, navigate, setOptions, dangerouslyGetParent } = useNavigation();
+  const { pop, navigate, setOptions, getParent } = useNavigation();
   const { wallets } = useContext(BlueStorageContext);
   const { colors, closeImage } = useTheme();
   const isModal = useNavigationState(state => state.routes.length) === 1;
@@ -110,7 +110,7 @@ const SelectWallet = () => {
                 accessibilityRole="button"
                 style={styles.button}
                 onPress={() => {
-                  dangerouslyGetParent().pop();
+                  getParent().pop();
                 }}
                 testID="NavigationCloseButton"
               >
@@ -137,7 +137,6 @@ const SelectWallet = () => {
             <Image
               source={(() => {
                 switch (item.type) {
-                  case LightningLdkWallet.type:
                   case LightningCustodianWallet.type:
                     return I18nManager.isRTL ? require('../../img/lnd-shape-rtl.png') : require('../../img/lnd-shape.png');
                   case MultisigHDWallet.type:

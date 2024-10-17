@@ -21,7 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import BigNumber from 'bignumber.js';
 
-import { BlueButton, BlueDismissKeyboardInputAccessory, BlueLoading, BlueText, BlueWalletSelect } from '../../BlueComponents';
+import { BlueButton, BlueDismissKeyboardInputAccessory, BlueLoading, BlueSpacing40, BlueText, BlueWalletSelect } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
 import NetworkTransactionFees, { NetworkTransactionFee } from '../../models/networkTransactionFees';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
@@ -29,11 +29,11 @@ import { HDSegwitBech32Wallet, MultisigHDWallet, WatchOnlyWallet } from '../../c
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import loc, { formatBalance, formatBalanceWithoutSuffix } from '../../loc';
 import BottomModal from '../../components/BottomModal';
-import AddressInput from '../../components/AddressInput';
 import AmountInput from '../../components/AmountInput';
 import InputAccessoryAllFunds from '../../components/InputAccessoryAllFunds';
 import { AbstractHDElectrumWallet } from '../../class/wallets/abstract-hd-electrum-wallet';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
+import { useReplaceModalScreen } from '../../hooks/replaceModalScreen.hook';
 const currency = require('../../blue_modules/currency');
 const prompt = require('../../helpers/prompt');
 
@@ -42,6 +42,7 @@ const btcAddressRx = /^[a-zA-Z0-9]{26,35}$/;
 const SendDetails = () => {
   const { wallets, setSelectedWallet, sleep, txMetadata, saveToDisk } = useContext(BlueStorageContext);
   const navigation = useNavigation();
+  const replace = useReplaceModalScreen();
   const { name, params: routeParams } = useRoute();
   const scrollView = useRef();
   const scrollIndex = useRef(0);
@@ -88,6 +89,8 @@ const SendDetails = () => {
     }
     return initialFee;
   }, [customFee, feePrecalc, networkTransactionFees]);
+
+  const suitableWallets = useMemo(() => wallets.filter(w => w.chain === Chain.ONCHAIN && w.allowSend()), [wallets]);
 
   // keyboad effects
   useEffect(() => {
@@ -324,7 +327,7 @@ const SendDetails = () => {
     if (!newWallet) return;
 
     if (newWallet.chain !== Chain.ONCHAIN) {
-      return navigation.replace('ScanLndInvoice', { walletID: id });
+      return replace({ name: 'ScanLndInvoice', params: { walletID: id } });
     }
 
     setWallet(newWallet);
@@ -792,7 +795,10 @@ const SendDetails = () => {
         {isLoading ? (
           <ActivityIndicator />
         ) : (
-          <BlueButton onPress={createTransaction} title={loc.send.details_next} testID="CreateTransactionButton" />
+          <>
+            <BlueButton onPress={createTransaction} title={loc.send.details_next} testID="CreateTransactionButton" />
+            <BlueSpacing40 />
+          </>
         )}
       </View>
     );
@@ -864,28 +870,8 @@ const SendDetails = () => {
             </BlueText>
           </TouchableOpacity>
         )}
-
-        <AddressInput
-          onChangeText={text => {
-            text = text.trim();
-            const { address, amount, memo, payjoinUrl: pjUrl } = DeeplinkSchemaMatch.decodeBitcoinUri(text);
-            setAddresses(addrs => {
-              item.address = address || text;
-              item.amount = amount || item.amount;
-              addrs[index] = item;
-              return [...addrs];
-            });
-            setTransactionMemo(memo || transactionMemo);
-            setIsLoading(false);
-            setPayjoinUrl(pjUrl);
-          }}
-          onBarScanned={processAddressData}
-          address={item.address}
-          isLoading={isLoading}
-          inputAccessoryViewID={BlueDismissKeyboardInputAccessory.InputAccessoryViewID}
-          launchedBy={name}
-          editable={isEditable}
-        />
+        <BlueText style={styles.label}>To:</BlueText>
+        <BlueText style={styles.staticField}>{item.address}</BlueText>
         {addresses.length > 1 && (
           <Text style={[styles.of, stylesHook.of]}>{loc.formatString(loc._.of, { number: index + 1, total: addresses.length })}</Text>
         )}
@@ -906,10 +892,7 @@ const SendDetails = () => {
       <View style={[styles.root, stylesHook.root]} onLayout={e => setWidth(e.nativeEvent.layout.width)}>
         <StatusBar barStyle="light-content" />
         <View>
-          <KeyboardAvoidingView enabled={!Platform.isPad} behavior="position">
-            <View style={styles.pickerContainer}>
-              <BlueWalletSelect wallets={wallets} value={wallet?.getID()} onChange={onWalletChange} />
-            </View>
+          <KeyboardAvoidingView enabled={!Platform.isPad} behavior="position" keyboardVerticalOffset={80}>
             <FlatList
               keyboardShouldPersistTaps="always"
               scrollEnabled={addresses.length > 1}
@@ -926,11 +909,18 @@ const SendDetails = () => {
               scrollIndicatorInsets={styles.scrollViewIndicator}
               contentContainerStyle={styles.scrollViewContent}
             />
+            <BlueText style={styles.label}>From your wallet:</BlueText>
+            {suitableWallets.length === 1 ? (
+              <BlueText style={styles.staticField}>{wallet.getLabel()}</BlueText>
+            ) : (
+              <View style={styles.pickerContainer}>
+                <BlueWalletSelect wallets={suitableWallets} value={wallet?.getID()} onChange={onWalletChange} />
+              </View>
+            )}
+            <BlueText style={styles.label}>Note</BlueText>
             <View style={[styles.memo, stylesHook.memo]}>
               <TextInput
                 onChangeText={setTransactionMemo}
-                placeholder={loc.send.details_note_placeholder}
-                placeholderTextColor="#81868e"
                 value={transactionMemo}
                 numberOfLines={1}
                 style={styles.memoText}
@@ -1075,7 +1065,8 @@ const styles = StyleSheet.create({
     height: 44,
     marginHorizontal: 20,
     alignItems: 'center',
-    marginVertical: 8,
+    marginTop: 8,
+    marginBottom: 14,
     borderRadius: 4,
   },
   memoText: {
@@ -1108,13 +1099,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: 8,
   },
-  pickerContainer: { marginHorizontal: 16 },
+  pickerContainer: { 
+    marginHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  label: {
+    marginHorizontal: 20,
+    marginTop: 20,
+  },
+  staticField: {
+    marginHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 12,
+    color: '#818181',
+    fontSize: 16
+  },
 });
 
 SendDetails.navigationOptions = navigationStyle(
   {
     closeButton: true,
-    headerHideBackButton: true,
+    headerBackVisible: false,
   },
   options => ({
     ...options,

@@ -21,8 +21,8 @@ import {
 } from '../../BlueComponents';
 import BlueElectrum from '../../blue_modules/BlueElectrum';
 import Notifications from '../../blue_modules/notifications';
+import scanqr from '../../helpers/scan-qr';
 
-const scanqr = require('../../helpers/scan-qr');
 
 const BROADCAST_RESULT = Object.freeze({
   none: 'Input transaction hex',

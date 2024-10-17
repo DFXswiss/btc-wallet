@@ -24,6 +24,7 @@ import Biometric from '../../class/biometrics';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import alert from '../../components/Alert';
 import { Text } from 'react-native-elements';
+import { isFreeDomain } from '../../helpers/freeLightningDomains';
 const currency = require('../../blue_modules/currency');
 
 /**
@@ -43,9 +44,10 @@ const LnurlPay = () => {
   const [_LN, setLN] = useState();
   const [payButtonDisabled, setPayButtonDisabled] = useState(true);
   const [payload, setPayload] = useState();
-  const { pop, navigate } = useNavigation();
+  const { pop, navigate, goBack } = useNavigation();
   const [amount, setAmount] = useState();
   const [desc, setDesc] = useState();
+  const [isTxFree, setIsTxFree] = useState(false);
   const { colors } = useTheme();
   const stylesHook = StyleSheet.create({
     root: {
@@ -62,7 +64,11 @@ const LnurlPay = () => {
       const recepient = isLightningAddress ? destination : lnurl;
       const ln = new Lnurl(recepient, AsyncStorage);
       ln.callLnurlPayService()
-        .then(setPayload)
+        .then(p => {
+          const domain = ln.getDomain();
+          setIsTxFree(isFreeDomain(domain))
+          setPayload(p);
+        })
         .catch(error => {
           alert(error.message);
           pop();
@@ -93,6 +99,7 @@ const LnurlPay = () => {
       let newAmount = (originalSatAmount = amountSat ?? LN.getMin());
       if (!newAmount) {
         alert('Internal error: incorrect LNURL amount');
+        goBack();
         return;
       }
       switch (unit) {
@@ -198,7 +205,7 @@ const LnurlPay = () => {
 
   const getFees = () => {
     const min = 0;
-    const max = Math.floor(amount * 0.03);
+    const max = Math.round(amountSat * 0.03);
     return `${min} ${BitcoinUnit.SATS} - ${max} ${BitcoinUnit.SATS}`;
   };
 
@@ -225,7 +232,7 @@ const LnurlPay = () => {
                 <BlueSpacing20 />
               </>
             )}
-            {description && (
+            {description && (desc !== description) && (
               <>
                 <BlueText style={styles.alignSelfCenter}>{description}</BlueText>
                 <BlueSpacing10 />
@@ -252,7 +259,7 @@ const LnurlPay = () => {
           ) : (
             <>
               <Text style={styles.fees}>
-                {loc.send.create_fee}: {getFees()}
+                {loc.send.create_fee}: {isTxFree ? 'free' : getFees()}
               </Text>
               <BlueButton title={loc.lnd.payButton} onPress={pay} />
             </>
@@ -304,5 +311,5 @@ const styles = StyleSheet.create({
 LnurlPay.navigationOptions = navigationStyle({
   title: '',
   closeButton: true,
-  closeButtonFunc: ({ navigation }) => navigation.dangerouslyGetParent().popToTop(),
+  closeButtonFunc: ({ navigation }) => navigation.getParent().popToTop(),
 });

@@ -1,6 +1,3 @@
-/**
- * TOR wrapper mimicking Frisbee interface
- */
 class Torsbee {
   baseURI = '';
 

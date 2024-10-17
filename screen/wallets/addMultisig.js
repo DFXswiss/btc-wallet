@@ -5,7 +5,7 @@ import { Icon } from 'react-native-elements';
 import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BlueButton, BlueListItem, BlueSpacing20 } from '../../BlueComponents';
+import { BlueButton, BlueListItem, BlueSpacing20, SecondButton } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
 import BottomModal from '../../components/BottomModal';
 import { MultisigHDWallet } from '../../class';
@@ -68,6 +68,8 @@ const WalletsAddMultisig = () => {
     isAdvancedModeEnabled().then(setIsAdvancedModeEnabledRender);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const onBack = () => navigate('WalletTransactions');
 
   const onLetsStartPress = async () => {
     setIsLoading(true);
@@ -235,6 +237,8 @@ const WalletsAddMultisig = () => {
           onPress={onLetsStartPress}
           isLoading={isLoading}
         />
+        <BlueSpacing20 />
+        <SecondButton title={loc._.cancel} onPress={onBack} />
       </View>
       {renderModal()}
     </SafeAreaView>
@@ -335,8 +339,10 @@ WalletsAddMultisig.getCurrentFormatReadable = f => {
   }
 };
 
-WalletsAddMultisig.navigationOptions = navigationStyle({
-  headerTitle: null,
-});
+WalletsAddMultisig.navigationOptions = navigationStyle({}, opts => ({
+  ...opts,
+  headerTitle: loc.wallets.multi_sig_wallet_label,
+  gestureEnabled: false,
+}));
 
 export default WalletsAddMultisig;

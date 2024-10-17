@@ -11,6 +11,7 @@ export interface CallConfig {
   data?: any;
   noJson?: boolean;
   specialHandling?: SpecialHandling;
+  signal?: AbortSignal;
 }
 
 interface SpecialHandling {
@@ -19,7 +20,7 @@ interface SpecialHandling {
 }
 
 export function useApi(): ApiInterface {
-  function buildInit(method: 'GET' | 'PUT' | 'POST' | 'DELETE', accessToken?: string | null, data?: any, noJson?: boolean): RequestInit {
+  function buildInit(method: 'GET' | 'PUT' | 'POST' | 'DELETE', accessToken?: string | null, data?: any, noJson?: boolean, signal?: AbortSignal): RequestInit {
     return {
       method,
       headers: {
@@ -27,11 +28,12 @@ export function useApi(): ApiInterface {
         Authorization: accessToken ? `Bearer ${accessToken}` : '',
       },
       body: noJson ? data : JSON.stringify(data),
+      signal
     };
   }
 
   async function call<T>(config: CallConfig, accessToken?: string): Promise<T> {
-    return await fetch(`${Config.REACT_APP_API_URL}/${config.url}`, buildInit(config.method, accessToken, config.data, config.noJson)).then(
+    return await fetch(`${Config.REACT_APP_API_URL}/${config.url}`, buildInit(config.method, accessToken, config.data, config.noJson, config.signal)).then(
       response => {
         if (response.status === config.specialHandling?.statusCode) {
           config.specialHandling?.action?.();

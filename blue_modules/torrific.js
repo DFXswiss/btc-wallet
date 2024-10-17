@@ -4,9 +4,6 @@ const tor = Tor({
   numberConcurrentRequests: 1,
 });
 
-/**
- * TOR wrapper mimicking Frisbee interface
- */
 class Torsbee {
   baseURI = '';
 

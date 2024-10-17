@@ -18,7 +18,6 @@ import {
   HDSegwitElectrumSeedP2WPKHWallet,
   HDAezeedWallet,
   MultisigHDWallet,
-  LightningLdkWallet,
   SLIP39SegwitP2SHWallet,
   SLIP39LegacyP2PKHWallet,
   SLIP39SegwitBech32Wallet,
@@ -26,6 +25,7 @@ import {
 import { randomBytes } from './class/rng';
 import alert from './components/Alert';
 import { LightningLdsWallet } from './class/wallets/lightning-lds-wallet';
+import { TaprootLdsWallet } from './class/wallets/taproot-lds-wallet';
 
 const encryption = require('./blue_modules/encryption');
 const Realm = require('realm');
@@ -43,6 +43,11 @@ class AppStorage {
   static ADVANCED_MODE_ENABLED = 'advancedmodeenabled';
   static DO_NOT_TRACK = 'donottrack';
   static HANDOFF_STORAGE_KEY = 'HandOff';
+  static PAY_CARD = 'PAY_CARD';
+  static FF_LDS_DEV_API = 'ff_lds_dev_api';
+  static POS_MODE = 'pos_mode';
+  static DFX_POS = 'dfx_pos';
+  static DFX_SWAP = 'dfx_swap';
 
   static keys2migrate = [AppStorage.HANDOFF_STORAGE_KEY, AppStorage.DO_NOT_TRACK, AppStorage.ADVANCED_MODE_ENABLED];
 
@@ -382,9 +387,6 @@ class AppStorage {
             }
 
             break;
-          case LightningLdkWallet.type:
-            unserializedWallet = LightningLdkWallet.fromJson(key);
-            break;
           case SLIP39SegwitP2SHWallet.type:
             unserializedWallet = SLIP39SegwitP2SHWallet.fromJson(key);
             break;
@@ -394,10 +396,16 @@ class AppStorage {
           case SLIP39SegwitBech32Wallet.type:
             unserializedWallet = SLIP39SegwitBech32Wallet.fromJson(key);
             break;
+          case TaprootLdsWallet.type:
           case LightningCustodianWallet.type:
           case LightningLdsWallet.type: {
-            /** @type {LightningCustodianWallet} */
-            unserializedWallet = LightningCustodianWallet.fromJson(key);
+            unserializedWallet =
+              tempObj.type === LightningCustodianWallet.type
+                ? LightningCustodianWallet.fromJson(key)
+                : tempObj.type === LightningLdsWallet.type
+                ? LightningLdsWallet.fromJson(key)
+                : TaprootLdsWallet.fromJson(key);
+                
             let lndhub = false;
             try {
               lndhub = await AsyncStorage.getItem(AppStorage.LNDHUB);
@@ -452,12 +460,6 @@ class AppStorage {
   deleteWallet = wallet => {
     const ID = wallet.getID();
     const tempWallets = [];
-
-    if (wallet.type === LightningLdkWallet.type) {
-      /** @type {LightningLdkWallet} */
-      const ldkwallet = wallet;
-      ldkwallet.stop().then(ldkwallet.purgeLocalStorage).catch(alert);
-    }
 
     for (const value of this.wallets) {
       if (value.getID() === ID) {
@@ -835,6 +837,51 @@ class AppStorage {
 
   setIsAdvancedModeEnabled = async value => {
     await AsyncStorage.setItem(AppStorage.ADVANCED_MODE_ENABLED, value ? '1' : '');
+  };
+
+
+  isLdsDevEnabled = async () => {
+    try {
+      return !!(await AsyncStorage.getItem(AppStorage.FF_LDS_DEV_API));
+    } catch (_) {}
+    return false;
+  };
+
+  setIsLdsDevEnabled = async value => {
+    await AsyncStorage.setItem(AppStorage.FF_LDS_DEV_API, value ? '1' : '');
+  };
+
+  isPOSmodeEnabled = async () => {
+    try {
+      return !!(await AsyncStorage.getItem(AppStorage.POS_MODE));
+    } catch (_) {}
+    return false;
+  };
+
+  setIsPOSmodeEnabled = async value => {
+    await AsyncStorage.setItem(AppStorage.POS_MODE, value ? '1' : '');
+  };
+
+  isDfxPOSEnabled = async () => {
+    try {
+      return !!(await AsyncStorage.getItem(AppStorage.DFX_POS));
+    } catch (_) {}
+    return false;
+  };
+
+  setIsDfxPOSEnabled = async value => {
+    await AsyncStorage.setItem(AppStorage.DFX_POS, value ? '1' : '');
+  };
+
+  isDfxSwapEnabled = async () => {
+    try {
+      return !!(await AsyncStorage.getItem(AppStorage.DFX_SWAP));
+    } catch (_) {}
+    return false;
+  };
+
+  setIsDfxSwapEnabled = async value => {
+    await AsyncStorage.setItem(AppStorage.DFX_SWAP, value ? '1' : '');
   };
 
   isHandoffEnabled = async () => {

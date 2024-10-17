@@ -4,7 +4,7 @@ import { Icon } from 'react-native-elements';
 import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 
-import { BlueButton } from '../../BlueComponents';
+import { BlueButton, BlueSpacing10 } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
 import { MultisigCosigner, MultisigHDWallet } from '../../class';
 import loc from '../../loc';
@@ -13,6 +13,7 @@ import { BlueURDecoder, encodeUR } from '../../blue_modules/ur';
 import QRCodeComponent from '../../components/QRCodeComponent';
 import alert from '../../components/Alert';
 import { Camera } from 'react-native-camera-kit';
+import { ScrollView } from 'react-native-gesture-handler';
 const createHash = require('create-hash');
 
 const prompt = require('../../helpers/prompt');
@@ -43,7 +44,7 @@ const WalletsAddMultisigStep2 = () => {
 
   const stylesHook = StyleSheet.create({
     root: {
-      flex: 1,
+      flexGrow: 1,
       justifyContent: 'space-between',
       backgroundColor: colors.elevated,
     },
@@ -101,7 +102,7 @@ const WalletsAddMultisigStep2 = () => {
     await saveToDisk();
     A(A.ENUM.CREATED_WALLET);
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
-    navigation.dangerouslyGetParent().goBack();
+    navigation.navigate('WalletTransactions')
   };
 
   const getPath = () => {
@@ -357,7 +358,7 @@ const WalletsAddMultisigStep2 = () => {
   };
 
   return (
-    <View style={[styles.root, stylesHook.root]}>
+    <ScrollView contentContainerStyle={[styles.root, stylesHook.root]}>
       <View>
         <FlatList
           contentContainerStyle={styles.keyCircleContainer}
@@ -374,8 +375,9 @@ const WalletsAddMultisigStep2 = () => {
       </View>
       <View style={styles.buttonContainer}>
         <BlueButton isLoading={isLoading} title={loc.multisig.create} onPress={onCreate} disabled={cosigners.length !== n} />
+        {Platform.OS === 'ios' && (<BlueSpacing10 />)}
       </View>
-    </View>
+    </ScrollView>
   );
 };
 
@@ -394,7 +396,7 @@ const styles = StyleSheet.create({
   },
   cameraContainer: {
     position: 'relative',
-    height: '40%',
+    flexGrow: 1
   },
   camera: {
     flex: 1,
@@ -408,7 +410,7 @@ const styles = StyleSheet.create({
 });
 
 WalletsAddMultisigStep2.navigationOptions = navigationStyle({
-  headerTitle: null,
+  headerTitle: loc.wallets.multi_sig_wallet_label,
   gestureEnabled: false,
   swipeEnabled: false,
 });

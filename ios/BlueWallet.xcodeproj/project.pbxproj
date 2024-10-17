@@ -10,6 +10,7 @@
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
 		32B5A32A2334450100F8D608 /* Bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32B5A3292334450100F8D608 /* Bridge.swift */; };
+		6132EF182BDFF13200BBE14D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 6132EF172BDFF13200BBE14D /* PrivacyInfo.xcprivacy */; };
 		6D32C5C62596CE3A008C077C /* EventEmitter.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D32C5C52596CE3A008C077C /* EventEmitter.m */; };
 		6DF25A9F249DB97E001D06F5 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 6DF25A9E249DB97E001D06F5 /* LaunchScreen.storyboard */; };
 		782F075B5DD048449E2DECE9 /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = B9D9B3A7B2CB4255876B67AF /* libz.tbd */; };
@@ -48,6 +49,7 @@
 		4D746BBE67E84684848246E2 /* SimpleLineIcons.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = SimpleLineIcons.ttf; path = "../node_modules/react-native-vector-icons/Fonts/SimpleLineIcons.ttf"; sourceTree = "<group>"; };
 		4F12F501B686459183E0BE0D /* libRNVectorIcons.a */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = archive.ar; path = libRNVectorIcons.a; sourceTree = "<group>"; };
 		5A8F67CF29564E41882ECEF8 /* FontAwesome5_Brands.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = FontAwesome5_Brands.ttf; path = "../node_modules/react-native-vector-icons/Fonts/FontAwesome5_Brands.ttf"; sourceTree = "<group>"; };
+		6132EF172BDFF13200BBE14D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = RnDiffApp/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		6A65D81712444D37BA152B06 /* libRNRandomBytes.a */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = archive.ar; path = libRNRandomBytes.a; sourceTree = "<group>"; };
 		6D32C5C42596CE2F008C077C /* EventEmitter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = EventEmitter.h; sourceTree = "<group>"; };
 		6D32C5C52596CE3A008C077C /* EventEmitter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EventEmitter.m; sourceTree = "<group>"; };
@@ -198,6 +200,7 @@
 		83CBB9F61A601CBA00E9B192 = {
 			isa = PBXGroup;
 			children = (
+				6132EF172BDFF13200BBE14D /* PrivacyInfo.xcprivacy */,
 				13B07FAE1A68108700A75B9A /* BlueWallet */,
 				00E356EF1AD99517003FC87E /* BlueWalletTests */,
 				83CBBA001A601CBA00E9B192 /* Products */,
@@ -356,6 +359,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6132EF182BDFF13200BBE14D /* PrivacyInfo.xcprivacy in Resources */,
 				6DF25A9F249DB97E001D06F5 /* LaunchScreen.storyboard in Resources */,
 				84E05A842721191B001A0D3A /* Settings.bundle in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
@@ -387,12 +391,10 @@
 			inputPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-BlueWallet/Pods-BlueWallet-frameworks.sh",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/rn-ldk/LDKFramework.framework/LDKFramework",
 			);
 			name = "[CP] Embed Pods Frameworks";
 			outputPaths = (
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/LDKFramework.framework",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -436,6 +438,9 @@
 				"${PODS_ROOT}/../../node_modules/react-native-vector-icons/Fonts/FontAwesome5_Brands.ttf",
 				"${PODS_ROOT}/../../node_modules/react-native-vector-icons/Fonts/FontAwesome5_Regular.ttf",
 				"${PODS_ROOT}/../../node_modules/react-native-vector-icons/Fonts/FontAwesome5_Solid.ttf",
+				"${PODS_ROOT}/../../node_modules/react-native-vector-icons/Fonts/FontAwesome6_Brands.ttf",
+				"${PODS_ROOT}/../../node_modules/react-native-vector-icons/Fonts/FontAwesome6_Regular.ttf",
+				"${PODS_ROOT}/../../node_modules/react-native-vector-icons/Fonts/FontAwesome6_Solid.ttf",
 				"${PODS_ROOT}/../../node_modules/react-native-vector-icons/Fonts/Fontisto.ttf",
 				"${PODS_ROOT}/../../node_modules/react-native-vector-icons/Fonts/Foundation.ttf",
 				"${PODS_ROOT}/../../node_modules/react-native-vector-icons/Fonts/Ionicons.ttf",
@@ -456,6 +461,9 @@
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/FontAwesome5_Brands.ttf",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/FontAwesome5_Regular.ttf",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/FontAwesome5_Solid.ttf",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/FontAwesome6_Brands.ttf",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/FontAwesome6_Regular.ttf",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/FontAwesome6_Solid.ttf",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Fontisto.ttf",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Foundation.ttf",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Ionicons.ttf",
@@ -497,7 +505,7 @@
 				CODE_SIGN_ENTITLEMENTS = BlueWallet/BlueWallet.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 18;
+				CURRENT_PROJECT_VERSION = 21;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = Y4QBY6387T;
 				ENABLE_BITCODE = NO;
@@ -520,7 +528,7 @@
 					"$(SDKROOT)/System/iOSSupport/usr/lib/swift",
 					"$(inherited)",
 				);
-				MARKETING_VERSION = 1.2.0;
+				MARKETING_VERSION = 2.0.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -548,7 +556,7 @@
 				CODE_SIGN_ENTITLEMENTS = BlueWallet/BlueWalletRelease.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 18;
+				CURRENT_PROJECT_VERSION = 21;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = Y4QBY6387T;
 				ENABLE_BITCODE = NO;
@@ -566,7 +574,7 @@
 					"$(SDKROOT)/System/iOSSupport/usr/lib/swift",
 					"$(inherited)",
 				);
-				MARKETING_VERSION = 1.2.0;
+				MARKETING_VERSION = 2.0.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -624,6 +632,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
 					"$(inherited)",
+					_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION,
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -636,6 +645,9 @@
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "$(inherited)";
+				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 4.2;
@@ -677,6 +689,10 @@
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = i386;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION,
+				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -686,6 +702,9 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 11.2;
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_CFLAGS = "$(inherited)";
+				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;

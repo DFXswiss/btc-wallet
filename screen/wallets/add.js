@@ -234,7 +234,7 @@ const WalletsAdd = () => {
 
 WalletsAdd.navigationOptions = navigationStyle(
   {
-    headerHideBackButton: true,
+    headerBackVisible: false,
     gestureEnabled: false,
   },
   opts => ({ ...opts, title: loc.wallets.add_title }),

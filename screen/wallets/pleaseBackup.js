@@ -31,7 +31,7 @@ const PleaseBackup = () => {
     async hasConfirmed => {
       wallet.setUserHasBackedUpSeed(hasConfirmed);
       await saveToDisk();
-      navigation.dangerouslyGetParent().pop();
+      navigation.getParent().pop();
       return true;
     },
     [navigation],

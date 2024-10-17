@@ -16,10 +16,12 @@ import { User, UserUrl } from '../definitions/user';
 import { Auth } from '../definitions/auth';
 import { useLanguageContext } from './language.context';
 import { MultisigHDWallet } from '../../../class';
+import { TaprootLdsWallet } from '../../../class/wallets/taproot-lds-wallet';
 
 export enum DfxService {
   BUY = 'buy',
   SELL = 'sell',
+  SWAP = 'swap',
 }
 
 export interface SessionInterface {
@@ -113,7 +115,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
       return await createSession(mainAddress, signature);
     } else {
       const wallet = wallets.find((w: any) => w.getID?.() === walletId);
-      if (wallet.type === LightningLdsWallet.type) {
+      if (wallet.type === LightningLdsWallet.type || wallet.type === TaprootLdsWallet.type) {
         const address = Lnurl.getLnurlFromAddress(wallet.lnAddress);
         if (!address) throw new Error('Address is not defined');
 
@@ -176,15 +178,9 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
       !isProcessing &&
       connect(wallets.filter((w: any) => w.type !== MultisigHDWallet.type).map((w: any) => w.getID()))
         .then(() => setIsInitialized(true))
-        .catch(e =>
-          Alert.alert('Something went wrong', e.message?.toString(), [
-            {
-              text: loc._.ok,
-              onPress: () => { },
-              style: 'default',
-            },
-          ]),
-        );
+        .catch(e => {
+          console.error('DFX session init error: ', e.message?.toString());
+        });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallets]);
 

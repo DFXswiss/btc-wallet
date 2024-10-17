@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { Image, View, TouchableOpacity, StatusBar, Platform, StyleSheet, TextInput, Alert, PermissionsAndroid } from 'react-native';
 import { CameraScreen } from 'react-native-camera-kit';
-import { Icon } from 'react-native-elements';
+import { Icon, Text } from 'react-native-elements';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { decodeUR, extractSingleWorkload, BlueURDecoder } from '../../blue_modules/ur';
 import { useNavigation, useRoute, useIsFocused, useTheme } from '@react-navigation/native';
 import loc from '../../loc';
-import { BlueLoading, BlueText, BlueButton } from '../../BlueComponents';
+import { BlueLoading, BlueText } from '../../BlueComponents';
 import alert from '../../components/Alert';
+import { HoldCardModal } from '../../components/HoldCardModal';
+import { useNtag424 } from '../../api/boltcards/hooks/ntag424.hook';
+import useLdsBoltcards from '../../api/boltcards/hooks/bolcards.hook';
 
 const LocalQRCode = require('@remobile/react-native-qrcode-local-image');
 const createHash = require('create-hash');
@@ -43,6 +46,27 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 24,
     bottom: 48,
+  },
+  nfcTouch: {
+    height: 40,
+    justifyContent: 'center',
+    borderRadius: 20,
+    position: 'absolute',
+    right: 20,
+    bottom: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nfcTouchContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderColor: 'white',
+    borderWidth: 1,
+    borderRadius: 50,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   filePickerTouch: {
     width: 40,
@@ -87,13 +111,14 @@ const ScanQRCode = () => {
   const scannedCache = {};
   const { colors } = useTheme();
   const isFocused = useIsFocused();
-  const [backdoorPressed, setBackdoorPressed] = useState(0);
   const [urTotal, setUrTotal] = useState(0);
   const [urHave, setUrHave] = useState(0);
-  const [backdoorText, setBackdoorText] = useState('');
-  const [backdoorVisible, setBackdoorVisible] = useState(false);
   const [animatedQRCodeData, setAnimatedQRCodeData] = useState({});
   const [cameraStatus, setCameraStatus] = useState(false);
+  const [holdCardModalVisible, setHoldCardModalVisible] = useState(false);
+  const { startNfcSession, authCard, readCard, stopNfcSession } = useNtag424({ manualSessionControl: true });
+  const { genFreshCardDetails } = useLdsBoltcards();
+
   const stylesHook = StyleSheet.create({
     openSettingsContainer: {
       backgroundColor: colors.brandingColor,
@@ -132,6 +157,9 @@ const ScanQRCode = () => {
         console.warn(err);
       }
     })();
+    return () => {
+      stopNfcSession();
+    }
   }, []);
 
   const HashIt = function (s) {
@@ -146,7 +174,7 @@ const ScanQRCode = () => {
         const data = decoder.toString();
         decoder = false; // nullify for future use (?)
         if (launchedBy) {
-          navigation.navigate(launchedBy);
+          navigation.navigate(launchedBy, {});
         }
         onBarScanned({ data });
       } else {
@@ -195,7 +223,7 @@ const ScanQRCode = () => {
           data = Buffer.from(payload, 'hex').toString();
         }
         if (launchedBy) {
-          navigation.navigate(launchedBy);
+          navigation.navigate(launchedBy, {});
         }
         onBarScanned({ data });
       } else {
@@ -258,7 +286,7 @@ const ScanQRCode = () => {
       bitcoin.Psbt.fromHex(hex); // if it doesnt throw - all good
 
       if (launchedBy) {
-        navigation.navigate(launchedBy);
+        navigation.navigate(launchedBy, {});
       }
       onBarScanned({ data: Buffer.from(hex, 'hex').toString('base64') });
       return;
@@ -268,7 +296,7 @@ const ScanQRCode = () => {
       setIsLoading(true);
       try {
         if (launchedBy) {
-          navigation.navigate(launchedBy);
+          navigation.navigate(launchedBy, {});
         }
         onBarScanned(ret.data);
       } catch (e) {
@@ -324,12 +352,37 @@ const ScanQRCode = () => {
   const dismiss = () => {
     onBarScannerDismissWithoutData();
     if (launchedBy) {
-      navigation.navigate(launchedBy);
+      navigation.navigate(launchedBy, {});
     } else {
       navigation.goBack();
     }
     if (onDismiss) onDismiss();
   };
+
+  const startNfc = async () => {
+    if (Platform.OS === 'android') setHoldCardModalVisible(true);
+    try {
+      await startNfcSession();
+      
+      const card = await readCard();
+      const secretsGuess = await genFreshCardDetails();
+      const authKeys = await authCard(card, secretsGuess);
+
+      if (launchedBy) {
+        navigation.navigate(launchedBy, {});
+      }
+      onBarScanned({ data: {...card, secrets: authKeys } });
+    } catch (error) {
+      setHoldCardModalVisible(false);
+      console.log('#### error ###', error, error?.message, error.constructor?.name);
+    }
+    stopNfcSession();
+  };
+
+  const stopNFC = () => {
+    stopNfcSession();
+    setHoldCardModalVisible(false);
+  }
 
   return isLoading ? (
     <View style={styles.root}>
@@ -338,7 +391,7 @@ const ScanQRCode = () => {
   ) : (
     <View style={styles.root}>
       <StatusBar hidden />
-      {isFocused && cameraStatus ? (
+      {isFocused && cameraStatus && !holdCardModalVisible ? (
         <CameraScreen scanBarcode onReadCode={event => onBarCodeRead({ data: event?.nativeEvent?.codeStringValue })} showFrame={false} />
       ) : null}
       <TouchableOpacity accessibilityRole="button" accessibilityLabel={loc._.close} style={styles.closeTouch} onPress={dismiss}>
@@ -351,6 +404,12 @@ const ScanQRCode = () => {
         onPress={showImagePicker}
       >
         <Icon name="image" type="font-awesome" color="#ffffff" />
+      </TouchableOpacity>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel={loc._.pick_image} style={styles.nfcTouch} onPress={startNfc}>
+        <View style={styles.nfcTouchContent}>
+          <Image source={require('../../img/nfc.png')} style={{ width: 30, height: 30 }} />
+          <Text style={{ color: 'white' }}>NFC</Text>
+        </View>
       </TouchableOpacity>
       {showFileImportButton && (
         <TouchableOpacity
@@ -370,49 +429,7 @@ const ScanQRCode = () => {
           </BlueText>
         </View>
       )}
-      {backdoorVisible && (
-        <View style={styles.backdoorInputWrapper}>
-          <BlueText>Provide QR code contents manually:</BlueText>
-          <TextInput
-            testID="scanQrBackdoorInput"
-            multiline
-            underlineColorAndroid="transparent"
-            style={[styles.backdoorInput, stylesHook.backdoorInput]}
-            autoCorrect={false}
-            autoCapitalize="none"
-            spellCheck={false}
-            selectTextOnFocus={false}
-            keyboardType={Platform.OS === 'android' ? 'visible-password' : 'default'}
-            value={backdoorText}
-            onChangeText={setBackdoorText}
-          />
-          <BlueButton
-            title="OK"
-            testID="scanQrBackdoorOkButton"
-            onPress={() => {
-              setBackdoorVisible(false);
-              setBackdoorText('');
-
-              if (backdoorText) onBarCodeRead({ data: backdoorText });
-            }}
-          />
-        </View>
-      )}
-      <TouchableOpacity
-        accessibilityRole="button"
-        accessibilityLabel={loc._.qr_custom_input_button}
-        testID="ScanQrBackdoorButton"
-        style={styles.backdoorButton}
-        onPress={async () => {
-          // this is an invisible backdoor button on bottom left screen corner
-          // tapping it 10 times fires prompt dialog asking for a string thats gona be passed to onBarCodeRead.
-          // this allows to mock and test QR scanning in e2e tests
-          setBackdoorPressed(backdoorPressed + 1);
-          if (backdoorPressed < 5) return;
-          setBackdoorPressed(0);
-          setBackdoorVisible(true);
-        }}
-      />
+      <HoldCardModal isHoldCardModalVisible={holdCardModalVisible} onCancelHoldCard={stopNFC} />
     </View>
   );
 };

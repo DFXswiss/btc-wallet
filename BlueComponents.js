@@ -74,7 +74,7 @@ export const BlueButton = props => {
           <ActivityIndicator />
         ) : (
           <>
-            {props.icon && <Icon name={props.icon.name} type={props.icon.type} color={props.icon.color} />}
+            {props.icon && <Icon name={props.icon.name} type={props.icon.type} color={props.icon.color} size={props.icon.size} />}
             {props.title && <Text style={{ marginHorizontal: 8, fontSize: 16, color: fontColor, fontWeight: '500' }}>{props.title}</Text>}
           </>
         )}
@@ -112,6 +112,7 @@ export const SecondButton = forwardRef((props, ref) => {
       ref={ref}
     >
       <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
+        {props.image && <Image source={props.image.source} style={{ width: 45, height: 45, marginRight: 8 }} />}
         {props.icon && <Icon name={props.icon.name} type={props.icon.type} color={props.icon.color} size={props.icon.size} />}
         {props.title && <Text style={{ marginHorizontal: 8, fontSize: 16, color: fontColor }}>{props.title}</Text>}
       </View>
@@ -432,7 +433,7 @@ export const BlueListItem = React.memo(props => {
 
   return (
     <ListItem
-      containerStyle={props.containerStyle ?? { backgroundColor: 'transparent', borderBottomColor: '#113759' }}
+      containerStyle={props.containerStyle ?? { backgroundColor: 'transparent', borderColor: '#113759' }}
       Component={props.Component ?? TouchableOpacity}
       bottomDivider={props.bottomDivider !== undefined ? props.bottomDivider : true}
       topDivider={props.topDivider !== undefined ? props.topDivider : false}
@@ -946,9 +947,9 @@ export const BlueTabs = ({ active, onSwitch, tabs }) => (
   </View>
 );
 
-export const BlueWalletSelect = ({ wallets, value, onChange }) => {
+const useSelectorStyles = () => {
   const { colors } = useTheme();
-
+  
   const pickerStyles = StyleSheet.create({
     // eslint-disable-next-line react-native/no-unused-styles
     inputIOS: {
@@ -980,12 +981,19 @@ export const BlueWalletSelect = ({ wallets, value, onChange }) => {
       justifyContent: 'center',
     },
   });
+  
+  return pickerStyles
+} 
+
+export const BlueWalletSelect = ({ wallets, value, onChange }) => {
+  const { colors } = useTheme();
+  const pickerStyles = useSelectorStyles();
 
   return (
     <PickerSelect
       value={value}
       onValueChange={onChange}
-      items={wallets.map(w => ({ label: w.getLabel(), value: w.getID() }))}
+      items={wallets.map(w => ({ label: `${w.getLabel()}${w.isPosMode ? ' (POS mode)' : ''}`, value: w.getID() }))}
       placeholder={{}}
       style={pickerStyles}
       useNativeAndroidPickerStyle={false}
@@ -994,3 +1002,21 @@ export const BlueWalletSelect = ({ wallets, value, onChange }) => {
     />
   );
 };
+
+export const Selector = ({ items, selectedValue, onValueChange }) => {
+  const { colors } = useTheme();
+  const pickerStyles = useSelectorStyles();
+
+  return (
+    <PickerSelect
+      value={selectedValue}
+      onValueChange={onValueChange}
+      items={items}
+      placeholder={{}}
+      style={pickerStyles}
+      useNativeAndroidPickerStyle={false}
+      fixAndroidTouchableBug
+      Icon={() => <Icon size={18} name="sync-alt" type="material-icons" color={colors.foregroundColor} />}
+    />
+  );
+}

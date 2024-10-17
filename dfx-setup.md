@@ -24,6 +24,10 @@ Yoga Issue
 https://github.com/facebook/react-native/issues/36758
  => replace | with ||
 
+### Local debugging
+1. Start XCode
+1. Run a config for a Rosetta-enabled simulator
+
 ### Change environment
 touch node_modules/react-native-config/ios/ReactNativeConfig/BuildDotenvConfig.rb
 
