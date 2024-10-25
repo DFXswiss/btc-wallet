@@ -220,16 +220,22 @@ const WalletsAddMultisig = () => {
           <Text style={[styles.textdescBold, stylesHook.textdesc]}>{loc.multisig.done_explanation}</Text>
         </Text>
       </View>
-      {isAdvancedModeEnabledRender && (
-        <View>
-          <BlueListItem
-            onPress={showAdvancedOptionsModal}
-            title={loc.multisig.vault_advanced_customize}
-            subtitle={`${getCurrentlySelectedFormat('format')}, ${getCurrentlySelectedFormat('quorum')}`}
-            chevron
-          />
-        </View>
-      )}
+      {/** Not removing as we might want to enable this in the future again */}
+      {/**
+       * isAdvancedModeEnabledRender && (
+        <>
+          <View>
+            <BlueListItem
+              onPress={showAdvancedOptionsModal}
+              title={loc.multisig.vault_advanced_customize}
+              subtitle={`${getCurrentlySelectedFormat('format')}, ${getCurrentlySelectedFormat('quorum')}`}
+              chevron
+            />
+          </View>
+          {renderModal()}
+        </>
+      )*
+      */}
       <View style={styles.buttonContainer}>
         <BlueButton
           buttonTextColor={colors.buttonAlternativeTextColor}
@@ -240,7 +246,6 @@ const WalletsAddMultisig = () => {
         <BlueSpacing20 />
         <SecondButton title={loc._.cancel} onPress={onBack} />
       </View>
-      {renderModal()}
     </SafeAreaView>
   );
 };
