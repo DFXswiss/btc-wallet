@@ -40,7 +40,6 @@ function Notifications(props) {
       PushNotification.configure({
         // (optional) Called when Token is generated (iOS and Android)
         onRegister: async function (token) {
-          console.log('TOKEN:', token);
           alreadyConfigured = true;
           await _setPushToken(token);
           resolve(true);

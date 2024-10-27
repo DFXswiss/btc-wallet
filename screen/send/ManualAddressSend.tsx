@@ -9,6 +9,7 @@ import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { useWalletContext } from '../../contexts/wallet.context';
 import { Chain } from '../../models/bitcoinUnits';
+import loc from '../../loc';
 
 const ManualAddressSend: React.FC = () => {
   const { wallets } = useContext(BlueStorageContext);
@@ -37,7 +38,7 @@ const ManualAddressSend: React.FC = () => {
   };
 
   const onContinue = () => {
-    if(DeeplinkSchemaMatch.isBothBitcoinAndLightning(address)){
+    if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(address)) {
       const selectedWallet = wallets.find(w => w.getID() === params?.walletID);
       const lightningWallet = wallets.find(w => w.chain === Chain.OFFCHAIN);
       const uri = DeeplinkSchemaMatch.isBothBitcoinAndLightning(address);
@@ -45,10 +46,8 @@ const ManualAddressSend: React.FC = () => {
       const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(destinationWallet, uri);
       ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
       replace(...route);
-
-    }else if (DeeplinkSchemaMatch.isPossiblyLightningDestination(address) || DeeplinkSchemaMatch.isPossiblyOnChainDestination(address)) {
+    } else if (DeeplinkSchemaMatch.isPossiblyLightningDestination(address) || DeeplinkSchemaMatch.isPossiblyOnChainDestination(address)) {
       DeeplinkSchemaMatch.navigationRouteFor({ url: address }, completionValue => {
-        console.log('completionValue', completionValue);
         ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
         replace(...completionValue);
       });
@@ -58,7 +57,7 @@ const ManualAddressSend: React.FC = () => {
   return (
     <View style={styles.root}>
       <View style={styles.content}>
-        <BlueText style={styles.title}>Text address or invoice</BlueText>
+        <BlueText style={styles.title}>{loc.send.text_address_or_invoice}</BlueText>
         <View style={[styles.inputContainer, stylesHook.inputContainer]}>
           <TextInput
             placeholderTextColor="#65728A"
@@ -71,7 +70,7 @@ const ManualAddressSend: React.FC = () => {
       </View>
       <KeyboardAvoidingView behavior={Platform.select({ ios: 'position' })} keyboardVerticalOffset={80}>
         <ScrollView style={styles.actionsContainer}>
-          <BlueButton title="Continue" onPress={onContinue} disabled={disableContinue} />
+          <BlueButton title={loc._.continue} onPress={onContinue} disabled={disableContinue} />
           <BlueSpacing40 />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -116,7 +115,7 @@ ManualAddressSend.navigationOptions = navigationStyle(
   {
     closeButton: false,
   },
-  opts => ({ ...opts, title: 'Enter address' }),
+  opts => ({ ...opts, title: loc.send.enter_address }),
 );
 
 export default ManualAddressSend;

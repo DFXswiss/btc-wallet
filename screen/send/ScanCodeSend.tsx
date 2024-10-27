@@ -13,6 +13,7 @@ import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { Chain } from '../../models/bitcoinUnits';
 import { useWalletContext } from '../../contexts/wallet.context';
+import loc from '../../loc';
 
 const ScanCodeSend: React.FC = () => {
   const { wallets } = useContext(BlueStorageContext);
@@ -26,7 +27,7 @@ const ScanCodeSend: React.FC = () => {
   const onContentRead = (data: any) => {
     const destinationString = data.data ? data.data : data;
 
-    if(DeeplinkSchemaMatch.isBothBitcoinAndLightning(destinationString)){
+    if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(destinationString)) {
       const selectedWallet = wallets.find(w => w.getID() === params?.walletID);
       const lightningWallet = wallets.find(w => w.chain === Chain.OFFCHAIN);
       const uri = DeeplinkSchemaMatch.isBothBitcoinAndLightning(destinationString);
@@ -34,8 +35,7 @@ const ScanCodeSend: React.FC = () => {
       const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(destinationWallet, uri);
       ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
       replace(...route);
-
-    }else if (
+    } else if (
       DeeplinkSchemaMatch.isPossiblyLightningDestination(destinationString) ||
       DeeplinkSchemaMatch.isPossiblyOnChainDestination(destinationString)
     ) {
@@ -43,7 +43,6 @@ const ScanCodeSend: React.FC = () => {
         ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
         replace(...completionValue);
       });
-
     } else {
       goBack();
     }
@@ -78,12 +77,12 @@ const ScanCodeSend: React.FC = () => {
         <View style={styles.loadingContainer}>
           <View>
             <ActivityIndicator style={{ marginBottom: 5 }} size={25} />
-            <BlueText style={styles.textExplanation}>Loading</BlueText>
+            <BlueText style={styles.textExplanation}>{loc._.loading}</BlueText>
           </View>
         </View>
       )}
       <View style={styles.explanationContainer}>
-        <BlueText style={styles.textExplanation}>Scan a bitcoin or lightning QR code</BlueText>
+        <BlueText style={styles.textExplanation}>{loc.send.scan_bitcoin_qr}</BlueText>
       </View>
       <View style={styles.actionsContainer}>
         <BlueButton
@@ -93,7 +92,7 @@ const ScanCodeSend: React.FC = () => {
         />
         <BlueButton
           style={styles.actionButton}
-          onPress={() => navigate('ScanCodeSendRoot', {screen: 'ManualEnterAddress', params: { walletID: params?.walletID }})}
+          onPress={() => navigate('ScanCodeSendRoot', { screen: 'ManualEnterAddress', params: { walletID: params?.walletID } })}
           icon={{ name: 'keyboard', type: 'material', color: '#ffffff', size: 38 }}
         />
         <BlueButton
@@ -160,7 +159,7 @@ ScanCodeSend.navigationOptions = navigationStyle(
     closeButton: true,
     headerHideBackButton: true,
   },
-  opts => ({ ...opts, title: 'Send' }),
+  opts => ({ ...opts, title: loc.send.header }),
 );
 
 export default ScanCodeSend;
