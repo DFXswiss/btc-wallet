@@ -1,5 +1,5 @@
-import React, { useContext, useEffect } from 'react';
-import { View, StyleSheet, StatusBar, ActivityIndicator } from 'react-native';
+import React, { useContext, useEffect, useState } from 'react';
+import { View, StyleSheet, StatusBar, ActivityIndicator, TouchableOpacity, Image } from 'react-native';
 import navigationStyle from '../../components/navigationStyle';
 import { Camera } from 'react-native-camera-kit';
 import { BlueButton, BlueText } from '../../BlueComponents';
@@ -22,8 +22,14 @@ const ScanCodeSend: React.FC = () => {
   const { isReadingQrCode, cameraCallback, setOnBarScanned } = useQrCodeScanner();
   const { isProcessingImage, openImagePicker, setOnBarCodeInImage } = useQrCodeImagePicker();
   const { cameraStatus } = useCameraPermissions();
-  const { navigate, goBack, replace } = useNavigation();
+  const { navigate, goBack, setOptions, replace } = useNavigation();
+  const [isCameraActive, setIsCameraActive] = useState(true);
   const isFocused = useIsFocused();
+
+  const delayedNavigationFunction = (func: () => void) => {
+    setIsCameraActive(false);
+    setTimeout(() => func(), 30);
+  };
 
   const onContentRead = (data: any) => {
     const destinationString = data.data ? data.data : data;
@@ -35,23 +41,30 @@ const ScanCodeSend: React.FC = () => {
       const destinationWallet = selectedWallet || lightningWallet || mainWallet;
       const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(destinationWallet, uri);
       ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
-      replace(...route);
+      delayedNavigationFunction(() => replace(...route));
     } else if (
       DeeplinkSchemaMatch.isPossiblyLightningDestination(destinationString) ||
       DeeplinkSchemaMatch.isPossiblyOnChainDestination(destinationString)
     ) {
       DeeplinkSchemaMatch.navigationRouteFor({ url: destinationString }, completionValue => {
         ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
-        replace(...completionValue);
+        delayedNavigationFunction(() => replace(...completionValue));
       });
     } else {
-      goBack();
+      delayedNavigationFunction(() => goBack());
     }
   };
 
   useEffect(() => {
     setOnBarScanned(onContentRead);
     setOnBarCodeInImage(onContentRead);
+    setOptions({
+      headerRight: () => (
+        <TouchableOpacity style={styles.closeButton} onPress={() => delayedNavigationFunction(() => goBack())}>
+          <Image source={require('../../img/close-white.png')} />
+        </TouchableOpacity>
+      ),
+    });
   }, []);
 
   const readFromClipboard = async () => {
@@ -63,7 +76,7 @@ const ScanCodeSend: React.FC = () => {
   };
 
   const isLoading = isReadingQrCode || isProcessingImage;
-  const isCameraFocused = cameraStatus && isFocused && !isProcessingImage;
+  const isCameraFocused = cameraStatus && isFocused && !isProcessingImage && isCameraActive;
 
   return (
     <View style={styles.container}>
@@ -154,11 +167,17 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginHorizontal: 10,
   },
+  closeButton: {
+    minWidth: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });
 
 ScanCodeSend.navigationOptions = navigationStyle(
   {
-    closeButton: true,
+    closeButton: false,
     headerHideBackButton: true,
   },
   opts => ({ ...opts, title: loc.send.header }),
