@@ -8,7 +8,7 @@ import { useQrCodeScanner } from '../../hooks/qrCodeScaner.hook';
 import useQrCodeImagePicker from '../../hooks/qrCodeImagePicker.hook';
 import BlueClipboard from '../../blue_modules/clipboard';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { Chain } from '../../models/bitcoinUnits';
@@ -23,6 +23,7 @@ const ScanCodeSend: React.FC = () => {
   const { isProcessingImage, openImagePicker, setOnBarCodeInImage } = useQrCodeImagePicker();
   const { cameraStatus } = useCameraPermissions();
   const { navigate, goBack, replace } = useNavigation();
+  const isFocused = useIsFocused();
 
   const onContentRead = (data: any) => {
     const destinationString = data.data ? data.data : data;
@@ -62,12 +63,13 @@ const ScanCodeSend: React.FC = () => {
   };
 
   const isLoading = isReadingQrCode || isProcessingImage;
+  const isCameraFocused = cameraStatus && isFocused && !isProcessingImage;
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      {cameraStatus && (
-        <Camera
+      {isCameraFocused && (
+        <CameraScreen
           scanBarcode
           onReadCode={(event: any) => cameraCallback({ data: event?.nativeEvent?.codeStringValue })}
           style={styles.camera}

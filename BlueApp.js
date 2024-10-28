@@ -583,7 +583,6 @@ class AppStorage {
    */
   async saveToDisk() {
     if (savingInProgress) {
-      console.warn('saveToDisk is in progress');
       if (++savingInProgress > 10) alert('Critical error. Last actions were not saved'); // should never happen
       await new Promise(resolve => setTimeout(resolve, 1000 * savingInProgress)); // sleep
       return this.saveToDisk();
