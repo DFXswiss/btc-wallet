@@ -94,6 +94,7 @@ const Asset = ({ navigation }) => {
   const { width } = useWindowDimensions();
   const [isHandlingOpenServices, setIsHandlingOpenServices] = useState(false);
   const [changeAddress, setChangeAddress] = useState('');
+  const [fContainerHeight, setFContainerHeight] = useState(0);
 
   const getButtonImages = lang => {
     switch (lang) {
@@ -162,6 +163,14 @@ const Asset = ({ navigation }) => {
   }, []);
 
   useEffect(() => {
+    if (walletActionButtonsRef.current && Platform.OS === 'android') {
+      walletActionButtonsRef.current.measure((x, y, width, height) => {
+        setFContainerHeight(height);
+      });
+    }
+  }, []);
+
+  useEffect(() => {
     const refreshingInterval = setInterval(() => {
       refreshTransactions();
     }, 20 * 1000);
@@ -212,7 +221,7 @@ const Asset = ({ navigation }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallets]);
 
-  const getChangeAddressAsync = async (wallet) => {
+  const getChangeAddressAsync = async wallet => {
     if (changeAddress) return changeAddress; // cache
 
     let change;
@@ -305,7 +314,7 @@ const Asset = ({ navigation }) => {
 
   const isLightningTestnet = () => {
     return isLightning() && wallet?.getBaseURI()?.startsWith(Config.REACT_APP_LDS_DEV_URL);
-  }
+  };
 
   const isMultiSig = () => wallet.type === MultisigHDWallet.type;
 
@@ -364,7 +373,11 @@ const Asset = ({ navigation }) => {
 
   const renderListFooterComponent = () => {
     // if not all txs rendered - display indicator
-    return (getTransactionsSliced(Infinity).length > limit && <ActivityIndicator style={styles.activityIndicator} />) || <View />;
+    return (
+      (getTransactionsSliced(Infinity).length > limit && <ActivityIndicator style={styles.activityIndicator} />) || (
+        <View style={{ height: 2 * fContainerHeight }} />
+      )
+    );
   };
 
   const renderListHeaderComponent = () => {
@@ -393,7 +406,7 @@ const Asset = ({ navigation }) => {
     <TransactionListItem item={item.item} itemPriceUnit={itemPriceUnit} timeElapsed={timeElapsed} walletID={walletID} />
   );
 
-  const importPsbt = (base64Psbt) => {
+  const importPsbt = base64Psbt => {
     try {
       if (Boolean(multisigWallet) && multisigWallet.howManySignaturesCanWeMake()) {
         navigation.navigate('SendDetailsRoot', {
@@ -401,19 +414,19 @@ const Asset = ({ navigation }) => {
           params: {
             psbtBase64: base64Psbt,
             walletID: multisigWallet.getID(),
-          }
+          },
         });
       }
-    } catch (_) { }
-  }
+    } catch (_) {}
+  };
   const onBarCodeRead = value => {
     if (!value || isLoading) return;
 
     setIsLoading(true);
 
-    if(BoltCard.isPossiblyBoltcardTapDetails(value)) {
+    if (BoltCard.isPossiblyBoltcardTapDetails(value)) {
       navigate('TappedCardDetails', { tappedCardDetails: value });
-    }else if (DeeplinkSchemaMatch.isPossiblyPSBTString(value)) {
+    } else if (DeeplinkSchemaMatch.isPossiblyPSBTString(value)) {
       importPsbt(value);
     } else if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(value)) {
       const uri = DeeplinkSchemaMatch.isBothBitcoinAndLightning(value);
@@ -450,10 +463,10 @@ const Asset = ({ navigation }) => {
     } else {
       navigate('ReceiveDetailsRoot', { screen: 'ReceiveDetails', params: { walletID: wallet.getID() } });
     }
-  }
+  };
 
   const sendButtonPress = () => {
-    return navigate('ScanCodeSendRoot', {screen: 'ScanCodeSend', params: { walletID: wallet.getID() }});
+    return navigate('ScanCodeSendRoot', { screen: 'ScanCodeSend', params: { walletID: wallet.getID() } });
   };
 
   const sendButtonLongPress = async () => {
@@ -540,15 +553,15 @@ const Asset = ({ navigation }) => {
       case LightningLdsWallet.type:
         return (
           <TouchableOpacity onPress={handleGoToBoltCard} style={styles.boltcardButton}>
-            <Image source={require('../../img/pay-card-link.png')} style={{ width: 1.30 * 30, height: 30 }} />
+            <Image source={require('../../img/pay-card-link.png')} style={{ width: 1.3 * 30, height: 30 }} />
             <Text style={stylesHook.listHeaderText}>{loc.boltcard.pay_card}</Text>
           </TouchableOpacity>
-        )
+        );
 
       default:
         return null;
     }
-  }
+  };
 
   return (
     <View style={styles.flex}>

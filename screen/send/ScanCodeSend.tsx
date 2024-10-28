@@ -69,7 +69,7 @@ const ScanCodeSend: React.FC = () => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       {isCameraFocused && (
-        <CameraScreen
+        <Camera
           scanBarcode
           onReadCode={(event: any) => cameraCallback({ data: event?.nativeEvent?.codeStringValue })}
           style={styles.camera}
