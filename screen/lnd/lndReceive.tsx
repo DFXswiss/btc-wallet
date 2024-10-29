@@ -177,6 +177,8 @@ const LNDReceive = () => {
   };
 
   const onWalletChange = (id: string) => {
+    if (id === wallet?.getID()) return;
+
     const newWallet = wallets.find(w => w.getID() === id);
     if (!newWallet) return;
 

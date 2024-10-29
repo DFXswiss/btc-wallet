@@ -1,5 +1,5 @@
 /* eslint react/prop-types: "off", react-native/no-inline-styles: "off" */
-import React, { Component, forwardRef } from 'react';
+import React, { Component, forwardRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Icon, Text, Header, ListItem, Avatar } from 'react-native-elements';
 import {
@@ -949,7 +949,7 @@ export const BlueTabs = ({ active, onSwitch, tabs }) => (
 
 const useSelectorStyles = () => {
   const { colors } = useTheme();
-  
+
   const pickerStyles = StyleSheet.create({
     // eslint-disable-next-line react-native/no-unused-styles
     inputIOS: {
@@ -981,11 +981,35 @@ const useSelectorStyles = () => {
       justifyContent: 'center',
     },
   });
-  
-  return pickerStyles
-} 
 
-export const BlueWalletSelect = ({ wallets, value, onChange }) => {
+  return pickerStyles;
+};
+
+export const BlueWalletSelect = ({ wallets, value, onChange, on }) => {
+  return Platform.OS === 'ios' ? (
+    <BlueWalletSelectIOS wallets={wallets} value={value} onChange={onChange} />
+  ) : (
+    <BlueWalletSelectBase wallets={wallets} value={value} onChange={onChange} />
+  );
+};
+
+export const BlueWalletSelectIOS = ({ wallets, value, onChange }) => {
+  const [internalValue, setInternalValue] = useState(value);
+
+  const handleDone = () => onChange(internalValue);
+
+  const onClose = hasPressedDone => {
+    if (!hasPressedDone) {
+      setInternalValue(value);
+    }
+  };
+
+  return (
+    <BlueWalletSelectBase wallets={wallets} value={internalValue} onChange={setInternalValue} onDonePress={handleDone} onClose={onClose} />
+  );
+};
+
+export const BlueWalletSelectBase = ({ wallets, value, onChange, ...props }) => {
   const { colors } = useTheme();
   const pickerStyles = useSelectorStyles();
 
@@ -999,6 +1023,7 @@ export const BlueWalletSelect = ({ wallets, value, onChange }) => {
       useNativeAndroidPickerStyle={false}
       fixAndroidTouchableBug
       Icon={() => <Icon size={18} name="sync-alt" type="material-icons" color={colors.foregroundColor} />}
+      {...props}
     />
   );
 };

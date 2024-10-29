@@ -377,6 +377,8 @@ const ReceiveDetails = () => {
   };
 
   const onWalletChange = id => {
+    if (id === wallet?.getID()) return setIsQRCodeSkeletonVisible(false);
+
     const newWallet = wallets.find(w => w.getID() === id);
     if (!newWallet) return;
 
