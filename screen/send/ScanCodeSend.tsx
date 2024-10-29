@@ -71,7 +71,7 @@ const ScanCodeSend: React.FC = () => {
     await BlueClipboard().setReadClipboardAllowed(true);
     const clipboard = await BlueClipboard().getClipboardContent();
     if (clipboard) {
-      onContentRead(clipboard);
+      setTimeout(() => onContentRead(clipboard), 100);
     }
   };
 

@@ -342,7 +342,7 @@ const App = () => {
             },
             buttonIndex => {
               if (buttonIndex === 1) {
-                handleOpenURL({ url: clipboard });
+                setTimeout(() => handleOpenURL({ url: clipboard }), 100);
               }
             },
           );
