@@ -17,6 +17,7 @@ import {
   I18nManager,
   useWindowDimensions,
   TouchableOpacity,
+  AppState,
 } from 'react-native';
 import { Icon } from 'react-native-elements';
 import { useRoute, useNavigation, useTheme, useFocusEffect } from '@react-navigation/native';
@@ -31,7 +32,6 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { isDesktop } from '../../blue_modules/environment';
 import BlueClipboard from '../../blue_modules/clipboard';
 import { TransactionListItem } from '../../components/TransactionListItem';
-import alert from '../../components/Alert';
 import { ImageButton } from '../../components/ImageButton';
 import { DfxService, useDfxSessionContext } from '../../api/dfx/contexts/session.context';
 import BigNumber from 'bignumber.js';
@@ -75,7 +75,7 @@ const Asset = ({ navigation }) => {
     walletTransactionUpdateStatus,
     isElectrumDisabled,
     isDfxPos,
-    isDfxSwap
+    isDfxSwap,
   } = useContext(BlueStorageContext);
   const { name, params } = useRoute();
   const walletID = params.walletID;
@@ -95,6 +95,8 @@ const Asset = ({ navigation }) => {
   const [isHandlingOpenServices, setIsHandlingOpenServices] = useState(false);
   const [changeAddress, setChangeAddress] = useState('');
   const [fContainerHeight, setFContainerHeight] = useState(0);
+  const txRefreshInterval = useRef(null);
+  const elapsedTimeInterval = useRef(null);
 
   const getButtonImages = lang => {
     switch (lang) {
@@ -155,10 +157,22 @@ const Asset = ({ navigation }) => {
     return txs.slice(0, lmt);
   };
 
+  const clearElapsedTimeInterval = () => {
+    if (elapsedTimeInterval.current) {
+      clearInterval(elapsedTimeInterval.current);
+      elapsedTimeInterval.current = null;
+    }
+  };
+
+  const setElapsedTimeInterval = () => {
+    clearElapsedTimeInterval();
+    elapsedTimeInterval.current = setInterval(() => setTimeElapsed(prev => prev + 1), 60000);
+  };
+
   useEffect(() => {
-    const interval = setInterval(() => setTimeElapsed(prev => prev + 1), 60000);
+    setElapsedTimeInterval();
     return () => {
-      clearInterval(interval);
+      clearElapsedTimeInterval();
     };
   }, []);
 
@@ -170,12 +184,46 @@ const Asset = ({ navigation }) => {
     }
   }, []);
 
-  useEffect(() => {
-    const refreshingInterval = setInterval(() => {
+  const clearTxRefreshInterval = () => {
+    if (txRefreshInterval.current) {
+      clearInterval(txRefreshInterval.current);
+      txRefreshInterval.current = null;
+    }
+  };
+
+  const setTxRefreshInterval = () => {
+    clearTxRefreshInterval();
+    txRefreshInterval.current = setInterval(() => {
       refreshTransactions();
     }, 20 * 1000);
+  };
+
+  useEffect(() => {
+    setTxRefreshInterval();
     return () => {
-      clearInterval(refreshingInterval);
+      clearTxRefreshInterval();
+    };
+  }, []);
+
+  const appState = useRef(AppState.currentState);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (appState.current === 'active' && nextAppState.match(/inactive|background/)) {
+        clearTxRefreshInterval();
+        clearElapsedTimeInterval();
+      }
+
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+        setTxRefreshInterval();
+        setElapsedTimeInterval();
+      }
+
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
     };
   }, []);
 
@@ -356,7 +404,6 @@ const Asset = ({ navigation }) => {
       console.log(wallet.getLabel(), 'fetch tx took', (end - start) / 1000, 'sec');
     } catch (err) {
       noErr = false;
-      alert(err.message);
       setIsLoading(false);
       setTimeElapsed(prev => prev + 1);
     }

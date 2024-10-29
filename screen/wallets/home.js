@@ -13,6 +13,7 @@ import {
   View,
   I18nManager,
   useWindowDimensions,
+  AppState,
 } from 'react-native';
 import { Icon } from 'react-native-elements';
 import { useRoute, useNavigation, useTheme } from '@react-navigation/native';
@@ -26,7 +27,6 @@ import loc, { formatBalance } from '../../loc';
 import { FContainer, FButton } from '../../components/FloatButtons';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import BlueClipboard from '../../blue_modules/clipboard';
-import alert from '../../components/Alert';
 import TransactionsNavigationHeader from '../../components/TransactionsNavigationHeader';
 import PropTypes from 'prop-types';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
@@ -60,6 +60,7 @@ const WalletHome = ({ navigation }) => {
   const { colors, scanImage } = useTheme();
   const walletActionButtonsRef = useRef();
   const { width } = useWindowDimensions();
+  const balanceRefreshInterval = useRef(null);
 
   const wallet = useMemo(() => wallets.find(w => w.getID() === walletID), [wallets, walletID]);
   const totalWallet = useMemo(() => {
@@ -108,12 +109,40 @@ const WalletHome = ({ navigation }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallets]);
 
-  useEffect(() => {
+  const clearBalanceRefreshInterval = () => {
+    if (balanceRefreshInterval.current) {
+      clearInterval(balanceRefreshInterval.current);
+      balanceRefreshInterval.current = null;
+    }
+  };
+
+  const setBalanceRefreshInterval = () => {
     if (!wallets) return;
-    const interval = setInterval(() => {
+    clearBalanceRefreshInterval();
+    balanceRefreshInterval.current = setInterval(() => {
       refreshBalances().catch(console.error);
     }, 20 * 1000);
-    return () => clearInterval(interval);
+  };
+
+  useEffect(() => {
+    setBalanceRefreshInterval();
+    return () => {
+      clearBalanceRefreshInterval();
+    };
+  }, []);
+
+  const appState = useRef(AppState.currentState);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (appState.current === 'active' && nextAppState.match(/inactive|background/)) clearBalanceRefreshInterval();
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') setBalanceRefreshInterval();
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   /**
@@ -135,7 +164,6 @@ const WalletHome = ({ navigation }) => {
       }
     } catch (err) {
       noErr = false;
-      alert(err.message);
       setIsLoading(false);
     }
 
@@ -154,7 +182,7 @@ const WalletHome = ({ navigation }) => {
       const oldBalance = w.getBalance();
       await w.fetchBalance();
       return oldBalance !== w.getBalance();
-    } catch (_) { }
+    } catch (_) {}
   };
 
   const navigateToSendScreen = () => {
@@ -175,16 +203,16 @@ const WalletHome = ({ navigation }) => {
           params: {
             psbtBase64: psbt.toBase64(),
             walletID: multisigWallet.getID(),
-          }
+          },
         });
       }
-    } catch (_) { }
-  }
+    } catch (_) {}
+  };
 
   const onBarScanned = value => {
     if (!value) return;
 
-    if(BoltCard.isPossiblyBoltcardTapDetails(value)) {
+    if (BoltCard.isPossiblyBoltcardTapDetails(value)) {
       navigate('TappedCardDetails', { tappedCardDetails: value });
       return;
     }
@@ -251,7 +279,7 @@ const WalletHome = ({ navigation }) => {
       const buttons = [
         {
           text: loc._.cancel,
-          onPress: () => { },
+          onPress: () => {},
           style: 'cancel',
         },
         {
@@ -298,7 +326,6 @@ const WalletHome = ({ navigation }) => {
   const onScanButtonPressed = () => {
     scanqrHelper(navigate, name, false).then(d => onBarScanned(d));
   };
-
 
   const navigateToAddMultisig = () => {
     navigate('WalletsRoot', {

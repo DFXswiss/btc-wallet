@@ -25,10 +25,14 @@ const BlueClipboard = () => {
   };
 
   const getClipboardContent = async () => {
-    const isAllowed = await isReadClipboardAllowed();
-    if (isAllowed) {
-      return Clipboard.getString();
-    } else {
+    try {
+      const isAllowed = await isReadClipboardAllowed();
+      if (isAllowed) {
+        return Clipboard.getString();
+      } else {
+        return '';
+      }
+    } catch {
       return '';
     }
   };

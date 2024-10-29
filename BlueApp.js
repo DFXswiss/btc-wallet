@@ -595,7 +595,7 @@ class AppStorage {
       try {
         realm = await this.getRealm();
       } catch (error) {
-        alert(error.message);
+        console.error(`saveToDisk: getRealm: ${error.message}`);
       }
       for (const key of this.wallets) {
         if (typeof key === 'boolean') continue;
@@ -669,7 +669,6 @@ class AppStorage {
       realmkeyValue.close();
     } catch (error) {
       console.error('save to disk exception:', error.message);
-      alert('save to disk exception: ' + error.message);
       if (error.message.includes('Realm file decryption failed')) {
         console.warn('purging realm key-value database file');
         this.purgeRealmKeyValueFile();
