@@ -209,12 +209,12 @@ const Asset = ({ navigation }) => {
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {
-      if (appState.current === 'active' && nextAppState.match(/inactive|background/)) {
+      if (appState.current === 'active' && nextAppState.match(/background/)) {
         clearTxRefreshInterval();
         clearElapsedTimeInterval();
       }
 
-      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+      if (appState.current.match(/background/) && nextAppState === 'active') {
         setTxRefreshInterval();
         setElapsedTimeInterval();
       }

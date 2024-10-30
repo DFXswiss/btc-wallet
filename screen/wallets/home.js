@@ -135,8 +135,8 @@ const WalletHome = ({ navigation }) => {
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {
-      if (appState.current === 'active' && nextAppState.match(/inactive|background/)) clearBalanceRefreshInterval();
-      if (appState.current.match(/inactive|background/) && nextAppState === 'active') setBalanceRefreshInterval();
+      if (appState.current === 'active' && nextAppState.match(/background/)) clearBalanceRefreshInterval();
+      if (appState.current.match(/background/) && nextAppState === 'active') setBalanceRefreshInterval();
       appState.current = nextAppState;
     });
 
