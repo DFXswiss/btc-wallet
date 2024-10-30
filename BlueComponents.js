@@ -998,14 +998,14 @@ export const BlueWalletSelectIOS = ({ wallets, value, onChange }) => {
 
   const handleDone = () => onChange(internalValue);
 
-  const onClose = hasPressedDone => {
-    if (!hasPressedDone) {
-      setInternalValue(value);
-    }
-  };
-
   return (
-    <BlueWalletSelectBase wallets={wallets} value={internalValue} onChange={setInternalValue} onDonePress={handleDone} onClose={onClose} />
+    <BlueWalletSelectBase
+      wallets={wallets}
+      value={internalValue}
+      onChange={setInternalValue}
+      onDonePress={handleDone}
+      onClose={handleDone}
+    />
   );
 };
 
