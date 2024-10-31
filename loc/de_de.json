@@ -28,7 +28,8 @@
     "enter_amount": "Betrag eingeben",
     "qr_custom_input_button": "10x antippen für individuelle Eingabe",
     "add": "Hinzufügen",
-    "repeat": "Wiederholen"
+    "repeat": "Wiederholen",
+    "loading": "Laden"
   },
   "alert": {
     "default": "Warnung"
@@ -53,47 +54,36 @@
     "network": "Netzwerkfehler"
   },
   "lnd": {
-    "active": "Aktiv",
-    "inactive": "Inaktiv",
-    "channels": "Kanäle",
-    "no_channels": "Keine Kanäle",
-    "claim_balance": "Saldo von {balance} beanspruchen",
-    "close_channel": "Kanal schließen",
-    "new_channel": "Neuer Kanal",
     "errorInvoiceExpired": "Rechnung verfallen",
-    "force_close_channel": "Kanal zwangsweise schließen?",
     "expired": "Abgelaufen",
-    "node_alias": "Knoten-Alias",
     "expiresIn": "Läuft in {time} Minuten ab",
     "payButton": "Zahlen",
     "placeholder": "Rechnung oder Adresse",
-    "open_channel": "Kanal öffnen",
-    "funding_amount_placeholder": "Finanzierungsbetrag, z.B. 0.001",
-    "opening_channnel_for_from": "Kanal für Wallet {forWalletLabel} finanziert durch Wallet {fromWalletLabel} eröffnen.",
-    "are_you_sure_open_channel": "Diesen Kanal definitiv eröffnen?",
     "potentialFee": "Geschätzte Gebühr: {fee}",
-    "remote_host": "Entfernter Rechner",
     "refill": "Aufladen",
-    "reconnect_peer": "Erneut zu Peer verbinden",
-    "refill_create": "Bitte eine Bitcoin Wallet erstellen um fortzufahren",
     "refill_external": "Mit externem Wallet aufladen",
     "refill_lnd_balance": "Lade deine Lightning Wallet auf",
     "sameWalletAsInvoiceError": "Die Rechnung kann nicht mit der gleichen Wallet beglichen werden, die sie erstellt hat.",
     "title": "Beträge verwalten",
-    "can_send": "Kann senden",
-    "can_receive": "Kann empfangen",
-    "view_logs": "Protokolle anzeigen"
+    "error_tip_invoice_not_supported": "Rechnungen mit einem Betrag von 0 werden nicht unterstützt.",
+    "error_balance_for_insuficient_fee": "Das verbleibende Guthaben reicht nicht aus, um die Gebühren zu decken; erwäge, den Höchstbetrag zu senden oder den Betrag zu reduzieren.",
+    "next": "Weiter"
   },
   "lndViewInvoice": {
     "additional_info": "Weiterführende Informationen",
     "for": "Für:",
     "lightning_invoice": "Lightning Rechnung",
     "open_direct_channel": "Direkten Kanal zu diesem Knoten eröffnen:",
-    "please_pay_between_and": "Zahlen Sie zwischen {min} und {max}",
+    "please_pay_between_and": "Zahle zwischen {min} und {max}",
     "please_pay": "Bitte zahle",
     "preimage": "Urbild",
     "sats": "sats",
-    "wasnt_paid_and_expired": "Diese Rechnung ist unbezahlt abgelaufen."
+    "wasnt_paid_and_expired": "Diese Rechnung ist unbezahlt abgelaufen.",
+    "payment_hash": "Zahlungs-Hash",
+    "value": "Wert",
+    "description": "Beschreibung",
+    "memo": "Vermerk",
+    "domain": "Bereich"
   },
   "plausibledeniability": {
     "create_fake_storage": "Verschlüsselten Speicher erstellen",
@@ -110,7 +100,7 @@
   "backupExplanation": {
     "title": "Phrase Backup",
     "subtitle": "Backup Wiederherstellungsphrase",
-    "text": "Suchen Sie sich einen sicheren und privaten Ort. Legen Sie einen Stift und etwas Papier bereit, um Ihre Wiederherstellungsphrase aufzuschreiben.",
+    "text": "Suche dir einen sicheren und privaten Ort. Lege einen Stift und etwas Papier bereit, um Deine Wiederherstellungsphrase aufzuschreiben.",
     "items": [
       {
         "title": "Geheime Wörter",
@@ -128,7 +118,7 @@
     "ready": "Bereit"
   },
   "pleasebackup": {
-    "ask": "Hast du die Wiederherstellungs-Phrase deines Wallets gesichert? Ohne Sie kannst du nicht mehr auf deine bitcoin zugreifen und sie wären für immer verloren, sollte dein Gerät verloren oder kaputt gehen.",
+    "ask": "Hast du die Wiederherstellungs-Phrase deines Wallets gesichert? Ohne sie kannst du nicht mehr auf deine bBitcoin zugreifen und sie wären für immer verloren, sollte dein Gerät verloren oder kaputt gehen.",
     "ask_no": "Nein, habe ich nicht.",
     "ask_yes": "Ja, habe ich.",
     "ok": "Ok, ich habe sie notiert.",
@@ -137,8 +127,8 @@
     "text_lnd": "Zur Wiederherstellung des Wallet im Verlustfall bitte dieses Wallet-Backup sichern. ",
     "title": "Phrase Backup",
     "subtitle": "Ihre Wiederherstellungsphrase",
-    "info": "Geben Sie die Wiederherstellungsphrase niemals an andere weiter, sondern bewahren Sie sie sicher auf!",
-    "description": "Schreiben Sie diese Wörter in der richtigen Reihenfolge auf und bewahren Sie sie an einem sicheren Ort auf.",
+    "info": "Gebe die Wiederherstellungsphrase niemals an andere weiter, sondern bewahre sie sicher auf!",
+    "description": "Schreibe diese Wörter in der richtigen Reihenfolge auf und bewahre sie an einem sicheren Ort auf.",
     "confirm": "Mir ist klar, dass ich bei Verlust meiner Wiederherstellungsphrase nicht mehr auf mein Guthaben zugreifen kann."
   },
   "receive": {
@@ -235,7 +225,10 @@
     "reset_amount_confirm": "Möchten Du den Betrag zurücksetzen?",
     "success_done": "Fertig",
     "txSaved": "Die Transaktionsdatei ({filePath}) wurde im Download-Ordner gespeichert.",
-    "problem_with_psbt": "PSBT-Problem"
+    "problem_with_psbt": "PSBT-Problem",
+    "scan_bitcoin_qr": "Einen Bitcoin-QR-Code scannen",
+    "enter_address": "Adresse eingeben",
+    "text_address_or_invoice": "Textadresse oder Rechnung"
   },
   "settings": {
     "about": "Über",
@@ -256,7 +249,7 @@
     "about_sm_twitter": "Folgt uns auf Twitter",
     "advanced_options": "Erweiterte Optionen",
     "biometrics": "Biometrie",
-    "biom_10times": "Sie haben 10 Mal versucht, Ihr Passwort einzugeben. Möchten Sie Ihren Speicher zurücksetzen? Dadurch werden alle Wallets entfernt und Ihr Speicher entschlüsselt.",
+    "biom_10times": "Du hast 10 Mal versucht, dein Passwort einzugeben. Möchtest du deinen Speicher zurücksetzen? Dadurch werden alle Wallets entfernt und dein Speicher entschlüsselt.",
     "biom_conf_identity": "Bitte deine Identität bestätigen.",
     "biom_no_passcode": "Dein Gerät verfügt über keinen Passcode. Um fortzufahren, diesen in den Geräteeinstellungen zuerst konfigurieren.",
     "biom_remove_decrypt": "Alle Deine Wallets werden entfernt und der Speicher wird entschlüsselt. Bist du sicher, dass du fortfahren möchten?",
@@ -347,7 +340,7 @@
     "tools": "Werkzeuge"
   },
   "notifications": {
-    "would_you_like_to_receive_notifications": "Möchten Sie bei Zahlungseingängen eine Benachrichtigung erhalten?",
+    "would_you_like_to_receive_notifications": "Möchtest du bei Zahlungseingängen eine Benachrichtigung erhalten?",
     "no_and_dont_ask": "Nein und nicht erneut fragen",
     "ask_me_later": "Später erneut fragen"
   },
@@ -384,9 +377,6 @@
     "pending": "Ausstehend",
     "pending_with_amount": "Ausstehend {amt1} ({amt2})",
     "received_with_amount": "+{amt1} ({amt2})",
-    "eta_10m": "In ca. 10 Min. verbucht.",
-    "eta_3h": "In ca. 3 Std. verbucht.",
-    "eta_1d": "In ca. 1 Tag verbucht.",
     "view_wallet": "{walletLabel} anzeigen",
     "list_title": "Transaktionen",
     "open_url_error": "Der Standardbrowser kann die URL nicht öffnen. Bitte diesen ggf. ändern, um es erneut zu versuchen.",
@@ -396,7 +386,11 @@
     "status_cancel": "Transaktion abbrechen",
     "transactions_count": "Anzahl Transaktionen",
     "txid": "Transaktions-ID",
-    "updating": "Aktualisiere...."
+    "updating": "Aktualisiere....",
+    "eta_fastest": "ETA: In ~9 Minuten",
+    "eta_fast": "ETA: In ~10 bis 30 Minuten",
+    "eta_medium": "ETA: In ~30 Minuten bis 3 Stunden",
+    "eta_slow": "ETA: In ~1 Tag"
   },
   "wallets": {
     "add_bitcoin": "Bitcoin",
@@ -491,7 +485,7 @@
     "no_ln_wallet_error": "Vor Bezahlung einer Lightning Rechnung zuerst ein Lightning Wallet eröffnen.",
     "looks_like_bip38": "Passwortgeschützter Privatschlüssel (BIP38) erkannt.",
     "reorder_title": "Wallets neu ordnen",
-    "reorder_instructions": "Tippen und halten Sie eine Wallet, um sie umzuplatzieren.",
+    "reorder_instructions": "Tippen und halte eine Wallet, um sie umzuplatzieren.",
     "please_continue_scanning": "Bitte Scanvorgang fortsetzten",
     "select_no_bitcoin": "Es sind momentan keine Bitcoin Wallets verfügbar.",
     "select_no_bitcoin_exp": "Eine Bitcoin Wallet ist Voraussetzung dafür, um eine Lightning Wallet zu befüllen. Bitte erstelle oder importiere eines.",
@@ -505,7 +499,17 @@
     "backupSeed": "Wallet Backup",
     "backupSeedWarning": "Backup nicht verifiziert",
     "external_services": "Externe Services",
-    "coming_soon": "Bald verfügbar"
+    "coming_soon": "Bald verfügbar",
+    "main_wallet_label": "On-Chain-Wallet",
+    "lightning_wallet_label": "Lightning-Wallet",
+    "multi_sig_wallet_label": "Multi-Device-Wallet",
+    "chf_taproot_wallet_label": "CHF Taproot-Wallet",
+    "add_lndhub_DFXswiss_not_available": "Dieser Dienst wird bald verfügbar sein",
+    "details_are_you_sure_main_wallet": "Bist du sicher?\nWenn du die On-Chain-Wallet löschst, wird die gesamte App zurückgesetzt. Die Multi-Device Wallet und Lightning Wallet werden ebenfalls von diesem Gerät entfernt.",
+    "ownership_proof": "DFX-Adressen-Besitznachweis",
+    "warning": "Warnung!",
+    "rbf_warning": "Du verwendest eine veraltete Wallet ohne RBF-Funktion.",
+    "more_info": "Klicke hier für weitere Informationen."
   },
   "multisig": {
     "multisig_vault": "Tresor",
@@ -533,14 +537,6 @@
     "wrapped_segwit_title": "Größte Kompatibilität",
     "legacy_title": "Altformat",
     "co_sign_transaction": "Transaktion signieren",
-    "what_is_vault": "Ein Tresor ist ein ",
-    "what_is_vault_numberOfWallets": "{m}-von-{n} Multisignatur",
-    "what_is_vault_wallet": "wallet",
-    "vault_advanced_customize": "Tresor Einstellungen",
-    "needs": "Es braucht",
-    "what_is_vault_description_number_of_vault_keys": "{m} Schlüssel",
-    "what_is_vault_description_to_spend": "zum Senden \nund ein Dritter dient als Backup.",
-    "what_is_vault_description_to_spend_other": "zum Ausgeben.",
     "quorum": "{m} von {n} sind signaturfähig",
     "quorum_header": "Signaturfähigkeit",
     "of": "von",
@@ -566,7 +562,7 @@
     "input_path_explain": "Überspringen, um den Standard zu verwenden ({default})",
     "ms_help": "Hilfe",
     "ms_help_title": "Tipps und Tricks zur Funktionsweise von Multisig",
-    "ms_help_text": "Ein wallet mit mehreren Schlüsseln zur gemeinsamen Verwahrung oder um die Sicherheit exponentiell zu erhöhen.",
+    "ms_help_text": "Ein Wallet mit mehreren Schlüsseln zur gemeinsamen Verwahrung oder um die Sicherheit exponentiell zu erhöhen.",
     "ms_help_title1": "Dazu sind mehrere Geräte empfohlen.",
     "ms_help_1": "Der Tresor funktioniert mit weiteren DFX Bitcoin Wallet Apps und PSBT kompatiblen wallets wie Electrum, Specter, Coldcard, Cobovault, etc.",
     "ms_help_title2": "Schlüssel bearbeiten",
@@ -576,7 +572,11 @@
     "ms_help_title4": "Tresor importieren",
     "ms_help_4": "Um ein Tresor zu importieren, lade deine Multisignatur Backupdatei mittels Import-Funktion. Hast du nur die Seeds der erweiterten Schlüssel, fügst Du diese während der Tresor-Erstellung hinzu.",
     "ms_help_title5": "Erweiterte Optionen",
-    "ms_help_5": "Der geplante Tresor erfordert 2 von 3 Signaturen. Zum Ändern der Anzahl oder des Adresstyps unter Einstellungen > Allgemein den erweiterten Modus aktivieren."
+    "ms_help_5": "Der geplante Tresor erfordert 2 von 3 Signaturen. Zum Ändern der Anzahl oder des Adresstyps unter Einstellungen > Allgemein den erweiterten Modus aktivieren.",
+    "what_is_multidevice": "Eine Multi-Device-Wallet ist eine Bitcoin-Wallet, die aus 3 Geräten besteht. Drei Geräte sind für die Inbetriebnahme erforderlich. Zwei Geräte sind immer erforderlich, um eine Transaktion zu autorisieren.",
+    "prepare_devices": "Vergewissere dich, dass alle 3 Geräte bereit sind, und klicke erst dann auf allen 3 Geräten auf die Schaltfläche \"Erstellung beginnen\".",
+    "qr_flow": "Auf dem nächsten Bildschirm wird ein QR-Code angezeigt, und auf dem Mobiltelefon wird eine Scanfunktion aktiviert. Jedes Gerät muss die beiden QR-Codes der anderen 2 Geräte scannen und ist dann einsatzbereit.",
+    "done_explanation": "Klicke erst auf \"Fertig\", wenn alle 3 Geräte diesen Vorgang abgeschlossen haben und alle 3 Geräte oben 3 grüne Häkchen haben."
   },
   "is_it_my_address": {
     "title": "Ist dies meine Adresse?",
@@ -650,5 +650,57 @@
     "currency": "Deine Währung",
     "info": "Du wirst per E-Mail benachrichtigt, wenn die Überweisung auf Dein Konto erfolgt ist.",
     "confirm": "Auszahlung auf Dein Bankkonto"
+  },
+  "swap": {
+    "header": "Swap bestätigen",
+    "spend": "Du gibst aus aus",
+    "network_spending": "Auf {blockchain}",
+    "to": "An die Adresse",
+    "receiving": "Und du erhälst",
+    "network_receiving": "{asset} auf {blockchain}",
+    "confirm": "Bestätigen"
+  },
+  "boltcard": {
+    "pay_card": "Bezahlkarte",
+    "title_create": "Zahlkarte erstellen",
+    "alert_message_write_card": "Bereit zum Schreiben der Karte. Halte die NFC-Karte an das Telefon, bis alle Schlüssel geändert sind.",
+    "what_pay_card_is": "Pay Card ist die erste Bitcoin-Debitkarte der Welt, die es dir ermöglicht, deine Bitcoin über das Lightning Network mit einer kontaktlosen Zahlungskarte auszugeben, die durch Nahfeldkommunikation (NFC) betrieben wird.",
+    "how_to_create": "Um deine erste Pay Card zu erstellen, tippe auf die Schaltfläche \"Erstellen\" und halte deine kompatible NFC-Karte oder deinen Ring, bis alle Schlüssel gesetzt sind.",
+    "always_backup": "Erstelle immer Sicherungskopien aller auf die Karte geschriebenen Schlüssel. Ohne diese Kopien kannst du sie in der Zukunft möglicherweise nicht mehr ändern.",
+    "create_boltcard": "Erstellen",
+    "title_details": "Details zur Bezahlkarte",
+    "title_backup": "Zahlungskarte sichern",
+    "title_delete": "Zahlungskarte löschen",
+    "title_restore": "Zahlungskarte zurücksetzen",
+    "keys_written": "Alle Schlüssel wurden korrekt gesetzt",
+    "hold_card": "Halte deine Karte oder deinen Ring, bis alle Schlüssel gesetzt sind",
+    "delete_card_title": "Bist du sicher, dass du diese Karte löschen willst?",
+    "how_to_delete": "Um mit dem Löschvorgang fortzufahren, musst du die Karte möglicherweise nahe an dein Gerät halten, um alle Schlüssel zurückzusetzen.",
+    "also_wipe_card": "Auch meine Karte zurücksetzen.",
+    "lost_card": "Falls du deine Karte verloren hast oder nicht mehr darauf zugreifen kannst, kannst du das Kästchen unten ankreuzen, um das Zurücksetzen der Karte zu überspringen.",
+    "confirm_delete": "Ja, diese Karte löschen",
+    "card_written_title": "Auf dieser Karte sind bereits einige Schlüssel gespeichert",
+    "card_written_message": "Es scheint, dass auf deiner Karte bereits einige Schlüssel gespeichert sind. Wir können dir helfen, die Karte zurückzusetzen, damit du sie erneut einrichten kannst.",
+    "how_to_reset": "Um deine Karte zurückzusetzen, musst du lediglich die Sicherungskopie deiner Schlüssel scannen, den Rest erledigen wir.",
+    "now_tap": "Tippe nun auf deine Karte und warte, bis alle Schlüssel zurückgesetzt sind.",
+    "start_nfc": "NFC starten",
+    "scan_backup": "Backup scannen",
+    "cancel": "Abbrechen",
+    "is_it_my_card": "Ist es meine Karte?",
+    "derivated_from_wallet": "Ja - Von meiner Brieftasche abgeleitete Schlüssel",
+    "not_derivated_from_wallet": "Nein - Interne Schlüssel sind nicht verfügbar",
+    "card_state": "Zustand der Karte",
+    "card_state_empty": "Leer, bereit zum Beschreiben",
+    "card_state_written": "Schlüssel korrekt geschrieben",
+    "card_written_error": "Schlüssel mit Fehlern geschrieben",
+    "server_status": "Server-Status",
+    "active": "Korrekt registriert",
+    "unregitered": "Karte ist nicht registriert, sie muss zurückgesetzt werden",
+    "send_to_card": "An Karte senden",
+    "keys_backup": "Schlüssel/Backup",
+    "wipe_card": "Karte zurücksetzen",
+    "unregister_and_wipe": "Karte abmelden und zurücksetzen",
+    "tap_and_hold": "Bitte tippe und halte deine Karte",
+    "writting_hold": "Schreiben, bitte halte deine Karte"
   }
 }

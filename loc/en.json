@@ -540,7 +540,7 @@
     "what_is_multidevice": "A multi-device wallet is a Bitcoin wallet that consists of 3 devices. Three devices are required for commissioning. Two devices are always required to authorise a transaction.",
     "prepare_devices": "Make sure that all 3 devices are ready and only then click the \"Lets's Start\" button on all 3 devices.",
     "qr_flow": "A QR code is displayed on the next screen and a scan function is activated on the mobile phone. Each device must scan the two QR codes of the other 2 devices and is then ready for use.",
-    "done_explanation": "Only click on Done when all 3 devices have completed this process and all 3 devices have 3 green tick marks at the top.",
+    "done_explanation": "Only click on \"Done\" when all 3 devices have completed this process and all 3 devices have 3 green tick marks at the top.",
     "quorum": "{m} of {n} quorum",
     "quorum_header": "Quorum",
     "of": "of",
@@ -654,18 +654,18 @@
   "swap": {
     "header": "Confirm Swap",
     "spend": "You spend",
-    "network_spending": "Through the {blockchain} network",
+    "network_spending": "On {blockchain}",
     "to": "To the address",
     "receiving": "And you receive",
-    "network_receiving": "{asset} through the {blockchain} network", 
-    "confirm": "Checkout"
+    "network_receiving": "{asset} on {blockchain}",
+    "confirm": "Confirm"
   },
   "boltcard": {
     "pay_card": "Pay Card",
     "title_create": "Create Pay Card",
     "alert_message_write_card": "Ready to write card. Hold NFC card to phone until all keys are changed.",
     "what_pay_card_is": "Pay Card is the world's first Bitcoin debit card that allows you to spend your Bitcoin over the Lightning Network with a contactless payment card powered by Near-field Communication (NFC).",
-    "how_to_create": "To create your first Pay Card, tap the Create button and hold your compatible NFC card or ring until all keys are set.",
+    "how_to_create": "To create your first Pay Card, tap the \"Create\" button and hold your compatible NFC card or ring until all keys are set.",
     "always_backup": "Always make backup copies of all keys written to the card. Without them, you may not be able to change them in the future.",
     "create_boltcard": "Create",
     "title_details": "Pay Card Details",

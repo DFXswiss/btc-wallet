@@ -43,7 +43,6 @@
     "placeholder": "Factura",
     "potentialFee": "Taxa provável: {fee}",
     "refill": "Carregar",
-    "refill_create": "Para continuar, crie uma carteira Bitcoin para recarregar.",
     "refill_external": "Recarregar com carteira externa",
     "refill_lnd_balance": "Carregar o saldo da Lightning wallet",
     "sameWalletAsInvoiceError": "Não pode pagar uma factura com a mesma wallet usada para a criar.",
@@ -56,7 +55,9 @@
     "please_pay": "Por favor pague",
     "preimage": "Preimage",
     "sats": "sats",
-    "wasnt_paid_and_expired": "Esta factura não foi paga e expirou"
+    "wasnt_paid_and_expired": "Esta factura não foi paga e expirou",
+    "description": "",
+    "memo": ""
   },
   "plausibledeniability": {
     "create_fake_storage": "Criar armazenamento encriptado FALSO",
@@ -162,7 +163,6 @@
     "input_paste": "Colar",
     "input_total": "Total:",
     "permission_camera_message": "Precisamos da sua permissão para usar sua câmera",
-    "permission_camera_title": "Permissão para usar a câmera",
     "psbt_sign": "Assinar transação",
     "open_settings": "Abrir configurações",
     "permission_storage_later": "Perguntar mais tarde",
@@ -351,7 +351,8 @@
     "backupSeed": "Cópia de segurança",
     "backupSeedWarning": "Cópias de segurança não verificadas",
     "external_services": "Serviços externos",
-    "coming_soon": "Disponível em breve"
+    "coming_soon": "Disponível em breve",
+    "add_lndhub_DFXswiss_not_available": ""
   },
   "multisig": {
     "confirm": "Confirmar",

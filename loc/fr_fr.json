@@ -22,7 +22,14 @@
     "pick_file": "Choisir un fichier",
     "enter_amount": "Entrer un montant",
     "add": "Ajouter",
-    "repeat": "Répéter"
+    "repeat": "Répéter",
+    "close": "Fermer",
+    "change_input_currency": "Changer la devise d'entrée",
+    "refresh": "Actualiser",
+    "more": "Plus d'informations",
+    "pick_image": "Choisir une image dans la bibliothèque",
+    "qr_custom_input_button": "Tapez 10 fois pour entrer des données personnalisées",
+    "loading": "Chargement"
   },
   "alert": {
     "default": "Alerte"
@@ -47,36 +54,20 @@
     "network": "Erreur réseau"
   },
   "lnd": {
-    "active": "Actif",
-    "inactive": "Inactif",
-    "channels": "Canaux",
-    "no_channels": "Pas de canaux",
-    "claim_balance": "Réclamer le solde {balance}",
-    "close_channel": "Fermer le canal",
-    "new_channel": "Nouveau canal",
     "errorInvoiceExpired": "Requête expirée",
-    "force_close_channel": "Forcer la fermeture du canal ?",
     "expired": "Expiré",
-    "node_alias": "Alias du node",
     "expiresIn": "Expire dans {time} minutes",
     "payButton": "Payer",
     "placeholder": "Facture ou adresse",
-    "open_channel": "Ouverture canal",
-    "funding_amount_placeholder": "Montant financement, par exemple 0,001",
-    "opening_channnel_for_from": "Canal d'ouverture pour le portefeuille {forWalletLabel}, financement depuis {fromWalletLabel}",
-    "are_you_sure_open_channel": "Etes vous sûre de vouloir ouvrir ce canal?",
     "potentialFee": "Frais potentiels : {fee}",
-    "remote_host": "Hôte distant",
     "refill": "Déposer des fonds",
-    "reconnect_peer": "Reconnecter le pair",
-    "refill_create": "Pour continuer, veuillez créer un portefeuille Bitcoin à partir duquel déposer des fonds.",
     "refill_external": "Déposer des fonds depuis un portefeuille externe",
     "refill_lnd_balance": "Déposer des fonds dans votre portfeuille Lightning",
     "sameWalletAsInvoiceError": "Vous ne pouvez pas payer une facture avec le même porte-feuille qui la crée",
     "title": "gérer vos fonds",
-    "can_send": "Peut envoyer",
-    "can_receive": "Peut recevoir",
-    "view_logs": "Voir les logs"
+    "error_tip_invoice_not_supported": "Les factures dont le montant est égal à 0 ne sont pas prises en charge.",
+    "error_balance_for_insuficient_fee": "Le solde restant est insuffisant pour couvrir les frais, envisagez d'envoyer le maximum ou de réduire le montant.",
+    "next": "Suivant"
   },
   "lndViewInvoice": {
     "additional_info": "Informations complémentaires",
@@ -87,7 +78,12 @@
     "please_pay": "Veuillez payer",
     "preimage": "Préimage",
     "sats": "sats",
-    "wasnt_paid_and_expired": "Cette requête n'a pas été réglée et a expiré"
+    "wasnt_paid_and_expired": "Cette requête n'a pas été réglée et a expiré",
+    "payment_hash": "Paiement Hash",
+    "value": "Valeur",
+    "description": "Description du paiement",
+    "memo": "Mémo",
+    "domain": "Domaine"
   },
   "plausibledeniability": {
     "create_fake_storage": "Créer un faux espace de stockage chiffré",
@@ -229,7 +225,10 @@
     "reset_amount_confirm": "Voulez vous réinitialiser le montant ?",
     "success_done": "Terminé",
     "txSaved": "Le fichier de transaction ({filePath}) a été enregistré dans votre dossier Téléchargements.",
-    "problem_with_psbt": "Problème avec PSBT"
+    "problem_with_psbt": "Problème avec PSBT",
+    "scan_bitcoin_qr": "Scanner un code QR Bitcoin",
+    "enter_address": "Saisir l'adresse",
+    "text_address_or_invoice": "Texte de l'adresse ou de la facture"
   },
   "settings": {
     "about": "À propos",
@@ -335,7 +334,10 @@
     "total_balance": "Solde total",
     "total_balance_explanation": "Afficher le solde total de tous vos portefeuilles sur l'écran d'accueil.",
     "widgets": "Widgets",
-    "tools": "Outils"
+    "tools": "Outils",
+    "about_free": "Le DFX Bitcoin-only Wallet est un softfork de bluewallet.io avec une option d'achat et de vente intégrée de DFX AG.",
+    "performance_score": "Score de performance : {num}",
+    "run_performance_test": "Test de performance"
   },
   "notifications": {
     "would_you_like_to_receive_notifications": "Voulez vous recevoir les notifications quand vous recevez des paiements entrants ?",
@@ -374,9 +376,6 @@
     "pending": "En attente",
     "pending_with_amount": "En attente {amt1} ({amt2})",
     "received_with_amount": "+{amt1} ({amt2})",
-    "eta_10m": "ETA: Dans ~10 minutes",
-    "eta_3h": "ETA: Dans ~3 heures",
-    "eta_1d": "ETA: Dans ~1 jour",
     "view_wallet": "Voir {walletLabel}",
     "list_title": "transactions",
     "open_url_error": "Incapable d'ouvrir le lien avec l'explorateur par défaut. Veuillez changer votre explorateur par défaut et réessayer.",
@@ -386,7 +385,12 @@
     "status_cancel": "Annuler la transaction",
     "transactions_count": "Nombre de transactions",
     "txid": "ID de transaction",
-    "updating": "Chargement..."
+    "updating": "Chargement...",
+    "date": "Date",
+    "eta_fastest": "ETA : Dans ~9 minutes",
+    "eta_fast": "ETA : Dans ~10 à 30 minutes",
+    "eta_medium": "ETA : Dans ~30 minutes à 3 heures",
+    "eta_slow": "ETA : En ~1 jour"
   },
   "wallets": {
     "add_bitcoin": "Bitcoin",
@@ -493,7 +497,19 @@
     "backupSeed": "Sauvegarde du portefeuille",
     "backupSeedWarning": "Sauvegarde non vérifiée",
     "external_services": "Services externes",
-    "coming_soon": "Bientôt disponible"
+    "coming_soon": "Bientôt disponible",
+    "details_export_history": "Exporter l'historique au format CSV",
+    "import_success_watchonly": "Votre portefeuille a été importé avec succès. AVERTISSEMENT : Il s'agit d'un portefeuille de montre uniquement, vous ne pouvez PAS dépenser à partir de celui-ci.",
+    "main_wallet_label": "Portefeuille On-Chain",
+    "lightning_wallet_label": "Portefeuille Lightning",
+    "multi_sig_wallet_label": "Portefeuille multi-appareils",
+    "chf_taproot_wallet_label": "Portefeuille Taproot en CHF",
+    "add_lndhub_DFXswiss_not_available": "Ce service sera bientôt disponible",
+    "details_are_you_sure_main_wallet": "Êtes-vous sûr ? Si vous supprimez le portefeuille on-chain, toute l'application sera réinitialisée. Le portefeuille multi-appareils et le portefeuille Lightning seront également supprimés de cet appareil.",
+    "ownership_proof": "Preuve de propriété de l'adresse DFX",
+    "warning": "Attention !",
+    "rbf_warning": "Vous utilisez un portefeuille obsolète sans fonction RBF.",
+    "more_info": "Cliquez ici pour plus d'informations."
   },
   "multisig": {
     "multisig_vault": "Coffre",
@@ -521,14 +537,6 @@
     "wrapped_segwit_title": "Meilleur compatibilité",
     "legacy_title": "Ancien format",
     "co_sign_transaction": "Signer une transaction",
-    "what_is_vault": "Un coffre est un portefeuille de ",
-    "what_is_vault_numberOfWallets": " {m}-de-{n}  multi signaures",
-    "what_is_vault_wallet": ".",
-    "vault_advanced_customize": "Paramètres du coffre",
-    "needs": "Il a besoin",
-    "what_is_vault_description_number_of_vault_keys": " {m} clés de coffre",
-    "what_is_vault_description_to_spend": "pour dépenser et une troisième \nque vous pouvez utiliser en backup.",
-    "what_is_vault_description_to_spend_other": "pour dépenser.",
     "quorum": "{m} de {n} quorum",
     "quorum_header": "Quorum",
     "of": "de",
@@ -564,7 +572,11 @@
     "ms_help_title4": "importation Coffre",
     "ms_help_4": "Pour importer un coffre Multi-signature, utilisez votre fichier de sauvegarde multisig et utilisez la fonction d'importation. Si vous ne disposez que de clés étendues et des graines, vous pouvez utiliser les champs d'importation individuels du flux Ajouter un coffre.\n",
     "ms_help_title5": "Options avancées",
-    "ms_help_5": "Par défaut, DFX Bitcoin Wallet générera un coffre 2de3. Pour créer un quorum différent ou pour changer le type d'adresse, activez les options avancées dans les paramètres."
+    "ms_help_5": "Par défaut, DFX Bitcoin Wallet générera un coffre 2de3. Pour créer un quorum différent ou pour changer le type d'adresse, activez les options avancées dans les paramètres.",
+    "what_is_multidevice": "Un portefeuille multi-dispositifs est un portefeuille Bitcoin composé de trois dispositifs. Trois appareils sont nécessaires pour la mise en service. Deux appareils sont toujours nécessaires pour autoriser une transaction.",
+    "prepare_devices": "Assurez-vous que les trois appareils sont prêts et cliquez sur le bouton \"C'est parti\" sur les trois appareils.",
+    "qr_flow": "Un code QR s'affiche sur l'écran suivant et une fonction de balayage est activée sur le téléphone portable. Chaque appareil doit scanner les deux codes QR des deux autres appareils et est alors prêt à être utilisé.",
+    "done_explanation": "Ne cliquez sur \"Terminé\" que lorsque les 3 appareils ont terminé le processus et que les 3 appareils ont 3 coches vertes en haut."
   },
   "is_it_my_address": {
     "title": "Est ce mon adresse?",
@@ -631,5 +643,64 @@
     "currency": "Votre devise",
     "info": "Vous serez notifié par email lorsque le transfert bancaire vers votre compte sera effectué.",
     "confirm": "Encaisser sur le compte bancaire"
+  },
+  "bip47": {
+    "payment_code": "Code de paiement",
+    "payment_codes_list": "Liste des codes de paiement",
+    "who_can_pay_me": "Qui peut me payer :",
+    "purpose": "Code réutilisable et partageable (BIP47)",
+    "not_found": "Code de paiement non trouvé"
+  },
+  "swap": {
+    "header": "Confirmer le swap",
+    "spend": "Vous dépensez",
+    "network_spending": "Sur {blockchain}",
+    "to": "A l'adresse",
+    "receiving": "Et vous recevez",
+    "network_receiving": "{asset} sur {blockchain}",
+    "confirm": "Confirmez"
+  },
+  "boltcard": {
+    "pay_card": "Carte de paiement",
+    "title_create": "Créer une carte de paiement",
+    "alert_message_write_card": "Prêt à écrire la carte. Maintenez la carte NFC contre le téléphone jusqu'à ce que toutes les clés soient changées.",
+    "what_pay_card_is": "Pay Card est la première carte de débit Bitcoin au monde qui vous permet de dépenser vos bitcoins sur le Lightning Network avec une carte de paiement sans contact alimentée par la communication en champ proche (NFC).",
+    "how_to_create": "Pour créer votre première carte de paiement, appuyez sur le bouton \"Créer\" et maintenez votre carte ou anneau NFC compatible jusqu'à ce que toutes les clés soient définies.",
+    "always_backup": "Faites toujours des copies de sauvegarde de toutes les clés écrites sur la carte. Sans ces copies, vous risquez de ne pas pouvoir les modifier à l'avenir.",
+    "create_boltcard": "Créer",
+    "title_details": "Détails de la carte de paiement",
+    "title_backup": "Sauvegarder la carte de paiement",
+    "title_delete": "Supprimer la carte de paiement",
+    "title_restore": "Réinitialiser la carte de paiement",
+    "keys_written": "Toutes les clés ont été réglées correctement",
+    "hold_card": "Tenez votre carte ou votre anneau jusqu'à ce que toutes les clés soient réglées.",
+    "delete_card_title": "Êtes-vous sûr de vouloir supprimer cette carte ?",
+    "how_to_delete": "Pour poursuivre le processus de suppression, il se peut que vous deviez tenir la carte près de votre appareil pour réinitialiser toutes les clés.",
+    "also_wipe_card": "Réinitialiser également ma carte.",
+    "lost_card": "Si vous avez perdu votre carte ou si vous n'y avez plus accès, vous pouvez cocher la case ci-dessous pour ignorer la réinitialisation de la carte.",
+    "confirm_delete": "Oui, supprimer cette carte",
+    "card_written_title": "Cette carte a déjà des clés écrites",
+    "card_written_message": "Il semble que des clés aient déjà été écrites sur votre carte. Nous pouvons vous aider à réinitialiser la carte afin que vous puissiez essayer de la configurer à nouveau.",
+    "how_to_reset": "Tout ce dont vous avez besoin pour réinitialiser votre carte est de scanner la sauvegarde de vos clés et nous nous occuperons du reste.",
+    "now_tap": "Appuyez maintenant sur votre carte et attendez que toutes les clés soient réinitialisées.",
+    "start_nfc": "Démarrer NFC",
+    "scan_backup": "Scannez la sauvegarde",
+    "cancel": "Annuler",
+    "is_it_my_card": "Est-ce ma carte ?",
+    "derivated_from_wallet": "Oui - Clés dérivées de mon portefeuille",
+    "not_derivated_from_wallet": "Non - Les clés internes ne sont pas disponibles",
+    "card_state": "État de la carte",
+    "card_state_empty": "Vide, prêt à être écrit",
+    "card_state_written": "Clés écrites correctement",
+    "card_written_error": "Clés écrites avec des erreurs",
+    "server_status": "État du serveur",
+    "active": "Enregistré correctement",
+    "unregitered": "La carte n'est pas enregistrée, elle doit être réinitialisée",
+    "send_to_card": "Envoyer à la carte",
+    "keys_backup": "Clés/Sauvegarde",
+    "wipe_card": "Réinitialiser la carte",
+    "unregister_and_wipe": "Annuler l'enregistrement et réinitialiser la carte",
+    "tap_and_hold": "Tapez sur votre carte et maintenez-la enfoncée",
+    "writting_hold": "Écrire, maintenez votre carte"
   }
 }
