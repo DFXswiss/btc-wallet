@@ -28,7 +28,8 @@
     "enter_amount": "Enter amount",
     "qr_custom_input_button": "Tap 10 times to enter custom input",
     "add": "Add",
-    "repeat": "Repeat"
+    "repeat": "Repeat",
+    "loading": "Loading"
   },
   "alert": {
     "default": "Alert"
@@ -224,7 +225,10 @@
     "reset_amount_confirm": "Would you like to reset the amount?",
     "success_done": "Done",
     "txSaved": "The transaction file ({filePath}) has been saved in your Downloads folder.",
-    "problem_with_psbt": "Problem with PSBT"
+    "problem_with_psbt": "Problem with PSBT",
+    "scan_bitcoin_qr": "Scan a Bitcoin QR code",
+    "enter_address": "Enter address",
+    "text_address_or_invoice": "Text address or invoice"
   },
   "settings": {
     "about": "About",

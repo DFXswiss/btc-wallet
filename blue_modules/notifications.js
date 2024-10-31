@@ -40,7 +40,6 @@ function Notifications(props) {
       PushNotification.configure({
         // (optional) Called when Token is generated (iOS and Android)
         onRegister: async function (token) {
-          console.log('TOKEN:', token);
           alreadyConfigured = true;
           await _setPushToken(token);
           resolve(true);
@@ -190,22 +189,27 @@ function Notifications(props) {
   Notifications.majorTomToGroundControl = async function (addresses, hashes, txids) {
     if (!Array.isArray(addresses) || !Array.isArray(hashes) || !Array.isArray(txids))
       throw new Error('no addresses or hashes or txids provided');
-    const pushToken = await Notifications.getPushToken();
-    if (!pushToken || !pushToken.token || !pushToken.os) return;
 
-    const response = await fetch(`${baseURI}/majorTomToGroundControl`, {
-      method: 'POST',
-      headers: _getHeaders(),
-      body: JSON.stringify({
-        addresses,
-        hashes,
-        txids,
-        token: pushToken.token,
-        os: pushToken.os,
-      }),
-    });
+    try {
+      const pushToken = await Notifications.getPushToken();
+      if (!pushToken || !pushToken.token || !pushToken.os) return;
 
-    return response.json();
+      const response = await fetch(`${baseURI}/majorTomToGroundControl`, {
+        method: 'POST',
+        headers: _getHeaders(),
+        body: JSON.stringify({
+          addresses,
+          hashes,
+          txids,
+          token: pushToken.token,
+          os: pushToken.os,
+        }),
+      });
+
+      return response.json();
+    } catch (e) {
+      console.log(e);
+    }
   };
 
   /**

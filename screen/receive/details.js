@@ -44,7 +44,7 @@ const currency = require('../../blue_modules/currency');
 
 const ReceiveDetails = () => {
   const { walletID, address } = useRoute().params;
-  const { wallets, saveToDisk, sleep, isElectrumDisabled, fetchAndSaveWalletTransactions, isPosMode } = useContext(BlueStorageContext);
+  const { wallets, saveToDisk, sleep, isElectrumDisabled, fetchAndSaveWalletTransactions } = useContext(BlueStorageContext);
   const wallet = wallets.find(w => w.getID() === walletID);
   const [customLabel, setCustomLabel] = useState('');
   const [bip21encoded, setBip21encoded] = useState();
@@ -53,7 +53,7 @@ const ReceiveDetails = () => {
   const [showConfirmedBalance, setShowConfirmedBalance] = useState(false);
   const [showAddress, setShowAddress] = useState(false);
   const { goBack, setParams, navigate } = useNavigation();
-  const replace = useReplaceModalScreen()
+  const replace = useReplaceModalScreen();
   const { colors } = useTheme();
   const [intervalMs, setIntervalMs] = useState(5000);
   const [eta, setEta] = useState('');
@@ -62,8 +62,8 @@ const ReceiveDetails = () => {
   const [displayBalance, setDisplayBalance] = useState('');
   const fetchAddressInterval = useRef();
   const { inputProps, amountSats, formattedUnit, changeToNextUnit } = useInputAmount();
-  
-   const stylesHook = StyleSheet.create({
+
+  const stylesHook = StyleSheet.create({
     modalContent: {
       backgroundColor: colors.modal,
       borderTopColor: colors.foregroundColor,
@@ -256,47 +256,47 @@ const ReceiveDetails = () => {
     return (
       <ScrollView contentInsetAdjustmentBehavior="automatic">
         <KeyboardAvoidingView enabled={!Platform.isPad} behavior="position" keyboardVerticalOffset={50}>
-        <View style={styles.scrollBody}>
-          <QRCodeComponent value={bip21encoded} />
-          <BlueCopyTextToClipboard text={isCustom ? bip21encoded : address} textStyle={{ marginVertical: 24 }} />
-        </View>
-        <View style={styles.share}>
-          <View style={[styles.customAmount, stylesHook.customAmount]}>
-            <TextInput
-              placeholderTextColor="#81868e"
-              placeholder="Amount (optional)"
-              style={[styles.customAmountText, stylesHook.customAmountText]}
-              inputAccessoryViewID={BlueDismissKeyboardInputAccessory.InputAccessoryViewID}
-              {...inputProps}
-            />
-            <Text style={styles.inputUnit}>{formattedUnit}</Text>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel={loc._.change_input_currency}
-              style={styles.changeToNextUnitButton}
-              onPress={changeToNextUnit}
-            >
-              <Image source={require('../../img/round-compare-arrows-24-px.png')} />
-            </TouchableOpacity>
+          <View style={styles.scrollBody}>
+            <QRCodeComponent value={bip21encoded} />
+            <BlueCopyTextToClipboard text={isCustom ? bip21encoded : address} textStyle={{ marginVertical: 24 }} />
           </View>
-          <View style={[styles.customAmount, stylesHook.customAmount]}>
-            <TextInput
-              onChangeText={setCustomLabel}
-              placeholderTextColor="#81868e"
-              placeholder={`${loc.receive.details_label} (optional)`}
-              value={customLabel || ''}
-              numberOfLines={1}
-              style={[styles.customAmountText, stylesHook.customAmountText]}
-              testID="CustomAmountDescription"
-              inputAccessoryViewID={BlueDismissKeyboardInputAccessory.InputAccessoryViewID}
-            />
+          <View style={styles.share}>
+            <View style={[styles.customAmount, stylesHook.customAmount]}>
+              <TextInput
+                placeholderTextColor="#81868e"
+                placeholder="Amount (optional)"
+                style={[styles.customAmountText, stylesHook.customAmountText]}
+                inputAccessoryViewID={BlueDismissKeyboardInputAccessory.InputAccessoryViewID}
+                {...inputProps}
+              />
+              <Text style={styles.inputUnit}>{formattedUnit}</Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={loc._.change_input_currency}
+                style={styles.changeToNextUnitButton}
+                onPress={changeToNextUnit}
+              >
+                <Image source={require('../../img/round-compare-arrows-24-px.png')} />
+              </TouchableOpacity>
+            </View>
+            <View style={[styles.customAmount, stylesHook.customAmount]}>
+              <TextInput
+                onChangeText={setCustomLabel}
+                placeholderTextColor="#81868e"
+                placeholder={`${loc.receive.details_label} (optional)`}
+                value={customLabel || ''}
+                numberOfLines={1}
+                style={[styles.customAmountText, stylesHook.customAmountText]}
+                testID="CustomAmountDescription"
+                inputAccessoryViewID={BlueDismissKeyboardInputAccessory.InputAccessoryViewID}
+              />
+            </View>
+            <BlueCard>
+              <BlueButton onPress={handleShareButtonPressed} title={loc.receive.details_share} />
+            </BlueCard>
           </View>
-          <BlueCard>
-            <BlueButton onPress={handleShareButtonPressed} title={loc.receive.details_share} />
-          </BlueCard>
-        </View>
-        <BlueDismissKeyboardInputAccessory />
-      </KeyboardAvoidingView>
+          <BlueDismissKeyboardInputAccessory />
+        </KeyboardAvoidingView>
       </ScrollView>
     );
   };
@@ -309,7 +309,6 @@ const ReceiveDetails = () => {
     if (address) {
       setAddressBIP21Encoded(address);
       await Notifications.tryToObtainPermissions();
-      Notifications.majorTomToGroundControl([address], [], []);
     } else {
       if (wallet.chain === Chain.ONCHAIN) {
         try {
@@ -337,7 +336,6 @@ const ReceiveDetails = () => {
       }
       setAddressBIP21Encoded(newAddress);
       await Notifications.tryToObtainPermissions();
-      Notifications.majorTomToGroundControl([newAddress], [], []);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallet]);
@@ -369,16 +367,18 @@ const ReceiveDetails = () => {
     const btcAmout = Number(currency.satoshiToBTC(amountSats));
     const hasOptional = btcAmout || customLabel;
     setIsCustom(hasOptional);
-    if(hasOptional){
+    if (hasOptional) {
       setBip21encoded(DeeplinkSchemaMatch.bip21encode(address, { amount: btcAmout, label: customLabel }));
     }
-  }, [amountSats, customLabel]); 
-  
+  }, [amountSats, customLabel]);
+
   const handleShareButtonPressed = () => {
     Share.open({ message: bip21encoded }).catch(error => console.log(error));
   };
 
   const onWalletChange = id => {
+    if (id === wallet?.getID()) return;
+
     const newWallet = wallets.find(w => w.getID() === id);
     if (!newWallet) return;
 
