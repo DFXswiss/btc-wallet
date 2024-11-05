@@ -52,10 +52,6 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
   const [isAvailable, setIsAvailable] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  useEffect(() => {
-    dfxSession.get().then(setSessions);
-  }, [dfxSession]);
-
   function isExpired(token?: string): boolean {
     if (!token) return true;
 
@@ -111,7 +107,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
   async function createAccessToken(walletId: string): Promise<string> {
     if (walletId === mainWalletId) {
       if (!mainAddress) throw new Error('Address is not defined');
-      const signature = await getOwnershipProof();  
+      const signature = await getOwnershipProof();
       return await createSession(mainAddress, signature);
     } else {
       const wallet = wallets.find((w: any) => w.getID?.() === walletId);
