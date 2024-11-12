@@ -65,7 +65,6 @@ const hardcodedPeers = [
 /** @type {ElectrumClient} */
 let mainClient;
 let mainConnected = false;
-let wasConnectedAtLeastOnce = false;
 let serverName = false;
 let disableBatching = false;
 let connectionAttempt = 0;
@@ -75,6 +74,10 @@ let latestBlockheight = false;
 let latestBlockheightTimestamp = false;
 
 const txhashHeightCache = {};
+
+let waitTillConnectedPromise = null;
+let flushTillConnectedPromise = null;
+let rotatePeerTimeout = null;
 
 async function isDisabled() {
   let result;
@@ -149,13 +152,33 @@ async function connectMain() {
         setTimeout(connectMain, usingPeer.host.endsWith('.onion') ? 4000 : 500);
       }
     };
-    const ver = await mainClient.initElectrum({ client: 'bluewallet', version: '1.4' });
+
+    mainClient.onConnect = function () {
+      if (flushTillConnectedPromise) {
+        flushTillConnectedPromise(); // flush UIs waiting for connection
+      }
+
+      clearTimeout(rotatePeerTimeout);
+      rotatePeerTimeout = setTimeout(
+        () => {
+          mainClient?.close?.();
+          mainConnected = false;
+          connectMain();
+        },
+        30 * 60 * 1000, // Rotate peer every 30 minutes
+      );
+    };
+
+    const electrumConfig = { client: 'bluewallet', version: '1.4' };
+    const persistentConfig = { maxRetry: -1, callBack: () => {} }; // this is a hack to prevent the client from retrying
+    const ver = await mainClient.initElectrum(electrumConfig, persistentConfig);
+
     if (ver && ver[0]) {
       console.log('connected to ', ver);
       connectionAttempt = 0;
       serverName = ver[0];
       mainConnected = true;
-      wasConnectedAtLeastOnce = true;
+
       if (ver[0].startsWith('ElectrumPersonalServer') || ver[0].startsWith('electrs') || ver[0].startsWith('Fulcrum')) {
         disableBatching = true;
 
@@ -191,92 +214,14 @@ async function connectMain() {
   }
 
   if (!mainConnected) {
-    console.log('retry');
     connectionAttempt = connectionAttempt + 1;
     mainClient.close && mainClient.close();
-      console.log('reconnection attempt #', connectionAttempt);
+    console.log('reconnection attempt #', connectionAttempt);
     // quadratic backoff: 1st retry 100ms, 2nd 400ms, 3rd 900ms, 4th 1.6secs, 5th 2.5secs, 6th 3.6secs ...
     await new Promise(resolve => setTimeout(resolve, 100 * connectionAttempt * connectionAttempt));
     if (connectionAttempt > 30) connectionAttempt = 0; // speedup again after 2min
-      return connectMain();
+    return connectMain();
   }
-}
-
-async function presentNetworkErrorAlert(usingPeer) {
-  if (await isDisabled()) {
-    console.log(
-      'Electrum connection disabled by user. Perhaps we are attempting to show this network error alert after the user disabled connections.',
-    );
-    return;
-  }
-  Alert.alert(
-    loc.errors.network,
-    loc.formatString(
-      usingPeer ? loc.settings.electrum_unable_to_connect : loc.settings.electrum_error_connect,
-      usingPeer ? { server: `${usingPeer.host}:${usingPeer.ssl ?? usingPeer.tcp}` } : {},
-    ),
-    [
-      {
-        text: loc.wallets.list_tryagain,
-        onPress: () => {
-          connectionAttempt = 0;
-          mainClient.close() && mainClient.close();
-          setTimeout(connectMain, 500);
-        },
-        style: 'default',
-      },
-      {
-        text: loc.settings.electrum_reset,
-        onPress: () => {
-          Alert.alert(
-            loc.settings.electrum_reset,
-            loc.settings.electrum_reset_to_default,
-            [
-              {
-                text: loc._.cancel,
-                style: 'cancel',
-                onPress: () => {},
-              },
-              {
-                text: loc._.ok,
-                style: 'destructive',
-                onPress: async () => {
-                  await AsyncStorage.setItem(ELECTRUM_HOST, '');
-                  await AsyncStorage.setItem(ELECTRUM_TCP_PORT, '');
-                  await AsyncStorage.setItem(ELECTRUM_SSL_PORT, '');
-                  try {
-                    await DefaultPreference.setName('group.swiss.dfx.bitcoin');
-                    await DefaultPreference.clear(ELECTRUM_HOST);
-                    await DefaultPreference.clear(ELECTRUM_SSL_PORT);
-                    await DefaultPreference.clear(ELECTRUM_TCP_PORT);
-                    WidgetCommunication.reloadAllTimelines();
-                  } catch (e) {
-                    // Must be running on Android
-                    console.log(e);
-                  }
-                  alert(loc.settings.electrum_saved);
-                  setTimeout(connectMain, 500);
-                },
-              },
-            ],
-            { cancelable: true },
-          );
-          connectionAttempt = 0;
-          mainClient.close() && mainClient.close();
-        },
-        style: 'destructive',
-      },
-      {
-        text: loc._.cancel,
-        onPress: () => {
-          connectionAttempt = 0;
-          mainClient.close() && mainClient.close();
-        },
-        style: 'cancel',
-      },
-    ],
-    { cancelable: false },
-  );
 }
 
 async function getCurrentPeer() {
@@ -754,34 +699,24 @@ module.exports.multiGetTransactionByTxid = async function (txids, batchsize, ver
  * @returns {Promise<Promise<*> | Promise<*>>}
  */
 module.exports.waitTillConnected = async function () {
-  let waitTillConnectedInterval = false;
-  let retriesCounter = 0;
   if (await isDisabled()) {
     console.warn('Electrum connections disabled by user. waitTillConnected skipping...');
     return;
   }
-  return new Promise(function (resolve, reject) {
-    waitTillConnectedInterval = setInterval(() => {
-      if (mainConnected) {
-        clearInterval(waitTillConnectedInterval);
-        return resolve(true);
-      }
 
-      if (wasConnectedAtLeastOnce && mainClient.status === 1) {
-        clearInterval(waitTillConnectedInterval);
-        mainConnected = true;
-        return resolve(true);
-      }
+  if (mainConnected) return true;
 
-      if (wasConnectedAtLeastOnce && retriesCounter++ >= 150) {
-        // `wasConnectedAtLeastOnce` needed otherwise theres gona be a race condition with the code that connects
-        // electrum during app startup
-        clearInterval(waitTillConnectedInterval);
-        presentNetworkErrorAlert();
-        reject(new Error('Waiting for Electrum connection timeout'));
-      }
-    }, 100);
+  if (waitTillConnectedPromise) return waitTillConnectedPromise; // Singleton promise
+
+  waitTillConnectedPromise = new Promise(resolve => {
+    flushTillConnectedPromise = function () {
+      waitTillConnectedPromise = null;
+      flushTillConnectedPromise = null;
+      resolve(true);
+    };
   });
+
+  return waitTillConnectedPromise;
 };
 
 // Returns the value at a given percentile in a sorted numeric array.

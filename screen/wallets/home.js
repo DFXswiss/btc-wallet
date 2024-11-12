@@ -172,7 +172,6 @@ const WalletHome = ({ navigation }) => {
       await saveToDisk();
     }
 
-    await saveToDisk();
     setIsLoading(false);
   };
 
