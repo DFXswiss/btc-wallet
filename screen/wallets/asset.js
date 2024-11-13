@@ -193,6 +193,7 @@ const Asset = ({ navigation }) => {
 
   const setTxRefreshInterval = () => {
     clearTxRefreshInterval();
+    refreshTransactions();
     txRefreshInterval.current = setInterval(() => {
       refreshTransactions();
     }, 20 * 1000);
