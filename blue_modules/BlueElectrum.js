@@ -64,22 +64,26 @@ const hardcodedPeers = [
 
 /** @type {ElectrumClient} */
 let mainClient;
-let mainConnected = false;
 let serverName = false;
 let disableBatching = false;
 let connectionAttempt = 0;
 let currentPeerIndex = Math.floor(Math.random() * hardcodedPeers.length);
+let waitingUserFeedback = false;
+let isDisabledCache = undefined;
 
 let latestBlockheight = false;
 let latestBlockheightTimestamp = false;
 
 const txhashHeightCache = {};
 
+let connectionPromise = null;
 let waitTillConnectedPromise = null;
 let flushTillConnectedPromise = null;
 let rotatePeerTimeout = null;
 
 async function isDisabled() {
+  if (isDisabledCache !== undefined) return isDisabledCache;
+
   let result;
   try {
     const savedValue = await AsyncStorage.getItem(ELECTRUM_CONNECTION_DISABLED);
@@ -91,10 +95,13 @@ async function isDisabled() {
   } catch {
     result = false;
   }
-  return !!result;
+
+  isDisabledCache = !!result;
+  return isDisabledCache;
 }
 
 async function setDisabled(disabled = true) {
+  isDisabledCache = disabled;
   return AsyncStorage.setItem(ELECTRUM_CONNECTION_DISABLED, disabled ? '1' : '');
 }
 
@@ -103,6 +110,44 @@ async function connectMain() {
     console.log('Electrum connection disabled by user. Skipping connectMain call');
     return;
   }
+  if (waitingUserFeedback) return;
+  if (connectionPromise) return connectionPromise;
+
+  connectionPromise = _initConnection().finally(() => {
+    if (isMainClientConnected()) {
+      console.log('Electrum connection established, rotating peer in 30 minutes');
+      connectionAttempt = 0;
+      clearTimeout(rotatePeerTimeout);
+      rotatePeerTimeout = setTimeout(
+        () => {
+          mainClient?.close?.();
+          connectMain();
+        },
+        30 * 60 * 1000,
+      );
+    } else if (connectionAttempt++ > 33) {
+      // will ask at least 3 times each server before this happens
+      waitingUserFeedback = true;
+      mainClient?.close?.();
+      presentNetworkErrorAlert();
+    } else {
+      console.log('Electrum connection not established, trying again');
+      connectMain();
+    }
+
+    // Ready for receiving next connection attempt
+    connectionPromise = null;
+  });
+}
+
+async function _initConnection() {
+  if (await isDisabled()) {
+    console.log('Electrum connection disabled by user. Skipping _initConnection call');
+    return;
+  }
+
+  if (isMainClientConnected()) return;
+
   let usingPeer = await getNextPeer();
   const savedPeer = await getSavedPeer();
   if (savedPeer && savedPeer.host && (savedPeer.tcp || savedPeer.ssl)) {
@@ -140,92 +185,99 @@ async function connectMain() {
 
     mainClient.onError = function (e) {
       console.log('electrum mainClient.onError():', e.message);
-      if (mainConnected) {
-        // most likely got a timeout from electrum ping. lets reconnect
-        // but only if we were previously connected (mainConnected), otherwise theres other
-        // code which does connection retries
-        mainClient.close();
-        mainConnected = false;
-        // dropping `mainConnected` flag ensures there wont be reconnection race condition if several
-        // errors triggered
-        console.log('reconnecting after socket error');
-        setTimeout(connectMain, usingPeer.host.endsWith('.onion') ? 4000 : 500);
-      }
+      mainClient.close();
+      connectMain();
     };
 
     mainClient.onConnect = function () {
       if (flushTillConnectedPromise) {
-        flushTillConnectedPromise(); // flush UIs waiting for connection
+        flushTillConnectedPromise();
       }
-
-      clearTimeout(rotatePeerTimeout);
-      rotatePeerTimeout = setTimeout(
-        () => {
-          mainClient?.close?.();
-          mainConnected = false;
-          connectMain();
-        },
-        30 * 60 * 1000, // Rotate peer every 30 minutes
-      );
     };
 
     const electrumConfig = { client: 'bluewallet', version: '1.4' };
-    const persistentConfig = { maxRetry: -1, callBack: () => {} }; // this is a hack to prevent the client from retrying
-    const ver = await mainClient.initElectrum(electrumConfig, persistentConfig);
+    const persistentConfig = { maxRetry: -1, callBack: () => {} }; // this is a hack for preventing the base library from retrying, we will handle the retry logic on our side
 
-    if (ver && ver[0]) {
-      console.log('connected to ', ver);
-      connectionAttempt = 0;
-      serverName = ver[0];
-      mainConnected = true;
+    const ver = await Promise.race([
+      mainClient.initElectrum(electrumConfig, persistentConfig),
+      new Promise(resolve => setTimeout(resolve, 10 * 1000)), // don't wait for slow servers
+    ]);
 
-      if (ver[0].startsWith('ElectrumPersonalServer') || ver[0].startsWith('electrs') || ver[0].startsWith('Fulcrum')) {
-        disableBatching = true;
-
-        // exeptions for versions:
-        const [electrumImplementation, electrumVersion] = ver[0].split(' ');
-        switch (electrumImplementation) {
-          case 'electrs':
-            if (semVerToInt(electrumVersion) >= semVerToInt('0.9.0')) {
-              disableBatching = false;
-            }
-            break;
-          case 'electrs-esplora':
-            // its a different one, and it does NOT support batching
-            // nop
-            break;
-          case 'Fulcrum':
-            if (semVerToInt(electrumVersion) >= semVerToInt('1.9.0')) {
-              disableBatching = false;
-            }
-            break;
-        }
-      }
-      const header = await mainClient.blockchainHeaders_subscribe();
-      if (header && header.height) {
-        latestBlockheight = header.height;
-        latestBlockheightTimestamp = Math.floor(+new Date() / 1000);
-      }
-      // AsyncStorage.setItem(storageKey, JSON.stringify(peers));  TODO: refactor
+    if (!ver || !ver[0]) {
+      throw new Error('Electrum connection timed out');
     }
+
+    console.log('connected to ', ver);
+    serverName = ver[0];
+
+    if (ver[0].startsWith('ElectrumPersonalServer') || ver[0].startsWith('electrs') || ver[0].startsWith('Fulcrum')) {
+      disableBatching = true;
+
+      // exeptions for versions:
+      const [electrumImplementation, electrumVersion] = ver[0].split(' ');
+      switch (electrumImplementation) {
+        case 'electrs':
+          if (semVerToInt(electrumVersion) >= semVerToInt('0.9.0')) {
+            disableBatching = false;
+          }
+          break;
+        case 'electrs-esplora':
+          // its a different one, and it does NOT support batching
+          // nop
+          break;
+        case 'Fulcrum':
+          if (semVerToInt(electrumVersion) >= semVerToInt('1.9.0')) {
+            disableBatching = false;
+          }
+          break;
+      }
+    }
+    const header = await mainClient.blockchainHeaders_subscribe();
+    if (header && header.height) {
+      latestBlockheight = header.height;
+      latestBlockheightTimestamp = Math.floor(+new Date() / 1000);
+    }
+    // AsyncStorage.setItem(storageKey, JSON.stringify(peers));  TODO: refactor
   } catch (e) {
-    mainConnected = false;
     console.log('bad connection:', JSON.stringify(usingPeer), e);
   }
+}
 
-  if (!mainConnected) {
-    connectionAttempt = connectionAttempt + 1;
-    mainClient.close && mainClient.close();
-    console.log('reconnection attempt #', connectionAttempt);
-    // quadratic backoff: 1st retry 100ms, 2nd 400ms, 3rd 900ms, 4th 1.6secs, 5th 2.5secs, 6th 3.6secs ...
-    await new Promise(resolve => setTimeout(resolve, 100 * connectionAttempt * connectionAttempt));
-    if (connectionAttempt > 30) connectionAttempt = 0; // speedup again after 2min
-    return connectMain();
+async function presentNetworkErrorAlert(usingPeer) {
+  if (await isDisabled()) {
+    console.log(
+      'Electrum connection disabled by user. Perhaps we are attempting to show this network error alert after the user disabled connections.',
+    );
+    return;
   }
+  Alert.alert(
+    loc.errors.network,
+    loc.formatString(
+      usingPeer ? loc.settings.electrum_unable_to_connect : loc.settings.electrum_error_connect,
+      usingPeer ? { server: `${usingPeer.host}:${usingPeer.ssl ?? usingPeer.tcp}` } : {},
+    ),
+    [
+      {
+        text: loc.wallets.list_tryagain,
+        onPress: () => {
+          connectionAttempt = 0;
+          mainClient?.close?.();
+          waitingUserFeedback = false;
+          setTimeout(connectMain, 500);
+        },
+        style: 'default',
+      },
+    ],
+    { cancelable: false },
+  );
 }
 
 async function getCurrentPeer() {
   return hardcodedPeers[currentPeerIndex];
+}
+
+function isMainClientConnected() {
+  return mainClient && mainClient.timeLastCall !== 0 && mainClient.status;
 }
 
 /**
@@ -234,10 +286,9 @@ async function getCurrentPeer() {
  * @returns {Promise<{tcp, host, ssl?}|*>}
  */
 async function getNextPeer() {
-  const peer = getCurrentPeer();
   currentPeerIndex++;
-  if (currentPeerIndex + 1 >= hardcodedPeers.length) currentPeerIndex = 0;
-  return peer;
+  if (currentPeerIndex >= hardcodedPeers.length) currentPeerIndex = 0;
+  return getCurrentPeer();
 }
 
 async function getSavedPeer() {
@@ -341,7 +392,6 @@ module.exports.ping = async function () {
   try {
     await mainClient.server_ping();
   } catch (_) {
-    mainConnected = false;
     return false;
   }
   return true;
@@ -692,9 +742,8 @@ module.exports.multiGetTransactionByTxid = async function (txids, batchsize, ver
 };
 
 /**
- * Simple waiter till `mainConnected` becomes true (which means
- * it Electrum was connected in other function), or timeout 30 sec.
- *
+ * Wait until main client is connected or timeout
+ * register a flush function to be called when connected
  *
  * @returns {Promise<Promise<*> | Promise<*>>}
  */
@@ -704,14 +753,24 @@ module.exports.waitTillConnected = async function () {
     return;
   }
 
-  if (mainConnected) return true;
+  if (isMainClientConnected()) {
+    return true;
+  }
 
   if (waitTillConnectedPromise) return waitTillConnectedPromise; // Singleton promise
 
-  waitTillConnectedPromise = new Promise(resolve => {
+  waitTillConnectedPromise = new Promise((resolve, reject) => {
+    const timeoutReject = setTimeout(() => {
+      waitTillConnectedPromise = null;
+      flushTillConnectedPromise = null;
+      connectMain();
+      reject(new Error('Electrum connection timed out'));
+    }, 5 * 1000);
+
     flushTillConnectedPromise = function () {
       waitTillConnectedPromise = null;
       flushTillConnectedPromise = null;
+      clearTimeout(timeoutReject);
       resolve(true);
     };
   });
