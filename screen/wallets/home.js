@@ -119,6 +119,7 @@ const WalletHome = ({ navigation }) => {
   const setBalanceRefreshInterval = () => {
     if (!wallets) return;
     clearBalanceRefreshInterval();
+    refreshBalances().catch(console.error);
     balanceRefreshInterval.current = setInterval(() => {
       refreshBalances().catch(console.error);
     }, 20 * 1000);
@@ -172,7 +173,6 @@ const WalletHome = ({ navigation }) => {
       await saveToDisk();
     }
 
-    await saveToDisk();
     setIsLoading(false);
   };
 
