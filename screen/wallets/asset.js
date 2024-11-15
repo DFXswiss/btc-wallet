@@ -17,6 +17,7 @@ import {
   I18nManager,
   useWindowDimensions,
   TouchableOpacity,
+  AppState,
 } from 'react-native';
 import { Icon } from 'react-native-elements';
 import { useRoute, useNavigation, useTheme, useFocusEffect } from '@react-navigation/native';
@@ -31,7 +32,6 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { isDesktop } from '../../blue_modules/environment';
 import BlueClipboard from '../../blue_modules/clipboard';
 import { TransactionListItem } from '../../components/TransactionListItem';
-import alert from '../../components/Alert';
 import { ImageButton } from '../../components/ImageButton';
 import { DfxService, useDfxSessionContext } from '../../api/dfx/contexts/session.context';
 import BigNumber from 'bignumber.js';
@@ -75,7 +75,7 @@ const Asset = ({ navigation }) => {
     walletTransactionUpdateStatus,
     isElectrumDisabled,
     isDfxPos,
-    isDfxSwap
+    isDfxSwap,
   } = useContext(BlueStorageContext);
   const { name, params } = useRoute();
   const walletID = params.walletID;
@@ -94,6 +94,9 @@ const Asset = ({ navigation }) => {
   const { width } = useWindowDimensions();
   const [isHandlingOpenServices, setIsHandlingOpenServices] = useState(false);
   const [changeAddress, setChangeAddress] = useState('');
+  const [fContainerHeight, setFContainerHeight] = useState(0);
+  const txRefreshInterval = useRef(null);
+  const elapsedTimeInterval = useRef(null);
 
   const getButtonImages = lang => {
     switch (lang) {
@@ -154,19 +157,74 @@ const Asset = ({ navigation }) => {
     return txs.slice(0, lmt);
   };
 
+  const clearElapsedTimeInterval = () => {
+    if (elapsedTimeInterval.current) {
+      clearInterval(elapsedTimeInterval.current);
+      elapsedTimeInterval.current = null;
+    }
+  };
+
+  const setElapsedTimeInterval = () => {
+    clearElapsedTimeInterval();
+    elapsedTimeInterval.current = setInterval(() => setTimeElapsed(prev => prev + 1), 60000);
+  };
+
   useEffect(() => {
-    const interval = setInterval(() => setTimeElapsed(prev => prev + 1), 60000);
+    setElapsedTimeInterval();
     return () => {
-      clearInterval(interval);
+      clearElapsedTimeInterval();
     };
   }, []);
 
   useEffect(() => {
-    const refreshingInterval = setInterval(() => {
+    if (walletActionButtonsRef.current && Platform.OS === 'android') {
+      walletActionButtonsRef.current.measure((x, y, width, height) => {
+        setFContainerHeight(height);
+      });
+    }
+  }, []);
+
+  const clearTxRefreshInterval = () => {
+    if (txRefreshInterval.current) {
+      clearInterval(txRefreshInterval.current);
+      txRefreshInterval.current = null;
+    }
+  };
+
+  const setTxRefreshInterval = () => {
+    clearTxRefreshInterval();
+    refreshTransactions();
+    txRefreshInterval.current = setInterval(() => {
       refreshTransactions();
     }, 20 * 1000);
+  };
+
+  useEffect(() => {
+    setTxRefreshInterval();
     return () => {
-      clearInterval(refreshingInterval);
+      clearTxRefreshInterval();
+    };
+  }, []);
+
+  const appState = useRef(AppState.currentState);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (appState.current === 'active' && nextAppState.match(/background/)) {
+        clearTxRefreshInterval();
+        clearElapsedTimeInterval();
+      }
+
+      if (appState.current.match(/background/) && nextAppState === 'active') {
+        setTxRefreshInterval();
+        setElapsedTimeInterval();
+      }
+
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
     };
   }, []);
 
@@ -212,7 +270,7 @@ const Asset = ({ navigation }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallets]);
 
-  const getChangeAddressAsync = async (wallet) => {
+  const getChangeAddressAsync = async wallet => {
     if (changeAddress) return changeAddress; // cache
 
     let change;
@@ -305,7 +363,7 @@ const Asset = ({ navigation }) => {
 
   const isLightningTestnet = () => {
     return isLightning() && wallet?.getBaseURI()?.startsWith(Config.REACT_APP_LDS_DEV_URL);
-  }
+  };
 
   const isMultiSig = () => wallet.type === MultisigHDWallet.type;
 
@@ -347,7 +405,6 @@ const Asset = ({ navigation }) => {
       console.log(wallet.getLabel(), 'fetch tx took', (end - start) / 1000, 'sec');
     } catch (err) {
       noErr = false;
-      alert(err.message);
       setIsLoading(false);
       setTimeElapsed(prev => prev + 1);
     }
@@ -364,7 +421,11 @@ const Asset = ({ navigation }) => {
 
   const renderListFooterComponent = () => {
     // if not all txs rendered - display indicator
-    return (getTransactionsSliced(Infinity).length > limit && <ActivityIndicator style={styles.activityIndicator} />) || <View />;
+    return (
+      (getTransactionsSliced(Infinity).length > limit && <ActivityIndicator style={styles.activityIndicator} />) || (
+        <View style={{ height: 2 * fContainerHeight }} />
+      )
+    );
   };
 
   const renderListHeaderComponent = () => {
@@ -393,7 +454,7 @@ const Asset = ({ navigation }) => {
     <TransactionListItem item={item.item} itemPriceUnit={itemPriceUnit} timeElapsed={timeElapsed} walletID={walletID} />
   );
 
-  const importPsbt = (base64Psbt) => {
+  const importPsbt = base64Psbt => {
     try {
       if (Boolean(multisigWallet) && multisigWallet.howManySignaturesCanWeMake()) {
         navigation.navigate('SendDetailsRoot', {
@@ -401,19 +462,19 @@ const Asset = ({ navigation }) => {
           params: {
             psbtBase64: base64Psbt,
             walletID: multisigWallet.getID(),
-          }
+          },
         });
       }
-    } catch (_) { }
-  }
+    } catch (_) {}
+  };
   const onBarCodeRead = value => {
     if (!value || isLoading) return;
 
     setIsLoading(true);
 
-    if(BoltCard.isPossiblyBoltcardTapDetails(value)) {
+    if (BoltCard.isPossiblyBoltcardTapDetails(value)) {
       navigate('TappedCardDetails', { tappedCardDetails: value });
-    }else if (DeeplinkSchemaMatch.isPossiblyPSBTString(value)) {
+    } else if (DeeplinkSchemaMatch.isPossiblyPSBTString(value)) {
       importPsbt(value);
     } else if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(value)) {
       const uri = DeeplinkSchemaMatch.isBothBitcoinAndLightning(value);
@@ -450,10 +511,10 @@ const Asset = ({ navigation }) => {
     } else {
       navigate('ReceiveDetailsRoot', { screen: 'ReceiveDetails', params: { walletID: wallet.getID() } });
     }
-  }
+  };
 
   const sendButtonPress = () => {
-    return navigate('ScanCodeSendRoot', {screen: 'ScanCodeSend', params: { walletID: wallet.getID() }});
+    return navigate('ScanCodeSendRoot', { screen: 'ScanCodeSend', params: { walletID: wallet.getID() } });
   };
 
   const sendButtonLongPress = async () => {
@@ -540,15 +601,15 @@ const Asset = ({ navigation }) => {
       case LightningLdsWallet.type:
         return (
           <TouchableOpacity onPress={handleGoToBoltCard} style={styles.boltcardButton}>
-            <Image source={require('../../img/pay-card-link.png')} style={{ width: 1.30 * 30, height: 30 }} />
+            <Image source={require('../../img/pay-card-link.png')} style={{ width: 1.3 * 30, height: 30 }} />
             <Text style={stylesHook.listHeaderText}>{loc.boltcard.pay_card}</Text>
           </TouchableOpacity>
-        )
+        );
 
       default:
         return null;
     }
-  }
+  };
 
   return (
     <View style={styles.flex}>
@@ -577,6 +638,7 @@ const Asset = ({ navigation }) => {
                   <>
                     <View>
                       <ImageButton
+                        imageStyle={styles.tileImageStyle}
                         source={buttonImages[0]}
                         onPress={() => handleOpenServices(DfxService.BUY)}
                         disabled={isHandlingOpenServices}
@@ -585,6 +647,7 @@ const Asset = ({ navigation }) => {
                     {isDfxSwap && (
                       <View>
                         <ImageButton
+                          imageStyle={styles.tileImageStyle}
                           source={buttonImages[2]}
                           onPress={() => handleOpenServices(DfxService.SWAP)}
                           disabled={isHandlingOpenServices}
@@ -774,14 +837,17 @@ const styles = StyleSheet.create({
     padding: 5,
     alignItems: 'center',
   },
-  walletDetails:{
+  walletDetails: {
     paddingLeft: 12,
-    paddingVertical:12
+    paddingVertical: 12,
   },
   boltcardButton: { justifyContent: 'center', alignItems: 'center', marginTop: 10 },
   scanIconContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  }
+  },
+  tileImageStyle: {
+    borderRadius: 5,
+  },
 });

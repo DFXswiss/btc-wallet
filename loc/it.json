@@ -28,7 +28,8 @@
     "enter_amount": "Inserisci l'importo",
     "qr_custom_input_button": "Tocca 10 volte per inserire un input personalizzato",
     "add": "Aggiungi",
-    "repeat": "Ripetere"
+    "repeat": "Ripetere",
+    "loading": "Caricamento"
   },
   "alert": {
     "default": "Avviso"
@@ -53,36 +54,20 @@
     "network": "Errore di rete"
   },
   "lnd": {
-    "active": "Attivo",
-    "inactive": "Inattivo",
-    "channels": "Canali",
-    "no_channels": "Nessun canale",
-    "claim_balance": "Richiedi il saldo {balance}",
-    "close_channel": "Chiudi il canale",
-    "new_channel": "Nuovo canale",
     "errorInvoiceExpired": "Fattura scaduta",
-    "force_close_channel": "Forza la chiusura del canale?",
     "expired": "Scaduto",
-    "node_alias": "Alias del nodo",
     "expiresIn": "Scade tra {time} minuti",
     "payButton": "Paga",
     "placeholder": "Fattura o indirizzo",
-    "open_channel": "Apri canale",
-    "funding_amount_placeholder": "Quantità di fondi, ad esempio 0.001",
-    "opening_channnel_for_from": "Apri canale per il wallet {forWalletLabel}, caricando fondi da {fromWalletLabel}",
-    "are_you_sure_open_channel": "Sei sicuro di voler aprie questo canale?",
     "potentialFee": "Commissioni potenziali: {fee}",
-    "remote_host": "Host remoto",
     "refill": "Ricarica",
-    "reconnect_peer": "Riconnetti peer",
-    "refill_create": "Per continuare, crea un portafoglio Bitcoin dal quale ricaricare.",
     "refill_external": "Ricarica con un wallet esterno",
     "refill_lnd_balance": "Ricarica saldo del portafoglio Lightning",
     "sameWalletAsInvoiceError": "Non puoi pagare una fattura con lo stesso portafoglio che e' stato usato per crearla.",
     "title": "Gestisci fondi",
-    "can_send": "Puoi inviare",
-    "can_receive": "Puoi ricevere",
-    "view_logs": "Visualizza i log"
+    "error_tip_invoice_not_supported": "Le fatture con importo pari a 0 non sono supportate.",
+    "error_balance_for_insuficient_fee": "Il saldo residuo è insufficiente a coprire le spese, considerare l'invio del massimo o la riduzione dell'importo.",
+    "next": "Avanti"
   },
   "lndViewInvoice": {
     "additional_info": "Ulteriori Informazioni",
@@ -93,7 +78,12 @@
     "please_pay": "Per favore paga",
     "preimage": "Preimage",
     "sats": "sats.",
-    "wasnt_paid_and_expired": "Questa fattura non è stata pagata ed è scaduta."
+    "wasnt_paid_and_expired": "Questa fattura non è stata pagata ed è scaduta.",
+    "payment_hash": "Hash di pagamento",
+    "value": "Valore",
+    "description": "Descrizione",
+    "memo": "Memo",
+    "domain": "Dominio"
   },
   "plausibledeniability": {
     "create_fake_storage": "Crea archivio criptato",
@@ -135,7 +125,11 @@
     "ok_lnd": "OK, l'ho salvato",
     "text": "Per favore prenditi un momento per scrivere questa frase mnemonica su un foglio di carta.\nÈ il tuo backup e puoi usarlo per ripristinare il portafoglio.",
     "text_lnd": "Per favore salva questo backup. Ti consente di ripristinare il portafoglio in caso di smarrimento.",
-    "title": "Il tuo portafoglio è stato creato"
+    "title": "Il tuo portafoglio è stato creato",
+    "subtitle": "La vostra frase di recupero",
+    "info": "Non condividete mai la frase di recupero con nessuno, conservatela in modo sicuro!",
+    "description": "Scrivete queste parole nell'ordine giusto e salvatele in un posto sicuro.",
+    "confirm": "Sono consapevole che se perdo la mia frase di recupero, non potrò accedere ai miei fondi."
   },
   "receive": {
     "details_create": "Crea",
@@ -231,7 +225,10 @@
     "reset_amount_confirm": "Vuoi resettare l'importo?",
     "success_done": "Fatto",
     "txSaved": "Il file transazione ({filePath}) è stato salvato nella tua cartella Download.",
-    "problem_with_psbt": "Problema con la PSBT"
+    "problem_with_psbt": "Problema con la PSBT",
+    "scan_bitcoin_qr": "Scansionare un codice QR Bitcoin",
+    "enter_address": "Inserisci l'indirizzo",
+    "text_address_or_invoice": "Testo dell'indirizzo o della fattura"
   },
   "settings": {
     "about": "Informazioni",
@@ -380,9 +377,6 @@
     "pending": "Pendente",
     "pending_with_amount": "In attesa {amt1} ({amt2})",
     "received_with_amount": "+{amt1} ({amt2})",
-    "eta_10m": "ETA: In ~10 minuti",
-    "eta_3h": "ETA: In ~3 ore",
-    "eta_1d": "ETA: In ~1 giorno",
     "view_wallet": "Visualizza {walletLabel}",
     "list_title": "Transazioni",
     "open_url_error": "Non è stato possibile aprire il link con il browser predefinito. Per favore cambia il tuo browser predefinito e riprova.",
@@ -392,7 +386,11 @@
     "status_cancel": "Annulla transazione",
     "transactions_count": "Conteggio transazioni",
     "txid": "ID della transazione",
-    "updating": "Aggiornamento..."
+    "updating": "Aggiornamento...",
+    "eta_fastest": "Arrivo previsto: tra ~9 minuti",
+    "eta_fast": "Arrivo previsto: tra ~10 e 30 minuti",
+    "eta_medium": "ETA: tra ~30 minuti e 3 ore",
+    "eta_slow": "ETA: in ~1 giorno"
   },
   "wallets": {
     "add_bitcoin": "Bitcoin",
@@ -501,7 +499,17 @@
     "backupSeed": "Backup del portafoglio",
     "backupSeedWarning": "Backup non verificato",
     "external_services": "Servizi esterni",
-    "coming_soon": "Disponibile a breve"
+    "coming_soon": "Disponibile a breve",
+    "main_wallet_label": "Portafoglio on-chain",
+    "lightning_wallet_label": "Portafoglio Lightning",
+    "multi_sig_wallet_label": "Portafoglio multi-dispositivo",
+    "chf_taproot_wallet_label": "Portafoglio Taproot CHF",
+    "add_lndhub_DFXswiss_not_available": "Questo servizio sarà presto disponibile",
+    "details_are_you_sure_main_wallet": "Sei sicuro? Se si elimina il portafoglio on-chain, l'intera app verrà ripristinata. Anche il portafoglio multi-dispositivo e il portafoglio Lightning saranno rimossi da questo dispositivo.",
+    "ownership_proof": "Prova di proprietà dell'indirizzo DFX",
+    "warning": "Attenzione!",
+    "rbf_warning": "Si sta utilizzando un portafoglio obsoleto senza funzione RBF.",
+    "more_info": "Fare clic qui per ulteriori informazioni."
   },
   "multisig": {
     "multisig_vault": "Cassaforte",
@@ -529,14 +537,6 @@
     "wrapped_segwit_title": "Miglior compatibilità",
     "legacy_title": "Legacy",
     "co_sign_transaction": "Firma una transazione",
-    "what_is_vault": "Una cassaforte è un",
-    "what_is_vault_numberOfWallets": "multisig {m}-su-{n} ",
-    "what_is_vault_wallet": "portafoglio.",
-    "vault_advanced_customize": "Impostazioni della cassaforte",
-    "needs": "Necessita",
-    "what_is_vault_description_number_of_vault_keys": " {m} chiavi vault",
-    "what_is_vault_description_to_spend": "per spendere e una terza\nche puoi usare come backup.",
-    "what_is_vault_description_to_spend_other": "da spendere",
     "quorum": "quorum {m} di {n}",
     "quorum_header": "Quorum",
     "of": "di",
@@ -572,7 +572,11 @@
     "ms_help_title4": "Importazione Vault in corso",
     "ms_help_4": "Per importare un portafoglio multifirma, usa il tuo file di backup e l'opzione Importa. Se hai solo dei seed o delle XPUB, puoi usare il pulsante Importa durante la procedura di creazione delle chiavi Vault.",
     "ms_help_title5": "Modo avanzato",
-    "ms_help_5": "Come configurazione predefinita, DFX Bitcoin Wallet genererà una Vault 2-di-3. Per creare un quorum differente o cambiare la tipologia di indirizzo, attiva Modalità Avanzata nelle Impostazioni."
+    "ms_help_5": "Come configurazione predefinita, DFX Bitcoin Wallet genererà una Vault 2-di-3. Per creare un quorum differente o cambiare la tipologia di indirizzo, attiva Modalità Avanzata nelle Impostazioni.",
+    "what_is_multidevice": "Un portafoglio multidispositivo è un portafoglio Bitcoin composto da 3 dispositivi. Per la messa in funzione sono necessari tre dispositivi. Per autorizzare una transazione sono sempre necessari due dispositivi.",
+    "prepare_devices": "Assicurarsi che tutti e 3 i dispositivi siano pronti e fare clic sul pulsante \"Iniziamo\" su tutti e 3 i dispositivi.",
+    "qr_flow": "Nella schermata successiva viene visualizzato un codice QR e viene attivata una funzione di scansione sul telefono cellulare. Ogni dispositivo deve scansionare i due codici QR degli altri 2 dispositivi ed è quindi pronto per l'uso.",
+    "done_explanation": "Fare clic su \"Fatto\" solo quando tutti e 3 i dispositivi hanno completato questo processo e tutti e 3 i dispositivi hanno 3 segni di spunta verdi in alto."
   },
   "is_it_my_address": {
     "title": "È il mio indirizzo?",
@@ -646,5 +650,57 @@
     "currency": "La tua valuta",
     "info": "Sarete avvisati via e-mail quando il trasferimento bancario sul vostro conto sarà stato effettuato.",
     "confirm": "Incasso sul conto bancario"
+  },
+  "swap": {
+    "header": "Confermare lo swap",
+    "spend": "Spendi",
+    "network_spending": "Su {blockchain}",
+    "to": "All'indirizzo",
+    "receiving": "E ricevi",
+    "network_receiving": "{asset} su {blockchain}",
+    "confirm": "Confermare"
+  },
+  "boltcard": {
+    "pay_card": "Carta di pagamento",
+    "title_create": "Crea carta di pagamento",
+    "alert_message_write_card": "Pronti a scrivere la carta. Tenere la carta NFC sul telefono finché non vengono cambiati tutti i chiavi.",
+    "what_pay_card_is": "Pay Card è la prima carta di debito Bitcoin al mondo che consente di spendere i Bitcoin attraverso la Lightning Network con una carta di pagamento senza contatto alimentata dalla Near-field Communication (NFC).",
+    "how_to_create": "Per creare la vostra prima Pay Card, toccate il pulsante \"Creare\" e tenete premuta la carta o l'anello NFC compatibile fino a quando tutti i chiavi sono impostati.",
+    "always_backup": "Eseguire sempre copie di backup di tutte le chiavi scritte sulla carta. Senza di esse, potrebbe essere impossibile modificarle in futuro.",
+    "create_boltcard": "Creare",
+    "title_details": "Dettagli della carta di pagamento",
+    "title_backup": "Backup della carta di pagamento",
+    "title_delete": "Cancellare la carta di credito",
+    "title_restore": "Ripristino della carta di credito",
+    "keys_written": "Tutti i chiavi sono stati impostati correttamente",
+    "hold_card": "Tenere la carta o l'anello finché tutti i chiavi non sono stati impostati.",
+    "delete_card_title": "Si è sicuri di voler eliminare questa carta?",
+    "how_to_delete": "Per continuare il processo di eliminazione, potrebbe essere necessario tenere la carta vicino al dispositivo per resettare tutti i chiavi.",
+    "also_wipe_card": "Reimpostare anche la scheda.",
+    "lost_card": "Nel caso in cui la scheda sia stata smarrita o non sia più accessibile, è possibile selezionare la casella sottostante per saltare il reset della scheda.",
+    "confirm_delete": "Sì, cancella questa scheda",
+    "card_written_title": "Su questa scheda sono già state scritte delle chiavi",
+    "card_written_message": "Sembra che sulla carta siano già state scritte delle chiavi. Possiamo aiutarvi a resettare la scheda e a provare a configurarla di nuovo.",
+    "how_to_reset": "Per resettare la scheda è sufficiente eseguire la scansione del backup delle chiavi e noi ci occuperemo del resto.",
+    "now_tap": "Ora toccate la scheda e attendete che tutti i chiavi vengano resettati.",
+    "start_nfc": "Avviare NFC",
+    "scan_backup": "Esegui la scansione del backup",
+    "cancel": "Annullamento",
+    "is_it_my_card": "È la mia carta?",
+    "derivated_from_wallet": "Sì - Le chiavi derivano dal mio portafoglio",
+    "not_derivated_from_wallet": "No - Le chiavi interne non sono disponibili",
+    "card_state": "Stato della carta",
+    "card_state_empty": "Vuota, pronta per essere scritta",
+    "card_state_written": "Chiavi scritte correttamente",
+    "card_written_error": "Chiavi scritte con errori",
+    "server_status": "Stato del server",
+    "active": "Registrato correttamente",
+    "unregitered": "La scheda non è registrata, deve essere resettata",
+    "send_to_card": "Invia alla scheda",
+    "keys_backup": "Chiavi/Backup",
+    "wipe_card": "Reimpostare la scheda",
+    "unregister_and_wipe": "Disregistrazione e reset della carta",
+    "tap_and_hold": "Toccare e tenere premuta la carta",
+    "writting_hold": "Scrittura, tenere premuta la scheda"
   }
 }

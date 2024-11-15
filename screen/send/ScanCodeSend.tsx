@@ -1,5 +1,5 @@
-import React, { useContext, useEffect } from 'react';
-import { View, StyleSheet, StatusBar, ActivityIndicator } from 'react-native';
+import React, { useContext, useEffect, useState } from 'react';
+import { View, StyleSheet, StatusBar, ActivityIndicator, TouchableOpacity, Image } from 'react-native';
 import navigationStyle from '../../components/navigationStyle';
 import { Camera } from 'react-native-camera-kit';
 import { BlueButton, BlueText } from '../../BlueComponents';
@@ -8,11 +8,12 @@ import { useQrCodeScanner } from '../../hooks/qrCodeScaner.hook';
 import useQrCodeImagePicker from '../../hooks/qrCodeImagePicker.hook';
 import BlueClipboard from '../../blue_modules/clipboard';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { Chain } from '../../models/bitcoinUnits';
 import { useWalletContext } from '../../contexts/wallet.context';
+import loc from '../../loc';
 
 const ScanCodeSend: React.FC = () => {
   const { wallets } = useContext(BlueStorageContext);
@@ -21,53 +22,66 @@ const ScanCodeSend: React.FC = () => {
   const { isReadingQrCode, cameraCallback, setOnBarScanned } = useQrCodeScanner();
   const { isProcessingImage, openImagePicker, setOnBarCodeInImage } = useQrCodeImagePicker();
   const { cameraStatus } = useCameraPermissions();
-  const { navigate, goBack, replace } = useNavigation();
+  const { navigate, goBack, setOptions, replace } = useNavigation();
+  const [isCameraActive, setIsCameraActive] = useState(true);
+  const isFocused = useIsFocused();
+
+  const delayedNavigationFunction = (func: () => void) => {
+    setIsCameraActive(false);
+    setTimeout(() => func(), 30);
+  };
 
   const onContentRead = (data: any) => {
     const destinationString = data.data ? data.data : data;
 
-    if(DeeplinkSchemaMatch.isBothBitcoinAndLightning(destinationString)){
+    if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(destinationString)) {
       const selectedWallet = wallets.find(w => w.getID() === params?.walletID);
       const lightningWallet = wallets.find(w => w.chain === Chain.OFFCHAIN);
       const uri = DeeplinkSchemaMatch.isBothBitcoinAndLightning(destinationString);
       const destinationWallet = selectedWallet || lightningWallet || mainWallet;
       const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(destinationWallet, uri);
       ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
-      replace(...route);
-
-    }else if (
+      delayedNavigationFunction(() => replace(...route));
+    } else if (
       DeeplinkSchemaMatch.isPossiblyLightningDestination(destinationString) ||
       DeeplinkSchemaMatch.isPossiblyOnChainDestination(destinationString)
     ) {
       DeeplinkSchemaMatch.navigationRouteFor({ url: destinationString }, completionValue => {
         ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
-        replace(...completionValue);
+        delayedNavigationFunction(() => replace(...completionValue));
       });
-
     } else {
-      goBack();
+      delayedNavigationFunction(() => goBack());
     }
   };
 
   useEffect(() => {
     setOnBarScanned(onContentRead);
     setOnBarCodeInImage(onContentRead);
+    setOptions({
+      headerRight: () => (
+        <TouchableOpacity style={styles.closeButton} onPress={() => delayedNavigationFunction(() => goBack())}>
+          <Image source={require('../../img/close-white.png')} />
+        </TouchableOpacity>
+      ),
+    });
   }, []);
 
   const readFromClipboard = async () => {
     await BlueClipboard().setReadClipboardAllowed(true);
     const clipboard = await BlueClipboard().getClipboardContent();
     if (clipboard) {
-      onContentRead(clipboard);
+      setTimeout(() => onContentRead(clipboard), 100);
     }
   };
 
   const isLoading = isReadingQrCode || isProcessingImage;
+  const isCameraFocused = cameraStatus && isFocused && !isProcessingImage && isCameraActive;
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      {cameraStatus && (
+      {isCameraFocused && (
         <Camera
           scanBarcode
           onReadCode={(event: any) => cameraCallback({ data: event?.nativeEvent?.codeStringValue })}
@@ -78,12 +92,12 @@ const ScanCodeSend: React.FC = () => {
         <View style={styles.loadingContainer}>
           <View>
             <ActivityIndicator style={{ marginBottom: 5 }} size={25} />
-            <BlueText style={styles.textExplanation}>Loading</BlueText>
+            <BlueText style={styles.textExplanation}>{loc._.loading}</BlueText>
           </View>
         </View>
       )}
       <View style={styles.explanationContainer}>
-        <BlueText style={styles.textExplanation}>Scan a bitcoin or lightning QR code</BlueText>
+        <BlueText style={styles.textExplanation}>{loc.send.scan_bitcoin_qr}</BlueText>
       </View>
       <View style={styles.actionsContainer}>
         <BlueButton
@@ -93,7 +107,7 @@ const ScanCodeSend: React.FC = () => {
         />
         <BlueButton
           style={styles.actionButton}
-          onPress={() => navigate('ScanCodeSendRoot', {screen: 'ManualEnterAddress', params: { walletID: params?.walletID }})}
+          onPress={() => navigate('ScanCodeSendRoot', { screen: 'ManualEnterAddress', params: { walletID: params?.walletID } })}
           icon={{ name: 'keyboard', type: 'material', color: '#ffffff', size: 38 }}
         />
         <BlueButton
@@ -153,14 +167,20 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginHorizontal: 10,
   },
+  closeButton: {
+    minWidth: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });
 
 ScanCodeSend.navigationOptions = navigationStyle(
   {
-    closeButton: true,
+    closeButton: false,
     headerHideBackButton: true,
   },
-  opts => ({ ...opts, title: 'Send' }),
+  opts => ({ ...opts, title: loc.send.header }),
 );
 
 export default ScanCodeSend;

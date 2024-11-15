@@ -583,7 +583,6 @@ class AppStorage {
    */
   async saveToDisk() {
     if (savingInProgress) {
-      console.warn('saveToDisk is in progress');
       if (++savingInProgress > 10) alert('Critical error. Last actions were not saved'); // should never happen
       await new Promise(resolve => setTimeout(resolve, 1000 * savingInProgress)); // sleep
       return this.saveToDisk();
@@ -596,7 +595,7 @@ class AppStorage {
       try {
         realm = await this.getRealm();
       } catch (error) {
-        alert(error.message);
+        console.error(`saveToDisk: getRealm: ${error.message}`);
       }
       for (const key of this.wallets) {
         if (typeof key === 'boolean') continue;
@@ -670,7 +669,6 @@ class AppStorage {
       realmkeyValue.close();
     } catch (error) {
       console.error('save to disk exception:', error.message);
-      alert('save to disk exception: ' + error.message);
       if (error.message.includes('Realm file decryption failed')) {
         console.warn('purging realm key-value database file');
         this.purgeRealmKeyValueFile();
