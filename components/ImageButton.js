@@ -4,6 +4,7 @@ import PropTypes from 'prop-types';
 
 ImageButton.propTypes = {
   source: PropTypes.number,
+  imageStyle: PropTypes.object,
 };
 
 export function ImageButton(props) {
@@ -21,7 +22,7 @@ export function ImageButton(props) {
 
   return (
     <TouchableOpacity style={styles.button} {...props}>
-      <Image source={props.source} style={styles.image} />
+      <Image source={props.source} style={[styles.image, props.imageStyle]} />
     </TouchableOpacity>
   );
 }

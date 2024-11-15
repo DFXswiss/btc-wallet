@@ -638,6 +638,7 @@ const Asset = ({ navigation }) => {
                   <>
                     <View>
                       <ImageButton
+                        imageStyle={styles.tileImageStyle}
                         source={buttonImages[0]}
                         onPress={() => handleOpenServices(DfxService.BUY)}
                         disabled={isHandlingOpenServices}
@@ -646,6 +647,7 @@ const Asset = ({ navigation }) => {
                     {isDfxSwap && (
                       <View>
                         <ImageButton
+                          imageStyle={styles.tileImageStyle}
                           source={buttonImages[2]}
                           onPress={() => handleOpenServices(DfxService.SWAP)}
                           disabled={isHandlingOpenServices}
@@ -835,14 +837,17 @@ const styles = StyleSheet.create({
     padding: 5,
     alignItems: 'center',
   },
-  walletDetails:{
+  walletDetails: {
     paddingLeft: 12,
-    paddingVertical:12
+    paddingVertical: 12,
   },
   boltcardButton: { justifyContent: 'center', alignItems: 'center', marginTop: 10 },
   scanIconContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  }
+  },
+  tileImageStyle: {
+    borderRadius: 5,
+  },
 });
