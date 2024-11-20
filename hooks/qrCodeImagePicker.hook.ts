@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { launchImageLibrary } from 'react-native-image-picker';
 import loc from '../loc';
-const LocalQRCode = require('@remobile/react-native-qrcode-local-image');
+import RNQRGenerator from 'rn-qr-generator';
 
 const useQrCodeImagePicker = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [onBarCodeRead, setOnBarCodeRead] = useState(() => () => {});
+  const [onBarCodeRead, setOnBarCodeRead] = useState<(data: { data: string }) => void>(() => () => {});
 
   const openImagePicker = () => {
     if (!isLoading) {
@@ -25,16 +25,18 @@ const useQrCodeImagePicker = () => {
           } else {
             const asset = response.assets[0];
             if (asset.uri) {
-              const uri = asset.uri.toString().replace('file://', '');
-              LocalQRCode.decode(uri, (error, result) => {
-                if (!error) {
-                  onBarCodeRead({ data: result });
-                  setIsLoading(false);
-                } else {
+              RNQRGenerator.detect({ uri: decodeURI(asset.uri.toString()) })
+                .then(result => {
+                  if (result) {
+                    onBarCodeRead({ data: result.values[0] });
+                  }
+                })
+                .catch(error => {
                   alert(loc.send.qr_error_no_qrcode);
+                })
+                .finally(() => {
                   setIsLoading(false);
-                }
-              });
+                });
             } else {
               setIsLoading(false);
             }

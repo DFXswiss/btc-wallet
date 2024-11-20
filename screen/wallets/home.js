@@ -550,12 +550,7 @@ WalletHome.navigationOptions = navigationStyle({}, (options, { theme, navigation
         accessibilityRole="button"
         testID="Settings"
         style={styles.walletDetails}
-        onPress={() =>
-          route?.params?.walletID &&
-          navigation.navigate('Settings', {
-            walletID: route?.params?.walletID,
-          })
-        }
+        onPress={() => navigation.navigate('Settings')}
       >
         <Icon name="more-horiz" type="material" size={22} color="#FFFFFF" />
       </TouchableOpacity>
