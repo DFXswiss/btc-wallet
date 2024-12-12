@@ -518,7 +518,7 @@
     "provide_signature": "Schlüssel eingeben",
     "vault_key": "Tresor-Schlüssel: {number}",
     "required_keys_out_of_total": "Erforderliche Schlüssel aus dem Total",
-    "fee": "Gebhür: {number}",
+    "fee": "Gebühr: {number}",
     "fee_btc": "{number} BTC",
     "confirm": "Bestätigen",
     "header": "Senden",
