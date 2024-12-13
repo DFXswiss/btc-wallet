@@ -1,12 +1,23 @@
 import React, { useState, useCallback, useContext, useRef, useEffect } from 'react';
-import { InteractionManager, ScrollView, ActivityIndicator, StatusBar, View, StyleSheet, AppState } from 'react-native';
+import {
+  InteractionManager,
+  ScrollView,
+  ActivityIndicator,
+  StatusBar,
+  View,
+  StyleSheet,
+  AppState,
+  Text,
+  I18nManager
+} from 'react-native';
 import { useTheme, useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
+import { Icon } from 'react-native-elements';
 
 import { BlueSpacing20, SafeBlueArea, BlueText, BlueCard } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
 import Privacy from '../../blue_modules/Privacy';
 import Biometric from '../../class/biometrics';
-import { LegacyWallet, SegwitBech32Wallet, SegwitP2SHWallet } from '../../class';
+import { LegacyWallet, MultisigHDWallet, SegwitBech32Wallet, SegwitP2SHWallet } from '../../class';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import QRCodeComponent from '../../components/QRCodeComponent';
@@ -46,6 +57,9 @@ const WalletExport = () => {
     type: { color: colors.foregroundColor },
     secret: { color: colors.foregroundColor },
     warning: { color: colors.failedColor },
+    infoText: {
+      color: colors.brandingColor,
+    },
   };
 
   useFocusEffect(
@@ -92,6 +106,16 @@ const WalletExport = () => {
     setQRCodeSize(height > width ? width - 40 : e.nativeEvent.layout.width / 1.8);
   };
 
+  const renderCosigners = () => {
+    if (wallet.type !== MultisigHDWallet.type) return null;
+    const cosigners = [];
+    for (let i = 1; i <= wallet.getN(); i++) {
+      const cosigner = wallet.getCosigner(i);
+      cosigners.push(<Secret secret={cosigner} key={i} />);
+    }
+    return cosigners;
+  };
+
   return (
     <SafeBlueArea style={[styles.root, stylesHook.root]} onLayout={onLayout}>
       <StatusBar barStyle="light-content" />
@@ -108,9 +132,15 @@ const WalletExport = () => {
         <BlueSpacing20 />
         {secrets.map(s => (
           <React.Fragment key={s}>
-            <Secret secret={s} />
+            <View style={styles.infoContainer}>
+              <Icon name="info-outline" type="material" color={colors.brandingColor} size={18} />
+              <Text style={[styles.infoText, stylesHook.infoText]}>{loc.pleasebackup.info}</Text>
+            </View>
+            {wallet.type !== MultisigHDWallet.type && <Secret secret={s} />}
             <BlueSpacing20 />
             <QRCodeComponent isMenuAvailable={false} value={wallet.getSecret()} size={qrCodeSize} logoSize={70} />
+            {renderCosigners()}
+            <View style={styles.grow} />
           </React.Fragment>
         ))}
       </ScrollView>
@@ -131,6 +161,24 @@ const styles = StyleSheet.create({
   type: {
     fontSize: 17,
     fontWeight: '700',
+  },
+  infoContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 243, 137, 0.9)',
+    borderRadius: 8,
+    marginHorizontal: 20,
+    marginBottom: 15,
+    padding: 7,
+    paddingRight: 20,
+  },
+  infoText: {
+    backgroundColor: 'transparent',
+    fontSize: 14,
+    marginHorizontal: 5,
+    writingDirection: I18nManager.isRTL ? 'rtl' : 'ltr',
+  },
+  grow: {
+    flexGrow: 1,
   },
 });
 
