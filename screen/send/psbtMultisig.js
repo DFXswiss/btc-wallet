@@ -282,6 +282,7 @@ const PsbtMultisig = () => {
   };
 
   const isTxSigned = useMemo(() => psbt && wallet.hasCosignerSignedPSBT(psbt), [isSignign, hasSigned, psbt]);
+  const canSignThisPsbt = useMemo(() => psbt && wallet.canSignThisPsbt(psbt), [psbt]);
 
   return (
     <SafeBlueArea style={stylesHook.root}>
@@ -311,7 +312,11 @@ const PsbtMultisig = () => {
           </View>
         </View>
       </View>
-      {isTxSigned ? (
+      {!canSignThisPsbt ? (
+        <View style={styles.marginNotPartOfMultisig}>
+          <BlueText style={styles.marginNotPartOfMultisigText}>{loc.multisig.not_part_of_multisig}</BlueText>
+        </View>
+      ) : isTxSigned ? (
         <>
           <BlueSpacing10 />
           <DynamicQRCode value={psbt.toHex()} />
@@ -431,6 +436,8 @@ const styles = StyleSheet.create({
   textBtcUnit: { justifyContent: 'flex-end' },
   bottomFeesWrapper: { justifyContent: 'center', alignItems: 'center', flexDirection: 'row' },
   marginConfirmButton: { marginTop: 16, marginHorizontal: 32, marginBottom: 48 },
+  marginNotPartOfMultisig: { marginTop: 22, marginHorizontal: 32, marginBottom: 30, borderTopWidth: 1, borderTopColor: '#c4c4c4' },
+  marginNotPartOfMultisigText: { fontSize: 18, fontWeight: 'bold', textAlign: 'center', paddingTop: 16 },
   height80: {
     height: 80,
   },

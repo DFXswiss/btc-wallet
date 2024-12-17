@@ -61,7 +61,7 @@ const ImportMultisignature: React.FC = () => {
 
       multisigWallet.setLabel(loc.multisig.default_label);
       if (!isElectrumDisabled) await multisigWallet.fetchBalance();
-      
+
       addWallet(multisigWallet);
       saveToDisk();
       delayedNavigationFunction(() => navigate('WalletTransactions'));
@@ -142,7 +142,7 @@ const ImportMultisignature: React.FC = () => {
             {isLoadingAnimatedQRCode && !isPotentialMultisig && <BlueText style={styles.progressText}>{urHave + '/' + urTotal}</BlueText>}
             {isPotentialMultisig && (
               <>
-                <BlueText style={styles.progressText}>Calculating {threshold + '/' + quorum} cosigners</BlueText>
+                <BlueText style={styles.progressText}>{loc.formatString(loc.multisig.calculating_cosigners, { m: threshold, n: quorum })}</BlueText>
               </>
             )}
           </View>

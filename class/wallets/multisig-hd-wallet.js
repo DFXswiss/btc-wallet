@@ -1237,4 +1237,33 @@ export class MultisigHDWallet extends AbstractHDElectrumWallet {
 
     return false;
   }
+
+  canSignThisPsbt(psbt) {
+    if (this.howManySignaturesCanWeMake() === 0) return false;
+
+    const [cosigner] = this._cosigners.filter(cosigner => !MultisigHDWallet.isXpubString(cosigner));
+    if (!cosigner) return false;
+
+    const xpub = this._getXpubFromCosigner(cosigner);
+    const masterNode = bip32.fromBase58(xpub);
+
+    for (const input of psbt.data.inputs) {
+      if (!input.bip32Derivation) continue;
+
+      for (const derivation of input.bip32Derivation) {
+        try {
+          const relativePath = derivation.path.split('/').slice(-2).join('/');
+          const child = masterNode.derivePath(relativePath);
+          
+          if (psbt.inputHasPubkey(0, child.publicKey)) {
+            return true;
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+    }
+
+    return false;
+  }
 }

@@ -38,7 +38,6 @@ const ScanCodeSend: React.FC = () => {
   const importPsbt = base64Psbt => {
     try {
       if (Boolean(multisigWallet)) {
-        console.log('importing psbt', Math.random());
         delayedNavigationFunction(() =>
           replace('SendDetailsRoot', {
             screen: 'PsbtMultisig',

@@ -581,7 +581,8 @@
     "scan_qr": "Scan Backup QR code or a Coordination setup",
     "enter_descriptor": "Enter Descriptor",
     "invalid_multisig_descriptor": "Invalid multisig descriptor",
-    "not_part_of_multisig": "Your wallet is not part of this multisig setup"
+    "not_part_of_multisig": "Your wallet is not part of this multisig setup",
+    "calculating_cosigners": "Calculating {m} of {n} cosigners"
   },
   "is_it_my_address": {
     "title": "Is it my address?",
