@@ -14,12 +14,16 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { Chain } from '../../models/bitcoinUnits';
 import { useWalletContext } from '../../contexts/wallet.context';
 import loc from '../../loc';
+import { MultisigHDWallet } from '../../class/wallets/multisig-hd-wallet';
+
+const bitcoin = require('bitcoinjs-lib');
 
 const ScanCodeSend: React.FC = () => {
   const { wallets } = useContext(BlueStorageContext);
   const { wallet: mainWallet } = useWalletContext();
+  const multisigWallet = wallets.find(w => w.type === MultisigHDWallet.type);
   const { params } = useRoute();
-  const { isReadingQrCode, cameraCallback, setOnBarScanned } = useQrCodeScanner();
+  const { isReadingQrCode, cameraCallback, setOnBarScanned, urHave, urTotal } = useQrCodeScanner();
   const { isProcessingImage, openImagePicker, setOnBarCodeInImage } = useQrCodeImagePicker();
   const { cameraStatus } = useCameraPermissions();
   const { navigate, goBack, setOptions, replace } = useNavigation();
@@ -31,8 +35,30 @@ const ScanCodeSend: React.FC = () => {
     setTimeout(() => func(), 30);
   };
 
+  const importPsbt = base64Psbt => {
+    try {
+      if (Boolean(multisigWallet)) {
+        console.log('importing psbt', Math.random());
+        delayedNavigationFunction(() =>
+          replace('SendDetailsRoot', {
+            screen: 'PsbtMultisig',
+            params: {
+              psbtBase64: base64Psbt,
+              walletID: multisigWallet.getID(),
+            },
+          }),
+        );
+      }
+    } catch (_) {}
+  };
+
   const onContentRead = (data: any) => {
     const destinationString = data.data ? data.data : data;
+
+    if (DeeplinkSchemaMatch.isPossiblyPSBTString(destinationString)) {
+      importPsbt(destinationString);
+      return;
+    }
 
     if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(destinationString)) {
       const selectedWallet = wallets.find(w => w.getID() === params?.walletID);
@@ -92,7 +118,9 @@ const ScanCodeSend: React.FC = () => {
         <View style={styles.loadingContainer}>
           <View>
             <ActivityIndicator style={{ marginBottom: 5 }} size={25} />
-            <BlueText style={styles.textExplanation}>{loc._.loading}</BlueText>
+            <BlueText style={styles.textExplanation}>
+              {loc._.loading} {urHave}/{urTotal}
+            </BlueText>
           </View>
         </View>
       )}
