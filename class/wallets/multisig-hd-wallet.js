@@ -173,7 +173,7 @@ export class MultisigHDWallet extends AbstractHDElectrumWallet {
    * @param path {string} Custom path (if any) for cosigner that is added as mnemonics
    * @param passphrase {string} BIP38 Passphrase (if any)
    */
-  addCosigner(key, fingerprint, path, passphrase) { // mmmmm
+  addCosigner(key, fingerprint, path, passphrase) {
     let xpub;
     if (MultisigHDWallet.isXpubString(key) && !fingerprint) {
       throw new Error('fingerprint is required when adding cosigner as xpub (watch-only)');

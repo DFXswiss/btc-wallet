@@ -576,7 +576,13 @@
     "what_is_multidevice": "Eine Multi-Device-Wallet ist eine Bitcoin-Wallet, die aus 3 Geräten besteht. Drei Geräte sind für die Inbetriebnahme erforderlich. Zwei Geräte sind immer erforderlich, um eine Transaktion zu autorisieren.",
     "prepare_devices": "Vergewissere dich, dass alle 3 Geräte bereit sind, und klicke erst dann auf allen 3 Geräten auf die Schaltfläche \"Erstellung beginnen\".",
     "qr_flow": "Auf dem nächsten Bildschirm wird ein QR-Code angezeigt, und auf dem Mobiltelefon wird eine Scanfunktion aktiviert. Jedes Gerät muss die beiden QR-Codes der anderen 2 Geräte scannen und ist dann einsatzbereit.",
-    "done_explanation": "Klicke erst auf \"Fertig\", wenn alle 3 Geräte diesen Vorgang abgeschlossen haben und alle 3 Geräte oben 3 grüne Häkchen haben."
+    "done_explanation": "Klicke erst auf \"Fertig\", wenn alle 3 Geräte diesen Vorgang abgeschlossen haben und alle 3 Geräte oben 3 grüne Häkchen haben.",
+    "import_multisig": "Multisig importieren",
+    "scan_qr": "Backup QR-Code oder eine Koordinierungseinrichtung scannen",
+    "enter_descriptor": "Deskriptor eingeben",
+    "invalid_multisig_descriptor": "Ungültiger Multisig-Deskriptor",
+    "not_part_of_multisig": "Ihre Brieftasche ist nicht Teil dieser Multisig-Einrichtung",
+    "calculating_cosigners": "Berechne {m} von {n} Mitunterzeichner"
   },
   "is_it_my_address": {
     "title": "Ist dies meine Adresse?",

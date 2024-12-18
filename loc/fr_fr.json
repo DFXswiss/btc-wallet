@@ -576,7 +576,13 @@
     "what_is_multidevice": "Un portefeuille multi-dispositifs est un portefeuille Bitcoin composé de trois dispositifs. Trois appareils sont nécessaires pour la mise en service. Deux appareils sont toujours nécessaires pour autoriser une transaction.",
     "prepare_devices": "Assurez-vous que les trois appareils sont prêts et cliquez sur le bouton \"C'est parti\" sur les trois appareils.",
     "qr_flow": "Un code QR s'affiche sur l'écran suivant et une fonction de balayage est activée sur le téléphone portable. Chaque appareil doit scanner les deux codes QR des deux autres appareils et est alors prêt à être utilisé.",
-    "done_explanation": "Ne cliquez sur \"Terminé\" que lorsque les 3 appareils ont terminé le processus et que les 3 appareils ont 3 coches vertes en haut."
+    "done_explanation": "Ne cliquez sur \"Terminé\" que lorsque les 3 appareils ont terminé le processus et que les 3 appareils ont 3 coches vertes en haut.",
+    "import_multisig": "Importer Multisig",
+    "scan_qr": "Scanner un code QR de sauvegarde ou une configuration de coordination",
+    "enter_descriptor": "Entrer le descripteur",
+    "invalid_multisig_descriptor": "Descripteur multisig non valide",
+    "not_part_of_multisig": "Votre portefeuille ne fait pas partie de cette configuration multisig",
+    "calculating_cosigners": "Calculer {m} de {n} cosignataire"
   },
   "is_it_my_address": {
     "title": "Est ce mon adresse?",
