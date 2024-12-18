@@ -98,6 +98,7 @@ import CashierDfxPos from './screen/wallets/dfx/cashierPos';
 import ReceiveDfxPos from './screen/wallets/dfx/receivePos';
 import ScanCodeSend from './screen/send/ScanCodeSend';
 import ManualAddressSend from './screen/send/ManualAddressSend';
+import ImportMultisignature from './screen/wallets/importMultisignature';
 
 const WalletsStack = createNativeStackNavigator();
 
@@ -118,6 +119,11 @@ const WalletsRoot = () => {
         name="WalletsAddMultisigStep2"
         component={WalletsAddMultisigStep2}
         options={WalletsAddMultisigStep2.navigationOptions(theme)}
+      />
+      <AddWalletStack.Screen
+        name="ImportMultisignature"
+        component={ImportMultisignature}
+        options={ImportMultisignature.navigationOptions(theme)}
       />
       <WalletsStack.Screen name="AddBoltcard" component={AddBoltcard} options={AddBoltcard.navigationOptions(theme)} />
       <WalletsStack.Screen name="BoltCardDetails" component={BoltcardDetails} options={BoltcardDetails.navigationOptions(theme)} />

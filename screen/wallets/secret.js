@@ -2,8 +2,6 @@ import React from 'react';
 import { View, Text, StyleSheet, I18nManager } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import PropTypes from 'prop-types';
-import loc from '../../loc';
-import { Icon } from 'react-native-elements';
 
 const Secret = ({ secret }) => {
   const { colors } = useTheme();
@@ -14,9 +12,6 @@ const Secret = ({ secret }) => {
     },
     wortText: {
       color: colors.labelText,
-    },
-    infoText: {
-      color: colors.brandingColor,
     },
   });
 
@@ -37,10 +32,6 @@ const Secret = ({ secret }) => {
 
   return (
     <>
-      <View style={styles.infoContainer}>
-        <Icon name="info-outline" type="material" color={colors.brandingColor} size={18} />
-        <Text style={[styles.infoText, stylesHook.infoText]}>{loc.pleasebackup.info}</Text>
-      </View>
       <View style={styles.list}>
         <View style={styles.secret}>{renderSecret()}</View>
       </View>
@@ -70,21 +61,6 @@ const styles = StyleSheet.create({
   list: {
     flexGrow: 2,
     paddingHorizontal: 16,
-  },
-  infoContainer: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255, 243, 137, 0.9)',
-    borderRadius: 8,
-    marginHorizontal: 20,
-    marginBottom: 15,
-    padding: 7,
-    paddingRight: 20,
-  },
-  infoText: {
-    backgroundColor: 'transparent',
-    fontSize: 14,
-    marginHorizontal: 5,
-    writingDirection: I18nManager.isRTL ? 'rtl' : 'ltr',
   },
   secret: {
     flexWrap: 'wrap',

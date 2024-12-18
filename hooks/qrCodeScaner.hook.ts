@@ -17,6 +17,7 @@ export function useQrCodeScanner() {
   const [isLoading, setIsLoading] = useState(false);
   const [urTotal, setUrTotal] = useState(0);
   const [urHave, setUrHave] = useState(0);
+  const [isLoadingAnimatedQRCode, setIsLoadingAnimatedQRCode] = useState(false);
   const [animatedQRCodeData, setAnimatedQRCodeData] = useState({});
   const [onBarScanned, setOnBarScanned] = useState(() => () => {});
   const scannedCache = {};
@@ -28,10 +29,14 @@ export function useQrCodeScanner() {
       if (decoder.isComplete()) {
         const data = decoder.toString();
         decoder = false; // nullify for future use (?)
+        setUrTotal(0);
+        setUrHave(0);
+        setIsLoadingAnimatedQRCode(false);
         onBarScanned({ data });
       } else {
         setUrTotal(100);
         setUrHave(Math.floor(decoder.estimatedPercentComplete() * 100));
+        setIsLoadingAnimatedQRCode(true);
       }
     } catch (error) {
       console.warn(error);
@@ -151,7 +156,8 @@ export function useQrCodeScanner() {
   const handleOnSetOnBarScanned = callback => setOnBarScanned(() => callback);
 
   return {
-    isReadingQrCode: isLoading,
+    isLoadingAnimatedQRCode,
+    isReadingQrCode: isLoading || isLoadingAnimatedQRCode,
     urTotal,
     urHave,
     cameraCallback,

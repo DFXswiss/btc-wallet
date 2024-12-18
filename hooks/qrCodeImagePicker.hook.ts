@@ -27,7 +27,7 @@ const useQrCodeImagePicker = () => {
             if (asset.uri) {
               RNQRGenerator.detect({ uri: decodeURI(asset.uri.toString()) })
                 .then(result => {
-                  if (result) {
+                  if (result && result.values && result.values.length > 0) {
                     onBarCodeRead({ data: result.values[0] });
                   }
                 })

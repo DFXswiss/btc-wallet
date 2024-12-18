@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { Icon } from 'react-native-elements';
 import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
@@ -27,7 +27,7 @@ const PsbtMultisig = () => {
   const { navigate, setParams } = useNavigation();
   const { colors } = useTheme();
   const [flatListHeight, setFlatListHeight] = useState(0);
-  const { walletID, psbtBase64, receivedPSBTBase64, launchedBy, isTxSigned } = useRoute().params;
+  const { walletID, psbtBase64, receivedPSBTBase64, launchedBy } = useRoute().params;
   const [hasSigned, setHasSigned] = useState(isTxSigned);
   const [isSignign, setIsSigning] = useState(false);
   const [isBroadcasting, setIsBroadcasting] = useState(false);
@@ -159,9 +159,9 @@ const PsbtMultisig = () => {
       setHasSigned(true);
       await new Promise(resolve => setTimeout(resolve, 100));
       wallet.cosignPsbt(psbt);
-    } catch (_) { }
+    } catch (_) {}
     setIsSigning(false);
-  }
+  };
 
   const broadcast = async transaction => {
     await BlueElectrum.ping();
@@ -193,7 +193,7 @@ const PsbtMultisig = () => {
     });
     await new Promise(resolve => setTimeout(resolve, 3000)); // sleep to make sure network propagates
     fetchAndSaveWalletTransactions(walletID);
-  }
+  };
 
   const onConfirm = () => {
     setIsBroadcasting(true);
@@ -281,6 +281,9 @@ const PsbtMultisig = () => {
     setFlatListHeight(e.nativeEvent.layout.height);
   };
 
+  const isTxSigned = useMemo(() => psbt && wallet.hasCosignerSignedPSBT(psbt), [isSignign, hasSigned, psbt]);
+  const canSignThisPsbt = useMemo(() => psbt && wallet.canSignThisPsbt(psbt), [psbt]);
+
   return (
     <SafeBlueArea style={stylesHook.root}>
       <View style={styles.container}>
@@ -298,18 +301,22 @@ const PsbtMultisig = () => {
                 ListHeaderComponent={header}
               />
             </BlueCard>
+          </View>
+        </View>
+        <View style={styles.bottomWrapper}>
+          <View style={styles.bottomFeesWrapper}>
+            <BlueText style={[styles.feeFiatText, stylesHook.feeFiatText]}>
+              {loc.formatString(loc.multisig.fee, { number: currency.satoshiToLocalCurrency(getFee()) })} -{' '}
+            </BlueText>
+            <BlueText>{loc.formatString(loc.multisig.fee_btc, { number: currency.satoshiToBTC(getFee()) })}</BlueText>
+          </View>
         </View>
       </View>
-      <View style={styles.bottomWrapper}>
-        <View style={styles.bottomFeesWrapper}>
-          <BlueText style={[styles.feeFiatText, stylesHook.feeFiatText]}>
-            {loc.formatString(loc.multisig.fee, { number: currency.satoshiToLocalCurrency(getFee()) })} -{' '}
-          </BlueText>
-          <BlueText>{loc.formatString(loc.multisig.fee_btc, { number: currency.satoshiToBTC(getFee()) })}</BlueText>
+      {!canSignThisPsbt ? (
+        <View style={styles.marginNotPartOfMultisig}>
+          <BlueText style={styles.marginNotPartOfMultisigText}>{loc.multisig.not_part_of_multisig}</BlueText>
         </View>
-      </View>
-      </View>
-      {isTxSigned ? (
+      ) : isTxSigned ? (
         <>
           <BlueSpacing10 />
           <DynamicQRCode value={psbt.toHex()} />
@@ -429,6 +436,8 @@ const styles = StyleSheet.create({
   textBtcUnit: { justifyContent: 'flex-end' },
   bottomFeesWrapper: { justifyContent: 'center', alignItems: 'center', flexDirection: 'row' },
   marginConfirmButton: { marginTop: 16, marginHorizontal: 32, marginBottom: 48 },
+  marginNotPartOfMultisig: { marginTop: 22, marginHorizontal: 32, marginBottom: 30, borderTopWidth: 1, borderTopColor: '#c4c4c4' },
+  marginNotPartOfMultisigText: { fontSize: 18, fontWeight: 'bold', textAlign: 'center', paddingTop: 16 },
   height80: {
     height: 80,
   },
@@ -437,6 +446,6 @@ const styles = StyleSheet.create({
   },
 });
 
-PsbtMultisig.navigationOptions = navigationStyle({}, opts => ({ ...opts, title: loc.multisig.header }));
+PsbtMultisig.navigationOptions = navigationStyle({ closeButton: true }, opts => ({ ...opts, title: loc.multisig.header }));
 
 export default PsbtMultisig;
