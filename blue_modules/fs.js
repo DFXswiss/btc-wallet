@@ -4,10 +4,10 @@ import Share from 'react-native-share';
 import loc from '../loc';
 import DocumentPicker from 'react-native-document-picker';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+import RNQRGenerator from 'rn-qr-generator';
 import { presentCameraNotAuthorizedAlert } from '../class/camera';
 import { isDesktop } from '../blue_modules/environment';
 import alert from '../components/Alert';
-const LocalQRCode = require('@remobile/react-native-qrcode-local-image');
 
 const writeFileAndExportToAndroidDestionation = async ({ filename, contents, destinationLocalizedString, destination }) => {
   const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE, {
@@ -116,41 +116,18 @@ const showImagePickerAndReadImage = () => {
         if (!response.didCancel) {
           const asset = response.assets[0];
           if (asset.uri) {
-            const uri = asset.uri.toString().replace('file://', '');
-            LocalQRCode.decode(uri, (error, result) => {
-              if (!error) {
-                resolve(result);
-              } else {
+            RNQRGenerator.detect({ uri: decodeURI(asset.uri.toString()) })
+              .then(result => {
+                if (result) {
+                  resolve(result);
+                } else {
+                  reject(new Error(loc.send.qr_error_no_qrcode));
+                }
+              })
+              .catch(error => {
                 reject(new Error(loc.send.qr_error_no_qrcode));
-              }
-            });
+              });
           }
-        }
-      },
-    ),
-  );
-};
-
-const takePhotoWithImagePickerAndReadPhoto = () => {
-  return new Promise((resolve, reject) =>
-    launchCamera(
-      {
-        title: null,
-        mediaType: 'photo',
-        takePhotoButtonTitle: null,
-      },
-      response => {
-        if (response.uri) {
-          const uri = response.uri.toString().replace('file://', '');
-          LocalQRCode.decode(uri, (error, result) => {
-            if (!error) {
-              resolve(result);
-            } else {
-              reject(new Error(loc.send.qr_error_no_qrcode));
-            }
-          });
-        } else if (response.error) {
-          presentCameraNotAuthorizedAlert(response.error);
         }
       },
     ),
@@ -186,13 +163,17 @@ const showFilePickerAndReadFile = async function () {
     if (res?.type === DocumentPicker.types.images || res?.type?.startsWith('image/')) {
       return new Promise(resolve => {
         const uri2 = res.uri.toString().replace('file://', '');
-        LocalQRCode.decode(decodeURI(uri2), (error, result) => {
-          if (!error) {
-            resolve({ data: result, uri: decodeURI(res.uri) });
-          } else {
+        RNQRGenerator.detect({ uri: decodeURI(uri2) })
+          .then(result => {
+            if (result) {
+              resolve({ data: result.values[0], uri: decodeURI(res.uri) });
+            } else {
+              resolve({ data: false, uri: false });
+            }
+          })
+          .catch(error => {
             resolve({ data: false, uri: false });
-          }
-        });
+          });
       });
     }
 
@@ -207,4 +188,3 @@ module.exports.writeFileAndExport = writeFileAndExport;
 module.exports.openSignedTransaction = openSignedTransaction;
 module.exports.showFilePickerAndReadFile = showFilePickerAndReadFile;
 module.exports.showImagePickerAndReadImage = showImagePickerAndReadImage;
-module.exports.takePhotoWithImagePickerAndReadPhoto = takePhotoWithImagePickerAndReadPhoto;

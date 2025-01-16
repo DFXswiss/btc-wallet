@@ -576,7 +576,13 @@
     "what_is_multidevice": "Un portafoglio multidispositivo è un portafoglio Bitcoin composto da 3 dispositivi. Per la messa in funzione sono necessari tre dispositivi. Per autorizzare una transazione sono sempre necessari due dispositivi.",
     "prepare_devices": "Assicurarsi che tutti e 3 i dispositivi siano pronti e fare clic sul pulsante \"Iniziamo\" su tutti e 3 i dispositivi.",
     "qr_flow": "Nella schermata successiva viene visualizzato un codice QR e viene attivata una funzione di scansione sul telefono cellulare. Ogni dispositivo deve scansionare i due codici QR degli altri 2 dispositivi ed è quindi pronto per l'uso.",
-    "done_explanation": "Fare clic su \"Fatto\" solo quando tutti e 3 i dispositivi hanno completato questo processo e tutti e 3 i dispositivi hanno 3 segni di spunta verdi in alto."
+    "done_explanation": "Fare clic su \"Fatto\" solo quando tutti e 3 i dispositivi hanno completato questo processo e tutti e 3 i dispositivi hanno 3 segni di spunta verdi in alto.",
+    "import_multisig": "Importazione di Multisig",
+    "scan_qr": "Scansione del codice QR di backup o di una configurazione di coordinamento",
+    "enter_descriptor": "Inserire descrittore",
+    "invalid_multisig_descriptor": "Descrittore multisig non valido",
+    "not_part_of_multisig": "Il vostro portafoglio non fa parte di questa configurazione multisig",
+    "calculating_cosigners": "Calcolo di {m} di {n} cofirmatari"
   },
   "is_it_my_address": {
     "title": "È il mio indirizzo?",

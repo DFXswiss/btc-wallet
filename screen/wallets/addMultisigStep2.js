@@ -30,6 +30,7 @@ const WalletsAddMultisigStep2 = () => {
   const [cosigners, setCosigners] = useState([]); // array of cosigners user provided. if format [cosigner, fp, path]
   const [isLoading, setIsLoading] = useState(false);
   const [cosignerXpubURv2, setCosignerXpubURv2] = useState(''); // string displayed in renderCosignersXpubModal()
+  const [ownXpub, setOwnXpub] = useState('');
   const scannedCache = {};
   const quorum = useRef(new Array(n));
 
@@ -131,6 +132,7 @@ const WalletsAddMultisigStep2 = () => {
       const path = getPath();
       const xpub = getXpubCacheForMnemonics(cosigner[0]);
       const fp = getFpCacheForMnemonics(cosigner[0], cosigner[3]);
+      setOwnXpub(xpub);
       setCosignerXpubURv2(encodeUR(MultisigCosigner.exportToJson(fp, xpub, path))[0]);
     }
   };
@@ -302,12 +304,21 @@ const WalletsAddMultisigStep2 = () => {
         }
       }
 
+      // if the cosigner is the same as the one we already have, we don't need to add it again
+      if(cosigner.getXpub() === ownXpub) {
+        ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
+        return;
+      }
+
+      // if the cosigner is already in the list, we don't need to add it again
       for (const existingCosigner of cosigners) {
-        if (existingCosigner[0] === cosigner.getXpub()) return;
+        if (existingCosigner[0] === cosigner.getXpub()) {
+          ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
+          return;
+        };
       }
 
       // now, validating that cosigner is in correct format:
-
       let correctFormat = false;
       switch (format) {
         case MultisigHDWallet.FORMAT_P2WSH:

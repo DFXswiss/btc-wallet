@@ -344,8 +344,6 @@ PODS:
     - React-Core
   - react-native-nfc-manager (3.14.14):
     - React-Core
-  - react-native-qrcode-local-image (1.0.4):
-    - React
   - react-native-randombytes (3.6.1):
     - React-Core
   - react-native-safe-area-context (4.10.8):
@@ -499,6 +497,9 @@ PODS:
     - React-Core
   - RNPrivacySnapshot (1.0.0):
     - React
+  - RNQrGenerator (1.4.2):
+    - React
+    - ZXingObjC
   - RNQuickAction (0.3.13):
     - React
   - RNRate (1.2.12):
@@ -524,6 +525,9 @@ PODS:
     - React
   - SocketRocket (0.6.1)
   - Yoga (1.14.0)
+  - ZXingObjC (3.6.9):
+    - ZXingObjC/All (= 3.6.9)
+  - ZXingObjC/All (3.6.9)
 
 DEPENDENCIES:
   - boost (from `../node_modules/react-native/third-party-podspecs/boost.podspec`)
@@ -561,7 +565,6 @@ DEPENDENCIES:
   - react-native-image-picker (from `../node_modules/react-native-image-picker`)
   - react-native-ios-context-menu (from `../node_modules/react-native-ios-context-menu`)
   - react-native-nfc-manager (from `../node_modules/react-native-nfc-manager`)
-  - "react-native-qrcode-local-image (from `../node_modules/@remobile/react-native-qrcode-local-image`)"
   - react-native-randombytes (from `../node_modules/react-native-randombytes`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
   - react-native-secure-key-store (from `../node_modules/react-native-secure-key-store`)
@@ -600,6 +603,7 @@ DEPENDENCIES:
   - RNKeychain (from `../node_modules/react-native-keychain`)
   - RNLocalize (from `../node_modules/react-native-localize`)
   - RNPrivacySnapshot (from `../node_modules/react-native-privacy-snapshot`)
+  - RNQrGenerator (from `../node_modules/rn-qr-generator`)
   - RNQuickAction (from `../node_modules/react-native-quick-actions`)
   - RNRate (from `../node_modules/react-native-rate`)
   - RNReactNativeHapticFeedback (from `../node_modules/react-native-haptic-feedback`)
@@ -617,6 +621,7 @@ SPEC REPOS:
     - fmt
     - libevent
     - SocketRocket
+    - ZXingObjC
 
 EXTERNAL SOURCES:
   boost:
@@ -685,8 +690,6 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-ios-context-menu"
   react-native-nfc-manager:
     :path: "../node_modules/react-native-nfc-manager"
-  react-native-qrcode-local-image:
-    :path: "../node_modules/@remobile/react-native-qrcode-local-image"
   react-native-randombytes:
     :path: "../node_modules/react-native-randombytes"
   react-native-safe-area-context:
@@ -763,6 +766,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-localize"
   RNPrivacySnapshot:
     :path: "../node_modules/react-native-privacy-snapshot"
+  RNQrGenerator:
+    :path: "../node_modules/rn-qr-generator"
   RNQuickAction:
     :path: "../node_modules/react-native-quick-actions"
   RNRate:
@@ -821,7 +826,6 @@ SPEC CHECKSUMS:
   react-native-image-picker: 1889c342e6a4ba089ff11ae0c3bf5cc30a3134d0
   react-native-ios-context-menu: e529171ba760a1af7f2ef0729f5a7f4d226171c5
   react-native-nfc-manager: ead2cd1d1eaab139cc8b2dc5fbfe575eaa45efc4
-  react-native-qrcode-local-image: 35ccb306e4265bc5545f813e54cc830b5d75bcfc
   react-native-randombytes: 421f1c7d48c0af8dbcd471b0324393ebf8fe7846
   react-native-safe-area-context: b7daa1a8df36095a032dff095a1ea8963cb48371
   react-native-secure-key-store: 910e6df6bc33cb790aba6ee24bc7818df1fe5898
@@ -860,6 +864,7 @@ SPEC CHECKSUMS:
   RNKeychain: a65256b6ca6ba6976132cc4124b238a5b13b3d9c
   RNLocalize: dbea38dcb344bf80ff18a1757b1becf11f70cae4
   RNPrivacySnapshot: 71919dde3c6a29dd332115409c2aec564afee8f4
+  RNQrGenerator: 5c12ab86443a07e923735800679da7b6fcaaeb31
   RNQuickAction: 6d404a869dc872cde841ad3147416a670d13fa93
   RNRate: ef3bcff84f39bb1d1e41c5593d3eea4aab2bd73a
   RNReactNativeHapticFeedback: afa5bf2794aecbb2dba2525329253da0d66656df
@@ -871,6 +876,7 @@ SPEC CHECKSUMS:
   RNWatch: fd30ca40a5b5ef58dcbc195638e68219bc455236
   SocketRocket: f32cd54efbe0f095c4d7594881e52619cfe80b17
   Yoga: c32e0be1a17f8f1f0e633a3122f7666441f52c82
+  ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
 PODFILE CHECKSUM: e33967f04054495b18cfdced004199112736aba6
 
