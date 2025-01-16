@@ -576,7 +576,13 @@
     "ms_help_title4": "Importing Vaults",
     "ms_help_4": "To import a multisig, use your backup file and the Import feature. If you only have seeds and XPUBs, you can use the individual Import button when creating Vault keys.",
     "ms_help_title5": "Advanced Mode",
-    "ms_help_5": "By default, DFX Bitcoin Wallet will generate a 2-of-3 Vault. To create a different quorum or change the address type, activate Advanced Mode in the Settings."
+    "ms_help_5": "By default, DFX Bitcoin Wallet will generate a 2-of-3 Vault. To create a different quorum or change the address type, activate Advanced Mode in the Settings.",
+    "import_multisig": "Import Multisig",
+    "scan_qr": "Scan Backup QR code or a Coordination setup",
+    "enter_descriptor": "Enter Descriptor",
+    "invalid_multisig_descriptor": "Invalid multisig descriptor",
+    "not_part_of_multisig": "Your wallet is not part of this multisig setup",
+    "calculating_cosigners": "Calculating {m} of {n} cosigners"
   },
   "is_it_my_address": {
     "title": "Is it my address?",

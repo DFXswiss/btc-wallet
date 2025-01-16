@@ -516,9 +516,7 @@ const WalletDetails = () => {
                   </>
                 )}
                 <BlueSpacing20 />
-                {wallet.type !== MultisigHDWallet.type && (
-                  <SecondButton onPress={navigateToWalletExport} testID="WalletExport" title={loc.wallets.details_export_backup} />
-                )}
+                <SecondButton onPress={navigateToWalletExport} testID="WalletExport" title={loc.wallets.details_export_backup} />
                 {walletTransactionsLength > 0 && (
                   <>
                     <BlueSpacing20 />

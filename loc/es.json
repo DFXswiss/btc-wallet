@@ -576,7 +576,13 @@
     "what_is_multidevice": "Un monedero multidispositivo es un monedero Bitcoin que consta de 3 dispositivos. Se requieren tres dispositivos para la puesta en marcha. Siempre se requieren dos dispositivos para autorizar una transacción.",
     "prepare_devices": "Asegúrese de que los 3 dispositivos están listos y sólo entonces haga clic en el botón \"Comencemos\" en los 3 dispositivos.",
     "qr_flow": "En la siguiente pantalla aparecerá un código QR y se activará la función de escaneado en el teléfono móvil. Cada dispositivo debe escanear los dos códigos QR de los otros 2 dispositivos y entonces estará listo para su uso.",
-    "done_explanation": "Sólo haga clic en \"Completado\" cuando los 3 dispositivos hayan completado este proceso y los 3 dispositivos tengan 3 marcas de verificación verdes en la parte superior."
+    "done_explanation": "Sólo haga clic en \"Completado\" cuando los 3 dispositivos hayan completado este proceso y los 3 dispositivos tengan 3 marcas de verificación verdes en la parte superior.",
+    "import_multisig": "Importar Multisig",
+    "scan_qr": "Escanear código QR de copia de seguridad o una configuración de coordinación",
+    "enter_descriptor": "Introducir descriptor",
+    "invalid_multisig_descriptor": "Descriptor multisig inválido",
+    "not_part_of_multisig": "Su monedero no forma parte de esta configuración multisig",
+    "calculating_cosigners": "Calculando {m} de {n} cosignatarios"
   },
   "is_it_my_address": {
     "title": "¿Es esta mi dirección?",

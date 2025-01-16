@@ -5,7 +5,7 @@ import { Icon } from 'react-native-elements';
 import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BlueButton, BlueListItem, BlueSpacing20, SecondButton } from '../../BlueComponents';
+import { BlueButton, BlueButtonLink, BlueListItem, BlueSpacing10, BlueSpacing20 } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
 import BottomModal from '../../components/BottomModal';
 import { MultisigHDWallet } from '../../class';
@@ -69,7 +69,7 @@ const WalletsAddMultisig = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const onBack = () => navigate('WalletTransactions');
+  const onImport = () => navigate('ImportMultisignature');
 
   const onLetsStartPress = async () => {
     setIsLoading(true);
@@ -122,7 +122,8 @@ const WalletsAddMultisig = () => {
             <Text style={[styles.textHeader, stylesHook.textHeader]}>{loc.multisig.quorum_header}</Text>
             <Text style={[styles.textSubtitle, stylesHook.textSubtitle]}>{loc.multisig.required_keys_out_of_total}</Text>
             <View style={styles.rowCenter}>
-              <View style={styles.column}>
+              <View style={[styles.column, styles.columnCenter]}>
+                {/*
                 <TouchableOpacity accessibilityRole="button" onPress={increaseM} disabled={n === m || m === 7} style={styles.chevron}>
                   <Icon
                     name="chevron-up"
@@ -131,10 +132,13 @@ const WalletsAddMultisig = () => {
                     color={n === m || m === 7 ? colors.buttonDisabledTextColor : '#007AFF'}
                   />
                 </TouchableOpacity>
+                 */}
                 <Text style={[styles.textM, stylesHook.textHeader]}>{m}</Text>
+                {/*
                 <TouchableOpacity accessibilityRole="button" onPress={decreaseM} disabled={m === 2} style={styles.chevron}>
-                  <Icon name="chevron-down" size={22} type="octicon" color={m === 2 ? colors.buttonDisabledTextColor : '#007AFF'} />
+                  <Icon name="chevr on-down" size={22} type="octicon" color={m === 2 ? colors.buttonDisabledTextColor : '#007AFF'} />
                 </TouchableOpacity>
+                 */}
               </View>
 
               <View style={styles.columnOf}>
@@ -220,31 +224,29 @@ const WalletsAddMultisig = () => {
           <Text style={[styles.textdescBold, stylesHook.textdesc]}>{loc.multisig.done_explanation}</Text>
         </Text>
       </View>
-      {/** Not removing as we might want to enable this in the future again */}
-      {/**
-       * isAdvancedModeEnabledRender && (
-        <>
-          <View>
-            <BlueListItem
-              onPress={showAdvancedOptionsModal}
-              title={loc.multisig.vault_advanced_customize}
-              subtitle={`${getCurrentlySelectedFormat('format')}, ${getCurrentlySelectedFormat('quorum')}`}
-              chevron
-            />
-          </View>
-          {renderModal()}
-        </>
-      )*
-      */}
       <View style={styles.buttonContainer}>
+        {isAdvancedModeEnabledRender && (
+          <>
+            <View>
+              <BlueListItem
+                onPress={showAdvancedOptionsModal}
+                title={loc.multisig.vault_advanced_customize}
+                subtitle={`${getCurrentlySelectedFormat('format')}, ${getCurrentlySelectedFormat('quorum')}`}
+                chevron
+              />
+            </View>
+            <BlueSpacing20 />
+            <BlueSpacing10 />
+            {renderModal()}
+          </>
+        )}
         <BlueButton
           buttonTextColor={colors.buttonAlternativeTextColor}
           title={loc.multisig.lets_start}
           onPress={onLetsStartPress}
           isLoading={isLoading}
         />
-        <BlueSpacing20 />
-        <SecondButton title={loc._.cancel} onPress={onBack} />
+        <BlueButtonLink title={loc.wallets.import_scan_qr} onPress={onImport} testID="ScanImport" />
       </View>
     </SafeAreaView>
   );
@@ -274,11 +276,15 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   buttonContainer: {
-    padding: 24,
+    marginTop: 24,
+    paddingHorizontal: 24,
   },
   column: {
     paddingRight: 20,
     paddingLeft: 20,
+  },
+  columnCenter: {
+    justifyContent: 'center',
   },
   chevron: {
     paddingBottom: 10,

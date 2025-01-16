@@ -550,8 +550,7 @@ const SendDetails = () => {
         memo: transactionMemo,
         psbtBase64: psbt.toBase64(),
         walletID: wallet.getID(),
-        launchedBy: routeParams.launchedBy,
-        isTxSigned: true,
+        launchedBy: routeParams.launchedBy
       });
       setIsLoading(false);
       return;
