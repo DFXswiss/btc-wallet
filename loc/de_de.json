@@ -581,7 +581,7 @@
     "scan_qr": "Backup QR-Code oder eine Koordinierungseinrichtung scannen",
     "enter_descriptor": "Deskriptor eingeben",
     "invalid_multisig_descriptor": "Ungültiger Multisig-Deskriptor",
-    "not_part_of_multisig": "Ihre Brieftasche ist nicht Teil dieser Multisig-Einrichtung",
+    "not_part_of_multisig": "Deine Wallet ist nicht Teil dieser Multisig-Einrichtung",
     "calculating_cosigners": "Berechne {m} von {n} Mitunterzeichner"
   },
   "is_it_my_address": {
