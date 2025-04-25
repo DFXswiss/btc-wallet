@@ -4,10 +4,8 @@ import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { useAsyncStorage } from '@react-native-async-storage/async-storage';
 import { FiatUnit } from '../models/fiatUnit';
 import Notifications from '../blue_modules/notifications';
-import loc, { STORAGE_KEY as LOC_STORAGE_KEY } from '../loc';
-import { WatchOnlyWallet } from '../class';
+import { STORAGE_KEY as LOC_STORAGE_KEY } from '../loc';
 import { isTorDaemonDisabled, setIsTorDaemonDisabled } from './environment';
-import alert from '../components/Alert';
 const BlueApp = require('../BlueApp');
 const BlueElectrum = require('./BlueElectrum');
 const currency = require('../blue_modules/currency');
@@ -39,13 +37,6 @@ export const BlueStorageProvider = ({ children }) => {
     BlueElectrum.isDisabled().then(setIsElectrumDisabled);
     isTorDaemonDisabled().then(setIsTorDisabled);
   }, []);
-
-  useEffect(() => {
-    console.log(`Privacy blur: ${isPrivacyBlurEnabled}`);
-    if (!isPrivacyBlurEnabled) {
-      alert('Privacy blur has been disabled.');
-    }
-  }, [isPrivacyBlurEnabled]);
 
   useEffect(() => {
     setIsTorDaemonDisabled(isTorDisabled);

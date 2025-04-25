@@ -332,7 +332,7 @@ class AppStorage {
       try {
         realm = await this.getRealm();
       } catch (error) {
-        alert(error.message);
+        console.log("ERROR: ", error.message);
       }
       data = JSON.parse(data);
       if (!data.wallets) return false;
@@ -434,7 +434,7 @@ class AppStorage {
         try {
           if (realm) this.inflateWalletFromRealm(realm, unserializedWallet);
         } catch (error) {
-          alert(error.message);
+          console.log("ERROR: ", error.message);
         }
 
         // done
@@ -583,7 +583,7 @@ class AppStorage {
    */
   async saveToDisk() {
     if (savingInProgress) {
-      if (++savingInProgress > 10) alert('Critical error. Last actions were not saved'); // should never happen
+      if (++savingInProgress > 10) console.log('ERROR: Critical error. Last actions were not saved'); // should never happen
       await new Promise(resolve => setTimeout(resolve, 1000 * savingInProgress)); // sleep
       return this.saveToDisk();
     }
