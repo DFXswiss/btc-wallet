@@ -16,8 +16,6 @@ import { useWalletContext } from '../../contexts/wallet.context';
 import loc from '../../loc';
 import { MultisigHDWallet } from '../../class/wallets/multisig-hd-wallet';
 
-const bitcoin = require('bitcoinjs-lib');
-
 const ScanCodeSend: React.FC = () => {
   const { wallets } = useContext(BlueStorageContext);
   const { wallet: mainWallet } = useWalletContext();
@@ -71,10 +69,14 @@ const ScanCodeSend: React.FC = () => {
       DeeplinkSchemaMatch.isPossiblyLightningDestination(destinationString) ||
       DeeplinkSchemaMatch.isPossiblyOnChainDestination(destinationString)
     ) {
-      DeeplinkSchemaMatch.navigationRouteFor({ url: destinationString }, completionValue => {
-        ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
-        delayedNavigationFunction(() => replace(...completionValue));
-      });
+      DeeplinkSchemaMatch.navigationRouteFor(
+        { url: destinationString },
+        sendScreenRoute => {
+          ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
+          delayedNavigationFunction(() => replace(...sendScreenRoute));
+        },
+        { walletID: params?.walletID },
+      );
     } else {
       delayedNavigationFunction(() => goBack());
     }
