@@ -171,7 +171,9 @@ const SendDetails = () => {
 
   useEffect(() => {
     // check if we have a suitable wallet
-    const suitable = wallets.filter(w => w.chain === Chain.ONCHAIN && w.allowSend()).sort(a => (a.type === MultisigHDWallet.type ? -1 : 1));
+    const suitable = wallets
+      .filter(w => w.chain === Chain.ONCHAIN && w.allowSend())
+      .sort(a => (a.type === MultisigHDWallet.type && a.getBalance() > 0 ? -1 : 1));
     if (suitable.length === 0) {
       Alert.alert(loc.errors.error, loc.send.details_wallet_before_tx);
       navigation.goBack();
