@@ -141,7 +141,7 @@ export class AbstractWallet {
    * @returns {number} Available to spend amount, int, in sats
    */
   getBalance(): number {
-    return this.balance + (this.getUnconfirmedBalance() < 0 ? this.getUnconfirmedBalance() : 0);
+    return this.balance + this.getUnconfirmedBalance();
   }
 
   getPreferredBalanceUnit(): BitcoinUnit {
