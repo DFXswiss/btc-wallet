@@ -687,19 +687,16 @@ class AppStorage {
    * @return {Promise.<void>}
    */
   fetchWalletBalances = async index => {
-    console.log('fetchWalletBalances for wallet#', typeof index === 'undefined' ? '(all)' : index);
     if (index || index === 0) {
-      let c = 0;
-      for (const wallet of this.wallets) {
-        if (c++ === index) {
-          await wallet.fetchBalance();
-        }
+      if (this.wallets[index]) {
+        await this.wallets[index].fetchBalance();
       }
     } else {
-      for (const wallet of this.wallets) {
-        console.log('fetching balance for', wallet.getLabel());
-        await wallet.fetchBalance();
-      }
+      await Promise.all(
+        this.wallets.map(wallet => {
+          return wallet.fetchBalance();
+        })
+      );
     }
   };
 
@@ -714,7 +711,6 @@ class AppStorage {
    * @return {Promise.<void>}
    */
   fetchWalletTransactions = async index => {
-    console.log('fetchWalletTransactions for wallet#', typeof index === 'undefined' ? '(all)' : index);
     if (index || index === 0) {
       let c = 0;
       for (const wallet of this.wallets) {
@@ -742,7 +738,6 @@ class AppStorage {
   };
 
   fetchSenderPaymentCodes = async index => {
-    console.log('fetchSenderPaymentCodes for wallet#', typeof index === 'undefined' ? '(all)' : index);
     if (index || index === 0) {
       try {
         if (!(this.wallets[index].allowBIP47() && this.wallets[index].isBIP47Enabled())) return;

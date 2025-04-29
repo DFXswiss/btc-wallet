@@ -13,12 +13,10 @@ import {
   View,
   I18nManager,
   useWindowDimensions,
-  AppState,
 } from 'react-native';
 import { Icon } from 'react-native-elements';
 import { useRoute, useNavigation, useTheme } from '@react-navigation/native';
 import * as bitcoin from 'bitcoinjs-lib';
-import { Chain } from '../../models/bitcoinUnits';
 import { BlueListItem, SecondButton } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
 import { MultisigHDWallet, WatchOnlyWallet } from '../../class';
@@ -37,7 +35,6 @@ import { TaprootLdsWallet, TaprootLdsWalletType } from '../../class/wallets/tapr
 import scanqrHelper from '../../helpers/scan-qr';
 
 const fs = require('../../blue_modules/fs');
-const BlueElectrum = require('../../blue_modules/BlueElectrum');
 
 const buttonFontSize =
   PixelRatio.roundToNearestPixel(Dimensions.get('window').width / 26) > 22
@@ -50,7 +47,7 @@ const dummyTaroWallets = [
 ];
 
 const WalletHome = ({ navigation }) => {
-  const { wallets, saveToDisk, setSelectedWallet, isElectrumDisabled, ldsDEV, isPosMode } = useContext(BlueStorageContext);
+  const { wallets, saveToDisk, setSelectedWallet, ldsDEV } = useContext(BlueStorageContext);
   const walletID = useMemo(() => wallets[0]?.getID(), [wallets]);
   const multisigWallet = useMemo(() => wallets.find(w => w.type === MultisigHDWallet.type), [wallets]);
   const lnWallet = useMemo(() => wallets.find(w => w.type === LightningLdsWallet.type), [wallets]);
@@ -60,7 +57,6 @@ const WalletHome = ({ navigation }) => {
   const { colors, scanImage } = useTheme();
   const walletActionButtonsRef = useRef();
   const { width } = useWindowDimensions();
-  const balanceRefreshInterval = useRef(null);
 
   const wallet = useMemo(() => wallets.find(w => w.getID() === walletID), [wallets, walletID]);
   const totalWallet = useMemo(() => {
@@ -103,96 +99,6 @@ const WalletHome = ({ navigation }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallets, walletID, totalWallet]);
 
-  useEffect(() => {
-    if (!wallets) return;
-    refreshBalances().catch(console.error);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wallets]);
-
-  const clearBalanceRefreshInterval = () => {
-    if (balanceRefreshInterval.current) {
-      clearInterval(balanceRefreshInterval.current);
-      balanceRefreshInterval.current = null;
-    }
-  };
-
-  const setBalanceRefreshInterval = () => {
-    if (!wallets) return;
-    clearBalanceRefreshInterval();
-    refreshBalances().catch(console.error);
-    balanceRefreshInterval.current = setInterval(() => {
-      refreshBalances().catch(console.error);
-    }, 20 * 1000);
-  };
-
-  useEffect(() => {
-    setBalanceRefreshInterval();
-    return () => {
-      clearBalanceRefreshInterval();
-    };
-  }, []);
-
-  const appState = useRef(AppState.currentState);
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', nextAppState => {
-      if (appState.current === 'active' && nextAppState.match(/background/)) clearBalanceRefreshInterval();
-      if (appState.current.match(/background/) && nextAppState === 'active') setBalanceRefreshInterval();
-      appState.current = nextAppState;
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, []);
-
-  /**
-   * Forcefully fetches balance for wallets
-   */
-  const refreshBalances = async () => {
-    if (isElectrumDisabled) return setIsLoading(false);
-    if (isLoading) return;
-
-    setIsLoading(true);
-    let noErr = true;
-    let smthChanged = false;
-    try {
-      // await BlueElectrum.ping();
-      await BlueElectrum.waitTillConnected();
-
-      for (const w of wallets) {
-        smthChanged ||= await refreshBalance(w);
-      }
-    } catch (err) {
-      noErr = false;
-      setIsLoading(false);
-    }
-
-    if (noErr && smthChanged) {
-      console.log('saving to disk');
-      await saveToDisk();
-    }
-
-    setIsLoading(false);
-  };
-
-  const refreshBalance = async w => {
-    try {
-      if (!w.getBalance) return false;
-      const oldBalance = w.getBalance();
-      await w.fetchBalance();
-      return oldBalance !== w.getBalance();
-    } catch (_) {}
-  };
-
-  const navigateToSendScreen = () => {
-    navigate('SendDetailsRoot', {
-      screen: 'SendDetails',
-      params: {
-        walletID: wallet.getID(),
-      },
-    });
-  };
 
   const importPsbt = base64Psbt => {
     try {

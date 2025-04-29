@@ -143,25 +143,28 @@ export const BlueStorageProvider = ({ children }) => {
     saveToDisk();
   };
 
-  const refreshAllWalletTransactions = async (lastSnappedTo, showUpdateStatusIndicator = true) => {
+  const refreshAllWalletTransactions = async () => {
+    if (!wallets.length) return;
+
     let noErr = true;
     try {
-      if (showUpdateStatusIndicator) {
-        setWalletTransactionUpdateStatus(WalletTransactionsStatus.ALL);
-      }
+      setWalletTransactionUpdateStatus(WalletTransactionsStatus.ALL);
+
       await BlueElectrum.waitTillConnected();
-      const paymentCodesStart = Date.now();
-      await fetchSenderPaymentCodes(lastSnappedTo);
-      const paymentCodesEnd = Date.now();
-      console.log('fetch payment codes took', (paymentCodesEnd - paymentCodesStart) / 1000, 'sec');
-      const balanceStart = +new Date();
-      await fetchWalletBalances(lastSnappedTo);
-      const balanceEnd = +new Date();
-      console.log('fetch balance took', (balanceEnd - balanceStart) / 1000, 'sec');
-      const start = +new Date();
-      await fetchWalletTransactions(lastSnappedTo);
-      const end = +new Date();
-      console.log('fetch tx took', (end - start) / 1000, 'sec');
+      await fetchSenderPaymentCodes();
+
+      await Promise.all(
+        wallets.map(async wallet => {
+          await wallet.fetchBalance();
+          await wallet.fetchTransactions();
+          if (wallet.fetchPendingTransactions) {
+            await wallet.fetchPendingTransactions();
+          }
+          if (wallet.fetchUserInvoices) {
+            await wallet.fetchUserInvoices();
+          }
+        }),
+      );
     } catch (err) {
       noErr = false;
       console.warn(err);
@@ -184,14 +187,8 @@ export const BlueStorageProvider = ({ children }) => {
       _lastTimeTriedToRefetchWallet[walletID] = +new Date();
 
       await BlueElectrum.waitTillConnected();
-      const balanceStart = +new Date();
       await fetchWalletBalances(index);
-      const balanceEnd = +new Date();
-      console.log('fetch balance took', (balanceEnd - balanceStart) / 1000, 'sec');
-      const start = +new Date();
       await fetchWalletTransactions(index);
-      const end = +new Date();
-      console.log('fetch tx took', (end - start) / 1000, 'sec');
     } catch (err) {
       noErr = false;
       console.warn(err);

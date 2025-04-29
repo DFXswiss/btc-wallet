@@ -16,17 +16,14 @@ import {
 } from 'react-native';
 import { NavigationContainer, CommonActions } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 
 import { navigationRef } from './NavigationService';
 import * as NavigationService from './NavigationService';
 import { Chain } from './models/bitcoinUnits';
 import OnAppLaunch from './class/on-app-launch';
 import DeeplinkSchemaMatch from './class/deeplink-schema-match';
-import loc from './loc';
 import { BlueDarkTheme } from './components/themes';
 import InitRoot from './Navigation';
-import BlueClipboard from './blue_modules/clipboard';
 import { isDesktop } from './blue_modules/environment';
 import { BlueStorageContext } from './blue_modules/storage-context';
 import WatchConnectivity from './WatchConnectivity';
@@ -35,7 +32,6 @@ import Notifications from './blue_modules/notifications';
 import Biometric from './class/biometrics';
 import WidgetCommunication from './blue_modules/WidgetCommunication';
 import changeNavigationBarColor from 'react-native-navigation-bar-color';
-import ActionSheet from './screen/ActionSheet';
 import HandoffComponent from './components/handoff';
 import Privacy from './blue_modules/Privacy';
 const A = require('./blue_modules/analytics');
@@ -56,6 +52,7 @@ const App = () => {
   const { walletsInitialized, wallets, addWallet, saveToDisk, fetchAndSaveWalletTransactions, refreshAllWalletTransactions } =
     useContext(BlueStorageContext);
   const appState = useRef(AppState.currentState);
+  const balanceRefreshInterval = useRef(null);
   const colorScheme = useColorScheme();
 
   const onNotificationReceived = async notification => {
@@ -275,14 +272,31 @@ const App = () => {
     return false;
   };
 
+  const clearBalanceRefreshInterval = () => {
+    if (balanceRefreshInterval.current) {
+      clearInterval(balanceRefreshInterval.current);
+      balanceRefreshInterval.current = null;
+    }
+  };
+
+  const setBalanceRefreshInterval = () => {
+    if (!wallets) return;
+    clearBalanceRefreshInterval();
+    refreshAllWalletTransactions().catch(console.error);
+    balanceRefreshInterval.current = setInterval(() => {
+      refreshAllWalletTransactions().catch(console.error);
+    }, 20 * 1000);
+  };
+
   const handleAppStateChange = async nextAppState => {
     if (wallets.length === 0) return;
     if ((appState.current.match(/background/) && nextAppState === 'active') || nextAppState === undefined) {
-      setTimeout(() => A(A.ENUM.APP_UNSUSPENDED), 2000);
       currency.updateExchangeRate();
+      setBalanceRefreshInterval();
       const processed = await processPushNotifications();
       if (processed) return;
     }
+    if (appState.current === 'active' && nextAppState.match(/background/)) clearBalanceRefreshInterval();
     if (nextAppState) {
       appState.current = nextAppState;
     }

@@ -56,8 +56,6 @@ const hardcodedPeers = [
   { host: 'electrum.bitaroo.net', ssl: '50002' },
   { host: 'VPS.hsmiths.com', tcp: '50001', ssl: '50002' },
   { host: 'helicarrier.bauerj.eu', tcp: '50001', ssl: '50002' },
-  { host: 'node.xbt.eu', tcp: '50001', ssl: '50002' },
-  { host: 'electrumx.not.fyi', tcp: '50001', ssl: '50002' },
   { host: 'kirsche.emzy.de', tcp: '50001', ssl: '50002' },
 ];
 
