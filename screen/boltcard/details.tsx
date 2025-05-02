@@ -129,7 +129,7 @@ const BoltcardDetails: React.FC = () => {
       resetInputs();
     } catch (error) {
       setIsUpdating(false);
-      alert(error);
+      console.log("ERROR: ", error);
     }
   };
 

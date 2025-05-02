@@ -67,7 +67,9 @@
     "refill_lnd_balance": "Refill Lightning Wallet Balance",
     "sameWalletAsInvoiceError": "You can't pay an invoice with the same wallet used to create it.",
     "title": "Manage Funds",
-    "next": "Next"
+    "next": "Next",
+    "lnurl_loader_title": "Loading Lnurl",
+    "lnurl_loader_text": "Decoding the data in LNURL"
   },
   "lndViewInvoice": {
     "additional_info": "Additional Information",
@@ -228,7 +230,10 @@
     "problem_with_psbt": "Problem with PSBT",
     "scan_bitcoin_qr": "Scan a Bitcoin QR code",
     "enter_address": "Enter address",
-    "text_address_or_invoice": "Text address or invoice"
+    "text_address_or_invoice": "Text address or invoice",
+    "insufficient_funds": "Insufficient funds",
+    "scan_qr_code": "Scan again",
+    "server_error": "Payment request failed. Please try again."
   },
   "settings": {
     "about": "About",

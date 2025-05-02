@@ -67,7 +67,9 @@
     "title": "Beträge verwalten",
     "error_tip_invoice_not_supported": "Rechnungen mit einem Betrag von 0 werden nicht unterstützt.",
     "error_balance_for_insuficient_fee": "Das verbleibende Guthaben reicht nicht aus, um die Gebühren zu decken; erwäge, den Höchstbetrag zu senden oder den Betrag zu reduzieren.",
-    "next": "Weiter"
+    "next": "Weiter",
+    "lnurl_loader_title": "Lnurl laden",
+    "lnurl_loader_text": "LNURL-Daten decodieren"
   },
   "lndViewInvoice": {
     "additional_info": "Weiterführende Informationen",
@@ -228,7 +230,10 @@
     "problem_with_psbt": "PSBT-Problem",
     "scan_bitcoin_qr": "Einen Bitcoin-QR-Code scannen",
     "enter_address": "Adresse eingeben",
-    "text_address_or_invoice": "Textadresse oder Rechnung"
+    "text_address_or_invoice": "Textadresse oder Rechnung",
+    "insufficient_funds": "Nicht genug Guthaben",
+    "scan_qr_code": "Erneut scannen",
+    "server_error": "Zahlungsanfrage fehlgeschlagen. Bitte versuche es erneut."
   },
   "settings": {
     "about": "Über",

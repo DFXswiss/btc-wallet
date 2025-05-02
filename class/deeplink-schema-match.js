@@ -1,6 +1,7 @@
-import URL from 'url';
+import URL, { parse } from 'url';
 import { Chain } from '../models/bitcoinUnits';
 import Lnurl from './lnurl';
+import { OpenCryptoPayPaymentLink } from './open-crypto-pay';
 const bitcoin = require('bitcoinjs-lib');
 const bip21 = require('bip21');
 
@@ -524,6 +525,59 @@ class DeeplinkSchemaMatch {
 
     return false;
   }
+
+  static async assertNavigationByLnurl(text, context) {
+    const url = Lnurl.getUrlFromLnurl(text);
+    if (!url) return;
+
+    const { query } = parse(url, true);
+
+    if (query.tag === Lnurl.TAG_LOGIN_REQUEST) {
+      return ['LnurlAuth', {
+        lnurl: text,
+        walletID: context?.walletID,
+      }];
+    }
+
+    try {
+      const reply = await new Lnurl(url).fetchGet(url);
+
+      if (OpenCryptoPayPaymentLink.isOpenCryptoPayResponse(reply)) {
+        return ['SendDetailsRoot', {
+          screen: 'OpenCryptoPaySend',
+          params: {
+            plDetails: reply,
+            walletID: context?.walletID,
+          },
+        }];
+      }
+
+      if (reply.tag === Lnurl.TAG_PAY_REQUEST) {
+        return ['SendDetailsRoot', {
+          screen: 'ScanLndInvoice',
+          params: {
+            uri: text,
+            walletID: context?.walletID,
+          },
+        }];
+      }
+
+      if (reply.tag === Lnurl.TAG_WITHDRAW_REQUEST) {
+        return ['ReceiveDetailsRoot', {
+          screen: 'LNDCreateInvoice',
+          params: {
+            uri: text,
+            walletID: context?.walletID,
+          },
+        }];
+      }
+
+      throw new Error('Unsupported lnurl');
+    } catch (error) {
+      console.error(error);
+    }
+  }
+    
 }
 
 export default DeeplinkSchemaMatch;

@@ -71,9 +71,7 @@ const Asset = ({ navigation }) => {
     wallets,
     saveToDisk,
     setSelectedWallet,
-    refreshAllWalletTransactions,
     walletTransactionUpdateStatus,
-    isElectrumDisabled,
     isDfxPos,
     isDfxSwap,
   } = useContext(BlueStorageContext);
@@ -95,7 +93,6 @@ const Asset = ({ navigation }) => {
   const [isHandlingOpenServices, setIsHandlingOpenServices] = useState(false);
   const [changeAddress, setChangeAddress] = useState('');
   const [fContainerHeight, setFContainerHeight] = useState(0);
-  const txRefreshInterval = useRef(null);
   const elapsedTimeInterval = useRef(null);
 
   const getButtonImages = lang => {
@@ -184,49 +181,6 @@ const Asset = ({ navigation }) => {
     }
   }, []);
 
-  const clearTxRefreshInterval = () => {
-    if (txRefreshInterval.current) {
-      clearInterval(txRefreshInterval.current);
-      txRefreshInterval.current = null;
-    }
-  };
-
-  const setTxRefreshInterval = () => {
-    clearTxRefreshInterval();
-    refreshTransactions();
-    txRefreshInterval.current = setInterval(() => {
-      refreshTransactions();
-    }, 20 * 1000);
-  };
-
-  useEffect(() => {
-    setTxRefreshInterval();
-    return () => {
-      clearTxRefreshInterval();
-    };
-  }, []);
-
-  const appState = useRef(AppState.currentState);
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', nextAppState => {
-      if (appState.current === 'active' && nextAppState.match(/background/)) {
-        clearTxRefreshInterval();
-        clearElapsedTimeInterval();
-      }
-
-      if (appState.current.match(/background/) && nextAppState === 'active') {
-        setTxRefreshInterval();
-        setElapsedTimeInterval();
-      }
-
-      appState.current = nextAppState;
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, []);
 
   useEffect(() => {
     setOptions({ headerTitle: walletTransactionUpdateStatus === walletID ? loc.transactions.updating : '' });
@@ -255,15 +209,6 @@ const Asset = ({ navigation }) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallets, walletID]);
-
-  useEffect(() => {
-    if (!wallet) return;
-
-    refreshAllWalletTransactions()
-      .then(() => refreshTransactions())
-      .catch(console.error);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wallet]);
 
   useEffect(() => {
     setDataSource([...getTransactionsSliced(limit)]);
@@ -367,56 +312,6 @@ const Asset = ({ navigation }) => {
 
   const isMultiSig = () => wallet.type === MultisigHDWallet.type;
 
-  /**
-   * Forcefully fetches TXs and balance for wallet
-   */
-  const refreshTransactions = async () => {
-    if (isElectrumDisabled) return setIsLoading(false);
-    if (isLoading) return;
-    setIsLoading(true);
-    let noErr = true;
-    let smthChanged = false;
-    try {
-      // await BlueElectrum.ping();
-      await BlueElectrum.waitTillConnected();
-      if (wallet.allowBIP47() && wallet.isBIP47Enabled()) {
-        const pcStart = +new Date();
-        await wallet.fetchBIP47SenderPaymentCodes();
-        const pcEnd = +new Date();
-        console.log(wallet.getLabel(), 'fetch payment codes took', (pcEnd - pcStart) / 1000, 'sec');
-      }
-      const balanceStart = +new Date();
-      const oldBalance = wallet.getBalance();
-      await wallet.fetchBalance();
-      if (oldBalance !== wallet.getBalance()) smthChanged = true;
-      const balanceEnd = +new Date();
-      console.log(wallet.getLabel(), 'fetch balance took', (balanceEnd - balanceStart) / 1000, 'sec');
-      const start = +new Date();
-      const oldTxLen = wallet.getTransactions().length;
-      await wallet.fetchTransactions();
-      if (wallet.fetchPendingTransactions) {
-        await wallet.fetchPendingTransactions();
-      }
-      if (wallet.fetchUserInvoices) {
-        await wallet.fetchUserInvoices();
-      }
-      if (oldTxLen !== wallet.getTransactions().length) smthChanged = true;
-      const end = +new Date();
-      console.log(wallet.getLabel(), 'fetch tx took', (end - start) / 1000, 'sec');
-    } catch (err) {
-      noErr = false;
-      setIsLoading(false);
-      setTimeElapsed(prev => prev + 1);
-    }
-
-    if (noErr && smthChanged) {
-      console.log('saving to disk');
-      await saveToDisk(); // caching
-    }
-    setIsLoading(false);
-    setTimeElapsed(prev => prev + 1);
-  };
-
   const _keyExtractor = (_item, index) => index.toString();
 
   const renderListFooterComponent = () => {
@@ -481,6 +376,9 @@ const Asset = ({ navigation }) => {
       const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(wallet, uri);
       ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
       navigate(...route);
+
+    } else if (DeeplinkSchemaMatch.isLnUrl(value)) {
+      navigate('SendDetailsRoot', { screen: 'LnurlNavigationForwarder', params: { lnurl: value, walletID } });
     } else {
       DeeplinkSchemaMatch.navigationRouteFor(
         { url: value },

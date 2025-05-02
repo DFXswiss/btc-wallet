@@ -16,17 +16,14 @@ import {
 } from 'react-native';
 import { NavigationContainer, CommonActions } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 
 import { navigationRef } from './NavigationService';
 import * as NavigationService from './NavigationService';
 import { Chain } from './models/bitcoinUnits';
 import OnAppLaunch from './class/on-app-launch';
 import DeeplinkSchemaMatch from './class/deeplink-schema-match';
-import loc from './loc';
 import { BlueDarkTheme } from './components/themes';
 import InitRoot from './Navigation';
-import BlueClipboard from './blue_modules/clipboard';
 import { isDesktop } from './blue_modules/environment';
 import { BlueStorageContext } from './blue_modules/storage-context';
 import WatchConnectivity from './WatchConnectivity';
@@ -35,7 +32,6 @@ import Notifications from './blue_modules/notifications';
 import Biometric from './class/biometrics';
 import WidgetCommunication from './blue_modules/WidgetCommunication';
 import changeNavigationBarColor from 'react-native-navigation-bar-color';
-import ActionSheet from './screen/ActionSheet';
 import HandoffComponent from './components/handoff';
 import Privacy from './blue_modules/Privacy';
 const A = require('./blue_modules/analytics');
@@ -45,11 +41,6 @@ const eventEmitter = Platform.OS === 'ios' ? new NativeEventEmitter(NativeModule
 const { EventEmitter } = NativeModules;
 
 LogBox.ignoreLogs(['Require cycle:']);
-
-const ClipboardContentType = Object.freeze({
-  BITCOIN: 'BITCOIN',
-  LIGHTNING: 'LIGHTNING',
-});
 
 if (Platform.OS === 'android') {
   if (UIManager.setLayoutAnimationEnabledExperimental) {
@@ -61,7 +52,7 @@ const App = () => {
   const { walletsInitialized, wallets, addWallet, saveToDisk, fetchAndSaveWalletTransactions, refreshAllWalletTransactions } =
     useContext(BlueStorageContext);
   const appState = useRef(AppState.currentState);
-  const clipboardContent = useRef();
+  const balanceRefreshInterval = useRef(null);
   const colorScheme = useColorScheme();
 
   const onNotificationReceived = async notification => {
@@ -281,43 +272,31 @@ const App = () => {
     return false;
   };
 
+  const clearBalanceRefreshInterval = () => {
+    if (balanceRefreshInterval.current) {
+      clearInterval(balanceRefreshInterval.current);
+      balanceRefreshInterval.current = null;
+    }
+  };
+
+  const setBalanceRefreshInterval = () => {
+    if (!wallets) return;
+    clearBalanceRefreshInterval();
+    refreshAllWalletTransactions().catch(console.error);
+    balanceRefreshInterval.current = setInterval(() => {
+      refreshAllWalletTransactions().catch(console.error);
+    }, 20 * 1000);
+  };
+
   const handleAppStateChange = async nextAppState => {
     if (wallets.length === 0) return;
     if ((appState.current.match(/background/) && nextAppState === 'active') || nextAppState === undefined) {
-      setTimeout(() => A(A.ENUM.APP_UNSUSPENDED), 2000);
       currency.updateExchangeRate();
+      setBalanceRefreshInterval();
       const processed = await processPushNotifications();
       if (processed) return;
-      const clipboard = await BlueClipboard().getClipboardContent();
-      const isAddressFromStoredWallet = wallets.some(wallet => {
-        if (wallet.chain === Chain.ONCHAIN) {
-          // checking address validity is faster than unwrapping hierarchy only to compare it to garbage
-          return wallet.isAddressValid && wallet.isAddressValid(clipboard) && wallet.weOwnAddress(clipboard);
-        } else {
-          return wallet.isInvoiceGeneratedByWallet(clipboard) || wallet.weOwnAddress(clipboard);
-        }
-      });
-      const isBitcoinAddress = DeeplinkSchemaMatch.isBitcoinAddress(clipboard);
-      const isLightningInvoice = DeeplinkSchemaMatch.isLightningInvoice(clipboard);
-      const isLNURL = DeeplinkSchemaMatch.isLnUrl(clipboard);
-      const isBothBitcoinAndLightning = DeeplinkSchemaMatch.isBothBitcoinAndLightning(clipboard);
-      if (
-        !isAddressFromStoredWallet &&
-        clipboardContent.current !== clipboard &&
-        (isBitcoinAddress || isLightningInvoice || isLNURL || isBothBitcoinAndLightning)
-      ) {
-        let contentType;
-        if (isBitcoinAddress) {
-          contentType = ClipboardContentType.BITCOIN;
-        } else if (isLightningInvoice || isLNURL) {
-          contentType = ClipboardContentType.LIGHTNING;
-        } else if (isBothBitcoinAndLightning) {
-          contentType = ClipboardContentType.BITCOIN;
-        }
-        showClipboardAlert({ contentType });
-      }
-      clipboardContent.current = clipboard;
     }
+    if (appState.current === 'active' && nextAppState.match(/background/)) clearBalanceRefreshInterval();
     if (nextAppState) {
       appState.current = nextAppState;
     }
@@ -325,44 +304,6 @@ const App = () => {
 
   const handleOpenURL = event => {
     DeeplinkSchemaMatch.navigationRouteFor(event, value => NavigationService.navigate(...value), { wallets, addWallet, saveToDisk });
-  };
-
-  const showClipboardAlert = ({ contentType }) => {
-    ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
-    BlueClipboard()
-      .getClipboardContent()
-      .then(clipboard => {
-        if (Platform.OS === 'ios' || Platform.OS === 'macos') {
-          ActionSheet.showActionSheetWithOptions(
-            {
-              options: [loc._.cancel, loc._.continue],
-              title: loc._.clipboard,
-              message: contentType === ClipboardContentType.BITCOIN ? loc.wallets.clipboard_bitcoin : loc.wallets.clipboard_lightning,
-              cancelButtonIndex: 0,
-            },
-            buttonIndex => {
-              if (buttonIndex === 1) {
-                setTimeout(() => handleOpenURL({ url: clipboard }), 100);
-              }
-            },
-          );
-        } else {
-          ActionSheet.showActionSheetWithOptions({
-            buttons: [
-              { text: loc._.cancel, style: 'cancel', onPress: () => {} },
-              {
-                text: loc._.continue,
-                style: 'default',
-                onPress: () => {
-                  handleOpenURL({ url: clipboard });
-                },
-              },
-            ],
-            title: loc._.clipboard,
-            message: contentType === ClipboardContentType.BITCOIN ? loc.wallets.clipboard_bitcoin : loc.wallets.clipboard_lightning,
-          });
-        }
-      });
   };
 
   return (

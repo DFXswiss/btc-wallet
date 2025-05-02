@@ -83,6 +83,9 @@ function WatchConnectivity() {
     } else if (message.message === 'fetchTransactions') {
       fetchWalletTransactions()
         .then(() => saveToDisk())
+        .catch(e => {
+          console.log(e);
+        })
         .finally(() => reply({}));
     } else if (message.message === 'hideBalance') {
       const walletIndex = message.walletIndex;

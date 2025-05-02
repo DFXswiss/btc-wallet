@@ -332,7 +332,7 @@ class AppStorage {
       try {
         realm = await this.getRealm();
       } catch (error) {
-        alert(error.message);
+        console.log("ERROR: ", error.message);
       }
       data = JSON.parse(data);
       if (!data.wallets) return false;
@@ -434,7 +434,7 @@ class AppStorage {
         try {
           if (realm) this.inflateWalletFromRealm(realm, unserializedWallet);
         } catch (error) {
-          alert(error.message);
+          console.log("ERROR: ", error.message);
         }
 
         // done
@@ -583,7 +583,7 @@ class AppStorage {
    */
   async saveToDisk() {
     if (savingInProgress) {
-      if (++savingInProgress > 10) alert('Critical error. Last actions were not saved'); // should never happen
+      if (++savingInProgress > 10) console.warn('ERROR: Critical error. Last actions were not saved'); // should never happen
       await new Promise(resolve => setTimeout(resolve, 1000 * savingInProgress)); // sleep
       return this.saveToDisk();
     }
@@ -687,19 +687,16 @@ class AppStorage {
    * @return {Promise.<void>}
    */
   fetchWalletBalances = async index => {
-    console.log('fetchWalletBalances for wallet#', typeof index === 'undefined' ? '(all)' : index);
     if (index || index === 0) {
-      let c = 0;
-      for (const wallet of this.wallets) {
-        if (c++ === index) {
-          await wallet.fetchBalance();
-        }
+      if (this.wallets[index]) {
+        await this.wallets[index].fetchBalance();
       }
     } else {
-      for (const wallet of this.wallets) {
-        console.log('fetching balance for', wallet.getLabel());
-        await wallet.fetchBalance();
-      }
+      await Promise.all(
+        this.wallets.map(wallet => {
+          return wallet.fetchBalance();
+        })
+      );
     }
   };
 
@@ -714,7 +711,6 @@ class AppStorage {
    * @return {Promise.<void>}
    */
   fetchWalletTransactions = async index => {
-    console.log('fetchWalletTransactions for wallet#', typeof index === 'undefined' ? '(all)' : index);
     if (index || index === 0) {
       let c = 0;
       for (const wallet of this.wallets) {
@@ -742,7 +738,6 @@ class AppStorage {
   };
 
   fetchSenderPaymentCodes = async index => {
-    console.log('fetchSenderPaymentCodes for wallet#', typeof index === 'undefined' ? '(all)' : index);
     if (index || index === 0) {
       try {
         if (!(this.wallets[index].allowBIP47() && this.wallets[index].isBIP47Enabled())) return;

@@ -228,7 +228,10 @@
     "problem_with_psbt": "Problema con PSBT",
     "scan_bitcoin_qr": "Escanear un código QR de Bitcoin",
     "enter_address": "Introducir dirección",
-    "text_address_or_invoice": "Escriba la dirección o la factura"
+    "text_address_or_invoice": "Escriba la dirección o la factura",
+    "insufficient_funds": "Fondos insuficientes",
+    "scan_qr_code": "Escanear nuevamente",
+    "server_error": "Error al procesar el pago. Por favor, inténtelo de nuevo."
   },
   "settings": {
     "about": "Sobre nosotros",

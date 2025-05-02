@@ -67,7 +67,9 @@
     "title": "Gestisci fondi",
     "error_tip_invoice_not_supported": "Le fatture con importo pari a 0 non sono supportate.",
     "error_balance_for_insuficient_fee": "Il saldo residuo è insufficiente a coprire le spese, considerare l'invio del massimo o la riduzione dell'importo.",
-    "next": "Avanti"
+    "next": "Avanti",
+    "lnurl_loader_title": "Caricamento Lnurl",
+    "lnurl_loader_text": "Decodifica i dati in LNURL"
   },
   "lndViewInvoice": {
     "additional_info": "Ulteriori Informazioni",
@@ -228,7 +230,10 @@
     "problem_with_psbt": "Problema con la PSBT",
     "scan_bitcoin_qr": "Scansionare un codice QR Bitcoin",
     "enter_address": "Inserisci l'indirizzo",
-    "text_address_or_invoice": "Testo dell'indirizzo o della fattura"
+    "text_address_or_invoice": "Testo dell'indirizzo o della fattura",
+    "insufficient_funds": "Fondi insufficienti",
+    "scan_qr_code": "Scansiona di nuovo",
+    "server_error": "Errore nel processare il pagamento. Per favore, riprova."
   },
   "settings": {
     "about": "Informazioni",

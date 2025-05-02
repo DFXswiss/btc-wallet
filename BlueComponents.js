@@ -985,7 +985,7 @@ const useSelectorStyles = () => {
   return pickerStyles;
 };
 
-export const BlueWalletSelect = ({ wallets, value, onChange, on }) => {
+export const BlueWalletSelect = ({ wallets, value, onChange }) => {
   return Platform.OS === 'ios' ? (
     <BlueWalletSelectIOS wallets={wallets} value={value} onChange={onChange} />
   ) : (
