@@ -376,6 +376,9 @@ const Asset = ({ navigation }) => {
       const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(wallet, uri);
       ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
       navigate(...route);
+
+    } else if (DeeplinkSchemaMatch.isLnUrl(value)) {
+      navigate('SendDetailsRoot', { screen: 'LnurlNavigationForwarder', params: { lnurl: value, walletID } });
     } else {
       DeeplinkSchemaMatch.navigationRouteFor(
         { url: value },

@@ -144,6 +144,7 @@ export const BlueStorageProvider = ({ children }) => {
   };
 
   const refreshAllWalletTransactions = async () => {
+    console.log('refreshAllWalletTransactions');
     if (!wallets.length) return;
 
     let noErr = true;

@@ -137,6 +137,10 @@ const WalletHome = ({ navigation }) => {
       return;
     }
 
+    if(DeeplinkSchemaMatch.isLnUrl(value)) {
+      return navigate('SendDetailsRoot', { screen: 'LnurlNavigationForwarder', params: { lnurl: value } });
+    }
+
     DeeplinkSchemaMatch.navigationRouteFor({ url: value }, completionValue => {
       ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
       navigate(...completionValue);
