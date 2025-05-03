@@ -34,8 +34,9 @@ import WidgetCommunication from './blue_modules/WidgetCommunication';
 import changeNavigationBarColor from 'react-native-navigation-bar-color';
 import HandoffComponent from './components/handoff';
 import Privacy from './blue_modules/Privacy';
-const A = require('./blue_modules/analytics');
+import { addEventListener } from '@react-native-community/netinfo';
 const currency = require('./blue_modules/currency');
+const BlueElectrum = require('./blue_modules/BlueElectrum');
 
 const eventEmitter = Platform.OS === 'ios' ? new NativeEventEmitter(NativeModules.EventEmitter) : undefined;
 const { EventEmitter } = NativeModules;
@@ -287,6 +288,16 @@ const App = () => {
       refreshAllWalletTransactions().catch(console.error);
     }, 20 * 1000);
   };
+
+  useEffect(() => {
+    const unsubscribe = addEventListener(state => {
+      BlueElectrum.setNetworkConnected(state.isConnected);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   const handleAppStateChange = async nextAppState => {
     if (wallets.length === 0) return;
