@@ -50,10 +50,17 @@ if (Platform.OS === 'android') {
 }
 
 const App = () => {
-  const { walletsInitialized, wallets, addWallet, saveToDisk, fetchAndSaveWalletTransactions, refreshAllWalletTransactions } =
-    useContext(BlueStorageContext);
+  const {
+    walletsInitialized,
+    wallets,
+    addWallet,
+    saveToDisk,
+    fetchAndSaveWalletTransactions,
+    refreshAllWalletTransactions,
+    setBalanceRefreshInterval,
+    clearBalanceRefreshInterval,
+  } = useContext(BlueStorageContext);
   const appState = useRef(AppState.currentState);
-  const balanceRefreshInterval = useRef(null);
   const colorScheme = useColorScheme();
 
   const onNotificationReceived = async notification => {
@@ -273,22 +280,6 @@ const App = () => {
     return false;
   };
 
-  const clearBalanceRefreshInterval = () => {
-    if (balanceRefreshInterval.current) {
-      clearInterval(balanceRefreshInterval.current);
-      balanceRefreshInterval.current = null;
-    }
-  };
-
-  const setBalanceRefreshInterval = () => {
-    if (!wallets) return;
-    clearBalanceRefreshInterval();
-    refreshAllWalletTransactions().catch(console.error);
-    balanceRefreshInterval.current = setInterval(() => {
-      refreshAllWalletTransactions().catch(console.error);
-    }, 20 * 1000);
-  };
-
   useEffect(() => {
     const unsubscribe = addEventListener(state => {
       BlueElectrum.setNetworkConnected(state.isConnected);
@@ -301,7 +292,7 @@ const App = () => {
 
   const handleAppStateChange = async nextAppState => {
     if (wallets.length === 0) return;
-    if ((appState.current.match(/background/) && nextAppState === 'active') || nextAppState === undefined) {
+    if ((appState.current.match(/inactive|background/) && nextAppState === 'active') || nextAppState === undefined) {
       currency.updateExchangeRate();
       setBalanceRefreshInterval();
       const processed = await processPushNotifications();

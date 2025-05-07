@@ -73,6 +73,7 @@ const Asset = ({ navigation }) => {
     walletTransactionUpdateStatus,
     isDfxPos,
     isDfxSwap,
+    revalidateBalancesInterval,
   } = useContext(BlueStorageContext);
   const { name, params } = useRoute();
   const walletID = params.walletID;
@@ -167,6 +168,7 @@ const Asset = ({ navigation }) => {
 
   useEffect(() => {
     setElapsedTimeInterval();
+    revalidateBalancesInterval();
     return () => {
       clearElapsedTimeInterval();
     };
