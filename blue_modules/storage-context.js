@@ -148,7 +148,7 @@ export const BlueStorageProvider = ({ children }) => {
 
   const refreshAllWalletTransactions = async () => {
     console.log('refreshAllWalletTransactions');
-    if (!wallets.length) return;
+    if (!BlueApp.wallets.length) return;
 
     let noErr = true;
     try {
@@ -158,7 +158,7 @@ export const BlueStorageProvider = ({ children }) => {
       await fetchSenderPaymentCodes();
 
       await Promise.all(
-        wallets.map(async wallet => {
+        BlueApp.wallets.map(async wallet => {
           await wallet.fetchBalance();
           await wallet.fetchTransactions();
           if (wallet.fetchPendingTransactions) {
