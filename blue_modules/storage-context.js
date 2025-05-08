@@ -49,7 +49,7 @@ export const BlueStorageProvider = ({ children }) => {
     setIsHandOffUseEnabled(value);
     return BlueApp.setIsHandoffEnabled(value);
   };
- 
+
   const setLdsDEVAsyncStorage = value => {
     setLdsDEV(value);
     return BlueApp.setIsLdsDevEnabled(value);
@@ -58,17 +58,17 @@ export const BlueStorageProvider = ({ children }) => {
   const setIsPosModeAsyncStorage = value => {
     setIsPosMode(value);
     return BlueApp.setIsPOSmodeEnabled(value);
-  }
+  };
 
   const setIsDfxPosAsyncStorage = value => {
     setIsDfxPos(value);
     return BlueApp.setIsDfxPOSEnabled(value);
-  }
+  };
 
   const setIsDfxSwapAsyncStorage = value => {
     setIsDfxSwap(value);
     return BlueApp.setIsDfxSwapEnabled(value);
-  }
+  };
 
   const saveToDisk = async (force = false) => {
     if (BlueApp.getWallets().length === 0 && !force) {
@@ -147,8 +147,8 @@ export const BlueStorageProvider = ({ children }) => {
   };
 
   const refreshAllWalletTransactions = async () => {
-    console.log('refreshAllWalletTransactions');
     if (!BlueApp.wallets.length) return;
+    console.log('refreshAllWalletTransactions');
 
     let noErr = true;
     try {
@@ -220,17 +220,25 @@ export const BlueStorageProvider = ({ children }) => {
   };
 
   const revalidateBalancesInterval = async () => {
-    const isElectrumDisabled = await BlueElectrum.isDisabled();
-    if (isElectrumDisabled) return;
+    try {
+      if(BlueApp.wallets.length === 0) return;
 
-    const timeSinceLastRefresh = Date.now() - lastSuccessfulBalanceRefresh;
-    if (timeSinceLastRefresh < 60 * 1000) return;
+      const isElectrumDisabled = await BlueElectrum.isDisabled();
+      if (isElectrumDisabled) return;
 
-    const netInfo = await fetchNetInfo();
-    BlueElectrum.setNetworkConnected(state.isConnected);
-    if (!netInfo.isConnected) return;
+      const timeSinceLastRefresh = Date.now() - lastSuccessfulBalanceRefresh;
+      if (timeSinceLastRefresh <= 40 * 1000) {
+        return;
+      }
 
-    setBalanceRefreshInterval();
+      const netInfo = await fetchNetInfo();
+      BlueElectrum.setNetworkConnected(netInfo.isConnected);
+      if (!netInfo.isConnected) return;
+
+      setBalanceRefreshInterval();
+    } catch (err) {
+      console.error('Error revalidating balances', err);
+    }
   };
 
   const addWallet = wallet => {
@@ -258,6 +266,7 @@ export const BlueStorageProvider = ({ children }) => {
     Notifications.majorTomToGroundControl(w.getAllExternalAddresses(), [], []);
     // start balance fetching at the background
     await w.fetchBalance();
+    w.fetchTransactions();
     setWallets([...BlueApp.getWallets()]);
   };
 
