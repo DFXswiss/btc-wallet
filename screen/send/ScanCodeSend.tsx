@@ -74,7 +74,7 @@ const ScanCodeSend: React.FC = () => {
       delayedNavigationFunction(() => replace(...route));
     } else if (DeeplinkSchemaMatch.isLnUrl(destinationString)) {
       delayedNavigationFunction(() =>
-        replace('SendDetailsRoot', { screen: 'LnurlNavigationForwarder', params: { lnurl: destinationString } }),
+        replace('SendDetailsRoot', { screen: 'LnurlNavigationForwarder', params: { lnurl: destinationString, walletID: params?.walletID } }),
       );
     } else if (
       DeeplinkSchemaMatch.isPossiblyLightningDestination(destinationString) ||

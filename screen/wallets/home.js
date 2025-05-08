@@ -145,7 +145,7 @@ const WalletHome = ({ navigation }) => {
     }
 
     if(DeeplinkSchemaMatch.isLnUrl(value)) {
-      return navigate('SendDetailsRoot', { screen: 'LnurlNavigationForwarder', params: { lnurl: value } });
+      return navigate('SendDetailsRoot', { screen: 'LnurlNavigationForwarder', params: { lnurl: value, walletID } });
     }
 
     DeeplinkSchemaMatch.navigationRouteFor({ url: value }, completionValue => {
@@ -163,7 +163,7 @@ const WalletHome = ({ navigation }) => {
   };
 
   const sendButtonPress = () => {
-    return navigate('ScanCodeSendRoot', { screen: 'ScanCodeSend' });
+    return navigate('ScanCodeSendRoot', { screen: 'ScanCodeSend', params: { walletID } });
   };
 
   const sendButtonLongPress = async () => {
