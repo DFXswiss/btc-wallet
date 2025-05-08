@@ -44,7 +44,7 @@ const currency = require('../../blue_modules/currency');
 
 const ReceiveDetails = () => {
   const { walletID, address } = useRoute().params;
-  const { wallets, saveToDisk, sleep, isElectrumDisabled, fetchAndSaveWalletTransactions, revalidateBalancesInterval} = useContext(BlueStorageContext);
+  const { wallets, saveToDisk, sleep, isElectrumDisabled, refreshAllWalletTransactions, revalidateBalancesInterval} = useContext(BlueStorageContext);
   const wallet = wallets.find(w => w.getID() === walletID);
   const [customLabel, setCustomLabel] = useState('');
   const [bip21encoded, setBip21encoded] = useState();
@@ -182,7 +182,7 @@ const ReceiveDetails = () => {
               }),
             );
 
-            fetchAndSaveWalletTransactions(walletID);
+            refreshAllWalletTransactions();
           } else {
             // rare case, but probable. transaction evicted from mempool (maybe cancelled by the sender)
             setShowConfirmedBalance(false);
@@ -194,7 +194,7 @@ const ReceiveDetails = () => {
         console.log(error);
       }
     }, intervalMs);
-  }, [bip21encoded, address, initialConfirmed, initialUnconfirmed, intervalMs, fetchAndSaveWalletTransactions, walletID]);
+  }, [bip21encoded, address, initialConfirmed, initialUnconfirmed, intervalMs, refreshAllWalletTransactions, walletID]);
 
   const renderConfirmedBalance = () => {
     return (
