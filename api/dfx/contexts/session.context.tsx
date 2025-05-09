@@ -137,6 +137,12 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
   async function resetAccessToken(walletId: string) {
     updateSession(walletId);
   }
+  
+  async function refreshAccessToken(walletId: string) {
+    resetAccessToken(walletId);
+    const session = await getAccessToken(walletId);
+    updateSession(walletId, session);
+  }
 
   async function connect(walletIds: string[]): Promise<void> {
     await Promise.all(walletIds.map(id => getAccessToken(id)))
@@ -151,6 +157,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
   async function openServices(walletId: string, balance: string, service: DfxService): Promise<void> {
     if (!isAvailable) return;
 
+    await refreshAccessToken(walletId);
     const token = encodeURIComponent(await getAccessToken(walletId));
     const lang = getAppLanguage();
     const redirectUri = encodeURIComponent(`dfxtaro://?wallet-id=${walletId}`);
