@@ -17,7 +17,7 @@ import loc from '../../loc';
 import { MultisigHDWallet } from '../../class/wallets/multisig-hd-wallet';
 
 const ScanCodeSend: React.FC = () => {
-  const { wallets } = useContext(BlueStorageContext);
+  const { wallets, revalidateBalancesInterval } = useContext(BlueStorageContext);
   const { wallet: mainWallet } = useWalletContext();
   const multisigWallet = wallets.find(w => w.type === MultisigHDWallet.type);
   const { params } = useRoute();
@@ -74,7 +74,7 @@ const ScanCodeSend: React.FC = () => {
       delayedNavigationFunction(() => replace(...route));
     } else if (DeeplinkSchemaMatch.isLnUrl(destinationString)) {
       delayedNavigationFunction(() =>
-        replace('SendDetailsRoot', { screen: 'LnurlNavigationForwarder', params: { lnurl: destinationString } }),
+        replace('SendDetailsRoot', { screen: 'LnurlNavigationForwarder', params: { lnurl: destinationString, walletID: params?.walletID } }),
       );
     } else if (
       DeeplinkSchemaMatch.isPossiblyLightningDestination(destinationString) ||
@@ -102,6 +102,10 @@ const ScanCodeSend: React.FC = () => {
         </TouchableOpacity>
       ),
     });
+  }, []);
+
+  useEffect(() => {
+    revalidateBalancesInterval();
   }, []);
 
   const readFromClipboard = async () => {

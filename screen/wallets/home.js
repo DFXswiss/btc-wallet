@@ -15,7 +15,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { Icon } from 'react-native-elements';
-import { useRoute, useNavigation, useTheme } from '@react-navigation/native';
+import { useRoute, useNavigation, useTheme, useIsFocused } from '@react-navigation/native';
 import * as bitcoin from 'bitcoinjs-lib';
 import { BlueListItem, SecondButton } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
@@ -47,7 +47,7 @@ const dummyTaroWallets = [
 ];
 
 const WalletHome = ({ navigation }) => {
-  const { wallets, saveToDisk, setSelectedWallet, ldsDEV } = useContext(BlueStorageContext);
+  const { wallets, saveToDisk, setSelectedWallet, ldsDEV, revalidateBalancesInterval } = useContext(BlueStorageContext);
   const walletID = useMemo(() => wallets[0]?.getID(), [wallets]);
   const multisigWallet = useMemo(() => wallets.find(w => w.type === MultisigHDWallet.type), [wallets]);
   const lnWallet = useMemo(() => wallets.find(w => w.type === LightningLdsWallet.type), [wallets]);
@@ -57,6 +57,7 @@ const WalletHome = ({ navigation }) => {
   const { colors, scanImage } = useTheme();
   const walletActionButtonsRef = useRef();
   const { width } = useWindowDimensions();
+  const isFocused = useIsFocused();
 
   const wallet = useMemo(() => wallets.find(w => w.getID() === walletID), [wallets, walletID]);
   const totalWallet = useMemo(() => {
@@ -86,6 +87,12 @@ const WalletHome = ({ navigation }) => {
     setSelectedWallet(wallet.getID());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletID]);
+
+  useEffect(() => {
+    if (isFocused) {
+      revalidateBalancesInterval();
+    }
+  }, [isFocused]);
 
   useEffect(() => {
     const newWallet = wallets.find(w => w.getID() === walletID);
@@ -138,7 +145,7 @@ const WalletHome = ({ navigation }) => {
     }
 
     if(DeeplinkSchemaMatch.isLnUrl(value)) {
-      return navigate('SendDetailsRoot', { screen: 'LnurlNavigationForwarder', params: { lnurl: value } });
+      return navigate('SendDetailsRoot', { screen: 'LnurlNavigationForwarder', params: { lnurl: value, walletID } });
     }
 
     DeeplinkSchemaMatch.navigationRouteFor({ url: value }, completionValue => {
@@ -156,7 +163,7 @@ const WalletHome = ({ navigation }) => {
   };
 
   const sendButtonPress = () => {
-    return navigate('ScanCodeSendRoot', { screen: 'ScanCodeSend' });
+    return navigate('ScanCodeSendRoot', { screen: 'ScanCodeSend', params: { walletID } });
   };
 
   const sendButtonLongPress = async () => {

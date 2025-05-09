@@ -48,10 +48,11 @@ const LnurlNavigationForwarder = () => {
 
     const { query } = parse(url, true);
 
+    const isOffchain = wallets.find((w: any) => w.getID() === params?.walletID)?.chain === Chain.OFFCHAIN;
     if (query.tag === Lnurl.TAG_LOGIN_REQUEST) {
-      return navigation.replace('LnurlAuth', {
+      return navigation.navigate('LnurlAuth', {
         lnurl,
-        walletID: params?.walletID,
+        walletID: isOffchain ? params?.walletID : undefined,
       });
     }
 
@@ -70,11 +71,11 @@ const LnurlNavigationForwarder = () => {
           walletID: walletId,
         });
       }
-
+      
       if (reply.tag === Lnurl.TAG_PAY_REQUEST) {
         return navigation.replace('ScanLndInvoice', {
           uri: lnurl,
-          walletID: params?.walletID,
+          walletID: isOffchain ? params?.walletID : undefined,
         });
       }
 
@@ -83,7 +84,7 @@ const LnurlNavigationForwarder = () => {
           screen: 'LNDCreateInvoice',
           params: {
             uri: lnurl,
-            walletID: params?.walletID,
+            walletID: isOffchain ? params?.walletID : undefined,
           },
         });
       }

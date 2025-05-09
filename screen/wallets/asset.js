@@ -58,7 +58,6 @@ import BoltCard from '../../class/boltcard';
 import scanqrHelper from '../../helpers/scan-qr';
 
 const fs = require('../../blue_modules/fs');
-const BlueElectrum = require('../../blue_modules/BlueElectrum');
 const currency = require('../../blue_modules/currency');
 
 const buttonFontSize =
@@ -74,6 +73,7 @@ const Asset = ({ navigation }) => {
     walletTransactionUpdateStatus,
     isDfxPos,
     isDfxSwap,
+    revalidateBalancesInterval,
   } = useContext(BlueStorageContext);
   const { name, params } = useRoute();
   const walletID = params.walletID;
@@ -168,6 +168,7 @@ const Asset = ({ navigation }) => {
 
   useEffect(() => {
     setElapsedTimeInterval();
+    revalidateBalancesInterval();
     return () => {
       clearElapsedTimeInterval();
     };

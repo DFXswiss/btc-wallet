@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { Component, useContext } from 'react';
 import PropTypes from 'prop-types';
 import {
   Alert,
@@ -40,7 +40,7 @@ import alert from '../../components/Alert';
 
 const BlueElectrum = require('../../blue_modules/BlueElectrum');
 
-export default class ElectrumSettings extends Component {
+class ElectrumSettings extends Component {
   static contextType = BlueStorageContext;
   constructor(props) {
     super(props);
@@ -300,6 +300,9 @@ export default class ElectrumSettings extends Component {
           <BlueText style={styles.hostname} onPress={this.checkServer}>
             {this.state.config.host}:{this.state.config.port}
           </BlueText>
+          <BlueText style={styles.hostname}>
+            Last Connection: {this.props.lastConnectionSuccess ? new Date(this.props.lastConnectionSuccess).toLocaleString() : ''}
+          </BlueText>
         </BlueCard>
         <KeyboardAvoidingView>
           <BlueCard>
@@ -460,9 +463,15 @@ ElectrumSettings.propTypes = {
       server: PropTypes.string,
     }),
   }),
+  lastConnectionSuccess: PropTypes.number,
 };
 
-ElectrumSettings.navigationOptions = navigationStyle({}, opts => ({ ...opts, title: loc.settings.electrum_settings_server }));
+export default ElectrumSettingsWrapper = (props) => {
+  const { lastSuccessfulBalanceRefresh } = useContext(BlueStorageContext);
+  return <ElectrumSettings {...props} lastConnectionSuccess={lastSuccessfulBalanceRefresh} />
+}
+
+ElectrumSettingsWrapper.navigationOptions = navigationStyle({}, opts => ({ ...opts, title: loc.settings.electrum_settings_server }));
 
 const styles = StyleSheet.create({
   status: {

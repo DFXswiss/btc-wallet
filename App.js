@@ -34,8 +34,9 @@ import WidgetCommunication from './blue_modules/WidgetCommunication';
 import changeNavigationBarColor from 'react-native-navigation-bar-color';
 import HandoffComponent from './components/handoff';
 import Privacy from './blue_modules/Privacy';
-const A = require('./blue_modules/analytics');
+import { addEventListener } from '@react-native-community/netinfo';
 const currency = require('./blue_modules/currency');
+const BlueElectrum = require('./blue_modules/BlueElectrum');
 
 const eventEmitter = Platform.OS === 'ios' ? new NativeEventEmitter(NativeModules.EventEmitter) : undefined;
 const { EventEmitter } = NativeModules;
@@ -49,10 +50,17 @@ if (Platform.OS === 'android') {
 }
 
 const App = () => {
-  const { walletsInitialized, wallets, addWallet, saveToDisk, fetchAndSaveWalletTransactions, refreshAllWalletTransactions } =
-    useContext(BlueStorageContext);
+  const {
+    walletsInitialized,
+    wallets,
+    addWallet,
+    saveToDisk,
+    fetchAndSaveWalletTransactions,
+    refreshAllWalletTransactions,
+    setBalanceRefreshInterval,
+    clearBalanceRefreshInterval,
+  } = useContext(BlueStorageContext);
   const appState = useRef(AppState.currentState);
-  const balanceRefreshInterval = useRef(null);
   const colorScheme = useColorScheme();
 
   const onNotificationReceived = async notification => {
@@ -272,25 +280,19 @@ const App = () => {
     return false;
   };
 
-  const clearBalanceRefreshInterval = () => {
-    if (balanceRefreshInterval.current) {
-      clearInterval(balanceRefreshInterval.current);
-      balanceRefreshInterval.current = null;
-    }
-  };
+  useEffect(() => {
+    const unsubscribe = addEventListener(state => {
+      BlueElectrum.setNetworkConnected(state.isConnected);
+    });
 
-  const setBalanceRefreshInterval = () => {
-    if (!wallets) return;
-    clearBalanceRefreshInterval();
-    refreshAllWalletTransactions().catch(console.error);
-    balanceRefreshInterval.current = setInterval(() => {
-      refreshAllWalletTransactions().catch(console.error);
-    }, 20 * 1000);
-  };
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   const handleAppStateChange = async nextAppState => {
     if (wallets.length === 0) return;
-    if ((appState.current.match(/background/) && nextAppState === 'active') || nextAppState === undefined) {
+    if ((appState.current.match(/inactive|background/) && nextAppState === 'active') || nextAppState === undefined) {
       currency.updateExchangeRate();
       setBalanceRefreshInterval();
       const processed = await processPushNotifications();

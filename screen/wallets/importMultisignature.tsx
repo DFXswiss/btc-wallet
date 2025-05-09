@@ -48,12 +48,14 @@ const ImportMultisignature: React.FC = () => {
 
       const derivationPath = multisigWallet.getDerivationPath();
       const ownXpub = multisigWallet.convertXpubToMultisignatureXpub(MultisigHDWallet.seedToXpub(mainWallet?.getSecret(), derivationPath));
-      const isPartOfMultisig = multisigWallet.getCosigners().some(cosigner => cosigner === ownXpub || cosigner === mainWallet?.getSecret());
+      const ownZpub = MultisigHDWallet.xpubToZpub(ownXpub);
+      const ownXpubFromZpub = MultisigHDWallet.zpubToXpub(ownZpub);
+      const isPartOfMultisig = multisigWallet.getCosigners().some(cosigner => cosigner === ownXpub || cosigner === ownZpub || cosigner === ownXpubFromZpub || cosigner === mainWallet?.getSecret());
       if (!isPartOfMultisig) throw new Error(loc.multisig.not_part_of_multisig);
 
       multisigWallet.getCosigners().forEach((cosigner, index) => {
         if (cosigner === mainWallet?.getSecret()) return;
-        if (cosigner === ownXpub) return multisigWallet.replaceCosignerXpubWithSeed(index + 1, mainWallet?.getSecret() as string, '');
+        if (cosigner === ownXpub || cosigner === ownZpub || cosigner === ownXpubFromZpub) return multisigWallet.replaceCosignerXpubWithSeed(index + 1, mainWallet?.getSecret() as string, '');
         if (MultisigHDWallet.isXpubForMultisig(cosigner)) return;
         // Then it should be a seed? try to replace it
         multisigWallet.replaceCosignerSeedWithXpub(index + 1);

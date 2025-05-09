@@ -377,6 +377,18 @@ export class MultisigHDWallet extends AbstractHDElectrumWallet {
     return ['xprv', 'yprv', 'zprv', 'Yprv', 'Zprv'].includes(xpub.substring(0, 4));
   }
 
+  static xpubToZpub(xpub) {
+    let data = b58.decode(xpub);
+    data = data.slice(4);
+    return b58.encode(Buffer.concat([Buffer.from('02aa7ed3', 'hex'), data]));
+  }
+
+  static zpubToXpub(zpub) {
+    let data = b58.decode(zpub);
+    data = data.slice(4);
+    return b58.encode(Buffer.concat([Buffer.from('0488b21e', 'hex'), data]));
+  }
+
   /**
    * Converts fingerprint that is stored as a deciman number to hex string (all caps)
    *

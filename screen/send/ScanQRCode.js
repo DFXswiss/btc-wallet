@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { Image, View, TouchableOpacity, StatusBar, Platform, StyleSheet, TextInput, Alert, PermissionsAndroid } from 'react-native';
 import { CameraScreen } from 'react-native-camera-kit';
 import { Icon, Text } from 'react-native-elements';
@@ -13,6 +13,7 @@ import { useNtag424 } from '../../api/boltcards/hooks/ntag424.hook';
 import useLdsBoltcards from '../../api/boltcards/hooks/bolcards.hook';
 
 import RNQRGenerator from 'rn-qr-generator';
+import { BlueStorageContext } from '../../blue_modules/storage-context';
 const createHash = require('create-hash');
 const fs = require('../../blue_modules/fs');
 const Base43 = require('../../blue_modules/base43');
@@ -118,6 +119,7 @@ const ScanQRCode = () => {
   const [holdCardModalVisible, setHoldCardModalVisible] = useState(false);
   const { startNfcSession, authCard, readCard, stopNfcSession } = useNtag424({ manualSessionControl: true });
   const { genFreshCardDetails } = useLdsBoltcards();
+  const { revalidateBalancesInterval } = useContext(BlueStorageContext);
 
   const stylesHook = StyleSheet.create({
     openSettingsContainer: {
@@ -160,6 +162,10 @@ const ScanQRCode = () => {
     return () => {
       stopNfcSession();
     };
+  }, []);
+
+  useEffect(() => {
+    revalidateBalancesInterval();
   }, []);
 
   const HashIt = function (s) {

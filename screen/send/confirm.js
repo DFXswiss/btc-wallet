@@ -23,7 +23,7 @@ const bitcoin = require('bitcoinjs-lib');
 const torrific = require('../../blue_modules/torrific');
 
 const Confirm = () => {
-  const { wallets, fetchAndSaveWalletTransactions, isElectrumDisabled, isTorDisabled } = useContext(BlueStorageContext);
+  const { wallets, refreshAllWalletTransactions, isElectrumDisabled, isTorDisabled } = useContext(BlueStorageContext);
   const [isBiometricUseCapableAndEnabled, setIsBiometricUseCapableAndEnabled] = useState(false);
   const { params } = useRoute();
   const { recipients = [], walletID, fee, memo, tx, satoshiPerByte, psbt } = params;
@@ -177,7 +177,7 @@ const Confirm = () => {
       setIsLoading(false);
 
       await new Promise(resolve => setTimeout(resolve, 3000)); // sleep to make sure network propagates
-      fetchAndSaveWalletTransactions(walletID);
+      refreshAllWalletTransactions();
     } catch (error) {
       ReactNativeHapticFeedback.trigger('notificationError', {
         ignoreAndroidSystemSettings: false,
