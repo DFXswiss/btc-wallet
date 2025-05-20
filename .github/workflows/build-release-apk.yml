@@ -3,11 +3,11 @@ name: BuildReleaseApk
 on:
   push:
     tags:
-      - 'v*'  # This triggers the workflow on any tag starting with 'v'
-  
+      - 'v*' # This triggers the workflow on any tag starting with 'v'
 
 jobs:
   buildReleaseApk:
+    name: Build release APK/AAB
     runs-on: macos-latest
 
     permissions:
@@ -16,9 +16,9 @@ jobs:
 
     steps:
       - name: Checkout project
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
-          fetch-depth: "0"
+          fetch-depth: '0'
 
       - name: Specify node version
         uses: actions/setup-node@v4
@@ -26,14 +26,15 @@ jobs:
           node-version: 20
 
       - name: Use npm caches
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: ~/.npm
           key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-npm-
+
       - name: Use specific Java version for sdkmanager to work
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -42,17 +43,19 @@ jobs:
       - name: Install node_modules
         run: npm install --production
 
-      - name: Extract Version Name
+      - name: Extract version name
         id: version_name
         run: |
           VERSION_NAME=$(grep versionName android/app/build.gradle | awk '{print $2}' | tr -d '"')
           echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
           echo "::set-output name=version_name::$VERSION_NAME"
-      - name: Generate Build Number based on timestamp
+
+      - name: Generate build number based on timestamp
         run: |
           NEW_BUILD_NUMBER=$(date +%s)
           echo "NEW_BUILD_NUMBER=$NEW_BUILD_NUMBER" >> $GITHUB_ENV
           echo "::set-output name=build_number::$NEW_BUILD_NUMBER"
+
       - name: Build
         env:
           KEYSTORE_FILE_HEX: ${{ secrets.KEYSTORE_FILE_HEX }}
@@ -70,14 +73,15 @@ jobs:
           path: ./android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
 
-      - uses: cardinalby/git-get-release-action@v1
+      - name: Get release by tag
+        uses: cardinalby/git-get-release-action@v1
         id: get_release
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
-          tag: ${{ github.ref_name }}   
+          tag: ${{ github.ref_name }}
 
-      - name: Upload artifact
+      - name: Upload APK to release
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -87,7 +91,7 @@ jobs:
           asset_name: DFX-Btc-Wallet-${{ github.ref_name }}.apk
           asset_content_type: application/vnd.android.package-archive
 
-      - name: Upload artifact
+      - name: Upload signature to release
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -97,7 +101,7 @@ jobs:
           asset_name: DFX-Btc-Wallet-${{ github.ref_name }}.apk.idsig
           asset_content_type: application/octet-stream
 
-      - name: Upload artifact
+      - name: Upload AAB to release
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
