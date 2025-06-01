@@ -69,7 +69,8 @@
     "title": "Manage Funds",
     "next": "Next",
     "lnurl_loader_title": "Loading Lnurl",
-    "lnurl_loader_text": "Decoding the data in LNURL"
+    "lnurl_loader_text": "Decoding the data in LNURL",
+    "lnurl_loader_text_onchain": "Building the transaction"
   },
   "lndViewInvoice": {
     "additional_info": "Additional Information",

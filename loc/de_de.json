@@ -69,7 +69,8 @@
     "error_balance_for_insuficient_fee": "Das verbleibende Guthaben reicht nicht aus, um die Gebühren zu decken; erwäge, den Höchstbetrag zu senden oder den Betrag zu reduzieren.",
     "next": "Weiter",
     "lnurl_loader_title": "Lnurl laden",
-    "lnurl_loader_text": "LNURL-Daten decodieren"
+    "lnurl_loader_text": "LNURL-Daten decodieren",
+    "lnurl_loader_text_onchain": "Transaktion erstellen"
   },
   "lndViewInvoice": {
     "additional_info": "Weiterführende Informationen",
