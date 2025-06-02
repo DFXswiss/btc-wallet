@@ -29,7 +29,8 @@
     "qr_custom_input_button": "Tocca 10 volte per inserire un input personalizzato",
     "add": "Aggiungi",
     "repeat": "Ripetere",
-    "loading": "Caricamento"
+    "loading": "Caricamento",
+    "skip": "Salta per ora"
   },
   "alert": {
     "default": "Avviso"
@@ -69,7 +70,8 @@
     "error_balance_for_insuficient_fee": "Il saldo residuo è insufficiente a coprire le spese, considerare l'invio del massimo o la riduzione dell'importo.",
     "next": "Avanti",
     "lnurl_loader_title": "Caricamento Lnurl",
-    "lnurl_loader_text": "Decodifica i dati in LNURL"
+    "lnurl_loader_text": "Decodifica i dati in LNURL",
+    "lnurl_loader_text_onchain": "Creazione della transazione"
   },
   "lndViewInvoice": {
     "additional_info": "Ulteriori Informazioni",

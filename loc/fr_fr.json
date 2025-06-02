@@ -29,7 +29,8 @@
     "more": "Plus d'informations",
     "pick_image": "Choisir une image dans la bibliothèque",
     "qr_custom_input_button": "Tapez 10 fois pour entrer des données personnalisées",
-    "loading": "Chargement"
+    "loading": "Chargement",
+    "skip": "Passer pour l'instant"
   },
   "alert": {
     "default": "Alerte"
@@ -69,7 +70,8 @@
     "error_balance_for_insuficient_fee": "Le solde restant est insuffisant pour couvrir les frais, envisagez d'envoyer le maximum ou de réduire le montant.",
     "next": "Suivant",
     "lnurl_loader_title": "Chargement Lnurl",
-    "lnurl_loader_text": "Décodage des données dans LNURL"
+    "lnurl_loader_text": "Décodage des données dans LNURL",
+    "lnurl_loader_text_onchain": "Création de la transaction"
   },
   "lndViewInvoice": {
     "additional_info": "Informations complémentaires",

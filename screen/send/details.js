@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   LayoutAnimation,
   Platform,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -21,7 +22,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import BigNumber from 'bignumber.js';
 
-import { BlueButton, BlueDismissKeyboardInputAccessory, BlueLoading, BlueSpacing40, BlueText, BlueWalletSelect } from '../../BlueComponents';
+import {
+  BlueButton,
+  BlueDismissKeyboardInputAccessory,
+  BlueLoading,
+  BlueSpacing40,
+  BlueText,
+  BlueWalletSelect,
+} from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
 import NetworkTransactionFees, { NetworkTransactionFee } from '../../models/networkTransactionFees';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
@@ -552,7 +560,7 @@ const SendDetails = () => {
         memo: transactionMemo,
         psbtBase64: psbt.toBase64(),
         walletID: wallet.getID(),
-        launchedBy: routeParams.launchedBy
+        launchedBy: routeParams.launchedBy,
       });
       setIsLoading(false);
       return;
@@ -889,79 +897,85 @@ const SendDetails = () => {
   }
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <View style={[styles.root, stylesHook.root]} onLayout={e => setWidth(e.nativeEvent.layout.width)}>
-        <StatusBar barStyle="light-content" />
-        <View>
-          <KeyboardAvoidingView enabled={!Platform.isPad} behavior="position" keyboardVerticalOffset={80}>
-            <FlatList
-              keyboardShouldPersistTaps="always"
-              scrollEnabled={addresses.length > 1}
-              data={addresses}
-              renderItem={renderBitcoinTransactionInfoFields}
-              ref={scrollView}
-              horizontal
-              pagingEnabled
-              removeClippedSubviews={false}
-              onMomentumScrollBegin={Keyboard.dismiss}
-              onMomentumScrollEnd={handleRecipientsScrollEnds}
-              onScroll={handleRecipientsScroll}
-              scrollEventThrottle={200}
-              scrollIndicatorInsets={styles.scrollViewIndicator}
-              contentContainerStyle={styles.scrollViewContent}
-            />
-            <BlueText style={styles.label}>From your wallet:</BlueText>
-            {suitableWallets.length === 1 ? (
-              <BlueText style={styles.staticField}>{wallet.getLabel()}</BlueText>
-            ) : (
-              <View style={styles.pickerContainer}>
-                <BlueWalletSelect wallets={suitableWallets} value={wallet?.getID()} onChange={onWalletChange} />
-              </View>
-            )}
-            <BlueText style={styles.label}>Note</BlueText>
-            <View style={[styles.memo, stylesHook.memo]}>
-              <TextInput
-                onChangeText={setTransactionMemo}
-                value={transactionMemo}
-                numberOfLines={1}
-                style={styles.memoText}
-                editable={!isLoading}
-                onSubmitEditing={Keyboard.dismiss}
-                inputAccessoryViewID={BlueDismissKeyboardInputAccessory.InputAccessoryViewID}
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.select({ ios: 'padding', android: 'height' })}
+      keyboardVerticalOffset={Platform.select({ ios: 60, android: 30 })}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View style={[styles.root, stylesHook.root]} onLayout={e => setWidth(e.nativeEvent.layout.width)}>
+            <StatusBar barStyle="light-content" />
+            <View>
+              <FlatList
+                keyboardShouldPersistTaps="always"
+                scrollEnabled={addresses.length > 1}
+                data={addresses}
+                renderItem={renderBitcoinTransactionInfoFields}
+                ref={scrollView}
+                horizontal
+                pagingEnabled
+                removeClippedSubviews={false}
+                onMomentumScrollBegin={Keyboard.dismiss}
+                onMomentumScrollEnd={handleRecipientsScrollEnds}
+                onScroll={handleRecipientsScroll}
+                scrollEventThrottle={200}
+                scrollIndicatorInsets={styles.scrollViewIndicator}
+                contentContainerStyle={styles.scrollViewContent}
               />
-            </View>
-            <TouchableOpacity
-              testID="chooseFee"
-              accessibilityRole="button"
-              onPress={() => setIsFeeSelectionModalVisible(true)}
-              disabled={isLoading}
-              style={styles.fee}
-            >
-              <Text style={[styles.feeLabel, stylesHook.feeLabel]}>{loc.send.create_fee}</Text>
-
-              {networkTransactionFeesIsLoading ? (
-                <ActivityIndicator />
+              <BlueText style={styles.label}>From your wallet:</BlueText>
+              {suitableWallets.length === 1 ? (
+                <BlueText style={styles.staticField}>{wallet.getLabel()}</BlueText>
               ) : (
-                <View style={[styles.feeRow, stylesHook.feeRow]}>
-                  <Text style={stylesHook.feeValue}>
-                    {feePrecalc.current ? formatFee(feePrecalc.current) : feeRate + ' ' + loc.units.sat_vbyte}
-                  </Text>
+                <View style={styles.pickerContainer}>
+                  <BlueWalletSelect wallets={suitableWallets} value={wallet?.getID()} onChange={onWalletChange} />
                 </View>
               )}
-            </TouchableOpacity>
-            {renderFeeSelectionModal()}
-          </KeyboardAvoidingView>
-        </View>
-        {renderCreateButton()}
-        <BlueDismissKeyboardInputAccessory />
-        {Platform.select({
-          ios: <InputAccessoryAllFunds canUseAll={balance > 0} onUseAllPressed={onUseAllPressed} balance={allBalance} />,
-          android: isAmountToolbarVisibleForAndroid && (
-            <InputAccessoryAllFunds canUseAll={balance > 0} onUseAllPressed={onUseAllPressed} balance={allBalance} />
-          ),
-        })}
-      </View>
-    </TouchableWithoutFeedback>
+              <BlueText style={styles.label}>Note</BlueText>
+              <View style={[styles.memo, stylesHook.memo]}>
+                <TextInput
+                  onChangeText={setTransactionMemo}
+                  value={transactionMemo}
+                  numberOfLines={1}
+                  style={styles.memoText}
+                  editable={!isLoading}
+                  onSubmitEditing={Keyboard.dismiss}
+                  inputAccessoryViewID={BlueDismissKeyboardInputAccessory.InputAccessoryViewID}
+                />
+              </View>
+              <TouchableOpacity
+                testID="chooseFee"
+                accessibilityRole="button"
+                onPress={() => setIsFeeSelectionModalVisible(true)}
+                disabled={isLoading}
+                style={styles.fee}
+              >
+                <Text style={[styles.feeLabel, stylesHook.feeLabel]}>{loc.send.create_fee}</Text>
+
+                {networkTransactionFeesIsLoading ? (
+                  <ActivityIndicator />
+                ) : (
+                  <View style={[styles.feeRow, stylesHook.feeRow]}>
+                    <Text style={stylesHook.feeValue}>
+                      {feePrecalc.current ? formatFee(feePrecalc.current) : feeRate + ' ' + loc.units.sat_vbyte}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+              {renderFeeSelectionModal()}
+            </View>
+            {renderCreateButton()}
+            <BlueDismissKeyboardInputAccessory />
+            {Platform.select({
+              ios: <InputAccessoryAllFunds canUseAll={balance > 0} onUseAllPressed={onUseAllPressed} balance={allBalance} />,
+              android: isAmountToolbarVisibleForAndroid && (
+                <InputAccessoryAllFunds canUseAll={balance > 0} onUseAllPressed={onUseAllPressed} balance={allBalance} />
+              ),
+            })}
+          </View>
+        </TouchableWithoutFeedback>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -993,6 +1007,13 @@ SendDetails.actionIcons = {
 };
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
   loading: {
     flex: 1,
     paddingTop: 20,
@@ -1100,7 +1121,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: 8,
   },
-  pickerContainer: { 
+  pickerContainer: {
     marginHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 12,
@@ -1114,7 +1135,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 12,
     color: '#818181',
-    fontSize: 16
+    fontSize: 16,
   },
 });
 

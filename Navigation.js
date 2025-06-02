@@ -100,7 +100,6 @@ import ScanCodeSend from './screen/send/ScanCodeSend';
 import ManualAddressSend from './screen/send/ManualAddressSend';
 import ImportMultisignature from './screen/wallets/importMultisignature';
 import LnurlNavigationForwarder from './screen/lnd/lnurlNavigationForwarder';
-import OpenCryptoPaySend from './screen/open-crypto-pay/openCryptoPaySend';
 import OpenCryptoPayCommitOnchain from './screen/open-crypto-pay/openCrytoPayCommitOnchain';
 
 const WalletsStack = createNativeStackNavigator();
@@ -278,7 +277,6 @@ const SendDetailsRoot = () => {
       <SendDetailsStack.Screen name="LnurlPay" component={LnurlPay} options={LnurlPay.navigationOptions(theme)} />
       <SendDetailsStack.Screen name="LnurlPaySuccess" component={LnurlPaySuccess} options={LnurlPaySuccess.navigationOptions(theme)} />
       <SendDetailsStack.Screen name="LnurlNavigationForwarder" component={LnurlNavigationForwarder} options={LnurlNavigationForwarder.navigationOptions(theme)} />
-      <SendDetailsStack.Screen name="OpenCryptoPaySend" component={OpenCryptoPaySend} options={OpenCryptoPaySend.navigationOptions(theme)} />
       <SendDetailsStack.Screen name="OpenCryptoPayCommitOnchain" component={OpenCryptoPayCommitOnchain} options={OpenCryptoPayCommitOnchain.navigationOptions(theme)} />
     </SendDetailsStack.Navigator>
   );

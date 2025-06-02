@@ -29,7 +29,8 @@
     "qr_custom_input_button": "Tap 10 times to enter custom input",
     "add": "Add",
     "repeat": "Repeat",
-    "loading": "Loading"
+    "loading": "Loading",
+    "skip": "Skip for now"
   },
   "alert": {
     "default": "Alert"
@@ -69,7 +70,8 @@
     "title": "Manage Funds",
     "next": "Next",
     "lnurl_loader_title": "Loading Lnurl",
-    "lnurl_loader_text": "Decoding the data in LNURL"
+    "lnurl_loader_text": "Decoding the data in LNURL",
+    "lnurl_loader_text_onchain": "Building the transaction"
   },
   "lndViewInvoice": {
     "additional_info": "Additional Information",

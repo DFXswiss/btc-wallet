@@ -27,7 +27,6 @@ import Config from 'react-native-config';
 import { useAuth } from '../../api/dfx/hooks/auth.hook';
 const BlueApp = require('../../BlueApp');
 const AppStorage = BlueApp.AppStorage;
-const A = require('../../blue_modules/analytics');
 
 const ButtonSelected = Object.freeze({
   ONCHAIN: Chain.ONCHAIN,
@@ -123,9 +122,16 @@ const WalletsAdd = () => {
     w.addressOwnershipProof = await w.signMessage(message, mainAddress);
     addWallet(w);
     await saveToDisk();
-    A(A.ENUM.CREATED_WALLET);
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
-    dispatch(StackActions.replace('Navigation'));
+    dispatch(
+      StackActions.replace('WalletsRoot', {
+        screen: 'AddLightning',
+        params: {
+          walletID: w.getID(),
+          isOnboarding: true,
+        },
+      }),
+    );
   };
 
   const navigateToEntropy = () => {
@@ -216,7 +222,7 @@ const WalletsAdd = () => {
       </View>
       <View style={styles.buttonContainer}>
         <View style={styles.createButton}>
-          {!isLoading ? <BlueButton testID="Create" title={loc.wallets.add_create} onPress={createWallet} /> : <ActivityIndicator />}
+          <BlueButton testID="Create" title={loc.wallets.add_create} onPress={createWallet} isLoading={isLoading}/> 
         </View>
         {!isLoading && (
           <BlueButtonLink
