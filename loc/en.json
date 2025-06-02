@@ -29,7 +29,8 @@
     "qr_custom_input_button": "Tap 10 times to enter custom input",
     "add": "Add",
     "repeat": "Repeat",
-    "loading": "Loading"
+    "loading": "Loading",
+    "skip": "Skip for now"
   },
   "alert": {
     "default": "Alert"

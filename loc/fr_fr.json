@@ -29,7 +29,8 @@
     "more": "Plus d'informations",
     "pick_image": "Choisir une image dans la bibliothèque",
     "qr_custom_input_button": "Tapez 10 fois pour entrer des données personnalisées",
-    "loading": "Chargement"
+    "loading": "Chargement",
+    "skip": "Passer pour l'instant"
   },
   "alert": {
     "default": "Alerte"

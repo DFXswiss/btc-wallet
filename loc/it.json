@@ -29,7 +29,8 @@
     "qr_custom_input_button": "Tocca 10 volte per inserire un input personalizzato",
     "add": "Aggiungi",
     "repeat": "Ripetere",
-    "loading": "Caricamento"
+    "loading": "Caricamento",
+    "skip": "Salta per ora"
   },
   "alert": {
     "default": "Avviso"

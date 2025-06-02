@@ -29,7 +29,8 @@
     "qr_custom_input_button": "10x antippen für individuelle Eingabe",
     "add": "Hinzufügen",
     "repeat": "Wiederholen",
-    "loading": "Laden"
+    "loading": "Laden",
+    "skip": "Jetzt überspringen"
   },
   "alert": {
     "default": "Warnung"

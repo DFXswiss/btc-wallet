@@ -25,7 +25,7 @@ import Lnurl from '../../../class/lnurl';
 import { AssetDetails, TaprootLdsWallet, TaprootLdsWalletType } from '../../../class/wallets/taproot-lds-wallet';
 
 const AddLightning = () => {
-  const { asset = TaprootLdsWalletType.BTC } = useRoute().params as { asset: TaprootLdsWalletType };
+  const { asset = TaprootLdsWalletType.BTC, isOnboarding = false } = useRoute().params as { asset: TaprootLdsWalletType; isOnboarding: boolean };
   const { navigate } = useNavigation();
   const { address, signMessage } = useWalletContext();
   const { getUser } = useLds();
@@ -46,17 +46,19 @@ const AddLightning = () => {
 
   const onCreate = () => {
     setIsLoading(true);
-    create()
-      .catch(e =>
-        Alert.alert('Something went wrong', e.message?.toString(), [
-          {
-            text: loc._.ok,
-            onPress: () => {},
-            style: 'default',
-          },
-        ]),
-      )
-      .finally(() => setIsLoading(false));
+    setTimeout(() => {
+      create()
+        .catch(e =>
+          Alert.alert('Something went wrong', e.message?.toString(), [
+            {
+              text: loc._.ok,
+              onPress: () => {},
+              style: 'default',
+            },
+          ]),
+        )
+        .finally(() => setIsLoading(false));
+    }, 0);
   };
 
   const create = async () => {
@@ -207,7 +209,7 @@ const AddLightning = () => {
           <BlueButton title={loc._.continue} onPress={onCreate} disabled={(useCustom && !dataValid) || useDFXswiss} isLoading={isLoading} />
           <BlueSpacing20 />
           {/* @ts-ignore component in JS */}
-          <SecondButton title={loc._.cancel} onPress={onBack} />
+          <SecondButton title={isOnboarding ? loc._.skip : loc._.cancel} onPress={onBack} />
         </View>
       </ScrollView>
     </SafeBlueArea>
