@@ -33,6 +33,7 @@ import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import BoltCard from '../../class/boltcard';
 import { TaprootLdsWallet, TaprootLdsWalletType } from '../../class/wallets/taproot-lds-wallet';
 import scanqrHelper from '../../helpers/scan-qr';
+import DfxServicesButtons from '../../components/DfxServicesButtons';
 
 const fs = require('../../blue_modules/fs');
 
@@ -40,11 +41,6 @@ const buttonFontSize =
   PixelRatio.roundToNearestPixel(Dimensions.get('window').width / 26) > 22
     ? 22
     : PixelRatio.roundToNearestPixel(Dimensions.get('window').width / 26);
-
-const dummyTaroWallets = [
-  { title: 'USD', subtitle: 'Taro Protocol' },
-  { title: 'EUR', subtitle: 'Taro Protocol' },
-];
 
 const WalletHome = ({ navigation }) => {
   const { wallets, saveToDisk, setSelectedWallet, ldsDEV, revalidateBalancesInterval } = useContext(BlueStorageContext);
@@ -304,17 +300,6 @@ const WalletHome = ({ navigation }) => {
       onDummyPress: navigateToAddLightning,
     });
 
-    const chfTaprootWallet = wallets.find(w => w.type === TaprootLdsWallet.type && w.getCurrencyName() === TaprootLdsWalletType.CHF);
-    tmpWallets.push({
-      wallet: chfTaprootWallet,
-      title: 'CHF',
-      isActivated: ldsDEV,
-      subtitle: 'Taro Protocol',
-      walletID: chfTaprootWallet?.getID?.(),
-      onDummyPress: () => navigateToAddTaproot(TaprootLdsWalletType.CHF),
-    });
-
-    tmpWallets.push(...dummyTaroWallets);
     return tmpWallets;
   }, [wallets]);
 
@@ -336,11 +321,7 @@ const WalletHome = ({ navigation }) => {
           })
         }
       />
-      {/* TODO (david): tiles
-      <View style={styles.dfxButtonContainer}>
-        <View style={styles.dfxIcons}></View>
-      </View> */}
-
+      <DfxServicesButtons />
       <View style={[styles.list, stylesHook.list]}>
         {displayWallets.map((item, i) => (
           <TouchableOpacity

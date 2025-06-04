@@ -1,13 +1,12 @@
 import React from 'react';
-import { Image, StyleSheet, TouchableOpacity } from 'react-native';
-import PropTypes from 'prop-types';
+import { Image, StyleSheet, TouchableOpacity, TouchableOpacityProps } from 'react-native';
 
-ImageButton.propTypes = {
-  source: PropTypes.number,
-  imageStyle: PropTypes.object,
-};
+interface ImageButtonProps extends TouchableOpacityProps {
+  source: number;
+  imageStyle?: any;
+}
 
-export function ImageButton(props) {
+export function ImageButton(props: ImageButtonProps) {
   const styles = StyleSheet.create({
     button: {
       aspectRatio: 1,

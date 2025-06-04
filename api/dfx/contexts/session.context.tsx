@@ -29,7 +29,9 @@ export interface SessionInterface {
   resetAccessToken: (walletId: string) => void;
   isProcessing: boolean;
   isAvailable: boolean;
+  isInitialized: boolean;
   openServices: (walletId: string, balance: string, service: DfxService) => Promise<void>;
+  isUnavailable: boolean;
   reset: () => Promise<void>;
 }
 
@@ -51,6 +53,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAvailable, setIsAvailable] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isUnavailable, setIsUnavailable] = useState(false);
 
   function isExpired(token?: string): boolean {
     if (!token) return true;
@@ -155,15 +158,21 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
   }
 
   async function openServices(walletId: string, balance: string, service: DfxService): Promise<void> {
-    if (!isAvailable) return;
+    try {
+      if (!isAvailable) return;
 
-    await refreshAccessToken(walletId);
-    const token = encodeURIComponent(await getAccessToken(walletId));
-    const lang = getAppLanguage();
-    const redirectUri = encodeURIComponent(`dfxtaro://?wallet-id=${walletId}`);
+      await refreshAccessToken(walletId);
+      const token = encodeURIComponent(await getAccessToken(walletId));
+      const lang = getAppLanguage();
+      const redirectUri = encodeURIComponent(`dfxtaro://?wallet-id=${walletId}`);
 
-    const url = `${Config.REACT_APP_SRV_URL}/${service}?session=${token}&balances=${balance}@BTC&redirect-uri=${redirectUri}&lang=${lang}`;
-    return Linking.openURL(url);
+      const url = `${Config.REACT_APP_SRV_URL}/${service}?session=${token}&balances=${balance}@BTC&redirect-uri=${redirectUri}&lang=${lang}`;
+      return Linking.openURL(url);
+    } catch (e) {
+      console.error('Failed to open services:', e);
+      setIsUnavailable(true);
+      throw e;
+    }
   }
 
   async function reset(): Promise<void> {
@@ -183,6 +192,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
         .then(() => setIsInitialized(true))
         .catch(e => {
           console.error('DFX session init error: ', e.message?.toString());
+          setIsUnavailable(true);
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallets]);
@@ -193,11 +203,25 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
       resetAccessToken,
       isAvailable,
       isProcessing,
+      isInitialized,
+      isUnavailable,
       openServices,
       reset,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [mainWalletId, mainAddress, signMessage, getSignMessage, auth, dfxSession, sessions, isProcessing, isAvailable],
+    [
+      mainWalletId,
+      mainAddress,
+      signMessage,
+      getSignMessage,
+      auth,
+      dfxSession,
+      sessions,
+      isProcessing,
+      isAvailable,
+      isInitialized,
+      isUnavailable,
+    ],
   );
 
   return <DfxSessionContext.Provider value={context}>{props.children}</DfxSessionContext.Provider>;
