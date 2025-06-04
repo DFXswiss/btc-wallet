@@ -32,7 +32,7 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
   const { wallets, isDfxPos, isDfxSwap } = useContext(BlueStorageContext);
   const { navigate } = useNavigation<any>();
   const { colors } = useTheme();
-  const { isAvailable: isDfxAvailable, openServices, isInitialized: isDfxInitialized } = useDfxSessionContext();
+  const { isAvailable: isDfxAvailable, openServices } = useDfxSessionContext();
   const [isHandlingOpenServices, setIsHandlingOpenServices] = useState(false);
   const [changeAddress, setChangeAddress] = useState('');
 
@@ -136,7 +136,7 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
 
   return (
     <View style={styles.dfxContainer}>
-      {isDfxInitialized ? (
+      {isDfxAvailable ? (
         <>
           <BlueText>{loc.wallets.external_services}</BlueText>
           <View style={styles.dfxButtonContainer}>
