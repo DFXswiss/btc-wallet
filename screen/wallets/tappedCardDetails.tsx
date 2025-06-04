@@ -25,6 +25,7 @@ import useLdsBoltcards from '../../api/boltcards/hooks/bolcards.hook';
 import { useNtag424 } from '../../api/boltcards/hooks/ntag424.hook';
 import { HoldCardModal } from '../../components/HoldCardModal';
 import alert from '../../components/Alert';
+import QRCodeComponent from '../../components/QRCodeComponent';
 
 const styles = StyleSheet.create({
   scrollViewContent: {
@@ -78,6 +79,11 @@ const styles = StyleSheet.create({
     zIndex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  qrCodeContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    flex: 1,
   },
 });
 
@@ -176,7 +182,6 @@ const TappedCardDetails = () => {
             } catch (_) {}
           }
 
-          
           if (lnWallet && _lnurlw && tappedCardDetails.secrets) {
             try {
               const boltcards = await getBoltcards(lnWallet.getInvoiceId());
@@ -227,8 +232,6 @@ const TappedCardDetails = () => {
     });
   };
 
-  const navigateToBackup = () => navigate('BackupBoltcard');
-
   const handleOnCancelHoldCard = () => {
     setHoldCardModalVisible(false);
     stopNfcSession();
@@ -239,6 +242,19 @@ const TappedCardDetails = () => {
     await wipeCard(secrets as BolcardSecrets);
     handleOnCancelHoldCard();
     goBack();
+  };
+
+  const getJsonBackup = () => {
+    if (!secrets) return '';
+    return JSON.stringify({
+      action: 'wipe',
+      k0: secrets.k0,
+      k1: secrets.k1,
+      k2: secrets.k2,
+      k3: secrets.k3,
+      k4: secrets.k4,
+      version: 1,
+    });
   };
 
   const unregisterAndWipe = async () => {
@@ -344,6 +360,12 @@ const TappedCardDetails = () => {
                   <CopyField value={secrets?.k3} />
                   <Text style={[styles.textLabel1, stylesHook.textLabel1]}>File Key (K4)</Text>
                   <CopyField value={secrets?.k4} />
+                  <BlueSpacing20 />
+                  {isCardDerivatedFromMyWallet && isAllKeysWritten && (
+                    <View style={styles.qrCodeContainer}>
+                      <QRCodeComponent value={getJsonBackup()} isLogoRendered={true} />
+                    </View>
+                  )}
                 </>
               )}
             </BlueCard>
@@ -358,12 +380,6 @@ const TappedCardDetails = () => {
                 {Boolean(lnurlp) && Boolean(lnWallet) && (
                   <>
                     <SecondButton onPress={navigateToSend} title={loc.boltcard.send_to_card} />
-                    <BlueSpacing20 />
-                  </>
-                )}
-                {isCardDerivatedFromMyWallet && isAllKeysWritten && (
-                  <>
-                    <SecondButton onPress={navigateToBackup} title={loc.boltcard.keys_backup} />
                     <BlueSpacing20 />
                   </>
                 )}

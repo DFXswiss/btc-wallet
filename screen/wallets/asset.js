@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback, useContext, useRef, useMemo } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   FlatList,
   InteractionManager,
@@ -17,12 +16,10 @@ import {
   I18nManager,
   useWindowDimensions,
   TouchableOpacity,
-  AppState,
 } from 'react-native';
 import { Icon } from 'react-native-elements';
 import { useRoute, useNavigation, useTheme, useFocusEffect } from '@react-navigation/native';
 import { Chain } from '../../models/bitcoinUnits';
-import { BlueText } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
 import { MultisigHDWallet, WatchOnlyWallet } from '../../class';
 import ActionSheet from '../ActionSheet';
@@ -32,34 +29,18 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { isDesktop } from '../../blue_modules/environment';
 import BlueClipboard from '../../blue_modules/clipboard';
 import { TransactionListItem } from '../../components/TransactionListItem';
-import { ImageButton } from '../../components/ImageButton';
-import { DfxService, useDfxSessionContext } from '../../api/dfx/contexts/session.context';
-import BigNumber from 'bignumber.js';
 import TransactionsNavigationHeader from '../../components/TransactionsNavigationHeader';
 import PropTypes from 'prop-types';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import Config from 'react-native-config';
 
-import BuyEn from '../../img/dfx/buttons/buy_en.png';
-import SellEn from '../../img/dfx/buttons/sell_en.png';
-import BuyDe from '../../img/dfx/buttons/buy_de.png';
-import SellDe from '../../img/dfx/buttons/sell_de.png';
-import BuyFr from '../../img/dfx/buttons/buy_fr.png';
-import SellFr from '../../img/dfx/buttons/sell_fr.png';
-import BuyIt from '../../img/dfx/buttons/buy_it.png';
-import SellIt from '../../img/dfx/buttons/sell_it.png';
-import SwapEn from '../../img/dfx/buttons/swap.png';
-import NetworkTransactionFees, { NetworkTransactionFee } from '../../models/networkTransactionFees';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AbstractHDElectrumWallet } from '../../class/wallets/abstract-hd-electrum-wallet';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import BoltCard from '../../class/boltcard';
 import scanqrHelper from '../../helpers/scan-qr';
+import DfxServicesButtons from '../../components/DfxServicesButtons';
 
 const fs = require('../../blue_modules/fs');
-const BlueElectrum = require('../../blue_modules/BlueElectrum');
-const currency = require('../../blue_modules/currency');
 
 const buttonFontSize =
   PixelRatio.roundToNearestPixel(Dimensions.get('window').width / 26) > 22
@@ -71,11 +52,10 @@ const Asset = ({ navigation }) => {
     wallets,
     saveToDisk,
     setSelectedWallet,
-    refreshAllWalletTransactions,
     walletTransactionUpdateStatus,
-    isElectrumDisabled,
     isDfxPos,
     isDfxSwap,
+    revalidateBalancesInterval,
   } = useContext(BlueStorageContext);
   const { name, params } = useRoute();
   const walletID = params.walletID;
@@ -90,31 +70,10 @@ const Asset = ({ navigation }) => {
   const { setParams, setOptions, navigate } = useNavigation();
   const { colors, scanImage } = useTheme();
   const walletActionButtonsRef = useRef();
-  const { isAvailable: isDfxAvailable, openServices, isProcessing: isDfxProcessing } = useDfxSessionContext();
   const { width } = useWindowDimensions();
-  const [isHandlingOpenServices, setIsHandlingOpenServices] = useState(false);
-  const [changeAddress, setChangeAddress] = useState('');
   const [fContainerHeight, setFContainerHeight] = useState(0);
-  const txRefreshInterval = useRef(null);
   const elapsedTimeInterval = useRef(null);
 
-  const getButtonImages = lang => {
-    switch (lang) {
-      case 'en':
-        return [BuyEn, SellEn, SwapEn];
-      case 'de_de':
-        return [BuyDe, SellDe, SwapEn];
-      case 'fr_fr':
-        return [BuyFr, SellFr, SwapEn];
-      case 'it':
-        return [BuyIt, SellIt, SwapEn];
-      default:
-        return [BuyEn, SellEn, SwapEn];
-    }
-  };
-
-  const language = loc.getLanguage()?.toLowerCase();
-  const buttonImages = useMemo(() => getButtonImages(language), [language]);
 
   const stylesHook = StyleSheet.create({
     listHeaderText: {
@@ -171,6 +130,7 @@ const Asset = ({ navigation }) => {
 
   useEffect(() => {
     setElapsedTimeInterval();
+    revalidateBalancesInterval();
     return () => {
       clearElapsedTimeInterval();
     };
@@ -184,49 +144,6 @@ const Asset = ({ navigation }) => {
     }
   }, []);
 
-  const clearTxRefreshInterval = () => {
-    if (txRefreshInterval.current) {
-      clearInterval(txRefreshInterval.current);
-      txRefreshInterval.current = null;
-    }
-  };
-
-  const setTxRefreshInterval = () => {
-    clearTxRefreshInterval();
-    refreshTransactions();
-    txRefreshInterval.current = setInterval(() => {
-      refreshTransactions();
-    }, 20 * 1000);
-  };
-
-  useEffect(() => {
-    setTxRefreshInterval();
-    return () => {
-      clearTxRefreshInterval();
-    };
-  }, []);
-
-  const appState = useRef(AppState.currentState);
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', nextAppState => {
-      if (appState.current === 'active' && nextAppState.match(/background/)) {
-        clearTxRefreshInterval();
-        clearElapsedTimeInterval();
-      }
-
-      if (appState.current.match(/background/) && nextAppState === 'active') {
-        setTxRefreshInterval();
-        setElapsedTimeInterval();
-      }
-
-      appState.current = nextAppState;
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, []);
 
   useEffect(() => {
     setOptions({ headerTitle: walletTransactionUpdateStatus === walletID ? loc.transactions.updating : '' });
@@ -257,93 +174,10 @@ const Asset = ({ navigation }) => {
   }, [wallets, walletID]);
 
   useEffect(() => {
-    if (!wallet) return;
-
-    refreshAllWalletTransactions()
-      .then(() => refreshTransactions())
-      .catch(console.error);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wallet]);
-
-  useEffect(() => {
     setDataSource([...getTransactionsSliced(limit)]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallets]);
 
-  const getChangeAddressAsync = async wallet => {
-    if (changeAddress) return changeAddress; // cache
-
-    let change;
-    if (WatchOnlyWallet.type === wallet.type && !wallet.isHd()) {
-      // plain watchonly - just get the address
-      change = wallet.getAddress();
-    } else {
-      // otherwise, lets call widely-used getChangeAddressAsync()
-      try {
-        change = await Promise.race([sleep(2000), wallet.getChangeAddressAsync()]);
-      } catch (_) {}
-
-      if (!change) {
-        // either sleep expired or getChangeAddressAsync threw an exception
-        if (wallet instanceof AbstractHDElectrumWallet) {
-          change = wallet._getInternalAddressByIndex(wallet.getNextFreeChangeAddressIndex());
-        } else {
-          // legacy wallets
-          change = wallet.getAddress();
-        }
-      }
-    }
-    if (change) setChangeAddress(change); // cache
-    return change;
-  };
-
-  const getEstimatedOnChainFee = async () => {
-    const lutxo = wallet.getUtxo();
-    const changeAddress = await getChangeAddressAsync(wallet);
-    const dustTarget = [{ address: '36JxaUrpDzkEerkTf1FzwHNE1Hb7cCjgJV' }];
-    const networkTransactionFees = await NetworkTransactionFees.recommendedFees();
-    await AsyncStorage.setItem(NetworkTransactionFee.StorageKey, JSON.stringify(networkTransactionFees));
-    // dummy transaction, not to be broadcasted
-    const { fee } = wallet.createTransaction(lutxo, dustTarget, Number(networkTransactionFees.fastestFee), changeAddress, false);
-    return fee;
-  };
-
-  const getBalanceByDfxService = async service => {
-    const balance = wallet.getBalance();
-    if (service === DfxService.SELL || service === DfxService.SWAP) {
-      try {
-        const fee = wallet.chain === Chain.ONCHAIN ? await getEstimatedOnChainFee() : balance * 0.03; // max 3% fee for LNBits
-        return balance - fee;
-      } catch (_) {
-        return 0;
-      }
-    }
-    return balance;
-  };
-
-  const handleOpenServices = async service => {
-    setIsHandlingOpenServices(true);
-    try {
-      const maxBalance = await getBalanceByDfxService(service);
-      openServices(walletID, new BigNumber(currency.satoshiToBTC(maxBalance)).toString(), service);
-    } catch (e) {
-      Alert.alert('Something went wrong', e.message?.toString(), [
-        {
-          text: loc._.ok,
-          onPress: () => {},
-          style: 'default',
-        },
-      ]);
-    }
-    setIsHandlingOpenServices(false);
-  };
-
-  const handleOpenDfxPosMode = async () => {
-    navigate('ReceiveDetailsRoot', {
-      screen: 'CashierDfxPos',
-      params: { walletID: wallet.getID() },
-    });
-  };
 
   // if description of transaction has been changed we want to show new one
   useFocusEffect(
@@ -366,56 +200,6 @@ const Asset = ({ navigation }) => {
   };
 
   const isMultiSig = () => wallet.type === MultisigHDWallet.type;
-
-  /**
-   * Forcefully fetches TXs and balance for wallet
-   */
-  const refreshTransactions = async () => {
-    if (isElectrumDisabled) return setIsLoading(false);
-    if (isLoading) return;
-    setIsLoading(true);
-    let noErr = true;
-    let smthChanged = false;
-    try {
-      // await BlueElectrum.ping();
-      await BlueElectrum.waitTillConnected();
-      if (wallet.allowBIP47() && wallet.isBIP47Enabled()) {
-        const pcStart = +new Date();
-        await wallet.fetchBIP47SenderPaymentCodes();
-        const pcEnd = +new Date();
-        console.log(wallet.getLabel(), 'fetch payment codes took', (pcEnd - pcStart) / 1000, 'sec');
-      }
-      const balanceStart = +new Date();
-      const oldBalance = wallet.getBalance();
-      await wallet.fetchBalance();
-      if (oldBalance !== wallet.getBalance()) smthChanged = true;
-      const balanceEnd = +new Date();
-      console.log(wallet.getLabel(), 'fetch balance took', (balanceEnd - balanceStart) / 1000, 'sec');
-      const start = +new Date();
-      const oldTxLen = wallet.getTransactions().length;
-      await wallet.fetchTransactions();
-      if (wallet.fetchPendingTransactions) {
-        await wallet.fetchPendingTransactions();
-      }
-      if (wallet.fetchUserInvoices) {
-        await wallet.fetchUserInvoices();
-      }
-      if (oldTxLen !== wallet.getTransactions().length) smthChanged = true;
-      const end = +new Date();
-      console.log(wallet.getLabel(), 'fetch tx took', (end - start) / 1000, 'sec');
-    } catch (err) {
-      noErr = false;
-      setIsLoading(false);
-      setTimeElapsed(prev => prev + 1);
-    }
-
-    if (noErr && smthChanged) {
-      console.log('saving to disk');
-      await saveToDisk(); // caching
-    }
-    setIsLoading(false);
-    setTimeElapsed(prev => prev + 1);
-  };
 
   const _keyExtractor = (_item, index) => index.toString();
 
@@ -481,6 +265,9 @@ const Asset = ({ navigation }) => {
       const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(wallet, uri);
       ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
       navigate(...route);
+
+    } else if (DeeplinkSchemaMatch.isLnUrl(value)) {
+      navigate('SendDetailsRoot', { screen: 'LnurlNavigationForwarder', params: { lnurl: value, walletID } });
     } else {
       DeeplinkSchemaMatch.navigationRouteFor(
         { url: value },
@@ -627,59 +414,7 @@ const Asset = ({ navigation }) => {
         rightHeaderComponent={renderRightHeaderComponent()}
       />
       {!isMultiSig() && (
-        <View style={stylesHook.dfxContainer}>
-          {isDfxAvailable && (
-            <>
-              <BlueText>{loc.wallets.external_services}</BlueText>
-              <View style={stylesHook.dfxButtonContainer}>
-                {isDfxProcessing ? (
-                  <ActivityIndicator />
-                ) : (
-                  <>
-                    <View>
-                      <ImageButton
-                        imageStyle={styles.tileImageStyle}
-                        source={buttonImages[0]}
-                        onPress={() => handleOpenServices(DfxService.BUY)}
-                        disabled={isHandlingOpenServices}
-                      />
-                    </View>
-                    {isDfxSwap && (
-                      <View>
-                        <ImageButton
-                          imageStyle={styles.tileImageStyle}
-                          source={buttonImages[2]}
-                          onPress={() => handleOpenServices(DfxService.SWAP)}
-                          disabled={isHandlingOpenServices}
-                        />
-                      </View>
-                    )}
-                    <View>
-                      <ImageButton
-                        source={buttonImages[1]}
-                        onPress={() => handleOpenServices(DfxService.SELL)}
-                        disabled={isHandlingOpenServices}
-                      />
-                    </View>
-                    {isDfxPos && (
-                      <View style={{ backgroundColor: colors.background, height: '100%' }}>
-                        <TouchableOpacity
-                          onPress={handleOpenDfxPosMode}
-                          disabled={isHandlingOpenServices}
-                          style={{ justifyContent: 'center', alignItems: 'center', width: 60, padding: 10 }}
-                        >
-                          <BlueText>Point</BlueText>
-                          <BlueText>of</BlueText>
-                          <BlueText>Sale</BlueText>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </>
-                )}
-              </View>
-            </>
-          )}
-        </View>
+        <DfxServicesButtons walletID={wallet.getID()} />
       )}
       {isLightningTestnet() && (
         <View style={styles.testnetBanner}>

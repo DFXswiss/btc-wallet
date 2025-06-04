@@ -29,7 +29,8 @@
     "qr_custom_input_button": "10x antippen für individuelle Eingabe",
     "add": "Hinzufügen",
     "repeat": "Wiederholen",
-    "loading": "Laden"
+    "loading": "Laden",
+    "skip": "Jetzt überspringen"
   },
   "alert": {
     "default": "Warnung"
@@ -67,7 +68,10 @@
     "title": "Beträge verwalten",
     "error_tip_invoice_not_supported": "Rechnungen mit einem Betrag von 0 werden nicht unterstützt.",
     "error_balance_for_insuficient_fee": "Das verbleibende Guthaben reicht nicht aus, um die Gebühren zu decken; erwäge, den Höchstbetrag zu senden oder den Betrag zu reduzieren.",
-    "next": "Weiter"
+    "next": "Weiter",
+    "lnurl_loader_title": "Lnurl laden",
+    "lnurl_loader_text": "LNURL-Daten decodieren",
+    "lnurl_loader_text_onchain": "Transaktion erstellen"
   },
   "lndViewInvoice": {
     "additional_info": "Weiterführende Informationen",
@@ -228,7 +232,10 @@
     "problem_with_psbt": "PSBT-Problem",
     "scan_bitcoin_qr": "Einen Bitcoin-QR-Code scannen",
     "enter_address": "Adresse eingeben",
-    "text_address_or_invoice": "Textadresse oder Rechnung"
+    "text_address_or_invoice": "Textadresse oder Rechnung",
+    "insufficient_funds": "Nicht genug Guthaben",
+    "scan_qr_code": "Erneut scannen",
+    "server_error": "Zahlungsanfrage fehlgeschlagen. Bitte versuche es erneut."
   },
   "settings": {
     "about": "Über",
@@ -518,7 +525,7 @@
     "provide_signature": "Schlüssel eingeben",
     "vault_key": "Tresor-Schlüssel: {number}",
     "required_keys_out_of_total": "Erforderliche Schlüssel aus dem Total",
-    "fee": "Gebhür: {number}",
+    "fee": "Gebühr: {number}",
     "fee_btc": "{number} BTC",
     "confirm": "Bestätigen",
     "header": "Senden",
@@ -576,7 +583,13 @@
     "what_is_multidevice": "Eine Multi-Device-Wallet ist eine Bitcoin-Wallet, die aus 3 Geräten besteht. Drei Geräte sind für die Inbetriebnahme erforderlich. Zwei Geräte sind immer erforderlich, um eine Transaktion zu autorisieren.",
     "prepare_devices": "Vergewissere dich, dass alle 3 Geräte bereit sind, und klicke erst dann auf allen 3 Geräten auf die Schaltfläche \"Erstellung beginnen\".",
     "qr_flow": "Auf dem nächsten Bildschirm wird ein QR-Code angezeigt, und auf dem Mobiltelefon wird eine Scanfunktion aktiviert. Jedes Gerät muss die beiden QR-Codes der anderen 2 Geräte scannen und ist dann einsatzbereit.",
-    "done_explanation": "Klicke erst auf \"Fertig\", wenn alle 3 Geräte diesen Vorgang abgeschlossen haben und alle 3 Geräte oben 3 grüne Häkchen haben."
+    "done_explanation": "Klicke erst auf \"Fertig\", wenn alle 3 Geräte diesen Vorgang abgeschlossen haben und alle 3 Geräte oben 3 grüne Häkchen haben.",
+    "import_multisig": "Multisig importieren",
+    "scan_qr": "Backup QR-Code oder eine Koordinierungseinrichtung scannen",
+    "enter_descriptor": "Deskriptor eingeben",
+    "invalid_multisig_descriptor": "Ungültiger Multisig-Deskriptor",
+    "not_part_of_multisig": "Deine Wallet ist nicht Teil dieser Multisig-Einrichtung",
+    "calculating_cosigners": "Berechne {m} von {n} Mitunterzeichner"
   },
   "is_it_my_address": {
     "title": "Ist dies meine Adresse?",

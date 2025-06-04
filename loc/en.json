@@ -29,7 +29,8 @@
     "qr_custom_input_button": "Tap 10 times to enter custom input",
     "add": "Add",
     "repeat": "Repeat",
-    "loading": "Loading"
+    "loading": "Loading",
+    "skip": "Skip for now"
   },
   "alert": {
     "default": "Alert"
@@ -67,7 +68,10 @@
     "refill_lnd_balance": "Refill Lightning Wallet Balance",
     "sameWalletAsInvoiceError": "You can't pay an invoice with the same wallet used to create it.",
     "title": "Manage Funds",
-    "next": "Next"
+    "next": "Next",
+    "lnurl_loader_title": "Loading Lnurl",
+    "lnurl_loader_text": "Decoding the data in LNURL",
+    "lnurl_loader_text_onchain": "Building the transaction"
   },
   "lndViewInvoice": {
     "additional_info": "Additional Information",
@@ -228,7 +232,10 @@
     "problem_with_psbt": "Problem with PSBT",
     "scan_bitcoin_qr": "Scan a Bitcoin QR code",
     "enter_address": "Enter address",
-    "text_address_or_invoice": "Text address or invoice"
+    "text_address_or_invoice": "Text address or invoice",
+    "insufficient_funds": "Insufficient funds",
+    "scan_qr_code": "Scan again",
+    "server_error": "Payment request failed. Please try again."
   },
   "settings": {
     "about": "About",
@@ -576,7 +583,13 @@
     "ms_help_title4": "Importing Vaults",
     "ms_help_4": "To import a multisig, use your backup file and the Import feature. If you only have seeds and XPUBs, you can use the individual Import button when creating Vault keys.",
     "ms_help_title5": "Advanced Mode",
-    "ms_help_5": "By default, DFX Bitcoin Wallet will generate a 2-of-3 Vault. To create a different quorum or change the address type, activate Advanced Mode in the Settings."
+    "ms_help_5": "By default, DFX Bitcoin Wallet will generate a 2-of-3 Vault. To create a different quorum or change the address type, activate Advanced Mode in the Settings.",
+    "import_multisig": "Import Multisig",
+    "scan_qr": "Scan Backup QR code or a Coordination setup",
+    "enter_descriptor": "Enter Descriptor",
+    "invalid_multisig_descriptor": "Invalid multisig descriptor",
+    "not_part_of_multisig": "Your wallet is not part of this multisig setup",
+    "calculating_cosigners": "Calculating {m} of {n} cosigners"
   },
   "is_it_my_address": {
     "title": "Is it my address?",

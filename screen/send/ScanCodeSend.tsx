@@ -14,12 +14,14 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { Chain } from '../../models/bitcoinUnits';
 import { useWalletContext } from '../../contexts/wallet.context';
 import loc from '../../loc';
+import { MultisigHDWallet } from '../../class/wallets/multisig-hd-wallet';
 
 const ScanCodeSend: React.FC = () => {
-  const { wallets } = useContext(BlueStorageContext);
+  const { wallets, revalidateBalancesInterval } = useContext(BlueStorageContext);
   const { wallet: mainWallet } = useWalletContext();
+  const multisigWallet = wallets.find(w => w.type === MultisigHDWallet.type);
   const { params } = useRoute();
-  const { isReadingQrCode, cameraCallback, setOnBarScanned } = useQrCodeScanner();
+  const { isReadingQrCode, cameraCallback, setOnBarScanned, urHave, urTotal } = useQrCodeScanner();
   const { isProcessingImage, openImagePicker, setOnBarCodeInImage } = useQrCodeImagePicker();
   const { cameraStatus } = useCameraPermissions();
   const { navigate, goBack, setOptions, replace } = useNavigation();
@@ -31,8 +33,36 @@ const ScanCodeSend: React.FC = () => {
     setTimeout(() => func(), 30);
   };
 
-  const onContentRead = (data: any) => {
+  const getIsProcessing = () => {
+    return isReadingQrCode || isProcessingImage;
+  };
+
+  const importPsbt = base64Psbt => {
+    try {
+      if (Boolean(multisigWallet)) {
+        delayedNavigationFunction(() =>
+          replace('SendDetailsRoot', {
+            screen: 'PsbtMultisig',
+            params: {
+              psbtBase64: base64Psbt,
+              walletID: multisigWallet.getID(),
+            },
+          }),
+        );
+      }
+    } catch (_) {}
+  };
+
+  const onContentRead = async (data: any) => {
+    if (getIsProcessing()) return;
+
     const destinationString = data.data ? data.data : data;
+    ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
+
+    if (DeeplinkSchemaMatch.isPossiblyPSBTString(destinationString)) {
+      importPsbt(destinationString);
+      return;
+    }
 
     if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(destinationString)) {
       const selectedWallet = wallets.find(w => w.getID() === params?.walletID);
@@ -40,16 +70,23 @@ const ScanCodeSend: React.FC = () => {
       const uri = DeeplinkSchemaMatch.isBothBitcoinAndLightning(destinationString);
       const destinationWallet = selectedWallet || lightningWallet || mainWallet;
       const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(destinationWallet, uri);
-      ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
+
       delayedNavigationFunction(() => replace(...route));
+    } else if (DeeplinkSchemaMatch.isLnUrl(destinationString)) {
+      delayedNavigationFunction(() =>
+        replace('SendDetailsRoot', { screen: 'LnurlNavigationForwarder', params: { lnurl: destinationString, walletID: params?.walletID } }),
+      );
     } else if (
       DeeplinkSchemaMatch.isPossiblyLightningDestination(destinationString) ||
       DeeplinkSchemaMatch.isPossiblyOnChainDestination(destinationString)
     ) {
-      DeeplinkSchemaMatch.navigationRouteFor({ url: destinationString }, completionValue => {
-        ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
-        delayedNavigationFunction(() => replace(...completionValue));
-      });
+      DeeplinkSchemaMatch.navigationRouteFor(
+        { url: destinationString },
+        sendScreenRoute => {
+          delayedNavigationFunction(() => replace(...sendScreenRoute));
+        },
+        { walletID: params?.walletID },
+      );
     } else {
       delayedNavigationFunction(() => goBack());
     }
@@ -67,6 +104,10 @@ const ScanCodeSend: React.FC = () => {
     });
   }, []);
 
+  useEffect(() => {
+    revalidateBalancesInterval();
+  }, []);
+
   const readFromClipboard = async () => {
     await BlueClipboard().setReadClipboardAllowed(true);
     const clipboard = await BlueClipboard().getClipboardContent();
@@ -75,7 +116,6 @@ const ScanCodeSend: React.FC = () => {
     }
   };
 
-  const isLoading = isReadingQrCode || isProcessingImage;
   const isCameraFocused = cameraStatus && isFocused && !isProcessingImage && isCameraActive;
 
   return (
@@ -88,11 +128,15 @@ const ScanCodeSend: React.FC = () => {
           style={styles.camera}
         />
       )}
-      {isLoading && (
-        <View style={styles.loadingContainer}>
-          <View>
+      {getIsProcessing() && (
+        <View
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', zIndex: 10 }}
+        >
+          <View style={styles.loadingContainer}>
             <ActivityIndicator style={{ marginBottom: 5 }} size={25} />
-            <BlueText style={styles.textExplanation}>{loc._.loading}</BlueText>
+            <BlueText style={styles.textExplanation}>
+              {`${loc._.loading} ${urHave}/${urTotal}`}
+            </BlueText>
           </View>
         </View>
       )}
@@ -128,9 +172,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   loadingContainer: {
-    position: 'absolute',
-    top: '42%',
-    right: '35%',
     backgroundColor: '#000000CC',
     padding: 25,
     borderRadius: 15,

@@ -93,7 +93,9 @@ export class AbstractHDElectrumWallet extends AbstractHDWallet {
     for (const pc of this._sender_payment_codes) {
       ret += this._getBalancesByPaymentCodeIndex(pc).c;
     }
-    return ret + (this.getUnconfirmedBalance() < 0 ? this.getUnconfirmedBalance() : 0);
+    const unconfirmedBalance = this.getUnconfirmedBalance();
+
+    return ret + unconfirmedBalance;
   }
 
   /**

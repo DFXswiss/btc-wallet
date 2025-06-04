@@ -2,6 +2,16 @@
 
 ## iOS
 
+Updated workflowc
+1. Install Homebrew
+1. Install latest ruby (with Homebrew)
+1. npm i
+1. sudo gem install cocoapods
+1. bundle install
+1. cd ios && pod install (if pod binary was not found, try sudo gem install -n /usr/local/bin cocoapods)
+
+---
+
 Prerequesites:
 https://reactnative.dev/docs/environment-setup
 

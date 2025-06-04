@@ -98,6 +98,9 @@ import CashierDfxPos from './screen/wallets/dfx/cashierPos';
 import ReceiveDfxPos from './screen/wallets/dfx/receivePos';
 import ScanCodeSend from './screen/send/ScanCodeSend';
 import ManualAddressSend from './screen/send/ManualAddressSend';
+import ImportMultisignature from './screen/wallets/importMultisignature';
+import LnurlNavigationForwarder from './screen/lnd/lnurlNavigationForwarder';
+import OpenCryptoPayCommitOnchain from './screen/open-crypto-pay/openCrytoPayCommitOnchain';
 
 const WalletsStack = createNativeStackNavigator();
 
@@ -118,6 +121,11 @@ const WalletsRoot = () => {
         name="WalletsAddMultisigStep2"
         component={WalletsAddMultisigStep2}
         options={WalletsAddMultisigStep2.navigationOptions(theme)}
+      />
+      <AddWalletStack.Screen
+        name="ImportMultisignature"
+        component={ImportMultisignature}
+        options={ImportMultisignature.navigationOptions(theme)}
       />
       <WalletsStack.Screen name="AddBoltcard" component={AddBoltcard} options={AddBoltcard.navigationOptions(theme)} />
       <WalletsStack.Screen name="BoltCardDetails" component={BoltcardDetails} options={BoltcardDetails.navigationOptions(theme)} />
@@ -268,6 +276,8 @@ const SendDetailsRoot = () => {
       <SendDetailsStack.Screen name="ScanLndInvoice" component={ScanLndInvoice} options={ScanLndInvoice.navigationOptions(theme)} />
       <SendDetailsStack.Screen name="LnurlPay" component={LnurlPay} options={LnurlPay.navigationOptions(theme)} />
       <SendDetailsStack.Screen name="LnurlPaySuccess" component={LnurlPaySuccess} options={LnurlPaySuccess.navigationOptions(theme)} />
+      <SendDetailsStack.Screen name="LnurlNavigationForwarder" component={LnurlNavigationForwarder} options={LnurlNavigationForwarder.navigationOptions(theme)} />
+      <SendDetailsStack.Screen name="OpenCryptoPayCommitOnchain" component={OpenCryptoPayCommitOnchain} options={OpenCryptoPayCommitOnchain.navigationOptions(theme)} />
     </SendDetailsStack.Navigator>
   );
 };

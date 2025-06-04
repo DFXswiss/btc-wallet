@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { Image, View, TouchableOpacity, StatusBar, Platform, StyleSheet, TextInput, Alert, PermissionsAndroid } from 'react-native';
 import { CameraScreen } from 'react-native-camera-kit';
 import { Icon, Text } from 'react-native-elements';
@@ -12,7 +12,8 @@ import { HoldCardModal } from '../../components/HoldCardModal';
 import { useNtag424 } from '../../api/boltcards/hooks/ntag424.hook';
 import useLdsBoltcards from '../../api/boltcards/hooks/bolcards.hook';
 
-const LocalQRCode = require('@remobile/react-native-qrcode-local-image');
+import RNQRGenerator from 'rn-qr-generator';
+import { BlueStorageContext } from '../../blue_modules/storage-context';
 const createHash = require('create-hash');
 const fs = require('../../blue_modules/fs');
 const Base43 = require('../../blue_modules/base43');
@@ -118,6 +119,7 @@ const ScanQRCode = () => {
   const [holdCardModalVisible, setHoldCardModalVisible] = useState(false);
   const { startNfcSession, authCard, readCard, stopNfcSession } = useNtag424({ manualSessionControl: true });
   const { genFreshCardDetails } = useLdsBoltcards();
+  const { revalidateBalancesInterval } = useContext(BlueStorageContext);
 
   const stylesHook = StyleSheet.create({
     openSettingsContainer: {
@@ -159,7 +161,11 @@ const ScanQRCode = () => {
     })();
     return () => {
       stopNfcSession();
-    }
+    };
+  }, []);
+
+  useEffect(() => {
+    revalidateBalancesInterval();
   }, []);
 
   const HashIt = function (s) {
@@ -331,15 +337,18 @@ const ScanQRCode = () => {
           } else {
             const asset = response.assets[0];
             if (asset.uri) {
-              const uri = asset.uri.toString().replace('file://', '');
-              LocalQRCode.decode(uri, (error, result) => {
-                if (!error) {
-                  onBarCodeRead({ data: result });
-                } else {
+              RNQRGenerator.detect({ uri: decodeURI(asset.uri.toString()) })
+                .then(result => {
+                  if (result) {
+                    onBarCodeRead({ data: result.values[0] });
+                  }
+                })
+                .catch(error => {
                   alert(loc.send.qr_error_no_qrcode);
+                })
+                .finally(() => {
                   setIsLoading(false);
-                }
-              });
+                });
             } else {
               setIsLoading(false);
             }
@@ -363,7 +372,7 @@ const ScanQRCode = () => {
     if (Platform.OS === 'android') setHoldCardModalVisible(true);
     try {
       await startNfcSession();
-      
+
       const card = await readCard();
       const secretsGuess = await genFreshCardDetails();
       const authKeys = await authCard(card, secretsGuess);
@@ -371,7 +380,7 @@ const ScanQRCode = () => {
       if (launchedBy) {
         navigation.navigate(launchedBy, {});
       }
-      onBarScanned({ data: {...card, secrets: authKeys } });
+      onBarScanned({ data: { ...card, secrets: authKeys } });
     } catch (error) {
       setHoldCardModalVisible(false);
       console.log('#### error ###', error, error?.message, error.constructor?.name);
@@ -382,7 +391,7 @@ const ScanQRCode = () => {
   const stopNFC = () => {
     stopNfcSession();
     setHoldCardModalVisible(false);
-  }
+  };
 
   return isLoading ? (
     <View style={styles.root}>

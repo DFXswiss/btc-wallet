@@ -44,7 +44,15 @@ const ImportWalletDiscovery = () => {
     if (importing.current) return;
     importing.current = true;
     await addAndSaveWallet(wallet);
-    navigation.dispatch(StackActions.replace('Navigation'));
+    navigation.dispatch(
+      StackActions.replace('WalletsRoot', {
+        screen: 'AddLightning',
+        params: {
+          walletID: wallet.getID(),
+          isOnboarding: true,
+        },
+      }),
+    );
   };
 
   useEffect(() => {

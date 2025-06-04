@@ -1,13 +1,12 @@
-import React, { createContext, useEffect, useState } from 'react';
+import React, { createContext, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { useAsyncStorage } from '@react-native-async-storage/async-storage';
 import { FiatUnit } from '../models/fiatUnit';
 import Notifications from '../blue_modules/notifications';
-import loc, { STORAGE_KEY as LOC_STORAGE_KEY } from '../loc';
-import { WatchOnlyWallet } from '../class';
+import { fetch as fetchNetInfo } from '@react-native-community/netinfo';
+import { STORAGE_KEY as LOC_STORAGE_KEY } from '../loc';
 import { isTorDaemonDisabled, setIsTorDaemonDisabled } from './environment';
-import alert from '../components/Alert';
 const BlueApp = require('../BlueApp');
 const BlueElectrum = require('./BlueElectrum');
 const currency = require('../blue_modules/currency');
@@ -34,18 +33,13 @@ export const BlueStorageProvider = ({ children }) => {
   const [isElectrumDisabled, setIsElectrumDisabled] = useState(true);
   const [isTorDisabled, setIsTorDisabled] = useState(false);
   const [isPrivacyBlurEnabled, setIsPrivacyBlurEnabled] = useState(true);
+  const [lastSuccessfulBalanceRefresh, setLastSuccessfulBalanceRefresh] = useState(Date.now());
+  const balanceRefreshInterval = useRef(null);
 
   useEffect(() => {
     BlueElectrum.isDisabled().then(setIsElectrumDisabled);
     isTorDaemonDisabled().then(setIsTorDisabled);
   }, []);
-
-  useEffect(() => {
-    console.log(`Privacy blur: ${isPrivacyBlurEnabled}`);
-    if (!isPrivacyBlurEnabled) {
-      alert('Privacy blur has been disabled.');
-    }
-  }, [isPrivacyBlurEnabled]);
 
   useEffect(() => {
     setIsTorDaemonDisabled(isTorDisabled);
@@ -55,7 +49,7 @@ export const BlueStorageProvider = ({ children }) => {
     setIsHandOffUseEnabled(value);
     return BlueApp.setIsHandoffEnabled(value);
   };
- 
+
   const setLdsDEVAsyncStorage = value => {
     setLdsDEV(value);
     return BlueApp.setIsLdsDevEnabled(value);
@@ -64,17 +58,17 @@ export const BlueStorageProvider = ({ children }) => {
   const setIsPosModeAsyncStorage = value => {
     setIsPosMode(value);
     return BlueApp.setIsPOSmodeEnabled(value);
-  }
+  };
 
   const setIsDfxPosAsyncStorage = value => {
     setIsDfxPos(value);
     return BlueApp.setIsDfxPOSEnabled(value);
-  }
+  };
 
   const setIsDfxSwapAsyncStorage = value => {
     setIsDfxSwap(value);
     return BlueApp.setIsDfxSwapEnabled(value);
-  }
+  };
 
   const saveToDisk = async (force = false) => {
     if (BlueApp.getWallets().length === 0 && !force) {
@@ -152,25 +146,30 @@ export const BlueStorageProvider = ({ children }) => {
     saveToDisk();
   };
 
-  const refreshAllWalletTransactions = async (lastSnappedTo, showUpdateStatusIndicator = true) => {
+  const refreshAllWalletTransactions = async () => {
+    if (!BlueApp.wallets.length) return;
+    console.log('refreshAllWalletTransactions');
+
     let noErr = true;
     try {
-      if (showUpdateStatusIndicator) {
-        setWalletTransactionUpdateStatus(WalletTransactionsStatus.ALL);
-      }
+      setWalletTransactionUpdateStatus(WalletTransactionsStatus.ALL);
+
       await BlueElectrum.waitTillConnected();
-      const paymentCodesStart = Date.now();
-      await fetchSenderPaymentCodes(lastSnappedTo);
-      const paymentCodesEnd = Date.now();
-      console.log('fetch payment codes took', (paymentCodesEnd - paymentCodesStart) / 1000, 'sec');
-      const balanceStart = +new Date();
-      await fetchWalletBalances(lastSnappedTo);
-      const balanceEnd = +new Date();
-      console.log('fetch balance took', (balanceEnd - balanceStart) / 1000, 'sec');
-      const start = +new Date();
-      await fetchWalletTransactions(lastSnappedTo);
-      const end = +new Date();
-      console.log('fetch tx took', (end - start) / 1000, 'sec');
+      await fetchSenderPaymentCodes();
+
+      await Promise.all(
+        BlueApp.wallets.map(async wallet => {
+          await wallet.fetchBalance();
+          await wallet.fetchTransactions();
+          if (wallet.fetchPendingTransactions) {
+            await wallet.fetchPendingTransactions();
+          }
+          if (wallet.fetchUserInvoices) {
+            await wallet.fetchUserInvoices();
+          }
+        }),
+      );
+      setLastSuccessfulBalanceRefresh(Date.now());
     } catch (err) {
       noErr = false;
       console.warn(err);
@@ -193,14 +192,8 @@ export const BlueStorageProvider = ({ children }) => {
       _lastTimeTriedToRefetchWallet[walletID] = +new Date();
 
       await BlueElectrum.waitTillConnected();
-      const balanceStart = +new Date();
       await fetchWalletBalances(index);
-      const balanceEnd = +new Date();
-      console.log('fetch balance took', (balanceEnd - balanceStart) / 1000, 'sec');
-      const start = +new Date();
       await fetchWalletTransactions(index);
-      const end = +new Date();
-      console.log('fetch tx took', (end - start) / 1000, 'sec');
     } catch (err) {
       noErr = false;
       console.warn(err);
@@ -208,6 +201,44 @@ export const BlueStorageProvider = ({ children }) => {
       setWalletTransactionUpdateStatus(WalletTransactionsStatus.NONE);
     }
     if (noErr) await saveToDisk(); // caching
+  };
+
+  const clearBalanceRefreshInterval = () => {
+    if (balanceRefreshInterval.current) {
+      clearInterval(balanceRefreshInterval.current);
+      balanceRefreshInterval.current = null;
+    }
+  };
+
+  const setBalanceRefreshInterval = () => {
+    if (!wallets) return;
+    clearBalanceRefreshInterval();
+    refreshAllWalletTransactions().catch(console.error);
+    balanceRefreshInterval.current = setInterval(() => {
+      refreshAllWalletTransactions().catch(console.error);
+    }, 20 * 1000);
+  };
+
+  const revalidateBalancesInterval = async () => {
+    try {
+      if(BlueApp.wallets.length === 0) return;
+
+      const isElectrumDisabled = await BlueElectrum.isDisabled();
+      if (isElectrumDisabled) return;
+
+      const timeSinceLastRefresh = Date.now() - lastSuccessfulBalanceRefresh;
+      if (timeSinceLastRefresh <= 40 * 1000) {
+        return;
+      }
+
+      const netInfo = await fetchNetInfo();
+      BlueElectrum.setNetworkConnected(netInfo.isConnected);
+      if (!netInfo.isConnected) return;
+
+      setBalanceRefreshInterval();
+    } catch (err) {
+      console.error('Error revalidating balances', err);
+    }
   };
 
   const addWallet = wallet => {
@@ -235,6 +266,7 @@ export const BlueStorageProvider = ({ children }) => {
     Notifications.majorTomToGroundControl(w.getAllExternalAddresses(), [], []);
     // start balance fetching at the background
     await w.fetchBalance();
+    w.fetchTransactions();
     setWallets([...BlueApp.getWallets()]);
   };
 
@@ -319,6 +351,10 @@ export const BlueStorageProvider = ({ children }) => {
         setIsTorDisabled,
         isPrivacyBlurEnabled,
         setIsPrivacyBlurEnabled,
+        lastSuccessfulBalanceRefresh,
+        setBalanceRefreshInterval,
+        clearBalanceRefreshInterval,
+        revalidateBalancesInterval,
         // Feature flags
         ldsDEV,
         setLdsDEVAsyncStorage,

@@ -8,6 +8,7 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { useRoute, useTheme } from '@react-navigation/native';
 import URL from 'url';
 import { SuccessView } from '../send/success';
+import { Chain } from '../../models/bitcoinUnits';
 
 const AuthState = {
   USER_PROMPT: 0,
@@ -19,7 +20,13 @@ const AuthState = {
 const LnurlAuth = () => {
   const { wallets } = useContext(BlueStorageContext);
   const { walletID, lnurl } = useRoute().params;
-  const wallet = useMemo(() => wallets.find(w => w.getID() === walletID), [wallets, walletID]);
+  const wallet = useMemo(() =>{ 
+    const w = wallets.find(w => w.getID() === walletID)
+    if (w && w.chain === Chain.OFFCHAIN) {
+      return w;
+    }
+    return wallets.find(w => w.chain === Chain.OFFCHAIN);
+  }, [wallets, walletID]);
   const LN = useMemo(() => new Lnurl(lnurl), [lnurl]);
   const parsedLnurl = useMemo(
     () => (lnurl ? URL.parse(Lnurl.getUrlFromLnurl(lnurl), true) : {}), // eslint-disable-line n/no-deprecated-api

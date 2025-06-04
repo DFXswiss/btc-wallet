@@ -45,6 +45,7 @@ export class MultisigHDWallet extends AbstractHDElectrumWallet {
     this._cosignersFingerprints = []; // array of according fingerprints  (if any provided)
     this._cosignersCustomPaths = []; // array of according paths (if any provided)
     this._cosignersPassphrases = []; // array of according passphrases (if any provided)
+    this._cosignersXpubs = []; // array of according xpubs (if any provided)
     this._derivationPath = '';
     this._isNativeSegwit = false;
     this._isWrappedSegwit = false;
@@ -123,6 +124,10 @@ export class MultisigHDWallet extends AbstractHDElectrumWallet {
     return this._cosigners[index - 1];
   }
 
+  getCosigners() {
+    return this._cosigners;
+  }
+
   getFingerprint(index) {
     if (index === 0) throw new Error('cosigners fingerprints indexation starts from 1');
     return this._cosignersFingerprints[index - 1];
@@ -169,6 +174,7 @@ export class MultisigHDWallet extends AbstractHDElectrumWallet {
    * @param passphrase {string} BIP38 Passphrase (if any)
    */
   addCosigner(key, fingerprint, path, passphrase) {
+    let xpub;
     if (MultisigHDWallet.isXpubString(key) && !fingerprint) {
       throw new Error('fingerprint is required when adding cosigner as xpub (watch-only)');
     }
@@ -199,7 +205,11 @@ export class MultisigHDWallet extends AbstractHDElectrumWallet {
     } else {
       // mnemonics. lets derive fingerprint (if it wasnt provided)
       if (!bip39.validateMnemonic(key)) throw new Error('Not a valid mnemonic phrase');
-      fingerprint = fingerprint || MultisigHDWallet.mnemonicToFingerprint(key, passphrase);
+      const seed = bip39.mnemonicToSeedSync(key, passphrase);
+      const root = bip32.fromSeed(seed);
+      const child = root.derivePath(this._derivationPath).neutered();
+      fingerprint = fingerprint || AbstractHDElectrumWallet.seedToFingerprint(seed);
+      xpub = child.toBase58();
     }
 
     if (fingerprint && this._cosignersFingerprints.indexOf(fingerprint.toUpperCase()) !== -1 && fingerprint !== '00000000') {
@@ -212,6 +222,7 @@ export class MultisigHDWallet extends AbstractHDElectrumWallet {
     if (fingerprint) this._cosignersFingerprints[index] = fingerprint.toUpperCase();
     if (path) this._cosignersCustomPaths[index] = path;
     if (passphrase) this._cosignersPassphrases[index] = passphrase;
+    if (xpub) this._cosignersXpubs[index] = xpub;
   }
 
   static convertMultisigXprvToRegularXprv(Zprv) {
@@ -233,17 +244,20 @@ export class MultisigHDWallet extends AbstractHDElectrumWallet {
    * @private
    */
   _getXpubFromCosigner(cosigner) {
+    const index = this._cosigners.indexOf(cosigner);
+    if (this._cosignersXpubs[index]) return this._cosignersXpubs[index];
+
     if (MultisigHDWallet.isXprvString(cosigner)) cosigner = MultisigHDWallet.convertXprvToXpub(cosigner);
     let xpub = cosigner;
     if (!MultisigHDWallet.isXpubString(cosigner)) {
-      const index = this._cosigners.indexOf(cosigner);
       xpub = MultisigHDWallet.seedToXpub(
         cosigner,
         this._cosignersCustomPaths[index] || this._derivationPath,
         this._cosignersPassphrases[index],
       );
     }
-    return this._zpubToXpub(xpub);
+    this._cosignersXpubs[index] = this._zpubToXpub(xpub);
+    return this._cosignersXpubs[index];
   }
 
   _getExternalAddressByIndex(index) {
@@ -363,6 +377,18 @@ export class MultisigHDWallet extends AbstractHDElectrumWallet {
     return ['xprv', 'yprv', 'zprv', 'Yprv', 'Zprv'].includes(xpub.substring(0, 4));
   }
 
+  static xpubToZpub(xpub) {
+    let data = b58.decode(xpub);
+    data = data.slice(4);
+    return b58.encode(Buffer.concat([Buffer.from('02aa7ed3', 'hex'), data]));
+  }
+
+  static zpubToXpub(zpub) {
+    let data = b58.decode(zpub);
+    data = data.slice(4);
+    return b58.encode(Buffer.concat([Buffer.from('0488b21e', 'hex'), data]));
+  }
+
   /**
    * Converts fingerprint that is stored as a deciman number to hex string (all caps)
    *
@@ -446,14 +472,15 @@ export class MultisigHDWallet extends AbstractHDElectrumWallet {
         ret += this._cosignersFingerprints[index] + ': ' + this._cosigners[index] + '\n';
       } else {
         if (coordinationSetup) {
-          const xpub = this.convertXpubToMultisignatureXpub(
+          const seedCosigner = this._cosigners[index];
+          const xpub = this._getXpubFromCosigner(seedCosigner) ?? this.convertXpubToMultisignatureXpub(
             MultisigHDWallet.seedToXpub(
-              this._cosigners[index],
+              seedCosigner,
               this._cosignersCustomPaths[index] || this._derivationPath,
               this._cosignersPassphrases[index],
             ),
           );
-          const fingerprint = MultisigHDWallet.mnemonicToFingerprint(this._cosigners[index], this._cosignersPassphrases[index]);
+          const fingerprint = this._cosignersFingerprints[index] ?? MultisigHDWallet.mnemonicToFingerprint(this._cosigners[index], this._cosignersPassphrases[index]);
           ret += fingerprint + ': ' + xpub + '\n';
         } else {
           ret += 'seed: ' + this._cosigners[index];
@@ -1193,5 +1220,62 @@ export class MultisigHDWallet extends AbstractHDElectrumWallet {
 
   isSegwit() {
     return this.isNativeSegwit() || this.isWrappedSegwit();
+  }
+
+  hasCosignerSignedPSBT(psbt) {
+    const [cosigner] = this.getCosigners().filter(cosigner => !MultisigHDWallet.isXpubString(cosigner));
+    if (!cosigner) return false;
+
+    const xpub = this._getXpubFromCosigner(cosigner);
+    const masterNode = bip32.fromBase58(xpub);
+
+    for (const input of psbt.data.inputs) {
+      if (!input.partialSig || !input.bip32Derivation) continue;
+
+      for (const derivation of input.bip32Derivation) {
+        try {
+          const relativePath = derivation.path.split('/').slice(-2).join('/');
+          const child = masterNode.derivePath(relativePath);
+
+          const hasSignatureForPubkey = input.partialSig?.some(sig => sig.pubkey.equals(child.publicKey));
+
+          if (hasSignatureForPubkey) return true;
+        } catch (e) {
+          console.log('Derivation failed:', e);
+          continue;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  canSignThisPsbt(psbt) {
+    if (this.howManySignaturesCanWeMake() === 0) return false;
+
+    const [cosigner] = this._cosigners.filter(cosigner => !MultisigHDWallet.isXpubString(cosigner));
+    if (!cosigner) return false;
+
+    const xpub = this._getXpubFromCosigner(cosigner);
+    const masterNode = bip32.fromBase58(xpub);
+
+    for (const input of psbt.data.inputs) {
+      if (!input.bip32Derivation) continue;
+
+      for (const derivation of input.bip32Derivation) {
+        try {
+          const relativePath = derivation.path.split('/').slice(-2).join('/');
+          const child = masterNode.derivePath(relativePath);
+          
+          if (psbt.inputHasPubkey(0, child.publicKey)) {
+            return true;
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+    }
+
+    return false;
   }
 }
