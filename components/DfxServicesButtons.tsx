@@ -24,7 +24,6 @@ import { AbstractHDElectrumWallet } from '../class/wallets/abstract-hd-electrum-
 import { BlueText } from '../BlueComponents';
 import { LightningLdsWallet } from '../class/wallets/lightning-lds-wallet';
 import { useWalletContext } from '../contexts/wallet.context';
-import { DisabledOverlay } from './DisabledOverlay';
 
 const currency = require('../blue_modules/currency');
 
@@ -33,13 +32,7 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
   const { wallets, isDfxPos, isDfxSwap } = useContext(BlueStorageContext);
   const { navigate } = useNavigation<any>();
   const { colors } = useTheme();
-  const {
-    isAvailable: isDfxAvailable,
-    openServices,
-    isProcessing: isDfxProcessing,
-    isInitialized: isDfxInitialized,
-    isUnavailable: isDfxUnavailable,
-  } = useDfxSessionContext();
+  const { isAvailable: isDfxAvailable, openServices } = useDfxSessionContext();
   const [isHandlingOpenServices, setIsHandlingOpenServices] = useState(false);
   const [changeAddress, setChangeAddress] = useState('');
 
@@ -143,55 +136,59 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
 
   return (
     <View style={styles.dfxContainer}>
-      <BlueText>{loc.wallets.external_services}</BlueText>
-      <View style={styles.dfxButtonContainer}>
-        {isDfxProcessing || (!isDfxInitialized && !isDfxUnavailable) ? (
-          <ActivityIndicator />
-        ) : (
-          <>
-            <DisabledOverlay disabled={isDfxUnavailable}>
-              <ImageButton
-                imageStyle={styles.tileImageStyle}
-                source={buttonImages[0]}
-                onPress={() => handleOpenServices(DfxService.BUY)}
-                disabled={isHandlingOpenServices || !isDfxAvailable}
-              />
-            </DisabledOverlay>
-            {isDfxSwap && (
-              <DisabledOverlay disabled={isDfxUnavailable}>
-                <ImageButton
-                  imageStyle={styles.tileImageStyle}
-                  source={buttonImages[2]}
-                  onPress={() => handleOpenServices(DfxService.SWAP)}
-                  disabled={isHandlingOpenServices || !isDfxAvailable}
-                />
-              </DisabledOverlay>
-            )}
-            <DisabledOverlay disabled={isDfxUnavailable}>
-              <ImageButton
-                source={buttonImages[1]}
-                onPress={() => handleOpenServices(DfxService.SELL)}
-                disabled={isHandlingOpenServices || !isDfxAvailable}
-              />
-            </DisabledOverlay>
-            {isDfxPos && (
-              <DisabledOverlay disabled={isDfxUnavailable}>
-                <View style={{ backgroundColor: colors.background, height: '100%' }}>
-                  <TouchableOpacity
-                    onPress={handleOpenDfxPosMode}
+      {isDfxAvailable ? (
+        <>
+          <BlueText>{loc.wallets.external_services}</BlueText>
+          <View style={styles.dfxButtonContainer}>
+            {isHandlingOpenServices ? (
+              <ActivityIndicator />
+            ) : (
+              <>
+                <View>
+                  <ImageButton
+                    imageStyle={styles.tileImageStyle}
+                    source={buttonImages[0]}
+                    onPress={() => handleOpenServices(DfxService.BUY)}
                     disabled={isHandlingOpenServices || !isDfxAvailable}
-                    style={{ justifyContent: 'center', alignItems: 'center', width: 60, padding: 10 }}
-                  >
-                    <BlueText>Point</BlueText>
-                    <BlueText>of</BlueText>
-                    <BlueText>Sale</BlueText>
-                  </TouchableOpacity>
+                  />
                 </View>
-              </DisabledOverlay>
+                {isDfxSwap && (
+                  <View>
+                    <ImageButton
+                      imageStyle={styles.tileImageStyle}
+                      source={buttonImages[2]}
+                      onPress={() => handleOpenServices(DfxService.SWAP)}
+                      disabled={isHandlingOpenServices || !isDfxAvailable}
+                    />
+                  </View>
+                )}
+                <View>
+                  <ImageButton
+                    source={buttonImages[1]}
+                    onPress={() => handleOpenServices(DfxService.SELL)}
+                    disabled={isHandlingOpenServices || !isDfxAvailable}
+                  />
+                </View>
+                {isDfxPos && (
+                  <View>
+                    <View style={{ backgroundColor: colors.background, height: '100%' }}>
+                      <TouchableOpacity
+                        onPress={handleOpenDfxPosMode}
+                        disabled={isHandlingOpenServices || !isDfxAvailable}
+                        style={{ justifyContent: 'center', alignItems: 'center', width: 60, padding: 10 }}
+                      >
+                        <BlueText>Point</BlueText>
+                        <BlueText>of</BlueText>
+                        <BlueText>Sale</BlueText>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              </>
             )}
-          </>
-        )}
-      </View>
+          </View>
+        </>
+      ) : null}
     </View>
   );
 };
