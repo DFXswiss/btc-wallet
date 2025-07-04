@@ -30,7 +30,8 @@
     "add": "Add",
     "repeat": "Repeat",
     "loading": "Loading",
-    "skip": "Skip for now"
+    "skip": "Skip for now",
+    "free": "Free"
   },
   "alert": {
     "default": "Alert"

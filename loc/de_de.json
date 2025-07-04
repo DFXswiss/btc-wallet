@@ -30,7 +30,8 @@
     "add": "Hinzufügen",
     "repeat": "Wiederholen",
     "loading": "Laden",
-    "skip": "Jetzt überspringen"
+    "skip": "Jetzt überspringen",
+    "free": "Kostenlos"
   },
   "alert": {
     "default": "Warnung"

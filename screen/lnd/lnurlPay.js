@@ -66,7 +66,7 @@ const LnurlPay = () => {
       ln.callLnurlPayService()
         .then(p => {
           const domain = ln.getDomain();
-          setIsTxFree(isFreeDomain(domain))
+          setIsTxFree(isInternalDomain(domain))
           setPayload(p);
         })
         .catch(error => {
@@ -258,7 +258,7 @@ const LnurlPay = () => {
           ) : (
             <>
               <Text style={styles.fees}>
-                {loc.send.create_fee}: {isTxFree ? 'free' : getFees()}
+                {loc.send.create_fee}: {isTxFree ? loc._.free : getFees()}
               </Text>
               <BlueButton title={loc.lnd.payButton} onPress={pay} />
             </>

@@ -29,7 +29,8 @@
     "pick_file": "Elija un archivo",
     "enter_amount": "Introducir importe",
     "qr_custom_input_button": "Toque 10 veces para introducir datos personalizados",
-    "loading": "Cargando"
+    "loading": "Cargando",
+    "free": "Gratis"
   },
   "alert": {
     "default": "Atención"
