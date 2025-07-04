@@ -8,6 +8,6 @@ export const isFreeDomain = (domain: string) => {
 export const isInternalDomain = (domain: string) => {
   if (!domain || typeof domain !== 'string') return false;
 
-  const internalDomains = ['dfx.swiss', 'dev.dfx.swiss'];
-  return internalDomains.includes(domain.toLowerCase());
+  const internalDomains = ['dfx.swiss', 'api.dfx.swiss', 'dev.dfx.swiss', 'dev.api.dfx.swiss'];
+  return internalDomains.some(d => domain.toLowerCase().includes(d));
 };

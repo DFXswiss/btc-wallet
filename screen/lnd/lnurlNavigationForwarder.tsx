@@ -13,6 +13,7 @@ import { parse } from 'url';
 import { AbstractWallet, HDSegwitBech32Wallet } from '../../class';
 import BigNumber from 'bignumber.js';
 import { AbstractHDElectrumWallet } from '../../class/wallets/abstract-hd-electrum-wallet';
+import { isInternalDomain } from '../../helpers/freeLightningDomains';
 
 type RouteParams = {
   lnurl: string;
@@ -100,6 +101,7 @@ const LnurlNavigationForwarder = () => {
         amountUnit: BitcoinUnit.SATS,
         description,
         walletID: wallet.getID(),
+        free: isInternalDomain(paymentLink.getCallbackUrl()),
       }; 
   };
 
@@ -145,6 +147,14 @@ const LnurlNavigationForwarder = () => {
               ...navigationParams,
               paymentLinkDetails: reply,
             },
+          });
+        }
+
+        const lnWallet = wallets.find((w: any) => w.chain === Chain.OFFCHAIN);
+        if(lnWallet) {
+          return navigation.replace('SendDetailsRoot', {
+            screen: 'LnurlPay',
+            params: await getLightningPaymentNavigation(lnWallet, paymentLink),
           });
         }
 
