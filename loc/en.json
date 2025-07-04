@@ -464,6 +464,7 @@
     "import_passphrase_message": "Enter passphrase if you have used any",
     "import_error": "Failed to import. Please make sure that the provided data is valid.",
     "import_explanation": "Please enter your seed words, public key, WIF, or anything you’ve got. DFX Bitcoin Wallet will do its best to guess the correct format and import your wallet.",
+    "scan_import_explanation": "Scan your QR code backup with your seed words, public key, WIF, or anything you’ve got. DFX Bitcoin Wallet will do its best to guess the correct format.",
     "import_imported": "Imported",
     "import_scan_qr": "Scan or import a file",
     "import_success": "Your wallet has been successfully imported.",

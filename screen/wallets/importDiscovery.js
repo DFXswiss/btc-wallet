@@ -7,7 +7,7 @@ import { BlueButton, BlueButtonLink, BlueFormLabel, BlueSpacing10, BlueSpacing20
 import navigationStyle from '../../components/navigationStyle';
 import WalletToImport from '../../components/WalletToImport';
 import loc from '../../loc';
-import { HDSegwitBech32Wallet } from '../../class';
+import { HDSegwitBech32Wallet, MultisigHDWallet, WatchOnlyWallet } from '../../class';
 import startImport from '../../class/wallet-import';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import prompt from '../../helpers/prompt';
@@ -40,25 +40,42 @@ const ImportWalletDiscovery = () => {
     },
   });
 
-  const saveWallet = async wallet => {
+  const saveWallet = async (mainWallet, multisigWallet) => {
     if (importing.current) return;
     importing.current = true;
-    await addAndSaveWallet(wallet);
+
+    await addAndSaveWallet(mainWallet);
+
+    if (multisigWallet) {
+      await addAndSaveWallet(multisigWallet);
+    }
+
     navigation.dispatch(
       StackActions.replace('WalletsRoot', {
         screen: 'AddLightning',
         params: {
-          walletID: wallet.getID(),
+          walletID: mainWallet.getID(),
           isOnboarding: true,
         },
       }),
     );
   };
 
+  const tryMultisigBackup = backupText => {
+    const ms = new MultisigHDWallet();
+    ms.setSecret(backupText);
+    if (ms.getN() > 0 && ms.getM() > 0) {
+      return ms;
+    }
+    return null;
+  };
+
   useEffect(() => {
     const onProgress = data => setProgress(data);
 
     const onWallet = wallet => {
+      if(wallet.type === WatchOnlyWallet.type) return;
+
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       const id = wallet.getID();
       let subtitle;
@@ -81,14 +98,23 @@ const ImportWalletDiscovery = () => {
       }
     };
 
+    const multisig = tryMultisigBackup(importText);
+    const [firstPrivateKey] = multisig?.getCosigners().filter(c => typeof c === 'string' && !MultisigHDWallet.isXpubString(c)) || [];
+    const possibleSecret = firstPrivateKey || importText;
+
     IdleTimerManager.setIdleTimerDisabled(true);
 
-    task.current = startImport(importText, askPassphrase, searchAccounts, onProgress, onWallet, onPassword);
+    task.current = startImport(possibleSecret, askPassphrase, searchAccounts, onProgress, onWallet, onPassword);
 
     task.current.promise
-      .then(({ cancelled, wallets: w }) => {
+      .then(({ cancelled, wallets}) => {
+        const w = wallets.filter(w => w.type !== WatchOnlyWallet.type);
+
         if (cancelled) return;
-        if (w.length === 1) saveWallet(w[0]); // instantly save wallet if only one has been discovered
+        if (w.length === 1) {
+          saveWallet(w[0], multisig);
+          if(multisig) onWallet(multisig);
+        }
         if (w.length === 0) {
           ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
         }

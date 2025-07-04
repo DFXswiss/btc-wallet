@@ -101,6 +101,7 @@ import ManualAddressSend from './screen/send/ManualAddressSend';
 import ImportMultisignature from './screen/wallets/importMultisignature';
 import LnurlNavigationForwarder from './screen/lnd/lnurlNavigationForwarder';
 import OpenCryptoPayCommitOnchain from './screen/open-crypto-pay/openCrytoPayCommitOnchain';
+import ScanImport from './screen/wallets/ScanImport';
 
 const WalletsStack = createNativeStackNavigator();
 
@@ -219,6 +220,11 @@ const AddWalletRoot = () => {
         name="ImportWalletDiscovery"
         component={ImportWalletDiscovery}
         options={ImportWalletDiscovery.navigationOptions(theme)}
+      />
+      <AddWalletStack.Screen
+        name="ScanImport"
+        component={ScanImport}
+        options={ScanImport.navigationOptions(theme)}
       />
       <AddWalletStack.Screen
         name="ImportCustomDerivationPath"

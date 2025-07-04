@@ -457,6 +457,7 @@
     "import_passphrase_message": "Entrez la phrase secrète si vous en avez utilisé une",
     "import_error": "Échec de l'import. Merci, de vérifier que les données saisies sont valides.",
     "import_explanation": "Entrez ici votre mnémonique, clé privée, WIF, ou quoi que ce soit que vous ayez. DFX Bitcoin Wallet fera de son mieux pour deviner le bon format et importer votre portefeuille",
+    "scan_import_explanation": "Scannez votre sauvegarde QR avec votre mnémonique, clé privée, WIF, ou quoi que ce soit que vous ayez. DFX Bitcoin Wallet fera de son mieux pour deviner le bon format.",
     "import_imported": "Importé",
     "import_scan_qr": "ou scaner un QR code",
     "import_success": "Succès",
