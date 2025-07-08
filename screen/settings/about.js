@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext } from 'react';
 import {
   TouchableOpacity,
   ScrollView,
@@ -22,6 +22,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import alert from '../../components/Alert';
 import { HDSegwitBech32Wallet } from '../../class';
 import Config from 'react-native-config';
+import { BlueStorageContext } from '../../blue_modules/storage-context';
 
 const A = require('../../blue_modules/analytics');
 const branch = require('../../current-branch.json');
@@ -30,6 +31,7 @@ const About = () => {
   const { navigate } = useNavigation();
   const { colors } = useTheme();
   const { width, height } = useWindowDimensions();
+  const { isElectrumDisabled } = useContext(BlueStorageContext);
   const styles = StyleSheet.create({
     copyToClipboard: {
       justifyContent: 'center',

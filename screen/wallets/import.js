@@ -1,14 +1,12 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { Platform, View, Keyboard, StyleSheet, Switch, TouchableWithoutFeedback } from 'react-native';
+import { Platform, View, Keyboard, StyleSheet, Switch, TouchableWithoutFeedback, TouchableOpacity, Image } from 'react-native';
 import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
 
 import {
   BlueButton,
-  BlueButtonLink,
   BlueDoneAndDismissKeyboardInputAccessory,
   BlueFormLabel,
   BlueFormMultiInput,
-  BlueSpacing10,
   BlueSpacing20,
   BlueText,
   SafeBlueArea,
@@ -69,6 +67,22 @@ const WalletsImport = () => {
     const willHide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () =>
       setIsToolbarVisibleForAndroid(false),
     );
+    navigation.setOptions({
+      headerBackVisible: false,
+      headerRight: () => (
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={loc._.close}
+          style={styles.button}
+          onPress={() => {
+            Keyboard.dismiss();
+            navigation.replace('ScanImport');
+          }}
+        >
+          <Image source={require('../../img/close-white.png')} />
+        </TouchableOpacity>
+      ),
+    });
     return () => {
       willShow.remove();
       willHide.remove();
@@ -92,23 +106,6 @@ const WalletsImport = () => {
 
   const importMnemonic = text => {
     navigation.navigate('ImportWalletDiscovery', { importText: text, askPassphrase, searchAccounts });
-  };
-
-  const onBarScanned = value => {
-    if (value && value.data) value = value.data + ''; // no objects here, only strings
-    setImportText(value);
-    setTimeout(() => importMnemonic(value), 500);
-  };
-
-  const importScan = () => {
-    navigation.navigate('ScanQRCodeRoot', {
-      screen: 'ScanQRCode',
-      params: {
-        launchedBy: route.name,
-        onBarScanned,
-        showFileImportButton: true,
-      },
-    });
   };
 
   const speedBackdoorTap = () => {
@@ -137,17 +134,13 @@ const WalletsImport = () => {
 
       <BlueSpacing20 />
       <View style={styles.center}>
-        <>
           <BlueButton
             disabled={importText.trim().length === 0}
             title={loc.wallets.import_do_import}
             testID="DoImport"
             onPress={importButtonPressed}
           />
-          <BlueSpacing10 />
-          <BlueButtonLink title={loc.wallets.import_scan_qr} onPress={importScan} testID="ScanImport" />
           <BlueSpacing20 />
-        </>
       </View>
     </>
   );

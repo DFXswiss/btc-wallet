@@ -14,6 +14,7 @@ import {
   BlueSpacing20,
   BlueText,
   SafeBlueArea,
+  SecondButton,
 } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
 import AmountInput from '../../components/AmountInput';
@@ -24,7 +25,7 @@ import Biometric from '../../class/biometrics';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import alert from '../../components/Alert';
 import { Text } from 'react-native-elements';
-import { isFreeDomain } from '../../helpers/freeLightningDomains';
+import { isFreeDomain, isInternalDomain } from '../../helpers/freeLightningDomains';
 const currency = require('../../blue_modules/currency');
 
 /**
@@ -36,7 +37,7 @@ const _cacheFiatToSat = {};
 
 const LnurlPay = () => {
   const { wallets, refreshAllWalletTransactions } = useContext(BlueStorageContext);
-  const { walletID, lnurl, amountSat, destination, invoice, amountUnit, description } = useRoute().params;
+  const { walletID, lnurl, amountSat, destination, invoice, amountUnit, description, free } = useRoute().params;
   /** @type {LightningCustodianWallet} */
   const wallet = wallets.find(w => w.getID() === walletID);
   const [unit, setUnit] = useState(wallet.getPreferredBalanceUnit());
@@ -66,7 +67,7 @@ const LnurlPay = () => {
       ln.callLnurlPayService()
         .then(p => {
           const domain = ln.getDomain();
-          setIsTxFree(isFreeDomain(domain))
+          setIsTxFree(isInternalDomain(domain) || isFreeDomain(domain))
           setPayload(p);
         })
         .catch(error => {
@@ -84,6 +85,7 @@ const LnurlPay = () => {
       setAmount(amountSat);
       setUnit(amountUnit);
       setIsLoading(false);
+      setIsTxFree(free)
     }
   }, [invoice]);
 
@@ -208,6 +210,10 @@ const LnurlPay = () => {
     return `${min} ${BitcoinUnit.SATS} - ${max} ${BitcoinUnit.SATS}`;
   };
 
+  const isInsufficientFunds = () => {
+    return amountSat > wallet.getBalance();
+  }
+
   const renderGotPayload = () => {
     return (
       <SafeBlueArea style={styles.payRoot}>
@@ -257,10 +263,21 @@ const LnurlPay = () => {
             <BlueLoading />
           ) : (
             <>
-              <Text style={styles.fees}>
-                {loc.send.create_fee}: {isTxFree ? 'free' : getFees()}
-              </Text>
-              <BlueButton title={loc.lnd.payButton} onPress={pay} />
+              {isInsufficientFunds() ? (
+                <>
+                <Text style={styles.insufficientFunds}>
+                  {loc.send.insufficient_funds}
+                </Text>
+                <SecondButton title={loc._.cancel} onPress={goBack} />
+                </>
+              ) : (
+                <>
+                <Text style={styles.fees}>
+                  {loc.send.create_fee}: {isTxFree ? loc._.free : getFees()}
+                </Text>
+                <BlueButton title={loc.lnd.payButton} onPress={pay} disabled={isInsufficientFunds()} />
+                </>
+              )}
             </>
           )}
           <BlueSpacing20 />
@@ -303,6 +320,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 24,
     paddingBottom: 6,
     fontWeight: '500',
+    alignSelf: 'center',
+  },
+  insufficientFunds: {
+    color: 'red',
+    fontSize: 14,
+    marginVertical: 8,
+    marginHorizontal: 24,
     alignSelf: 'center',
   },
 });
