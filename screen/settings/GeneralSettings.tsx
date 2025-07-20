@@ -1,12 +1,15 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { ScrollView, Platform, Pressable, StyleSheet } from 'react-native';
+import { ScrollView, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import navigationStyle from '../../components/navigationStyle';
-import { BlueLoading, BlueText, BlueSpacing20, BlueListItem, BlueCard } from '../../BlueComponents';
+import { BlueLoading, BlueText, BlueSpacing20, BlueListItem, BlueCard, BlueButton, SecondButton } from '../../BlueComponents';
 import { useNavigation, useTheme } from '@react-navigation/native';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { isURv1Enabled, clearUseURv1, setUseURv1 } from '../../blue_modules/ur';
+import { STORAGE_KEY as LANG_STORAGE_KEY } from '../../loc';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { PREFERRED_CURRENCY_STORAGE_KEY, EXCHANGE_RATES_STORAGE_KEY, LAST_UPDATED } from '../../blue_modules/currency';
 
 const styles = StyleSheet.create({
   root: {
@@ -20,6 +23,7 @@ const GeneralSettings: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isAdvancedModeSwitchEnabled, setIsAdvancedModeSwitchEnabled] = useState(false);
   const [isURv1SwitchEnabled, setIsURv1SwitchEnabled] = useState(false);
+  const [isClearingAsyncStorage, setIsClearingAsyncStorage] = useState(false);
   const { navigate } = useNavigation();
   const { colors } = useTheme();
   const onAdvancedModeSwitch = async (value: boolean) => {
@@ -42,6 +46,19 @@ const GeneralSettings: React.FC = () => {
   const navigateToPrivacy = () => {
     // @ts-ignore: Fix later
     navigate('SettingsPrivacy');
+  };
+
+  const clearAsyncStorage = async () => {
+    try {
+      setIsClearingAsyncStorage(true);
+      await Promise.all([
+        AsyncStorage.removeItem(LANG_STORAGE_KEY),
+        AsyncStorage.removeItem(PREFERRED_CURRENCY_STORAGE_KEY),
+        AsyncStorage.removeItem(EXCHANGE_RATES_STORAGE_KEY),
+        AsyncStorage.removeItem(LAST_UPDATED),
+      ]);
+    } catch (error) {}
+    setIsClearingAsyncStorage(false);
   };
 
   const stylesWithThemeHook = {
@@ -89,6 +106,13 @@ const GeneralSettings: React.FC = () => {
         switch={{ onValueChange: onLegacyURv1Switch, value: isURv1SwitchEnabled }}
       />
       <BlueSpacing20 />
+      <BlueListItem
+        // @ts-ignore: Fix later
+        Component={View}
+        title="Clear AsyncStorage"
+        // @ts-ignore: title? what?
+        rightElement={<SecondButton title="Clear" onPress={clearAsyncStorage} isLoading={isClearingAsyncStorage} />}
+      />
     </ScrollView>
   );
 };
