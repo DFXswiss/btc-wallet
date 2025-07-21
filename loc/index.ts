@@ -39,7 +39,7 @@ const setDateTimeLocale = async () => {
     case 'da_dk':
       require('dayjs/locale/da');
       break;
-    case 'de_de':
+    case 'de':
       require('dayjs/locale/de');
       break;
     case 'el':
@@ -62,7 +62,7 @@ const setDateTimeLocale = async () => {
     case 'fa':
       require('dayjs/locale/fa');
       break;
-    case 'fr_fr':
+    case 'fr':
       require('dayjs/locale/fr');
       break;
     case 'he':
@@ -207,14 +207,14 @@ const loc = new Localization({
   cy: require('./cy.json'),
   cs_cz: require('./cs_cz.json'),
   da_dk: require('./da_dk.json'),
-  de_de: require('./de_de.json'),
+  de: require('./de.json'),
   el: require('./el.json'),
   es: require('./es.json'),
   es_419: require('./es_419.json'),
   et: require('./et_EE.json'),
   fa: require('./fa.json'),
   fi_fi: require('./fi_fi.json'),
-  fr_fr: require('./fr_fr.json'),
+  fr: require('./fr.json'),
   he: require('./he.json'),
   hr_hr: require('./hr_hr.json'),
   hu_hu: require('./hu_hu.json'),
