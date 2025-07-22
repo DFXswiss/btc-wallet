@@ -48,6 +48,7 @@ class AppStorage {
   static POS_MODE = 'pos_mode';
   static DFX_POS = 'dfx_pos';
   static DFX_SWAP = 'dfx_swap';
+  static CAMERA_PERMISSION_LAST_ASKED_TIME = 'camera_permission_last_asked_time';
 
   static keys2migrate = [AppStorage.HANDOFF_STORAGE_KEY, AppStorage.DO_NOT_TRACK, AppStorage.ADVANCED_MODE_ENABLED];
 
@@ -897,6 +898,15 @@ class AppStorage {
 
   setDoNotTrack = async value => {
     await AsyncStorage.setItem(AppStorage.DO_NOT_TRACK, value ? '1' : '');
+  };
+
+  getCameraPermissionLastAskedTime = async () => {
+    const time = await AsyncStorage.getItem(AppStorage.CAMERA_PERMISSION_LAST_ASKED_TIME);
+    return time ? parseInt(time) : 0;
+  };
+
+  setCameraPermissionLastAskedTime = async value => {
+    await AsyncStorage.setItem(AppStorage.CAMERA_PERMISSION_LAST_ASKED_TIME, value.toString());
   };
 
   /**
