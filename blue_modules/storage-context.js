@@ -35,6 +35,7 @@ export const BlueStorageProvider = ({ children }) => {
   const [isPrivacyBlurEnabled, setIsPrivacyBlurEnabled] = useState(true);
   const [lastSuccessfulBalanceRefresh, setLastSuccessfulBalanceRefresh] = useState(Date.now());
   const balanceRefreshInterval = useRef(null);
+  const [cameraPermissionLastAskedTime, setCameraPermissionLastAskedTime] = useState(0);
 
   useEffect(() => {
     BlueElectrum.isDisabled().then(setIsElectrumDisabled);
@@ -81,6 +82,11 @@ export const BlueStorageProvider = ({ children }) => {
     txMetadata = BlueApp.tx_metadata;
   };
 
+  const setCameraPermissionLastAskedTimeAsyncStorage = value => {
+    setCameraPermissionLastAskedTime(value);
+    return BlueApp.setCameraPermissionLastAskedTime(value);
+  };
+
   useEffect(() => {
     setWallets(BlueApp.getWallets());
   }, []);
@@ -98,6 +104,8 @@ export const BlueStorageProvider = ({ children }) => {
         setIsDfxPos(!!enabledDfxPos);
         const enabledDfxSwap = await BlueApp.isDfxSwapEnabled();
         setIsDfxSwap(!!enabledDfxSwap);
+        const cameraPermissionLastAskedTime = await BlueApp.getCameraPermissionLastAskedTime();
+        setCameraPermissionLastAskedTime(cameraPermissionLastAskedTime);
       } catch (_e) {
         setIsHandOffUseEnabledAsyncStorage(false);
         setIsHandOffUseEnabled(false);
@@ -364,6 +372,8 @@ export const BlueStorageProvider = ({ children }) => {
         setIsDfxPosAsyncStorage,
         isDfxSwap,
         setIsDfxSwapAsyncStorage,
+        cameraPermissionLastAskedTime,
+        setCameraPermissionLastAskedTimeAsyncStorage,
       }}
     >
       {children}
