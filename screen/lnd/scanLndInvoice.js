@@ -22,7 +22,7 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import alert from '../../components/Alert';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import { useReplaceModalScreen } from '../../hooks/replaceModalScreen.hook';
-import { isFreeDomain } from '../../helpers/freeLightningDomains';
+import { isFreeDomain, isInternalDomain } from '../../helpers/freeLightningDomains';
 const currency = require('../../blue_modules/currency');
 
 const ScanLndInvoice = () => {
@@ -48,6 +48,7 @@ const ScanLndInvoice = () => {
   const [desc, setDesc] = useState();
   const [isDescDisabled, setIsDescDisabled] = useState(false);
   const [expiresIn, setExpiresIn] = useState();
+  const [domain, setDomain] = useState('');
   const [isTxFree, setIsTxFree] = useState(false);
 
   const stylesHook = StyleSheet.create({
@@ -100,6 +101,7 @@ const ScanLndInvoice = () => {
     setIsAmountInputDisabled(false);
     setDesc(ln.getDescription());
     setIsDescDisabled(Boolean(ln.getDescription()));
+    setDomain(ln.getDomain());
     if(isFreeDomain(ln.getDomain())){
       setIsTxFree(true);
     }
@@ -111,6 +113,7 @@ const ScanLndInvoice = () => {
     setIsAmountInputDisabled(false);
     setIsDescDisabled(false);
     const domain = Lnurl.getDomainFromLightningAddress(destinationString);
+    setDomain(domain);
     if(isFreeDomain(domain)){
       setIsTxFree(true);
     }
@@ -243,7 +246,7 @@ const ScanLndInvoice = () => {
   };
 
   const getFees = () => {
-    if(isTxFree) return 'Free'
+    if(isTxFree || isInternalDomain(domain)) return loc._.free;
     
     const min = 0;
     const max = Math.floor(amountSat * 0.03);

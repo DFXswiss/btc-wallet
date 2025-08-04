@@ -138,8 +138,8 @@ const WalletsAdd = () => {
     navigate('ProvideEntropy', { onGenerated: entropyGenerated });
   };
 
-  const navigateToImportWallet = () => {
-    navigate('ImportWallet');
+  const navigateToScanImport = () => {
+    navigate('ScanImport');
   };
 
   const handleDisclaimerPress = () => {
@@ -229,7 +229,7 @@ const WalletsAdd = () => {
             testID="ImportWallet"
             style={styles.import}
             title={loc.wallets.add_import_wallet}
-            onPress={navigateToImportWallet}
+            onPress={navigateToScanImport}
           />
         )}
         <BlueSpacing20 />

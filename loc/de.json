@@ -30,7 +30,8 @@
     "add": "Hinzufügen",
     "repeat": "Wiederholen",
     "loading": "Laden",
-    "skip": "Jetzt überspringen"
+    "skip": "Jetzt überspringen",
+    "free": "Kostenlos"
   },
   "alert": {
     "default": "Warnung"
@@ -210,7 +211,9 @@
     "input_done": "Fertig",
     "input_paste": "Einfügen",
     "input_total": "Gesamt:",
-    "permission_camera_message": "DFX Bitcoin Wallet braucht Deine Erlaubnis, um die Kamera zu nutzen.",
+    "permission_camera_title": "Kamera-Berechtigung erforderlich",
+    "permission_camera_message": "Berechtigung ist derzeit abgelehnt. Bitte gehe zu den Einstellungen und aktiviere sie.",
+    "permission_camera_open_settings": "Einstellungen öffnen",
     "psbt_sign": "Transaktion signieren",
     "open_settings": "Einstellungen öffnen",
     "permission_storage_later": "Später beantworten",
@@ -458,6 +461,7 @@
     "import_passphrase_message": "Wenn genutzt, die Passphrase eingeben",
     "import_error": "Fehler beim Import. Ist die Eingabe korrekt?",
     "import_explanation": "Gib hier die mnemonische Phrase, den privaten Schlüssel, WIF oder was immer du hast ein. DFX Bitcoin Wallet wird bestmöglich das Format interpretieren und die Wallet importieren.",
+    "scan_import_explanation": "Scanne dein Backup QR-Code mit deiner mnemonischen Phrase, privaten Schlüssel, WIF oder was immer du hast. DFX Bitcoin Wallet wird bestmöglich das Format interpretieren.",
     "import_imported": "Importiert",
     "import_scan_qr": "QR-Code scannen oder Datei importieren",
     "import_success": "Wallet wurde erfolgreich importiert.",

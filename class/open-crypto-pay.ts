@@ -76,7 +76,6 @@ export class OpenCryptoPayPaymentLink {
     } = this.response;
     const txUrl = callback.replace('/cb/', '/tx/');
     const commitUrl = `${txUrl}?hex=${tx.toHex()}&tx=${tx.getId()}&asset=BTC&method=Bitcoin&quote=${id}`;
-    console.log('commitUrl', commitUrl);
     const response = await fetch(commitUrl);
     return response.json();
   }
@@ -101,5 +100,9 @@ export class OpenCryptoPayPaymentLink {
     } catch (e) {
       return '';
     }
+  }
+
+  getCallbackUrl() {
+    return this.response.callback;
   }
 }

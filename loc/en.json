@@ -30,7 +30,8 @@
     "add": "Add",
     "repeat": "Repeat",
     "loading": "Loading",
-    "skip": "Skip for now"
+    "skip": "Skip for now",
+    "free": "Free"
   },
   "alert": {
     "default": "Alert"
@@ -210,7 +211,9 @@
     "input_done": "Done",
     "input_paste": "Paste",
     "input_total": "Total:",
-    "permission_camera_message": "We need your permission to use your camera.",
+    "permission_camera_title": "Camera Permission Required",
+    "permission_camera_message": "Permission is currently denied. Please go to settings and enable it.",
+    "permission_camera_open_settings": "Open Settings",
     "psbt_sign": "Sign a transaction",
     "open_settings": "Open Settings",
     "permission_storage_later": "Ask me later",
@@ -464,6 +467,7 @@
     "import_passphrase_message": "Enter passphrase if you have used any",
     "import_error": "Failed to import. Please make sure that the provided data is valid.",
     "import_explanation": "Please enter your seed words, public key, WIF, or anything you’ve got. DFX Bitcoin Wallet will do its best to guess the correct format and import your wallet.",
+    "scan_import_explanation": "Scan your QR code backup with your seed words, public key, WIF, or anything you’ve got. DFX Bitcoin Wallet will do its best to guess the correct format.",
     "import_imported": "Imported",
     "import_scan_qr": "Scan or import a file",
     "import_success": "Your wallet has been successfully imported.",

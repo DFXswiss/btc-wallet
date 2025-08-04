@@ -29,7 +29,8 @@
     "pick_file": "Elija un archivo",
     "enter_amount": "Introducir importe",
     "qr_custom_input_button": "Toque 10 veces para introducir datos personalizados",
-    "loading": "Cargando"
+    "loading": "Cargando",
+    "free": "Gratis"
   },
   "alert": {
     "default": "Atención"
@@ -206,7 +207,9 @@
     "input_done": "Completado",
     "input_paste": "Pegar",
     "input_total": "Total:",
-    "permission_camera_message": "Necesitamos permiso para usar tu cámara.",
+    "permission_camera_title": "Permiso de cámara requerido",
+    "permission_camera_message": "El permiso está actualmente denegado. Por favor, ve a las configuraciones y actívalo.",
+    "permission_camera_open_settings": "Abrir configuraciones",
     "psbt_sign": "Firmar una transacción",
     "open_settings": "Abrir configuración",
     "permission_storage_later": "Pregúntame luego",
@@ -454,6 +457,7 @@
     "import_passphrase_message": "Introduce la passphrase si has usado una",
     "import_error": "Error al importar. Por favor, asegúrate de que los datos introducidos son correctos.",
     "import_explanation": "Introduce las palabras de tu semilla, llave pública, WIF, o cualquier otra cosa que tengas. DFX Bitcoin Wallet hará lo posible para descifrar el formato correcto e importar tu cartera. ",
+    "scan_import_explanation": "Escanea tu copia de seguridad QR con tus palabras de semilla, llave pública, WIF, o cualquier otra cosa que tengas. DFX Bitcoin Wallet hará lo posible para descifrar el formato correcto.",
     "import_imported": "Importado",
     "import_scan_qr": "Escanear o importar un archivo",
     "import_success": "Tu cartera ha sido importada.",

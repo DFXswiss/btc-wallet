@@ -46,9 +46,9 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
     switch (lang) {
       case 'en':
         return [BuyEn, SellEn, SwapEn];
-      case 'de_de':
+      case 'de':
         return [BuyDe, SellDe, SwapEn];
-      case 'fr_fr':
+      case 'fr':
         return [BuyFr, SellFr, SwapEn];
       case 'it':
         return [BuyIt, SellIt, SwapEn];

@@ -5,15 +5,15 @@ import BigNumber from 'bignumber.js';
 import { FiatUnit, getFiatRate } from '../models/fiatUnit';
 import WidgetCommunication from './WidgetCommunication';
 
-const PREFERRED_CURRENCY_STORAGE_KEY = 'preferredCurrency';
-const EXCHANGE_RATES_STORAGE_KEY = 'currency';
+export const PREFERRED_CURRENCY_STORAGE_KEY = 'preferredCurrency';
+export const EXCHANGE_RATES_STORAGE_KEY = 'currency';
 
 let preferredFiatCurrency = FiatUnit.USD;
 let exchangeRates = { LAST_UPDATED_ERROR: false };
 let lastTimeUpdateExchangeRateWasCalled = 0;
 let skipUpdateExchangeRate = false;
 
-const LAST_UPDATED = 'LAST_UPDATED';
+export const LAST_UPDATED = 'LAST_UPDATED';
 
 /**
  * Saves to storage preferred currency, whole object

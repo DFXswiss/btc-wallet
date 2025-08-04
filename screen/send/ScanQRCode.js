@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { Image, View, TouchableOpacity, StatusBar, Platform, StyleSheet, TextInput, Alert, PermissionsAndroid } from 'react-native';
+import { Image, View, TouchableOpacity, StatusBar, Platform, StyleSheet, Alert } from 'react-native';
 import { CameraScreen } from 'react-native-camera-kit';
 import { Icon, Text } from 'react-native-elements';
 import { launchImageLibrary } from 'react-native-image-picker';
@@ -14,6 +14,7 @@ import useLdsBoltcards from '../../api/boltcards/hooks/bolcards.hook';
 
 import RNQRGenerator from 'rn-qr-generator';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
+import useCameraPermissions from '../../hooks/cameraPermisions.hook';
 const createHash = require('create-hash');
 const fs = require('../../blue_modules/fs');
 const Base43 = require('../../blue_modules/base43');
@@ -115,8 +116,8 @@ const ScanQRCode = () => {
   const [urTotal, setUrTotal] = useState(0);
   const [urHave, setUrHave] = useState(0);
   const [animatedQRCodeData, setAnimatedQRCodeData] = useState({});
-  const [cameraStatus, setCameraStatus] = useState(false);
   const [holdCardModalVisible, setHoldCardModalVisible] = useState(false);
+  const { cameraStatus } = useCameraPermissions();
   const { startNfcSession, authCard, readCard, stopNfcSession } = useNtag424({ manualSessionControl: true });
   const { genFreshCardDetails } = useLdsBoltcards();
   const { revalidateBalancesInterval } = useContext(BlueStorageContext);
@@ -135,30 +136,6 @@ const ScanQRCode = () => {
   });
 
   useEffect(() => {
-    (async () => {
-      try {
-        if (Platform.OS === 'ios' || Platform.OS === 'macos') {
-          setCameraStatus(true);
-          return;
-        }
-        const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA, {
-          title: '',
-          message: loc.send.permission_camera_message,
-          buttonNeutral: loc.send.permission_storage_later,
-          buttonNegative: loc._.no,
-          buttonPositive: loc._.yes,
-        });
-        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-          console.log('You can use the camera');
-          setCameraStatus(true);
-        } else {
-          console.log('Camera permission denied');
-          setCameraStatus(false);
-        }
-      } catch (err) {
-        console.warn(err);
-      }
-    })();
     return () => {
       stopNfcSession();
     };
