@@ -15,4 +15,5 @@
   },
   "extends": "@tsconfig/react-native/tsconfig.json",
   "exclude": ["node_modules", "babel.config.js", "metro.config.js", "jest.config.js", "components/react-native-draggable-flatlist", "scripts/maccatalystpatches"],
+  "include": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "types/**/*.d.ts"]
 }
