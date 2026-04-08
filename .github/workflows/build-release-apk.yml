@@ -43,6 +43,9 @@ jobs:
       - name: Install node_modules
         run: npm install --production
 
+      - name: Install bundletool
+        run: brew install bundletool
+
       - name: Extract version name
         id: version_name
         run: |
@@ -63,6 +66,9 @@ jobs:
           KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
           KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
           BUILD_NUMBER: ${{ env.NEW_BUILD_NUMBER }}
+          TRANSPARENCY_KEYSTORE_HEX: ${{ secrets.TRANSPARENCY_KEYSTORE_HEX }}
+          TRANSPARENCY_PASSWORD: ${{ secrets.TRANSPARENCY_PASSWORD }}
+          TRANSPARENCY_ALIAS: ${{ secrets.TRANSPARENCY_ALIAS }}
         run: ./scripts/build-release-apk.sh
 
       - name: Upload APK artifact
@@ -107,6 +113,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.get_release.outputs.upload_url }}
-          asset_path: ./android/app/build/outputs/bundle/release/app-release.aab
+          asset_path: ./android/app/build/outputs/bundle/release/app-release-transparent.aab
           asset_name: DFX-Btc-Wallet-${{ github.ref_name }}.aab
+          asset_content_type: application/octet-stream
+
+      - name: Upload transparency certificate to release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.get_release.outputs.upload_url }}
+          asset_path: ./android/app/build/outputs/bundle/release/transparency-cert.pem
+          asset_name: DFX-Btc-Wallet-${{ github.ref_name }}-transparency-cert.pem
           asset_content_type: application/octet-stream

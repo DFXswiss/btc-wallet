@@ -125,3 +125,21 @@ Builds automated and tested with BrowserStack
 
 Found critical bugs/vulnerabilities? Please email them bluewallet@bluewallet.io
 Thanks!
+
+## CODE AUDITABILITY
+
+All Android release artifacts are built by CI and published to [GitHub Releases](../../releases).
+Each release includes a signed AAB with [Android Code Transparency](https://developer.android.com/guide/app-bundle/code-transparency)
+so anyone can independently verify that the code delivered by Google Play matches what was built from source.
+
+Quick verification (requires [`bundletool`](https://github.com/google/bundletool)):
+
+```bash
+bundletool check-transparency \
+  --mode=bundle \
+  --bundle=DFX-Btc-Wallet-vX.Y.Z.aab \
+  --transparency-key-certificate=security/code-transparency-cert.pem
+```
+
+Full details, certificate fingerprint, and reproducible build instructions:
+**[`security/README.md`](security/README.md)**
