@@ -11,7 +11,7 @@ set -euo pipefail
 #   TRANSPARENCY_ALIAS
 #
 # Optional:
-#   BUILD_NUMBER              versionCode (set by CI); falls back to truncated epoch seconds
+#   BUILD_NUMBER              deterministic versionCode override
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
@@ -47,10 +47,6 @@ trap cleanup EXIT INT TERM
 printf '%s' "$KEYSTORE_FILE_HEX"         | xxd -plain -revert > "$KEYSTORE"
 printf '%s' "$TRANSPARENCY_KEYSTORE_HEX" | xxd -plain -revert > "$TRANSPARENCY_KEYSTORE"
 
-# ── version code ──────────────────────────────────────────────────────────────
-VERSION_CODE="${BUILD_NUMBER:-$(date +%s | sed 's/...$//')}"
-sed -i'.original' -E "s/versionCode [0-9]+/versionCode $VERSION_CODE/" android/app/build.gradle
-
 # ── gradle args ───────────────────────────────────────────────────────────────
 SIGN_ARGS=(
   "-PMYAPP_UPLOAD_STORE_FILE=$KEYSTORE"
@@ -58,6 +54,7 @@ SIGN_ARGS=(
   "-PMYAPP_UPLOAD_STORE_PASSWORD=$KEYSTORE_PASSWORD"
   "-PMYAPP_UPLOAD_KEY_PASSWORD=$KEYSTORE_KEY_PASSWORD"
 )
+[ -n "${BUILD_NUMBER:-}" ] && SIGN_ARGS+=("-PMYAPP_VERSION_CODE=$BUILD_NUMBER")
 
 # ── build ─────────────────────────────────────────────────────────────────────
 cd android

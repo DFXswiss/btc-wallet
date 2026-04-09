@@ -53,10 +53,10 @@ jobs:
           VERSION_NAME=$(grep versionName android/app/build.gradle | awk '{print $2}' | tr -d '"')
           echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
 
-      - name: Generate build number based on timestamp
+      - name: Extract version code
         run: |
-          NEW_BUILD_NUMBER=$(date +%s)
-          echo "NEW_BUILD_NUMBER=$NEW_BUILD_NUMBER" >> $GITHUB_ENV
+          VERSION_CODE=$(grep versionCode android/app/build.gradle | awk '{print $2}')
+          echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
 
       - name: Build
         env:
@@ -64,7 +64,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
           KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
-          BUILD_NUMBER: ${{ env.NEW_BUILD_NUMBER }}
+          BUILD_NUMBER: ${{ env.VERSION_CODE }}
           TRANSPARENCY_KEYSTORE_HEX: ${{ secrets.TRANSPARENCY_KEYSTORE_HEX }}
           TRANSPARENCY_PASSWORD: ${{ secrets.TRANSPARENCY_PASSWORD }}
           TRANSPARENCY_ALIAS: ${{ secrets.TRANSPARENCY_ALIAS }}
@@ -102,7 +102,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: DFX-Btc-Wallet-${{ env.VERSION_NAME }}(${{ env.NEW_BUILD_NUMBER }}).apk
+          name: DFX-Btc-Wallet-${{ env.VERSION_NAME }}(${{ env.VERSION_CODE }}).apk
           path: ./android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
 
