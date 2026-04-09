@@ -132,14 +132,24 @@ All Android release artifacts are built by CI and published to [GitHub Releases]
 Each release includes a signed AAB with [Android Code Transparency](https://developer.android.com/guide/app-bundle/code-transparency)
 so anyone can independently verify that the code delivered by Google Play matches what was built from source.
 
-Quick verification (requires [`bundletool`](https://github.com/google/bundletool)):
+Each release ships (not in this repo—download from the release page):
+
+- `DFX-Btc-Wallet-<tag>.aab` — Play-ready bundle with code transparency
+- `DFX-Btc-Wallet-<tag>-transparency-cert.pem` — public certificate for that transparency signature
+
+Use the AAB and PEM from the **same** tag. Verification ([`bundletool`](https://github.com/google/bundletool)):
 
 ```bash
 bundletool check-transparency \
   --mode=bundle \
   --bundle=DFX-Btc-Wallet-vX.Y.Z.aab \
-  --transparency-key-certificate=security/code-transparency-cert.pem
+  --transparency-key-certificate=DFX-Btc-Wallet-vX.Y.Z-transparency-cert.pem
 ```
 
-Full details, certificate fingerprint, and reproducible build instructions:
-**[`security/README.md`](security/README.md)**
+Certificate fingerprint (compare with tooling output):
+
+```bash
+openssl x509 -in DFX-Btc-Wallet-vX.Y.Z-transparency-cert.pem -noout -fingerprint -sha256
+```
+
+Reproducible builds: use the same Git tag as the artifacts you downloaded; CI builds from that tag.
