@@ -159,7 +159,7 @@ bundletool check-transparency \
   --transparency-key-certificate=DFX-Btc-Wallet-vX.Y.Z-transparency-cert.pem
 ```
 
-The app **installed from Play on a connected device** can be verifed using `adb` and `bundletool`'s `connected_device` mode. See Google's documentation: [Verify code transparency of an app](https://developer.android.com/guide/app-bundle/code-transparency#verify-code-transparency).
+The app **installed from Play on a connected device** can be verified using `adb` and `bundletool`'s `connected_device` mode. See Google's documentation: [Verify code transparency of an app](https://developer.android.com/guide/app-bundle/code-transparency#verify-code-transparency).
 
 ```bash
 bundletool check-transparency \
