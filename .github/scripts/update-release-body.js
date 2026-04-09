@@ -1,6 +1,8 @@
 module.exports = async ({ github, context }) => {
   const workflowRunUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-  const pipelineLine = `Build pipeline: ${workflowRunUrl}`;
+  const markerStart = '<!-- build-pipeline:start -->';
+  const markerEnd = '<!-- build-pipeline:end -->';
+  const pipelineBlock = `${markerStart}\nBuild pipeline: ${workflowRunUrl}\n${markerEnd}`;
   const tag = context.ref.replace('refs/tags/', '');
 
   const release = await github.rest.repos.getReleaseByTag({
@@ -10,9 +12,11 @@ module.exports = async ({ github, context }) => {
   });
 
   const body = release.data.body || '';
-  const updatedBody = body.match(/^Build pipeline: .*/m)
-    ? body.replace(/^Build pipeline: .*/m, pipelineLine)
-    : `${body}${body ? '\n\n' : ''}${pipelineLine}`;
+  const pipelineBlockRegex =
+    /<!-- build-pipeline:start -->[\s\S]*?<!-- build-pipeline:end -->/m;
+  const updatedBody = pipelineBlockRegex.test(body)
+    ? body.replace(pipelineBlockRegex, pipelineBlock)
+    : `${body.trimEnd()}${body ? '\n\n' : ''}${pipelineBlock}`;
 
   await github.rest.repos.updateRelease({
     owner: context.repo.owner,

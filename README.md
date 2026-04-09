@@ -134,10 +134,21 @@ so anyone can independently verify that the code delivered by Google Play matche
 
 Each release ships (not in this repo—download from the release page):
 
+- `DFX-Btc-Wallet-<tag>.apk` — release APK
+- `DFX-Btc-Wallet-<tag>.apk.idsig` — detached APK Signature Scheme v4 signature for the APK
 - `DFX-Btc-Wallet-<tag>.aab` — Play-ready bundle with code transparency
 - `DFX-Btc-Wallet-<tag>-transparency-cert.pem` — public certificate for that transparency signature
+- `SHA256SUMS` — SHA-256 checksums for the published release assets
 
-Each release tag also includes a link to the GitHub Actions pipeline that generated and uploaded the artifacts. GitHub artifact attestations are published for the release APK, AAB, APK signature, and transparency certificate. See the official GitHub documentation for [artifact attestations](https://docs.github.com/actions/security-for-github-actions/using-artifact-attestations/using-artifact-attestations-to-establish-provenance-for-builds) and [attestation verification](https://cli.github.com/manual/gh_attestation_verify).
+Each release tag also includes a link to the GitHub Actions pipeline that generated and uploaded the artifacts. GitHub artifact attestations are published for the release APK, AAB, APK signature, transparency certificate, and `SHA256SUMS`. See the official GitHub documentation for [artifact attestations](https://docs.github.com/actions/security-for-github-actions/using-artifact-attestations/using-artifact-attestations-to-establish-provenance-for-builds) and [attestation verification](https://cli.github.com/manual/gh_attestation_verify).
+
+The release APK can also be checked together with its detached `.idsig` file using Android's [`apksigner`](https://developer.android.com/tools/apksigner) and [APK Signature Scheme v4](https://source.android.com/docs/security/features/apksigning/v4):
+
+```bash
+apksigner verify --verbose --print-certs \
+  --v4-signature-file DFX-Btc-Wallet-vX.Y.Z.apk.idsig \
+  DFX-Btc-Wallet-vX.Y.Z.apk
+```
 
 Use the AAB and PEM from the **same** tag. Verification ([`bundletool`](https://github.com/google/bundletool)):
 
