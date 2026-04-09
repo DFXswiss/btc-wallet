@@ -1,5 +1,10 @@
 #!/bin/sh
 
+if [ -n "$GITHUB_REF_NAME" ]; then
+  echo "\"$GITHUB_REF_NAME\""
+  exit
+fi
+
 if [ -n "$GITHUB_HEAD_REF" ]; then
   echo \"$GITHUB_HEAD_REF\"
   exit
