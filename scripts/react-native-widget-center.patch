@@ -1,18 +1,52 @@
---- ../node_modules/react-native-widget-center/android/build.gradle	2023-11-10 11:25:36
-+++ ../node_modules/react-native-widget-center/android/build.gradle	2023-11-10 11:25:42
-
-@@ -103,12 +103,12 @@
+--- ../node_modules/react-native-widget-center/android/build.gradle
++++ ../node_modules/react-native-widget-center/android/build.gradle
+@@ -103,46 +103,6 @@
      }
+ }
  
-     task androidJavadocJar(type: Jar, dependsOn: androidJavadoc) {
+-afterEvaluate { project ->
+-    // some Gradle build hooks ref:
+-    // https://www.oreilly.com/library/view/gradle-beyond-the/9781449373801/ch03.html
+-    task androidJavadoc(type: Javadoc) {
+-        source = android.sourceSets.main.java.srcDirs
+-        classpath += files(android.bootClasspath)
+-        classpath += files(project.getConfigurations().getByName('compile').asList())
+-        include '**/*.java'
+-    }
+-
+-    task androidJavadocJar(type: Jar, dependsOn: androidJavadoc) {
 -        classifier = 'javadoc'
-+        archiveClassifier.set('javadoc')
-         from androidJavadoc.destinationDir
-     }
- 
-     task androidSourcesJar(type: Jar) {
+-        from androidJavadoc.destinationDir
+-    }
+-
+-    task androidSourcesJar(type: Jar) {
 -        classifier = 'sources'
-+        archiveClassifier.set('sources')
-         from android.sourceSets.main.java.srcDirs
-         include '**/*.java'
-     }
+-        from android.sourceSets.main.java.srcDirs
+-        include '**/*.java'
+-    }
+-
+-    android.libraryVariants.all { variant ->
+-        def name = variant.name.capitalize()
+-        def javaCompileTask = variant.javaCompileProvider.get()
+-
+-        task "jar${name}"(type: Jar, dependsOn: javaCompileTask) {
+-            from javaCompileTask.destinationDir
+-        }
+-    }
+-
+-    artifacts {
+-        archives androidSourcesJar
+-        archives androidJavadocJar
+-    }
+-
+-    publishing {
+-        repositories {
+-            maven {
+-                url = uri("${rootProject.projectDir}/maven-repo")
+-            }
+-        }
+-    }
+-}
++// Javadoc/sources-jar publishing removed: relies on Gradle 7 APIs (`classifier`, `destinationDir`,
++// `compile` configuration, `archives` configuration) that are not available in Gradle 9.
++// The app only consumes this library as an Android archive; publishing is unnecessary.
