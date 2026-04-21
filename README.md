@@ -125,3 +125,53 @@ Builds automated and tested with BrowserStack
 
 Found critical bugs/vulnerabilities? Please email them bluewallet@bluewallet.io
 Thanks!
+
+## CODE AUDITABILITY
+
+All Android release artifacts are built by CI and published to [GitHub Releases](../../releases).
+Each release includes a signed AAB with [Android Code Transparency](https://developer.android.com/guide/app-bundle/code-transparency)
+so anyone can independently verify that the code delivered by Google Play matches what was built from source.
+
+Each release ships (not in this repo—download from the release page):
+
+- `DFX-Btc-Wallet-<tag>.apk` — release APK
+- `DFX-Btc-Wallet-<tag>.apk.idsig` — detached APK Signature Scheme v4 signature for the APK
+- `DFX-Btc-Wallet-<tag>.aab` — Play-ready bundle with code transparency
+- `DFX-Btc-Wallet-<tag>-transparency-cert.pem` — public certificate for that transparency signature
+- `SHA256SUMS` — SHA-256 checksums for the published release assets
+
+Each release tag also includes a link to the GitHub Actions pipeline that generated and uploaded the artifacts. GitHub artifact attestations are published for the release APK, AAB, APK signature, transparency certificate, and `SHA256SUMS`. See the official GitHub documentation for [artifact attestations](https://docs.github.com/actions/security-for-github-actions/using-artifact-attestations/using-artifact-attestations-to-establish-provenance-for-builds) and [attestation verification](https://cli.github.com/manual/gh_attestation_verify).
+
+The release APK can also be checked together with its detached `.idsig` file using Android's [`apksigner`](https://developer.android.com/tools/apksigner) and [APK Signature Scheme v4](https://source.android.com/docs/security/features/apksigning/v4):
+
+```bash
+apksigner verify --verbose --print-certs \
+  --v4-signature-file DFX-Btc-Wallet-vX.Y.Z.apk.idsig \
+  DFX-Btc-Wallet-vX.Y.Z.apk
+```
+
+Use the AAB and PEM from the **same** tag. Verification ([`bundletool`](https://github.com/google/bundletool)):
+
+```bash
+bundletool check-transparency \
+  --mode=bundle \
+  --bundle=DFX-Btc-Wallet-vX.Y.Z.aab \
+  --transparency-key-certificate=DFX-Btc-Wallet-vX.Y.Z-transparency-cert.pem
+```
+
+The app **installed from Play on a connected device** can be verified using `adb` and `bundletool`'s `connected_device` mode. See Google's documentation: [Verify code transparency of an app](https://developer.android.com/guide/app-bundle/code-transparency#verify-code-transparency).
+
+```bash
+bundletool check-transparency \
+  --mode=connected_device \
+  --package-name="swiss.dfx.bitcoin" \
+  --transparency-key-certificate=DFX-Btc-Wallet-vX.Y.Z-transparency-cert.pem
+```
+
+Certificate fingerprint (compare with tooling output):
+
+```bash
+openssl x509 -in DFX-Btc-Wallet-vX.Y.Z-transparency-cert.pem -noout -fingerprint -sha256
+```
+
+Reproducible builds: use the same Git tag as the artifacts you downloaded; CI builds from that tag.

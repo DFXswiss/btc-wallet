@@ -1,30 +1,81 @@
 #!/bin/bash
+set -euo pipefail
 
+# Required env vars:
+#   KEYSTORE_FILE_HEX         hex-encoded app signing keystore (xxd -plain keystore.jks)
+#   KEYSTORE_PASSWORD
+#   KEYSTORE_KEY_PASSWORD
+#   KEYSTORE_ALIAS
+#   TRANSPARENCY_KEYSTORE_HEX hex-encoded code transparency keystore
+#   TRANSPARENCY_PASSWORD
+#   TRANSPARENCY_ALIAS
+#
+# Optional:
+#   BUILD_NUMBER              deterministic versionCode override
 
-# Assumes the following env variables: 
-#
-#
-# --> KEYSTORE_FILE_HEX : hex encoded keystore file
-#
-# PS. to turn file to hex and back:
-#     $ xxd -plain test.txt > test.hex
-#     $ xxd -plain -revert test.hex test2.txt
-#
-# --> KEYSTORE_PASSWORD : Password for the keystore
-#
-# --> KEYSTORE_KEY_PASSWORD : Password for the key
-#
-# --> KEYSTORE_ALIAS : Alias of the key
-#
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$REPO_ROOT"
 
-echo $KEYSTORE_FILE_HEX > bluewallet-release-key.keystore.hex
-xxd -plain -revert bluewallet-release-key.keystore.hex > ./android/bluewallet-release-key.keystore
-cp ./android/bluewallet-release-key.keystore ./android/app/bluewallet-release-key.keystore
-rm bluewallet-release-key.keystore.hex
+# ── validate ──────────────────────────────────────────────────────────────────
+for var in KEYSTORE_FILE_HEX KEYSTORE_PASSWORD KEYSTORE_KEY_PASSWORD KEYSTORE_ALIAS \
+           TRANSPARENCY_KEYSTORE_HEX TRANSPARENCY_PASSWORD TRANSPARENCY_ALIAS; do
+  [ -n "${!var:-}" ] || { echo "Missing required env: $var" >&2; exit 1; }
+done
 
+# ── secure delete helper ──────────────────────────────────────────────────────
+secure_delete() {
+  local file="$1"
+  [ -f "$file" ] || return 0
+  if command -v shred &>/dev/null; then
+    shred -u "$file"
+  else
+    rm -Pf "$file"
+  fi
+}
+
+# ── keystores: write to temp files, guarantee cleanup on exit/error ───────────
+KEYSTORE="$(mktemp /tmp/app-signing.XXXXXX.keystore)"
+TRANSPARENCY_KEYSTORE="$(mktemp /tmp/transparency.XXXXXX.keystore)"
+chmod 600 "$KEYSTORE" "$TRANSPARENCY_KEYSTORE"
+
+cleanup() {
+  secure_delete "$KEYSTORE"
+  secure_delete "$TRANSPARENCY_KEYSTORE"
+}
+trap cleanup EXIT INT TERM
+
+printf '%s' "$KEYSTORE_FILE_HEX"         | xxd -plain -revert > "$KEYSTORE"
+printf '%s' "$TRANSPARENCY_KEYSTORE_HEX" | xxd -plain -revert > "$TRANSPARENCY_KEYSTORE"
+
+# ── gradle args ───────────────────────────────────────────────────────────────
+SIGN_ARGS=(
+  "-PMYAPP_UPLOAD_STORE_FILE=$KEYSTORE"
+  "-PMYAPP_UPLOAD_KEY_ALIAS=$KEYSTORE_ALIAS"
+  "-PMYAPP_UPLOAD_STORE_PASSWORD=$KEYSTORE_PASSWORD"
+  "-PMYAPP_UPLOAD_KEY_PASSWORD=$KEYSTORE_KEY_PASSWORD"
+)
+[ -n "${BUILD_NUMBER:-}" ] && SIGN_ARGS+=("-PMYAPP_VERSION_CODE=$BUILD_NUMBER")
+
+# ── build ─────────────────────────────────────────────────────────────────────
 cd android
-TIMESTAMP=$(date +%s | sed 's/...$//')
-sed -i'.original'  "s/versionCode 1/versionCode $TIMESTAMP/g" app/build.gradle
-./gradlew assembleRelease -P MYAPP_UPLOAD_STORE_FILE=./bluewallet-release-key.keystore -P MYAPP_UPLOAD_KEY_ALIAS=$KEYSTORE_ALIAS -P MYAPP_UPLOAD_STORE_PASSWORD=$KEYSTORE_PASSWORD -P MYAPP_UPLOAD_KEY_PASSWORD=$KEYSTORE_KEY_PASSWORD
-./gradlew bundleRelease -P MYAPP_UPLOAD_STORE_FILE=./bluewallet-release-key.keystore -P MYAPP_UPLOAD_KEY_ALIAS=$KEYSTORE_ALIAS -P MYAPP_UPLOAD_STORE_PASSWORD=$KEYSTORE_PASSWORD -P MYAPP_UPLOAD_KEY_PASSWORD=$KEYSTORE_KEY_PASSWORD
-$ANDROID_HOME/build-tools/33.0.2/apksigner sign --ks ./bluewallet-release-key.keystore   --ks-pass=pass:$KEYSTORE_PASSWORD ./app/build/outputs/apk/release/app-release.apk
+./gradlew assembleRelease "${SIGN_ARGS[@]}"
+./gradlew bundleRelease   "${SIGN_ARGS[@]}"
+cd "$REPO_ROOT"
+
+# ── code transparency ─────────────────────────────────────────────────────────
+AAB="android/app/build/outputs/bundle/release/app-release.aab"
+TRANSPARENT_AAB="android/app/build/outputs/bundle/release/app-release-transparent.aab"
+TRANSPARENCY_CERT="android/app/build/outputs/bundle/release/transparency-cert.pem"
+
+bundletool add-transparency \
+  --bundle="$AAB" \
+  --output="$TRANSPARENT_AAB" \
+  --ks="$TRANSPARENCY_KEYSTORE" \
+  --ks-key-alias="$TRANSPARENCY_ALIAS" \
+  --ks-pass=pass:"$TRANSPARENCY_PASSWORD"
+
+keytool -exportcert \
+  -alias "$TRANSPARENCY_ALIAS" \
+  -keystore "$TRANSPARENCY_KEYSTORE" \
+  -storepass "$TRANSPARENCY_PASSWORD" \
+  -rfc -file "$TRANSPARENCY_CERT"

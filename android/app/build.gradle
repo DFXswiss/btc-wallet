@@ -62,6 +62,7 @@ react {
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
  */
 def enableProguardInReleaseBuilds = false
+def releaseVersionCode = (project.findProperty('MYAPP_VERSION_CODE') ?: '31').toInteger()
 
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
@@ -87,7 +88,7 @@ android {
         applicationId "swiss.dfx.bitcoin"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 31
+        versionCode releaseVersionCode
         versionName "2.0.3"
         testBuildType System.getProperty('testBuildType', 'debug')
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
@@ -103,6 +104,8 @@ android {
                 storePassword MYAPP_UPLOAD_STORE_PASSWORD
                 keyAlias MYAPP_UPLOAD_KEY_ALIAS
                 keyPassword MYAPP_UPLOAD_KEY_PASSWORD
+                enableV3Signing true
+                enableV4Signing true
             }
         }
     }
