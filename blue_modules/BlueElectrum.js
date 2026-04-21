@@ -2,12 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LegacyWallet, SegwitBech32Wallet, SegwitP2SHWallet, TaprootWallet } from '../class';
 import DefaultPreference from 'react-native-default-preference';
 import WidgetCommunication from './WidgetCommunication';
-import { isTorDaemonDisabled } from './environment';
 const bitcoin = require('bitcoinjs-lib');
 const ElectrumClient = require('electrum-client');
 const reverse = require('buffer-reverse');
 const BigNumber = require('bignumber.js');
-const torrific = require('./torrific');
 const Realm = require('realm');
 
 const ELECTRUM_HOST = 'electrum_host';
@@ -173,7 +171,7 @@ async function _initConnection() {
   try {
     console.log('begin connection:', JSON.stringify(usingPeer));
     mainClient = new ElectrumClient(
-      usingPeer.host.endsWith('.onion') && !(await isTorDaemonDisabled()) ? torrific : global.net,
+      global.net,
       global.tls,
       usingPeer.ssl || usingPeer.tcp,
       usingPeer.host,
@@ -901,9 +899,8 @@ module.exports.calculateBlockTime = function (height) {
  * @returns {Promise<boolean>} Whether provided host:port is a valid electrum server
  */
 module.exports.testConnection = async function (host, tcpPort, sslPort) {
-  const isTorDisabled = await isTorDaemonDisabled();
   const client = new ElectrumClient(
-    host.endsWith('.onion') && !isTorDisabled ? torrific : global.net,
+    global.net,
     global.tls,
     sslPort || tcpPort,
     host,
@@ -915,7 +912,7 @@ module.exports.testConnection = async function (host, tcpPort, sslPort) {
   try {
     const rez = await Promise.race([
       new Promise(resolve => {
-        timeoutId = setTimeout(() => resolve('timeout'), host.endsWith('.onion') && !isTorDisabled ? 21000 : 5000);
+        timeoutId = setTimeout(() => resolve('timeout'), 5000);
       }),
       client.connect(),
     ]);

@@ -32,7 +32,7 @@ import {
   BlueListItem,
 } from '../../BlueComponents';
 import { BlueCurrentTheme } from '../../components/themes';
-import { isDesktop, isTorCapable } from '../../blue_modules/environment';
+import { isDesktop } from '../../blue_modules/environment';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import WidgetCommunication from '../../blue_modules/WidgetCommunication';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
@@ -308,10 +308,7 @@ class ElectrumSettings extends Component {
           <BlueCard>
             <View style={styles.inputWrap}>
               <TextInput
-                placeholder={
-                  loc.formatString(loc.settings.electrum_host, { example: '10.20.30.40' }) +
-                  (isTorCapable ? ' (' + loc.settings.tor_supported + ')' : '')
-                }
+                placeholder={loc.formatString(loc.settings.electrum_host, { example: '10.20.30.40' })}
                 value={this.state.host}
                 onChangeText={text => {
                   const host = text.trim();

@@ -10,7 +10,6 @@ import { LightningCustodianWallet } from '../../class/wallets/lightning-custodia
 import loc from '../../loc';
 import { useTheme } from '../../components/themes';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
-import { isTorCapable } from '../../blue_modules/environment';
 import alert from '../../components/Alert';
 
 const BlueApp = require('../../BlueApp');
@@ -150,10 +149,7 @@ const LightningSettings: React.FC & { navigationOptions: NavigationOptionsGetter
         <View style={[styles.uri, styleHook.uri]}>
           <TextInput
             value={URI}
-            placeholder={
-              loc.formatString(loc.settings.lndhub_uri, { example: 'https://10.20.30.40:3000' }) +
-              (isTorCapable ? ' (' + loc.settings.tor_supported + ')' : '')
-            }
+            placeholder={loc.formatString(loc.settings.lndhub_uri, { example: 'https://10.20.30.40:3000' })}
             onChangeText={setLndhubURI}
             numberOfLines={1}
             style={styles.uriText}

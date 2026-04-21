@@ -1,9 +1,7 @@
 import { LegacyWallet } from './legacy-wallet';
 import bolt11 from 'bolt11';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
-import { isTorDaemonDisabled } from '../../blue_modules/environment';
 import Config from 'react-native-config';
-const torrific = require('../../blue_modules/torrific');
 
 export class LightningCustodianWallet extends LegacyWallet {
   static type = 'lightningCustodianWallet';
@@ -73,18 +71,10 @@ export class LightningCustodianWallet extends LegacyWallet {
     // is turned off permanently, so users cant pull refill address from cache and send money to a black hole
     this.refill_addressess = [];
 
-    const isTorDisabled = await isTorDaemonDisabled();
-
-    if (!isTorDisabled && this.baseURI && this.baseURI?.indexOf('.onion') !== -1) {
-      this._api = new torrific.Torsbee({
-        baseURI: this.baseURI,
-      });
-    } else {
-      this._api = {
-        post: this.fetchWrapper.bind(this, 'POST'),
-        get: this.fetchWrapper.bind(this, 'GET'),
-      };
-    }
+    this._api = {
+      post: this.fetchWrapper.bind(this, 'POST'),
+      get: this.fetchWrapper.bind(this, 'GET'),
+    };
   }
 
   async fetchWrapper(method, endpoint, options = {}) {
@@ -622,28 +612,18 @@ export class LightningCustodianWallet extends LegacyWallet {
   }
 
   static async isValidNodeAddress(address) {
-    const isTorDisabled = await isTorDaemonDisabled();
-    const isTor = address.indexOf('.onion') !== -1;
-    let apiCall;
-    
-    if (isTor && !isTorDisabled) {
-      apiCall = new torrific.Torsbee({
-        baseURI: address,
-      });
-    } else {
-      apiCall = {
-        get: async (endpoint) => {
-          const response = await fetch(address + endpoint, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
-          const body = await response.json();
-          return { body };
-        },
-      };
-    }
+    const apiCall = {
+      get: async (endpoint) => {
+        const response = await fetch(address + endpoint, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        const body = await response.json();
+        return { body };
+      },
+    };
 
     const response = await apiCall.get('/getinfo');
     const json = response.body;
