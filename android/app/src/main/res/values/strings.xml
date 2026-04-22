@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">BTC Taro</string>
+    <string name="build_config_package">swiss.dfx.bitcoin</string>
 </resources>

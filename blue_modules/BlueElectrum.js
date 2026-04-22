@@ -4,6 +4,8 @@ import DefaultPreference from 'react-native-default-preference';
 import WidgetCommunication from './WidgetCommunication';
 const bitcoin = require('bitcoinjs-lib');
 const ElectrumClient = require('electrum-client');
+const net = require('net');
+const tls = require('tls');
 const reverse = require('buffer-reverse');
 const BigNumber = require('bignumber.js');
 const Realm = require('realm');
@@ -171,8 +173,8 @@ async function _initConnection() {
   try {
     console.log('begin connection:', JSON.stringify(usingPeer));
     mainClient = new ElectrumClient(
-      global.net,
-      global.tls,
+      net,
+      tls,
       usingPeer.ssl || usingPeer.tcp,
       usingPeer.host,
       usingPeer.ssl ? 'tls' : 'tcp',
@@ -900,8 +902,8 @@ module.exports.calculateBlockTime = function (height) {
  */
 module.exports.testConnection = async function (host, tcpPort, sslPort) {
   const client = new ElectrumClient(
-    global.net,
-    global.tls,
+    net,
+    tls,
     sslPort || tcpPort,
     host,
     sslPort ? 'tls' : 'tcp',

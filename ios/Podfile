@@ -11,69 +11,66 @@ node_require('react-native/scripts/react_native_pods.rb')
 node_require('react-native-permissions/scripts/setup.rb')
 
 workspace 'BlueWallet'
-platform :ios, '13.0'
+platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
 setup_permissions(['Camera'])
 
-# If you are using a `react-native-flipper` your iOS build will fail when `NO_FLIPPER=1` is set.
-# because `react-native-flipper` depends on (FlipperKit,...) that will be excluded
-#
-# To fix this you can also exclude `react-native-flipper` using a `react-native.config.js`
-# ```js
-# module.exports = {
-#   dependencies: {
-#     ...(process.env.NO_FLIPPER ? { 'react-native-flipper': { platforms: { ios: null } } } : {}),
-# ```
-# flipper_config = ENV['NO_FLIPPER'] == "1" ? FlipperConfiguration.disabled : FlipperConfiguration.enabled
-
-flipper_config = FlipperConfiguration.disabled
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil
   Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
   use_frameworks! :linkage => linkage.to_sym
 end
 
-
 target 'BlueWallet' do
   config = use_native_modules!
 
-  # Flags change depending on the env values.
-  flags = get_default_flags()
-
   use_react_native!(
     :path => config[:reactNativePath],
-    # Hermes is now enabled by default. Disable by setting this flag to false.
-    :hermes_enabled => true,
-    :fabric_enabled => flags[:fabric_enabled],
-    # Enables Flipper.
-    #
-    # Note that if you have use_frameworks! enabled, Flipper will not work and
-    # you should disable the next line.
-    #:flipper_configuration => flipper_config,
     # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
+end
 
-  post_install do |installer|
-    # https://github.com/facebook/react-native/blob/main/packages/react-native/scripts/react_native_pods.rb#L197-L202
-    react_native_post_install(
-      installer,
-      config[:reactNativePath],
-      :mac_catalyst_enabled => true
-    )
-      installer.pods_project.targets.each do |target|
-          target.build_configurations.each do |config|
-            config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
-            if ['React-Core-AccessibilityResources'].include? target.name 
-              config.build_settings['CODE_SIGN_STYLE'] = "Manual"
-              config.build_settings['CODE_SIGN_IDENTITY'] = "Apple Distribution: Bluewallet Services, S. R. L. (A7W54YZ4WU)"
-              config.build_settings['DEVELOPMENT_TEAM'] = "A7W54YZ4WU"
-            end
-          end
-          __apply_Xcode_12_5_M1_post_install_workaround(installer)
+post_install do |installer|
+  # https://github.com/facebook/react-native/blob/main/packages/react-native/scripts/react_native_pods.rb
+  react_native_post_install(
+    installer,
+    :mac_catalyst_enabled => true
+  )
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      if ['React-Core-AccessibilityResources'].include? target.name
+        config.build_settings['CODE_SIGN_STYLE'] = "Manual"
+        config.build_settings['CODE_SIGN_IDENTITY'] = "Apple Distribution: Bluewallet Services, S. R. L. (A7W54YZ4WU)"
+        config.build_settings['DEVELOPMENT_TEAM'] = "A7W54YZ4WU"
       end
+      # Xcode 26.4+ Apple Clang rejects the consteval paths in the fmt 11.0.2
+      # bundled with React Native 0.83 (facebook/react-native#55601, fixed in 0.84+).
+      # Force only the fmt pod to C++17 so FMT_USE_CONSTEVAL is skipped.
+      if target.name == 'fmt'
+        config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+      end
+    end
   end
 
-  
+  # Fix RCTDeprecation module map error with Xcode 16+/26+ (required for react-native-notifications).
+  # The bridging header imports RCTBridgeModule.h which does
+  # #import <RCTDeprecation/RCTDeprecation.h>. With -fmodules, Clang treats this
+  # as a module import and builds a PCM, but PCH verification then fails with
+  # "module 'RCTDeprecation' is not defined in any loaded module map file".
+  # Fix: remove RCTDeprecation -fmodule-map-file from the consumer xcconfigs
+  # so the import resolves as a plain textual include via HEADER_SEARCH_PATHS.
+  # No code uses @import RCTDeprecation, so this is safe.
+  installer.generated_aggregate_targets.each do |aggregate_target|
+    aggregate_target.xcconfigs.each do |config_name, config|
+      xcconfig_path = aggregate_target.xcconfig_path(config_name)
+      next unless File.exist?(xcconfig_path)
+      content = File.read(xcconfig_path)
+      # Order matters: match -Xcc variant first to avoid leaving a dangling -Xcc
+      content.gsub!('-Xcc -fmodule-map-file="${PODS_ROOT}/Headers/Public/RCTDeprecation/RCTDeprecation.modulemap" ', '')
+      content.gsub!('-fmodule-map-file="${PODS_ROOT}/Headers/Public/RCTDeprecation/RCTDeprecation.modulemap" ', '')
+      File.write(xcconfig_path, content)
+    end
+  end
 end

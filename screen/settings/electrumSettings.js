@@ -78,14 +78,22 @@ class ElectrumSettings extends Component {
       isAndroidAddressKeyboardVisible: false,
     });
 
+    const safeGetConfig = async () => {
+      try {
+        return await BlueElectrum.getConfig();
+      } catch (_) {
+        return { connected: false };
+      }
+    };
+
     const inverval = setInterval(async () => {
       this.setState({
-        config: await BlueElectrum.getConfig(),
+        config: await safeGetConfig(),
       });
     }, 500);
 
     this.setState({
-      config: await BlueElectrum.getConfig(),
+      config: await safeGetConfig(),
       inverval,
     });
 

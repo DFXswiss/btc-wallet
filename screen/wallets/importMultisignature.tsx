@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { View, StyleSheet, StatusBar, ActivityIndicator, Alert } from 'react-native';
 import navigationStyle from '../../components/navigationStyle';
-import { Camera } from 'react-native-camera-kit';
+import { Camera } from 'react-native-camera-kit-no-google';
 import { BlueButton, BlueText } from '../../BlueComponents';
 import useCameraPermissions from '../../hooks/cameraPermisions.hook';
 import { useQrCodeScanner } from '../../hooks/qrCodeScaner.hook';

@@ -112,10 +112,13 @@ const App = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletsInitialized]);
 
+  const urlSubscription = useRef(null);
+  const appStateSubscription = useRef(null);
+
   useEffect(() => {
     return () => {
-      Linking.removeEventListener?.('url', handleOpenURL);
-      AppState.removeEventListener('change', handleAppStateChange);
+      urlSubscription.current?.remove();
+      appStateSubscription.current?.remove();
       eventEmitter?.removeAllListeners('onNotificationReceived');
       eventEmitter?.removeAllListeners('openSettings');
       eventEmitter?.removeAllListeners('onUserActivityOpen');
@@ -130,8 +133,8 @@ const App = () => {
   }, [colorScheme]);
 
   const addListeners = () => {
-    Linking.addEventListener('url', handleOpenURL);
-    AppState.addEventListener('change', handleAppStateChange);
+    urlSubscription.current = Linking.addEventListener('url', handleOpenURL);
+    appStateSubscription.current = AppState.addEventListener('change', handleAppStateChange);
     DeviceEventEmitter.addListener('quickActionShortcut', walletQuickActions);
     DeviceQuickActions.popInitialAction().then(popInitialAction);
     EventEmitter?.getMostRecentUserActivity()

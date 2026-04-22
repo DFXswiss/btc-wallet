@@ -12,7 +12,7 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { BlueURDecoder, encodeUR } from '../../blue_modules/ur';
 import QRCodeComponent from '../../components/QRCodeComponent';
 import alert from '../../components/Alert';
-import { Camera } from 'react-native-camera-kit';
+import { Camera } from 'react-native-camera-kit-no-google';
 import { ScrollView } from 'react-native-gesture-handler';
 const createHash = require('create-hash');
 

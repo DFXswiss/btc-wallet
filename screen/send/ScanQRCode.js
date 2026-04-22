@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { Image, View, TouchableOpacity, StatusBar, Platform, StyleSheet, Alert } from 'react-native';
-import { CameraScreen } from 'react-native-camera-kit';
+import { Camera } from 'react-native-camera-kit-no-google';
 import { Icon, Text } from 'react-native-elements';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { decodeUR, extractSingleWorkload, BlueURDecoder } from '../../blue_modules/ur';
@@ -378,7 +378,13 @@ const ScanQRCode = () => {
     <View style={styles.root}>
       <StatusBar hidden />
       {isFocused && cameraStatus && !holdCardModalVisible ? (
-        <CameraScreen scanBarcode onReadCode={event => onBarCodeRead({ data: event?.nativeEvent?.codeStringValue })} showFrame={false} />
+        <Camera
+          style={styles.root}
+          scanBarcode
+          resizeMode="cover"
+          onReadCode={event => onBarCodeRead({ data: event?.nativeEvent?.codeStringValue })}
+          showFrame={false}
+        />
       ) : null}
       <TouchableOpacity accessibilityRole="button" accessibilityLabel={loc._.close} style={styles.closeTouch} onPress={dismiss}>
         <Image style={styles.closeImage} source={require('../../img/close-white.png')} />
