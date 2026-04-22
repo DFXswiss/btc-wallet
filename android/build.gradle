@@ -142,3 +142,32 @@ gradle.projectsEvaluated {
         }
     }
 }
+
+// Workaround for facebook/react-native#56334: on RN 0.83.x with New
+// Architecture, the app's CMake configure tasks can race ahead of the
+// per-library `generateCodegenArtifactsFromSchema` tasks, so the
+// `<lib>/android/build/generated/source/codegen/jni/` directories referenced by
+// the generated Android-autolinking.cmake don't exist yet and configureCMake
+// fails with "add_subdirectory given source ... which is not an existing
+// directory". Force every app CMake task to depend on all library codegen
+// tasks so they run first.
+gradle.projectsEvaluated {
+    def appProject = rootProject.findProject(':app')
+    if (appProject == null) return
+
+    def libCodegenTasks = []
+    rootProject.allprojects.each { p ->
+        if (p == appProject) return
+        if (p.tasks.names.contains('generateCodegenArtifactsFromSchema')) {
+            libCodegenTasks << p.tasks.named('generateCodegenArtifactsFromSchema')
+        }
+    }
+
+    appProject.tasks.matching { t ->
+        t.name.startsWith('configureCMake') ||
+                t.name.startsWith('buildCMake') ||
+                t.name.startsWith('externalNativeBuild')
+    }.configureEach { t ->
+        t.dependsOn(libCodegenTasks)
+    }
+}

@@ -23,7 +23,7 @@ import { Chain } from './models/bitcoinUnits';
 import OnAppLaunch from './class/on-app-launch';
 import DeeplinkSchemaMatch from './class/deeplink-schema-match';
 import { BlueDarkTheme } from './components/themes';
-import InitRoot from './Navigation';
+import InitRoot from './navigation';
 import { isDesktop } from './blue_modules/environment';
 import { BlueStorageContext } from './blue_modules/storage-context';
 import WatchConnectivity from './WatchConnectivity';
