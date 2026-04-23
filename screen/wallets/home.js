@@ -115,7 +115,7 @@ const WalletHome = ({ navigation }) => {
           },
         });
       }
-    } catch (_) {}
+    } catch (_) { }
   };
 
   const onBarScanned = value => {
@@ -140,7 +140,7 @@ const WalletHome = ({ navigation }) => {
       return;
     }
 
-    if(DeeplinkSchemaMatch.isLnUrl(value)) {
+    if (DeeplinkSchemaMatch.isLnUrl(value)) {
       return navigate('SendDetailsRoot', { screen: 'LnurlNavigationForwarder', params: { lnurl: value, walletID } });
     }
 
@@ -192,7 +192,7 @@ const WalletHome = ({ navigation }) => {
       const buttons = [
         {
           text: loc._.cancel,
-          onPress: () => {},
+          onPress: () => { },
           style: 'cancel',
         },
         {
@@ -347,18 +347,18 @@ const WalletHome = ({ navigation }) => {
                 Component={View}
                 {...(item.isActivated
                   ? {
-                      rightElement: (
-                        <SecondButton
-                          title={loc._.add}
-                          icon={{ name: 'plus', type: 'font-awesome', color: 'white', size: 12 }}
-                          onPress={item.onDummyPress}
-                        />
-                      ),
-                    }
+                    rightElement: (
+                      <SecondButton
+                        title={loc._.add}
+                        icon={{ name: 'plus', type: 'font-awesome', color: 'white', size: 12 }}
+                        onPress={item.onDummyPress}
+                      />
+                    ),
+                  }
                   : {
-                      rightTitle: loc.wallets.coming_soon,
-                      rightTitleStyle: stylesHook.comingSoon,
-                    })}
+                    rightTitle: loc.wallets.coming_soon,
+                    rightTitleStyle: stylesHook.comingSoon,
+                  })}
               />
             )}
           </TouchableOpacity>
@@ -414,7 +414,7 @@ WalletHome.navigationOptions = navigationStyle({}, (options, { theme, navigation
       height: 34,
       padding: 8,
       borderRadius: 8,
-      backgroundColor: route?.params?.backupWarning ? '#FFF389' : theme.colors.buttonBackgroundColor,
+      backgroundColor: Platform.OS === 'ios' ? undefined : route?.params?.backupWarning ? '#FFF389' : theme.colors.buttonBackgroundColor,
     },
     backupSeedText: {
       marginLeft: 4,
@@ -478,9 +478,7 @@ const styles = StyleSheet.create({
   },
   walletDetails: {
     justifyContent: 'center',
-    alignItems: 'flex-end',
-    paddingLeft: 12,
-    paddingVertical:12
+    alignItems: 'center',
   },
   backupSeedContainer: {
     flex: 1,
