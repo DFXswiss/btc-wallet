@@ -8,27 +8,40 @@ import SelectWallet from '../screen/wallets/selectWallet';
 import { withLazySuspense } from './LazyLoadingIndicator';
 import { InitStackParamList, RootStackParamList } from './types';
 
-// Lazy-load every stack root. UnlockWithScreen stays eager: it's the very first
-// screen shown on cold start, so deferring it would only add overhead.
+// UnlockWithScreen stays eager: it's the very first screen shown on cold start.
+// WalletsStack stays eager too: it's the main screen shown right after unlock
+// and lazy-loading it makes Hermes stack traces unreadable (source maps for the
+// split navigation/WalletsStack.bundle are fetched separately and don't
+// symbolicate reliably while debugging).
+// ScanQRCode and ScanCodeSend are kept eager because they are one of the two
+// primary actions on the home screen; deferring them adds a visible spinner
+// every time the user taps "Send/Scan".
 import UnlockWithScreenStack from './UnlockWithScreenStack';
+import WalletsStack from './WalletsStack';
+import ScanQRCodeStack from './ScanQRCodeStack';
+import ScanCodeSendStack from './ScanCodeSendStack';
+import ReceiveDetailsStack from './ReceiveDetailsStack';
 
-const LazyReorderWalletsStack = lazy(() => import('./ReorderWalletsStack'));
-const LazyWalletsStack = lazy(() => import('./WalletsStack'));
-const LazyBackupSeedStack = lazy(() => import('./BackupSeedStack'));
-const LazyAddWalletStack = lazy(() => import('./AddWalletStack'));
-const LazySendDetailsStack = lazy(() => import('./SendDetailsStack'));
-const LazyAztecoRedeemStack = lazy(() => import('./AztecoRedeemStack'));
-const LazyWalletExportStack = lazy(() => import('./WalletExportStack'));
-const LazyExportMultisigCoordinationSetupStack = lazy(() => import('./ExportMultisigCoordinationSetupStack'));
-const LazyViewEditMultisigCosignersStack = lazy(() => import('./ViewEditMultisigCosignersStack'));
-const LazyWalletXpubStack = lazy(() => import('./WalletXpubStack'));
-const LazySignVerifyStack = lazy(() => import('./SignVerifyStack'));
-const LazyReceiveDetailsStack = lazy(() => import('./ReceiveDetailsStack'));
-const LazyLappBrowserStack = lazy(() => import('./LappBrowserStack'));
-const LazyScanQRCodeStack = lazy(() => import('./ScanQRCodeStack'));
-const LazyScanCodeSendStack = lazy(() => import('./ScanCodeSendStack'));
-const LazyDeeplinkStack = lazy(() => import('./DeeplinkStack'));
-const LazyPaymentCodeStack = lazy(() => import('./PaymentCodeStack'));
+// IMPORTANT: wrap every lazy stack with `withLazySuspense` at module scope.
+// Calling `withLazySuspense(...)` inline in JSX produces a new component
+// identity on every render of <Navigation/>, which makes react-navigation
+// tear down and remount the active screen every time the storage context
+// publishes (e.g. on each balance poll). See btc-taro-wallet profiling notes.
+const ReorderWalletsStackScreen = withLazySuspense(lazy(() => import('./ReorderWalletsStack')));
+const BackupSeedStackScreen = withLazySuspense(lazy(() => import('./BackupSeedStack')));
+const AddWalletStackScreen = withLazySuspense(lazy(() => import('./AddWalletStack')));
+const SendDetailsStackScreen = withLazySuspense(lazy(() => import('./SendDetailsStack')));
+const AztecoRedeemStackScreen = withLazySuspense(lazy(() => import('./AztecoRedeemStack')));
+const WalletExportStackScreen = withLazySuspense(lazy(() => import('./WalletExportStack')));
+const ExportMultisigCoordinationSetupStackScreen = withLazySuspense(
+  lazy(() => import('./ExportMultisigCoordinationSetupStack')),
+);
+const ViewEditMultisigCosignersStackScreen = withLazySuspense(lazy(() => import('./ViewEditMultisigCosignersStack')));
+const WalletXpubStackScreen = withLazySuspense(lazy(() => import('./WalletXpubStack')));
+const SignVerifyStackScreen = withLazySuspense(lazy(() => import('./SignVerifyStack')));
+const LappBrowserStackScreen = withLazySuspense(lazy(() => import('./LappBrowserStack')));
+const DeeplinkStackScreen = withLazySuspense(lazy(() => import('./DeeplinkStack')));
+const PaymentCodeStackScreen = withLazySuspense(lazy(() => import('./PaymentCodeStack')));
 
 const NavigationDefaultOptions: NativeStackNavigationOptions = {
   headerShown: false,
@@ -44,46 +57,38 @@ const Navigation = () => {
       initialRouteName={wallets.length === 0 ? 'AddWalletRoot' : 'WalletsRoot'}
       screenOptions={{ headerShadowVisible: false }}
     >
-      <RootStack.Screen name="WalletsRoot" component={withLazySuspense(LazyWalletsStack)} options={{ headerShown: false }} />
-      <RootStack.Screen name="BackupSeedRoot" component={withLazySuspense(LazyBackupSeedStack)} options={NavigationDefaultOptions} />
-      <RootStack.Screen name="AddWalletRoot" component={withLazySuspense(LazyAddWalletStack)} options={{ headerShown: false }} />
-      <RootStack.Screen name="SendDetailsRoot" component={withLazySuspense(LazySendDetailsStack)} options={NavigationDefaultOptions} />
-      <RootStack.Screen name="AztecoRedeemRoot" component={withLazySuspense(LazyAztecoRedeemStack)} options={NavigationDefaultOptions} />
-      <RootStack.Screen name="WalletExportRoot" component={withLazySuspense(LazyWalletExportStack)} options={NavigationDefaultOptions} />
+      <RootStack.Screen name="WalletsRoot" component={WalletsStack} options={{ headerShown: false }} />
+      <RootStack.Screen name="BackupSeedRoot" component={BackupSeedStackScreen} options={NavigationDefaultOptions} />
+      <RootStack.Screen name="AddWalletRoot" component={AddWalletStackScreen} options={{ headerShown: false }} />
+      <RootStack.Screen name="SendDetailsRoot" component={SendDetailsStackScreen} options={NavigationDefaultOptions} />
+      <RootStack.Screen name="AztecoRedeemRoot" component={AztecoRedeemStackScreen} options={NavigationDefaultOptions} />
+      <RootStack.Screen name="WalletExportRoot" component={WalletExportStackScreen} options={NavigationDefaultOptions} />
       <RootStack.Screen
         name="ExportMultisigCoordinationSetupRoot"
-        component={withLazySuspense(LazyExportMultisigCoordinationSetupStack)}
+        component={ExportMultisigCoordinationSetupStackScreen}
         options={NavigationDefaultOptions}
       />
       <RootStack.Screen
         name="ViewEditMultisigCosignersRoot"
-        component={withLazySuspense(LazyViewEditMultisigCosignersStack)}
+        component={ViewEditMultisigCosignersStackScreen}
         options={NavigationDefaultOptions}
       />
-      <RootStack.Screen name="WalletXpubRoot" component={withLazySuspense(LazyWalletXpubStack)} options={NavigationDefaultOptions} />
-      <RootStack.Screen name="SignVerifyRoot" component={withLazySuspense(LazySignVerifyStack)} options={NavigationDefaultOptions} />
+      <RootStack.Screen name="WalletXpubRoot" component={WalletXpubStackScreen} options={NavigationDefaultOptions} />
+      <RootStack.Screen name="SignVerifyRoot" component={SignVerifyStackScreen} options={NavigationDefaultOptions} />
       <RootStack.Screen name="SelectWallet" component={SelectWallet} />
-      <RootStack.Screen
-        name="ReceiveDetailsRoot"
-        component={withLazySuspense(LazyReceiveDetailsStack)}
-        options={NavigationDefaultOptions}
-      />
-      <RootStack.Screen name="LappBrowserRoot" component={withLazySuspense(LazyLappBrowserStack)} options={NavigationDefaultOptions} />
+      <RootStack.Screen name="ReceiveDetailsRoot" component={ReceiveDetailsStack} options={NavigationDefaultOptions} />
+      <RootStack.Screen name="LappBrowserRoot" component={LappBrowserStackScreen} options={NavigationDefaultOptions} />
       <RootStack.Screen
         name="ScanQRCodeRoot"
-        component={withLazySuspense(LazyScanQRCodeStack)}
+        component={ScanQRCodeStack}
         options={{
           headerShown: false,
           presentation: isDesktop ? 'containedModal' : 'fullScreenModal',
         }}
       />
-      <RootStack.Screen
-        name="ScanCodeSendRoot"
-        component={withLazySuspense(LazyScanCodeSendStack)}
-        options={{ headerShown: false }}
-      />
-      <RootStack.Screen name="DeeplinkRoot" component={withLazySuspense(LazyDeeplinkStack)} options={NavigationDefaultOptions} />
-      <RootStack.Screen name="PaymentCodeRoot" component={withLazySuspense(LazyPaymentCodeStack)} options={NavigationDefaultOptions} />
+      <RootStack.Screen name="ScanCodeSendRoot" component={ScanCodeSendStack} options={{ headerShown: false }} />
+      <RootStack.Screen name="DeeplinkRoot" component={DeeplinkStackScreen} options={NavigationDefaultOptions} />
+      <RootStack.Screen name="PaymentCodeRoot" component={PaymentCodeStackScreen} options={NavigationDefaultOptions} />
     </RootStack.Navigator>
   );
 };
@@ -95,7 +100,7 @@ const InitRoot = () => (
     <InitStack.Screen name="UnlockWithScreenRoot" component={UnlockWithScreenStack} options={{ headerShown: false }} />
     <InitStack.Screen
       name="ReorderWallets"
-      component={withLazySuspense(LazyReorderWalletsStack)}
+      component={ReorderWalletsStackScreen}
       options={{ headerShown: false, gestureEnabled: false, presentation: isDesktop ? 'containedModal' : 'modal' }}
     />
     <InitStack.Screen name="Navigation" component={Navigation} options={{ headerShown: false, animationTypeForReplace: 'push' }} />

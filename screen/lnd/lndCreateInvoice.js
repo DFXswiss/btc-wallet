@@ -354,7 +354,7 @@ const LNDCreateInvoice = () => {
     if (!newWallet) return;
 
     if (newWallet.chain !== Chain.OFFCHAIN) {
-      return replace('ReceiveDetails', { walletID: id });
+      return { name: 'ReceiveDetails', params: { walletID: id } };
     }
 
     setParams({ walletID: id });

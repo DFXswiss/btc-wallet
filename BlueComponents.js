@@ -24,7 +24,7 @@ import {
 import Clipboard from '@react-native-clipboard/clipboard';
 import NetworkTransactionFees, { NetworkTransactionFee, NetworkTransactionFeeType } from './models/networkTransactionFees';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useTheme } from '@react-navigation/native';
+import { CommonActions, useNavigation, useTheme } from '@react-navigation/native';
 import { BlueCurrentTheme } from './components/themes';
 import loc, { formatStringAddTwoWhiteSpaces } from './loc';
 import PickerSelect from 'react-native-picker-select';
@@ -987,47 +987,75 @@ const useSelectorStyles = () => {
 };
 
 export const BlueWalletSelect = ({ wallets, value, onChange }) => {
-  return Platform.OS === 'ios' ? (
-    <BlueWalletSelectIOS wallets={wallets} value={value} onChange={onChange} />
-  ) : (
-    <BlueWalletSelectBase wallets={wallets} value={value} onChange={onChange} />
-  );
-};
-
-export const BlueWalletSelectIOS = ({ wallets, value, onChange }) => {
-  const [internalValue, setInternalValue] = useState(value);
-
-  const handleDone = () => onChange(internalValue);
-
-  return (
-    <BlueWalletSelectBase
-      wallets={wallets}
-      value={internalValue}
-      onChange={setInternalValue}
-      onDonePress={handleDone}
-      onClose={handleDone}
-    />
-  );
-};
-
-export const BlueWalletSelectBase = ({ wallets, value, onChange, ...props }) => {
   const { colors } = useTheme();
-  const pickerStyles = useSelectorStyles();
+  const navigation = useNavigation();
+
+  const selected = wallets.find(w => w.getID() === value);
+  const label = selected ? `${selected.getLabel()}${selected.isPosMode ? ' (POS mode)' : ''}` : '';
+
+  const onPress = () => {
+    navigation.navigate('SelectWallet', {
+      availableWallets: wallets,
+      onWalletSelect: (picked, { navigation: { pop } }) => {
+        if (!picked) return;
+        if (picked.getID() === value) {
+          pop();
+          return;
+        }
+        // Same-chain: caller mutates via setParams and returns nothing -> pop.
+        // Cross-chain: caller returns { name, params } -> atomic replace.
+        const target = onChange(picked.getID());
+        if (target && typeof target === 'object' && target.name) {
+          navigation.dispatch(state => {
+            if (!state || state.routes.length < 2) {
+              return CommonActions.navigate(target);
+            }
+            const routes = [...state.routes];
+            routes.pop();
+            routes[routes.length - 1] = { name: target.name, params: target.params };
+            return CommonActions.reset({ ...state, routes, index: routes.length - 1 });
+          });
+        } else {
+          pop();
+        }
+      },
+    });
+  };
 
   return (
-    <PickerSelect
-      value={value}
-      onValueChange={onChange}
-      items={wallets.map(w => ({ label: `${w.getLabel()}${w.isPosMode ? ' (POS mode)' : ''}`, value: w.getID() }))}
-      placeholder={{}}
-      style={pickerStyles}
-      useNativeAndroidPickerStyle={false}
-      fixAndroidTouchableBug
-      Icon={() => <Icon size={18} name="sync-alt" type="material-icons" color={colors.foregroundColor} />}
-      {...props}
-    />
+    <TouchableOpacity
+      accessibilityRole="button"
+      activeOpacity={0.7}
+      onPress={onPress}
+      style={[
+        styles.walletSelectButton,
+        { borderColor: colors.formBorder, backgroundColor: colors.inputBackgroundColor },
+      ]}
+    >
+      <Text numberOfLines={1} style={[styles.walletSelectLabel, { color: colors.foregroundColor }]}>
+        {label}
+      </Text>
+      <Icon size={18} name="sync-alt" type="material-icons" color={colors.foregroundColor} />
+    </TouchableOpacity>
   );
 };
+
+const styles = StyleSheet.create({
+  walletSelectButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    paddingVertical: Platform.OS === 'ios' ? 16 : 10,
+    borderWidth: 1,
+    borderRadius: 4,
+  },
+  walletSelectLabel: {
+    flex: 1,
+    fontSize: 14,
+    marginRight: 12,
+  },
+});
 
 export const Selector = ({ items, selectedValue, onValueChange }) => {
   const { colors } = useTheme();

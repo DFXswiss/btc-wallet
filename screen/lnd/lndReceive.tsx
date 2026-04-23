@@ -35,8 +35,6 @@ import useInputAmount from '../../hooks/useInputAmount';
 import { SuccessView } from '../send/success';
 import { useNFC } from '../../hooks/nfc.hook';
 import BoltCard from '../../class/boltcard';
-import { useReplaceModalScreen } from '../../hooks/replaceModalScreen.hook';
-
 interface RouteParams {
   walletID: string;
 }
@@ -47,8 +45,7 @@ const LNDReceive = () => {
   const wallet = useMemo(() => wallets.find((item: any) => item.getID() === walletID), [walletID, wallets]);
   const { colors } = useTheme();
   // @ts-ignore - useNavigation non-sense
-  const { setParams, getParent, navigate } = useNavigation();
-  const replace = useReplaceModalScreen();
+  const { setParams, getParent } = useNavigation();
   const [isInvoiceLoading, setIsInvoiceLoading] = useState(false);
   const [description, setDescription] = useState('');
   const { inputProps, amountSats, formattedUnit, changeToNextUnit } = useInputAmount();
@@ -183,11 +180,10 @@ const LNDReceive = () => {
     if (!newWallet) return;
 
     if (newWallet.chain !== Chain.OFFCHAIN) {
-      return replace({ name: 'ReceiveDetails', params: { walletID: id } });
+      return { name: 'ReceiveDetails', params: { walletID: id } };
     }
-    
+
     setParams({ walletID: id });
-    navigate('LNDReceive', { walletID: id });
   };
 
   const handleOnBlur = () => {

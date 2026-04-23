@@ -1,4 +1,4 @@
-import React, { createContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { useAsyncStorage } from '@react-native-async-storage/async-storage';
@@ -64,7 +64,7 @@ export const BlueStorageProvider = ({ children }) => {
     return BlueApp.setIsDfxSwapEnabled(value);
   };
 
-  const saveToDisk = async (force = false) => {
+  const saveToDisk = useCallback(async (force = false) => {
     if (BlueApp.getWallets().length === 0 && !force) {
       console.log('not saving empty wallets array');
       return;
@@ -73,7 +73,7 @@ export const BlueStorageProvider = ({ children }) => {
     await BlueApp.saveToDisk();
     setWallets([...BlueApp.getWallets()]);
     txMetadata = BlueApp.tx_metadata;
-  };
+  }, [txMetadata]);  // eslint-disable-next-line react-hooks/exhaustive-deps
 
   const setCameraPermissionLastAskedTimeAsyncStorage = value => {
     setCameraPermissionLastAskedTime(value);

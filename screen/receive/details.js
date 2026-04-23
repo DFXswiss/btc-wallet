@@ -39,7 +39,6 @@ import * as BlueElectrum from '../../blue_modules/BlueElectrum';
 import { SuccessView } from '../send/success';
 import useInputAmount from '../../hooks/useInputAmount';
 import NetworkTransactionFees from '../../models/networkTransactionFees';
-import { useReplaceModalScreen } from '../../hooks/replaceModalScreen.hook';
 const currency = require('../../blue_modules/currency');
 
 const ReceiveDetails = () => {
@@ -52,8 +51,7 @@ const ReceiveDetails = () => {
   const [showPendingBalance, setShowPendingBalance] = useState(false);
   const [showConfirmedBalance, setShowConfirmedBalance] = useState(false);
   const [showAddress, setShowAddress] = useState(false);
-  const { goBack, setParams, navigate } = useNavigation();
-  const replace = useReplaceModalScreen();
+  const { goBack, setParams } = useNavigation();
   const { colors } = useTheme();
   const [intervalMs, setIntervalMs] = useState(5000);
   const [eta, setEta] = useState('');
@@ -308,7 +306,6 @@ const ReceiveDetails = () => {
   const obtainWalletAddress = useCallback(async () => {
     console.log('receive/details - componentDidMount');
     wallet.setUserHasSavedExport(true);
-    await saveToDisk();
     let newAddress;
     if (address) {
       setAddressBIP21Encoded(address);
@@ -387,11 +384,10 @@ const ReceiveDetails = () => {
     if (!newWallet) return;
 
     if (newWallet.chain !== Chain.ONCHAIN) {
-      return replace({ name: newWallet.isPosMode ? 'PosReceive' : 'LNDReceive', params: { walletID: id } });
+      return { name: newWallet.isPosMode ? 'PosReceive' : 'LNDReceive', params: { walletID: id } };
     }
 
     setParams({ walletID: id });
-    navigate('ReceiveDetails', { walletID: id });
   };
 
   return (

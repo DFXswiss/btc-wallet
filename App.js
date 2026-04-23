@@ -1,4 +1,5 @@
 import 'react-native-gesture-handler'; // should be on top
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import React, { useContext, useEffect, useRef } from 'react';
 import {
   AppState,
@@ -312,26 +313,29 @@ const App = () => {
   };
 
   return (
-    <SafeAreaProvider>
-      <View style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-        <NavigationContainer ref={navigationRef} theme={BlueDarkTheme}>
-          <InitRoot />
-          <Notifications onProcessNotifications={processPushNotifications} />
-        </NavigationContainer>
-        {walletsInitialized && !isDesktop && <WatchConnectivity />}
-      </View>
-      <DeviceQuickActions />
-      <Biometric />
-      <WidgetCommunication />
-      <Privacy />
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <SafeAreaProvider>
+        <View style={styles.root}>
+          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+          <NavigationContainer ref={navigationRef} theme={BlueDarkTheme}>
+            <InitRoot />
+            <Notifications onProcessNotifications={processPushNotifications} />
+          </NavigationContainer>
+          {walletsInitialized && !isDesktop && <WatchConnectivity />}
+        </View>
+        <DeviceQuickActions />
+        <Biometric />
+        <WidgetCommunication />
+        <Privacy />
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 };
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    paddingVertical: Platform.OS === 'android' ? 10 : 0,
   },
 });
 
