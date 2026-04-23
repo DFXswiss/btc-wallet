@@ -17,6 +17,7 @@ import TransactionOffchainIncomingIcon from '../components/icons/TransactionOffc
 import TransactionOnchainIcon from '../components/icons/TransactionOnchainIcon';
 import TransactionOutgoingIcon from '../components/icons/TransactionOutgoingIcon';
 import TransactionPendingIcon from '../components/icons/TransactionPendingIcon';
+import { usePrivateText } from '../hooks/usePrivateText';
 
 export const TransactionListItem = React.memo(({ item, itemPriceUnit = BitcoinUnit.BTC, walletID }) => {
   const [subtitleNumberOfLines, setSubtitleNumberOfLines] = useState(1);
@@ -24,6 +25,8 @@ export const TransactionListItem = React.memo(({ item, itemPriceUnit = BitcoinUn
   const { navigate } = useNavigation();
   const menuRef = useRef();
   const { txMetadata, wallets, preferredFiatCurrency, language } = useContext(BlueStorageContext);
+  const getPrivateText = usePrivateText();
+
   const containerStyle = useMemo(
     () => ({
       backgroundColor: 'transparent',
@@ -179,7 +182,7 @@ export const TransactionListItem = React.memo(({ item, itemPriceUnit = BitcoinUn
   }, [subtitle]);
 
   const onPress = useCallback(async () => {
-    menuRef?.current?.dismissMenu();
+    menuRef?.current?.dismissMenu?.();
     if (item.hash) {
       navigate('TransactionStatus', { hash: item.hash, walletID });
     } else if (item.type === 'user_invoice' || item.type === 'payment_request' || item.type === 'paid_invoice') {
@@ -300,13 +303,13 @@ export const TransactionListItem = React.memo(({ item, itemPriceUnit = BitcoinUn
       <ToolTipMenu ref={menuRef} actions={toolTipActions} onPressMenuItem={onToolTipPress} onPress={onPress}>
         <BlueListItem
           leftAvatar={avatar}
-          title={title}
+          title={getPrivateText(title)}
           subtitleNumberOfLines={subtitleNumberOfLines}
-          subtitle={subtitle}
+          subtitle={getPrivateText(subtitle)}
           Component={View}
           subtitleProps={subtitleProps}
           chevron={false}
-          rightTitle={rowTitle}
+          rightTitle={getPrivateText(rowTitle)}
           rightTitleStyle={rowTitleStyle}
           containerStyle={containerStyle}
         />

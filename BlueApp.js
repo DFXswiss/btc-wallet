@@ -49,6 +49,7 @@ class AppStorage {
   static DFX_POS = 'dfx_pos';
   static DFX_SWAP = 'dfx_swap';
   static CAMERA_PERMISSION_LAST_ASKED_TIME = 'camera_permission_last_asked_time';
+  static HIDE_BALANCE = 'hide_balance';
 
   static keys2migrate = [AppStorage.HANDOFF_STORAGE_KEY, AppStorage.DO_NOT_TRACK, AppStorage.ADVANCED_MODE_ENABLED];
 
@@ -854,6 +855,17 @@ class AppStorage {
 
   setIsPOSmodeEnabled = async value => {
     await AsyncStorage.setItem(AppStorage.POS_MODE, value ? '1' : '');
+  };
+
+  isHideBalanceEnabled = async () => {
+    try {
+      return !!(await AsyncStorage.getItem(AppStorage.HIDE_BALANCE));
+    } catch (_) {}
+    return false;
+  };
+
+  setIsHideBalanceEnabled = async value => {
+    await AsyncStorage.setItem(AppStorage.HIDE_BALANCE, value ? '1' : '');
   };
 
   isDfxPOSEnabled = async () => {

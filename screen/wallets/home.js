@@ -31,9 +31,9 @@ import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import BoltCard from '../../class/boltcard';
-import { TaprootLdsWallet, TaprootLdsWalletType } from '../../class/wallets/taproot-lds-wallet';
 import scanqrHelper from '../../helpers/scan-qr';
 import DfxServicesButtons from '../../components/DfxServicesButtons';
+import { usePrivateText } from '../../hooks/usePrivateText';
 
 const fs = require('../../blue_modules/fs');
 
@@ -54,6 +54,7 @@ const WalletHome = ({ navigation }) => {
   const walletActionButtonsRef = useRef();
   const { width } = useWindowDimensions();
   const isFocused = useIsFocused();
+  const getPrivateText = usePrivateText();
 
   const wallet = useMemo(() => wallets.find(w => w.getID() === walletID), [wallets, walletID]);
   const totalWallet = useMemo(() => {
@@ -335,7 +336,7 @@ const WalletHome = ({ navigation }) => {
                 subtitleNumberOfLines={1}
                 subtitle={item.subtitle}
                 Component={View}
-                rightTitle={formatBalance(item.wallet.getBalance(), item.wallet.getPreferredBalanceUnit(), true).toString()}
+                rightTitle={getPrivateText(formatBalance(item.wallet.getBalance(), item.wallet.getPreferredBalanceUnit(), true).toString())}
                 rightTitleStyle={styles.walletBalance}
                 chevron
               />

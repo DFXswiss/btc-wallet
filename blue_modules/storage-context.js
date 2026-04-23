@@ -34,6 +34,7 @@ export const BlueStorageProvider = ({ children }) => {
   const [lastSuccessfulBalanceRefresh, setLastSuccessfulBalanceRefresh] = useState(Date.now());
   const balanceRefreshInterval = useRef(null);
   const [cameraPermissionLastAskedTime, setCameraPermissionLastAskedTime] = useState(0);
+  const [hideBalance, setHideBalance] = useState(false);
 
   useEffect(() => {
     BlueElectrum.isDisabled().then(setIsElectrumDisabled);
@@ -99,6 +100,8 @@ export const BlueStorageProvider = ({ children }) => {
         setIsDfxSwap(!!enabledDfxSwap);
         const cameraPermissionLastAskedTime = await BlueApp.getCameraPermissionLastAskedTime();
         setCameraPermissionLastAskedTime(cameraPermissionLastAskedTime);
+        const isHideBalance = await BlueApp.isHideBalanceEnabled();
+        setHideBalance(!!isHideBalance);
       } catch (_e) {
         setIsHandOffUseEnabledAsyncStorage(false);
         setIsHandOffUseEnabled(false);
@@ -271,6 +274,14 @@ export const BlueStorageProvider = ({ children }) => {
     setWallets([...BlueApp.getWallets()]);
   };
 
+  const toggleHideBalance = () => {
+    setHideBalance(prev => {
+      const next = !prev;
+      BlueApp.setIsHideBalanceEnabled(next);
+      return next;
+    });
+  };
+
   let txMetadata = BlueApp.tx_metadata || {};
   const getTransactions = BlueApp.getTransactions;
   const isAdvancedModeEnabled = BlueApp.isAdvancedModeEnabled;
@@ -354,6 +365,8 @@ export const BlueStorageProvider = ({ children }) => {
         setBalanceRefreshInterval,
         clearBalanceRefreshInterval,
         revalidateBalancesInterval,
+        hideBalance,
+        toggleHideBalance,
         // Feature flags
         ldsDEV,
         setLdsDEVAsyncStorage,

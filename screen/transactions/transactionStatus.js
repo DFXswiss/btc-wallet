@@ -16,6 +16,7 @@ import loc, { formatBalanceWithoutSuffix } from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import * as BlueElectrum from '../../blue_modules/BlueElectrum';
 import NetworkTransactionFees from '../../models/networkTransactionFees';
+import { PrivateText } from '../../components/PrivateText';
 const currency = require('../../blue_modules/currency');
 
 const buttonStatus = Object.freeze({
@@ -38,11 +39,11 @@ const TransactionsStatus = () => {
   const fetchTxInterval = useRef();
   const [intervalMs, setIntervalMs] = useState(1000);
   const [eta, setEta] = useState('');
-  
+
   const feeSats = useMemo(() => {
     if (!tx) return 0;
-    const inAmount = tx.inputs.reduce((acc, {value})=>(acc + value), 0);
-    const outAmount = tx.outputs.reduce((acc, {value})=>(acc + value), 0);
+    const inAmount = tx.inputs.reduce((acc, { value }) => (acc + value), 0);
+    const outAmount = tx.outputs.reduce((acc, { value }) => (acc + value), 0);
     return currency.btcToSatoshi(inAmount - outAmount);
   }, [tx]);
 
@@ -354,7 +355,7 @@ const TransactionsStatus = () => {
       if (txMetadata[tx.hash].memo) {
         return (
           <View style={styles.memo}>
-            <Text style={styles.memoText}>{txMetadata[tx.hash].memo}</Text>
+            <Text style={styles.memoText}><PrivateText>{txMetadata[tx.hash].memo}</PrivateText></Text>
             <BlueSpacing20 />
           </View>
         );
@@ -382,9 +383,9 @@ const TransactionsStatus = () => {
         <BlueCard>
           <View style={styles.center}>
             <Text style={[styles.value, stylesHook.value]}>
-              {formatBalanceWithoutSuffix(tx.value, wallet.current.preferredBalanceUnit, true)}{' '}
+              <PrivateText>{formatBalanceWithoutSuffix(tx.value, wallet.current.preferredBalanceUnit, true)}</PrivateText>{' '}
               {wallet.current.preferredBalanceUnit !== BitcoinUnit.LOCAL_CURRENCY && (
-                <Text style={[styles.valueUnit, stylesHook.valueUnit]}>{loc.units[wallet.current.preferredBalanceUnit]}</Text>
+                <Text style={[styles.valueUnit, stylesHook.valueUnit]}><PrivateText>{loc.units[wallet.current.preferredBalanceUnit]}</PrivateText></Text>
               )}
             </Text>
           </View>
@@ -423,9 +424,15 @@ const TransactionsStatus = () => {
           {tx.value < 0 && (
             <View style={styles.center}>
               <View>
-                <Text style={[styles.transactionDetailsTitle, stylesHook.transactionDetailsTitle]}>{loc.send.create_to}</Text>
+                <Text style={[styles.transactionDetailsTitle, stylesHook.transactionDetailsTitle]}>
+                  <PrivateText>
+                    {loc.send.create_to}
+                  </PrivateText>
+                </Text>
                 <Text style={[styles.transactionDetailsSubtitle, stylesHook.transactionDetailsSubtitle]}>
-                  {tx?.outputs[0]?.scriptPubKey?.addresses[0]}
+                  <PrivateText>
+                    {tx?.outputs[0]?.scriptPubKey?.addresses[0]}
+                  </PrivateText>
                 </Text>
               </View>
             </View>
@@ -434,17 +441,21 @@ const TransactionsStatus = () => {
           {feeSats && (
             <View style={styles.fee}>
               <BlueText style={styles.feeText}>
-                {loc.send.create_fee.toLowerCase()} {formatBalanceWithoutSuffix(feeSats, wallet.current.preferredBalanceUnit, true)}{' '}
-                {wallet.current.preferredBalanceUnit !== BitcoinUnit.LOCAL_CURRENCY && wallet.current.preferredBalanceUnit}
+                <PrivateText>
+                  {loc.send.create_fee.toLowerCase()} {formatBalanceWithoutSuffix(feeSats, wallet.current.preferredBalanceUnit, true)}{' '}
+                  {wallet.current.preferredBalanceUnit !== BitcoinUnit.LOCAL_CURRENCY && wallet.current.preferredBalanceUnit}
+                </PrivateText>
               </BlueText>
             </View>
           )}
 
           <View style={styles.confirmations}>
             <Text style={styles.confirmationsText}>
-              {loc.formatString(loc.transactions.confirmations_lowercase, {
-                confirmations: tx.confirmations > 6 ? '6+' : tx.confirmations,
-              })}
+              <PrivateText>
+                {loc.formatString(loc.transactions.confirmations_lowercase, {
+                  confirmations: tx.confirmations > 6 ? '6+' : tx.confirmations,
+                })}
+              </PrivateText>
             </Text>
           </View>
           {eta ? (
