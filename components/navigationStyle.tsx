@@ -58,6 +58,14 @@ const navigationStyle = (
         );
       }
 
+      // statusBarStyle: 'auto' is not supported on Android; derive from theme.barStyle.
+      const statusBarStyle: NativeStackNavigationOptions['statusBarStyle'] =
+        opts.statusBarStyle && opts.statusBarStyle !== 'auto'
+          ? opts.statusBarStyle
+          : theme.barStyle === 'light-content'
+            ? 'light'
+            : 'dark';
+
       let options: NavigationOptions = {
         headerStyle: {
           borderBottomWidth: 0,
@@ -73,6 +81,7 @@ const navigationStyle = (
         headerBackTitleVisible: false,
         headerTintColor: theme.colors.foregroundColor,
         ...opts,
+        statusBarStyle,
       };
 
       if (formatter) {

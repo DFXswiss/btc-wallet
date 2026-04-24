@@ -335,7 +335,7 @@ const App = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    paddingVertical: Platform.OS === 'android' ? 10 : 0,
+    paddingVertical: Platform.OS === 'android' ? 15 : 0,
   },
 });
 
