@@ -1,6 +1,6 @@
 import PushNotificationIOS from '@react-native-community/push-notification-ios';
 import { Alert, Platform } from 'react-native';
-import { getApplicationName, getVersion, getSystemName, getSystemVersion, hasGmsSync, hasHmsSync } from 'react-native-device-info';
+import { getApplicationName, getVersion, getSystemName, getSystemVersion } from 'react-native-device-info';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import loc from '../loc';
 
@@ -28,7 +28,11 @@ function Notifications(props) {
     return false;
   };
 
-  Notifications.isNotificationsCapable = hasGmsSync() || hasHmsSync() || Platform.OS !== 'android';
+  // TODO: re-enable Android push notifications once react-native-push-notification is
+  // compatible with RN 0.83 new architecture. The receivers/services are commented out in
+  // android/app/src/main/AndroidManifest.xml, so we also gate the JS side here to avoid
+  // asking the user for permissions for a feature that currently does nothing on Android.
+  Notifications.isNotificationsCapable = Platform.OS !== 'android';
   /**
    * Calls `configure`, which tries to obtain push token, save it, and registers all associated with
    * notifications callbacks
@@ -286,6 +290,7 @@ function Notifications(props) {
    * @returns {Promise<Object>}
    */
   Notifications.checkPermissions = async function () {
+    if (!Notifications.isNotificationsCapable) return { alert: false, badge: false, sound: false };
     return new Promise(function (resolve) {
       PushNotification.checkPermissions(result => {
         resolve(result);
@@ -393,25 +398,34 @@ function Notifications(props) {
   };
 
   Notifications.getDeliveredNotifications = () => {
+    if (!Notifications.isNotificationsCapable) return Promise.resolve([]);
     return new Promise(resolve => {
       PushNotification.getDeliveredNotifications(notifications => resolve(notifications));
     });
   };
 
   Notifications.removeDeliveredNotifications = (identifiers = []) => {
+    if (!Notifications.isNotificationsCapable) return;
     PushNotification.removeDeliveredNotifications(identifiers);
   };
 
   Notifications.setApplicationIconBadgeNumber = function (badges) {
+    if (!Notifications.isNotificationsCapable) return;
     PushNotification.setApplicationIconBadgeNumber(badges);
   };
 
   Notifications.removeAllDeliveredNotifications = () => {
+    if (!Notifications.isNotificationsCapable) return;
     PushNotification.removeAllDeliveredNotifications();
   };
 
   // on app launch (load module):
   (async () => {
+    // Skip native push setup entirely on platforms where it's disabled (currently Android,
+    // see isNotificationsCapable above). This prevents touching the native module while
+    // the manifest receivers/services are commented out.
+    if (!Notifications.isNotificationsCapable) return;
+
     // first, fetching to see if app uses custom GroundControl server, not the default one
     try {
       const baseUriStored = await AsyncStorage.getItem(GROUNDCONTROL_BASE_URI);

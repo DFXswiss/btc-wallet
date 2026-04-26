@@ -283,7 +283,7 @@ const ScanLndInvoice = () => {
     );
   }
 
-  const formatDestination = destination.length > 25 ? `${destination.substring(0, 18)}.....${destination.substring(destination.length - 18)}` : destination;
+  const formatDestination = destination && destination.length > 25 ? `${destination.substring(0, 18)}.....${destination.substring(destination.length - 18)}` : (destination || '');
 
   return (
     <SafeBlueArea style={stylesHook.root}>
