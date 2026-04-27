@@ -5,9 +5,8 @@ import loc from '../loc';
 import { pick, types, errorCodes } from '@react-native-documents/picker';
 
 const isCancel = err => err && err.code === errorCodes.OPERATION_CANCELED;
-import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+import { launchImageLibrary } from 'react-native-image-picker';
 import RNQRGenerator from 'rn-qr-generator';
-import { presentCameraNotAuthorizedAlert } from '../class/camera';
 import { isDesktop } from '../blue_modules/environment';
 import alert from '../components/Alert';
 

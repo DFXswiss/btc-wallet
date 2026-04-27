@@ -419,7 +419,7 @@ WalletHome.navigationOptions = navigationStyle({}, (options, { theme, navigation
     },
     backupSeedText: {
       marginLeft: 4,
-      color: route?.params?.backupWarning ? '#072440' : theme.colors.buttonAlternativeTextColor,
+      color: theme.colors.buttonAlternativeTextColor,
       fontWeight: '600',
       fontSize: 14,
     },
@@ -437,7 +437,7 @@ WalletHome.navigationOptions = navigationStyle({}, (options, { theme, navigation
           }}
         >
           <View style={styles.backupSeedContainer}>
-            {route?.params?.backupWarning && <Icon name="warning-outline" type="ionicon" size={18} color="#072440" />}
+            {route?.params?.backupWarning && <Icon name="warning-outline" type="ionicon" size={18} color="#FFFFFF" />}
             <Text style={stylesHook.backupSeedText}>
               {route?.params?.backupWarning ? loc.wallets.backupSeedWarning : loc.wallets.backupSeed}
             </Text>

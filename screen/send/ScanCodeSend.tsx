@@ -124,6 +124,7 @@ const ScanCodeSend: React.FC = () => {
       {isCameraFocused && (
         <Camera
           scanBarcode
+          scanThrottleDelay={0}
           onReadCode={(event: any) => cameraCallback({ data: event?.nativeEvent?.codeStringValue })}
           style={styles.camera}
         />

@@ -129,6 +129,7 @@ const ImportMultisignature: React.FC = () => {
       {isCameraFocused && (
         <Camera
           scanBarcode={!isError}
+          scanThrottleDelay={0}
           onReadCode={(event: any) => onReadCode({ data: event?.nativeEvent?.codeStringValue })}
           style={styles.camera}
         />

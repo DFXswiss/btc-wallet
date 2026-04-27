@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BackHandler,
   InteractionManager,
@@ -387,7 +387,7 @@ const ReceiveDetails = () => {
       return { name: newWallet.isPosMode ? 'PosReceive' : 'LNDReceive', params: { walletID: id } };
     }
 
-    setParams({ walletID: id });
+    setParams({ walletID: id, address: null });
   };
 
   return (

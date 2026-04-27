@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { Image, View, TouchableOpacity, StatusBar, Platform, StyleSheet, Alert } from 'react-native';
 import { Camera } from 'react-native-camera-kit-no-google';
 import { Icon, Text } from 'react-native-elements';
@@ -19,7 +19,6 @@ const createHash = require('create-hash');
 const fs = require('../../blue_modules/fs');
 const Base43 = require('../../blue_modules/base43');
 const bitcoin = require('bitcoinjs-lib');
-let decoder = false;
 
 const styles = StyleSheet.create({
   root: {
@@ -110,7 +109,8 @@ const ScanQRCode = () => {
   const route = useRoute();
   const showFileImportButton = route.params.showFileImportButton || false;
   const { launchedBy, onBarScanned, onDismiss, onBarScannerDismissWithoutData = () => {} } = route.params;
-  const scannedCache = {};
+  const scannedCacheRef = useRef({});
+  const decoderRef = useRef(null);
   const { colors } = useTheme();
   const isFocused = useIsFocused();
   const [urTotal, setUrTotal] = useState(0);
@@ -150,12 +150,14 @@ const ScanQRCode = () => {
   };
 
   const _onReadUniformResourceV2 = part => {
-    if (!decoder) decoder = new BlueURDecoder();
+    if (!decoderRef.current) decoderRef.current = new BlueURDecoder();
+    const decoder = decoderRef.current;
     try {
       decoder.receivePart(part);
       if (decoder.isComplete()) {
         const data = decoder.toString();
-        decoder = false; // nullify for future use (?)
+        decoderRef.current = null;
+        scannedCacheRef.current = {};
         if (launchedBy) {
           navigation.navigate(launchedBy, {});
         }
@@ -234,6 +236,7 @@ const ScanQRCode = () => {
 
   const onBarCodeRead = ret => {
     const h = HashIt(ret.data);
+    const scannedCache = scannedCacheRef.current;
     if (scannedCache[h]) {
       // this QR was already scanned by this ScanQRCode, lets prevent firing duplicate callbacks
       return;
@@ -381,6 +384,7 @@ const ScanQRCode = () => {
         <Camera
           style={styles.root}
           scanBarcode
+          scanThrottleDelay={0}
           resizeMode="cover"
           onReadCode={event => onBarCodeRead({ data: event?.nativeEvent?.codeStringValue })}
           showFrame={false}
