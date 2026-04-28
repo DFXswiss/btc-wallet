@@ -15,7 +15,6 @@ import { useApi } from '../hooks/api.hook';
 import { User, UserUrl } from '../definitions/user';
 import { Auth } from '../definitions/auth';
 import { useLanguageContext } from './language.context';
-import { MultisigHDWallet } from '../../../class';
 import { TaprootLdsWallet } from '../../../class/wallets/taproot-lds-wallet';
 
 export enum DfxService {
@@ -140,7 +139,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
   async function resetAccessToken(walletId: string) {
     updateSession(walletId);
   }
-  
+
   async function refreshAccessToken(walletId: string) {
     resetAccessToken(walletId);
     const session = await getAccessToken(walletId);
@@ -188,7 +187,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
 
     !isInitialized &&
       !isProcessing &&
-      connect(wallets.filter((w: any) => w.type !== MultisigHDWallet.type).map((w: any) => w.getID()))
+      connect(wallets.map((w: any) => w.getID()))
         .then(() => setIsInitialized(true))
         .catch(e => {
           console.error('DFX session init error: ', e.message?.toString());

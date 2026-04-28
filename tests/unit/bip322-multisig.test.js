@@ -1,0 +1,158 @@
+import assert from 'assert';
+import { MultisigHDWallet } from '../../class/';
+const bitcoin = require('bitcoinjs-lib');
+const { bech32 } = require('bech32');
+const { BIP322_INCOMPLETE_PSBT } = require('../../class/bip322');
+
+const MNEMONIC_A = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+const MNEMONIC_B = 'legal winner thank year wave sausage worth useful legal winner thank yellow';
+const MNEMONIC_C = 'letter advice cage absurd amount doctor acoustic avoid letter advice cage above';
+
+function buildLocalMultisig({ m, mnemonics }) {
+  const w = new MultisigHDWallet();
+  w.setNativeSegwit();
+  w.setDerivationPath(MultisigHDWallet.PATH_NATIVE_SEGWIT);
+  w.setM(m);
+  for (const mnemonic of mnemonics) w.addCosigner(mnemonic);
+  return w;
+}
+
+function decodeWitnessStack(buf) {
+  let offset = 0;
+  const count = readVarInt(buf, offset);
+  offset = count.next;
+  const items = [];
+  for (let i = 0; i < count.value; i++) {
+    const len = readVarInt(buf, offset);
+    offset = len.next;
+    items.push(buf.subarray(offset, offset + len.value));
+    offset += len.value;
+  }
+  assert.strictEqual(offset, buf.length, 'witness stack must consume the full buffer');
+  return items;
+}
+
+function readVarInt(buf, offset) {
+  const first = buf[offset];
+  if (first < 0xfd) return { value: first, next: offset + 1 };
+  if (first === 0xfd) return { value: buf.readUInt16LE(offset + 1), next: offset + 3 };
+  if (first === 0xfe) return { value: buf.readUInt32LE(offset + 1), next: offset + 5 };
+  return { value: Number(buf.readBigUInt64LE(offset + 1)), next: offset + 9 };
+}
+
+function bech32ProgramOf(address) {
+  const decoded = bech32.decode(address);
+  return Buffer.from(bech32.fromWords(decoded.words.slice(1)));
+}
+
+describe('BIP-322 simple signature for native P2WSH multisig', () => {
+  it('produces a structurally valid signature when all M cosigners are local (2-of-2)', () => {
+    const w = buildLocalMultisig({ m: 2, mnemonics: [MNEMONIC_A, MNEMONIC_B] });
+    const address = w._getExternalAddressByIndex(0);
+    assert.ok(address.startsWith('bc1q'), 'expected native P2WSH address');
+    assert.strictEqual(address.length, 62);
+
+    const sig = w.signMessage('DFX login challenge', address);
+    assert.ok(sig.length > 0, 'signature must be non-empty');
+
+    const witness = decodeWitnessStack(Buffer.from(sig, 'base64'));
+    assert.strictEqual(witness.length, 2 + 2, 'expected dummy + 2 sigs + witnessScript');
+    assert.strictEqual(witness[0].length, 0, 'first witness item is the OP_CHECKMULTISIG dummy');
+
+    const witnessScript = witness[witness.length - 1];
+    const programFromScript = bitcoin.crypto.sha256(witnessScript);
+    assert.deepStrictEqual(programFromScript, bech32ProgramOf(address));
+
+    for (let i = 1; i < witness.length - 1; i++) {
+      const sigBytes = witness[i];
+      assert.ok(sigBytes.length >= 9, 'sig must contain DER bytes + sighash flag');
+      assert.strictEqual(sigBytes[sigBytes.length - 1], 0x01, 'sighash flag must be SIGHASH_ALL');
+    }
+  });
+
+  it('produces signatures bound to the message (different message → different sig)', () => {
+    const w = buildLocalMultisig({ m: 2, mnemonics: [MNEMONIC_A, MNEMONIC_B] });
+    const address = w._getExternalAddressByIndex(0);
+    const sig1 = w.signMessage('msg-a', address);
+    const sig2 = w.signMessage('msg-b', address);
+    assert.notStrictEqual(sig1, sig2);
+  });
+
+  it('signs an internal (change) address belonging to the wallet', () => {
+    const w = buildLocalMultisig({ m: 2, mnemonics: [MNEMONIC_A, MNEMONIC_B] });
+    const internal = w._getInternalAddressByIndex(0);
+    const sig = w.signMessage('change addr challenge', internal);
+    const witness = decodeWitnessStack(Buffer.from(sig, 'base64'));
+    const programFromScript = bitcoin.crypto.sha256(witness[witness.length - 1]);
+    assert.deepStrictEqual(programFromScript, bech32ProgramOf(internal));
+  });
+
+  it('throws when the address does not belong to the wallet', () => {
+    const w = buildLocalMultisig({ m: 2, mnemonics: [MNEMONIC_A, MNEMONIC_B] });
+    const foreignAddress = 'bc1qsy93ywfzzp4e8aczvzn4452jmlwvyp2fklnm2qevnyzlmyd672pqrl3cep';
+    assert.throws(() => w.signMessage('m', foreignAddress), /does not belong/);
+  });
+
+  it('throws BIP322_INCOMPLETE_PSBT when fewer than M cosigners are local (2-of-3, only 1 mnemonic)', () => {
+    const fullWallet = buildLocalMultisig({ m: 2, mnemonics: [MNEMONIC_A, MNEMONIC_B, MNEMONIC_C] });
+    const address = fullWallet._getExternalAddressByIndex(0);
+
+    const partial = new MultisigHDWallet();
+    partial.setNativeSegwit();
+    partial.setDerivationPath(MultisigHDWallet.PATH_NATIVE_SEGWIT);
+    partial.setM(2);
+    partial.addCosigner(MNEMONIC_A);
+    partial.addCosigner(fullWallet._getXpubFromCosigner(fullWallet.getCosigner(2)), MultisigHDWallet.mnemonicToFingerprint(MNEMONIC_B));
+    partial.addCosigner(fullWallet._getXpubFromCosigner(fullWallet.getCosigner(3)), MultisigHDWallet.mnemonicToFingerprint(MNEMONIC_C));
+
+    assert.strictEqual(partial._getExternalAddressByIndex(0), address);
+    assert.strictEqual(partial.howManySignaturesCanWeMake(), 1);
+
+    let caught;
+    try {
+      partial.signMessage('challenge', address);
+    } catch (e) {
+      caught = e;
+    }
+    assert.ok(caught, 'expected throw');
+    assert.strictEqual(caught.code, BIP322_INCOMPLETE_PSBT);
+    assert.ok(caught.psbtBase64 && caught.psbtBase64.length > 0, 'must expose partial PSBT');
+    const psbt = bitcoin.Psbt.fromBase64(caught.psbtBase64);
+    assert.strictEqual(psbt.inputCount, 1);
+  });
+
+  it('completes signing across two wallets via cosignPsbt (round-trip)', () => {
+    const fullWallet = buildLocalMultisig({ m: 2, mnemonics: [MNEMONIC_A, MNEMONIC_B] });
+    const address = fullWallet._getExternalAddressByIndex(0);
+
+    const initiator = new MultisigHDWallet();
+    initiator.setNativeSegwit();
+    initiator.setDerivationPath(MultisigHDWallet.PATH_NATIVE_SEGWIT);
+    initiator.setM(2);
+    initiator.addCosigner(MNEMONIC_A);
+    initiator.addCosigner(fullWallet._getXpubFromCosigner(fullWallet.getCosigner(2)), MultisigHDWallet.mnemonicToFingerprint(MNEMONIC_B));
+
+    let caught;
+    try {
+      initiator.signMessage('cross-device login', address);
+    } catch (e) {
+      caught = e;
+    }
+    assert.strictEqual(caught.code, BIP322_INCOMPLETE_PSBT);
+
+    const cosigner = new MultisigHDWallet();
+    cosigner.setNativeSegwit();
+    cosigner.setDerivationPath(MultisigHDWallet.PATH_NATIVE_SEGWIT);
+    cosigner.setM(2);
+    cosigner.addCosigner(fullWallet._getXpubFromCosigner(fullWallet.getCosigner(1)), MultisigHDWallet.mnemonicToFingerprint(MNEMONIC_A));
+    cosigner.addCosigner(MNEMONIC_B);
+
+    const psbt = bitcoin.Psbt.fromBase64(caught.psbtBase64);
+    const { tx } = cosigner.cosignPsbt(psbt);
+    assert.ok(tx, 'second cosigner must complete the PSBT');
+
+    const fullSig = fullWallet.signMessage('cross-device login', address);
+    const witnessFull = decodeWitnessStack(Buffer.from(fullSig, 'base64'));
+    assert.strictEqual(witnessFull.length, 4);
+  });
+});
