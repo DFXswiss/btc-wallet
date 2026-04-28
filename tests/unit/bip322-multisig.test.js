@@ -5,6 +5,8 @@ const { bech32 } = require('bech32');
 const {
   BIP322_INCOMPLETE_PSBT,
   extractSimpleSignatureFromPsbt,
+  isP2wshAddress,
+  verifyBip322Signature,
   newBip322SessionId,
   registerBip322PendingSession,
   consumeBip322PendingSession,
@@ -166,6 +168,89 @@ describe('BIP-322 simple signature for native P2WSH multisig', () => {
     assert.strictEqual(witnessFromPsbt.length, witnessFromDirect.length);
     assert.deepStrictEqual(witnessFromPsbt[0], witnessFromDirect[0]);
     assert.deepStrictEqual(witnessFromPsbt[witnessFromPsbt.length - 1], witnessFromDirect[witnessFromDirect.length - 1]);
+  });
+
+  describe('verifyBip322Signature / wallet.verifyMessage', () => {
+    it('verifies a signature produced by signMessage (round-trip)', () => {
+      const w = buildLocalMultisig({ m: 2, mnemonics: [MNEMONIC_A, MNEMONIC_B] });
+      const address = w._getExternalAddressByIndex(0);
+      const message = 'DFX login challenge';
+      const signature = w.signMessage(message, address);
+      assert.strictEqual(verifyBip322Signature(message, address, signature), true);
+      assert.strictEqual(w.verifyMessage(message, address, signature), true);
+    });
+
+    it('verifies signatures across multiple message lengths', () => {
+      const w = buildLocalMultisig({ m: 2, mnemonics: [MNEMONIC_A, MNEMONIC_B] });
+      const address = w._getExternalAddressByIndex(0);
+      for (const message of ['', 'short', 'm'.repeat(200), 'unicode 漢字 ✓']) {
+        const sig = w.signMessage(message, address);
+        assert.strictEqual(verifyBip322Signature(message, address, sig), true, `failed for: ${message.slice(0, 20)}`);
+      }
+    });
+
+    it('rejects signature for a different message', () => {
+      const w = buildLocalMultisig({ m: 2, mnemonics: [MNEMONIC_A, MNEMONIC_B] });
+      const address = w._getExternalAddressByIndex(0);
+      const sig = w.signMessage('original', address);
+      assert.strictEqual(verifyBip322Signature('tampered', address, sig), false);
+    });
+
+    it('rejects signature for a different address', () => {
+      const w1 = buildLocalMultisig({ m: 2, mnemonics: [MNEMONIC_A, MNEMONIC_B] });
+      const w2 = buildLocalMultisig({ m: 2, mnemonics: [MNEMONIC_A, MNEMONIC_C] });
+      const address1 = w1._getExternalAddressByIndex(0);
+      const address2 = w2._getExternalAddressByIndex(0);
+      const sig = w1.signMessage('m', address1);
+      assert.strictEqual(verifyBip322Signature('m', address2, sig), false);
+    });
+
+    it('verifies a signature produced via PSBT cross-device round-trip', () => {
+      const fullWallet = buildLocalMultisig({ m: 2, mnemonics: [MNEMONIC_A, MNEMONIC_B] });
+      const address = fullWallet._getExternalAddressByIndex(0);
+
+      const initiator = new MultisigHDWallet();
+      initiator.setNativeSegwit();
+      initiator.setDerivationPath(MultisigHDWallet.PATH_NATIVE_SEGWIT);
+      initiator.setM(2);
+      initiator.addCosigner(MNEMONIC_A);
+      initiator.addCosigner(fullWallet._getXpubFromCosigner(fullWallet.getCosigner(2)), MultisigHDWallet.mnemonicToFingerprint(MNEMONIC_B));
+
+      let caught;
+      try {
+        initiator.signMessage('cross-device', address);
+      } catch (e) {
+        caught = e;
+      }
+      const cosigner = new MultisigHDWallet();
+      cosigner.setNativeSegwit();
+      cosigner.setDerivationPath(MultisigHDWallet.PATH_NATIVE_SEGWIT);
+      cosigner.setM(2);
+      cosigner.addCosigner(fullWallet._getXpubFromCosigner(fullWallet.getCosigner(1)), MultisigHDWallet.mnemonicToFingerprint(MNEMONIC_A));
+      cosigner.addCosigner(MNEMONIC_B);
+
+      const psbt = bitcoin.Psbt.fromBase64(caught.psbtBase64);
+      cosigner.cosignPsbt(psbt);
+      const sigFromPsbt = extractSimpleSignatureFromPsbt(psbt);
+      assert.strictEqual(verifyBip322Signature('cross-device', address, sigFromPsbt), true);
+    });
+
+    it('rejects malformed input gracefully', () => {
+      const w = buildLocalMultisig({ m: 2, mnemonics: [MNEMONIC_A, MNEMONIC_B] });
+      const address = w._getExternalAddressByIndex(0);
+      assert.strictEqual(verifyBip322Signature('m', address, ''), false);
+      assert.strictEqual(verifyBip322Signature('m', address, 'AAAAAAAAAA'), false);
+      assert.strictEqual(verifyBip322Signature('m', 'bc1q', 'AAAA'), false);
+      assert.strictEqual(verifyBip322Signature('m', '1AcGhh1oYJTqaPgmWThc7EvKBRjRLe3Go9', 'AAAA'), false);
+    });
+
+    it('isP2wshAddress detects native P2WSH only', () => {
+      assert.strictEqual(isP2wshAddress('bc1qsy93ywfzzp4e8aczvzn4452jmlwvyp2fklnm2qevnyzlmyd672pqrl3cep'), true);
+      assert.strictEqual(isP2wshAddress('bc1qd9jvcd4l64q09kkj2q0qpf58umrryknyqmdp47'), false); // P2WPKH
+      assert.strictEqual(isP2wshAddress('1AcGhh1oYJTqaPgmWThc7EvKBRjRLe3Go9'), false); // legacy
+      assert.strictEqual(isP2wshAddress('tb1qsy93ywfzzp4e8aczvzn4452jmlwvyp2fklnm2qevnyzlmyd672pqrl3cep'), false); // testnet
+      assert.strictEqual(isP2wshAddress(''), false);
+    });
   });
 
   describe('Pending session registry', () => {

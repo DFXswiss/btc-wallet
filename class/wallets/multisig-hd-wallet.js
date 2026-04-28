@@ -12,7 +12,7 @@ const bitcoin = require('bitcoinjs-lib');
 const createHash = require('create-hash');
 const reverse = require('buffer-reverse');
 const mn = require('electrum-mnemonic');
-const { buildToSignPsbt, extractSimpleSignature, BIP322_INCOMPLETE_PSBT } = require('../bip322');
+const { buildToSignPsbt, extractSimpleSignature, verifyBip322Signature, BIP322_INCOMPLETE_PSBT } = require('../bip322');
 
 const electrumSegwit = passphrase => ({
   prefix: mn.PREFIXES.segwit,
@@ -474,14 +474,18 @@ export class MultisigHDWallet extends AbstractHDElectrumWallet {
       } else {
         if (coordinationSetup) {
           const seedCosigner = this._cosigners[index];
-          const xpub = this._getXpubFromCosigner(seedCosigner) ?? this.convertXpubToMultisignatureXpub(
-            MultisigHDWallet.seedToXpub(
-              seedCosigner,
-              this._cosignersCustomPaths[index] || this._derivationPath,
-              this._cosignersPassphrases[index],
-            ),
-          );
-          const fingerprint = this._cosignersFingerprints[index] ?? MultisigHDWallet.mnemonicToFingerprint(this._cosigners[index], this._cosignersPassphrases[index]);
+          const xpub =
+            this._getXpubFromCosigner(seedCosigner) ??
+            this.convertXpubToMultisignatureXpub(
+              MultisigHDWallet.seedToXpub(
+                seedCosigner,
+                this._cosignersCustomPaths[index] || this._derivationPath,
+                this._cosignersPassphrases[index],
+              ),
+            );
+          const fingerprint =
+            this._cosignersFingerprints[index] ??
+            MultisigHDWallet.mnemonicToFingerprint(this._cosigners[index], this._cosignersPassphrases[index]);
           ret += fingerprint + ': ' + xpub + '\n';
         } else {
           ret += 'seed: ' + this._cosigners[index];
@@ -1053,6 +1057,19 @@ export class MultisigHDWallet extends AbstractHDElectrumWallet {
       throw err;
     }
     return extractSimpleSignature(tx);
+  }
+
+  /**
+   * Verifies a BIP-322 simple signature against a native P2WSH multisig address.
+   * The signature is the base64 witness stack as produced by signMessage().
+   *
+   * @param {string} message
+   * @param {string} address
+   * @param {string} signature - base64 BIP-322 simple signature
+   * @returns {boolean}
+   */
+  verifyMessage(message, address, signature) {
+    return verifyBip322Signature(message, address, signature);
   }
 
   async fetchUtxo() {
