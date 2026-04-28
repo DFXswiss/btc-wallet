@@ -2,7 +2,14 @@ import assert from 'assert';
 import { MultisigHDWallet } from '../../class/';
 const bitcoin = require('bitcoinjs-lib');
 const { bech32 } = require('bech32');
-const { BIP322_INCOMPLETE_PSBT } = require('../../class/bip322');
+const {
+  BIP322_INCOMPLETE_PSBT,
+  extractSimpleSignatureFromPsbt,
+  newBip322SessionId,
+  registerBip322PendingSession,
+  consumeBip322PendingSession,
+  hasBip322PendingSession,
+} = require('../../class/bip322');
 
 const MNEMONIC_A = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
 const MNEMONIC_B = 'legal winner thank year wave sausage worth useful legal winner thank yellow';
@@ -119,6 +126,68 @@ describe('BIP-322 simple signature for native P2WSH multisig', () => {
     assert.ok(caught.psbtBase64 && caught.psbtBase64.length > 0, 'must expose partial PSBT');
     const psbt = bitcoin.Psbt.fromBase64(caught.psbtBase64);
     assert.strictEqual(psbt.inputCount, 1);
+  });
+
+  it('extracts the simple signature from a fully co-signed PSBT (matches direct signMessage output)', () => {
+    const fullWallet = buildLocalMultisig({ m: 2, mnemonics: [MNEMONIC_A, MNEMONIC_B] });
+    const address = fullWallet._getExternalAddressByIndex(0);
+
+    const initiator = new MultisigHDWallet();
+    initiator.setNativeSegwit();
+    initiator.setDerivationPath(MultisigHDWallet.PATH_NATIVE_SEGWIT);
+    initiator.setM(2);
+    initiator.addCosigner(MNEMONIC_A);
+    initiator.addCosigner(fullWallet._getXpubFromCosigner(fullWallet.getCosigner(2)), MultisigHDWallet.mnemonicToFingerprint(MNEMONIC_B));
+
+    let caught;
+    try {
+      initiator.signMessage('m', address);
+    } catch (e) {
+      caught = e;
+    }
+    assert.strictEqual(caught.code, BIP322_INCOMPLETE_PSBT);
+
+    const cosigner = new MultisigHDWallet();
+    cosigner.setNativeSegwit();
+    cosigner.setDerivationPath(MultisigHDWallet.PATH_NATIVE_SEGWIT);
+    cosigner.setM(2);
+    cosigner.addCosigner(fullWallet._getXpubFromCosigner(fullWallet.getCosigner(1)), MultisigHDWallet.mnemonicToFingerprint(MNEMONIC_A));
+    cosigner.addCosigner(MNEMONIC_B);
+
+    const psbt = bitcoin.Psbt.fromBase64(caught.psbtBase64);
+    cosigner.cosignPsbt(psbt);
+
+    const sigFromPsbt = extractSimpleSignatureFromPsbt(psbt);
+    const sigFromDirect = fullWallet.signMessage('m', address);
+
+    const witnessFromPsbt = decodeWitnessStack(Buffer.from(sigFromPsbt, 'base64'));
+    const witnessFromDirect = decodeWitnessStack(Buffer.from(sigFromDirect, 'base64'));
+
+    assert.strictEqual(witnessFromPsbt.length, witnessFromDirect.length);
+    assert.deepStrictEqual(witnessFromPsbt[0], witnessFromDirect[0]);
+    assert.deepStrictEqual(witnessFromPsbt[witnessFromPsbt.length - 1], witnessFromDirect[witnessFromDirect.length - 1]);
+  });
+
+  describe('Pending session registry', () => {
+    it('registers, consumes and removes sessions', () => {
+      const id = newBip322SessionId();
+      assert.ok(id.startsWith('bip322-'));
+      const resolve = () => {};
+      const reject = () => {};
+      registerBip322PendingSession(id, resolve, reject);
+      assert.ok(hasBip322PendingSession(id));
+      const entry = consumeBip322PendingSession(id);
+      assert.strictEqual(entry.resolve, resolve);
+      assert.strictEqual(entry.reject, reject);
+      assert.ok(!hasBip322PendingSession(id));
+      assert.strictEqual(consumeBip322PendingSession(id), undefined);
+    });
+
+    it('produces unique session ids', () => {
+      const ids = new Set();
+      for (let i = 0; i < 100; i++) ids.add(newBip322SessionId());
+      assert.strictEqual(ids.size, 100);
+    });
   });
 
   it('completes signing across two wallets via cosignPsbt (round-trip)', () => {

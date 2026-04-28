@@ -75,10 +75,45 @@ function encodeVarInt(n) {
 
 const BIP322_INCOMPLETE_PSBT = 'BIP322_INCOMPLETE_PSBT';
 
+function extractSimpleSignatureFromPsbt(psbt) {
+  let tx;
+  try {
+    tx = psbt.finalizeAllInputs().extractTransaction();
+  } catch (e) {
+    tx = psbt.extractTransaction();
+  }
+  return extractSimpleSignature(tx);
+}
+
+const pendingBip322Sessions = new Map();
+
+function newBip322SessionId() {
+  return `bip322-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function registerBip322PendingSession(id, resolve, reject) {
+  pendingBip322Sessions.set(id, { resolve, reject });
+}
+
+function consumeBip322PendingSession(id) {
+  const entry = pendingBip322Sessions.get(id);
+  if (entry) pendingBip322Sessions.delete(id);
+  return entry;
+}
+
+function hasBip322PendingSession(id) {
+  return pendingBip322Sessions.has(id);
+}
+
 module.exports = {
   bip322MessageHash,
   buildToSpendTx,
   buildToSignPsbt,
   extractSimpleSignature,
+  extractSimpleSignatureFromPsbt,
   BIP322_INCOMPLETE_PSBT,
+  newBip322SessionId,
+  registerBip322PendingSession,
+  consumeBip322PendingSession,
+  hasBip322PendingSession,
 };
