@@ -6,7 +6,7 @@ import { navigate } from '../NavigationService';
 import { BIP322_INCOMPLETE_PSBT, newBip322SessionId, registerBip322PendingSession } from '../class/bip322';
 
 interface WalletInterface {
-  wallet?: AbstractWallet;
+  wallet?: AbstractWallet
   walletID?: string;
   address?: string;
   signMessage: (message: string, address: string) => Promise<string>;
@@ -45,8 +45,8 @@ export function WalletContextProvider(props: PropsWithChildren<any>): JSX.Elemen
       await saveToDisk();
     }
 
-    return wallet.addressOwnershipProof;
-  };
+    return wallet.addressOwnershipProof
+  }
 
   const context: WalletInterface = useMemo(() => {
     return {
@@ -76,7 +76,7 @@ export function WalletContextProvider(props: PropsWithChildren<any>): JSX.Elemen
           });
         }
       },
-      getOwnershipProof,
+      getOwnershipProof
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallets, walletsInitialized]);
