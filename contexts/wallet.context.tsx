@@ -3,7 +3,7 @@ import { BlueStorageContext } from '../blue_modules/storage-context';
 import { useAuth } from '../api/dfx/hooks/auth.hook';
 import { AbstractWallet } from '../class';
 import { navigate } from '../NavigationService';
-const { BIP322_INCOMPLETE_PSBT, newBip322SessionId, registerBip322PendingSession } = require('../class/bip322');
+import { BIP322_INCOMPLETE_PSBT, newBip322SessionId, registerBip322PendingSession } from '../class/bip322';
 
 interface WalletInterface {
   wallet?: AbstractWallet;

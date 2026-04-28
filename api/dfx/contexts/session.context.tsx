@@ -139,7 +139,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.El
   async function resetAccessToken(walletId: string) {
     updateSession(walletId);
   }
-
+  
   async function refreshAccessToken(walletId: string) {
     resetAccessToken(walletId);
     const session = await getAccessToken(walletId);
