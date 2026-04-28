@@ -1,5 +1,5 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, FlatList, StyleSheet, Text, View } from 'react-native';
 import { Icon } from 'react-native-elements';
 import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
@@ -25,7 +25,8 @@ const shortenAddress = addr => {
 
 const PsbtMultisig = () => {
   const { wallets, fetchAndSaveWalletTransactions } = useContext(BlueStorageContext);
-  const { navigate, setParams } = useNavigation();
+  const navigation = useNavigation();
+  const { navigate, setParams } = navigation;
   const { colors } = useTheme();
   const [flatListHeight, setFlatListHeight] = useState(0);
   const { walletID, psbtBase64, receivedPSBTBase64, launchedBy, bip322SessionId } = useRoute().params;
@@ -34,6 +35,7 @@ const PsbtMultisig = () => {
   const [isSignign, setIsSigning] = useState(false);
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [isBiometricUseCapableAndEnabled, setIsBiometricUseCapableAndEnabled] = useState(false);
+  const bip322ResolvedRef = useRef(false);
   /** @type MultisigHDWallet */
   const wallet = wallets.find(w => w.getID() === walletID);
   const [psbt, setPsbt] = useState(bitcoin.Psbt.fromBase64(psbtBase64));
@@ -152,6 +154,30 @@ const PsbtMultisig = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!isBip322) return undefined;
+    navigation.setOptions({ title: loc.multisig.bip322_login_header });
+    const unsubscribe = navigation.addListener('beforeRemove', e => {
+      if (bip322ResolvedRef.current) return;
+      e.preventDefault();
+      Alert.alert(
+        loc.multisig.bip322_cancel_title,
+        loc.multisig.bip322_cancel_message,
+        [
+          { text: loc.multisig.bip322_cancel_stay, style: 'cancel', onPress: () => {} },
+          {
+            text: loc.multisig.bip322_cancel_confirm,
+            style: 'destructive',
+            onPress: () => navigation.dispatch(e.data.action),
+          },
+        ],
+        { cancelable: false },
+      );
+    });
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBip322]);
+
   const _combinePSBT = () => {
     try {
       const receivedPSBT = bitcoin.Psbt.fromBase64(receivedPSBTBase64);
@@ -212,6 +238,7 @@ const PsbtMultisig = () => {
         const signature = extractSimpleSignatureFromPsbt(psbt);
         const session = consumeBip322PendingSession(bip322SessionId);
         if (session) session.resolve(signature);
+        bip322ResolvedRef.current = true;
         setIsBroadcasting(false);
         navigate('WalletsList');
       } catch (error) {
@@ -288,11 +315,16 @@ const PsbtMultisig = () => {
 
   const header = isBip322 ? (
     <View style={stylesHook.root}>
-      <View style={styles.containerText}>
-        <BlueText style={[styles.textBtc, stylesHook.textBtc]}>{loc.multisig.bip322_login_title}</BlueText>
+      <View style={styles.bip322IconWrapper}>
+        <View style={[styles.bip322IconCircle, { backgroundColor: colors.msSuccessBG }]}>
+          <Icon name="vpn-key" type="material" color={colors.msSuccessCheck} size={32} />
+        </View>
       </View>
       <View style={styles.containerText}>
-        <BlueText style={[styles.textFiat, stylesHook.textFiat]}>{loc.multisig.bip322_login_subtitle}</BlueText>
+        <BlueText style={[styles.bip322Title, stylesHook.textBtc]}>{loc.multisig.bip322_login_title}</BlueText>
+      </View>
+      <View style={styles.containerText}>
+        <BlueText style={[styles.bip322Subtitle, stylesHook.textFiat]}>{loc.multisig.bip322_login_subtitle}</BlueText>
       </View>
     </View>
   ) : (
@@ -408,6 +440,29 @@ const styles = StyleSheet.create({
   containerText: {
     flexDirection: 'row',
     justifyContent: 'center',
+  },
+  bip322IconWrapper: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  bip322IconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bip322Title: {
+    fontWeight: 'bold',
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  bip322Subtitle: {
+    fontSize: 15,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 22,
+    paddingHorizontal: 24,
   },
   destinationTextContainer: {
     flexDirection: 'row',
