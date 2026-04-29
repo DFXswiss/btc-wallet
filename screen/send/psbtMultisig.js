@@ -94,7 +94,6 @@ const PsbtMultisig = () => {
   const totalFiat = currency.satoshiToLocalCurrency(totalSat);
 
   const getFee = () => {
-    if (isBip322) return 0;
     return wallet.calculateFeeFromPsbt(psbt);
   };
 
@@ -240,7 +239,7 @@ const PsbtMultisig = () => {
         if (session) session.resolve(signature);
         bip322ResolvedRef.current = true;
         setIsBroadcasting(false);
-        navigate('WalletsList');
+        navigation.goBack();
       } catch (error) {
         setIsBroadcasting(false);
         alert(error);
@@ -402,7 +401,7 @@ const PsbtMultisig = () => {
           <BlueButton
             disabled={!isConfirmEnabled()}
             loading={isBroadcasting}
-            title={isBip322 ? loc.multisig.bip322_login_confirm : loc.send.confirm_sendNow}
+            title={isBip322 ? loc.multisig.confirm : loc.send.confirm_sendNow}
             onPress={onConfirm}
             testID="PsbtMultisigConfirmButton"
           />

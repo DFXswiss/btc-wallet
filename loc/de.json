@@ -534,7 +534,6 @@
     "confirm": "Bestätigen",
     "bip322_login_title": "Login-Anfrage signieren",
     "bip322_login_subtitle": "Diesen Multisig-Tresor für DFX-Dienste autorisieren",
-    "bip322_login_confirm": "Bestätigen",
     "bip322_login_header": "Anmeldung",
     "bip322_cancel_title": "Anmeldung abbrechen?",
     "bip322_cancel_message": "Die DFX-Anmeldung wird nicht abgeschlossen und bereits gesammelte Teilsignaturen werden verworfen.",

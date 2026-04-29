@@ -79,6 +79,14 @@ describe('BIP-322 simple signature for native P2WSH multisig', () => {
     }
   });
 
+  it('is deterministic: signing the same message twice yields the same signature', () => {
+    const w = buildLocalMultisig({ m: 2, mnemonics: [MNEMONIC_A, MNEMONIC_B] });
+    const address = w._getExternalAddressByIndex(0);
+    const sig1 = w.signMessage('stable challenge', address);
+    const sig2 = w.signMessage('stable challenge', address);
+    assert.strictEqual(sig1, sig2, 'BIP-322 sign must be deterministic (RFC 6979 ECDSA)');
+  });
+
   it('produces signatures bound to the message (different message → different sig)', () => {
     const w = buildLocalMultisig({ m: 2, mnemonics: [MNEMONIC_A, MNEMONIC_B] });
     const address = w._getExternalAddressByIndex(0);
