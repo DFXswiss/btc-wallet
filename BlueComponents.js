@@ -695,7 +695,6 @@ export const BlueDismissKeyboardInputAccessory = ({ onPress } = {}) => {
 
 export const BlueDoneAndDismissKeyboardInputAccessory = props => {
   const { colors } = useTheme();
-  BlueDoneAndDismissKeyboardInputAccessory.InputAccessoryViewID = 'BlueDoneAndDismissKeyboardInputAccessory';
 
   const onPasteTapped = async () => {
     const clipboard = await Clipboard.getString();
@@ -724,6 +723,7 @@ export const BlueDoneAndDismissKeyboardInputAccessory = props => {
     return <KeyboardAvoidingView>{inputView}</KeyboardAvoidingView>;
   }
 };
+BlueDoneAndDismissKeyboardInputAccessory.InputAccessoryViewID = 'BlueDoneAndDismissKeyboardInputAccessory';
 
 export const BlueLoading = props => {
   return (
