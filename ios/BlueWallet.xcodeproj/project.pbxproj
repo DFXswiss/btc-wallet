@@ -560,7 +560,6 @@
 				);
 				PRESERVE_DEAD_CODE_INITS_AND_TERMS = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = swiss.dfx.bitcoin;
-				"PRODUCT_BUNDLE_IDENTIFIER[sdk=iphoneos*]" = "swiss.dfx.bitcoin.daniel--swiss.dfx.bitcoin.daniel-swiss.dfx.bitcoin.daniel";
 				PRODUCT_NAME = Bitcoin;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTS_MACCATALYST = "$(OVERRIDE_SUPPORTS_MACCATALYST:default=YES)";
@@ -606,7 +605,7 @@
 					"-lc++",
 				);
 				PRESERVE_DEAD_CODE_INITS_AND_TERMS = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = swiss.dfx.bitcoin.daniel;
+				PRODUCT_BUNDLE_IDENTIFIER = swiss.dfx.bitcoin;
 				PRODUCT_NAME = Bitcoin;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTS_MACCATALYST = "$(OVERRIDE_SUPPORTS_MACCATALYST:default=YES)";
