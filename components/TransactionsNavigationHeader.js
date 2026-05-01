@@ -202,7 +202,7 @@ export default class TransactionsNavigationHeader extends Component {
                 title={loc.wallets.balance}
                 onPressMenuItem={this.onPressMenuItem}
                 actions={
-                  this.state.wallet.hideBalance
+                  hideBalance
                     ? [
                       {
                         id: TransactionsNavigationHeader.actionKeys.WalletBalanceVisibility,
