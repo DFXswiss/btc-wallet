@@ -10,7 +10,6 @@ import {
   Platform,
   StyleSheet,
   UIManager,
-  useColorScheme,
   View,
   StatusBar,
   LogBox,
@@ -32,7 +31,6 @@ import DeviceQuickActions from './class/quick-actions';
 import Notifications from './blue_modules/notifications';
 import Biometric from './class/biometrics';
 import WidgetCommunication from './blue_modules/WidgetCommunication';
-import changeNavigationBarColor from 'react-native-navigation-bar-color';
 import HandoffComponent from './components/handoff';
 import Privacy from './blue_modules/Privacy';
 import { addEventListener } from '@react-native-community/netinfo';
@@ -62,7 +60,6 @@ const App = () => {
     clearBalanceRefreshInterval,
   } = useContext(BlueStorageContext);
   const appState = useRef(AppState.currentState);
-  const colorScheme = useColorScheme();
 
   const onNotificationReceived = async notification => {
     const payload = Object.assign({}, notification, notification.data);
@@ -126,12 +123,6 @@ const App = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (colorScheme) {
-      changeNavigationBarColor(BlueDarkTheme.colors.buttonBackgroundColor, false, true);
-    }
-  }, [colorScheme]);
 
   const addListeners = () => {
     urlSubscription.current = Linking.addEventListener('url', handleOpenURL);

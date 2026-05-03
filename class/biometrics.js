@@ -1,6 +1,5 @@
 import FingerprintScanner from 'react-native-fingerprint-scanner';
 import { Platform, Alert } from 'react-native';
-import PasscodeAuth from 'react-native-passcode-auth';
 import * as NavigationService from '../NavigationService';
 import { StackActions, CommonActions } from '@react-navigation/native';
 import RNSecureKeyStore from 'react-native-secure-key-store';
@@ -85,32 +84,6 @@ function Biometric() {
   };
 
   Biometric.requestDevicePasscode = async () => {
-    let isDevicePasscodeSupported = false;
-    try {
-      isDevicePasscodeSupported = await PasscodeAuth.isSupported();
-      if (isDevicePasscodeSupported) {
-        const isAuthenticated = await PasscodeAuth.authenticate();
-        if (isAuthenticated) {
-          Alert.alert(
-            loc.settings.encrypt_tstorage,
-            loc.settings.biom_remove_decrypt,
-            [
-              { text: loc._.cancel, style: 'cancel' },
-              {
-                text: loc._.ok,
-                onPress: () => Biometric.clearKeychain(),
-              },
-            ],
-            { cancelable: false },
-          );
-        }
-      }
-    } catch {
-      isDevicePasscodeSupported = undefined;
-    }
-    if (isDevicePasscodeSupported === false) {
-      alert(loc.settings.biom_no_passcode);
-    }
   };
 
   Biometric.showKeychainWipeAlert = () => {
