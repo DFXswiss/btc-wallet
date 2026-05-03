@@ -150,6 +150,14 @@ jest.mock('react-native-ios-context-menu', () => {
   return {};
 });
 
+jest.mock('react-native-capture-protection', () => ({
+  CaptureProtection: {
+    prevent: jest.fn(() => Promise.resolve()),
+    allow: jest.fn(() => Promise.resolve()),
+    isScreenRecording: jest.fn(() => Promise.resolve(false)),
+  },
+}));
+
 jest.mock('react-native-haptic-feedback', () => {
   return {
     trigger: jest.fn(),
