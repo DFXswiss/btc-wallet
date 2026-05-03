@@ -232,6 +232,9 @@ const LNDCreateInvoice = () => {
     // calling the url
     let reply;
     try {
+      if (Lnurl.isOnionUrl(url)) {
+        throw new Error(loc.settings.tor_unsupported);
+      }
       const resp = await fetch(url, { method: 'GET' });
       if (resp.status >= 300) {
         throw new Error('Bad response from server');

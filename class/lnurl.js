@@ -3,6 +3,7 @@ import bolt11 from 'bolt11';
 import { parse } from 'url'; // eslint-disable-line n/no-deprecated-api
 import { createHmac } from 'crypto';
 import secp256k1 from 'secp256k1';
+import loc from '../loc';
 const CryptoJS = require('crypto-js');
 const createHash = require('create-hash');
 const ONION_REGEX = /^(http:\/\/[^/:@]+\.onion(?::\d{1,5})?)(\/.*)?$/; // regex for onion URL
@@ -80,6 +81,9 @@ export default class Lnurl {
   }
 
   async fetchGet(url) {
+    if (Lnurl.isOnionUrl(url)) {
+      throw new Error(loc.settings.tor_unsupported);
+    }
     const resp = await fetch(url, { method: 'GET' });
     if (resp.status >= 300) {
       throw new Error('Bad response from server');
