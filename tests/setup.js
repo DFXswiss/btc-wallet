@@ -158,6 +158,19 @@ jest.mock('react-native-capture-protection', () => ({
   },
 }));
 
+jest.mock('react-native-biometrics', () => {
+  const RN = jest.fn().mockImplementation(() => ({
+    isSensorAvailable: jest.fn(() => Promise.resolve({ available: false, biometryType: undefined })),
+    simplePrompt: jest.fn(() => Promise.resolve({ success: false })),
+  }));
+  RN.BiometryTypes = { TouchID: 'TouchID', FaceID: 'FaceID', Biometrics: 'Biometrics' };
+  return {
+    __esModule: true,
+    default: RN,
+    BiometryTypes: RN.BiometryTypes,
+  };
+});
+
 jest.mock('react-native-haptic-feedback', () => {
   return {
     trigger: jest.fn(),
