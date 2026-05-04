@@ -146,8 +146,15 @@ jest.mock('realm', () => {
   };
 });
 
-jest.mock('react-native-ios-context-menu', () => {
-  return {};
+jest.mock('react-native-context-menu-view', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: React.forwardRef(function ContextMenu(props, ref) {
+      return React.createElement(View, { ref, style: props.style }, props.children);
+    }),
+  };
 });
 
 jest.mock('react-native-capture-protection', () => ({
