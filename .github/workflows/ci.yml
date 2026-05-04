@@ -13,9 +13,9 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Specify node version
-      uses: actions/setup-node@v2-beta
+      uses: actions/setup-node@v4
       with:
-        node-version: 16
+        node-version: 20
 
     - name: Use npm caches
       uses: actions/cache@v2
@@ -56,9 +56,9 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Specify node version
-      uses: actions/setup-node@v2-beta
+      uses: actions/setup-node@v4
       with:
-        node-version: 16
+        node-version: 20
 
     - name: Use gradle caches
       uses: actions/cache@v2
