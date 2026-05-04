@@ -1,7 +1,9 @@
 #!/bin/sh
-if [ "$OSTYPE" = "darwin"* ]; then
-        echo "Running pod update..."
+case "$OSTYPE" in
+darwin*)
+        echo "Running pod install..."
         cd ios
         pod install
         cd ..
-fi
+        ;;
+esac
