@@ -30,7 +30,7 @@ import navigationStyle from '../../components/navigationStyle';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
-import Notifications from '../../blue_modules/notifications';
+import { majorTomToGroundControl, tryToObtainPermissions } from '../../blue_modules/notifications';
 import useInputAmount from '../../hooks/useInputAmount';
 import { SuccessView } from '../send/success';
 import { useNFC } from '../../hooks/nfc.hook';
@@ -159,8 +159,8 @@ const LNDReceive = () => {
     const invoiceRequest = await wallet.addInvoice(amountSats, description);
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
     const decoded = await wallet.decodeInvoice(invoiceRequest);
-    await Notifications.tryToObtainPermissions();
-    Notifications.majorTomToGroundControl([], [decoded.payment_hash], []);
+    await tryToObtainPermissions();
+    majorTomToGroundControl([], [decoded.payment_hash], []);
 
     setTimeout(async () => {
       await wallet.getUserInvoices(1);

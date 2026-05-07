@@ -17,7 +17,7 @@ import { WebView } from 'react-native-webview';
 
 import { SafeBlueArea } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
-import Notifications from '../../blue_modules/notifications';
+import { majorTomToGroundControl, tryToObtainPermissions } from '../../blue_modules/notifications';
 import loc from '../../loc';
 import { Button } from 'react-native-elements';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
@@ -401,8 +401,8 @@ export default class Browser extends Component {
 
                     // lets decode payreq and subscribe groundcontrol so we can receive push notification when our invoice is paid
                     const decoded = await fromWallet.decodeInvoice(payreq);
-                    await Notifications.tryToObtainPermissions();
-                    Notifications.majorTomToGroundControl([], [decoded.payment_hash], []);
+                    await tryToObtainPermissions();
+                    majorTomToGroundControl([], [decoded.payment_hash], []);
                   },
                 },
               ],

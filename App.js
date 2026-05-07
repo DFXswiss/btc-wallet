@@ -19,7 +19,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { navigationRef } from './NavigationService';
 import * as NavigationService from './NavigationService';
-import { Chain } from './models/bitcoinUnits';
 import OnAppLaunch from './class/on-app-launch';
 import DeeplinkSchemaMatch from './class/deeplink-schema-match';
 import { BlueDarkTheme } from './components/themes';
@@ -28,7 +27,7 @@ import { isDesktop } from './blue_modules/environment';
 import { BlueStorageContext } from './blue_modules/storage-context';
 import WatchConnectivity from './WatchConnectivity';
 import DeviceQuickActions from './class/quick-actions';
-import Notifications from './blue_modules/notifications';
+import useCompanionListeners from './hooks/useCompanionListeners';
 import Biometric from './class/biometrics';
 import WidgetCommunication from './blue_modules/WidgetCommunication';
 import HandoffComponent from './components/handoff';
@@ -54,23 +53,12 @@ const App = () => {
     wallets,
     addWallet,
     saveToDisk,
-    fetchAndSaveWalletTransactions,
-    refreshAllWalletTransactions,
     setBalanceRefreshInterval,
     clearBalanceRefreshInterval,
   } = useContext(BlueStorageContext);
   const appState = useRef(AppState.currentState);
 
-  const onNotificationReceived = async notification => {
-    const payload = Object.assign({}, notification, notification.data);
-    if (notification.data && notification.data.data) Object.assign(payload, notification.data.data);
-    payload.foreground = true;
-
-    await Notifications.addNotification(payload);
-    // if user is staring at the app when he receives the notification we process it instantly
-    // so app refetches related wallet
-    if (payload.foreground) await processPushNotifications();
-  };
+  useCompanionListeners();
 
   const openSettings = () => {
     NavigationService.dispatch(
@@ -117,7 +105,6 @@ const App = () => {
     return () => {
       urlSubscription.current?.remove();
       appStateSubscription.current?.remove();
-      eventEmitter?.removeAllListeners('onNotificationReceived');
       eventEmitter?.removeAllListeners('openSettings');
       eventEmitter?.removeAllListeners('onUserActivityOpen');
     };
@@ -133,11 +120,6 @@ const App = () => {
       .then(onUserActivityOpen)
       .catch(() => console.log('No userActivity object sent'));
     handleAppStateChange(undefined);
-    /*
-      When a notification on iOS is shown while the app is on foreground;
-      On willPresent on AppDelegate.m
-     */
-    eventEmitter?.addListener('onNotificationReceived', onNotificationReceived);
     eventEmitter?.addListener('openSettings', openSettings);
     eventEmitter?.addListener('onUserActivityOpen', onUserActivityOpen);
   };
@@ -197,84 +179,6 @@ const App = () => {
     );
   };
 
-  /**
-   * Processes push notifications stored in AsyncStorage. Might navigate to some screen.
-   *
-   * @returns {Promise<boolean>} returns TRUE if notification was processed _and acted_ upon, i.e. navigation happened
-   * @private
-   */
-  const processPushNotifications = async () => {
-    if (!walletsInitialized) {
-      console.log('not processing push notifications because wallets are not initialized');
-      return;
-    }
-    await new Promise(resolve => setTimeout(resolve, 200));
-    // sleep needed as sometimes unsuspend is faster than notification module actually saves notifications to async storage
-    const notifications2process = await Notifications.getStoredNotifications();
-
-    await Notifications.clearStoredNotifications();
-    Notifications.setApplicationIconBadgeNumber(0);
-    const deliveredNotifications = await Notifications.getDeliveredNotifications();
-    setTimeout(() => Notifications.removeAllDeliveredNotifications(), 5000); // so notification bubble wont disappear too fast
-
-    for (const payload of notifications2process) {
-      const wasTapped = payload.foreground === false || (payload.foreground === true && payload.userInteraction);
-
-      console.log('processing push notification:', payload);
-      let wallet;
-      switch (+payload.type) {
-        case 2:
-        case 3:
-          wallet = wallets.find(w => w.weOwnAddress(payload.address));
-          break;
-        case 1:
-        case 4:
-          wallet = wallets.find(w => w.weOwnTransaction(payload.txid || payload.hash));
-          break;
-      }
-
-      if (wallet) {
-        const walletID = wallet.getID();
-        fetchAndSaveWalletTransactions(walletID);
-        if (wasTapped) {
-          if (payload.type !== 3 || wallet.chain === Chain.OFFCHAIN) {
-            NavigationService.dispatch(
-              CommonActions.navigate({
-                name: 'WalletTransactions',
-                key: `WalletTransactions-${wallet.getID()}`,
-                params: {
-                  walletID,
-                  walletType: wallet.type,
-                },
-              }),
-            );
-          } else {
-            NavigationService.navigate('ReceiveDetailsRoot', {
-              screen: 'ReceiveDetails',
-              params: {
-                walletID,
-                address: payload.address,
-              },
-            });
-          }
-
-          return true;
-        }
-      } else {
-        console.log('could not find wallet while processing push notification, NOP');
-      }
-    } // end foreach notifications loop
-
-    if (deliveredNotifications.length > 0) {
-      // notification object is missing userInfo. We know we received a notification but don't have sufficient
-      // data to refresh 1 wallet. let's refresh all.
-      refreshAllWalletTransactions();
-    }
-
-    // if we are here - we did not act upon any push
-    return false;
-  };
-
   useEffect(() => {
     const unsubscribe = addEventListener(state => {
       BlueElectrum.setNetworkConnected(state.isConnected);
@@ -290,8 +194,6 @@ const App = () => {
     if ((appState.current.match(/inactive|background/) && nextAppState === 'active') || nextAppState === undefined) {
       currency.updateExchangeRate();
       setBalanceRefreshInterval();
-      const processed = await processPushNotifications();
-      if (processed) return;
     }
     if (appState.current === 'active' && nextAppState.match(/background/)) clearBalanceRefreshInterval();
     if (nextAppState) {
@@ -310,7 +212,6 @@ const App = () => {
           <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
           <NavigationContainer ref={navigationRef} theme={BlueDarkTheme}>
             <InitRoot />
-            <Notifications onProcessNotifications={processPushNotifications} />
           </NavigationContainer>
           {walletsInitialized && !isDesktop && <WatchConnectivity />}
         </View>

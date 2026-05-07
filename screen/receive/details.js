@@ -32,7 +32,7 @@ import HandoffComponent from '../../components/handoff';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import loc, { formatBalance } from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
-import Notifications from '../../blue_modules/notifications';
+import { tryToObtainPermissions } from '../../blue_modules/notifications';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { TransactionPendingIconBig } from '../../components/TransactionPendingIconBig';
 import * as BlueElectrum from '../../blue_modules/BlueElectrum';
@@ -309,7 +309,7 @@ const ReceiveDetails = () => {
     let newAddress;
     if (address) {
       setAddressBIP21Encoded(address);
-      await Notifications.tryToObtainPermissions();
+      await tryToObtainPermissions();
     } else {
       if (wallet.chain === Chain.ONCHAIN) {
         try {
@@ -336,7 +336,7 @@ const ReceiveDetails = () => {
         }
       }
       setAddressBIP21Encoded(newAddress);
-      await Notifications.tryToObtainPermissions();
+      await tryToObtainPermissions();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallet]);

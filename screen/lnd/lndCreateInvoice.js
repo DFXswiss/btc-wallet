@@ -33,7 +33,7 @@ import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import loc, { formatBalance, formatBalancePlain } from '../../loc';
 import Lnurl from '../../class/lnurl';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
-import Notifications from '../../blue_modules/notifications';
+import { majorTomToGroundControl, tryToObtainPermissions } from '../../blue_modules/notifications';
 import alert from '../../components/Alert';
 import { parse } from 'url'; // eslint-disable-line n/no-deprecated-api
 const currency = require('../../blue_modules/currency');
@@ -170,8 +170,8 @@ const LNDCreateInvoice = () => {
       // lets decode payreq and subscribe groundcontrol so we can receive push notification when our invoice is paid
       /** @type LightningCustodianWallet */
       const decoded = await wallet.current.decodeInvoice(invoiceRequest);
-      await Notifications.tryToObtainPermissions();
-      Notifications.majorTomToGroundControl([], [decoded.payment_hash], []);
+      await tryToObtainPermissions();
+      majorTomToGroundControl([], [decoded.payment_hash], []);
 
       // send to lnurl-withdraw callback url if that exists
       if (withdrawParams) {

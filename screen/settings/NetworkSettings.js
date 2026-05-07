@@ -1,7 +1,7 @@
 import React from 'react';
 import { ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import Notifications from '../../blue_modules/notifications';
+import { isNotificationsCapable } from '../../blue_modules/notifications';
 import navigationStyle from '../../components/navigationStyle';
 import { SafeBlueArea, BlueListItem } from '../../BlueComponents';
 import loc from '../../loc';
@@ -17,7 +17,7 @@ const NetworkSettings = () => {
     <SafeBlueArea>
       <ScrollView>
         <BlueListItem title={loc.settings.network_electrum} onPress={navigateToElectrumSettings} testID="ElectrumSettings" chevron />
-        {Notifications.isNotificationsCapable && (
+        {isNotificationsCapable && (
           <BlueListItem
             title={loc.settings.notifications}
             onPress={() => navigate('NotificationSettings')}

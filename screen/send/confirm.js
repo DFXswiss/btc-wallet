@@ -11,7 +11,7 @@ import navigationStyle from '../../components/navigationStyle';
 import { BitcoinUnit } from '../../models/bitcoinUnits';
 import Biometric from '../../class/biometrics';
 import loc, { formatBalance, formatBalanceWithoutSuffix } from '../../loc';
-import Notifications from '../../blue_modules/notifications';
+import { majorTomToGroundControl } from '../../blue_modules/notifications';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import alert from '../../components/Alert';
@@ -133,7 +133,7 @@ const Confirm = () => {
 
       const txid = bitcoin.Transaction.fromHex(tx).getId();
       txids2watch.push(txid);
-      Notifications.majorTomToGroundControl([], [], txids2watch);
+      majorTomToGroundControl([], [], txids2watch);
       let amount = 0;
       for (const recipient of recipients) {
         amount += recipient.value;

@@ -14,7 +14,7 @@ workspace 'BlueWallet'
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
-setup_permissions(['Camera'])
+setup_permissions(['Camera', 'Notifications'])
 
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil

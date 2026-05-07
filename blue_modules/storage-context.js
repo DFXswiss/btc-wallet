@@ -3,7 +3,7 @@ import { Alert } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { useAsyncStorage } from '@react-native-async-storage/async-storage';
 import { FiatUnit } from '../models/fiatUnit';
-import Notifications from '../blue_modules/notifications';
+import { majorTomToGroundControl } from '../blue_modules/notifications';
 import { fetch as fetchNetInfo } from '@react-native-community/netinfo';
 import { STORAGE_KEY as LOC_STORAGE_KEY } from '../loc';
 const BlueApp = require('../BlueApp');
@@ -267,7 +267,7 @@ export const BlueStorageProvider = ({ children }) => {
     addWallet(w);
     await saveToDisk();
     A(A.ENUM.CREATED_WALLET);
-    Notifications.majorTomToGroundControl(w.getAllExternalAddresses(), [], []);
+    majorTomToGroundControl(w.getAllExternalAddresses(), [], []);
     // start balance fetching at the background
     await w.fetchBalance();
     w.fetchTransactions();

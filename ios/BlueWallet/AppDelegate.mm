@@ -7,7 +7,7 @@
 #import <ReactAppDependencyProvider/RCTAppDependencyProvider.h>
 #import "RNQuickActionManager.h"
 #import <UserNotifications/UserNotifications.h>
-#import <RNCPushNotificationIOS.h>
+#import "RNNotifications.h"
 #import "EventEmitter.h"
 #import <React/RCTRootView.h>
 #import <WatchConnectivity/WatchConnectivity.h>
@@ -39,7 +39,10 @@
 
   UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
   center.delegate = self;
-  
+
+  [RNNotifications startMonitorNotifications];
+  [RNNotifications addNativeDelegate:self];
+
   return [super application:application didFinishLaunchingWithOptions:launchOptions];
 }
 
@@ -108,14 +111,6 @@
   [RNQuickActionManager onQuickActionPress:shortcutItem completionHandler:completionHandler];
 }
 
-//Called when a notification is delivered to a foreground app.
--(void)userNotificationCenter:(UNUserNotificationCenter *)center willPresentNotification:(UNNotification *)notification withCompletionHandler:(void (^)(UNNotificationPresentationOptions options))completionHandler
-{
-  NSDictionary *userInfo = notification.request.content.userInfo;
-  [EventEmitter.sharedInstance sendNotification:userInfo];
-  completionHandler(UNNotificationPresentationOptionSound | UNNotificationPresentationOptionAlert | UNNotificationPresentationOptionBadge);
-}
-
 - (void)openSettings {
   [EventEmitter.sharedInstance openSettings];
 }
@@ -147,28 +142,20 @@
   }
 }
 
-// Required for the register event.
 - (void)application:(UIApplication *)application didRegisterForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken
 {
- [RNCPushNotificationIOS didRegisterForRemoteNotificationsWithDeviceToken:deviceToken];
+  [RNNotifications didRegisterForRemoteNotificationsWithDeviceToken:deviceToken];
 }
-// Required for the notification event. You must call the completion handler after handling the remote notification.
+
+- (void)application:(UIApplication *)application didFailToRegisterForRemoteNotificationsWithError:(NSError *)error
+{
+  [RNNotifications didFailToRegisterForRemoteNotificationsWithError:error];
+}
+
 - (void)application:(UIApplication *)application didReceiveRemoteNotification:(NSDictionary *)userInfo
 fetchCompletionHandler:(void (^)(UIBackgroundFetchResult))completionHandler
 {
-  [RNCPushNotificationIOS didReceiveRemoteNotification:userInfo fetchCompletionHandler:completionHandler];
-}
-// Required for the registrationError event.
-- (void)application:(UIApplication *)application didFailToRegisterForRemoteNotificationsWithError:(NSError *)error
-{
- [RNCPushNotificationIOS didFailToRegisterForRemoteNotificationsWithError:error];
-}
-// Required for localNotification event
-- (void)userNotificationCenter:(UNUserNotificationCenter *)center
-didReceiveNotificationResponse:(UNNotificationResponse *)response
-         withCompletionHandler:(void (^)(void))completionHandler
-{
-  [RNCPushNotificationIOS didReceiveNotificationResponse:response];
+  [RNNotifications didReceiveBackgroundNotification:userInfo withCompletionHandler:completionHandler];
 }
 
 @end

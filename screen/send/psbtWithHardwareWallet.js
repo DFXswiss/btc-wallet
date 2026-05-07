@@ -11,7 +11,7 @@ import { SecondButton, BlueText, SafeBlueArea, BlueCard, BlueSpacing20, BlueCopy
 import navigationStyle from '../../components/navigationStyle';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
-import Notifications from '../../blue_modules/notifications';
+import { majorTomToGroundControl } from '../../blue_modules/notifications';
 import { DynamicQRCode } from '../../components/DynamicQRCode';
 import alert from '../../components/Alert';
 const BlueElectrum = require('../../blue_modules/BlueElectrum');
@@ -129,7 +129,7 @@ const PsbtWithHardwareWallet = () => {
         setIsLoading(false);
         const txDecoded = bitcoin.Transaction.fromHex(txHex);
         const txid = txDecoded.getId();
-        Notifications.majorTomToGroundControl([], [], [txid]);
+        majorTomToGroundControl([], [], [txid]);
         if (memo) {
           txMetadata[txid] = { memo };
         }

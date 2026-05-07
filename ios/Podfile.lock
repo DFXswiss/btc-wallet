@@ -1987,6 +1987,8 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
+  - react-native-context-menu-view (1.21.0):
+    - React
   - react-native-document-picker (12.0.1):
     - boost
     - DoubleConversion
@@ -2072,6 +2074,8 @@ PODS:
     - SocketRocket
     - Yoga
   - react-native-nfc-manager (3.17.2):
+    - React-Core
+  - react-native-notifications (5.2.2):
     - React-Core
   - react-native-randombytes (3.6.1):
     - React-Core
@@ -2868,8 +2872,6 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - RNCPushNotificationIOS (1.11.0):
-    - React-Core
   - RNDefaultPreference (1.5.1):
     - React-Core
   - RNDeviceInfo (14.1.1):
@@ -3463,10 +3465,12 @@ DEPENDENCIES:
   - react-native-blue-crypto (from `../node_modules/react-native-blue-crypto`)
   - react-native-capture-protection (from `../node_modules/react-native-capture-protection`)
   - react-native-config (from `../node_modules/react-native-config`)
+  - react-native-context-menu-view (from `../node_modules/react-native-context-menu-view`)
   - "react-native-document-picker (from `../node_modules/@react-native-documents/picker`)"
   - react-native-image-picker (from `../node_modules/react-native-image-picker`)
   - "react-native-netinfo (from `../node_modules/@react-native-community/netinfo`)"
   - react-native-nfc-manager (from `../node_modules/react-native-nfc-manager`)
+  - react-native-notifications (from `../node_modules/react-native-notifications`)
   - react-native-randombytes (from `../node_modules/react-native-randombytes`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
   - react-native-secure-key-store (from `../node_modules/react-native-secure-key-store`)
@@ -3511,7 +3515,6 @@ DEPENDENCIES:
   - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
   - "RNCClipboard (from `../node_modules/@react-native-clipboard/clipboard`)"
   - "RNCPicker (from `../node_modules/@react-native-picker/picker`)"
-  - "RNCPushNotificationIOS (from `../node_modules/@react-native-community/push-notification-ios`)"
   - RNDefaultPreference (from `../node_modules/react-native-default-preference`)
   - RNDeviceInfo (from `../node_modules/react-native-device-info`)
   - RNFS (from `../node_modules/react-native-fs`)
@@ -3641,6 +3644,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-capture-protection"
   react-native-config:
     :path: "../node_modules/react-native-config"
+  react-native-context-menu-view:
+    :path: "../node_modules/react-native-context-menu-view"
   react-native-document-picker:
     :path: "../node_modules/@react-native-documents/picker"
   react-native-image-picker:
@@ -3649,6 +3654,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/@react-native-community/netinfo"
   react-native-nfc-manager:
     :path: "../node_modules/react-native-nfc-manager"
+  react-native-notifications:
+    :path: "../node_modules/react-native-notifications"
   react-native-randombytes:
     :path: "../node_modules/react-native-randombytes"
   react-native-safe-area-context:
@@ -3737,8 +3744,6 @@ EXTERNAL SOURCES:
     :path: "../node_modules/@react-native-clipboard/clipboard"
   RNCPicker:
     :path: "../node_modules/@react-native-picker/picker"
-  RNCPushNotificationIOS:
-    :path: "../node_modules/@react-native-community/push-notification-ios"
   RNDefaultPreference:
     :path: "../node_modules/react-native-default-preference"
   RNDeviceInfo:
@@ -3789,7 +3794,7 @@ SPEC CHECKSUMS:
   FBLazyVector: 309703e71d3f2f1ed7dc7889d58309c9d77a95a4
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
   glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
-  hermes-engine: af8f69c518bb5281cb8306b3486f9bf3dd9cfb35
+  hermes-engine: b3aba6d3a2b3f10b03122a31ffece1bc54387d41
   lottie-ios: 8f959969761e9c45d70353667d00af0e5b9cadb3
   lottie-react-native: 983fd0489530e8d40f173de7f04e2f88b9317a15
   RCT-Folly: 846fda9475e61ec7bcbf8a3fe81edfcaeb090669
@@ -3832,10 +3837,12 @@ SPEC CHECKSUMS:
   react-native-blue-crypto: de5babd59b17fbf3fc31d2e1e5d59ec859093fbc
   react-native-capture-protection: 6d8d6a714114decb938d029f88e8df3da636e996
   react-native-config: 2249b7e68644c86ea68358f5a0d746d1c648f900
+  react-native-context-menu-view: da39a4612c1294d651907162529cfba8421e9b89
   react-native-document-picker: dc2d83366e47e89e7c51e8a41eab99c1d54e941c
   react-native-image-picker: 0314366753615115fa55c3cc937ac44cb7e75702
   react-native-netinfo: 57447b5a45c98808f8eae292cf641f3d91d13830
   react-native-nfc-manager: c8891e460b4943b695d63f7f4effc6345bbefc83
+  react-native-notifications: e2d3c022d6077de7e420ba5c01b4bd9464f3941d
   react-native-randombytes: 3c8f3e89d12487fd03a2f966c288d495415fc116
   react-native-safe-area-context: befb5404eb8a16fdc07fa2bebab3568ecabcbb8a
   react-native-secure-key-store: eb45b44bdec3f48e9be5cdfca0f49ddf64892ea6
@@ -3880,7 +3887,6 @@ SPEC CHECKSUMS:
   RNCAsyncStorage: 29f0230e1a25f36c20b05f65e2eb8958d6526e82
   RNCClipboard: 4b58c780f63676367640f23c8e114e9bd0cf86ac
   RNCPicker: bf95ec4b2483e2ab256047130bc536b437cd916c
-  RNCPushNotificationIOS: 6c4ca3388c7434e4a662b92e4dfeeee858e6f440
   RNDefaultPreference: 8a089ee8ce829a66c5453e3c5434f0785499d1c3
   RNDeviceInfo: bcce8752b5043a623fe3c26789679b473f705d3c
   RNFS: 89de7d7f4c0f6bafa05343c578f61118c8282ed8
@@ -3888,7 +3894,7 @@ SPEC CHECKSUMS:
   RNHandoff: bc8af5a86853ff13b033e7ba1114c3c5b38e6385
   RNKeychain: 483402cf2b90647eb0cf569cebbc069d32addea4
   RNLocalize: 1aedbc2c15073861a364174919d23c31c5924b16
-  RNPermissions: 85e639deffe3a764ea67929717b89e8dc056acf1
+  RNPermissions: 29cfd9c9bbb7f0bd35e702dc849e33b294feac52
   RNQrGenerator: 3318e98283e861e9d93e58111fc4de8e03e2ddb3
   RNQuickAction: c2c8f379e614428be0babe4d53a575739667744d
   RNRate: 7641919330e0d6688ad885a985b4bd697ed7d14c
@@ -3904,6 +3910,6 @@ SPEC CHECKSUMS:
   Yoga: 5456bb010373068fc92221140921b09d126b116e
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
-PODFILE CHECKSUM: 0ddfed115c1e155f78a3d3fc5601fe3d7677607e
+PODFILE CHECKSUM: 391bd443a99dadf42e4d20131d7fa4690f0db61e
 
 COCOAPODS: 1.16.2
