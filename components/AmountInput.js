@@ -260,7 +260,7 @@ class AmountInput extends Component {
       input: { color: disabled ? colors.buttonDisabledTextColor : colors.alternativeTextColor2, minWidth: disabled ? 0 : 130, fontSize: 32 },
       cryptoCurrency: { color: disabled ? colors.buttonDisabledTextColor : colors.alternativeTextColor2 },
     });
-console.log("amount", String(amount), unit);
+    
     return (
       <TouchableWithoutFeedback
         accessibilityRole="button"
