@@ -54,43 +54,8 @@ post_install do |installer|
     end
   end
 
-  # Generate a dSYM for the prebuilt hermesvm.framework at archive time.
-  # The hermes-engine 0.14.0 prebuilt tarballs ship a stripped framework with
-  # no dSYM, which causes App Store Connect's "Upload Symbols" step to fail
-  # ("dSYM for hermesvm.framework with the UUIDs [...]" missing). We add a
-  # Run Script Build Phase to the BlueWallet target that runs dsymutil on the
-  # embedded binary and drops the dSYM into ${DWARF_DSYM_FOLDER_PATH}.
-  user_project_path = File.join(__dir__, 'BlueWallet.xcodeproj')
-  if File.exist?(user_project_path)
-    user_project = Xcodeproj::Project.open(user_project_path)
-    hermes_phase_name = '[BW] Generate hermesvm dSYM'
-    user_project.targets.each do |target|
-      next unless target.name == 'BlueWallet'
-
-      existing = target.shell_script_build_phases.find { |p| p.name == hermes_phase_name }
-      target.build_phases.delete(existing) if existing
-
-      phase = target.new_shell_script_build_phase(hermes_phase_name)
-      phase.shell_path = '/bin/sh'
-      phase.shell_script = <<~SH
-        set -e
-        # Only run when archiving (Xcode populates DWARF_DSYM_FOLDER_PATH then).
-        if [ -z "${DWARF_DSYM_FOLDER_PATH}" ]; then
-          exit 0
-        fi
-        FRAMEWORK_BIN="${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermesvm.framework/hermesvm"
-        if [ ! -f "${FRAMEWORK_BIN}" ]; then
-          echo "hermesvm binary not found at ${FRAMEWORK_BIN}; skipping dSYM."
-          exit 0
-        fi
-        DSYM_OUT="${DWARF_DSYM_FOLDER_PATH}/hermesvm.framework.dSYM"
-        echo "Generating dSYM for hermesvm.framework -> ${DSYM_OUT}"
-        /usr/bin/xcrun dsymutil "${FRAMEWORK_BIN}" -o "${DSYM_OUT}"
-      SH
-      phase.show_env_vars_in_log = '0'
-    end
-    user_project.save
-  end
+  # Hermes dSYM for App Store uploads: see BlueWallet target → Build Phases →
+  # "[BW] Generate hermesvm dSYM" (checked into project.pbxproj).
 
   # Fix RCTDeprecation module map error with Xcode 16+/26+ (required for react-native-notifications).
   # The bridging header imports RCTBridgeModule.h which does

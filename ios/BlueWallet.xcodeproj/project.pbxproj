@@ -280,6 +280,7 @@
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				C18D00A61007A84C9887DEDE /* [CP] Copy Pods Resources */,
 				68CD4C52AC5B27E333599B5C /* [CP] Embed Pods Frameworks */,
+				B8C9D0E12F3A4567890BCDEF012 /* [BW] Generate hermesvm dSYM */,
 			);
 			buildRules = (
 			);
@@ -399,6 +400,22 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-BlueWallet/Pods-BlueWallet-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		B8C9D0E12F3A4567890BCDEF012 /* [BW] Generate hermesvm dSYM */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermesvm.framework/hermesvm",
+			);
+			name = "[BW] Generate hermesvm dSYM";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"${CONFIGURATION}\" != \"Release\" ]; then\n  exit 0\nfi\nEMBEDDED=\"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermesvm.framework/hermesvm\"\nHERMES_BIN=\"\"\nif [ -f \"$EMBEDDED\" ]; then\n  HERMES_BIN=\"$EMBEDDED\"\nelse\n  XCFR=\"${PODS_ROOT}/hermes-engine/destroot/Library/Frameworks/universal/hermesvm.xcframework/ios-arm64/hermesvm.framework/hermesvm\"\n  if [ -f \"$XCFR\" ]; then\n    HERMES_BIN=\"$XCFR\"\n  else\n    HERMES_BIN=$(find \"${PODS_ROOT}/hermes-engine\" -path \"*hermesvm.framework/hermesvm\" -type f 2>/dev/null | head -n 1)\n  fi\nfi\nif [ -z \"$HERMES_BIN\" ] || [ ! -f \"$HERMES_BIN\" ]; then\n  echo \"[BW] Hermes binary not found; skip dSYM\"\n  exit 0\nfi\nif [ -z \"${DWARF_DSYM_FOLDER_PATH}\" ]; then\n  echo \"[BW] warning: DWARF_DSYM_FOLDER_PATH unset; skip Hermes dSYM\"\n  exit 0\nfi\nOUT=\"${DWARF_DSYM_FOLDER_PATH}/hermesvm.framework.dSYM\"\necho \"[BW] Hermes dSYM: dsymutil -> $OUT\"\nrm -rf \"$OUT\"\n/usr/bin/xcrun dsymutil \"$HERMES_BIN\" -o \"$OUT\"\nexit 0\n";
 			showEnvVarsInLog = 0;
 		};
 		6F7747C31A9EE6DDC5108476 /* [CP] Check Pods Manifest.lock */ = {
