@@ -56,7 +56,8 @@ class AmountInput extends Component {
 
   constructor() {
     super();
-    this.state = { mostRecentFetchedRate: Date(), isRateOutdated: false, isRateBeingUpdated: false };
+    this.state = { mostRecentFetchedRate: Date(), isRateOutdated: false, isRateBeingUpdated: false, amountKey: 0 };
+    this._isUserInput = false;
   }
 
   componentDidMount() {
@@ -68,6 +69,16 @@ class AmountInput extends Component {
       .finally(() => {
         currency.isRateOutdated().then(isRateOutdated => this.setState({ isRateOutdated }));
       });
+  }
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.amount !== this.props.amount) {
+      if (this._isUserInput) {
+        this._isUserInput = false;
+      } else {
+        this.setState(prev => ({ amountKey: prev.amountKey + 1 }));
+      }
+    }
   }
 
   /**
@@ -145,6 +156,7 @@ class AmountInput extends Component {
   };
 
   handleChangeText = text => {
+    this._isUserInput = true;
     text = text.trim();
     if (this.props.unit !== BitcoinUnit.LOCAL_CURRENCY) {
       text = text.replace(',', '.');
@@ -248,7 +260,7 @@ class AmountInput extends Component {
       input: { color: disabled ? colors.buttonDisabledTextColor : colors.alternativeTextColor2, minWidth: disabled ? 0 : 130, fontSize: 32 },
       cryptoCurrency: { color: disabled ? colors.buttonDisabledTextColor : colors.alternativeTextColor2 },
     });
-
+    
     return (
       <TouchableWithoutFeedback
         accessibilityRole="button"
@@ -274,6 +286,7 @@ class AmountInput extends Component {
                 <View>
                   <TextInput
                     {...this.props}
+                    key={this.state.amountKey}
                     testID="BitcoinAmountInput"
                     keyboardType="numeric"
                     adjustsFontSizeToFit

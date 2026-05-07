@@ -37,7 +37,7 @@ const AddressItem = ({ item, balanceUnit, walletID, allowSignVerifyMessage }) =>
 
   const menuRef = useRef();
   const navigateToReceive = () => {
-    menuRef.current?.dismissMenu();
+    menuRef.current?.dismissMenu?.();
     navigate('ReceiveDetailsRoot', {
       screen: 'ReceiveDetails',
       params: {
@@ -48,7 +48,7 @@ const AddressItem = ({ item, balanceUnit, walletID, allowSignVerifyMessage }) =>
   };
 
   const navigateToSignVerify = () => {
-    menuRef.current?.dismissMenu();
+    menuRef.current?.dismissMenu?.();
     navigate('SignVerifyRoot', {
       screen: 'SignVerify',
       params: {

@@ -11,7 +11,7 @@ import { BitcoinUnit } from '../../models/bitcoinUnits';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import alert from '../../components/Alert';
 import Biometric from '../../class/biometrics';
-import Notifications from '../../blue_modules/notifications';
+import { majorTomToGroundControl } from '../../blue_modules/notifications';
 import { DynamicQRCode } from '../../components/DynamicQRCode';
 const bitcoin = require('bitcoinjs-lib');
 const BigNumber = require('bignumber.js');
@@ -184,7 +184,7 @@ const PsbtMultisig = () => {
   const send = async (tx, fee) => {
     await broadcast(tx);
     const txid = bitcoin.Transaction.fromHex(tx).getId();
-    Notifications.majorTomToGroundControl([], [], [txid]);
+    majorTomToGroundControl([], [], [txid]);
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
     const amount = formatBalanceWithoutSuffix(totalSat, BitcoinUnit.BTC, false);
     navigate('Success', {

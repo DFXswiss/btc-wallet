@@ -46,9 +46,11 @@ jest.mock('react-native-secure-key-store', () => {
   return {};
 });
 
-jest.mock('@react-native-community/push-notification-ios', () => {
+jest.mock('react-native-notifications', () => {
   return {};
 });
+
+jest.mock('react-native-permissions', () => require('react-native-permissions/mock'));
 
 jest.mock('react-native-device-info', () => {
   return {
@@ -121,7 +123,7 @@ jest.mock('react-native-fs', () => {
   };
 });
 
-jest.mock('react-native-document-picker', () => ({}));
+jest.mock('@react-native-documents/picker', () => ({}));
 
 jest.mock('react-native-haptic-feedback', () => ({}));
 
@@ -146,14 +148,36 @@ jest.mock('realm', () => {
   };
 });
 
-jest.mock('react-native-idle-timer', () => {
+jest.mock('react-native-context-menu-view', () => {
+  const React = require('react');
+  const { View } = require('react-native');
   return {
-    setIdleTimerDisabled: jest.fn(),
+    __esModule: true,
+    default: React.forwardRef(function ContextMenu(props, ref) {
+      return React.createElement(View, { ref, style: props.style }, props.children);
+    }),
   };
 });
 
-jest.mock('react-native-ios-context-menu', () => {
-  return {};
+jest.mock('react-native-capture-protection', () => ({
+  CaptureProtection: {
+    prevent: jest.fn(() => Promise.resolve()),
+    allow: jest.fn(() => Promise.resolve()),
+    isScreenRecording: jest.fn(() => Promise.resolve(false)),
+  },
+}));
+
+jest.mock('react-native-biometrics', () => {
+  const RN = jest.fn().mockImplementation(() => ({
+    isSensorAvailable: jest.fn(() => Promise.resolve({ available: false, biometryType: undefined })),
+    simplePrompt: jest.fn(() => Promise.resolve({ success: false })),
+  }));
+  RN.BiometryTypes = { TouchID: 'TouchID', FaceID: 'FaceID', Biometrics: 'Biometrics' };
+  return {
+    __esModule: true,
+    default: RN,
+    BiometryTypes: RN.BiometryTypes,
+  };
 });
 
 jest.mock('react-native-haptic-feedback', () => {

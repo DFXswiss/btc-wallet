@@ -30,7 +30,7 @@ const LndPosReceive = () => {
   const { walletID } = useRoute().params as RouteParams;
   const wallet: LightningLdsWallet = useMemo(() => wallets.find((item: any) => item.getID() === walletID), [walletID, wallets]);
   const { colors } = useTheme();
-  const { setParams, replace } = useNavigation();
+  const { setParams } = useNavigation();
   const invoicePolling = useRef<NodeJS.Timer | undefined>();
   const [isWaitingForPayment, setIsWaitingForPayment] = useState<boolean>(false);
   const [invoiceAmount, setInvoiceAmount] = useState(0);
@@ -125,7 +125,7 @@ const LndPosReceive = () => {
     if (!newWallet) return;
 
     if (newWallet.chain !== Chain.OFFCHAIN) {
-      return replace('ReceiveDetails', { walletID: id });
+      return { name: 'ReceiveDetails', params: { walletID: id } };
     }
 
     setParams({ walletID: id });

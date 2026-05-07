@@ -1,6 +1,5 @@
 import React, { useContext, useEffect, useState, useRef, useMemo } from 'react';
 import { ActivityIndicator, Alert, FlatList, LayoutAnimation, StyleSheet, View } from 'react-native';
-import IdleTimerManager from 'react-native-idle-timer';
 import { StackActions, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { BlueButton, BlueButtonLink, BlueFormLabel, BlueSpacing10, BlueSpacing20, SafeBlueArea } from '../../BlueComponents';
@@ -102,8 +101,6 @@ const ImportWalletDiscovery = () => {
     const [firstPrivateKey] = multisig?.getCosigners().filter(c => typeof c === 'string' && !MultisigHDWallet.isXpubString(c)) || [];
     const possibleSecret = firstPrivateKey || importText;
 
-    IdleTimerManager.setIdleTimerDisabled(true);
-
     task.current = startImport(possibleSecret, askPassphrase, searchAccounts, onProgress, onWallet, onPassword);
 
     task.current.promise
@@ -126,7 +123,6 @@ const ImportWalletDiscovery = () => {
       .finally(() => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setLoading(false);
-        IdleTimerManager.setIdleTimerDisabled(false);
       });
 
     return () => task.current.stop();

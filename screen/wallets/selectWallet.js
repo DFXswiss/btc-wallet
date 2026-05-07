@@ -40,10 +40,12 @@ const SelectWallet = () => {
       marginVertical: 17,
     },
     gradient: {
-      padding: 15,
       borderRadius: 10,
       minHeight: 164,
       elevation: 5,
+    },
+    gradientContent: {
+      padding: 15,
     },
     image: {
       width: 99,
@@ -134,38 +136,40 @@ const SelectWallet = () => {
       >
         <View shadowOpacity={40 / 100} shadowOffset={{ width: 0, height: 0 }} shadowRadius={5} style={styles.itemRoot}>
           <LinearGradient shadowColor="#000000" colors={WalletGradient.gradientsFor(item.type)} style={styles.gradient}>
-            <Image
-              source={(() => {
-                switch (item.type) {
-                  case LightningCustodianWallet.type:
-                    return I18nManager.isRTL ? require('../../img/lnd-shape-rtl.png') : require('../../img/lnd-shape.png');
-                  case MultisigHDWallet.type:
-                    return I18nManager.isRTL ? require('../../img/vault-shape-rtl.png') : require('../../img/vault-shape.png');
-                  default:
-                    return I18nManager.isRTL ? require('../../img/btc-shape-rtl.png') : require('../../img/btc-shape.png');
-                }
-              })()}
-              style={styles.image}
-            />
+            <View style={styles.gradientContent}>
+              <Image
+                source={(() => {
+                  switch (item.type) {
+                    case LightningCustodianWallet.type:
+                      return I18nManager.isRTL ? require('../../img/lnd-shape-rtl.png') : require('../../img/lnd-shape.png');
+                    case MultisigHDWallet.type:
+                      return I18nManager.isRTL ? require('../../img/vault-shape-rtl.png') : require('../../img/vault-shape.png');
+                    default:
+                      return I18nManager.isRTL ? require('../../img/btc-shape-rtl.png') : require('../../img/btc-shape.png');
+                  }
+                })()}
+                style={styles.image}
+              />
 
-            <Text style={styles.transparentText} />
-            <Text numberOfLines={1} style={styles.label}>
-              {item.getLabel()}
-            </Text>
-            {item.hideBalance ? (
-              <BluePrivateBalance />
-            ) : (
-              <Text numberOfLines={1} adjustsFontSizeToFit style={styles.balance}>
-                {formatBalance(Number(item.getBalance()), item.getPreferredBalanceUnit(), true)}
+              <Text style={styles.transparentText} />
+              <Text numberOfLines={1} style={styles.label}>
+                {item.getLabel()}
               </Text>
-            )}
-            <Text style={styles.transparentText} />
-            <Text numberOfLines={1} style={styles.latestTxLabel}>
-              {loc.wallets.list_latest_transaction}
-            </Text>
-            <Text numberOfLines={1} style={styles.latestTxValue}>
-              {transactionTimeToReadable(item.getLatestTransactionTime())}
-            </Text>
+              {item.hideBalance ? (
+                <BluePrivateBalance />
+              ) : (
+                <Text numberOfLines={1} adjustsFontSizeToFit style={styles.balance}>
+                  {formatBalance(Number(item.getBalance()), item.getPreferredBalanceUnit(), true)}
+                </Text>
+              )}
+              <Text style={styles.transparentText} />
+              <Text numberOfLines={1} style={styles.latestTxLabel}>
+                {loc.wallets.list_latest_transaction}
+              </Text>
+              <Text numberOfLines={1} style={styles.latestTxValue}>
+                {transactionTimeToReadable(item.getLatestTransactionTime())}
+              </Text>
+            </View>
           </LinearGradient>
         </View>
       </TouchableOpacity>

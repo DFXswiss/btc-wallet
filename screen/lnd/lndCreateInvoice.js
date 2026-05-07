@@ -33,14 +33,13 @@ import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import loc, { formatBalance, formatBalancePlain } from '../../loc';
 import Lnurl from '../../class/lnurl';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
-import Notifications from '../../blue_modules/notifications';
+import { majorTomToGroundControl, tryToObtainPermissions } from '../../blue_modules/notifications';
 import alert from '../../components/Alert';
 import { parse } from 'url'; // eslint-disable-line n/no-deprecated-api
 const currency = require('../../blue_modules/currency');
-const torrific = require('../../blue_modules/torrific');
 
 const LNDCreateInvoice = () => {
-  const { wallets, saveToDisk, setSelectedWallet, isTorDisabled } = useContext(BlueStorageContext);
+  const { wallets, saveToDisk, setSelectedWallet } = useContext(BlueStorageContext);
   const { walletID, uri } = useRoute().params;
   const wallet = useRef(wallets.find(item => item.getID() === walletID) || wallets.find(item => item.chain === Chain.OFFCHAIN));
   const { colors } = useTheme();
@@ -171,28 +170,20 @@ const LNDCreateInvoice = () => {
       // lets decode payreq and subscribe groundcontrol so we can receive push notification when our invoice is paid
       /** @type LightningCustodianWallet */
       const decoded = await wallet.current.decodeInvoice(invoiceRequest);
-      await Notifications.tryToObtainPermissions();
-      Notifications.majorTomToGroundControl([], [decoded.payment_hash], []);
+      await tryToObtainPermissions();
+      majorTomToGroundControl([], [decoded.payment_hash], []);
 
       // send to lnurl-withdraw callback url if that exists
       if (withdrawParams) {
         const { callback, k1 } = withdrawParams;
         const callbackUrl = callback + (callback.indexOf('?') !== -1 ? '&' : '?') + 'k1=' + k1 + '&pr=' + invoiceRequest;
 
-        let reply;
-        if (!isTorDisabled && callbackUrl.includes('.onion')) {
-          const api = new torrific.Torsbee();
-          const torResponse = await api.get(callbackUrl);
-          reply = torResponse.body;
-          if (reply && typeof reply === 'string') reply = JSON.parse(reply);
-        } else {
-          const resp = await fetch(callbackUrl, { method: 'GET' });
-          if (resp.status >= 300) {
-            const text = await resp.text();
-            throw new Error(text);
-          }
-          reply = await resp.json();
+        const resp = await fetch(callbackUrl, { method: 'GET' });
+        if (resp.status >= 300) {
+          const text = await resp.text();
+          throw new Error(text);
         }
+        const reply = await resp.json();
 
         if (reply.status === 'ERROR') {
           throw new Error('Reply from server: ' + reply.reason);
@@ -241,20 +232,16 @@ const LNDCreateInvoice = () => {
     // calling the url
     let reply;
     try {
-      if (!isTorDisabled && url.includes('.onion')) {
-        const api = new torrific.Torsbee();
-        const torResponse = await api.get(url);
-        reply = torResponse.body;
-        if (reply && typeof reply === 'string') reply = JSON.parse(reply);
-      } else {
-        const resp = await fetch(url, { method: 'GET' });
-        if (resp.status >= 300) {
-          throw new Error('Bad response from server');
-        }
-        reply = await resp.json();
-        if (reply.status === 'ERROR') {
-          throw new Error('Reply from server: ' + reply.reason);
-        }
+      if (Lnurl.isOnionUrl(url)) {
+        throw new Error(loc.settings.tor_unsupported);
+      }
+      const resp = await fetch(url, { method: 'GET' });
+      if (resp.status >= 300) {
+        throw new Error('Bad response from server');
+      }
+      reply = await resp.json();
+      if (reply.status === 'ERROR') {
+        throw new Error('Reply from server: ' + reply.reason);
       }
 
       if (reply.tag === Lnurl.TAG_PAY_REQUEST) {
@@ -370,7 +357,7 @@ const LNDCreateInvoice = () => {
     if (!newWallet) return;
 
     if (newWallet.chain !== Chain.OFFCHAIN) {
-      return replace('ReceiveDetails', { walletID: id });
+      return { name: 'ReceiveDetails', params: { walletID: id } };
     }
 
     setParams({ walletID: id });

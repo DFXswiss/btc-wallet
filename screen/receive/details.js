@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BackHandler,
   InteractionManager,
@@ -32,14 +32,13 @@ import HandoffComponent from '../../components/handoff';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import loc, { formatBalance } from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
-import Notifications from '../../blue_modules/notifications';
+import { tryToObtainPermissions } from '../../blue_modules/notifications';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { TransactionPendingIconBig } from '../../components/TransactionPendingIconBig';
 import * as BlueElectrum from '../../blue_modules/BlueElectrum';
 import { SuccessView } from '../send/success';
 import useInputAmount from '../../hooks/useInputAmount';
 import NetworkTransactionFees from '../../models/networkTransactionFees';
-import { useReplaceModalScreen } from '../../hooks/replaceModalScreen.hook';
 const currency = require('../../blue_modules/currency');
 
 const ReceiveDetails = () => {
@@ -52,8 +51,7 @@ const ReceiveDetails = () => {
   const [showPendingBalance, setShowPendingBalance] = useState(false);
   const [showConfirmedBalance, setShowConfirmedBalance] = useState(false);
   const [showAddress, setShowAddress] = useState(false);
-  const { goBack, setParams, navigate } = useNavigation();
-  const replace = useReplaceModalScreen();
+  const { goBack, setParams } = useNavigation();
   const { colors } = useTheme();
   const [intervalMs, setIntervalMs] = useState(5000);
   const [eta, setEta] = useState('');
@@ -246,10 +244,10 @@ const ReceiveDetails = () => {
   };
 
   useEffect(() => {
-    BackHandler.addEventListener('hardwareBackPress', handleBackButton);
+    const subscription = BackHandler.addEventListener('hardwareBackPress', handleBackButton);
 
     return () => {
-      BackHandler.removeEventListener('hardwareBackPress', handleBackButton);
+      subscription.remove();
       clearInterval(fetchAddressInterval.current);
       fetchAddressInterval.current = undefined;
     };
@@ -308,11 +306,10 @@ const ReceiveDetails = () => {
   const obtainWalletAddress = useCallback(async () => {
     console.log('receive/details - componentDidMount');
     wallet.setUserHasSavedExport(true);
-    await saveToDisk();
     let newAddress;
     if (address) {
       setAddressBIP21Encoded(address);
-      await Notifications.tryToObtainPermissions();
+      await tryToObtainPermissions();
     } else {
       if (wallet.chain === Chain.ONCHAIN) {
         try {
@@ -339,7 +336,7 @@ const ReceiveDetails = () => {
         }
       }
       setAddressBIP21Encoded(newAddress);
-      await Notifications.tryToObtainPermissions();
+      await tryToObtainPermissions();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallet]);
@@ -387,11 +384,10 @@ const ReceiveDetails = () => {
     if (!newWallet) return;
 
     if (newWallet.chain !== Chain.ONCHAIN) {
-      return replace({ name: newWallet.isPosMode ? 'PosReceive' : 'LNDReceive', params: { walletID: id } });
+      return { name: newWallet.isPosMode ? 'PosReceive' : 'LNDReceive', params: { walletID: id } };
     }
 
-    setParams({ walletID: id });
-    navigate('ReceiveDetails', { walletID: id });
+    setParams({ walletID: id, address: null });
   };
 
   return (

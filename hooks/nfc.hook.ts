@@ -13,9 +13,11 @@ export function useNFC(): NFCInterface {
   const [isNfcActive, setIsNfcActive] = useState(false);
 
   useEffect(() => {
-    NfcManager.start();
+    NfcManager.start().catch(() => {
+      // NFC not supported on this device/emulator — silently ignore
+    });
     return () => {
-      NfcManager.cancelTechnologyRequest();
+      NfcManager.cancelTechnologyRequest().catch(() => {});
     };
   }, []);
 

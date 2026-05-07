@@ -53,8 +53,6 @@ const Asset = ({ navigation }) => {
     saveToDisk,
     setSelectedWallet,
     walletTransactionUpdateStatus,
-    isDfxPos,
-    isDfxSwap,
     revalidateBalancesInterval,
   } = useContext(BlueStorageContext);
   const { name, params } = useRoute();
@@ -573,8 +571,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   walletDetails: {
-    paddingLeft: 12,
-    paddingVertical: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   boltcardButton: { justifyContent: 'center', alignItems: 'center', marginTop: 10 },
   scanIconContainer: {

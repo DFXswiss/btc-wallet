@@ -8,8 +8,8 @@ import Biometric from '../class/biometrics';
 import loc, { formatBalance } from '../loc';
 import { BlueStorageContext } from '../blue_modules/storage-context';
 import ToolTipMenu from './TooltipMenu';
+import { PrivateText } from './PrivateText';
 import { BluePrivateBalance } from '../BlueComponents';
-
 export default class TransactionsNavigationHeader extends Component {
   static propTypes = {
     wallet: PropTypes.shape().isRequired,
@@ -100,26 +100,35 @@ export default class TransactionsNavigationHeader extends Component {
   }
 
   handleBalanceVisibility = async _item => {
-    const wallet = this.state.wallet;
+    const { hideBalance, toggleHideBalance } = this.context;
 
     const isBiometricsEnabled = await Biometric.isBiometricUseCapableAndEnabled();
 
-    if (isBiometricsEnabled && wallet.hideBalance) {
+    if (isBiometricsEnabled && hideBalance) {
       if (!(await Biometric.unlockWithBiometrics())) {
         return this.props.navigation.goBack();
       }
     }
 
-    wallet.hideBalance = !wallet.hideBalance;
-    this.setState({ wallet }, () => {
-      this.props.onWalletChange(wallet);
-    });
+    toggleHideBalance();
   };
 
   changeWalletBalanceUnit = () => {
-    this.menuRef.current?.dismissMenu();
+    this.menuRef.current?.dismissMenu?.();
+    const { hideBalance, toggleHideBalance } = this.context;
     let walletPreviousPreferredUnit = this.state.wallet.getPreferredBalanceUnit();
     const wallet = this.state.wallet;
+
+    if (hideBalance) {
+      toggleHideBalance();
+      wallet.preferredBalanceUnit = BitcoinUnit.BTC;
+      walletPreviousPreferredUnit = BitcoinUnit.BTC;
+      this.setState({ wallet, walletPreviousPreferredUnit }, () => {
+        this.props.onWalletChange(wallet);
+      });
+      return;
+    }
+
     if (walletPreviousPreferredUnit === BitcoinUnit.BTC) {
       wallet.preferredBalanceUnit = BitcoinUnit.SATS;
       walletPreviousPreferredUnit = BitcoinUnit.BTC;
@@ -127,8 +136,8 @@ export default class TransactionsNavigationHeader extends Component {
       wallet.preferredBalanceUnit = BitcoinUnit.LOCAL_CURRENCY;
       walletPreviousPreferredUnit = BitcoinUnit.SATS;
     } else if (walletPreviousPreferredUnit === BitcoinUnit.LOCAL_CURRENCY) {
-      wallet.preferredBalanceUnit = BitcoinUnit.BTC;
-      walletPreviousPreferredUnit = BitcoinUnit.BTC;
+      toggleHideBalance();
+      walletPreviousPreferredUnit = BitcoinUnit.LOCAL_CURRENCY;
     } else {
       wallet.preferredBalanceUnit = BitcoinUnit.BTC;
       walletPreviousPreferredUnit = BitcoinUnit.BTC;
@@ -167,8 +176,9 @@ export default class TransactionsNavigationHeader extends Component {
   ];
 
   render() {
+    const { hideBalance } = this.context;
     const balance =
-      !this.state.wallet.hideBalance &&
+      !hideBalance &&
       formatBalance(this.state.wallet.getBalance(), this.state.wallet.getPreferredBalanceUnit(), true).toString();
 
     const stylesHook = StyleSheet.create({
@@ -192,40 +202,38 @@ export default class TransactionsNavigationHeader extends Component {
                 title={loc.wallets.balance}
                 onPressMenuItem={this.onPressMenuItem}
                 actions={
-                  this.state.wallet.hideBalance
+                  hideBalance
                     ? [
-                        {
-                          id: TransactionsNavigationHeader.actionKeys.WalletBalanceVisibility,
-                          text: loc.transactions.details_balance_show,
-                          icon: TransactionsNavigationHeader.actionIcons.Eye,
-                        },
-                      ]
+                      {
+                        id: TransactionsNavigationHeader.actionKeys.WalletBalanceVisibility,
+                        text: loc.transactions.details_balance_show,
+                        icon: TransactionsNavigationHeader.actionIcons.Eye,
+                      },
+                    ]
                     : [
-                        {
-                          id: TransactionsNavigationHeader.actionKeys.WalletBalanceVisibility,
-                          text: loc.transactions.details_balance_hide,
-                          icon: TransactionsNavigationHeader.actionIcons.EyeSlash,
-                        },
-                        {
-                          id: TransactionsNavigationHeader.actionKeys.CopyToClipboard,
-                          text: loc.transactions.details_copy,
-                          icon: TransactionsNavigationHeader.actionIcons.Clipboard,
-                        },
-                      ]
+                      {
+                        id: TransactionsNavigationHeader.actionKeys.WalletBalanceVisibility,
+                        text: loc.transactions.details_balance_hide,
+                        icon: TransactionsNavigationHeader.actionIcons.EyeSlash,
+                      },
+                      {
+                        id: TransactionsNavigationHeader.actionKeys.CopyToClipboard,
+                        text: loc.transactions.details_copy,
+                        icon: TransactionsNavigationHeader.actionIcons.Clipboard,
+                      },
+                    ]
                 }
               >
                 <View style={styles.balance}>
-                  {this.state.wallet.hideBalance ? (
-                    <BluePrivateBalance />
-                  ) : (
-                    <Text
-                      testID="WalletBalance"
-                      key={balance} // force component recreation on balance change. To fix right-to-left languages, like Farsi
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      style={styles.walletBalance}
-                    >
-                      {balance}
+                  {hideBalance ? <BluePrivateBalance /> : (
+                  <Text
+                    testID="WalletBalance"
+                    key={balance} // force component recreation on balance change. To fix right-to-left languages, like Farsi
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    style={styles.walletBalance}
+                  >
+                      <PrivateText>{balance}</PrivateText>
                     </Text>
                   )}
                 </View>

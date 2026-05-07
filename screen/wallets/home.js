@@ -31,9 +31,9 @@ import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import BoltCard from '../../class/boltcard';
-import { TaprootLdsWallet, TaprootLdsWalletType } from '../../class/wallets/taproot-lds-wallet';
 import scanqrHelper from '../../helpers/scan-qr';
 import DfxServicesButtons from '../../components/DfxServicesButtons';
+import { usePrivateText } from '../../hooks/usePrivateText';
 
 const fs = require('../../blue_modules/fs');
 
@@ -54,6 +54,7 @@ const WalletHome = ({ navigation }) => {
   const walletActionButtonsRef = useRef();
   const { width } = useWindowDimensions();
   const isFocused = useIsFocused();
+  const getPrivateText = usePrivateText();
 
   const wallet = useMemo(() => wallets.find(w => w.getID() === walletID), [wallets, walletID]);
   const totalWallet = useMemo(() => {
@@ -115,7 +116,7 @@ const WalletHome = ({ navigation }) => {
           },
         });
       }
-    } catch (_) {}
+    } catch (_) { }
   };
 
   const onBarScanned = value => {
@@ -140,7 +141,7 @@ const WalletHome = ({ navigation }) => {
       return;
     }
 
-    if(DeeplinkSchemaMatch.isLnUrl(value)) {
+    if (DeeplinkSchemaMatch.isLnUrl(value)) {
       return navigate('SendDetailsRoot', { screen: 'LnurlNavigationForwarder', params: { lnurl: value, walletID } });
     }
 
@@ -192,7 +193,7 @@ const WalletHome = ({ navigation }) => {
       const buttons = [
         {
           text: loc._.cancel,
-          onPress: () => {},
+          onPress: () => { },
           style: 'cancel',
         },
         {
@@ -335,7 +336,7 @@ const WalletHome = ({ navigation }) => {
                 subtitleNumberOfLines={1}
                 subtitle={item.subtitle}
                 Component={View}
-                rightTitle={formatBalance(item.wallet.getBalance(), item.wallet.getPreferredBalanceUnit(), true).toString()}
+                rightTitle={getPrivateText(formatBalance(item.wallet.getBalance(), item.wallet.getPreferredBalanceUnit(), true).toString())}
                 rightTitleStyle={styles.walletBalance}
                 chevron
               />
@@ -347,18 +348,18 @@ const WalletHome = ({ navigation }) => {
                 Component={View}
                 {...(item.isActivated
                   ? {
-                      rightElement: (
-                        <SecondButton
-                          title={loc._.add}
-                          icon={{ name: 'plus', type: 'font-awesome', color: 'white', size: 12 }}
-                          onPress={item.onDummyPress}
-                        />
-                      ),
-                    }
+                    rightElement: (
+                      <SecondButton
+                        title={loc._.add}
+                        icon={{ name: 'plus', type: 'font-awesome', color: 'white', size: 12 }}
+                        onPress={item.onDummyPress}
+                      />
+                    ),
+                  }
                   : {
-                      rightTitle: loc.wallets.coming_soon,
-                      rightTitleStyle: stylesHook.comingSoon,
-                    })}
+                    rightTitle: loc.wallets.coming_soon,
+                    rightTitleStyle: stylesHook.comingSoon,
+                  })}
               />
             )}
           </TouchableOpacity>
@@ -414,11 +415,11 @@ WalletHome.navigationOptions = navigationStyle({}, (options, { theme, navigation
       height: 34,
       padding: 8,
       borderRadius: 8,
-      backgroundColor: route?.params?.backupWarning ? '#FFF389' : theme.colors.buttonBackgroundColor,
+      backgroundColor: Platform.OS === 'ios' ? undefined : route?.params?.backupWarning ? '#FFF389' : theme.colors.buttonBackgroundColor,
     },
     backupSeedText: {
       marginLeft: 4,
-      color: route?.params?.backupWarning ? '#072440' : theme.colors.buttonAlternativeTextColor,
+      color: theme.colors.buttonAlternativeTextColor,
       fontWeight: '600',
       fontSize: 14,
     },
@@ -436,7 +437,7 @@ WalletHome.navigationOptions = navigationStyle({}, (options, { theme, navigation
           }}
         >
           <View style={styles.backupSeedContainer}>
-            {route?.params?.backupWarning && <Icon name="warning-outline" type="ionicon" size={18} color="#072440" />}
+            {route?.params?.backupWarning && <Icon name="warning-outline" type="ionicon" size={18} color="#FFFFFF" />}
             <Text style={stylesHook.backupSeedText}>
               {route?.params?.backupWarning ? loc.wallets.backupSeedWarning : loc.wallets.backupSeed}
             </Text>
@@ -478,9 +479,7 @@ const styles = StyleSheet.create({
   },
   walletDetails: {
     justifyContent: 'center',
-    alignItems: 'flex-end',
-    paddingLeft: 12,
-    paddingVertical:12
+    alignItems: 'center',
   },
   backupSeedContainer: {
     flex: 1,

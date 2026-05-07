@@ -1,5 +1,6 @@
 import React from 'react';
 import { Image, Keyboard, TouchableOpacity, StyleSheet } from 'react-native';
+import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import { Theme } from './themes';
 import loc from '../loc';
 
@@ -12,27 +13,16 @@ const styles = StyleSheet.create({
   },
 });
 
-type NavigationOptions = {
-  headerStyle?: {
-    borderBottomWidth: number;
-    elevation: number;
-    shadowOpacity?: number;
-    shadowOffset: { height?: number; width?: number };
-  };
-  headerTitleStyle?: {
-    fontWeight: string;
-    color: string;
-  };
-  headerLeft?: (() => React.ReactElement) | null;
-  headerRight?: (() => React.ReactElement) | null;
-  headerBackTitleVisible?: false;
-  headerTintColor?: string;
-  title?: string;
-};
+// Keep our historical option surface permissive. Concrete shape is still a
+// subset of React Navigation v7 native-stack options, which is what the
+// navigator accepts at runtime.
+type NavigationOptions = NativeStackNavigationOptions;
 
 type OptionsFormatter = (options: NavigationOptions, deps: { theme: Theme; navigation: any; route: any }) => NavigationOptions;
 
-export type NavigationOptionsGetter = (theme: Theme) => (deps: { navigation: any; route: any }) => NavigationOptions;
+export type NavigationOptionsGetter = (
+  theme: Theme,
+) => NavigationOptions | ((deps: { navigation: any; route: any; theme?: any }) => NavigationOptions);
 
 const navigationStyle = (
   {
@@ -68,6 +58,8 @@ const navigationStyle = (
         );
       }
 
+      const { statusBarStyle: _ignoredStatusBarStyle, ...restOpts } = opts;
+
       let options: NavigationOptions = {
         headerStyle: {
           borderBottomWidth: 0,
@@ -82,7 +74,7 @@ const navigationStyle = (
         headerRight,
         headerBackTitleVisible: false,
         headerTintColor: theme.colors.foregroundColor,
-        ...opts,
+        ...restOpts,
       };
 
       if (formatter) {

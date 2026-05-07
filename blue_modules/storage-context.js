@@ -1,12 +1,11 @@
-import React, { createContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { useAsyncStorage } from '@react-native-async-storage/async-storage';
 import { FiatUnit } from '../models/fiatUnit';
-import Notifications from '../blue_modules/notifications';
+import { majorTomToGroundControl } from '../blue_modules/notifications';
 import { fetch as fetchNetInfo } from '@react-native-community/netinfo';
 import { STORAGE_KEY as LOC_STORAGE_KEY } from '../loc';
-import { isTorDaemonDisabled, setIsTorDaemonDisabled } from './environment';
 const BlueApp = require('../BlueApp');
 const BlueElectrum = require('./BlueElectrum');
 const currency = require('../blue_modules/currency');
@@ -31,20 +30,15 @@ export const BlueStorageProvider = ({ children }) => {
   const [isDfxPos, setIsDfxPos] = useState(false);
   const [isDfxSwap, setIsDfxSwap] = useState(false);
   const [isElectrumDisabled, setIsElectrumDisabled] = useState(true);
-  const [isTorDisabled, setIsTorDisabled] = useState(false);
   const [isPrivacyBlurEnabled, setIsPrivacyBlurEnabled] = useState(true);
   const [lastSuccessfulBalanceRefresh, setLastSuccessfulBalanceRefresh] = useState(Date.now());
   const balanceRefreshInterval = useRef(null);
   const [cameraPermissionLastAskedTime, setCameraPermissionLastAskedTime] = useState(0);
+  const [hideBalance, setHideBalance] = useState(false);
 
   useEffect(() => {
     BlueElectrum.isDisabled().then(setIsElectrumDisabled);
-    isTorDaemonDisabled().then(setIsTorDisabled);
   }, []);
-
-  useEffect(() => {
-    setIsTorDaemonDisabled(isTorDisabled);
-  }, [isTorDisabled]);
 
   const setIsHandOffUseEnabledAsyncStorage = value => {
     setIsHandOffUseEnabled(value);
@@ -71,7 +65,7 @@ export const BlueStorageProvider = ({ children }) => {
     return BlueApp.setIsDfxSwapEnabled(value);
   };
 
-  const saveToDisk = async (force = false) => {
+  const saveToDisk = useCallback(async (force = false) => {
     if (BlueApp.getWallets().length === 0 && !force) {
       console.log('not saving empty wallets array');
       return;
@@ -80,7 +74,7 @@ export const BlueStorageProvider = ({ children }) => {
     await BlueApp.saveToDisk();
     setWallets([...BlueApp.getWallets()]);
     txMetadata = BlueApp.tx_metadata;
-  };
+  }, [txMetadata]);  // eslint-disable-next-line react-hooks/exhaustive-deps
 
   const setCameraPermissionLastAskedTimeAsyncStorage = value => {
     setCameraPermissionLastAskedTime(value);
@@ -106,6 +100,8 @@ export const BlueStorageProvider = ({ children }) => {
         setIsDfxSwap(!!enabledDfxSwap);
         const cameraPermissionLastAskedTime = await BlueApp.getCameraPermissionLastAskedTime();
         setCameraPermissionLastAskedTime(cameraPermissionLastAskedTime);
+        const isHideBalance = await BlueApp.isHideBalanceEnabled();
+        setHideBalance(!!isHideBalance);
       } catch (_e) {
         setIsHandOffUseEnabledAsyncStorage(false);
         setIsHandOffUseEnabled(false);
@@ -271,11 +267,19 @@ export const BlueStorageProvider = ({ children }) => {
     addWallet(w);
     await saveToDisk();
     A(A.ENUM.CREATED_WALLET);
-    Notifications.majorTomToGroundControl(w.getAllExternalAddresses(), [], []);
+    majorTomToGroundControl(w.getAllExternalAddresses(), [], []);
     // start balance fetching at the background
     await w.fetchBalance();
     w.fetchTransactions();
     setWallets([...BlueApp.getWallets()]);
+  };
+
+  const toggleHideBalance = () => {
+    setHideBalance(prev => {
+      const next = !prev;
+      BlueApp.setIsHideBalanceEnabled(next);
+      return next;
+    });
   };
 
   let txMetadata = BlueApp.tx_metadata || {};
@@ -355,14 +359,14 @@ export const BlueStorageProvider = ({ children }) => {
         isDoNotTrackEnabled,
         isElectrumDisabled,
         setIsElectrumDisabled,
-        isTorDisabled,
-        setIsTorDisabled,
         isPrivacyBlurEnabled,
         setIsPrivacyBlurEnabled,
         lastSuccessfulBalanceRefresh,
         setBalanceRefreshInterval,
         clearBalanceRefreshInterval,
         revalidateBalancesInterval,
+        hideBalance,
+        toggleHideBalance,
         // Feature flags
         ldsDEV,
         setLdsDEVAsyncStorage,

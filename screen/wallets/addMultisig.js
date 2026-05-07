@@ -206,7 +206,14 @@ const WalletsAddMultisig = () => {
     <SafeAreaView style={stylesHook.root}>
       <View style={styles.descriptionContainer}>
         <View style={styles.imageWrapper}>
-          <LottieView source={require('../../img/msvault.json')} autoPlay ref={loadingAnimation} loop={false} />
+          <LottieView
+            style={styles.lottieVault}
+            source={require('../../img/msvault.json')}
+            autoPlay
+            ref={loadingAnimation}
+            loop={false}
+            resizeMode="contain"
+          />
         </View>
         <Text style={[styles.textdesc, stylesHook.textdesc]}>
           <Text style={[styles.textdescBold, stylesHook.textdesc]}>{loc.multisig.what_is_multidevice}</Text>
@@ -324,10 +331,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   imageWrapper: {
-    borderWidth: 0,
-    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     height: 160,
     marginBottom: 30,
+  },
+  lottieVault: {
+    width: 212,
+    height: 160,
   },
   rowCenter: {
     flexDirection: 'row',

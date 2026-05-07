@@ -9,7 +9,6 @@ import navigationStyle from '../../components/navigationStyle';
 import { BitcoinUnit } from '../../models/bitcoinUnits';
 import Biometric from '../../class/biometrics';
 import loc, { formatBalance, formatBalanceWithoutSuffix } from '../../loc';
-import Notifications from '../../blue_modules/notifications';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import alert from '../../components/Alert';

@@ -32,7 +32,7 @@ import {
 import loc, { formatBalanceWithoutSuffix } from '../../loc';
 import { useTheme, useRoute, useNavigation, StackActions } from '@react-navigation/native';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
-import Notifications from '../../blue_modules/notifications';
+import { unsubscribe } from '../../blue_modules/notifications';
 import { AbstractHDElectrumWallet } from '../../class/wallets/abstract-hd-electrum-wallet';
 import alert from '../../components/Alert';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
@@ -180,7 +180,7 @@ const WalletDetails = () => {
     try {
       externalAddresses = wallet.getAllExternalAddresses();
     } catch (_) {}
-    Notifications.unsubscribe(externalAddresses, [], []);
+    unsubscribe(externalAddresses, [], []);
     if (isMainWallet) {
       deleteAllWallets();
     } else {

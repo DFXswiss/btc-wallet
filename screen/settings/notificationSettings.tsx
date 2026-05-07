@@ -1,55 +1,62 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, TouchableWithoutFeedback, I18nManager, StyleSheet, Linking, View, TextInput } from 'react-native';
-import { useTheme } from '@react-navigation/native';
 import { Button } from 'react-native-elements';
 
 import navigationStyle from '../../components/navigationStyle';
 import { BlueButton, BlueCard, BlueCopyToClipboardButton, BlueListItem, BlueLoading, BlueSpacing20, BlueText } from '../../BlueComponents';
 import loc from '../../loc';
-import { BlueCurrentTheme } from '../../components/themes';
-import Notifications from '../../blue_modules/notifications';
+import { BlueCurrentTheme, useTheme } from '../../components/themes';
+import {
+  checkPermissions,
+  cleanUserOptOutFlag,
+  getDefaultUri,
+  getPushToken,
+  getSavedUri,
+  getStoredNotifications,
+  isGroundControlUriValid,
+  isNotificationsEnabled,
+  saveUri,
+  setLevels,
+  tryToObtainPermissions,
+} from '../../blue_modules/notifications';
 import alert from '../../components/Alert';
 
-const NotificationSettings = () => {
+const NotificationSettings: React.FC & { navigationOptions?: ReturnType<typeof navigationStyle> } = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [isNotificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [isNotificationsEnabledState, setNotificationsEnabledState] = useState(false);
   const [isShowTokenInfo, setShowTokenInfo] = useState(0);
   const [tokenInfo, setTokenInfo] = useState('<empty>');
-  const [URI, setURI] = useState();
+  const [URI, setURI] = useState<string | undefined>();
 
   const { colors } = useTheme();
 
-  const onNotificationsSwitch = async value => {
-    setNotificationsEnabled(value); // so the slider is not 'jumpy'
+  const onNotificationsSwitch = async (value: boolean) => {
+    setNotificationsEnabledState(value);
     if (value) {
-      // user is ENABLING notifications
-      await Notifications.cleanUserOptOutFlag();
-      if (await Notifications.getPushToken()) {
-        // we already have a token, so we just need to reenable ALL level on groundcontrol:
-        await Notifications.setLevels(true);
+      await cleanUserOptOutFlag();
+      if (await getPushToken()) {
+        await setLevels(true);
       } else {
-        // ok, we dont have a token. we need to try to obtain permissions, configure callbacks and save token locally:
-        await Notifications.tryToObtainPermissions();
+        await tryToObtainPermissions();
       }
     } else {
-      // user is DISABLING notifications
-      await Notifications.setLevels(false);
+      await setLevels(false);
     }
 
-    setNotificationsEnabled(await Notifications.isNotificationsEnabled());
+    setNotificationsEnabledState(await isNotificationsEnabled());
   };
 
   useEffect(() => {
     (async () => {
-      setNotificationsEnabled(await Notifications.isNotificationsEnabled());
-      setURI(await Notifications.getSavedUri());
+      setNotificationsEnabledState(await isNotificationsEnabled());
+      setURI((await getSavedUri()) ?? undefined);
       setTokenInfo(
         'token: ' +
-          JSON.stringify(await Notifications.getPushToken()) +
+          JSON.stringify(await getPushToken()) +
           ' permissions: ' +
-          JSON.stringify(await Notifications.checkPermissions()) +
+          JSON.stringify(await checkPermissions()) +
           ' stored notifications: ' +
-          JSON.stringify(await Notifications.getStoredNotifications()),
+          JSON.stringify(await getStoredNotifications()),
       );
       setIsLoading(false);
     })();
@@ -74,15 +81,14 @@ const NotificationSettings = () => {
     setIsLoading(true);
     try {
       if (URI) {
-        // validating only if its not empty. empty means use default
-        if (await Notifications.isGroundControlUriValid(URI)) {
-          await Notifications.saveUri(URI);
+        if (await isGroundControlUriValid(URI)) {
+          await saveUri(URI);
           alert(loc.settings.saved);
         } else {
           alert(loc.settings.not_a_valid_uri);
         }
       } else {
-        await Notifications.saveUri('');
+        await saveUri('');
         alert(loc.settings.saved);
       }
     } catch (error) {
@@ -96,9 +102,10 @@ const NotificationSettings = () => {
   ) : (
     <ScrollView style={stylesWithThemeHook.scroll}>
       <BlueListItem
+        // @ts-ignore: Fix later
         Component={TouchableWithoutFeedback}
         title={loc.settings.push_notifications}
-        switch={{ onValueChange: onNotificationsSwitch, value: isNotificationsEnabled, testID: 'NotificationsSwitch' }}
+        switch={{ onValueChange: onNotificationsSwitch, value: isNotificationsEnabledState, testID: 'NotificationsSwitch' }}
       />
       <BlueSpacing20 />
 
@@ -115,14 +122,13 @@ const NotificationSettings = () => {
         onPress={() => Linking.openURL('https://github.com/BlueWallet/GroundControl')}
         titleStyle={{ color: colors.buttonAlternativeTextColor }}
         title="github.com/BlueWallet/GroundControl"
-        color={colors.buttonTextColor}
         buttonStyle={styles.buttonStyle}
       />
 
       <BlueCard>
         <View style={styles.uri}>
           <TextInput
-            placeholder={Notifications.getDefaultUri()}
+            placeholder={getDefaultUri()}
             value={URI}
             onChangeText={setURI}
             numberOfLines={1}
@@ -145,6 +151,7 @@ const NotificationSettings = () => {
 
         {isShowTokenInfo >= 9 && (
           <View>
+            {/* @ts-ignore: BlueComponents JS prop typing */}
             <BlueCopyToClipboardButton stringToCopy={tokenInfo} displayText={tokenInfo} />
           </View>
         )}
@@ -160,6 +167,12 @@ NotificationSettings.navigationOptions = navigationStyle({}, opts => ({ ...opts,
 
 const styles = StyleSheet.create({
   root: {
+    flex: 1,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollBody: {
     flex: 1,
   },
   uri: {

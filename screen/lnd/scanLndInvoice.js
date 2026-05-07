@@ -21,7 +21,6 @@ import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import alert from '../../components/Alert';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
-import { useReplaceModalScreen } from '../../hooks/replaceModalScreen.hook';
 import { isFreeDomain, isInternalDomain } from '../../helpers/freeLightningDomains';
 const currency = require('../../blue_modules/currency');
 
@@ -37,7 +36,6 @@ const ScanLndInvoice = () => {
   );
   const suitableWallets = useMemo(() => wallets.filter(item => item.chain === Chain.OFFCHAIN), [wallets]);
   const { navigate, setParams, goBack } = useNavigation();
-  const replace = useReplaceModalScreen();
   const [isLoading, setIsLoading] = useState(false);
   const [destination, setDestination] = useState('');
   const [unit, setUnit] = useState(BitcoinUnit.SATS);
@@ -72,7 +70,7 @@ const ScanLndInvoice = () => {
     if (!newWallet) return;
 
     if (newWallet.chain !== Chain.OFFCHAIN) {
-      return replace({ name: 'SendDetails', params: { walletID: id } });
+      return { name: 'SendDetails', params: { walletID: id } };
     }
 
     setParams({ walletID: id });
@@ -285,7 +283,7 @@ const ScanLndInvoice = () => {
     );
   }
 
-  const formatDestination = destination.length > 25 ? `${destination.substring(0, 18)}.....${destination.substring(destination.length - 18)}` : destination;
+  const formatDestination = destination && destination.length > 25 ? `${destination.substring(0, 18)}.....${destination.substring(destination.length - 18)}` : (destination || '');
 
   return (
     <SafeBlueArea style={stylesHook.root}>
