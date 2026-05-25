@@ -250,6 +250,7 @@ export const BlueStorageProvider = ({ children }) => {
   };
 
   const addWallet = wallet => {
+    if (BlueApp.wallets.some(w => w.getID() === wallet.getID())) return;
     BlueApp.wallets.push(wallet);
     setWallets([...BlueApp.getWallets()]);
   };
