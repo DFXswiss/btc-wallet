@@ -13,6 +13,7 @@ import { useWalletContext } from '../../contexts/wallet.context';
 import loc from '../../loc';
 import { ManualTextModal } from '../../components/ManualTextModal';
 import { MultisigHDWallet } from '../../class/wallets/multisig-hd-wallet';
+import { findCosignerIndexForSeed } from '../../class/multisig-cosigner-match';
 
 const ImportMultisignature: React.FC = () => {
   const { addWallet, saveToDisk, isElectrumDisabled } = useContext(BlueStorageContext);
@@ -46,16 +47,18 @@ const ImportMultisignature: React.FC = () => {
       setQuorum(multisigWallet.getN());
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      const derivationPath = multisigWallet.getDerivationPath();
-      const ownXpub = multisigWallet.convertXpubToMultisignatureXpub(MultisigHDWallet.seedToXpub(mainWallet?.getSecret(), derivationPath));
-      const ownZpub = MultisigHDWallet.xpubToZpub(ownXpub);
-      const ownXpubFromZpub = MultisigHDWallet.zpubToXpub(ownZpub);
-      const isPartOfMultisig = multisigWallet.getCosigners().some(cosigner => cosigner === ownXpub || cosigner === ownZpub || cosigner === ownXpubFromZpub || cosigner === mainWallet?.getSecret());
-      if (!isPartOfMultisig) throw new Error(loc.multisig.not_part_of_multisig);
+      const ownSeed = mainWallet?.getSecret();
+      const ownPassphrase = (mainWallet as { getPassphrase?: () => string } | undefined)?.getPassphrase?.();
+      const ownCosignerIndex = findCosignerIndexForSeed(multisigWallet, ownSeed, ownPassphrase); // 1-based, or -1
+      if (ownCosignerIndex === -1) throw new Error(loc.multisig.not_part_of_multisig);
 
       multisigWallet.getCosigners().forEach((cosigner, index) => {
-        if (cosigner === mainWallet?.getSecret()) return;
-        if (cosigner === ownXpub || cosigner === ownZpub || cosigner === ownXpubFromZpub) return multisigWallet.replaceCosignerXpubWithSeed(index + 1, mainWallet?.getSecret() as string, '');
+        if (cosigner === ownSeed) return;
+        if (index + 1 === ownCosignerIndex) {
+          if (MultisigHDWallet.isXpubString(cosigner))
+            multisigWallet.replaceCosignerXpubWithSeed(ownCosignerIndex, ownSeed as string, ownPassphrase || '');
+          return;
+        }
         if (MultisigHDWallet.isXpubForMultisig(cosigner)) return;
         // Then it should be a seed? try to replace it
         multisigWallet.replaceCosignerSeedWithXpub(index + 1);

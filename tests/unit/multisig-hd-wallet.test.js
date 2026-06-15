@@ -2,6 +2,7 @@ import assert from 'assert';
 import { MultisigHDWallet } from '../../class/';
 import { BlueURDecoder, decodeUR, encodeUR } from '../../blue_modules/ur';
 import { MultisigCosigner } from '../../class/multisig-cosigner';
+import { findCosignerIndexForSeed } from '../../class/multisig-cosigner-match';
 const bitcoin = require('bitcoinjs-lib');
 const Base43 = require('../../blue_modules/base43');
 
@@ -2286,5 +2287,79 @@ describe('multisig-cosigner', () => {
     assert.deepStrictEqual(result, [
       'ur:crypto-account/oeadcywehhhpleaolytaadmhtaaddloxaxhdclaoamutctbahthnislelbwemnkeoefnhddienfetbpygrpaqdkemyrywyldaspyjkdtaahdcxhyneskwdhlehlfbwrpdnjlgsgakplkjtknvyttsgolnnlbwlcagoolcpfgsglkinamtaaddyotadlfcsdpykaocywehhhpleaxadaycywehhhplekpdwveih',
     ]);
+  });
+});
+
+describe('multisig cosigner matching for import (issue #176)', () => {
+  const path = "m/48'/0'/0'/2'";
+  const customPath = "m/48'/0'/1'/2'";
+  const seedA = 'salon smoke bubble dolphin powder govern rival sport better arrest certain manual';
+  const seedB = 'chaos word void picture gas update shop wave task blossom close inner';
+  const passA = '9WDdFSZX4d6mPxkr';
+  const strangerSeed = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+
+  // builds the public, xpub-only config a customer re-imports on a new phone
+  const buildConfig = ({ withPassphrase = false, derivation = path } = {}) => {
+    const source = new MultisigHDWallet();
+    source.setDerivationPath(derivation);
+    source.addCosigner(seedA, undefined, undefined, withPassphrase ? passA : undefined);
+    source.addCosigner(seedB);
+    source.setM(2);
+    const config = new MultisigHDWallet();
+    config.setSecret(source.getXpub()); // coordination setup contains only public keys
+    return config;
+  };
+
+  it('matches a standard cosigner seed and rejects a non-cosigner (scenario 1)', () => {
+    const w = buildConfig();
+    assert.strictEqual(findCosignerIndexForSeed(w, seedA, undefined), 1);
+    assert.strictEqual(findCosignerIndexForSeed(w, seedB, undefined), 2);
+    assert.strictEqual(findCosignerIndexForSeed(w, strangerSeed, undefined), -1);
+  });
+
+  it('matches a cosigner whose seed uses a BIP39 passphrase (scenario 2)', () => {
+    const w = buildConfig({ withPassphrase: true });
+    assert.strictEqual(findCosignerIndexForSeed(w, seedA, passA), 1);
+    // the historic bug: matching without (or with the wrong) passphrase must NOT succeed
+    assert.strictEqual(findCosignerIndexForSeed(w, seedA, undefined), -1);
+    assert.strictEqual(findCosignerIndexForSeed(w, seedA, 'wrong-passphrase'), -1);
+  });
+
+  it('matches cosigners registered at different per-cosigner derivation paths (scenario 3)', () => {
+    const w = new MultisigHDWallet();
+    w.setNativeSegwit();
+    w.addCosigner(MultisigHDWallet.seedToXpub(seedA, customPath), MultisigHDWallet.mnemonicToFingerprint(seedA, ''), customPath);
+    w.addCosigner(MultisigHDWallet.seedToXpub(seedB, path), MultisigHDWallet.mnemonicToFingerprint(seedB, ''), path);
+    w.setM(2);
+    assert.strictEqual(w.getCustomDerivationPathForCosigner(1), customPath);
+    assert.strictEqual(findCosignerIndexForSeed(w, seedA, undefined), 1);
+    assert.strictEqual(findCosignerIndexForSeed(w, seedB, undefined), 2);
+  });
+
+  it('falls back to per-cosigner xpub derivation when no fingerprint is available', () => {
+    // a config whose fingerprints are unknown ('00000000'): fingerprint match cannot work, so
+    // matching must rely on deriving the xpub at each cosigner's own path
+    const w = new MultisigHDWallet();
+    w.setNativeSegwit();
+    w.addCosigner(MultisigHDWallet.seedToXpub(seedA, customPath), '00000000', customPath);
+    w.addCosigner(MultisigHDWallet.seedToXpub(seedB, path), '00000000', path);
+    w.setM(2);
+    assert.strictEqual(findCosignerIndexForSeed(w, seedA, undefined), 1);
+    assert.strictEqual(findCosignerIndexForSeed(w, seedB, undefined), 2);
+    assert.strictEqual(findCosignerIndexForSeed(w, strangerSeed, undefined), -1);
+  });
+
+  it('matches a cosigner from a sortedmulti() descriptor (empty global path, per-cosigner paths)', () => {
+    const config = buildConfig();
+    const x1 = config.getCosigner(1);
+    const x2 = config.getCosigner(2);
+    const f1 = config.getFingerprint(1);
+    const f2 = config.getFingerprint(2);
+    const descriptor = 'wsh(sortedmulti(2,[' + f1 + '/48h/0h/0h/2h]' + x1 + '/0/*,[' + f2 + '/48h/0h/0h/2h]' + x2 + '/0/*))';
+    const w = new MultisigHDWallet();
+    assert.doesNotThrow(() => w.setSecret(descriptor));
+    assert.strictEqual(w.getN(), 2);
+    assert.strictEqual(w.getDerivationPath(), ''); // descriptors keep an empty global path (as upstream); per-cosigner paths are authoritative
+    assert.strictEqual(findCosignerIndexForSeed(w, seedA, undefined), 1);
   });
 });
