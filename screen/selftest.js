@@ -473,6 +473,48 @@ export default class Selftest extends Component {
         );
       });
 
+      await step('Multisig real wallet: import coordination setup + reconstruct & sign the actual on-chain withdrawal', async () => {
+        const w = new MultisigHDWallet();
+        w.setSecret(REAL_MULTISIG_COORD);
+        assertStrictEqual(w.getM() + '/' + w.getN(), '2/3', 'real multisig policy');
+        // the throwaway seed is cosigner 3 of this vault
+        assertStrictEqual(findCosignerIndexForSeed(w, REAL_MULTISIG_SEED), 3, 'real wallet cosigner index');
+        assertStrictEqual(w.getFingerprint(3), '3D0C4290', 'real wallet cosigner fingerprint');
+        // the wallet derives the address the deposit actually paid to
+        assertStrictEqual(w._getExternalAddressByIndex(0), REAL_DEPOSIT.address, 'real wallet deposit address');
+
+        // load our seed and rebuild the exact withdrawal that was broadcast
+        w.replaceCosignerXpubWithSeed(3, REAL_MULTISIG_SEED, '');
+        const { psbt } = w.createTransaction(
+          [REAL_DEPOSIT],
+          [{ address: REAL_WITHDRAW_DEST, value: 43662 }],
+          2,
+          w._getInternalAddressByIndex(0),
+          0xffffffff,
+          true, // skip signing; we cosign below
+        );
+        const unsigned = bitcoin.Transaction.fromBuffer(psbt.data.globalMap.unsignedTx.toBuffer());
+        assertStrictEqual(unsigned.getId(), REAL_WITHDRAW_TXID, 'reconstructed withdrawal must match the broadcast txid');
+
+        // sign as cosigner 3 and confirm it reproduces the real on-chain signature
+        w.cosignPsbt(psbt);
+        const partialSig = psbt.data.inputs[0].partialSig || [];
+        assertStrictEqual(partialSig.length, 1, 'one signature (2-of-3, single device)');
+        assertStrictEqual(partialSig[0].signature.toString('hex'), REAL_WITHDRAW_SIG, 'reproduces the real cosigner-3 signature');
+      });
+
+      if (isRN) {
+        await step('Multisig real wallet: Electrum sees the on-chain withdrawal', async () => {
+          await BlueElectrum.waitTillConnected();
+          // confirmed tx -> stays in history forever even though the wallet is now empty (drift-proof)
+          const txs = await BlueElectrum.getTransactionsByAddress(REAL_DEPOSIT.address);
+          const found = txs.some(t => t.tx_hash === REAL_WITHDRAW_TXID);
+          if (!found) throw new Error('withdrawal tx not found in multisig address history');
+        });
+      } else {
+        log('- Multisig Electrum history: skipped (not RN)');
+      }
+
       log(`all tests passed in ${Date.now() - tStart}ms`);
     } catch (Err) {
       errorMessage += Err;
@@ -563,6 +605,27 @@ const MULTISIG_SEED_1 = 'abandon abandon abandon abandon abandon abandon abandon
 const MULTISIG_SEED_2 = 'chaos word void picture gas update shop wave task blossom close inner';
 const MULTISIG_SEED_3 = 'plate inform scissors pill asset scatter people emotion dose primary together expose';
 const MULTISIG_PATHS = { native: "m/48'/0'/0'/2'", wrapped: "m/48'/0'/0'/1'", legacy: "m/45'" };
+
+// --- Real (throwaway) multisig used by the on-chain diagnostics below. ---
+// These keys are committed ON PURPOSE: the wallet is a 2-of-3 burner that was funded once,
+// emptied, and must NEVER be funded again. Do not treat the seed below as a real secret.
+const REAL_MULTISIG_SEED = 'sand tone actor sell tone rough install divert decrease assist erode rice'; // cosigner 3 (fp 3D0C4290)
+const REAL_MULTISIG_COORD =
+  "# BlueWallet Multisig setup file\n# this file contains only public keys and is safe to\n# distribute among cosigners\n#\nName: Multisig Vault\nPolicy: 2 of 3\nDerivation: m/48'/0'/0'/2'\nFormat: P2WSH\n\nC20EF17C: xpub6EddsFof5PpmSjPrUkSBGPFD8JdFcLL5jV9J2TgRzHtdTFR47eZn4bAKUQviqZv2RqBKPyYX78zLXrWWE8UkGmL8UyZJS7rn2CGqViMjQQi\n\n426222B6: Zpub74dh4k2u2m27KG5x7Dw3KCJen7f1NRa4ikofK13u8k8Sos7pru1aZSkZSr7TyYQBHn6orV4cqvLbcQ7BQdFUJEKTsCYmoeb6uFc4sTeFgUY\n\n3D0C4290: Zpub74s3GBiqviXUzq2WFueBSVgWPLHNNvTbeed8rzwZMewpcvmUtAPNv84gMJPgGStCL3pyLGqoaH1CpbS4MhXNLNwTgEWPhgmryF1NQg3CJBn\n\n";
+const REAL_DEPOSIT = {
+  txId: 'a817cc0da4c0edce6c4fcdd7d94acf741aaa439dc5b54d1c84099c4ec0d9e1e9',
+  txid: 'a817cc0da4c0edce6c4fcdd7d94acf741aaa439dc5b54d1c84099c4ec0d9e1e9',
+  vout: 0,
+  value: 44112,
+  address: 'bc1qgv72gjdadr9rmf5fxwdagpqczxv089a8ykjy9tuuq40kc4x94w6s7d73am', // external[0]
+  txhex:
+    '02000000000101993fc3a83e6597b6c032ecc86e81d2c5edaec2d803b86c0fdbadc57e2341c6e20100000000fdffffff0150ac000000000000220020433ca449bd68ca3da689339bd404181198f397a725a442af9c055f6c54c5abb50140fb95c93998aeb9e85c86802d509799bac1fddf03f19c85d262a3883b2f61688b9b11e849f3410c324f96ad17f2195657dd66fae876fc76cb6bc471db0d1f70f900000000',
+};
+const REAL_WITHDRAW_DEST = 'bc1q00etgmkyxp4tvw7hham0hzh80hex2hyl2f5nv88hmffd0qx7lkjspm8aln';
+const REAL_WITHDRAW_TXID = '441f7d6d3c9dd71d5c005ccdf5bad272cd858bff63057b2f7985be3faf756575';
+// cosigner 3's real signature in the broadcast witness for the input above
+const REAL_WITHDRAW_SIG =
+  '3045022100f815bee168ad1407a7ec03bbcde53bbfbb0e92cc4b9f1fffb173266ebddd1da2022052f9fcd687dd71a234553bf20a287c263ce0ff9e1e957fc05a9374ee70d8fa5401';
 
 function setMultisigFormat(w, kind) {
   if (kind === 'native') w.setNativeSegwit();
