@@ -31,11 +31,11 @@ permissions:
 jobs:
   android-apk:
     name: Android APK
-    # macOS to match the proven v* release build: the RN postinstall runs pod
-    # install (needs CocoaPods) and the JS bundle needs the postinstall
-    # shims/patches, so scripts must run.
-    runs-on: macos-15
-    timeout-minutes: 45
+    # Ubuntu: faster + cheaper than macOS for Android. The RN postinstall must
+    # run (JS-bundle shims + patch-package), but its pod-install step is
+    # Mac-guarded (scripts/podinstall.sh -> darwin* only), so it no-ops here.
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
