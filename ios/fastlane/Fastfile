@@ -1,23 +1,38 @@
-# This file contains the fastlane.tools configuration
-# You can find the documentation at https://docs.fastlane.tools
-#
-# For a list of all available actions, check out
-#
-#     https://docs.fastlane.tools/actions
-#
-# For a list of all available plugins, check out
-#
-#     https://docs.fastlane.tools/plugins/available-plugins
-#
-
-# Uncomment the line if you want fastlane to automatically update itself
-# update_fastlane
-
 default_platform(:ios)
 
 platform :ios do
-  desc "Description of what the lane does"
-  lane :custom_lane do
-    # add actions here: https://docs.fastlane.tools/actions
+  # Builds the prod (BlueWallet scheme -> .env.prd) app and uploads it to TestFlight.
+  # Auth + provisioning are handled by an App Store Connect API key; the distribution
+  # certificate is imported into the keychain by the CI workflow before this runs.
+  desc "Build and upload an internal build to TestFlight"
+  lane :beta do
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_filepath: ENV.fetch("ASC_KEY_PATH"),
+    )
+
+    # CI run number -> monotonic build number, so each develop merge uploads cleanly.
+    increment_build_number(
+      xcodeproj: "BlueWallet.xcodeproj",
+      build_number: ENV.fetch("BUILD_NUMBER"),
+    )
+
+    build_app(
+      workspace: "BlueWallet.xcworkspace",
+      scheme: "BlueWallet", # prod scheme; its pre-action selects .env.prd (CI also writes /tmp/envfile)
+      configuration: "Release",
+      export_method: "app-store",
+      # ASC API key authorises xcodebuild to fetch/create the App Store provisioning profile.
+      xcargs: "-allowProvisioningUpdates",
+      output_directory: "build",
+      output_name: "DFXBitcoin.ipa",
+      clean: true,
+    )
+
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true,
+    )
   end
 end
