@@ -1,0 +1,111 @@
+name: Deploy (develop)
+
+# On every merge to develop: build a signed Android APK (uploaded as a workflow
+# artifact) and ship an iOS build to TestFlight. Versioned App Store / Play Store
+# releases stay on the existing v* tag flow (build-release-apk.yml).
+#
+# Required repository secrets:
+#   Android (already used by the v* release flow):
+#     KEYSTORE_FILE_HEX, KEYSTORE_PASSWORD, KEYSTORE_KEY_PASSWORD, KEYSTORE_ALIAS
+#   iOS (new — must be added):
+#     ASC_API_KEY_P8          App Store Connect API key (.p8 file contents)
+#     ASC_KEY_ID              ASC API key ID
+#     ASC_ISSUER_ID           ASC API key issuer ID
+#     IOS_DIST_CERT_P12       Apple Distribution cert + private key, base64 of a .p12
+#     IOS_DIST_CERT_PASSWORD  password for the .p12
+# Prerequisites: the app exists on App Store Connect under team Y4QBY6387T with
+# bundle id swiss.dfx.bitcoin, and the ASC API key has access to it.
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-develop
+  cancel-in-progress: false # never cancel an in-flight TestFlight upload
+
+permissions:
+  contents: read
+
+jobs:
+  android-apk:
+    name: Android APK
+    # macOS to match the proven v* release build: the RN postinstall runs pod
+    # install (needs CocoaPods) and the JS bundle needs the postinstall
+    # shims/patches, so scripts must run.
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Install node_modules
+        run: npm ci --omit=dev
+      - name: Build signed release APK (.env.prd)
+        env:
+          KEYSTORE_FILE_HEX: ${{ secrets.KEYSTORE_FILE_HEX }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
+          KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          KS="$(mktemp /tmp/app-signing.XXXXXX.keystore)"; chmod 600 "$KS"
+          trap 'shred -u "$KS" 2>/dev/null || rm -f "$KS"' EXIT
+          printf '%s' "$KEYSTORE_FILE_HEX" | xxd -plain -revert > "$KS"
+          cd android
+          ./gradlew assembleRelease \
+            -PMYAPP_UPLOAD_STORE_FILE="$KS" \
+            -PMYAPP_UPLOAD_KEY_ALIAS="$KEYSTORE_ALIAS" \
+            -PMYAPP_UPLOAD_STORE_PASSWORD="$KEYSTORE_PASSWORD" \
+            -PMYAPP_UPLOAD_KEY_PASSWORD="$KEYSTORE_KEY_PASSWORD" \
+            -PMYAPP_VERSION_CODE="$BUILD_NUMBER"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dfx-bitcoin-develop-${{ github.run_number }}
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+
+  ios-testflight:
+    name: iOS TestFlight
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: 'Install node_modules (runs RN postinstall: shims, pods, patches)'
+        run: npm ci
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: ios
+      - name: Select prod env for the build
+        run: echo ".env.prd" > /tmp/envfile
+      - name: Import Apple distribution certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.IOS_DIST_CERT_P12 }}
+          p12-password: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
+      - name: Write App Store Connect API key
+        run: |
+          echo "${{ secrets.ASC_API_KEY_P8 }}" > "$RUNNER_TEMP/AuthKey.p8"
+          echo "ASC_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+      - name: Build + upload to TestFlight
+        working-directory: ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: bundle exec fastlane beta
