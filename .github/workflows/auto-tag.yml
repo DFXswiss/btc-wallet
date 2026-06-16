@@ -1,0 +1,67 @@
+name: Auto Tag on Merge
+
+# Every merge to develop creates the next internal-release tag vX.Y.Z (PATCH+1),
+# which triggers the release workflow. A manual vX.Y.0 tag = production candidate.
+# Mirrors RealUnitCH/app's auto-tag.yaml.
+
+on:
+  push:
+    branches: [develop]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-tag
+  cancel-in-progress: false
+
+jobs:
+  create-tag:
+    name: Create internal release tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      # Deploy key so the tag push re-triggers the release workflow — a push
+      # made with the default GITHUB_TOKEN does NOT trigger other workflows.
+      - uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.TAG_DEPLOY_KEY }}
+      - name: Use SSH remote
+        run: git remote set-url origin "git@github.com:${{ github.repository }}.git"
+
+      - name: Compute next tag
+        id: next
+        run: |
+          set -euo pipefail
+          LATEST=$(git tag -l --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1 || true)
+          [ -n "$LATEST" ] || LATEST="v0.0.0"
+          VER="${LATEST#v}"
+          MAJOR=$(echo "$VER" | cut -d. -f1); MINOR=$(echo "$VER" | cut -d. -f2); PATCH=$(echo "$VER" | cut -d. -f3)
+          NEXT="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+          # Floor to the marketing version in build.gradle, so a manual MAJOR/MINOR
+          # bump there triggers a jump (patch increments still come from tag history).
+          GRADLE_VER=$(grep "releaseVersionName" android/app/build.gradle | grep -oE "[0-9]+\.[0-9]+\.[0-9]+" | tail -n1 || true)
+          if [ -n "$GRADLE_VER" ]; then
+            HIGHEST=$(printf '%s\n%s\n' "${NEXT#v}" "$GRADLE_VER" | sort -V | tail -n1)
+            NEXT="v${HIGHEST}"
+          fi
+          echo "tag=$NEXT" >> "$GITHUB_OUTPUT"
+          echo "::notice::Latest tag $LATEST -> next $NEXT"
+
+      - name: Create + push tag
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.next.outputs.tag }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "::error::Tag $TAG already exists"; exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Internal release $TAG"
+          git push origin "$TAG"
+          echo "::notice::Created and pushed $TAG"
