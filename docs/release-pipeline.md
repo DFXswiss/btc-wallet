@@ -5,6 +5,9 @@ Full end-to-end, tag-driven store-release automation for **btc-wallet**, trackin
 [`RealUnitCH/app`](https://github.com/RealUnitCH/app)'s pipeline 1:1, adapted from
 its Flutter stack to our React Native (BlueWallet-fork) stack.
 
+> **Setting it up?** The one-time provisioning — every secret and exactly where to get it —
+> is in the companion runbook [`release-pipeline-setup.md`](./release-pipeline-setup.md).
+
 **Goal:** a single Git tag builds, signs, and uploads **both** the binary **and** the
 store listing (texts, images, screenshots) to **App Store Connect / TestFlight** and the
 **Google Play Store** — no manual upload steps beyond the final human "Submit/Promote"
