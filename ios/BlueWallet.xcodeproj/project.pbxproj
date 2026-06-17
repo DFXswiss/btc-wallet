@@ -760,6 +760,7 @@
 				SWIFT_VERSION = 4.2;
 				USE_HERMES = true;
 				VALIDATE_PRODUCT = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 			};
 			name = Release;
 		};
