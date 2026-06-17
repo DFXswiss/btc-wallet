@@ -22,7 +22,7 @@ All implemented in one PR ([#181](https://github.com/DFXswiss/btc-wallet/pull/18
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| 1 | Versioning generator + `auto-tag` + `release` skeleton (guard + version + concurrency) | ✅ done, proven on fork (`v9.9.9` test) |
+| 1 | Versioning generator + `auto-tag` + `release` skeleton (guard + version + concurrency) | ✅ done, validated (`v9.9.9` test tag) |
 | 2 | iOS lane: `match` + `gym` + `upload_to_testflight` + staged `deliver` | ✅ implemented (needs certs repo + ASC) |
 | 3 | Android lane: `supply` → Play `beta`, on the attested AAB | ✅ implemented (needs Play service account) |
 | 4 | metadata (de-DE/en-US) + `check-store-metadata.sh` + `store-metadata.yml` | ✅ scaffolded (real copy + legal URLs are `FIXME-`, gated by preflight) |
@@ -134,4 +134,4 @@ No secret **values** live in this repo — only names. Provision them in repo/or
 ---
 
 ## Validation log
-- **Phase 1** (fork `Danswar/btc-wallet`): pushed a `v9.9.9` test tag → `release.yml` guard routed it (`PATCH=9 → internal`) and derived `marketing_version=9.9.9`, `version_code=90909999`. Green. Test tag deleted.
+- **Phase 1**: pushed a `v9.9.9` test tag → `release.yml` guard routed it (`PATCH=9 → internal`) and derived `marketing_version=9.9.9`, `version_code=90909999`. Green. Test tag deleted.
