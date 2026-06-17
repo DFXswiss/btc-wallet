@@ -1,0 +1,4 @@
+git_url("git@github.com:DFXswiss/btc-wallet-certificates.git")
+storage_mode("git")
+type("appstore")
+app_identifier("swiss.dfx.bitcoin")

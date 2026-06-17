@@ -1,0 +1,2 @@
+json_key_file("./credentials.json") # Play Console service account (PLAY_STORE_JSON_BASE64 at runtime)
+package_name("swiss.dfx.bitcoin")

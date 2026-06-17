@@ -1,2 +1,4 @@
 app_identifier("swiss.dfx.bitcoin")
 team_id("Y4QBY6387T") # Apple Developer Portal team
+# App Store Connect team id (only needed if the Apple ID belongs to several ASC teams):
+itc_team_id(ENV["ASC_TEAM_ID"]) if ENV["ASC_TEAM_ID"]
