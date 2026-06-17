@@ -58,6 +58,16 @@ These already exist (used by `build-release-apk.yml`). The new pipeline reuses t
 
 ## One-time external setup
 
+### 0. App ID capabilities (enable FIRST)
+The iOS build requests **NFC Tag Reading**, **Push Notifications**, and **App Groups**. The
+App Store provisioning profile `match` generates must include all three, so before seeding
+`match` (step 1), in the Apple Developer portal → **Certificates, Identifiers & Profiles → Identifiers**:
+- Open the **`swiss.dfx.bitcoin`** App ID and enable **NFC Tag Reading**, **Push Notifications**, **App Groups**.
+- Under **App Groups**, register **`group.swiss.dfx.bitcoin`** and assign it to the App ID.
+
+If any of these is missing, the first build fails with *"provisioning profile doesn't include the …
+capability"* — the same error class we hit signing on a device. Enabling them up front avoids it.
+
 ### 1. `match` certificates repo (iOS signing)
 1. Create an **empty private** repo `DFXswiss/btc-wallet-certificates`.
 2. Add the `match` deploy key public half to it (write) — see `MATCH_SSH_KEY` above.
