@@ -26,7 +26,7 @@ All implemented in one PR ([#181](https://github.com/DFXswiss/btc-wallet/pull/18
 | 2 | iOS lane: `match` + `gym` + `upload_to_testflight` + staged `deliver` | ✅ implemented (needs certs repo + ASC) |
 | 3 | Android lane: `supply` → Play `beta`, on the attested AAB | ✅ implemented (needs Play service account) |
 | 4 | metadata (de-DE/en-US) + `check-store-metadata.sh` + `store-metadata.yml` | ✅ scaffolded (real copy + legal URLs are `FIXME-`, gated by preflight) |
-| 5 | Cleanup: remove placeholder `custom_lane`; reconcile legacy CircleCI / AppCenter | ◑ `custom_lane` replaced; CircleCI/AppCenter reconcile still open |
+| 5 | Cleanup: remove placeholder `custom_lane`; remove legacy CircleCI / App Center | ✅ done (both deleted; BlueWallet upstream had already removed them) |
 
 > Superseded: the earlier `push: develop` → APK-artifact + TestFlight workflow (PR #180)
 > was replaced by this tag-driven design. Its iOS fastlane scaffolding carries over.
