@@ -118,6 +118,10 @@ jobs:
     if: needs.guard.outputs.proceed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    permissions:
+      contents: read
+      id-token: write # actions/attest: request the OIDC signing token
+      attestations: write # actions/attest: write provenance to the attestation store
     env:
       BUNDLETOOL_VERSION: 1.18.3
     steps:
@@ -156,6 +160,36 @@ jobs:
           TRANSPARENCY_PASSWORD: ${{ secrets.TRANSPARENCY_PASSWORD }}
           TRANSPARENCY_ALIAS: ${{ secrets.TRANSPARENCY_ALIAS }}
         run: bundle exec fastlane beta
+      - name: Prepare release assets + checksums
+        run: bash ./.github/scripts/prepare-release-assets.sh
+      # Provenance for the same attested artifacts the v* flow has always produced,
+      # now built at the tag-derived version (previously in build-release-apk.yml).
+      - name: Attest APK
+        uses: actions/attest@v4
+        with:
+          subject-path: ./android/app/build/outputs/apk/release/app-release.apk
+      - name: Attest APK signature
+        uses: actions/attest@v4
+        with:
+          subject-path: ./android/app/build/outputs/apk/release/app-release.apk.idsig
+      - name: Attest AAB
+        uses: actions/attest@v4
+        with:
+          subject-path: ./android/app/build/outputs/bundle/release/app-release-transparent.aab
+      - name: Attest transparency certificate
+        uses: actions/attest@v4
+        with:
+          subject-path: ./android/app/build/outputs/bundle/release/transparency-cert.pem
+      - name: Attest checksums
+        uses: actions/attest@v4
+        with:
+          subject-path: ${{ env.RELEASE_ASSETS_DIR }}/SHA256SUMS
+      - name: Upload attested assets for the github-release job
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-assets
+          path: ${{ env.RELEASE_ASSETS_DIR }}
+          if-no-files-found: error
 
   github-release:
     name: GitHub release
@@ -164,7 +198,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Create / update release
+      - name: Download attested release assets
+        uses: actions/download-artifact@v4
+        with:
+          name: android-release-assets
+          path: release-assets
+      - name: Create / update release + attach attested assets
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
@@ -178,3 +217,4 @@ jobs:
           else
             gh release create "$TAG" --repo "${{ github.repository }}" --title "$TAG" --generate-notes $FLAG
           fi
+          gh release upload "$TAG" --repo "${{ github.repository }}" --clobber release-assets/*
