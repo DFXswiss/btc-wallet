@@ -18,7 +18,7 @@ name: Deploy (develop)
 
 on:
   push:
-    branches: [develop]
+    branches: [develop, fix/ios-deploy-match]
   workflow_dispatch:
 
 concurrency:
