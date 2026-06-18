@@ -147,7 +147,7 @@
     "detox": "^20.25.0",
     "ecpair": "2.0.1",
     "ecurve": "1.0.6",
-    "electrum-client": "github:BtcTaroWallet/rn-electrum-client#3fd8ac4",
+    "electrum-client": "github:BtcTaroWallet/rn-electrum-client#cba3cc36f874899becfdaf319fd8684532204699",
     "electrum-mnemonic": "2.0.0",
     "events": "3.3.0",
     "junderw-crc32c": "1.2.0",
