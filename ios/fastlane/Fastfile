@@ -41,7 +41,7 @@ platform :ios do
       export_method: "app-store",
       output_directory: "build",
       output_name: "DFXBitcoin.ipa",
-      clean: true,
+      clean: false,
       export_options: {
         provisioningProfiles: { "swiss.dfx.bitcoin" => PROFILE_NAME },
       },
