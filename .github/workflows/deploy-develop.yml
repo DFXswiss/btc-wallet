@@ -76,10 +76,14 @@ jobs:
 
   ios-testflight:
     name: iOS TestFlight
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+      - name: Show Xcode + SDK version
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
       - uses: actions/setup-node@v4
         with:
           node-version: 20
