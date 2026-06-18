@@ -84,7 +84,7 @@ platform :ios do
       skip_binary_upload: true,
       skip_app_version_update: false,
       skip_metadata: false,
-      skip_screenshots: false,
+      skip_screenshots: true, # no committed screenshots yet — leave the live App Store set untouched
     )
   end
 
@@ -98,7 +98,7 @@ platform :ios do
       skip_binary_upload: true,
       skip_app_version_update: false,
       skip_metadata: false,
-      skip_screenshots: false,
+      skip_screenshots: true, # no committed screenshots yet — leave the live App Store set untouched
     )
   end
 end

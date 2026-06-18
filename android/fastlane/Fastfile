@@ -59,8 +59,8 @@ platform :android do
       skip_upload_aab: true,
       skip_upload_changelogs: true,
       skip_upload_metadata: false,
-      skip_upload_images: false,
-      skip_upload_screenshots: false,
+      skip_upload_images: true, # empty image folders — keep the live Play graphics
+      skip_upload_screenshots: true, # no committed screenshots yet — keep the live Play set
     )
   end
 
@@ -75,8 +75,8 @@ platform :android do
       skip_upload_aab: true,
       skip_upload_changelogs: true,
       skip_upload_metadata: false,
-      skip_upload_images: false,
-      skip_upload_screenshots: false,
+      skip_upload_images: true, # empty image folders — keep the live Play graphics
+      skip_upload_screenshots: true, # no committed screenshots yet — keep the live Play set
     )
   end
 end
