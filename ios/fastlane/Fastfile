@@ -9,6 +9,12 @@ platform :ios do
   # never mutates them. The ASC API key authorises match + the TestFlight upload.
   desc "Build and upload an internal build to TestFlight"
   lane :beta do
+    # Required fastlane CI signing prep (not a stopgap): makes a dedicated, unlocked
+    # keychain the session default so match installs the cert there and sets its
+    # key-partition-list — codesign then reads the key without the GUI prompt that
+    # would otherwise hang the build on a headless runner.
+    setup_ci
+
     api_key = app_store_connect_api_key(
       key_id: ENV.fetch("ASC_KEY_ID"),
       issuer_id: ENV.fetch("ASC_ISSUER_ID"),
