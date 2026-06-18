@@ -44,9 +44,14 @@ EXTRA=$(printf '%s' "$VER" | cut -d. -f4)
 for seg in "$MAJOR" "$MINOR" "$PATCH"; do
   case "$seg" in
     '' | *[!0-9]*) echo "release-version: version segments must be numeric, got: $RAW" >&2; exit 1 ;;
+    0[0-9]*) echo "release-version: version segments must not have leading zeros, got: $RAW" >&2; exit 1 ;;
   esac
   [ "$seg" -ge 0 ] && [ "$seg" -le 99 ] || { echo "release-version: segments must be 0..99, got: $RAW" >&2; exit 1; }
 done
+
+if [ "$MAJOR" -eq 0 ] && [ "$MINOR" -eq 0 ] && [ "$PATCH" -eq 0 ]; then
+  echo "release-version: v0.0.0 is reserved for the dev sentinel, not a release, got: $RAW" >&2; exit 1
+fi
 
 VERSION_CODE=$(( MAJOR * 10000000 + MINOR * 100000 + PATCH * 1000 + 999 ))
 emit "$VER" "$VER" "$VERSION_CODE"
