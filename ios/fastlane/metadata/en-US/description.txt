@@ -1,1 +1,1 @@
-FIXME-app-store-description
+DFX Bitcoin Wallet allows you to store, send and receive Bitcoin with a focus on security and simplicity. You own your private keys at all times. Bank to Wallet, Wallet to Bank. You can instantly transact with anyone in the world and change the financial system right from your pocket.

@@ -1,1 +1,1 @@
-FIXME-https://privacy-url
+https://docs.dfx.swiss/en/privacy.html
