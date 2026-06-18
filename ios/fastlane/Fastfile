@@ -23,6 +23,11 @@ platform :ios do
 
     match(type: "appstore", readonly: true, api_key: api_key)
 
+    # Marketing version must exceed the last approved App Store version (2.0.3 is a
+    # closed train), or TestFlight rejects the upload. Dev builds share one in-dev
+    # version with incrementing build numbers.
+    increment_version_number(version_number: "2.0.4", xcodeproj: "BlueWallet.xcodeproj")
+
     # CI run number -> monotonic build number, so each develop merge uploads cleanly.
     increment_build_number(
       xcodeproj: "BlueWallet.xcodeproj",
