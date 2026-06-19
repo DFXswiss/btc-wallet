@@ -12,7 +12,7 @@ import QRCodeComponent from '../../components/QRCodeComponent';
 import BoltCard from '../../class/boltcard';
 import loc from '../../loc';
 
-const DeleteBolcard: React.FC = () => {
+const DeleteBolcard: React.FC & { navigationOptions?: ReturnType<typeof navigationStyle> } = () => {
   const { wallets } = useContext(BlueStorageContext);
   const { colors } = useTheme();
   const ldsWallet = wallets.find((w: AbstractWallet) => w.type === LightningLdsWallet.type) as LightningLdsWallet;

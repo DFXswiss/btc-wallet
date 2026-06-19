@@ -11,16 +11,17 @@ import useLdsBoltcards from '../../api/boltcards/hooks/bolcards.hook';
 import { useNtag424 } from '../../api/boltcards/hooks/ntag424.hook';
 import { AbstractWallet } from '../../class';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useTheme } from '@react-navigation/native';
+import { ParamListBase, useNavigation, useTheme } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import loc from '../../loc';
 import BoltCard from '../../class/boltcard';
 import { TypeError } from '../../helpers/ErrorCodes';
 import { HoldCardModal } from '../../components/HoldCardModal';
 import { getProgressStringGenerator } from '../../helpers/stringProgressBar';
 
-const AddBoltcard: React.FC = () => {
+const AddBoltcard: React.FC & { navigationOptions?: ReturnType<typeof navigationStyle> } = () => {
   const { wallets, saveToDisk } = useContext(BlueStorageContext);
-  const { navigate } = useNavigation();
+  const { navigate } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { colors } = useTheme();
   const ldsWallet = wallets.find((w: AbstractWallet) => w.type === LightningLdsWallet.type) as LightningLdsWallet;
   const [isLoading, setIsLoading] = useState(false);

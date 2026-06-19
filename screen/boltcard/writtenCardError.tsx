@@ -4,15 +4,16 @@ import { Icon, Text } from 'react-native-elements';
 import navigationStyle from '../../components/navigationStyle';
 import { BlueButton, BlueSpacing20, SecondButton } from '../../BlueComponents';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { ParamListBase, useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BolcardSecrets } from '../../models/boltcard';
 import alert from '../../components/Alert';
 import { useNtag424 } from '../../api/boltcards/hooks/ntag424.hook';
 import { HoldCardModal } from '../../components/HoldCardModal';
 import loc from '../../loc';
 
-const WrittenCardError: React.FC = () => {
-  const { navigate, goBack } = useNavigation();
+const WrittenCardError: React.FC & { navigationOptions?: ReturnType<typeof navigationStyle> } = () => {
+  const { navigate, goBack } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { name } = useRoute();
   const { colors } = useTheme();
   const [secrets, setSecrets] = useState<BolcardSecrets>();
