@@ -12,6 +12,7 @@ const bitcoin = require('bitcoinjs-lib');
 const createHash = require('create-hash');
 const reverse = require('buffer-reverse');
 const mn = require('electrum-mnemonic');
+const { buildToSignPsbt, extractSimpleSignature, verifyBip322Signature, BIP322_INCOMPLETE_PSBT } = require('../bip322');
 
 const electrumSegwit = passphrase => ({
   prefix: mn.PREFIXES.segwit,
@@ -985,7 +986,86 @@ export class MultisigHDWallet extends AbstractHDElectrumWallet {
   }
 
   allowSignVerifyMessage() {
-    return false;
+    return this.isNativeSegwit();
+  }
+
+  /**
+   * Produces a BIP-322 simple signature (base64 witness stack) for this multisig wallet,
+   * matching the OP_M ... OP_N OP_CHECKMULTISIG witness script of a native P2WSH address.
+   *
+   * If the locally available cosigners can produce all M signatures, returns the final
+   * BIP-322 simple signature ready to submit to the verifier.
+   *
+   * If only a subset is available, throws an Error with `code = BIP322_INCOMPLETE_PSBT`
+   * and `psbtBase64` containing the partially signed PSBT, so callers can route it
+   * through the existing PsbtMultisig co-signing flow.
+   *
+   * @param {string} message
+   * @param {string} address - native P2WSH (bc1q…, 62 chars) belonging to this wallet
+   * @returns {string} base64 BIP-322 simple signature
+   */
+  signMessage(message, address) {
+    if (!this.isNativeSegwit()) {
+      throw new Error('BIP-322 signMessage requires a native P2WSH multisig wallet');
+    }
+
+    const bip32Derivation = [];
+    const pubkeys = [];
+    let derivedPath;
+    for (const [cosignerIndex, cosigner] of this._cosigners.entries()) {
+      const cosignerPath = this._getDerivationPathByAddressWithCustomPath(
+        address,
+        this._cosignersCustomPaths[cosignerIndex] || this._derivationPath,
+      );
+      if (!cosignerPath) throw new Error('Address does not belong to this multisig wallet');
+      derivedPath = cosignerPath;
+
+      const masterFingerprint = Buffer.from(this._cosignersFingerprints[cosignerIndex], 'hex');
+      const xpub = this._getXpubFromCosigner(cosigner);
+      const hdNode = bip32.fromBase58(xpub);
+      const splt = cosignerPath.split('/');
+      const internal = +splt[splt.length - 2];
+      const idx = +splt[splt.length - 1];
+      const pubkey = hdNode.derive(internal).derive(idx).publicKey;
+      pubkeys.push(pubkey);
+
+      bip32Derivation.push({ masterFingerprint, path: cosignerPath, pubkey });
+    }
+
+    const p2wsh = bitcoin.payments.p2wsh({
+      redeem: bitcoin.payments.p2ms({ m: this._m, pubkeys: MultisigHDWallet.sortBuffers(pubkeys) }),
+    });
+    if (p2wsh.address !== address) throw new Error('Derived multisig address mismatch');
+
+    const psbt = buildToSignPsbt({
+      message,
+      addressScriptPubKey: p2wsh.output,
+      witnessScript: p2wsh.redeem.output,
+      bip32Derivation,
+    });
+
+    const { tx } = this.cosignPsbt(psbt);
+    if (!tx) {
+      const err = new Error(`BIP-322 signing requires ${this._m} cosigners; PSBT exported for the missing signers`);
+      err.code = BIP322_INCOMPLETE_PSBT;
+      err.psbtBase64 = psbt.toBase64();
+      err.derivedPath = derivedPath;
+      throw err;
+    }
+    return extractSimpleSignature(tx);
+  }
+
+  /**
+   * Verifies a BIP-322 simple signature against a native P2WSH multisig address.
+   * The signature is the base64 witness stack as produced by signMessage().
+   *
+   * @param {string} message
+   * @param {string} address
+   * @param {string} signature - base64 BIP-322 simple signature
+   * @returns {boolean}
+   */
+  verifyMessage(message, address, signature) {
+    return verifyBip322Signature(message, address, signature);
   }
 
   async fetchUtxo() {

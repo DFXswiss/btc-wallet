@@ -2,6 +2,10 @@ import React, { createContext, PropsWithChildren, useContext, useMemo } from 're
 import { BlueStorageContext } from '../blue_modules/storage-context';
 import { useAuth } from '../api/dfx/hooks/auth.hook';
 import { AbstractWallet } from '../class';
+import { navigate, navigationRef } from '../NavigationService';
+import { BIP322_INCOMPLETE_PSBT, consumeBip322PendingSession, newBip322SessionId, registerBip322PendingSession } from '../class/bip322';
+
+let activeBip322SessionId: string | null = null;
 
 interface WalletInterface {
   wallet?: AbstractWallet
@@ -52,11 +56,47 @@ export function WalletContextProvider(props: PropsWithChildren<any>): JSX.Elemen
       walletID: wallets?.[0]?.getID?.(),
       address: getAddress(),
       signMessage: async (message: string, address: string): Promise<string> => {
+        const wallet = wallets?.[0];
         try {
-          return await wallets?.[0]?.signMessage(message, address);
+          return await wallet?.signMessage(message, address);
         } catch (e: any) {
-          console.error(e.message, e.code);
-          throw e;
+          if (e?.code !== BIP322_INCOMPLETE_PSBT) {
+            console.error(e.message, e.code);
+            throw e;
+          }
+          if (!navigationRef.current) {
+            throw new Error('Cannot complete BIP-322 signing: navigation not ready');
+          }
+          if (activeBip322SessionId) {
+            const previous = consumeBip322PendingSession(activeBip322SessionId);
+            if (previous) previous.reject(new Error('Superseded by a new BIP-322 signing request'));
+          }
+          return await new Promise<string>((resolve, reject) => {
+            const sessionId = newBip322SessionId();
+            activeBip322SessionId = sessionId;
+            const release = () => {
+              if (activeBip322SessionId === sessionId) activeBip322SessionId = null;
+            };
+            registerBip322PendingSession(
+              sessionId,
+              (sig: string) => {
+                release();
+                resolve(sig);
+              },
+              (err: Error) => {
+                release();
+                reject(err);
+              },
+            );
+            navigate('SendDetailsRoot', {
+              screen: 'PsbtMultisig',
+              params: {
+                walletID: wallet.getID(),
+                psbtBase64: e.psbtBase64,
+                bip322SessionId: sessionId,
+              },
+            });
+          });
         }
       },
       getOwnershipProof
