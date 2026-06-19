@@ -53,7 +53,7 @@ const Success = () => {
 
 export default Success;
 
-export const SuccessView = ({ amount, amountUnit, fee = 0, invoiceDescription, shouldAnimate = true, paymentHash, walletID }) => {
+export const SuccessView = ({ amount, amountUnit, fee = 0, invoiceDescription, shouldAnimate = true, paymentHash = undefined, walletID = undefined }) => {
   const { navigate } = useNavigation();
   const [animationFinished, setAnimationFinished] = useState(false);
   const [isRepeatable, setIsRepeatable] = useState(false);
@@ -190,6 +190,8 @@ SuccessView.propTypes = {
   fee: PropTypes.number,
   invoiceDescription: PropTypes.string,
   shouldAnimate: PropTypes.bool,
+  paymentHash: PropTypes.oneOfType([PropTypes.string, PropTypes.object]),
+  walletID: PropTypes.string,
 };
 
 const styles = StyleSheet.create({

@@ -179,7 +179,7 @@ export class LightningCustodianWallet extends LegacyWallet {
    *
    * @return {Promise.<Array>}
    */
-  async getUserInvoices(limit = false) {
+  async getUserInvoices(limit = 0) {
     let limitString = '';
     if (limit) limitString = '?limit=' + parseInt(limit, 10);
     const response = await this._api.get('/getuserinvoices' + limitString, {

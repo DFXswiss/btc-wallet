@@ -665,6 +665,10 @@ export const BlueSpacing10 = props => {
   return <View {...props} style={{ height: 10, opacity: 0 }} />;
 };
 
+/**
+ * @typedef {{ onPress?: () => void }} BlueDismissKeyboardInputAccessoryProps
+ * @type {((props?: BlueDismissKeyboardInputAccessoryProps) => JSX.Element | null) & { InputAccessoryViewID: string }}
+ */
 export const BlueDismissKeyboardInputAccessory = ({ onPress } = {}) => {
   const { colors } = useTheme();
   BlueDismissKeyboardInputAccessory.InputAccessoryViewID = 'BlueDismissKeyboardInputAccessory';
