@@ -11,18 +11,22 @@ const HashIt = function (s: string): string {
   return createHash('sha256').update(s).digest().toString('hex');
 };
 
+// The bar-scanned consumer accepts either the wrapped `{ data }` payload or a bare
+// string (see `onContentRead` in ScanCodeSend, which reads `data.data ? data.data : data`).
+type BarScannedHandler = (data: { data: string } | string) => void;
+
 export function useQrCodeScanner() {
   const [isLoading, setIsLoading] = useState(false);
   const [urTotal, setUrTotal] = useState(0);
   const [urHave, setUrHave] = useState(0);
   const [isLoadingAnimatedQRCode, setIsLoadingAnimatedQRCode] = useState(false);
-  const [animatedQRCodeData, setAnimatedQRCodeData] = useState({});
-  const [onBarScanned, setOnBarScanned] = useState(() => () => {});
+  const [animatedQRCodeData, setAnimatedQRCodeData] = useState<Record<string, string>>({});
+  const [onBarScanned, setOnBarScanned] = useState<BarScannedHandler>(() => () => {});
 
   const scannedCacheRef = useRef<Record<string, number>>({});
   const decoderRef = useRef<any>(null);
 
-  const _onReadUniformResourceV2 = part => {
+  const _onReadUniformResourceV2 = (part: string) => {
     if (!decoderRef.current) decoderRef.current = new BlueURDecoder();
     const decoder = decoderRef.current;
     try {
@@ -64,20 +68,18 @@ export function useQrCodeScanner() {
    *
    * @deprecated remove when we get rid of URv1 support
    */
-  const _onReadUniformResource = ur => {
+  const _onReadUniformResource = (ur: string) => {
     try {
       const [index, total] = extractSingleWorkload(ur);
       animatedQRCodeData[index + 'of' + total] = ur;
       setUrTotal(total);
       setUrHave(Object.values(animatedQRCodeData).length);
       if (Object.values(animatedQRCodeData).length === total) {
-        const payload = decodeUR(Object.values(animatedQRCodeData));
-        let data = false;
-        if (Buffer.from(payload, 'hex').toString().startsWith('psbt')) {
-          data = Buffer.from(payload, 'hex').toString('base64');
-        } else {
-          data = Buffer.from(payload, 'hex').toString();
-        }
+        // URv1 fragments decode to a hex string (`origDecodeUr`); narrow accordingly.
+        const payload = decodeUR(Object.values(animatedQRCodeData)) as string;
+        const data = Buffer.from(payload, 'hex').toString().startsWith('psbt')
+          ? Buffer.from(payload, 'hex').toString('base64')
+          : Buffer.from(payload, 'hex').toString();
         onBarScanned({ data });
       } else {
         setAnimatedQRCodeData(animatedQRCodeData);
@@ -102,7 +104,7 @@ export function useQrCodeScanner() {
     }
   };
 
-  const cameraCallback = ret => {
+  const cameraCallback = (ret: { data: string }) => {
     const h = HashIt(ret.data);
     const scannedCache = scannedCacheRef.current;
     if (scannedCache[h]) {
@@ -153,7 +155,7 @@ export function useQrCodeScanner() {
     setIsLoading(false);
   };
 
-  const handleOnSetOnBarScanned = callback => setOnBarScanned(() => callback);
+  const handleOnSetOnBarScanned = (callback: BarScannedHandler) => setOnBarScanned(() => callback);
 
   return {
     isLoadingAnimatedQRCode,

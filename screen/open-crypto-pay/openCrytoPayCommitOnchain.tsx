@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, TouchableOpacity, StyleSheet, Switch, View } from 'react-native';
+import { ActivityIndicator, FlatList, ListRenderItemInfo, TouchableOpacity, StyleSheet, Switch, View } from 'react-native';
 import { Text } from 'react-native-elements';
 
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
@@ -10,23 +10,38 @@ import { BitcoinUnit } from '../../models/bitcoinUnits';
 import Biometric from '../../class/biometrics';
 import loc, { formatBalance, formatBalanceWithoutSuffix } from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
-import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { ParamListBase, RouteProp, useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { AbstractWallet } from '../../class';
+import { CoinSelectOutput } from 'coinselect';
 import alert from '../../components/Alert';
 import { OpenCryptoPayPaymentLink } from '../../class/open-crypto-pay';
 const currency = require('../../blue_modules/currency');
 const Bignumber = require('bignumber.js');
 const bitcoin = require('bitcoinjs-lib');
 
+// Parameters forwarded by `getOnChainPaymentNavigation` in lnurlNavigationForwarder.tsx,
+// extended with the raw lnurl reply (`paymentLinkDetails`).
+type OnchainCommitParams = {
+  recipients: CoinSelectOutput[];
+  walletID: string;
+  fee: number;
+  memo?: string;
+  tx: string;
+  satoshiPerByte: number;
+  paymentLinkDetails: unknown;
+};
+
 const OpenCrytoPayCommitOnchain = () => {
   const { wallets } = useContext(BlueStorageContext);
   const [isBiometricUseCapableAndEnabled, setIsBiometricUseCapableAndEnabled] = useState(false);
-  const { params } = useRoute();
+  const { params } = useRoute<RouteProp<{ params: OnchainCommitParams }, 'params'>>();
   const { recipients = [], walletID, fee, memo, tx, satoshiPerByte, paymentLinkDetails } = params;
   const [isLoading, setIsLoading] = useState(false);
   const [isServerError, setIsServerError] = useState(false);
-  const wallet = wallets.find(w => w.getID() === walletID);
+  const wallet = wallets.find((w: AbstractWallet) => w.getID() === walletID);
   const feeSatoshi = new Bignumber(fee).multipliedBy(100000000).toNumber();
-  const { navigate, setOptions, replace } = useNavigation();
+  const { navigate, setOptions, replace } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { colors } = useTheme();
 
   const stylesHook = StyleSheet.create({
@@ -129,7 +144,7 @@ const OpenCrytoPayCommitOnchain = () => {
     }
   };
 
-  const _renderItem = ({ index, item }) => {
+  const _renderItem = ({ index, item }: ListRenderItemInfo<CoinSelectOutput>) => {
     return (
       <>
         <View style={styles.valueWrap}>
