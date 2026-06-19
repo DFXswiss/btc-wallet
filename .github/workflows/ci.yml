@@ -1,15 +1,26 @@
 name: Tests
 
-# Fast, deterministic PR gate: unit tests (wallet + crypto logic).
+# Fast, deterministic PR gate: lint (tsc + unused-loc + eslint) and unit tests.
 # NOT gated here (intentionally):
-#   - tsc / eslint: ~755 pre-existing errors accumulated while CI was disabled;
-#     cleaning those up is a separate effort.
 #   - integration tests: hit live Electrum servers (flaky) — the reason this
 #     workflow was disabled in 2023.
 #   - e2e (Detox + Android emulator): heavy/flaky, separate concern.
 on: [pull_request]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint (tsc + unused-loc + eslint)
+        run: npm run lint
+
   unit:
     runs-on: ubuntu-latest
     steps:
