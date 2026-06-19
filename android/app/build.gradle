@@ -34,7 +34,7 @@ def enableProguardInReleaseBuilds = false
 // versionCode/versionName come from the release version generator (scripts/release-version.sh)
 // via -P flags in CI; the fallbacks are for local/dev builds only.
 def releaseVersionCode = (project.findProperty('MYAPP_VERSION_CODE') ?: '31').toInteger()
-def releaseVersionName = project.findProperty('MYAPP_VERSION_NAME') ?: '2.0.3'
+def releaseVersionName = project.findProperty('MYAPP_VERSION_NAME') ?: '2.0.5'
 
 /**
  * The preferred build flavor of JavaScriptCore (JSC)

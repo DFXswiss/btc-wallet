@@ -38,20 +38,24 @@ jobs:
         id: next
         run: |
           set -euo pipefail
-          LATEST=$(git tag -l --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1 || true)
-          [ -n "$LATEST" ] || LATEST="v0.0.0"
-          VER="${LATEST#v}"
-          MAJOR=$(echo "$VER" | cut -d. -f1); MINOR=$(echo "$VER" | cut -d. -f2); PATCH=$(echo "$VER" | cut -d. -f3)
-          NEXT="v${MAJOR}.${MINOR}.$((PATCH + 1))"
-          # Floor to the marketing version in build.gradle, so a manual MAJOR/MINOR
-          # bump there triggers a jump (patch increments still come from tag history).
-          GRADLE_VER=$(grep "releaseVersionName" android/app/build.gradle | grep -oE "[0-9]+\.[0-9]+\.[0-9]+" | tail -n1 || true)
-          if [ -n "$GRADLE_VER" ]; then
-            HIGHEST=$(printf '%s\n%s\n' "${NEXT#v}" "$GRADLE_VER" | sort -V | tail -n1)
-            NEXT="v${HIGHEST}"
+          # The DFX version line is owned by gradle releaseVersionName, NOT the
+          # inherited BlueWallet vX.Y.Z tags (the fork carries v6.x). Derive the
+          # MAJOR.MINOR.PATCH baseline from it and only ever tag within that line.
+          BASE=$(grep "releaseVersionName" android/app/build.gradle | grep -oE "[0-9]+\.[0-9]+\.[0-9]+" | tail -n1 || true)
+          [ -n "$BASE" ] || { echo "::error::could not read releaseVersionName from build.gradle"; exit 1; }
+          MAJOR=$(echo "$BASE" | cut -d. -f1); MINOR=$(echo "$BASE" | cut -d. -f2); BASEPATCH=$(echo "$BASE" | cut -d. -f3)
+          # Highest existing tag on THIS major.minor line only (ignores v6.x etc.).
+          LATEST=$(git tag -l "v${MAJOR}.${MINOR}.*" --sort=-v:refname | grep -E "^v${MAJOR}\.${MINOR}\.[0-9]+$" | head -n1 || true)
+          if [ -n "$LATEST" ]; then
+            NEXTPATCH=$(( $(echo "${LATEST#v}" | cut -d. -f3) + 1 ))
+          else
+            NEXTPATCH="$BASEPATCH"
           fi
+          # A manual bump of releaseVersionName wins: never tag below its patch.
+          [ "$NEXTPATCH" -ge "$BASEPATCH" ] || NEXTPATCH="$BASEPATCH"
+          NEXT="v${MAJOR}.${MINOR}.${NEXTPATCH}"
           echo "tag=$NEXT" >> "$GITHUB_OUTPUT"
-          echo "::notice::Latest tag $LATEST -> next $NEXT"
+          echo "::notice::DFX line ${MAJOR}.${MINOR} (gradle $BASE), latest ${LATEST:-none} -> next $NEXT"
 
       - name: Create + push tag
         run: |
