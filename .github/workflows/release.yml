@@ -110,7 +110,7 @@ jobs:
         working-directory: ios
         env:
           NEW_VERSION: ${{ github.ref_name }}
-        run: bundle exec fastlane beta
+        run: bundle exec fastlane release
 
   android-deploy:
     name: Android -> Play beta + listing
@@ -159,7 +159,7 @@ jobs:
           TRANSPARENCY_KEYSTORE_HEX: ${{ secrets.TRANSPARENCY_KEYSTORE_HEX }}
           TRANSPARENCY_PASSWORD: ${{ secrets.TRANSPARENCY_PASSWORD }}
           TRANSPARENCY_ALIAS: ${{ secrets.TRANSPARENCY_ALIAS }}
-        run: bundle exec fastlane beta
+        run: bundle exec fastlane release
       - name: Prepare release assets + checksums
         run: bash ./.github/scripts/prepare-release-assets.sh
       # Provenance for the same attested artifacts the v* flow has always produced,

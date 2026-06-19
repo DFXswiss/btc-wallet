@@ -503,7 +503,7 @@ export default class Selftest extends Component {
         assertStrictEqual(partialSig[0].signature.toString('hex'), REAL_WITHDRAW_SIG, 'reproduces the real cosigner-3 signature');
       });
 
-      if (isRN) {
+      if (isRN && __DEV__) {
         await step('Multisig real wallet: Electrum sees the on-chain withdrawal', async () => {
           await BlueElectrum.waitTillConnected();
           // confirmed tx -> stays in history forever even though the wallet is now empty (drift-proof)
@@ -512,7 +512,7 @@ export default class Selftest extends Component {
           if (!found) throw new Error('withdrawal tx not found in multisig address history');
         });
       } else {
-        log('- Multisig Electrum history: skipped (not RN)');
+        log('- Multisig Electrum history: skipped (live-network, __DEV__ only)');
       }
 
       log(`all tests passed in ${Date.now() - tStart}ms`);

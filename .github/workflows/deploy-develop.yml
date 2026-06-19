@@ -1,12 +1,20 @@
 name: Deploy (develop)
 
 # On every merge to develop: build a signed Android APK (uploaded as a workflow
-# artifact) for quick internal testing. iOS internal builds and all versioned
-# App Store / Play Store releases are owned by the tag-driven release.yml
-# (auto-tag.yml tags every develop merge -> release.yml -> TestFlight + Play beta).
+# artifact) and ship an iOS build to TestFlight. Versioned App Store / Play Store
+# releases stay on the existing v* tag flow (build-release-apk.yml).
 #
 # Required repository secrets:
-#   Android: KEYSTORE_FILE_HEX, KEYSTORE_PASSWORD, KEYSTORE_KEY_PASSWORD, KEYSTORE_ALIAS
+#   Android (already used by the v* release flow):
+#     KEYSTORE_FILE_HEX, KEYSTORE_PASSWORD, KEYSTORE_KEY_PASSWORD, KEYSTORE_ALIAS
+#   iOS (App Store Connect API key + fastlane match):
+#     APP_STORE_CONNECT_KEY        App Store Connect API key (.p8 file contents)
+#     APP_STORE_CONNECT_KEY_ID     ASC API key ID
+#     APP_STORE_CONNECT_ISSUER_ID  ASC API key issuer ID
+#     MATCH_SSH_KEY                deploy key for the certs repo (DFXswiss/btc-wallet-certificates)
+#     MATCH_PASSWORD               match encryption passphrase
+# Prerequisites: the app exists on App Store Connect under team Y4QBY6387T with
+# bundle id swiss.dfx.bitcoin; signing assets live (encrypted) in the match certs repo.
 
 on:
   push:
@@ -15,7 +23,7 @@ on:
 
 concurrency:
   group: deploy-develop
-  cancel-in-progress: false # let each develop build finish
+  cancel-in-progress: false # never cancel an in-flight TestFlight upload
 
 permissions:
   contents: read
@@ -65,3 +73,39 @@ jobs:
           name: dfx-bitcoin-develop-${{ github.run_number }}
           path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+
+  ios-testflight:
+    name: iOS TestFlight
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: 'Install node_modules (runs RN postinstall: shims, pods, patches)'
+        run: npm ci
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: ios
+      - name: Select prod env for the build
+        run: echo ".env.prd" > /tmp/envfile
+      - name: SSH access for fastlane match
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.MATCH_SSH_KEY }}
+      - name: Write App Store Connect API key
+        run: |
+          echo "${{ secrets.APP_STORE_CONNECT_KEY }}" > "$RUNNER_TEMP/AuthKey.p8"
+          echo "ASC_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+      - name: Build + upload to TestFlight
+        working-directory: ios
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: bundle exec fastlane beta

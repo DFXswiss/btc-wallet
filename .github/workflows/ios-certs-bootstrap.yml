@@ -1,0 +1,35 @@
+name: iOS Signing Bootstrap
+
+# On-demand, manually triggered. Creates/rotates the App Store distribution
+# certificate + provisioning profile via the ASC API key and stores them
+# (encrypted) in DFXswiss/btc-wallet-certificates. Run when the cert expires
+# (~1 year) or needs rotating. Normal develop deploys use readonly match.
+on:
+  workflow_dispatch:
+
+jobs:
+  bootstrap:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: SSH access to certs repo
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.MATCH_SSH_KEY }}
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: ios
+      - name: Write App Store Connect API key
+        run: |
+          echo "${{ secrets.APP_STORE_CONNECT_KEY }}" > "$RUNNER_TEMP/AuthKey.p8"
+          echo "ASC_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+      - name: Create/rotate signing assets
+        working-directory: ios
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+        run: bundle exec fastlane certs_bootstrap

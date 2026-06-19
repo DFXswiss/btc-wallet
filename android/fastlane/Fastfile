@@ -29,7 +29,7 @@ platform :android do
   end
 
   desc "Build the attested AAB and upload to Play Store beta + stage the listing"
-  lane :beta do
+  lane :release do
     info = resolve_release_info(ENV["NEW_VERSION"] || "dev")
 
     # Reuse the existing reproducible + code-transparency build (keeps attestation).
