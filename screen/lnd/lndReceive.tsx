@@ -206,7 +206,7 @@ const LNDReceive = () => {
       <View style={styles.root}>
         <SuccessView amount={amountSats} amountUnit={BitcoinUnit.SATS} invoiceDescription={description} shouldAnimate={true} />
         <View style={styles.doneButton}>
-          <BlueButton onPress={() => getParent().popToTop()} title={loc.send.success_done} />
+          <BlueButton onPress={() => getParent<NativeStackNavigationProp<ParamListBase>>()?.popToTop()} title={loc.send.success_done} />
           <BlueSpacing40 />
         </View>
       </View>

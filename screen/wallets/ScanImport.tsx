@@ -6,15 +6,16 @@ import { BlueButton, BlueText } from '../../BlueComponents';
 import useCameraPermissions from '../../hooks/cameraPermisions.hook';
 import { useQrCodeScanner } from '../../hooks/qrCodeScaner.hook';
 import useQrCodeImagePicker from '../../hooks/qrCodeImagePicker.hook';
-import { useIsFocused, useNavigation } from '@react-navigation/native';
+import { useIsFocused, useNavigation, ParamListBase } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import loc from '../../loc';
 
-const ScanImport: React.FC = () => {
+const ScanImport: React.FC & { navigationOptions?: ReturnType<typeof navigationStyle> } = () => {
   const { isReadingQrCode, cameraCallback, setOnBarScanned, urHave, urTotal } = useQrCodeScanner();
   const { isProcessingImage, openImagePicker, setOnBarCodeInImage } = useQrCodeImagePicker();
   const { cameraStatus } = useCameraPermissions();
-  const { replace } = useNavigation();
+  const { replace } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const [isCameraActive, setIsCameraActive] = useState(true);
   const isFocused = useIsFocused();
 

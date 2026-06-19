@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { ParamListBase, useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
   Keyboard,
@@ -43,7 +44,7 @@ enum PosStatus {
 }
 
 const CashierDfxPos = () => {
-  const { navigate } = useNavigation();
+  const { navigate } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { walletID } = useRoute().params as RouteParams;
   const [sellRoutes, setSellRoutes] = useState<SellRoute[]>([]);
   const [selectedRoute, setSelectedRoute] = useState<null | number>(null);

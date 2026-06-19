@@ -442,7 +442,34 @@ export const BlueTextCentered = props => {
   return <Text {...props} style={{ color: colors.foregroundColor, textAlign: 'center' }} />;
 };
 
-export const BlueListItem = React.memo(props => {
+/**
+ * @typedef {Object} BlueListItemProps
+ * @property {import('react-native').StyleProp<import('react-native').ViewStyle>} [containerStyle]
+ * @property {React.ComponentType<any>} [Component]
+ * @property {boolean} [bottomDivider]
+ * @property {boolean} [topDivider]
+ * @property {string} [testID]
+ * @property {() => void} [onPress]
+ * @property {() => void} [onLongPress]
+ * @property {boolean} [disabled]
+ * @property {import('react-native').SwitchProps} [switch]
+ * @property {React.ReactNode} [leftAvatar]
+ * @property {object} [leftIcon]
+ * @property {React.ReactNode} [title]
+ * @property {React.ReactNode} [subtitle]
+ * @property {number} [subtitleNumberOfLines]
+ * @property {React.ReactNode} [rightElement]
+ * @property {React.ReactNode} [rightTitle]
+ * @property {import('react-native').StyleProp<import('react-native').TextStyle>} [rightTitleStyle]
+ * @property {boolean} [isLoading]
+ * @property {boolean} [chevron]
+ * @property {object} [rightIcon]
+ * @property {boolean} [checkmark]
+ */
+/**
+ * @type {React.FC<BlueListItemProps>}
+ */
+export const BlueListItem = React.memo(/** @param {BlueListItemProps} props */ props => {
   const { colors } = useTheme();
 
   return (

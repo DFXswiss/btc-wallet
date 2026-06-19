@@ -15,7 +15,8 @@ import {
   SecondButton,
   SelectButton,
 } from '../../../BlueComponents';
-import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { ParamListBase, useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useLds } from '../../../api/lds/hooks/lds.hook';
 import { useWalletContext } from '../../../contexts/wallet.context';
 import { BlueStorageContext } from '../../../blue_modules/storage-context';
@@ -26,7 +27,7 @@ import { AssetDetails, TaprootLdsWallet, TaprootLdsWalletType } from '../../../c
 
 const AddLightning = () => {
   const { asset = TaprootLdsWalletType.BTC, isOnboarding = false } = useRoute().params as { asset: TaprootLdsWalletType; isOnboarding: boolean };
-  const { navigate } = useNavigation();
+  const { navigate } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { address, signMessage } = useWalletContext();
   const { getUser } = useLds();
   const { colors } = useTheme();

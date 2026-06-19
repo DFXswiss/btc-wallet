@@ -19,7 +19,9 @@ import QRCodeComponent from '../../../components/QRCodeComponent';
 
 interface RouteParams {
   walletID: string;
-  paymentRouteId?: string;
+  // Passed from cashierPos as the numeric route id (`selectedRoute: number | null`);
+  // the former `string` typing did not match the runtime value.
+  paymentRouteId?: number;
 }
 
 enum PosStatus {
@@ -112,7 +114,7 @@ const ReceiveDfxPos = () => {
   useEffect(() => {
     (async () => {
       const { sell } = await getPaymentRoutes(walletID);
-      const route = paymentRouteId ? sell.find(s => s.id === paymentRouteId) : sell[0];
+      const route = paymentRouteId ? sell.find((s: SellRoute) => s.id === paymentRouteId) : sell[0];
       setSellRoutes(sell);
       handleRouteChanged(route);
       setIsLoading(false);

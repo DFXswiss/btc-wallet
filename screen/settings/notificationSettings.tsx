@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, TouchableWithoutFeedback, I18nManager, StyleSheet, Linking, View, TextInput } from 'react-native';
 import { Button } from 'react-native-elements';
 
-import navigationStyle from '../../components/navigationStyle';
+import navigationStyle, { NavigationOptionsGetter } from '../../components/navigationStyle';
 import { BlueButton, BlueCard, BlueCopyToClipboardButton, BlueListItem, BlueLoading, BlueSpacing20, BlueText } from '../../BlueComponents';
 import loc from '../../loc';
 import { BlueCurrentTheme, useTheme } from '../../components/themes';
@@ -21,7 +21,7 @@ import {
 } from '../../blue_modules/notifications';
 import alert from '../../components/Alert';
 
-const NotificationSettings: React.FC & { navigationOptions?: ReturnType<typeof navigationStyle> } = () => {
+const NotificationSettings: React.FC & { navigationOptions: NavigationOptionsGetter } = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isNotificationsEnabledState, setNotificationsEnabledState] = useState(false);
   const [isShowTokenInfo, setShowTokenInfo] = useState(0);

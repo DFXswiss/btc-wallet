@@ -109,7 +109,10 @@ export function useNtag424({ manualSessionControl } = defaultOptions): UseNtag42
 
       let ndefMessage = '';
       try {
-        ndefMessage = Ndef.uri.decodePayload(tag.ndefMessage?.[0]?.payload);
+        // nfc-manager types the record payload as `any[]` (a byte array); decodePayload
+        // expects a Uint8Array. Converting yields the identical decoded string and keeps
+        // the existing try/catch fallthrough if the payload is missing.
+        ndefMessage = Ndef.uri.decodePayload(Uint8Array.from(tag.ndefMessage?.[0]?.payload));
       } catch (_) {}
 
       await Ntag424.isoSelectFileApplication();

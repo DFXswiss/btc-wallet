@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { RouteProp, useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { ParamListBase, RouteProp, useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BlueButton, SafeBlueArea } from '../../BlueComponents';
 import { navigationStyleTx } from '../../components/navigationStyle';
@@ -28,7 +29,7 @@ type SwapRouteProps = RouteProp<
 >;
 
 const Swap = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { wallets, sleep } = useContext(BlueStorageContext);
   const { colors } = useTheme();
   const { routeId, amount, 'wallet-id': walletId } = useRoute<SwapRouteProps>().params;

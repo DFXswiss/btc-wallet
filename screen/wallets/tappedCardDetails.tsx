@@ -14,8 +14,10 @@ import {
 import { BlueCard, BlueLoading, BlueSpacing20, BlueText, SecondButton } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
 import loc from '../../loc';
-import { useTheme, useRoute, useNavigation } from '@react-navigation/native';
+import { useTheme, useRoute, useNavigation, ParamListBase } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
+import { AbstractWallet } from '../../class';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { BolcardSecrets, BoltCardModel } from '../../models/boltcard';
@@ -87,7 +89,7 @@ const styles = StyleSheet.create({
   },
 });
 
-const CopyField = ({ value }: { value: string }) => {
+const CopyField = ({ value }: { value: string | undefined }) => {
   const [isCopied, setIsCopied] = useState(false);
   const { colors } = useTheme();
 
@@ -124,9 +126,9 @@ interface TappedCardDetails {
 
 const TappedCardDetails = () => {
   const { wallets, saveToDisk } = useContext(BlueStorageContext);
-  const lnWallet = wallets.find(w => w.type === LightningLdsWallet.type);
+  const lnWallet = wallets.find((w: AbstractWallet) => w.type === LightningLdsWallet.type);
   const { tappedCardDetails } = useRoute().params as { tappedCardDetails: TappedCardDetails };
-  const { navigate, replace, goBack } = useNavigation();
+  const { navigate, replace, goBack } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const [uid, setUid] = useState('');
   const [lnurlw, setLnurlw] = useState('');
   const [minWithdraw, setMinWithdraw] = useState(0);
