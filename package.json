@@ -93,7 +93,7 @@
       "tsx"
     ],
     "transformIgnorePatterns": [
-      "node_modules/(?!((jest-)?react-native(-.*)?|@react-native(-community)?)/)"
+      "node_modules/(?!((jest-)?react-native(-.*)?|@react-native(-community)?|@react-navigation|react-native-picker-select|@react-native-picker)/)"
     ],
     "setupFiles": [
       "./tests/setup.js"

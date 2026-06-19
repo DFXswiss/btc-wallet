@@ -1,16 +1,32 @@
 default_platform(:ios)
 
+PROFILE_NAME = "match AppStore swiss.dfx.bitcoin"
+
 platform :ios do
   # Builds the prod (BlueWallet scheme -> .env.prd) app and uploads it to TestFlight.
-  # Auth + provisioning are handled by an App Store Connect API key; the distribution
-  # certificate is imported into the keychain by the CI workflow before this runs.
+  # Signing assets (distribution cert + App Store provisioning profile) come from the
+  # match certs repo (DFXswiss/btc-wallet-certificates), installed read-only so CI
+  # never mutates them. The ASC API key authorises match + the TestFlight upload.
   desc "Build and upload an internal build to TestFlight"
   lane :beta do
+    # Required fastlane CI signing prep (not a stopgap): makes a dedicated, unlocked
+    # keychain the session default so match installs the cert there and sets its
+    # key-partition-list — codesign then reads the key without the GUI prompt that
+    # would otherwise hang the build on a headless runner.
+    setup_ci
+
     api_key = app_store_connect_api_key(
       key_id: ENV.fetch("ASC_KEY_ID"),
       issuer_id: ENV.fetch("ASC_ISSUER_ID"),
       key_filepath: ENV.fetch("ASC_KEY_PATH"),
     )
+
+    match(type: "appstore", readonly: true, api_key: api_key)
+
+    # Marketing version must exceed the last approved App Store version (2.0.3 is a
+    # closed train), or TestFlight rejects the upload. Dev builds share one in-dev
+    # version with incrementing build numbers.
+    increment_version_number(version_number: "2.0.4", xcodeproj: "BlueWallet.xcodeproj")
 
     # CI run number -> monotonic build number, so each develop merge uploads cleanly.
     increment_build_number(
@@ -18,16 +34,28 @@ platform :ios do
       build_number: ENV.fetch("BUILD_NUMBER"),
     )
 
+    # Pin the target to the match-managed cert + profile (manual signing).
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "BlueWallet.xcodeproj",
+      team_id: "Y4QBY6387T",
+      code_sign_identity: "Apple Distribution",
+      bundle_identifier: "swiss.dfx.bitcoin",
+      profile_name: PROFILE_NAME,
+      targets: ["BlueWallet"],
+    )
+
     build_app(
       workspace: "BlueWallet.xcworkspace",
       scheme: "BlueWallet", # prod scheme; its pre-action selects .env.prd (CI also writes /tmp/envfile)
       configuration: "Release",
       export_method: "app-store",
-      # ASC API key authorises xcodebuild to fetch/create the App Store provisioning profile.
-      xcargs: "-allowProvisioningUpdates",
       output_directory: "build",
       output_name: "DFXBitcoin.ipa",
-      clean: true,
+      clean: false,
+      export_options: {
+        provisioningProfiles: { "swiss.dfx.bitcoin" => PROFILE_NAME },
+      },
     )
 
     upload_to_testflight(
@@ -35,4 +63,20 @@ platform :ios do
       skip_waiting_for_build_processing: true,
     )
   end
+
+  # On-demand: (re)create the App Store distribution cert + provisioning profile
+  # via the ASC API key and push them (encrypted) to the match certs repo. Run
+  # manually through the "iOS Signing Bootstrap" workflow when the cert expires
+  # (~1 year) or needs rotating. Normal deploys use readonly match.
+  desc "Create/rotate signing assets in the match certs repo (on-demand)"
+  lane :certs_bootstrap do
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_filepath: ENV.fetch("ASC_KEY_PATH"),
+    )
+    setup_ci
+    match(type: "appstore", readonly: false, api_key: api_key)
+  end
+
 end

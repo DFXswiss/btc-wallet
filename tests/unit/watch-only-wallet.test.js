@@ -289,7 +289,7 @@ describe('Watch only wallet', () => {
     );
     assert.strictEqual(w.getMasterFingerprint(), 1908437330);
     assert.strictEqual(w.getMasterFingerprintHex(), '5271c071');
-    assert.strictEqual(w.getLabel(), 'Wallet');
+    assert.strictEqual(w.getLabel(), 'DFX Bitcoin Wallet');
     assert.strictEqual(w.getDerivationPath(), "m/84'/0'/0'");
     assert.ok(w.useWithHardwareWalletEnabled());
   });

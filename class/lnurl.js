@@ -26,7 +26,7 @@ export default class Lnurl {
 
   static findlnurl(bodyOfText) {
     const cleanedText = bodyOfText.replace('mailto:', '').toLowerCase();
-    const res = /(?:http.*[&?]lightning=|lightning:)?(lnurl1[02-9ac-hj-np-z]+)/.exec(cleanedText);
+    const res = /^(?:http.*[&?]lightning=|lightning:)?(lnurl1[02-9ac-hj-np-z]+)/.exec(cleanedText);
     if (res) {
       return res[1];
     }

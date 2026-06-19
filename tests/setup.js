@@ -32,6 +32,8 @@ global.net = require('net'); // needed by Electrum client. For RN it is proviced
 global.tls = require('tls'); // needed by Electrum client. For RN it is proviced in shim.js
 global.fetch = require('node-fetch');
 
+jest.mock('@react-native-community/netinfo', () => require('@react-native-community/netinfo/jest/netinfo-mock.js'));
+
 jest.mock('@react-native-clipboard/clipboard', () => mockClipboard);
 
 jest.mock('react-native-watch-connectivity', () => {
