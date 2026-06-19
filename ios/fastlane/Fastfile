@@ -63,4 +63,20 @@ platform :ios do
       skip_waiting_for_build_processing: true,
     )
   end
+
+  # On-demand: (re)create the App Store distribution cert + provisioning profile
+  # via the ASC API key and push them (encrypted) to the match certs repo. Run
+  # manually through the "iOS Signing Bootstrap" workflow when the cert expires
+  # (~1 year) or needs rotating. Normal deploys use readonly match.
+  desc "Create/rotate signing assets in the match certs repo (on-demand)"
+  lane :certs_bootstrap do
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_filepath: ENV.fetch("ASC_KEY_PATH"),
+    )
+    setup_ci
+    match(type: "appstore", readonly: false, api_key: api_key)
+  end
+
 end
