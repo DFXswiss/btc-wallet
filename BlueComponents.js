@@ -83,7 +83,20 @@ export const BlueButton = props => {
   );
 };
 
-export const SecondButton = forwardRef((props, ref) => {
+/**
+ * @typedef {import('react-native').TouchableOpacityProps & {
+ *   title?: string,
+ *   backgroundColor?: string,
+ *   disabled?: boolean,
+ *   isLoading?: boolean,
+ *   image?: { source: import('react-native').ImageSourcePropType },
+ *   icon?: { name: string, type?: string, color?: string, size?: number },
+ * }} SecondButtonProps
+ */
+/**
+ * @type {React.ForwardRefExoticComponent<SecondButtonProps & React.RefAttributes<any>>}
+ */
+export const SecondButton = forwardRef((/** @type {SecondButtonProps} */ props, ref) => {
   const { colors } = useTheme();
   let backgroundColor = props.backgroundColor ? props.backgroundColor : colors.buttonBlueBackgroundColor;
   let fontColor = colors.buttonTextColor;

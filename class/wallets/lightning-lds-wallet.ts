@@ -2,6 +2,7 @@ import { LnurlpResponse } from '../../models/lnurl';
 import BoltCard from '../boltcard';
 import Lnurl from '../lnurl';
 import { LightningCustodianWallet } from './lightning-custodian-wallet';
+import { Hit } from '../../api/boltcards/definitions/apiDtos';
 
 export class LightningLdsWallet extends LightningCustodianWallet {
   static type = 'lightningLdsWallet';
@@ -13,6 +14,7 @@ export class LightningLdsWallet extends LightningCustodianWallet {
   boltcard?: BoltCard;
   boltcards: BoltCard[] = [];
   isPosMode: boolean = false;
+  cachedHits?: Hit[];
 
   static create(address: string, addressOwnershipProof: string): LightningLdsWallet {
     const wallet = new LightningLdsWallet();

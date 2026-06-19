@@ -26,6 +26,7 @@ class DeeplinkSchemaMatch {
    *
    * @param event {{url: string}} URL deeplink as passed to app, e.g. `bitcoin:bc1qh6tf004ty7z7un2v5ntu4mkf630545gvhs45u7?amount=666&label=Yo`
    * @param completionHandler {function} Callback that returns [string, params: object]
+   * @param context {{ wallets?: any[], saveToDisk?: () => void, addWallet?: (wallet: any) => void, walletID?: string }} Optional navigation context
    */
   static navigationRouteFor(event, completionHandler, context = { wallets: [], saveToDisk: () => {}, addWallet: () => {} }) {
     if (event.url === null) {

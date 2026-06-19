@@ -32,6 +32,7 @@ const navigationStyle = (
   }: NavigationOptions & {
     closeButton?: boolean;
     closeButtonFunc?: (deps: { navigation: any; route: any }) => React.ReactElement;
+    headerHideBackButton?: boolean;
   },
   formatter: OptionsFormatter,
 ): NavigationOptionsGetter => {
