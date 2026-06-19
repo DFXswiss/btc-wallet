@@ -16,6 +16,7 @@ import navigationStyle from '../../components/navigationStyle';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
+import { AbstractWallet } from '../../class';
 import { Icon } from 'react-native-elements';
 import { Chain } from '../../models/bitcoinUnits';
 
@@ -31,7 +32,7 @@ const LndPosReceive = () => {
   const wallet: LightningLdsWallet = useMemo(() => wallets.find((item: any) => item.getID() === walletID), [walletID, wallets]);
   const { colors } = useTheme();
   const { setParams } = useNavigation();
-  const invoicePolling = useRef<NodeJS.Timer | undefined>();
+  const invoicePolling = useRef<NodeJS.Timeout | undefined>(undefined);
   const [isWaitingForPayment, setIsWaitingForPayment] = useState<boolean>(false);
   const [invoiceAmount, setInvoiceAmount] = useState(0);
   const [isPaid, setIsPaid] = useState(false);
@@ -56,7 +57,7 @@ const LndPosReceive = () => {
 
   useEffect(() => {
     if (wallet && wallet.getID() !== walletID) {
-      const newWallet = wallets.find(w => w.getID() === walletID);
+      const newWallet = wallets.find((w: AbstractWallet) => w.getID() === walletID);
       if (newWallet) {
         setSelectedWallet(newWallet.getID());
       }
@@ -92,7 +93,7 @@ const LndPosReceive = () => {
         if (timestamp === 0) timestamp = new Date().getTime() - POLLING_INTERVAL;
         
         const userInvoices = await wallet.getUserInvoices(20);
-        const payedInvoice = i => {
+        const payedInvoice = (i: { timestamp: number; amt: number; ispaid: boolean }) => {
           return i.timestamp * 1000 > timestamp && i.amt * 1000 === minSendable && i.ispaid;
         };
         const updatedUserInvoice = userInvoices.find(payedInvoice);
@@ -121,7 +122,7 @@ const LndPosReceive = () => {
   };
 
   const onWalletChange = (id: string) => {
-    const newWallet = wallets.find(w => w.getID() === id);
+    const newWallet = wallets.find((w: AbstractWallet) => w.getID() === id);
     if (!newWallet) return;
 
     if (newWallet.chain !== Chain.OFFCHAIN) {
@@ -226,7 +227,7 @@ LndPosReceive.routeName = 'LndPosReceive';
 LndPosReceive.navigationOptions = navigationStyle(
   {
     closeButton: true,
-    headerHideBackButton: true,
+    headerBackVisible: false,
   },
   opts => ({ ...opts, title: loc.receive.header }),
 );

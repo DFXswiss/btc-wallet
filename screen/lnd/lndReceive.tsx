@@ -14,7 +14,8 @@ import {
   ScrollView,
 } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
-import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { useNavigation, useRoute, useTheme, ParamListBase } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Share from 'react-native-share';
 import {
   BlueButton,
@@ -30,6 +31,7 @@ import navigationStyle from '../../components/navigationStyle';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
+import { AbstractWallet } from '../../class';
 import { majorTomToGroundControl, tryToObtainPermissions } from '../../blue_modules/notifications';
 import useInputAmount from '../../hooks/useInputAmount';
 import { SuccessView } from '../send/success';
@@ -44,13 +46,12 @@ const LNDReceive = () => {
   const { walletID } = useRoute().params as RouteParams;
   const wallet = useMemo(() => wallets.find((item: any) => item.getID() === walletID), [walletID, wallets]);
   const { colors } = useTheme();
-  // @ts-ignore - useNavigation non-sense
-  const { setParams, getParent } = useNavigation();
+  const { setParams, getParent } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const [isInvoiceLoading, setIsInvoiceLoading] = useState(false);
   const [description, setDescription] = useState('');
   const { inputProps, amountSats, formattedUnit, changeToNextUnit } = useInputAmount();
   const [invoiceRequest, setInvoiceRequest] = useState();
-  const invoicePolling = useRef<NodeJS.Timer | undefined>();
+  const invoicePolling = useRef<NodeJS.Timeout | undefined>(undefined);
   const [isPaid, setIsPaid] = useState(false);
   const inputAmountRef = useRef<TextInput | null>(null);
   const inputDescriptionRef = useRef<TextInput | null>(null);
@@ -79,7 +80,7 @@ const LNDReceive = () => {
 
   useEffect(() => {
     if (wallet && wallet.getID() !== walletID) {
-      const newWallet = wallets.find(w => w.getID() === walletID);
+      const newWallet = wallets.find((w: AbstractWallet) => w.getID() === walletID);
       if (newWallet) {
         setSelectedWallet(newWallet.getID());
       }
@@ -98,7 +99,10 @@ const LNDReceive = () => {
     cancelInvoicePolling(); // clear any previous polling
     invoicePolling.current = setInterval(async () => {
       const userInvoices = await wallet.getUserInvoices(20);
-      const updatedUserInvoice = userInvoices.find(i => i.payment_request === invoice);
+      const updatedUserInvoice = userInvoices.find(
+        (i: { payment_request: string; ispaid: boolean; description?: string; timestamp: number; expire_time: number }) =>
+          i.payment_request === invoice,
+      );
       if (!updatedUserInvoice) {
         return;
       }
@@ -176,7 +180,7 @@ const LNDReceive = () => {
   const onWalletChange = (id: string) => {
     if (id === wallet?.getID()) return;
 
-    const newWallet = wallets.find(w => w.getID() === id);
+    const newWallet = wallets.find((w: AbstractWallet) => w.getID() === id);
     if (!newWallet) return;
 
     if (newWallet.chain !== Chain.OFFCHAIN) {
