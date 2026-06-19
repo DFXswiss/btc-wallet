@@ -21,6 +21,9 @@
     "react-native/no-inline-styles": "error",
     "react-native/no-unused-styles": "error",
     "react-native/no-single-element-style-arrays": "error",
+    // Adding missing useEffect/useCallback deps can change runtime behaviour
+    // (extra effect/render runs) in a live wallet -> warn, fix case-by-case.
+    "react-hooks/exhaustive-deps": "warn",
     "prettier/prettier": [
       "warn",
       {
