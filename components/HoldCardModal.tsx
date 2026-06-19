@@ -59,12 +59,6 @@ export const HoldCardModal: React.FC<HoldCardModalProps> = ({ message, isHoldCar
 };
 
 const styles = StyleSheet.create({
-  textdesc: {
-    fontWeight: '500',
-    alignSelf: 'center',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
   textdescBold: {
     fontWeight: '700',
     alignSelf: 'center',

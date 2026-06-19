@@ -23,7 +23,6 @@ import {
   SLIP39SegwitBech32Wallet,
 } from './class/';
 import { randomBytes } from './class/rng';
-import alert from './components/Alert';
 import { LightningLdsWallet } from './class/wallets/lightning-lds-wallet';
 import { TaprootLdsWallet } from './class/wallets/taproot-lds-wallet';
 

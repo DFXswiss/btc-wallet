@@ -35,14 +35,14 @@ export class LightningLdsWallet extends LightningCustodianWallet {
 
   getInvoiceId(): string {
     if (!this.lndhubInvoiceUrl) throw new Error('Lndhub invoice url is not set');
-    const [_, invoiceId] = this.lndhubInvoiceUrl.split('lndhub://invoice:');
+    const [, invoiceId] = this.lndhubInvoiceUrl.split('lndhub://invoice:');
     return invoiceId;
   }
 
   getAdminKey(): string {
     const secret = this.getSecret();
     const [adminKeyUrl] = secret.split('@');
-    const [_, adminKey] = adminKeyUrl.split('lndhub://admin:');
+    const [, adminKey] = adminKeyUrl.split('lndhub://admin:');
     return adminKey;
   }
 

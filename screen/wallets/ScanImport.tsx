@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, StatusBar, ActivityIndicator, TouchableOpacity, Image } from 'react-native';
+import { View, StyleSheet, StatusBar, ActivityIndicator } from 'react-native';
 import navigationStyle from '../../components/navigationStyle';
 import { Camera } from 'react-native-camera-kit-no-google';
 import { BlueButton, BlueText } from '../../BlueComponents';

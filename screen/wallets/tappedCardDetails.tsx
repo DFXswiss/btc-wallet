@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useContext, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import {
   View,
   Text,
@@ -49,26 +49,11 @@ const styles = StyleSheet.create({
     writingDirection: I18nManager.isRTL ? 'rtl' : 'ltr',
     color: '#81868e',
   },
-  textValue: {
-    fontWeight: '500',
-    fontSize: 14,
-  },
-  hardware: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   delete: {
     color: '#e73955',
     fontSize: 15,
     fontWeight: '500',
     textAlign: 'center',
-  },
-  row: {
-    flexDirection: 'row',
-  },
-  marginRight16: {
-    marginRight: 16,
   },
   fieldValueContainer: {
     marginBottom: 12,
@@ -172,7 +157,7 @@ const TappedCardDetails = () => {
           setLnurlw(_lnurlw);
           if (_lnurlw) {
             try {
-              const { payLink, minWithdrawable, maxWithdrawable, ...rest } = await BoltCard.queryWidthdrawDetails(_lnurlw);
+              const { payLink, minWithdrawable, maxWithdrawable } = await BoltCard.queryWidthdrawDetails(_lnurlw);
               setMinWithdraw(minWithdrawable);
               setMaxWithdraw(maxWithdrawable);
               setLnurlp(payLink);
@@ -212,12 +197,6 @@ const TappedCardDetails = () => {
   const stylesHook = StyleSheet.create({
     textLabel1: {
       color: colors.feeText,
-    },
-    textLabel2: {
-      color: colors.feeText,
-    },
-    textValue: {
-      color: colors.outputValue,
     },
   });
 

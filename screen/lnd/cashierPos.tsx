@@ -206,10 +206,6 @@ const CashierPos = () => {
 };
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
   contentContainer: {
     flex: 1,
     flexGrow: 1,
@@ -243,7 +239,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
     minHeight: 33,
   },
-  pickerContainer: { marginHorizontal: 16 },
   inputUnit: {
     color: '#81868e',
     fontSize: 16,
@@ -261,18 +256,8 @@ const styles = StyleSheet.create({
   grow: {
     flexGrow: 1,
   },
-  doneButton: {
-    paddingHorizontal: 16,
-  },
-  buttonsContainer: {
-    alignItems: 'center',
-    marginVertical: 5,
-  },
   copyText: {
     marginVertical: 16,
-  },
-  iosNfcButtonContainer: {
-    marginVertical: 10,
   },
   shareContainer: {
     flexDirection: 'row',

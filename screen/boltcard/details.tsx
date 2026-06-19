@@ -14,7 +14,6 @@ import BoltcardTransactionList from '../../components/BoltcardTransactionList';
 import BoltCard from '../../class/boltcard';
 import { Hit } from '../../api/boltcards/definitions/apiDtos';
 import useInputAmount from '../../hooks/useInputAmount';
-import alert from '../../components/Alert';
 import BoltCardsCarousel from './BoltCardsCarousel';
 
 const BoltcardDetails: React.FC & { navigationOptions?: ReturnType<typeof navigationStyle> } = () => {
@@ -84,16 +83,10 @@ const BoltcardDetails: React.FC & { navigationOptions?: ReturnType<typeof naviga
     optionText: {
       color: colors.foregroundColor,
     },
-    textdesc: {
-      color: colors.alternativeTextColor,
-    },
     textInputContainer: {
       borderColor: colors.formBorder,
       borderBottomColor: colors.formBorder,
       backgroundColor: colors.inputBackgroundColor,
-    },
-    inputTitle: {
-      color: colors.foregroundColor,
     },
     textInput: {
       color: colors.foregroundColor,

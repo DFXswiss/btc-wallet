@@ -255,7 +255,6 @@ class AmountInput extends Component {
     }
 
     const stylesHook = StyleSheet.create({
-      center: { padding: 15 },
       localCurrency: { color: colors.alternativeTextColor2 },
       input: {
         color: disabled ? colors.buttonDisabledTextColor : colors.alternativeTextColor2,
@@ -357,9 +356,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingTop: 14,
-  },
-  center: {
-    alignSelf: 'center',
   },
   flex: {
     flex: 1,

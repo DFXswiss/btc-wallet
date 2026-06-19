@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
   BackHandler,
   InteractionManager,
@@ -63,11 +63,6 @@ const ReceiveDetails = () => {
   const { inputProps, amountSats, formattedUnit, changeToNextUnit } = useInputAmount();
 
   const stylesHook = StyleSheet.create({
-    modalContent: {
-      backgroundColor: colors.modal,
-      borderTopColor: colors.foregroundColor,
-      borderWidth: colors.borderWidth,
-    },
     customAmount: {
       borderColor: colors.formBorder,
       borderBottomColor: colors.formBorder,
@@ -82,14 +77,8 @@ const ReceiveDetails = () => {
     rootBackgroundColor: {
       backgroundColor: colors.elevated,
     },
-    amount: {
-      color: colors.foregroundColor,
-    },
     label: {
       color: colors.foregroundColor,
-    },
-    modalButton: {
-      backgroundColor: colors.modalButton,
     },
   });
 
@@ -409,15 +398,6 @@ const ReceiveDetails = () => {
 };
 
 const styles = StyleSheet.create({
-  modalContent: {
-    padding: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    minHeight: 350,
-    height: 350,
-  },
   customAmount: {
     flexDirection: 'row',
     borderWidth: 1.0,
@@ -444,26 +424,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  link: {
-    marginVertical: 16,
-    paddingHorizontal: 32,
-  },
-  amount: {
-    fontWeight: '600',
-    fontSize: 36,
-    textAlign: 'center',
-  },
   label: {
     fontWeight: '600',
     textAlign: 'center',
     paddingBottom: 24,
-  },
-  modalButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 70,
-    maxWidth: '80%',
-    borderRadius: 50,
-    fontWeight: '700',
   },
   customAmountText: {
     flex: 1,

@@ -510,7 +510,6 @@ Ntag424.getCardUid = async () => {
   const responseAPDU = bytesToHex(getCardUidRes.response);
   const resCode = bytesToHex([getCardUidRes.sw1, getCardUidRes.sw2]);
 
-  const resMacT = responseAPDU.slice(-16);
   cmdCtr = decToHexLsbFirst(Ntag424.cmdCtrDec, 2);
 
   const iv = ivEncryptionResponse(Ntag424.ti, cmdCtr, Ntag424.sesAuthEncKey);
@@ -548,7 +547,7 @@ Ntag424.setNdefMessage = async ndefMessageByte => {
   try {
     await Ntag424.isoSelectFileApplication();
 
-    const secondISO = await Ntag424.sendAPDUCommand(hexToBytes('00A4000002E10300'));
+    await Ntag424.sendAPDUCommand(hexToBytes('00A4000002E10300'));
 
     const isoSelectFileBytes = hexToBytes('00A4000002E10400');
     const isoSelectRes = await Ntag424.sendAPDUCommand(isoSelectFileBytes);

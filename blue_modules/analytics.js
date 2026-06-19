@@ -1,10 +1,6 @@
 const BlueApp = require('../BlueApp');
 
-let userHasOptedOut = false;
-
-BlueApp.isDoNotTrackEnabled().then(value => {
-  if (value) userHasOptedOut = true;
-});
+BlueApp.isDoNotTrackEnabled();
 
 const A = async event => {};
 
@@ -18,9 +14,7 @@ A.ENUM = {
   NAVIGATED_TO_WALLETS_HODLHODL: 'NAVIGATED_TO_WALLETS_HODLHODL',
 };
 
-A.setOptOut = value => {
-  if (value) userHasOptedOut = true;
-};
+A.setOptOut = value => {};
 
 A.logError = errorString => {
   console.error(errorString);

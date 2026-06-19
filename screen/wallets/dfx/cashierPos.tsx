@@ -277,10 +277,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
-  root: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
   contentContainer: {
     flex: 1,
     flexGrow: 1,

@@ -175,10 +175,6 @@ const LndPosReceive = () => {
 };
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
   contentContainer: {
     flex: 1,
     marginTop: 16,
@@ -196,10 +192,6 @@ const styles = StyleSheet.create({
   grow: {
     flexGrow: 1,
   },
-  buttonsContainer: {
-    alignItems: 'center',
-    marginVertical: 5,
-  },
   copyText: {
     marginVertical: 16,
   },
@@ -215,11 +207,6 @@ const styles = StyleSheet.create({
     marginVertical: 16,
   },
   invoiceText: { fontSize: 24, textAlign: 'center', marginVertical: 16 },
-  successAnimation: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#FFF',
-  },
 });
 
 export default LndPosReceive;

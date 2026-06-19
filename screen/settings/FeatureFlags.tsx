@@ -22,7 +22,7 @@ const FeatureFlags: React.FC = () => {
     isDfxSwap,
     setIsDfxSwapAsyncStorage,
   } = useContext(BlueStorageContext);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading] = useState(false);
   const { colors } = useTheme();
 
   const stylesWithThemeHook = {

@@ -1,9 +1,7 @@
 import React, { useContext } from 'react';
 import { StyleSheet } from 'react-native';
-import { Text } from 'react-native-elements';
 import navigationStyle from '../../components/navigationStyle';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
-import { BlueSpacing10 } from '../../BlueComponents';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import { AbstractWallet } from '../../class';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,9 +21,6 @@ const DeleteBolcard: React.FC & { navigationOptions?: ReturnType<typeof navigati
       justifyContent: 'center',
       alignItems: 'center',
       flex: 1,
-    },
-    textdesc: {
-      color: colors.alternativeTextColor,
     },
   });
 
@@ -48,15 +43,6 @@ const DeleteBolcard: React.FC & { navigationOptions?: ReturnType<typeof navigati
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  textdesc: {
-    fontWeight: '500',
-    alignSelf: 'center',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-});
 
 DeleteBolcard.navigationOptions = navigationStyle({}, options => ({
   ...options,

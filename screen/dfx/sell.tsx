@@ -40,7 +40,6 @@ const Sell = () => {
   const [sell, setSell] = useState<SellInfo>();
 
   const [changeAddress, setChangeAddress] = useState<string>();
-  const [networkTransactionFees, setNetworkTransactionFees] = useState(new NetworkTransactionFee(3, 2, 1));
 
   const stylesHook = StyleSheet.create({
     container: {

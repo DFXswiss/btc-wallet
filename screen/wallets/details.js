@@ -115,7 +115,6 @@ const WalletDetails = () => {
       return null;
     }
   }, [wallet]);
-  const [lightningWalletInfo, setLightningWalletInfo] = useState({});
   const { walletID: mainWalletId, getOwnershipProof } = useWalletContext();
   const [ownershipProof, setOwnershipProof] = useState(wallet.addressOwnershipProof);
   const [isCopied, setIsCopied] = useState(false);

@@ -43,11 +43,11 @@ const buttonFontSize =
     : PixelRatio.roundToNearestPixel(Dimensions.get('window').width / 26);
 
 const WalletHome = ({ navigation }) => {
-  const { wallets, saveToDisk, setSelectedWallet, ldsDEV, revalidateBalancesInterval } = useContext(BlueStorageContext);
+  const { wallets, saveToDisk, setSelectedWallet, revalidateBalancesInterval } = useContext(BlueStorageContext);
   const walletID = useMemo(() => wallets[0]?.getID(), [wallets]);
   const multisigWallet = useMemo(() => wallets.find(w => w.type === MultisigHDWallet.type), [wallets]);
   const lnWallet = useMemo(() => wallets.find(w => w.type === LightningLdsWallet.type), [wallets]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [, setIsLoading] = useState(false);
   const { name } = useRoute();
   const { setParams, navigate } = useNavigation();
   const { colors, scanImage } = useTheme();
@@ -254,16 +254,6 @@ const WalletHome = ({ navigation }) => {
       screen: 'AddLightning',
       params: {
         walletID: wallet.getID(),
-      },
-    });
-  };
-
-  const navigateToAddTaproot = asset => {
-    navigate('WalletsRoot', {
-      screen: 'AddLightning',
-      params: {
-        walletID: wallet.getID(),
-        asset,
       },
     });
   };

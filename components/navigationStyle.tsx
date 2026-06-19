@@ -59,7 +59,8 @@ const navigationStyle = (
         );
       }
 
-      const { statusBarStyle: _ignoredStatusBarStyle, ...restOpts } = opts;
+      const restOpts = { ...opts };
+      delete restOpts.statusBarStyle;
 
       let options: NavigationOptions = {
         // Native-stack only reads `headerStyle.backgroundColor`; the former

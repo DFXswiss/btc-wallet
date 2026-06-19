@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useState } from 'react';
 import { ScrollView, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import navigationStyle from '../../components/navigationStyle';
-import { BlueLoading, BlueText, BlueSpacing20, BlueListItem, BlueCard, BlueButton, SecondButton } from '../../BlueComponents';
+import { BlueLoading, BlueText, BlueSpacing20, BlueListItem, BlueCard, SecondButton } from '../../BlueComponents';
 import { useNavigation, useTheme } from '@react-navigation/native';
 import loc, { STORAGE_KEY as LANG_STORAGE_KEY } from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';

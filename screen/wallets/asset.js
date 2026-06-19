@@ -74,19 +74,6 @@ const Asset = ({ navigation }) => {
     list: {
       backgroundColor: colors.background,
     },
-    dfxContainer: {
-      backgroundColor: '#0A345A',
-      alignItems: 'center',
-      height: 110,
-    },
-    dfxButtonContainer: {
-      flexGrow: 1,
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginVertical: 10,
-      gap: 10,
-    },
   });
 
   /**
@@ -568,8 +555,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  tileImageStyle: {
-    borderRadius: 5,
   },
 });

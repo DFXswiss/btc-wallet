@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { FlatList, StyleSheet, TouchableOpacity, View, Dimensions, ListRenderItemInfo } from 'react-native';
+import { FlatList, StyleSheet, View, Dimensions, ListRenderItemInfo } from 'react-native';
 import BoltCardUI from '../../components/BoltCardUI';
 import BoltCard from '../../class/boltcard';
 

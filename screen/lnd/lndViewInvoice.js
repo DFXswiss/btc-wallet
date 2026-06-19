@@ -7,7 +7,6 @@ import {
   BackHandler,
   TouchableOpacity,
   StyleSheet,
-  I18nManager,
   Image,
   Platform,
   ActivityIndicator,
@@ -41,8 +40,8 @@ const LNDViewInvoice = () => {
   const { invoice, walletID } = useRoute().params;
   const { wallets, setSelectedWallet, fetchAndSaveWalletTransactions } = useContext(BlueStorageContext);
   const wallet = wallets.find(w => w.getID() === walletID);
-  const { colors, closeImage } = useTheme();
-  const { goBack, navigate, setParams, setOptions, getParent } = useNavigation();
+  const { colors } = useTheme();
+  const { goBack, navigate, setParams, setOptions } = useNavigation();
   const [isLoading, setIsLoading] = useState(typeof invoice === 'string');
   const [isFetchingInvoices, setIsFetchingInvoices] = useState(true);
   const [invoiceStatusChanged, setInvoiceStatusChanged] = useState(false);

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import BottomModal from './BottomModal';
 import { StyleSheet, TextInput, View, Keyboard } from 'react-native';
 import { useTheme } from '@react-navigation/native';
-import { BlueButton, BlueDismissKeyboardInputAccessory, BlueSpacing10, BlueSpacing20, BlueText, SecondButton } from '../BlueComponents';
+import { BlueButton, BlueDismissKeyboardInputAccessory, BlueSpacing20, BlueText } from '../BlueComponents';
 import loc from '../loc';
 import { Icon } from 'react-native-elements';
 
@@ -25,9 +25,6 @@ export const ManualTextModal: React.FC<ManualTextModalProps> = ({
   const { colors } = useTheme();
 
   const stylesHooks = StyleSheet.create({
-    textdesc: {
-      color: colors.alternativeTextColor,
-    },
     modalContainer: {
       backgroundColor: colors.elevated,
     },
@@ -88,17 +85,6 @@ export const ManualTextModal: React.FC<ManualTextModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-  textdesc: {
-    fontWeight: '500',
-    alignSelf: 'center',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  textdescBold: {
-    fontWeight: '700',
-    alignSelf: 'center',
-    textAlign: 'center',
-  },
   modalContainer: {
     minHeight: 460,
     borderTopLeftRadius: 16,
@@ -118,14 +104,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 20,
     fontSize: 16,
-  },
-  modalCardIconContainer: {
-    padding: 8,
-    marginBottom: 24,
-  },
-  boltcardLinkImage: {
-    width: 1.3 * 50,
-    height: 50,
   },
   modalButtonContainer: {
     width: '100%',

@@ -28,7 +28,6 @@ const ScanLndInvoice = () => {
   const { wallets } = useContext(BlueStorageContext);
   const { colors } = useTheme();
   const { walletID, uri } = useRoute().params;
-  const name = useRoute().name;
   /** @type {LightningCustodianWallet} */
   const wallet = useMemo(
     () => wallets.find(item => item.getID() === walletID) || wallets.find(item => item.chain === Chain.OFFCHAIN),

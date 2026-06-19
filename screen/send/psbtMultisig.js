@@ -52,12 +52,6 @@ const PsbtMultisig = () => {
     textFiat: {
       color: colors.alternativeTextColor,
     },
-    provideSignatureButton: {
-      backgroundColor: colors.buttonDisabledBackgroundColor,
-    },
-    provideSignatureButtonText: {
-      color: colors.buttonTextColor,
-    },
     vaultKeyCircle: {
       backgroundColor: colors.buttonDisabledBackgroundColor,
     },
@@ -401,17 +395,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     flexWrap: 'wrap',
   },
-  provideSignatureButton: {
-    marginTop: 24,
-    marginLeft: 40,
-    height: 48,
-    borderRadius: 8,
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 8,
-  },
-  provideSignatureButtonText: { fontWeight: '600', fontSize: 15 },
   vaultKeyText: { fontSize: 18, fontWeight: 'bold' },
   vaultKeyTextWrapper: { justifyContent: 'center', alignItems: 'center', paddingLeft: 16 },
   vaultKeyCircle: {
@@ -437,12 +420,6 @@ const styles = StyleSheet.create({
   marginConfirmButton: { marginTop: 16, marginHorizontal: 32, marginBottom: 48 },
   marginNotPartOfMultisig: { marginTop: 22, marginHorizontal: 32, marginBottom: 30, borderTopWidth: 1, borderTopColor: '#c4c4c4' },
   marginNotPartOfMultisigText: { fontSize: 18, fontWeight: 'bold', textAlign: 'center', paddingTop: 16 },
-  height80: {
-    height: 80,
-  },
-  footerSpacing: {
-    height: 100,
-  },
 });
 
 PsbtMultisig.navigationOptions = navigationStyle({ closeButton: true }, opts => ({ ...opts, title: loc.multisig.header }));

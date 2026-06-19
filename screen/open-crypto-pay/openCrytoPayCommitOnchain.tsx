@@ -1,5 +1,5 @@
-import React, { useContext, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, ListRenderItemInfo, TouchableOpacity, StyleSheet, Switch, View } from 'react-native';
+import React, { useContext, useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, ListRenderItemInfo, TouchableOpacity, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-elements';
 
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
@@ -14,7 +14,6 @@ import { ParamListBase, RouteProp, useNavigation, useRoute, useTheme } from '@re
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AbstractWallet } from '../../class';
 import { CoinSelectOutput } from 'coinselect';
-import alert from '../../components/Alert';
 import { OpenCryptoPayPaymentLink } from '../../class/open-crypto-pay';
 const currency = require('../../blue_modules/currency');
 const Bignumber = require('bignumber.js');
@@ -65,9 +64,6 @@ const OpenCrytoPayCommitOnchain = () => {
     },
     root: {
       backgroundColor: colors.elevated,
-    },
-    payjoinWrapper: {
-      backgroundColor: colors.buttonDisabledBackgroundColor,
     },
   });
 
@@ -282,10 +278,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'center',
   },
-  cardContainer: {
-    flexGrow: 1,
-    width: '100%',
-  },
   cardText: {
     flexDirection: 'row',
     color: '#37c0a1',
@@ -306,19 +298,6 @@ const styles = StyleSheet.create({
   txText: {
     fontSize: 15,
     fontWeight: '600',
-  },
-  payjoinWrapper: {
-    flexDirection: 'row',
-    padding: 8,
-    borderRadius: 6,
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  payjoinText: {
-    color: '#81868e',
-    fontSize: 15,
-    fontWeight: 'bold',
   },
   serverError: {
     alignSelf: 'center',

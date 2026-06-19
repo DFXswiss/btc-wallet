@@ -208,11 +208,6 @@ const styles = StyleSheet.create({
     padding: 4,
     borderRadius: 15,
   },
-  boltcardLogo: {
-    width: 100,
-    height: 100,
-    alignSelf: 'center',
-  },
   buttonContiner: {
     paddingHorizontal: 24,
     marginVertical: 18,

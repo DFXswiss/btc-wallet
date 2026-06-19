@@ -3,7 +3,6 @@ import {
   Text,
   Linking,
   ScrollView,
-  ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
   Platform,

@@ -239,12 +239,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginHorizontal: 10,
   },
-  closeButton: {
-    minWidth: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   progressText: {
     marginTop: 5,
     fontSize: 12,
