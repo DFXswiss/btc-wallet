@@ -24,6 +24,18 @@
     // Adding missing useEffect/useCallback deps can change runtime behaviour
     // (extra effect/render runs) in a live wallet -> warn, fix case-by-case.
     "react-hooks/exhaustive-deps": "warn",
+    // react-hooks v7 ships the react-compiler analysis as rules. btc-wallet does
+    // not use react-compiler (no babel plugin) -> these are not actionable here
+    // and not behaviour-neutral to "fix". Treat as warn (rules-of-hooks stays error).
+    "react-hooks/refs": "warn",
+    "react-hooks/immutability": "warn",
+    "react-hooks/set-state-in-effect": "warn",
+    "react-hooks/globals": "warn",
+    "react-hooks/use-memo": "warn",
+    "react-hooks/purity": "warn",
+    "react-hooks/preserve-manual-memoization": "warn",
+    "react-hooks/static-components": "warn",
+    "react-hooks/incompatible-library": "warn",
     "prettier/prettier": [
       "warn",
       {
