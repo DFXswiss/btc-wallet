@@ -2,8 +2,9 @@ const fs = require('fs');
 const path = require('path');
 
 const mainLocFile = './loc/en.json';
-const dirsToInterate = ['components', 'screen', 'blue_modules', 'class'];
-const addFiles = ['BlueComponents.js', 'App.js', 'BlueApp.js', 'Navigation.js'];
+const dirsToInterate = ['components', 'screen', 'blue_modules', 'class', 'navigation', 'hooks', 'api', 'helpers'];
+// Root-level source files (App.js, BlueComponents.js, WatchConnectivity.ios.js, ...)
+// are scanned automatically below to avoid a brittle hardcoded list.
 const allowedLocPrefixes = ['loc.lnurl_auth', 'loc.units'];
 
 const allLocKeysHashmap = {}; // loc key -> used or not
@@ -29,16 +30,22 @@ for (const dir of dirsToInterate) {
   allDirFiles.push(...getAllFiles(dir));
 }
 
-for (const filename of addFiles) {
-  allDirFiles.push(path.resolve(filename));
+for (const filename of fs.readdirSync('.')) {
+  if (/\.(js|ts|tsx)$/.test(filename) && fs.statSync(filename).isFile()) {
+    allDirFiles.push(path.resolve(filename));
+  }
 }
-allDirFiles.push(path.resolve('App.js'));
 
 // got all source files
 
 function objKeysRecursive(obj, depth = []) {
   for (const k in obj) {
-    if (typeof obj[k] === 'object' && obj[k] !== null) {
+    // Arrays are consumed as a whole in code (e.g. loc.x.items.map(...)), never by
+    // numeric index, so treat the array key itself as the leaf instead of descending
+    // into its elements (which would produce false "unused" reports like x.items.0.title).
+    if (Array.isArray(obj[k])) {
+      allLocKeysHashmap['loc.' + depth.join('.') + '.' + k] = false;
+    } else if (typeof obj[k] === 'object' && obj[k] !== null) {
       objKeysRecursive(obj[k], depth.concat(k));
     } else {
       allLocKeysHashmap['loc.' + depth.join('.') + '.' + k] = false; // false means unused
