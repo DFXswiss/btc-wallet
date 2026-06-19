@@ -7,6 +7,8 @@ import navigationStyle from '../../components/navigationStyle';
 import loc from '../../loc';
 import QRCodeComponent from '../../components/QRCodeComponent';
 import { ScrollView } from 'react-native-gesture-handler';
+import Lnurl from '../../class/lnurl';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LNDViewAdditionalInvoicePreImage = () => {
   const { invoice, preImageData } = useRoute().params;

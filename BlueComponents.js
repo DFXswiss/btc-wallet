@@ -28,6 +28,7 @@ import { CommonActions, useNavigation, useTheme } from '@react-navigation/native
 import { BlueCurrentTheme } from './components/themes';
 import loc, { formatStringAddTwoWhiteSpaces } from './loc';
 import PickerSelect from 'react-native-picker-select';
+import PlusIcon from './components/icons/PlusIcon';
 
 const { height, width } = Dimensions.get('window');
 const aspectRatio = height / width;

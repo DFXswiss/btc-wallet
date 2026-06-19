@@ -11,7 +11,21 @@ Ntag424.sesAuthEncKey = null;
 Ntag424.sesAuthMacKey = null;
 Ntag424.cmdCtrDec = null;
 Ntag424.util = {};
-Ntag424.sendAPDUCommand = () => Promise.reject('sendAPDUCommand not set');
+
+// Wraps a Promise rejection reason in an Error instance while preserving any
+// additional fields (code/type) that consumers rely on, satisfying
+// prefer-promise-reject-errors without changing the rejection payload shape.
+Ntag424.util.toRejectionError = reason => {
+  if (reason instanceof Error) return reason;
+  if (reason && typeof reason === 'object') {
+    const err = new Error(reason.message);
+    Object.assign(err, reason);
+    return err;
+  }
+  return new Error(String(reason));
+};
+const toRejectionError = Ntag424.util.toRejectionError;
+Ntag424.sendAPDUCommand = () => Promise.reject(new Error('sendAPDUCommand not set'));
 
 const hexToBytes = (Ntag424.util.hexToBytes = hex => {
   const bytes = [];
@@ -124,11 +138,13 @@ Ntag424.isoSelectFileApplication = async function () {
   if (resultHex == '9000') {
     return Promise.resolve(resultHex);
   } else {
-    return Promise.reject({
-      message: 'ISO Select File Failed, code ' + resultHex + ' ' + isoSelectErrorCodes[resultHex],
-      code: resultHex,
-      type: TypeError.ISO_SELECT,
-    });
+    return Promise.reject(
+      toRejectionError({
+        message: 'ISO Select File Failed, code ' + resultHex + ' ' + isoSelectErrorCodes[resultHex],
+        code: resultHex,
+        type: TypeError.ISO_SELECT,
+      }),
+    );
   }
 };
 
@@ -211,22 +227,26 @@ Ntag424.AuthEv2First = async function (keyNo, pKey) {
         return Promise.resolve({ sesAuthEncKey, sesAuthMacKey, ti });
       } else {
         // auth failed
-        return Promise.reject({
-          message: 'Auth Failed, code ' + secondAuthResultCode + ' ' + errorCodes[secondAuthResultCode],
-          code: secondAuthResultCode,
-          type: TypeError.AUTH_FAILED,
-        });
+        return Promise.reject(
+          toRejectionError({
+            message: 'Auth Failed, code ' + secondAuthResultCode + ' ' + errorCodes[secondAuthResultCode],
+            code: secondAuthResultCode,
+            type: TypeError.AUTH_FAILED,
+          }),
+        );
       }
     } else {
       // auth failed
-      return Promise.reject({
-        message: 'Auth Failed, code ' + resultCode + ' ' + errorCodes[resultCode],
-        code: resultCode,
-        type: TypeError.AUTH_FAILED,
-      });
+      return Promise.reject(
+        toRejectionError({
+          message: 'Auth Failed, code ' + resultCode + ' ' + errorCodes[resultCode],
+          code: resultCode,
+          type: TypeError.AUTH_FAILED,
+        }),
+      );
     }
   } catch (ex) {
-    return Promise.reject(ex);
+    return Promise.reject(toRejectionError(ex));
   }
 };
 
@@ -274,19 +294,23 @@ Ntag424.AuthEv2NonFirst = async (keyNo, pKey) => {
       return Promise.resolve('Successful');
     } else {
       // auth failed
-      return Promise.reject({
-        message: 'Auth Failed, code ' + secondAuthResultCode + ' ' + errorCodes[secondAuthResultCode],
-        code: secondAuthResultCode,
-        type: TypeError.AUTH_FAILED,
-      });
+      return Promise.reject(
+        toRejectionError({
+          message: 'Auth Failed, code ' + secondAuthResultCode + ' ' + errorCodes[secondAuthResultCode],
+          code: secondAuthResultCode,
+          type: TypeError.AUTH_FAILED,
+        }),
+      );
     }
   } else {
     // auth failed
-    return Promise.reject({
-      message: 'Auth Failed, code ' + resultCode + ' ' + errorCodes[resultCode],
-      code: resultCode,
-      type: TypeError.AUTH_FAILED,
-    });
+    return Promise.reject(
+      toRejectionError({
+        message: 'Auth Failed, code ' + resultCode + ' ' + errorCodes[resultCode],
+        code: resultCode,
+        type: TypeError.AUTH_FAILED,
+      }),
+    );
   }
 };
 
@@ -420,11 +444,13 @@ Ntag424.changeFileSettings = async cmdData => {
   if (resCode == '9100') {
     return Promise.resolve('Successful');
   } else {
-    return Promise.reject({
-      message: 'Change file settings Failed, code ' + resCode + ' ' + changeFileSettingsErrorCodes[resCode],
-      code: resCode,
-      type: TypeError.CHANGE_FILE_SETTINGS,
-    });
+    return Promise.reject(
+      toRejectionError({
+        message: 'Change file settings Failed, code ' + resCode + ' ' + changeFileSettingsErrorCodes[resCode],
+        code: resCode,
+        type: TypeError.CHANGE_FILE_SETTINGS,
+      }),
+    );
   }
 };
 
@@ -480,11 +506,13 @@ Ntag424.changeKey = async (keyNo, key, newKey, keyVersion) => {
   if (resCode == '9100') {
     return Promise.resolve('Successful');
   } else {
-    return Promise.reject({
-      message: 'Change file settings Failed, code ' + resCode + ' ' + changeKeyErrorCodes[resCode],
-      code: resCode,
-      type: TypeError.CHANGE_FILE_SETTINGS,
-    });
+    return Promise.reject(
+      toRejectionError({
+        message: 'Change file settings Failed, code ' + resCode + ' ' + changeKeyErrorCodes[resCode],
+        code: resCode,
+        type: TypeError.CHANGE_FILE_SETTINGS,
+      }),
+    );
   }
 };
 
@@ -528,11 +556,13 @@ Ntag424.getCardUid = async () => {
   if (resCode == '9100') {
     return Promise.resolve(uid);
   } else {
-    return Promise.reject({
-      message: 'Get Card UID Failed, code ' + resCode + ' ' + errorCodes[resCode],
-      code: resCode,
-      type: TypeError.OTHERS,
-    });
+    return Promise.reject(
+      toRejectionError({
+        message: 'Get Card UID Failed, code ' + resCode + ' ' + errorCodes[resCode],
+        code: resCode,
+        type: TypeError.OTHERS,
+      }),
+    );
   }
 };
 
@@ -554,11 +584,13 @@ Ntag424.setNdefMessage = async ndefMessageByte => {
     const resultHex = bytesToHex([isoSelectRes.sw1, isoSelectRes.sw2]);
     if (resultHex == '9000') {
     } else {
-      return Promise.reject({
-        message: 'ISO Select File Failed, code ' + resultHex + ' ' + errorCodes[resultHex],
-        code: resultHex,
-        type: TypeError.ISO_SELECT,
-      });
+      return Promise.reject(
+        toRejectionError({
+          message: 'ISO Select File Failed, code ' + resultHex + ' ' + errorCodes[resultHex],
+          code: resultHex,
+          type: TypeError.ISO_SELECT,
+        }),
+      );
     }
 
     const ndefMessage = bytesToHex(ndefMessageByte);
@@ -572,14 +604,16 @@ Ntag424.setNdefMessage = async ndefMessageByte => {
     if (resCode == '9000') {
       return Promise.resolve(resCode);
     } else {
-      return Promise.reject({
-        message: 'Set NDEF Message Failed, code ' + resCode + ' ' + errorCodes[resCode],
-        code: resCode,
-        type: TypeError.OTHERS,
-      });
+      return Promise.reject(
+        toRejectionError({
+          message: 'Set NDEF Message Failed, code ' + resCode + ' ' + errorCodes[resCode],
+          code: resCode,
+          type: TypeError.OTHERS,
+        }),
+      );
     }
   } catch (e) {
-    return Promise.reject('setNdefMessage Failed: ', e);
+    return Promise.reject(new Error('setNdefMessage Failed: '));
   }
 };
 
@@ -602,11 +636,13 @@ Ntag424.readData = async offset => {
   if (resCode == '9100') {
     return Promise.resolve(resData);
   } else {
-    return Promise.reject({
-      message: 'Read Data Failed, code ' + resCode + ' ' + errorCodes[resCode],
-      code: resCode,
-      type: TypeError.OTHERS,
-    });
+    return Promise.reject(
+      toRejectionError({
+        message: 'Read Data Failed, code ' + resCode + ' ' + errorCodes[resCode],
+        code: resCode,
+        type: TypeError.OTHERS,
+      }),
+    );
   }
 };
 
@@ -626,11 +662,13 @@ Ntag424.isoReadBinary = async offset => {
   const resultHex = bytesToHex([isoSelectRes.sw1, isoSelectRes.sw2]);
   if (resultHex == '9000') {
   } else {
-    return Promise.reject({
-      message: 'ISO Select File Failed, code ' + resultHex + ' ' + errorCodes[resultHex],
-      code: resultHex,
-      type: TypeError.ISO_SELECT,
-    });
+    return Promise.reject(
+      toRejectionError({
+        message: 'ISO Select File Failed, code ' + resultHex + ' ' + errorCodes[resultHex],
+        code: resultHex,
+        type: TypeError.ISO_SELECT,
+      }),
+    );
   }
 
   const cmdHex = '00B00000' + offset;
@@ -641,11 +679,13 @@ Ntag424.isoReadBinary = async offset => {
   if (resCode == '9000') {
     return Promise.resolve(resData);
   } else {
-    return Promise.reject({
-      message: 'isoReadBinary Failed, code ' + resCode + ' ' + errorCodes[resCode],
-      code: resCode,
-      type: TypeError.OTHERS,
-    });
+    return Promise.reject(
+      toRejectionError({
+        message: 'isoReadBinary Failed, code ' + resCode + ' ' + errorCodes[resCode],
+        code: resCode,
+        type: TypeError.OTHERS,
+      }),
+    );
   }
 };
 
@@ -665,11 +705,13 @@ Ntag424.getKeyVersion = async keyNo => {
   if (resCode == '9100') {
     return Promise.resolve(keyVersion);
   } else {
-    return Promise.reject({
-      message: 'Get Key Version Failed, code ' + resCode + ' ' + errorCodes[resCode],
-      code: resCode,
-      type: TypeError.OTHERS,
-    });
+    return Promise.reject(
+      toRejectionError({
+        message: 'Get Key Version Failed, code ' + resCode + ' ' + errorCodes[resCode],
+        code: resCode,
+        type: TypeError.OTHERS,
+      }),
+    );
   }
 };
 
@@ -737,11 +779,13 @@ Ntag424.getVersion = async () => {
       }
     }
   }
-  return Promise.reject({
-    message: 'Get Version Failed, code ' + resCode + ' ' + gerVersionErrorCodes[resCode],
-    code: resCode,
-    type: TypeError.OTHERS,
-  });
+  return Promise.reject(
+    toRejectionError({
+      message: 'Get Version Failed, code ' + resCode + ' ' + gerVersionErrorCodes[resCode],
+      code: resCode,
+      type: TypeError.OTHERS,
+    }),
+  );
 };
 
 /**
@@ -778,11 +822,13 @@ Ntag424.setConfiguration = async (option, configData) => {
   if (resCode == '9100') {
     return Promise.resolve('Successful');
   } else {
-    return Promise.reject({
-      message: 'Set Configuration Failed, code ' + resCode + ' ' + changeFileSettingsErrorCodes[resCode],
-      code: resCode,
-      type: TypeError.CHANGE_FILE_SETTINGS,
-    });
+    return Promise.reject(
+      toRejectionError({
+        message: 'Set Configuration Failed, code ' + resCode + ' ' + changeFileSettingsErrorCodes[resCode],
+        code: resCode,
+        type: TypeError.CHANGE_FILE_SETTINGS,
+      }),
+    );
   }
 };
 

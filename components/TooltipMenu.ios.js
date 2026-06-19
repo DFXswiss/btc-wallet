@@ -109,4 +109,5 @@ ToolTipMenu.propTypes = {
   onPress: PropTypes.func,
   previewValue: PropTypes.string,
   disabled: PropTypes.bool,
+  buttonStyle: PropTypes.object,
 };

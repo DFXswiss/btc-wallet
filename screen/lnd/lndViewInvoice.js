@@ -303,7 +303,7 @@ const LNDViewInvoice = () => {
                   ),
                   android: (
                     <View style={styles.buttonsContainer}>
-                      <Image source={require('../../img/bolt-card.png')} style={{ width: 40, height: 40 }} />
+                      <Image source={require('../../img/bolt-card.png')} style={styles.boltCardIcon} />
                     </View>
                   ),
                 })
@@ -324,6 +324,10 @@ const LNDViewInvoice = () => {
 };
 
 const styles = StyleSheet.create({
+  boltCardIcon: {
+    width: 40,
+    height: 40,
+  },
   root: {
     flex: 1,
     justifyContent: 'space-between',

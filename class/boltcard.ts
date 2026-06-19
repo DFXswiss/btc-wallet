@@ -120,13 +120,13 @@ export default class BoltCard implements BoltCardModel {
 
   static isPossiblyBoltcardTapDetails(jsonPayload: any = {}) {
     return (
-      jsonPayload.hasOwnProperty('lnurlw_base') ||
-      jsonPayload.hasOwnProperty('uid') ||
-      jsonPayload.hasOwnProperty('k0Version') ||
-      jsonPayload.hasOwnProperty('k1Version') ||
-      jsonPayload.hasOwnProperty('k2Version') ||
-      jsonPayload.hasOwnProperty('k3Version') ||
-      jsonPayload.hasOwnProperty('k4Version')
+      Object.prototype.hasOwnProperty.call(jsonPayload, 'lnurlw_base') ||
+      Object.prototype.hasOwnProperty.call(jsonPayload, 'uid') ||
+      Object.prototype.hasOwnProperty.call(jsonPayload, 'k0Version') ||
+      Object.prototype.hasOwnProperty.call(jsonPayload, 'k1Version') ||
+      Object.prototype.hasOwnProperty.call(jsonPayload, 'k2Version') ||
+      Object.prototype.hasOwnProperty.call(jsonPayload, 'k3Version') ||
+      Object.prototype.hasOwnProperty.call(jsonPayload, 'k4Version')
     );
   }
 }

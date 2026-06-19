@@ -401,7 +401,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     marginTop: 8,
     marginHorizontal: 4,
-    fontWeight: '600',
     alignSelf: 'flex-start',
     justifyContent: 'center',
     fontWeight: 'bold',

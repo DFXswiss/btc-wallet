@@ -75,7 +75,7 @@ const NewWalletPanel = ({ onPress }) => {
         style={[
           nStyles.container,
           nStylesHooks.container,
-          { backgroundColor: WalletGradient.createWallet() },
+          { backgroundColor: colors.lightButton },
           isLargeScreen ? {} : { width: itemWidth },
         ]}
       >

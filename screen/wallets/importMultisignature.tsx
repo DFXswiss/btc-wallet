@@ -144,7 +144,7 @@ const ImportMultisignature: React.FC & { navigationOptions?: ReturnType<typeof n
       {showLoading && (
         <View style={styles.loadingContainer}>
           <View style={styles.contentLoadingContainer}>
-            <ActivityIndicator style={{ marginBottom: 5 }} size={25} />
+            <ActivityIndicator style={styles.loadingIndicator} size={25} />
             <BlueText style={styles.loadingText}>{loc._.loading}</BlueText>
             {isLoadingAnimatedQRCode && !isPotentialMultisig && <BlueText style={styles.progressText}>{urHave + '/' + urTotal}</BlueText>}
             {isPotentialMultisig && (
@@ -186,6 +186,9 @@ const ImportMultisignature: React.FC & { navigationOptions?: ReturnType<typeof n
 };
 
 const styles = StyleSheet.create({
+  loadingIndicator: {
+    marginBottom: 5,
+  },
   container: {
     flex: 1,
   },

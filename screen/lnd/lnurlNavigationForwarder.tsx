@@ -10,7 +10,6 @@ import { OpenCryptoPayPaymentLink } from '../../class/open-crypto-pay';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import { useWalletContext } from '../../contexts/wallet.context';
 import Lnurl from '../../class/lnurl';
-import { parse } from 'url';
 import { AbstractWallet, HDSegwitBech32Wallet, LegacyWallet } from '../../class';
 import BigNumber from 'bignumber.js';
 import { AbstractHDElectrumWallet } from '../../class/wallets/abstract-hd-electrum-wallet';
@@ -117,10 +116,10 @@ const LnurlNavigationForwarder = () => {
     const url = Lnurl.getUrlFromLnurl(lnurl);
     if (!url) return;
 
-    const { query } = parse(url, true);
+    const tag = new URL(url).searchParams.get('tag');
 
     const isOffchain = wallets.find((w: any) => w.getID() === params?.walletID)?.chain === Chain.OFFCHAIN;
-    if (query.tag === Lnurl.TAG_LOGIN_REQUEST) {
+    if (tag === Lnurl.TAG_LOGIN_REQUEST) {
       return navigation.navigate('LnurlAuth', {
         lnurl,
         walletID: isOffchain ? params?.walletID : undefined,

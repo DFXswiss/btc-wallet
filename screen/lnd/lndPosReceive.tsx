@@ -152,7 +152,7 @@ const LndPosReceive = () => {
                   <BlueCopyTextToClipboard text={wallet.lnAddress} textStyle={styles.copyText} />
                 </View>
               </View>
-              <View style={{ justifyContent: 'center', alignItems: 'center' }}>
+              <View style={styles.centeredContainer}>
                 {isWaitingForPayment && Boolean(invoiceAmount) && !isPaid && (
                   <>
                     <Text style={[styleHooks.colorText, styles.invoiceText]}>You will be charged: {invoiceAmount / 1000} sats</Text>
@@ -175,6 +175,10 @@ const LndPosReceive = () => {
 };
 
 const styles = StyleSheet.create({
+  centeredContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   contentContainer: {
     flex: 1,
     marginTop: 16,

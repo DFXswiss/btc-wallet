@@ -1,4 +1,4 @@
-import URL, { parse } from 'url';
+import legacyUrl from 'url';
 import { Chain } from '../models/bitcoinUnits';
 import Lnurl from './lnurl';
 import { OpenCryptoPayPaymentLink } from './open-crypto-pay';
@@ -191,7 +191,7 @@ class DeeplinkSchemaMatch {
         },
       ]);
     } */ else {
-      const urlObject = URL.parse(event.url, true); // eslint-disable-line n/no-deprecated-api
+      const urlObject = legacyUrl.parse(event.url, true); // eslint-disable-line n/no-deprecated-api
       (async () => {
         if (
           urlObject.protocol === 'bluewallet:' ||
@@ -531,9 +531,9 @@ class DeeplinkSchemaMatch {
     const url = Lnurl.getUrlFromLnurl(text);
     if (!url) return;
 
-    const { query } = parse(url, true);
+    const tag = new URL(url).searchParams.get('tag');
 
-    if (query.tag === Lnurl.TAG_LOGIN_REQUEST) {
+    if (tag === Lnurl.TAG_LOGIN_REQUEST) {
       return [
         'LnurlAuth',
         {

@@ -122,13 +122,12 @@ const LnurlPay = () => {
     /** @type {Lnurl} */
     const LN = _LN;
 
-    let bolt11payload;
     let comment;
     if (LN.getCommentAllowed()) {
       comment = description;
     }
 
-    bolt11payload = await LN.requestBolt11FromLnurlPayService(amountSats, comment);
+    const bolt11payload = await LN.requestBolt11FromLnurlPayService(amountSats, comment);
     await wallet.payInvoice(bolt11payload.pr);
     const decoded = wallet.decodeInvoice(bolt11payload.pr);
     setPayButtonDisabled(false);

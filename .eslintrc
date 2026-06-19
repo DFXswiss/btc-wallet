@@ -60,6 +60,9 @@
     // disable rules that are superseded by @typescript-eslint rules
     "no-unused-vars": "off",
     "no-use-before-define": "off",
+    // base rule misfires on TS parameter-property constructors; TS-aware version understands them
+    "no-useless-constructor": "off",
+    "@typescript-eslint/no-useless-constructor": "error",
 
     // disable rules that we want to enforce only for typescript files
     "@typescript-eslint/explicit-module-boundary-types": "off",

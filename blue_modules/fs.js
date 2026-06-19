@@ -125,7 +125,7 @@ const showImagePickerAndReadImage = () => {
                   reject(new Error(loc.send.qr_error_no_qrcode));
                 }
               })
-              .catch(error => {
+              .catch(() => {
                 reject(new Error(loc.send.qr_error_no_qrcode));
               });
           }
@@ -165,7 +165,7 @@ const showFilePickerAndReadFile = async function () {
               resolve({ data: false, uri: false });
             }
           })
-          .catch(error => {
+          .catch(() => {
             resolve({ data: false, uri: false });
           });
       });

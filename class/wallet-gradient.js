@@ -11,7 +11,6 @@ import { HDSegwitElectrumSeedP2WPKHWallet } from './wallets/hd-segwit-electrum-s
 import { MultisigHDWallet } from './wallets/multisig-hd-wallet';
 import { HDAezeedWallet } from './wallets/hd-aezeed-wallet';
 import { SLIP39LegacyP2PKHWallet, SLIP39SegwitP2SHWallet, SLIP39SegwitBech32Wallet } from './wallets/slip39-wallets';
-import { useTheme } from '@react-navigation/native';
 
 export default class WalletGradient {
   static hdSegwitP2SHWallet = ['#007AFF', '#0040FF'];
@@ -25,11 +24,6 @@ export default class WalletGradient {
   static defaultGradients = ['#B770F6', '#9013FE'];
   static lightningCustodianWallet = ['#F1AA07', '#FD7E37'];
   static aezeedWallet = ['#8584FF', '#5351FB'];
-
-  static createWallet = () => {
-    const { colors } = useTheme();
-    return colors.lightButton;
-  };
 
   static gradientsFor(type) {
     let gradient;

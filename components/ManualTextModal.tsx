@@ -53,13 +53,13 @@ export const ManualTextModal: React.FC<ManualTextModalProps> = ({
         <View style={[styles.modalContainer, stylesHooks.modalContainer]}>
           <View style={styles.contentContainer}>
             <View style={styles.headerContainer}>
-              <View style={{ paddingVertical: 15, alignItems: 'center' }}>
+              <View style={styles.closeIconContainer}>
                 <Icon name="close" type="material" size={28} onPress={onClose} color={colors.text} />
               </View>
-              <View style={{ paddingVertical: 10, alignItems: 'center' }}>
+              <View style={styles.titleContainer}>
                 <BlueText style={styles.title}>{title}</BlueText>
               </View>
-              <View style={{ width: 30 }} />
+              <View style={styles.headerSpacer} />
             </View>
             <View style={[styles.inputContainer, stylesHooks.inputContainer]}>
               <TextInput
@@ -85,6 +85,17 @@ export const ManualTextModal: React.FC<ManualTextModalProps> = ({
 };
 
 const styles = StyleSheet.create({
+  closeIconContainer: {
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  titleContainer: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  headerSpacer: {
+    width: 30,
+  },
   modalContainer: {
     minHeight: 460,
     borderTopLeftRadius: 16,

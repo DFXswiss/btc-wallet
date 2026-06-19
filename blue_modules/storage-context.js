@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useEffect, useRef, useState } from 'react';
+import PropTypes from 'prop-types';
 import { Alert } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { useAsyncStorage } from '@react-native-async-storage/async-storage';
@@ -387,4 +388,8 @@ export const BlueStorageProvider = ({ children }) => {
       {children}
     </BlueStorageContext.Provider>
   );
+};
+
+BlueStorageProvider.propTypes = {
+  children: PropTypes.node,
 };

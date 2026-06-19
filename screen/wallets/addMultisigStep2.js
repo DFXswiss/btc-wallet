@@ -3,6 +3,7 @@ import { FlatList, LayoutAnimation, Platform, StyleSheet, Text, View } from 'rea
 import { Icon } from 'react-native-elements';
 import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
+import PropTypes from 'prop-types';
 
 import { BlueButton, BlueSpacing10 } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
@@ -362,6 +363,9 @@ const WalletsAddMultisigStep2 = () => {
       <Text style={stylesHook.keyCircleText}>{text}</Text>
     </View>
   );
+  KeyCircleUncheck.propTypes = {
+    text: PropTypes.node,
+  };
 
   const _renderKeyItem = el => {
     const isChecked = el.index < cosigners.length;

@@ -176,7 +176,7 @@ const ReceiveDfxPos = () => {
                       <BlueSpacing10 />
                     </>
                   )}
-                  <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                  <View style={styles.qrContainer}>
                     <QRCodeComponent value={lnurl} />
                   </View>
                   {posStatus === PosStatus.PAID && (
@@ -205,6 +205,10 @@ const ReceiveDfxPos = () => {
 };
 
 const styles = StyleSheet.create({
+  qrContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   loading: {
     flex: 1,
     justifyContent: 'center',

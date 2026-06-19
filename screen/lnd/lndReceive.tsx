@@ -234,7 +234,7 @@ const LNDReceive = () => {
                         textStyle={styles.copyText}
                       />
                       <TouchableOpacity accessibilityRole="button" onPress={handleShareButtonPressed}>
-                        <Image resizeMode="stretch" source={require('../../img/share-icon.png')} style={{ width: 18, height: 20 }} />
+                        <Image resizeMode="stretch" source={require('../../img/share-icon.png')} style={styles.shareIcon} />
                       </TouchableOpacity>
                     </View>
                   </>
@@ -288,7 +288,7 @@ const LNDReceive = () => {
                       ),
                       android: (
                         <View style={styles.buttonsContainer}>
-                          <Image source={require('../../img/bolt-card.png')} style={{ width: 40, height: 40 }} />
+                          <Image source={require('../../img/bolt-card.png')} style={styles.boltCardIcon} />
                         </View>
                       ),
                     })}
@@ -311,6 +311,14 @@ const LNDReceive = () => {
 };
 
 const styles = StyleSheet.create({
+  shareIcon: {
+    width: 18,
+    height: 20,
+  },
+  boltCardIcon: {
+    width: 40,
+    height: 40,
+  },
   root: {
     flex: 1,
     justifyContent: 'space-between',

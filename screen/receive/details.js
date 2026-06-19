@@ -250,7 +250,7 @@ const ReceiveDetails = () => {
         <KeyboardAvoidingView enabled={!Platform.isPad} behavior="position" keyboardVerticalOffset={50}>
           <View style={styles.scrollBody}>
             <QRCodeComponent value={bip21encoded} />
-            <BlueCopyTextToClipboard text={isCustom ? bip21encoded : address} textStyle={{ marginVertical: 24 }} />
+            <BlueCopyTextToClipboard text={isCustom ? bip21encoded : address} textStyle={styles.copyText} />
           </View>
           <View style={styles.share}>
             <View style={[styles.customAmount, stylesHook.customAmount]}>
@@ -398,6 +398,9 @@ const ReceiveDetails = () => {
 };
 
 const styles = StyleSheet.create({
+  copyText: {
+    marginVertical: 24,
+  },
   customAmount: {
     flexDirection: 'row',
     borderWidth: 1.0,

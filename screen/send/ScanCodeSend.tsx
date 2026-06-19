@@ -138,11 +138,9 @@ const ScanCodeSend: React.FC & { navigationOptions?: ReturnType<typeof navigatio
         />
       )}
       {getIsProcessing() && (
-        <View
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', zIndex: 10 }}
-        >
+        <View style={styles.processingOverlay}>
           <View style={styles.loadingContainer}>
-            <ActivityIndicator style={{ marginBottom: 5 }} size={25} />
+            <ActivityIndicator style={styles.loadingIndicator} size={25} />
             <BlueText style={styles.textExplanation}>{`${loc._.loading} ${urHave}/${urTotal}`}</BlueText>
           </View>
         </View>
@@ -172,6 +170,19 @@ const ScanCodeSend: React.FC & { navigationOptions?: ReturnType<typeof navigatio
 };
 
 const styles = StyleSheet.create({
+  processingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  loadingIndicator: {
+    marginBottom: 5,
+  },
   container: {
     flex: 1,
   },

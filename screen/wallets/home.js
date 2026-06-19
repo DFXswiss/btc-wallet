@@ -373,7 +373,7 @@ const WalletHome = ({ navigation }) => {
           icon={
             <View style={styles.scanIconContainer}>
               <Image resizeMode="stretch" source={scanImage} />
-              <Image style={{ width: 20, height: 20 }} source={require('../../img/nfc.png')} />
+              <Image style={styles.nfcImage} source={require('../../img/nfc.png')} />
             </View>
           }
           text={loc.send.details_scan}
@@ -463,6 +463,10 @@ WalletHome.propTypes = {
 };
 
 const styles = StyleSheet.create({
+  nfcImage: {
+    width: 20,
+    height: 20,
+  },
   flex: {
     flex: 1,
   },

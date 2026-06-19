@@ -55,7 +55,7 @@ const BoltCardUI: React.FC<BoltCardProps> = ({ uid, cardholder, txLimit, dailyLi
       <LinearGradient colors={[derivateColor(), '#263238']} style={styles.backgroundImageStyle}>
         <ImageBackground
           style={[styles.card, styles.cardInternalContainer]}
-          imageStyle={[styles.backgroundImageStyle, { width: 250, height: 200 }]}
+          imageStyle={[styles.backgroundImageStyle, styles.cardImage]}
           source={require('../img/lnd-shape-rtl.png')}
         >
           <View style={styles.cardDetailsContainer}>
@@ -70,8 +70,8 @@ const BoltCardUI: React.FC<BoltCardProps> = ({ uid, cardholder, txLimit, dailyLi
               <View>
                 <Text style={[styles.cardName, styles.metalic]}>{cardholder.toUpperCase()}</Text>
               </View>
-              <View style={{ flexDirection: 'row', marginTop: 4 }}>
-                <View style={{ marginRight: 20 }}>
+              <View style={styles.txLimitRow}>
+                <View style={styles.txLimitColumn}>
                   <Text style={[styles.detailTitle, styles.metalic]}>TX LIMIT</Text>
                   <Text style={[styles.detailValue, styles.metalic]}>{txLimit} sats</Text>
                 </View>
@@ -83,7 +83,7 @@ const BoltCardUI: React.FC<BoltCardProps> = ({ uid, cardholder, txLimit, dailyLi
             </View>
           </View>
           <View style={styles.brandsContainer}>
-            <Image source={require('../img/dfx/logo.png')} style={{ width: 18 * 3.19, height: 18 }} />
+            <Image source={require('../img/dfx/logo.png')} style={styles.dfxLogo} />
             <Image source={require('../img/nfc.png')} style={styles.boltcardLogo} />
           </View>
         </ImageBackground>
@@ -93,6 +93,21 @@ const BoltCardUI: React.FC<BoltCardProps> = ({ uid, cardholder, txLimit, dailyLi
 };
 
 const styles = StyleSheet.create({
+  cardImage: {
+    width: 250,
+    height: 200,
+  },
+  txLimitRow: {
+    flexDirection: 'row',
+    marginTop: 4,
+  },
+  txLimitColumn: {
+    marginRight: 20,
+  },
+  dfxLogo: {
+    width: 18 * 3.19,
+    height: 18,
+  },
   cardContainer: {
     alignItems: 'center',
     justifyContent: 'center',

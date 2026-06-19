@@ -163,7 +163,7 @@ const AddBoltcard: React.FC & { navigationOptions?: ReturnType<typeof navigation
     <SafeAreaView style={stylesHooks.root}>
       <View style={styles.imageContainer}>
         <View style={styles.logoContainer}>
-          <Image source={require('../../img/pay-card-link.png')} style={{ width: 1.3 * 60, height: 60 }} />
+          <Image source={require('../../img/pay-card-link.png')} style={styles.cardLinkImage} />
         </View>
       </View>
       <View style={styles.descriptionContainer}>
@@ -183,6 +183,10 @@ const AddBoltcard: React.FC & { navigationOptions?: ReturnType<typeof navigation
 };
 
 const styles = StyleSheet.create({
+  cardLinkImage: {
+    width: 1.3 * 60,
+    height: 60,
+  },
   imageContainer: {
     marginVertical: 24,
     alignItems: 'center',

@@ -364,7 +364,7 @@ const Asset = ({ navigation }) => {
       case LightningLdsWallet.type:
         return (
           <TouchableOpacity onPress={handleGoToBoltCard} style={styles.boltcardButton}>
-            <Image source={require('../../img/pay-card-link.png')} style={{ width: 1.3 * 30, height: 30 }} />
+            <Image source={require('../../img/pay-card-link.png')} style={styles.payCardImage} />
             <Text style={stylesHook.listHeaderText}>{loc.boltcard.pay_card}</Text>
           </TouchableOpacity>
         );
@@ -446,7 +446,7 @@ const Asset = ({ navigation }) => {
           icon={
             <View style={styles.scanIconContainer}>
               <Image resizeMode="stretch" source={scanImage} />
-              <Image style={{ width: 20, height: 20 }} source={require('../../img/nfc.png')} />
+              <Image style={styles.nfcImage} source={require('../../img/nfc.png')} />
             </View>
           }
           text={loc.send.details_scan}
@@ -501,6 +501,14 @@ Asset.propTypes = {
 };
 
 const styles = StyleSheet.create({
+  payCardImage: {
+    width: 1.3 * 30,
+    height: 30,
+  },
+  nfcImage: {
+    width: 20,
+    height: 20,
+  },
   flex: {
     flex: 1,
   },
