@@ -1,0 +1,82 @@
+default_platform(:android)
+
+# Mirror of ios/fastlane/Fastfile's resolver. Wraps scripts/release-version.sh.
+def resolve_release_info(raw_tag)
+  out = Dir.chdir("../..") { sh("bash", "scripts/release-version.sh", raw_tag) }
+  info = {
+    "release_tag" => out[/release_tag=(.+)/, 1]&.strip,
+    "marketing_version" => out[/marketing_version=(.+)/, 1]&.strip,
+    "version_code" => out[/version_code=(\d+)/, 1]&.strip,
+  }
+  missing = info.select { |_, v| v.nil? || v.empty? }.keys
+  UI.user_error!("release-info generator missing keys: #{missing.join(', ')}") unless missing.empty?
+  # `dev` sentinel (versionCode=0) is local-only — Play rejects versionCode 0.
+  if info["version_code"].to_i <= 0
+    UI.user_error!("refusing to build a store release without a release tag (got: '#{raw_tag}')")
+  end
+  info
+end
+
+platform :android do
+  # Open Testing ("beta"): public, link-shareable track.
+  def release_track
+    "beta"
+  end
+
+  # The attested AAB produced by scripts/build-release-apk.sh (relative to android/).
+  def aab_path
+    "app/build/outputs/bundle/release/app-release-transparent.aab"
+  end
+
+  desc "Build the attested AAB and upload to Play Store beta + stage the listing"
+  lane :release do
+    info = resolve_release_info(ENV["NEW_VERSION"] || "dev")
+
+    # Reuse the existing reproducible + code-transparency build (keeps attestation).
+    # KEYSTORE_*/TRANSPARENCY_* come from the workflow env; version from the generator.
+    Dir.chdir("../..") do
+      sh(
+        { "BUILD_NUMBER" => info["version_code"], "MARKETING_VERSION" => info["marketing_version"] },
+        "bash", "scripts/build-release-apk.sh"
+      )
+    end
+
+    # Binary + changelog only. The changelog is tied to this build's version code.
+    upload_to_play_store(
+      track: release_track,
+      aab: aab_path,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+    )
+
+    # Listing (metadata + images + screenshots) only; no changelog (supply needs a
+    # version code, which only a binary upload provides — owned by the call above).
+    upload_to_play_store(
+      track: release_track,
+      metadata_path: "./fastlane/metadata/android",
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_changelogs: true,
+      skip_upload_metadata: false,
+      skip_upload_images: true, # empty image folders — keep the live Play graphics
+      skip_upload_screenshots: true, # no committed screenshots yet — keep the live Play set
+    )
+  end
+
+  desc "Upload the Play Store listing (metadata + screenshots) without a binary"
+  lane :store_metadata do
+    # Hard-pin the internal track: the listing is global but the changelog is
+    # per-track, so this can never touch production even if release_track changes.
+    upload_to_play_store(
+      track: "internal",
+      metadata_path: "./fastlane/metadata/android",
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_changelogs: true,
+      skip_upload_metadata: false,
+      skip_upload_images: true, # empty image folders — keep the live Play graphics
+      skip_upload_screenshots: true, # no committed screenshots yet — keep the live Play set
+    )
+  end
+end

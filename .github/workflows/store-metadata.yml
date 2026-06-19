@@ -1,0 +1,76 @@
+name: Store metadata sync
+
+# Push store-listing changes (texts + screenshots) WITHOUT cutting a new build.
+# Fires when metadata changes land on develop, or on demand for one/both stores.
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'ios/fastlane/metadata/**'
+      - 'ios/fastlane/screenshots/**'
+      - 'android/fastlane/metadata/**'
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Which store to push to'
+        required: true
+        default: 'both'
+        type: choice
+        options: [ios, android, both]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: store-metadata-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject FIXME placeholders + enforce character limits
+        run: bash scripts/check-store-metadata.sh
+
+  ios:
+    needs: preflight
+    if: ${{ github.event_name == 'push' || github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'both' }}
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: ios
+      - name: Write App Store Connect API key
+        run: |
+          echo "${{ secrets.APP_STORE_CONNECT_KEY }}" > "$RUNNER_TEMP/AuthKey.p8"
+          echo "FASTLANE_APPLE_API_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+          echo "FASTLANE_APPLE_API_KEY_ID=${{ secrets.APP_STORE_CONNECT_KEY_ID }}" >> "$GITHUB_ENV"
+          echo "FASTLANE_APPLE_API_ISSUER_ID=${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}" >> "$GITHUB_ENV"
+      - name: Sync App Store listing
+        working-directory: ios
+        run: bundle exec fastlane store_metadata
+
+  android:
+    needs: preflight
+    if: ${{ github.event_name == 'push' || github.event.inputs.platform == 'android' || github.event.inputs.platform == 'both' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: android
+      - name: Write Play service account
+        run: echo "${{ secrets.PLAY_STORE_JSON_BASE64 }}" | base64 -d > android/credentials.json
+      - name: Sync Play Store listing
+        working-directory: android
+        run: bundle exec fastlane store_metadata

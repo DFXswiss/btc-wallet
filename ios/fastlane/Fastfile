@@ -2,6 +2,48 @@ default_platform(:ios)
 
 PROFILE_NAME = "match AppStore swiss.dfx.bitcoin"
 
+def get_api_key
+  app_store_connect_api_key(
+    key_id: ENV["FASTLANE_APPLE_API_KEY_ID"],
+    issuer_id: ENV["FASTLANE_APPLE_API_ISSUER_ID"],
+    key_filepath: ENV["FASTLANE_APPLE_API_KEY_PATH"],
+  )
+end
+
+# Run `deliver` (App Store listing push) as best-effort: a failure is logged
+# loudly but does NOT fail the lane. While the app has no editable App Store
+# version yet (TestFlight-only), `deliver` cannot create the first version via
+# the API — that is a one-time App Store Connect bootstrap, not a repo problem.
+# The TestFlight binary (the release-critical step) has already been uploaded.
+def deliver_best_effort(**options)
+  deliver(**options)
+rescue => e
+  UI.error("================ App Store listing NOT updated ================")
+  UI.error("`deliver` failed and was skipped (best-effort) — exit stays 0.")
+  UI.error("deliver error: #{e.message}")
+  UI.important("Expected while the app is TestFlight-only with no editable App Store version.")
+  UI.important("ACTION: create the first App Store version once in App Store Connect; the next release then syncs the listing automatically.")
+  UI.error("===============================================================")
+end
+
+# Single source of truth for tag -> marketing version + version code.
+# Mirrored in android/fastlane/Fastfile. Wraps scripts/release-version.sh.
+def resolve_release_info(raw_tag)
+  out = Dir.chdir("../..") { sh("bash", "scripts/release-version.sh", raw_tag) }
+  info = {
+    "release_tag" => out[/release_tag=(.+)/, 1]&.strip,
+    "marketing_version" => out[/marketing_version=(.+)/, 1]&.strip,
+    "version_code" => out[/version_code=(\d+)/, 1]&.strip,
+  }
+  missing = info.select { |_, v| v.nil? || v.empty? }.keys
+  UI.user_error!("release-info generator missing keys: #{missing.join(', ')}") unless missing.empty?
+  # `dev` sentinel (versionCode=0) is local-only — stores reject build number 0.
+  if info["version_code"].to_i <= 0
+    UI.user_error!("refusing to build a store release without a release tag (got: '#{raw_tag}')")
+  end
+  info
+end
+
 platform :ios do
   # Builds the prod (BlueWallet scheme -> .env.prd) app and uploads it to TestFlight.
   # Signing assets (distribution cert + App Store provisioning profile) come from the
@@ -64,6 +106,77 @@ platform :ios do
     )
   end
 
+  # Tag-driven store release. Same proven signing recipe as :beta (match + manual
+  # signing pinned to the match profile), but versioned from the git tag and with
+  # the App Store listing staged alongside the TestFlight build.
+  desc "Tag-driven store release: TestFlight + stage the App Store listing"
+  lane :release do
+    setup_ci
+    info = resolve_release_info(ENV["NEW_VERSION"] || "dev")
+    api_key = get_api_key
+
+    match(type: "appstore", readonly: true, api_key: api_key)
+
+    # CFBundleShortVersionString from the tag; build number = tag-deterministic
+    # version code (identical to Android's versionCode).
+    increment_version_number(version_number: info["marketing_version"], xcodeproj: "BlueWallet.xcodeproj")
+    increment_build_number(build_number: info["version_code"], xcodeproj: "BlueWallet.xcodeproj")
+
+    # Pin the target to the match-managed cert + profile (manual signing).
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "BlueWallet.xcodeproj",
+      team_id: "Y4QBY6387T",
+      code_sign_identity: "Apple Distribution",
+      bundle_identifier: "swiss.dfx.bitcoin",
+      profile_name: PROFILE_NAME,
+      targets: ["BlueWallet"],
+    )
+
+    build_app(
+      workspace: "BlueWallet.xcworkspace",
+      scheme: "BlueWallet", # prod scheme -> .env.prd (CI also writes /tmp/envfile)
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "build",
+      output_name: "dfx-bitcoin-#{info['release_tag']}.ipa",
+      clean: false,
+      export_options: {
+        provisioningProfiles: { "swiss.dfx.bitcoin" => PROFILE_NAME },
+      },
+    )
+
+    upload_to_testflight(api_key: api_key, skip_waiting_for_build_processing: true)
+
+    # Stage the App Store listing alongside the binary. Deliverfile keeps it safe
+    # (force, submit_for_review false, automatic_release false): staged, never
+    # auto-submitted. Best-effort until the first App Store version is bootstrapped.
+    deliver_best_effort(
+      api_key: api_key,
+      app_version: info["marketing_version"],
+      metadata_path: "./fastlane/metadata",
+      screenshots_path: "./fastlane/screenshots",
+      skip_binary_upload: true,
+      skip_app_version_update: false,
+      skip_metadata: false,
+      skip_screenshots: true, # no committed screenshots yet — leave the live App Store set untouched
+    )
+  end
+
+  desc "Upload the App Store listing (metadata + screenshots) without a binary"
+  lane :store_metadata do
+    setup_ci
+    deliver_best_effort(
+      api_key: get_api_key,
+      metadata_path: "./fastlane/metadata",
+      screenshots_path: "./fastlane/screenshots",
+      skip_binary_upload: true,
+      skip_app_version_update: false,
+      skip_metadata: false,
+      skip_screenshots: true, # no committed screenshots yet — leave the live App Store set untouched
+    )
+  end
+
   # On-demand: (re)create the App Store distribution cert + provisioning profile
   # via the ASC API key and push them (encrypted) to the match certs repo. Run
   # manually through the "iOS Signing Bootstrap" workflow when the cert expires
@@ -78,5 +191,4 @@ platform :ios do
     setup_ci
     match(type: "appstore", readonly: false, api_key: api_key)
   end
-
 end

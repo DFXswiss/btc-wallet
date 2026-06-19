@@ -1,0 +1,71 @@
+name: Auto Tag on Merge
+
+# Every merge to develop creates the next internal-release tag vX.Y.Z (PATCH+1),
+# which triggers the release workflow. A manual vX.Y.0 tag = production candidate.
+# Mirrors RealUnitCH/app's auto-tag.yaml.
+
+on:
+  push:
+    branches: [develop]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-tag
+  cancel-in-progress: false
+
+jobs:
+  create-tag:
+    name: Create internal release tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      # Deploy key so the tag push re-triggers the release workflow — a push
+      # made with the default GITHUB_TOKEN does NOT trigger other workflows.
+      - uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.TAG_DEPLOY_KEY }}
+      - name: Use SSH remote
+        run: git remote set-url origin "git@github.com:${{ github.repository }}.git"
+
+      - name: Compute next tag
+        id: next
+        run: |
+          set -euo pipefail
+          # The DFX version line is owned by gradle releaseVersionName, NOT the
+          # inherited BlueWallet vX.Y.Z tags (the fork carries v6.x). Derive the
+          # MAJOR.MINOR.PATCH baseline from it and only ever tag within that line.
+          BASE=$(grep "releaseVersionName" android/app/build.gradle | grep -oE "[0-9]+\.[0-9]+\.[0-9]+" | tail -n1 || true)
+          [ -n "$BASE" ] || { echo "::error::could not read releaseVersionName from build.gradle"; exit 1; }
+          MAJOR=$(echo "$BASE" | cut -d. -f1); MINOR=$(echo "$BASE" | cut -d. -f2); BASEPATCH=$(echo "$BASE" | cut -d. -f3)
+          # Highest existing tag on THIS major.minor line only (ignores v6.x etc.).
+          LATEST=$(git tag -l "v${MAJOR}.${MINOR}.*" --sort=-v:refname | grep -E "^v${MAJOR}\.${MINOR}\.[0-9]+$" | head -n1 || true)
+          if [ -n "$LATEST" ]; then
+            NEXTPATCH=$(( $(echo "${LATEST#v}" | cut -d. -f3) + 1 ))
+          else
+            NEXTPATCH="$BASEPATCH"
+          fi
+          # A manual bump of releaseVersionName wins: never tag below its patch.
+          [ "$NEXTPATCH" -ge "$BASEPATCH" ] || NEXTPATCH="$BASEPATCH"
+          NEXT="v${MAJOR}.${MINOR}.${NEXTPATCH}"
+          echo "tag=$NEXT" >> "$GITHUB_OUTPUT"
+          echo "::notice::DFX line ${MAJOR}.${MINOR} (gradle $BASE), latest ${LATEST:-none} -> next $NEXT"
+
+      - name: Create + push tag
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.next.outputs.tag }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "::error::Tag $TAG already exists"; exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Internal release $TAG"
+          git push origin "$TAG"
+          echo "::notice::Created and pushed $TAG"

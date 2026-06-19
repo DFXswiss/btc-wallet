@@ -12,6 +12,7 @@ set -euo pipefail
 #
 # Optional:
 #   BUILD_NUMBER              deterministic versionCode override
+#   MARKETING_VERSION         versionName override (X.Y.Z)
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
@@ -55,6 +56,7 @@ SIGN_ARGS=(
   "-PMYAPP_UPLOAD_KEY_PASSWORD=$KEYSTORE_KEY_PASSWORD"
 )
 [ -n "${BUILD_NUMBER:-}" ] && SIGN_ARGS+=("-PMYAPP_VERSION_CODE=$BUILD_NUMBER")
+[ -n "${MARKETING_VERSION:-}" ] && SIGN_ARGS+=("-PMYAPP_VERSION_NAME=$MARKETING_VERSION")
 
 # ── build ─────────────────────────────────────────────────────────────────────
 cd android

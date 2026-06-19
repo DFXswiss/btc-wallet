@@ -1,9 +1,10 @@
 name: BuildReleaseApk
 
+# Manual-only. The tag-driven store release is owned by release.yml, whose
+# android-deploy job runs this same attested build (scripts/build-release-apk.sh)
+# at the tag-derived version. Kept here as a standalone on-demand APK/AAB builder.
 on:
-  push:
-    tags:
-      - 'v*' # This triggers the workflow on any tag starting with 'v'
+  workflow_dispatch:
 
 jobs:
   buildReleaseApk:
