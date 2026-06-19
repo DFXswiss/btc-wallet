@@ -73,7 +73,7 @@ const ImportWalletDiscovery = () => {
     const onProgress = data => setProgress(data);
 
     const onWallet = wallet => {
-      if(wallet.type === WatchOnlyWallet.type) return;
+      if (wallet.type === WatchOnlyWallet.type) return;
 
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       const id = wallet.getID();
@@ -104,13 +104,13 @@ const ImportWalletDiscovery = () => {
     task.current = startImport(possibleSecret, askPassphrase, searchAccounts, onProgress, onWallet, onPassword);
 
     task.current.promise
-      .then(({ cancelled, wallets}) => {
+      .then(({ cancelled, wallets }) => {
         const w = wallets.filter(w => w.type !== WatchOnlyWallet.type);
 
         if (cancelled) return;
         if (w.length === 1) {
           saveWallet(w[0], multisig);
-          if(multisig) onWallet(multisig);
+          if (multisig) onWallet(multisig);
         }
         if (w.length === 0) {
           ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });

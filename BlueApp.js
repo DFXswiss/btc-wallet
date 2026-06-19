@@ -334,7 +334,7 @@ class AppStorage {
       try {
         realm = await this.getRealm();
       } catch (error) {
-        console.log("ERROR: ", error.message);
+        console.log('ERROR: ', error.message);
       }
       data = JSON.parse(data);
       if (!data.wallets) return false;
@@ -405,9 +405,9 @@ class AppStorage {
               tempObj.type === LightningCustodianWallet.type
                 ? LightningCustodianWallet.fromJson(key)
                 : tempObj.type === LightningLdsWallet.type
-                ? LightningLdsWallet.fromJson(key)
-                : TaprootLdsWallet.fromJson(key);
-                
+                  ? LightningLdsWallet.fromJson(key)
+                  : TaprootLdsWallet.fromJson(key);
+
             let lndhub = false;
             try {
               lndhub = await AsyncStorage.getItem(AppStorage.LNDHUB);
@@ -436,7 +436,7 @@ class AppStorage {
         try {
           if (realm) this.inflateWalletFromRealm(realm, unserializedWallet);
         } catch (error) {
-          console.log("ERROR: ", error.message);
+          console.log('ERROR: ', error.message);
         }
 
         // done
@@ -697,7 +697,7 @@ class AppStorage {
       await Promise.all(
         this.wallets.map(wallet => {
           return wallet.fetchBalance();
-        })
+        }),
       );
     }
   };
@@ -833,7 +833,6 @@ class AppStorage {
   setIsAdvancedModeEnabled = async value => {
     await AsyncStorage.setItem(AppStorage.ADVANCED_MODE_ENABLED, value ? '1' : '');
   };
-
 
   isLdsDevEnabled = async () => {
     try {

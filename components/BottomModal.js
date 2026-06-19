@@ -37,11 +37,11 @@ const BottomModal = ({
   // Accept and ignore legacy `react-native-modal` props (windowHeight,
   // windowWidth, deviceHeight, deviceWidth, propagateSwipe, useNativeDriver*, …)
   // so we don't have to touch call sites.
-  // eslint-disable-next-line no-unused-vars
+
   ...legacyProps
 }) => {
   const handleBackRequest = onBackButtonPress ?? onClose;
-  const handleBackdropPress = allowBackdropPress ? onBackdropPress ?? onClose : undefined;
+  const handleBackdropPress = allowBackdropPress ? (onBackdropPress ?? onClose) : undefined;
   const { colors } = useTheme();
 
   const stylesHook = StyleSheet.create({

@@ -3,12 +3,12 @@ import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
 import loc from '../loc';
 import { pick, types, errorCodes } from '@react-native-documents/picker';
-
-const isCancel = err => err && err.code === errorCodes.OPERATION_CANCELED;
 import { launchImageLibrary } from 'react-native-image-picker';
 import RNQRGenerator from 'rn-qr-generator';
 import { isDesktop } from '../blue_modules/environment';
 import alert from '../components/Alert';
+
+const isCancel = err => err && err.code === errorCodes.OPERATION_CANCELED;
 
 const writeFileAndExportToAndroidDestionation = async ({ filename, contents, destinationLocalizedString, destination }) => {
   const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE, {

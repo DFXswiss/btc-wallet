@@ -103,7 +103,6 @@ const WalletHome = ({ navigation }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallets, walletID, totalWallet]);
 
-
   const importPsbt = base64Psbt => {
     try {
       const psbt = bitcoin.Psbt.fromBase64(base64Psbt); // if it doesnt throw - all good, its valid
@@ -116,7 +115,7 @@ const WalletHome = ({ navigation }) => {
           },
         });
       }
-    } catch (_) { }
+    } catch (_) {}
   };
 
   const onBarScanned = value => {
@@ -193,7 +192,7 @@ const WalletHome = ({ navigation }) => {
       const buttons = [
         {
           text: loc._.cancel,
-          onPress: () => { },
+          onPress: () => {},
           style: 'cancel',
         },
         {
@@ -348,18 +347,18 @@ const WalletHome = ({ navigation }) => {
                 Component={View}
                 {...(item.isActivated
                   ? {
-                    rightElement: (
-                      <SecondButton
-                        title={loc._.add}
-                        icon={{ name: 'plus', type: 'font-awesome', color: 'white', size: 12 }}
-                        onPress={item.onDummyPress}
-                      />
-                    ),
-                  }
+                      rightElement: (
+                        <SecondButton
+                          title={loc._.add}
+                          icon={{ name: 'plus', type: 'font-awesome', color: 'white', size: 12 }}
+                          onPress={item.onDummyPress}
+                        />
+                      ),
+                    }
                   : {
-                    rightTitle: loc.wallets.coming_soon,
-                    rightTitleStyle: stylesHook.comingSoon,
-                  })}
+                      rightTitle: loc.wallets.coming_soon,
+                      rightTitleStyle: stylesHook.comingSoon,
+                    })}
               />
             )}
           </TouchableOpacity>
@@ -501,5 +500,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  }
+  },
 });

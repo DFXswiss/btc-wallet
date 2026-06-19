@@ -48,14 +48,8 @@ if (Platform.OS === 'android') {
 }
 
 const App = () => {
-  const {
-    walletsInitialized,
-    wallets,
-    addWallet,
-    saveToDisk,
-    setBalanceRefreshInterval,
-    clearBalanceRefreshInterval,
-  } = useContext(BlueStorageContext);
+  const { walletsInitialized, wallets, addWallet, saveToDisk, setBalanceRefreshInterval, clearBalanceRefreshInterval } =
+    useContext(BlueStorageContext);
   const appState = useRef(AppState.currentState);
 
   useCompanionListeners();
@@ -108,7 +102,6 @@ const App = () => {
       eventEmitter?.removeAllListeners('openSettings');
       eventEmitter?.removeAllListeners('onUserActivityOpen');
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const addListeners = () => {

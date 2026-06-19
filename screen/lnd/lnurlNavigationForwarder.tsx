@@ -104,13 +104,13 @@ const LnurlNavigationForwarder = () => {
     const { invoice } = await paymentLink.getLightningRecipientDetails();
 
     return {
-        invoice,
-        amountSat,
-        amountUnit: BitcoinUnit.SATS,
-        description,
-        walletID: wallet.getID(),
-        free: isInternalDomain(paymentLink.getCallbackUrl()),
-      }; 
+      invoice,
+      amountSat,
+      amountUnit: BitcoinUnit.SATS,
+      description,
+      walletID: wallet.getID(),
+      free: isInternalDomain(paymentLink.getCallbackUrl()),
+    };
   };
 
   const getNavigationByLnurl = async (lnurl: string) => {
@@ -161,7 +161,7 @@ const LnurlNavigationForwarder = () => {
         }
 
         const lnWallet = wallets.find((w: any) => w.chain === Chain.OFFCHAIN);
-        if(lnWallet) {
+        if (lnWallet) {
           return navigation.replace('SendDetailsRoot', {
             screen: 'LnurlPay',
             params: await getLightningPaymentNavigation(lnWallet, paymentLink),
@@ -201,7 +201,7 @@ const LnurlNavigationForwarder = () => {
   }, [lnurl]);
 
   return (
-    <View style={[styles.loadingIndicator]}>
+    <View style={styles.loadingIndicator}>
       <BlueLoading style={styles.loading} />
       <Text style={styles.text}>{isOnchainPayment ? loc.lnd.lnurl_loader_text_onchain : loc.lnd.lnurl_loader_text}</Text>
     </View>

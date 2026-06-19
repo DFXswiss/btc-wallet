@@ -52,7 +52,7 @@ const DeleteBolcard: React.FC & { navigationOptions?: ReturnType<typeof navigati
     try {
       if (isLoading) return;
       setIsLoading(true);
-      if(Platform.OS === 'android') setIsHoldCardModalVisible(true);
+      if (Platform.OS === 'android') setIsHoldCardModalVisible(true);
       const progress = getProgressStringGenerator(resetCard ? 3 : 2);
 
       if (resetCard) {
@@ -78,7 +78,7 @@ const DeleteBolcard: React.FC & { navigationOptions?: ReturnType<typeof navigati
         const boltcards = ldsWallet.getBoltcards();
         if (boltcards.length > 0) {
           const lastCard = boltcards[boltcards.length - 1];
-          navigate('BoltCardDetails', {boltcardUid: lastCard.uid});
+          navigate('BoltCardDetails', { boltcardUid: lastCard.uid });
         } else {
           navigate('WalletTransactions');
         }

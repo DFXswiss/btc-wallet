@@ -103,7 +103,7 @@ const WalletsAddMultisigStep2 = () => {
     await saveToDisk();
     A(A.ENUM.CREATED_WALLET);
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
-    navigation.navigate('WalletTransactions')
+    navigation.navigate('WalletTransactions');
   };
 
   const getPath = () => {
@@ -305,7 +305,7 @@ const WalletsAddMultisigStep2 = () => {
       }
 
       // if the cosigner is the same as the one we already have, we don't need to add it again
-      if(cosigner.getXpub() === ownXpub) {
+      if (cosigner.getXpub() === ownXpub) {
         ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
         return;
       }
@@ -315,7 +315,7 @@ const WalletsAddMultisigStep2 = () => {
         if (existingCosigner[0] === cosigner.getXpub()) {
           ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
           return;
-        };
+        }
       }
 
       // now, validating that cosigner is in correct format:
@@ -378,7 +378,7 @@ const WalletsAddMultisigStep2 = () => {
           keyExtractor={(_item, index) => `${index}`}
         />
       </View>
-      <View style={[styles.qrContainer]}>
+      <View style={styles.qrContainer}>
         <QRCodeComponent value={cosignerXpubURv2} size={290} />
       </View>
       <View style={styles.cameraContainer}>
@@ -391,7 +391,7 @@ const WalletsAddMultisigStep2 = () => {
       </View>
       <View style={styles.buttonContainer}>
         <BlueButton isLoading={isLoading} title={loc.multisig.create} onPress={onCreate} disabled={cosigners.length !== n} />
-        {Platform.OS === 'ios' && (<BlueSpacing10 />)}
+        {Platform.OS === 'ios' && <BlueSpacing10 />}
       </View>
     </ScrollView>
   );
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
   },
   cameraContainer: {
     position: 'relative',
-    flexGrow: 1
+    flexGrow: 1,
   },
   camera: {
     flex: 1,

@@ -178,8 +178,7 @@ export default class TransactionsNavigationHeader extends Component {
   render() {
     const { hideBalance } = this.context;
     const balance =
-      !hideBalance &&
-      formatBalance(this.state.wallet.getBalance(), this.state.wallet.getPreferredBalanceUnit(), true).toString();
+      !hideBalance && formatBalance(this.state.wallet.getBalance(), this.state.wallet.getPreferredBalanceUnit(), true).toString();
 
     const stylesHook = StyleSheet.create({
       lineaderGradient: {
@@ -204,35 +203,37 @@ export default class TransactionsNavigationHeader extends Component {
                 actions={
                   hideBalance
                     ? [
-                      {
-                        id: TransactionsNavigationHeader.actionKeys.WalletBalanceVisibility,
-                        text: loc.transactions.details_balance_show,
-                        icon: TransactionsNavigationHeader.actionIcons.Eye,
-                      },
-                    ]
+                        {
+                          id: TransactionsNavigationHeader.actionKeys.WalletBalanceVisibility,
+                          text: loc.transactions.details_balance_show,
+                          icon: TransactionsNavigationHeader.actionIcons.Eye,
+                        },
+                      ]
                     : [
-                      {
-                        id: TransactionsNavigationHeader.actionKeys.WalletBalanceVisibility,
-                        text: loc.transactions.details_balance_hide,
-                        icon: TransactionsNavigationHeader.actionIcons.EyeSlash,
-                      },
-                      {
-                        id: TransactionsNavigationHeader.actionKeys.CopyToClipboard,
-                        text: loc.transactions.details_copy,
-                        icon: TransactionsNavigationHeader.actionIcons.Clipboard,
-                      },
-                    ]
+                        {
+                          id: TransactionsNavigationHeader.actionKeys.WalletBalanceVisibility,
+                          text: loc.transactions.details_balance_hide,
+                          icon: TransactionsNavigationHeader.actionIcons.EyeSlash,
+                        },
+                        {
+                          id: TransactionsNavigationHeader.actionKeys.CopyToClipboard,
+                          text: loc.transactions.details_copy,
+                          icon: TransactionsNavigationHeader.actionIcons.Clipboard,
+                        },
+                      ]
                 }
               >
                 <View style={styles.balance}>
-                  {hideBalance ? <BluePrivateBalance /> : (
-                  <Text
-                    testID="WalletBalance"
-                    key={balance} // force component recreation on balance change. To fix right-to-left languages, like Farsi
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    style={styles.walletBalance}
-                  >
+                  {hideBalance ? (
+                    <BluePrivateBalance />
+                  ) : (
+                    <Text
+                      testID="WalletBalance"
+                      key={balance} // force component recreation on balance change. To fix right-to-left languages, like Farsi
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      style={styles.walletBalance}
+                    >
                       <PrivateText>{balance}</PrivateText>
                     </Text>
                   )}
@@ -326,5 +327,5 @@ const styles = StyleSheet.create({
   topContentContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  }
+  },
 });

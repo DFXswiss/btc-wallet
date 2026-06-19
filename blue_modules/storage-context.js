@@ -65,16 +65,19 @@ export const BlueStorageProvider = ({ children }) => {
     return BlueApp.setIsDfxSwapEnabled(value);
   };
 
-  const saveToDisk = useCallback(async (force = false) => {
-    if (BlueApp.getWallets().length === 0 && !force) {
-      console.log('not saving empty wallets array');
-      return;
-    }
-    BlueApp.tx_metadata = txMetadata;
-    await BlueApp.saveToDisk();
-    setWallets([...BlueApp.getWallets()]);
-    txMetadata = BlueApp.tx_metadata;
-  }, [txMetadata]);  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const saveToDisk = useCallback(
+    async (force = false) => {
+      if (BlueApp.getWallets().length === 0 && !force) {
+        console.log('not saving empty wallets array');
+        return;
+      }
+      BlueApp.tx_metadata = txMetadata;
+      await BlueApp.saveToDisk();
+      setWallets([...BlueApp.getWallets()]);
+      txMetadata = BlueApp.tx_metadata;
+    },
+    [txMetadata],
+  );
 
   const setCameraPermissionLastAskedTimeAsyncStorage = value => {
     setCameraPermissionLastAskedTime(value);
@@ -225,7 +228,7 @@ export const BlueStorageProvider = ({ children }) => {
 
   const revalidateBalancesInterval = async () => {
     try {
-      if(BlueApp.wallets.length === 0) return;
+      if (BlueApp.wallets.length === 0) return;
 
       const isElectrumDisabled = await BlueElectrum.isDisabled();
       if (isElectrumDisabled) return;

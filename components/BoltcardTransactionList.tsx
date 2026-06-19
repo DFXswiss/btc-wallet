@@ -7,7 +7,7 @@ import { BlueListItem } from '../BlueComponents';
 import TransactionOffchainIcon from './icons/TransactionOffchainIcon';
 import { Hit } from '../api/boltcards/definitions/apiDtos';
 
-const BoltcardTransactionList: React.FC<{transactions: Hit[]}> = ({ transactions = [] }) => {
+const BoltcardTransactionList: React.FC<{ transactions: Hit[] }> = ({ transactions = [] }) => {
   const { colors } = useTheme();
 
   const stylesHook = StyleSheet.create({

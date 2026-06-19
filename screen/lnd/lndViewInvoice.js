@@ -1,5 +1,17 @@
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { View, Text, StatusBar, ScrollView, BackHandler, TouchableOpacity, StyleSheet, I18nManager, Image, Platform, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StatusBar,
+  ScrollView,
+  BackHandler,
+  TouchableOpacity,
+  StyleSheet,
+  I18nManager,
+  Image,
+  Platform,
+  ActivityIndicator,
+} from 'react-native';
 import Share from 'react-native-share';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { Icon } from 'react-native-elements';
@@ -39,7 +51,7 @@ const LNDViewInvoice = () => {
   const [isLoadingNfcInvoice, setIsLoadingNfcInvoice] = useState(false);
   const isModal = useNavigationState(state => state.routeNames[0] === LNDCreateInvoice.routeName);
   const { isNfcActive, startReading, stopReading } = useNFC();
-  
+
   const stylesHook = StyleSheet.create({
     root: {
       backgroundColor: colors.background,
@@ -71,8 +83,8 @@ const LNDViewInvoice = () => {
   );
 
   const handleStartReadingNfc = async () => {
-    startReading(handleNfcRead)
-  }
+    startReading(handleNfcRead);
+  };
 
   useEffect(() => {
     if (!invoice?.payment_request || isLoading) return;
@@ -284,7 +296,11 @@ const LNDViewInvoice = () => {
               ) : (
                 Platform.select({
                   ios: (
-                    <SecondButton onPress={handleStartReadingNfc} title={'Use Boltcard'} image={{ source: require('../../img/bolt-card.png') }} />
+                    <SecondButton
+                      onPress={handleStartReadingNfc}
+                      title="Use Boltcard"
+                      image={{ source: require('../../img/bolt-card.png') }}
+                    />
                   ),
                   android: (
                     <View style={styles.buttonsContainer}>
@@ -347,7 +363,7 @@ const styles = StyleSheet.create({
   },
   buttonsContainer: {
     alignItems: 'center',
-  }
+  },
 });
 
 LNDViewInvoice.navigationOptions = navigationStyle({}, opts => ({

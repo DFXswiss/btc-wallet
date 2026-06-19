@@ -79,7 +79,10 @@ const ScanCodeSend: React.FC & { navigationOptions?: ReturnType<typeof navigatio
       delayedNavigationFunction(() => replace(...route));
     } else if (DeeplinkSchemaMatch.isLnUrl(destinationString)) {
       delayedNavigationFunction(() =>
-        replace('SendDetailsRoot', { screen: 'LnurlNavigationForwarder', params: { lnurl: destinationString, walletID: params?.walletID } }),
+        replace('SendDetailsRoot', {
+          screen: 'LnurlNavigationForwarder',
+          params: { lnurl: destinationString, walletID: params?.walletID },
+        }),
       );
     } else if (
       DeeplinkSchemaMatch.isPossiblyLightningDestination(destinationString) ||
@@ -140,9 +143,7 @@ const ScanCodeSend: React.FC & { navigationOptions?: ReturnType<typeof navigatio
         >
           <View style={styles.loadingContainer}>
             <ActivityIndicator style={{ marginBottom: 5 }} size={25} />
-            <BlueText style={styles.textExplanation}>
-              {`${loc._.loading} ${urHave}/${urTotal}`}
-            </BlueText>
+            <BlueText style={styles.textExplanation}>{`${loc._.loading} ${urHave}/${urTotal}`}</BlueText>
           </View>
         </View>
       )}

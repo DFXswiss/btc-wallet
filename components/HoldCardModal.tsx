@@ -34,7 +34,7 @@ export const HoldCardModal: React.FC<HoldCardModalProps> = ({ message, isHoldCar
             </View>
           </View>
         ) : (
-          <View style={[styles.contentContainer]}>
+          <View style={styles.contentContainer}>
             <View style={{ alignItems: 'center' }}>
               <View style={styles.modalCardIconContainer}>
                 <Image source={require('../img/pay-card-link.png')} style={styles.boltcardLinkImage} />

@@ -518,7 +518,7 @@ class DeeplinkSchemaMatch {
 
     try {
       if (DeeplinkSchemaMatch.bip21decode(text).address) return true;
-    } catch (_) { }
+    } catch (_) {}
 
     if (options.includeDualFormats) {
       if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(text)) return true;
@@ -534,43 +534,55 @@ class DeeplinkSchemaMatch {
     const { query } = parse(url, true);
 
     if (query.tag === Lnurl.TAG_LOGIN_REQUEST) {
-      return ['LnurlAuth', {
-        lnurl: text,
-        walletID: context?.walletID,
-      }];
+      return [
+        'LnurlAuth',
+        {
+          lnurl: text,
+          walletID: context?.walletID,
+        },
+      ];
     }
 
     try {
       const reply = await new Lnurl(url).fetchGet(url);
 
       if (OpenCryptoPayPaymentLink.isOpenCryptoPayResponse(reply)) {
-        return ['SendDetailsRoot', {
-          screen: 'OpenCryptoPaySend',
-          params: {
-            plDetails: reply,
-            walletID: context?.walletID,
+        return [
+          'SendDetailsRoot',
+          {
+            screen: 'OpenCryptoPaySend',
+            params: {
+              plDetails: reply,
+              walletID: context?.walletID,
+            },
           },
-        }];
+        ];
       }
 
       if (reply.tag === Lnurl.TAG_PAY_REQUEST) {
-        return ['SendDetailsRoot', {
-          screen: 'ScanLndInvoice',
-          params: {
-            uri: text,
-            walletID: context?.walletID,
+        return [
+          'SendDetailsRoot',
+          {
+            screen: 'ScanLndInvoice',
+            params: {
+              uri: text,
+              walletID: context?.walletID,
+            },
           },
-        }];
+        ];
       }
 
       if (reply.tag === Lnurl.TAG_WITHDRAW_REQUEST) {
-        return ['ReceiveDetailsRoot', {
-          screen: 'LNDCreateInvoice',
-          params: {
-            uri: text,
-            walletID: context?.walletID,
+        return [
+          'ReceiveDetailsRoot',
+          {
+            screen: 'LNDCreateInvoice',
+            params: {
+              uri: text,
+              walletID: context?.walletID,
+            },
           },
-        }];
+        ];
       }
 
       throw new Error('Unsupported lnurl');
@@ -578,7 +590,6 @@ class DeeplinkSchemaMatch {
       console.error(error);
     }
   }
-    
 }
 
 export default DeeplinkSchemaMatch;

@@ -115,7 +115,7 @@ const OpenCrytoPayCommitOnchain = () => {
   const send = async () => {
     setIsLoading(true);
     try {
-      if(!paymentLinkDetails) {
+      if (!paymentLinkDetails) {
         return;
       }
 
@@ -123,7 +123,7 @@ const OpenCrytoPayCommitOnchain = () => {
       const _tx = bitcoin.Transaction.fromHex(tx);
       const result = await paymentLink.commitOnchainPayment(_tx);
 
-      if(result.error) {
+      if (result.error) {
         console.error('error', result);
         throw new Error(`${result.error} - ${result.message} - ${result.statusCode}`);
       }
@@ -197,12 +197,22 @@ const OpenCrytoPayCommitOnchain = () => {
       </View>
       <View style={styles.cardBottom}>
         <BlueCard>
-          {isServerError ? <BlueText style={styles.serverError}>{loc.send.server_error}</BlueText> :
-          <Text style={styles.cardText} testID="TransactionFee">
-            {loc.send.create_fee}: {formatBalance(feeSatoshi, BitcoinUnit.BTC)} ({currency.satoshiToLocalCurrency(feeSatoshi)})
-          </Text>
-          }
-          {isLoading ? <ActivityIndicator /> : <BlueButton disabled={isLoading} onPress={isServerError ? navigateToScanQrCode : send} title={isServerError ? loc.send.scan_qr_code : loc.send.confirm_sendNow} />}
+          {isServerError ? (
+            <BlueText style={styles.serverError}>{loc.send.server_error}</BlueText>
+          ) : (
+            <Text style={styles.cardText} testID="TransactionFee">
+              {loc.send.create_fee}: {formatBalance(feeSatoshi, BitcoinUnit.BTC)} ({currency.satoshiToLocalCurrency(feeSatoshi)})
+            </Text>
+          )}
+          {isLoading ? (
+            <ActivityIndicator />
+          ) : (
+            <BlueButton
+              disabled={isLoading}
+              onPress={isServerError ? navigateToScanQrCode : send}
+              title={isServerError ? loc.send.scan_qr_code : loc.send.confirm_sendNow}
+            />
+          )}
         </BlueCard>
       </View>
     </SafeBlueArea>

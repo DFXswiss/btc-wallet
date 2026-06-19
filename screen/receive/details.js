@@ -11,7 +11,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Image
+  Image,
 } from 'react-native';
 import { useNavigation, useRoute, useTheme, useFocusEffect } from '@react-navigation/native';
 import Share from 'react-native-share';
@@ -43,7 +43,8 @@ const currency = require('../../blue_modules/currency');
 
 const ReceiveDetails = () => {
   const { walletID, address } = useRoute().params;
-  const { wallets, saveToDisk, sleep, isElectrumDisabled, refreshAllWalletTransactions, revalidateBalancesInterval} = useContext(BlueStorageContext);
+  const { wallets, saveToDisk, sleep, isElectrumDisabled, refreshAllWalletTransactions, revalidateBalancesInterval } =
+    useContext(BlueStorageContext);
   const wallet = wallets.find(w => w.getID() === walletID);
   const [customLabel, setCustomLabel] = useState('');
   const [bip21encoded, setBip21encoded] = useState();
@@ -470,17 +471,17 @@ const styles = StyleSheet.create({
     minHeight: 33,
   },
   pickerContainer: { marginHorizontal: 16 },
-  inputUnit:{
+  inputUnit: {
     color: '#81868e',
     fontSize: 16,
     marginRight: 10,
     marginLeft: 10,
   },
-  changeToNextUnitButton:{
+  changeToNextUnitButton: {
     borderLeftColor: '#676b71',
     borderLeftWidth: 1,
     paddingHorizontal: 10,
-  }
+  },
 });
 
 ReceiveDetails.navigationOptions = navigationStyle(

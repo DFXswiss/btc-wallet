@@ -293,8 +293,8 @@ const TappedCardDetails = () => {
                 {isEmptyCard
                   ? loc.boltcard.card_state_empty
                   : isCardWrittenWithErrors
-                  ? loc.boltcard.card_written_error
-                  : loc.boltcard.card_state_written}
+                    ? loc.boltcard.card_written_error
+                    : loc.boltcard.card_state_written}
               </BlueText>
               <BlueSpacing20 />
 
@@ -325,7 +325,7 @@ const TappedCardDetails = () => {
 
               {(Boolean(minWithdraw) || Boolean(maxWithdraw)) && (
                 <>
-                  <Text style={[styles.textLabel1, stylesHook.textLabel1]}>{'Min and Max widhtdrawable'}</Text>
+                  <Text style={[styles.textLabel1, stylesHook.textLabel1]}>Min and Max widhtdrawable</Text>
                   <BlueText>
                     {minWithdraw} - {maxWithdraw} sats
                   </BlueText>
@@ -342,7 +342,7 @@ const TappedCardDetails = () => {
 
               {(Boolean(minPay) || Boolean(maxPay)) && (
                 <>
-                  <Text style={[styles.textLabel1, stylesHook.textLabel1]}>{'Min and Max payable'}</Text>
+                  <Text style={[styles.textLabel1, stylesHook.textLabel1]}>Min and Max payable</Text>
                   <BlueText>
                     {minPay} - {maxPay} sats
                   </BlueText>

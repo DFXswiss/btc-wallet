@@ -67,7 +67,7 @@ const LnurlPay = () => {
       ln.callLnurlPayService()
         .then(p => {
           const domain = ln.getDomain();
-          setIsTxFree(isInternalDomain(domain) || isFreeDomain(domain))
+          setIsTxFree(isInternalDomain(domain) || isFreeDomain(domain));
           setPayload(p);
         })
         .catch(error => {
@@ -85,7 +85,7 @@ const LnurlPay = () => {
       setAmount(amountSat);
       setUnit(amountUnit);
       setIsLoading(false);
-      setIsTxFree(free)
+      setIsTxFree(free);
     }
   }, [invoice]);
 
@@ -192,7 +192,7 @@ const LnurlPay = () => {
       } else {
         await handleBolt11Invoice(amountSats);
       }
-      
+
       refreshAllWalletTransactions();
       setIsLoading(false);
     } catch (Err) {
@@ -212,7 +212,7 @@ const LnurlPay = () => {
 
   const isInsufficientFunds = () => {
     return amountSat > wallet.getBalance();
-  }
+  };
 
   const renderGotPayload = () => {
     return (
@@ -237,7 +237,7 @@ const LnurlPay = () => {
                 <BlueSpacing20 />
               </>
             )}
-            {description && (desc !== description) && (
+            {description && desc !== description && (
               <>
                 <BlueText style={styles.alignSelfCenter}>{description}</BlueText>
                 <BlueSpacing10 />
@@ -265,17 +265,15 @@ const LnurlPay = () => {
             <>
               {isInsufficientFunds() ? (
                 <>
-                <Text style={styles.insufficientFunds}>
-                  {loc.send.insufficient_funds}
-                </Text>
-                <SecondButton title={loc._.cancel} onPress={goBack} />
+                  <Text style={styles.insufficientFunds}>{loc.send.insufficient_funds}</Text>
+                  <SecondButton title={loc._.cancel} onPress={goBack} />
                 </>
               ) : (
                 <>
-                <Text style={styles.fees}>
-                  {loc.send.create_fee}: {isTxFree ? loc._.free : getFees()}
-                </Text>
-                <BlueButton title={loc.lnd.payButton} onPress={pay} disabled={isInsufficientFunds()} />
+                  <Text style={styles.fees}>
+                    {loc.send.create_fee}: {isTxFree ? loc._.free : getFees()}
+                  </Text>
+                  <BlueButton title={loc.lnd.payButton} onPress={pay} disabled={isInsufficientFunds()} />
                 </>
               )}
             </>

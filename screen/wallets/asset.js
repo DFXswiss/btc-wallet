@@ -48,13 +48,8 @@ const buttonFontSize =
     : PixelRatio.roundToNearestPixel(Dimensions.get('window').width / 26);
 
 const Asset = ({ navigation }) => {
-  const {
-    wallets,
-    saveToDisk,
-    setSelectedWallet,
-    walletTransactionUpdateStatus,
-    revalidateBalancesInterval,
-  } = useContext(BlueStorageContext);
+  const { wallets, saveToDisk, setSelectedWallet, walletTransactionUpdateStatus, revalidateBalancesInterval } =
+    useContext(BlueStorageContext);
   const { name, params } = useRoute();
   const walletID = params.walletID;
   const [isLoading, setIsLoading] = useState(false);
@@ -71,7 +66,6 @@ const Asset = ({ navigation }) => {
   const { width } = useWindowDimensions();
   const [fContainerHeight, setFContainerHeight] = useState(0);
   const elapsedTimeInterval = useRef(null);
-
 
   const stylesHook = StyleSheet.create({
     listHeaderText: {
@@ -142,7 +136,6 @@ const Asset = ({ navigation }) => {
     }
   }, []);
 
-
   useEffect(() => {
     setOptions({ headerTitle: walletTransactionUpdateStatus === walletID ? loc.transactions.updating : '' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -175,7 +168,6 @@ const Asset = ({ navigation }) => {
     setDataSource([...getTransactionsSliced(limit)]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallets]);
-
 
   // if description of transaction has been changed we want to show new one
   useFocusEffect(
@@ -263,7 +255,6 @@ const Asset = ({ navigation }) => {
       const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(wallet, uri);
       ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
       navigate(...route);
-
     } else if (DeeplinkSchemaMatch.isLnUrl(value)) {
       navigate('SendDetailsRoot', { screen: 'LnurlNavigationForwarder', params: { lnurl: value, walletID } });
     } else {
@@ -411,9 +402,7 @@ const Asset = ({ navigation }) => {
         }
         rightHeaderComponent={renderRightHeaderComponent()}
       />
-      {!isMultiSig() && (
-        <DfxServicesButtons walletID={wallet.getID()} />
-      )}
+      {!isMultiSig() && <DfxServicesButtons walletID={wallet.getID()} />}
       {isLightningTestnet() && (
         <View style={styles.testnetBanner}>
           <Text>Testnet</Text>

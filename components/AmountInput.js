@@ -257,10 +257,14 @@ class AmountInput extends Component {
     const stylesHook = StyleSheet.create({
       center: { padding: 15 },
       localCurrency: { color: colors.alternativeTextColor2 },
-      input: { color: disabled ? colors.buttonDisabledTextColor : colors.alternativeTextColor2, minWidth: disabled ? 0 : 130, fontSize: 32 },
+      input: {
+        color: disabled ? colors.buttonDisabledTextColor : colors.alternativeTextColor2,
+        minWidth: disabled ? 0 : 130,
+        fontSize: 32,
+      },
       cryptoCurrency: { color: disabled ? colors.buttonDisabledTextColor : colors.alternativeTextColor2 },
     });
-    
+
     return (
       <TouchableWithoutFeedback
         accessibilityRole="button"
@@ -315,13 +319,8 @@ class AmountInput extends Component {
                   <Text style={[styles.cryptoCurrency, stylesHook.cryptoCurrency, unitStyle]}>{' ' + loc.units[unit]}</Text>
                 )}
                 {isMaxAvailable && (
-                  <TouchableOpacity
-                    style={[styles.maxButton, { borderColor: this.props.colors.mainColor }]}
-                    onPress={onPressMax}
-                  >
-                    <Text style={{ color: this.props.colors.mainColor }}>
-                      MAX
-                    </Text>
+                  <TouchableOpacity style={[styles.maxButton, { borderColor: this.props.colors.mainColor }]} onPress={onPressMax}>
+                    <Text style={{ color: this.props.colors.mainColor }}>MAX</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -398,9 +397,9 @@ const styles = StyleSheet.create({
   },
   input: {
     fontWeight: 'bold',
-    paddingBottom: 10, 
-    paddingTop:0, 
-    marginTop: 0
+    paddingBottom: 10,
+    paddingTop: 0,
+    marginTop: 0,
   },
   cryptoCurrency: {
     fontSize: 20,
@@ -427,7 +426,7 @@ const styles = StyleSheet.create({
     marginRight: 16,
     paddingLeft: 16,
   },
-  maxButton:{
+  maxButton: {
     alignSelf: 'flex-start',
     justifyContent: 'center',
     padding: 4,
@@ -435,7 +434,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     borderRadius: 4,
     borderWidth: 0.5,
-  }
+  },
 });
 
 const AmountInputWithStyle = props => {

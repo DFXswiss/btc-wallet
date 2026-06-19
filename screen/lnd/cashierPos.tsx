@@ -148,17 +148,17 @@ const CashierPos = () => {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'android' ? undefined : 'position'}
           contentContainerStyle={[styleHooks.root, styles.flex]}
-          style={[styles.flex]}
+          style={styles.flex}
         >
           <View style={[styles.flex, styles.grow]}>
-            <View style={[styles.contentContainer]}>
+            <View style={styles.contentContainer}>
               <View style={[styles.scrollBody, styles.flex]}>
                 <View>
                   {isPaid && (
                     <>
                       <Text style={[styleHooks.colorText, styles.qrTitle]}>Payment received successfully!</Text>
                       <Text style={[styleHooks.colorText, styles.qrTitle]}>{invoiceAmount} sats</Text>
-                      <Icon name="check-circle" size={70} color={'#00b300'} />
+                      <Icon name="check-circle" size={70} color="#00b300" />
                     </>
                   )}
                   {!isPaid && isWaitingForPayment && (

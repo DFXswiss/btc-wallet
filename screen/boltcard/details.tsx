@@ -130,7 +130,7 @@ const BoltcardDetails: React.FC & { navigationOptions?: ReturnType<typeof naviga
       resetInputs();
     } catch (error) {
       setIsUpdating(false);
-      console.log("ERROR: ", error);
+      console.log('ERROR: ', error);
     }
   };
 
@@ -154,7 +154,7 @@ const BoltcardDetails: React.FC & { navigationOptions?: ReturnType<typeof naviga
     return (
       <TouchableOpacity onPress={onPress} style={styles.optionButton}>
         <Icon name={icon} size={24} color={colors.foregroundColor} />
-        <Text style={[stylesHooks.optionText]}>{title}</Text>
+        <Text style={stylesHooks.optionText}>{title}</Text>
       </TouchableOpacity>
     );
   };

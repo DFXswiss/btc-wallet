@@ -473,14 +473,18 @@ export class MultisigHDWallet extends AbstractHDElectrumWallet {
       } else {
         if (coordinationSetup) {
           const seedCosigner = this._cosigners[index];
-          const xpub = this._getXpubFromCosigner(seedCosigner) ?? this.convertXpubToMultisignatureXpub(
-            MultisigHDWallet.seedToXpub(
-              seedCosigner,
-              this._cosignersCustomPaths[index] || this._derivationPath,
-              this._cosignersPassphrases[index],
-            ),
-          );
-          const fingerprint = this._cosignersFingerprints[index] ?? MultisigHDWallet.mnemonicToFingerprint(this._cosigners[index], this._cosignersPassphrases[index]);
+          const xpub =
+            this._getXpubFromCosigner(seedCosigner) ??
+            this.convertXpubToMultisignatureXpub(
+              MultisigHDWallet.seedToXpub(
+                seedCosigner,
+                this._cosignersCustomPaths[index] || this._derivationPath,
+                this._cosignersPassphrases[index],
+              ),
+            );
+          const fingerprint =
+            this._cosignersFingerprints[index] ??
+            MultisigHDWallet.mnemonicToFingerprint(this._cosigners[index], this._cosignersPassphrases[index]);
           ret += fingerprint + ': ' + xpub + '\n';
         } else {
           ret += 'seed: ' + this._cosigners[index];
@@ -1266,7 +1270,7 @@ export class MultisigHDWallet extends AbstractHDElectrumWallet {
         try {
           const relativePath = derivation.path.split('/').slice(-2).join('/');
           const child = masterNode.derivePath(relativePath);
-          
+
           if (psbt.inputHasPubkey(0, child.publicKey)) {
             return true;
           }

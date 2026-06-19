@@ -133,7 +133,7 @@ const ReceiveDfxPos = () => {
 
   if (isLoading) {
     return (
-      <View style={[styles.loading]}>
+      <View style={styles.loading}>
         <ActivityIndicator />
       </View>
     );
@@ -145,10 +145,10 @@ const ReceiveDfxPos = () => {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'android' ? undefined : 'position'}
           contentContainerStyle={[styleHooks.root, styles.flex]}
-          style={[styles.flex]}
+          style={styles.flex}
         >
           <View style={[styles.flex, styles.grow]}>
-            <View style={[styles.contentContainer]}>
+            <View style={styles.contentContainer}>
               <View style={styles.pickerContainer}>
                 <Selector items={getRouteItems()} selectedValue={selectedRoute} onValueChange={onRouteChange} />
               </View>
@@ -184,7 +184,7 @@ const ReceiveDfxPos = () => {
                       <Text style={[styleHooks.colorText, styles.qrTitle]}>
                         {invoiceAmount} {fiatUnit}
                       </Text>
-                      <Icon name="check-circle" size={70} color={'#00b300'} />
+                      <Icon name="check-circle" size={70} color="#00b300" />
                     </>
                   )}
                   {(posStatus === PosStatus.LOADING_PAYMENT_INFO || posStatus === PosStatus.WAITING_PAYMENT) && (
@@ -194,7 +194,7 @@ const ReceiveDfxPos = () => {
                     </>
                   )}
                 </View>
-                <View style={styles.shareContainer}></View>
+                <View style={styles.shareContainer} />
               </View>
             </View>
           </View>

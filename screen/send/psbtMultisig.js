@@ -140,7 +140,6 @@ const PsbtMultisig = () => {
 
   useEffect(() => {
     Biometric.isBiometricUseCapableAndEnabled().then(setIsBiometricUseCapableAndEnabled);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const _combinePSBT = () => {
@@ -326,7 +325,7 @@ const PsbtMultisig = () => {
         <View style={styles.marginConfirmButton}>
           <BlueButton
             disabled={hasSigned || isConfirmEnabled()}
-            title={'Sign'}
+            title="Sign"
             isLoading={isSignign}
             onPress={onSign}
             testID="PsbtMultisigSignButton"

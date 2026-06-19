@@ -64,9 +64,7 @@ const ScanImport: React.FC & { navigationOptions?: ReturnType<typeof navigationS
           <View style={styles.loadingContainer}>
             <ActivityIndicator style={{ marginBottom: 5 }} size={25} />
             {Boolean(urHave) && Boolean(urTotal) && (
-              <BlueText style={styles.textExplanation}>
-                {`${loc._.loading} ${urHave}/${urTotal}`}
-              </BlueText>
+              <BlueText style={styles.textExplanation}>{`${loc._.loading} ${urHave}/${urTotal}`}</BlueText>
             )}
           </View>
         </View>
@@ -82,7 +80,7 @@ const ScanImport: React.FC & { navigationOptions?: ReturnType<typeof navigationS
         />
         <BlueButton
           style={styles.actionButton}
-          onPress={()=>delayedNavigationFunction(()=>replace('ImportWallet'))}
+          onPress={() => delayedNavigationFunction(() => replace('ImportWallet'))}
           icon={{ name: 'keyboard', type: 'material', color: '#ffffff', size: 38 }}
         />
       </View>

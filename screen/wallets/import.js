@@ -134,13 +134,13 @@ const WalletsImport = () => {
 
       <BlueSpacing20 />
       <View style={styles.center}>
-          <BlueButton
-            disabled={importText.trim().length === 0}
-            title={loc.wallets.import_do_import}
-            testID="DoImport"
-            onPress={importButtonPressed}
-          />
-          <BlueSpacing20 />
+        <BlueButton
+          disabled={importText.trim().length === 0}
+          title={loc.wallets.import_do_import}
+          testID="DoImport"
+          onPress={importButtonPressed}
+        />
+        <BlueSpacing20 />
       </View>
     </>
   );

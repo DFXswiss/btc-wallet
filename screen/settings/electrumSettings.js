@@ -471,10 +471,10 @@ ElectrumSettings.propTypes = {
   lastConnectionSuccess: PropTypes.number,
 };
 
-export default ElectrumSettingsWrapper = (props) => {
+export default ElectrumSettingsWrapper = props => {
   const { lastSuccessfulBalanceRefresh } = useContext(BlueStorageContext);
-  return <ElectrumSettings {...props} lastConnectionSuccess={lastSuccessfulBalanceRefresh} />
-}
+  return <ElectrumSettings {...props} lastConnectionSuccess={lastSuccessfulBalanceRefresh} />;
+};
 
 ElectrumSettingsWrapper.navigationOptions = navigationStyle({}, opts => ({ ...opts, title: loc.settings.electrum_settings_server }));
 

@@ -20,8 +20,8 @@ const AuthState = {
 const LnurlAuth = () => {
   const { wallets } = useContext(BlueStorageContext);
   const { walletID, lnurl } = useRoute().params;
-  const wallet = useMemo(() =>{ 
-    const w = wallets.find(w => w.getID() === walletID)
+  const wallet = useMemo(() => {
+    const w = wallets.find(w => w.getID() === walletID);
     if (w && w.chain === Chain.OFFCHAIN) {
       return w;
     }
@@ -58,7 +58,7 @@ const LnurlAuth = () => {
       .catch(err => {
         setAuthState(AuthState.ERROR);
         const errorString = `${err}`;
-        setErrMsg(err instanceof Error ? err.message ?? errorString : errorString);
+        setErrMsg(err instanceof Error ? (err.message ?? errorString) : errorString);
       });
   }, [wallet, parsedLnurl.hostname, LN]);
 

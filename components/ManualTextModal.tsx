@@ -14,7 +14,13 @@ interface ManualTextModalProps {
   onClose: () => void;
 }
 
-export const ManualTextModal: React.FC<ManualTextModalProps> = ({ title, isVisible, onMessageAccepted, validateMessage = () => true, onClose }) => {
+export const ManualTextModal: React.FC<ManualTextModalProps> = ({
+  title,
+  isVisible,
+  onMessageAccepted,
+  validateMessage = () => true,
+  onClose,
+}) => {
   const [text, setText] = useState('');
   const { colors } = useTheme();
 
@@ -48,16 +54,10 @@ export const ManualTextModal: React.FC<ManualTextModalProps> = ({ title, isVisib
     <>
       <BottomModal isVisible={isVisible} onClose={onClose} avoidKeyboard>
         <View style={[styles.modalContainer, stylesHooks.modalContainer]}>
-          <View style={[styles.contentContainer]}>
+          <View style={styles.contentContainer}>
             <View style={styles.headerContainer}>
               <View style={{ paddingVertical: 15, alignItems: 'center' }}>
-                <Icon 
-                  name="close" 
-                  type="material"
-                  size={28}
-                  onPress={onClose}
-                  color={colors.text}
-                />
+                <Icon name="close" type="material" size={28} onPress={onClose} color={colors.text} />
               </View>
               <View style={{ paddingVertical: 10, alignItems: 'center' }}>
                 <BlueText style={styles.title}>{title}</BlueText>

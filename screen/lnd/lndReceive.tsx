@@ -125,7 +125,6 @@ const LNDReceive = () => {
         cancelInvoicePolling();
         setInvoiceRequest(undefined);
         generateInvoice(); // invoice expired, generate new one
-        return;
       }
     }, 3000);
   };
@@ -198,7 +197,7 @@ const LNDReceive = () => {
   };
 
   const handleShareButtonPressed = () => {
-    Share.open({ message: invoiceRequest ? invoiceRequest : wallet.lnAddress }).catch(error => console.log(error));
+    Share.open({ message: invoiceRequest || wallet.lnAddress }).catch(error => console.log(error));
   };
 
   if (isPaid) {
@@ -216,18 +215,18 @@ const LNDReceive = () => {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false} style={styles.flex}>
       <ScrollView contentContainerStyle={styles.grow}>
-        <KeyboardAvoidingView behavior="position" contentContainerStyle={[styleHooks.root, styles.flex]} style={[styles.flex]}>
+        <KeyboardAvoidingView behavior="position" contentContainerStyle={[styleHooks.root, styles.flex]} style={styles.flex}>
           <View style={[styles.flex, styles.grow]}>
             <View style={styles.pickerContainer}>
               <BlueWalletSelect wallets={wallets} value={wallet?.getID()} onChange={onWalletChange} />
             </View>
-            <View style={[styles.contentContainer]}>
+            <View style={styles.contentContainer}>
               <View style={[styles.scrollBody, styles.flex]}>
                 {isInvoiceLoading ? (
                   <ActivityIndicator />
                 ) : (
                   <>
-                    <QRCodeComponent value={invoiceRequest ? invoiceRequest : wallet.getLnurl?.() || wallet.lnAddress} />
+                    <QRCodeComponent value={invoiceRequest || wallet.getLnurl?.() || wallet.lnAddress} />
                     <View style={styles.shareContainer}>
                       <BlueCopyTextToClipboard
                         text={invoiceRequest || wallet.lnAddress}
@@ -281,8 +280,8 @@ const LNDReceive = () => {
                         <View style={styles.iosNfcButtonContainer}>
                           <SecondButton
                             onPress={startNfcOnIos}
-                            disabled={!Boolean(invoiceRequest)}
-                            title={'Use Boltcard'}
+                            disabled={!invoiceRequest}
+                            title="Use Boltcard"
                             image={{ source: require('../../img/bolt-card.png') }}
                           />
                         </View>

@@ -118,7 +118,6 @@ export default class BoltCard implements BoltCardModel {
     return (this.secrets.uid = uid);
   }
 
-
   static isPossiblyBoltcardTapDetails(jsonPayload: any = {}) {
     return (
       jsonPayload.hasOwnProperty('lnurlw_base') ||
@@ -127,7 +126,7 @@ export default class BoltCard implements BoltCardModel {
       jsonPayload.hasOwnProperty('k1Version') ||
       jsonPayload.hasOwnProperty('k2Version') ||
       jsonPayload.hasOwnProperty('k3Version') ||
-      jsonPayload.hasOwnProperty('k4Version') 
+      jsonPayload.hasOwnProperty('k4Version')
     );
   }
 }

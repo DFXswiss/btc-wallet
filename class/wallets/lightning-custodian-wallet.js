@@ -613,7 +613,7 @@ export class LightningCustodianWallet extends LegacyWallet {
 
   static async isValidNodeAddress(address) {
     const apiCall = {
-      get: async (endpoint) => {
+      get: async endpoint => {
         const response = await fetch(address + endpoint, {
           method: 'GET',
           headers: {

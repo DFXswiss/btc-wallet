@@ -53,7 +53,15 @@ const Success = () => {
 
 export default Success;
 
-export const SuccessView = ({ amount, amountUnit, fee = 0, invoiceDescription, shouldAnimate = true, paymentHash = undefined, walletID = undefined }) => {
+export const SuccessView = ({
+  amount,
+  amountUnit,
+  fee = 0,
+  invoiceDescription,
+  shouldAnimate = true,
+  paymentHash = undefined,
+  walletID = undefined,
+}) => {
   const { navigate } = useNavigation();
   const [animationFinished, setAnimationFinished] = useState(false);
   const [isRepeatable, setIsRepeatable] = useState(false);
@@ -171,7 +179,7 @@ export const SuccessView = ({ amount, amountUnit, fee = 0, invoiceDescription, s
                 screen: 'LnurlPay',
                 params: {
                   lnurl,
-                  walletID
+                  walletID,
                 },
               });
             }}

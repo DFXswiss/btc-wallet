@@ -102,11 +102,11 @@ const WrittenCardError: React.FC & { navigationOptions?: ReturnType<typeof navig
         <View style={styles.circleContainer}>
           <Icon style={styles.iconStyle} type="material" name="vpn-key" color="#e73955" size={45} />
         </View>
-        {Boolean(secrets) ? renderCompleteWipeCard() : renderErrorExplanation()}
+        {secrets ? renderCompleteWipeCard() : renderErrorExplanation()}
       </View>
       <View style={styles.buttonContiner}>
         <View style={styles.scanContainer}>
-          {Boolean(secrets) ? (
+          {secrets ? (
             <BlueButton title={loc.boltcard.start_nfc} onPress={onStartNFC} isLoading={isWaitingNFC} />
           ) : (
             <BlueButton title={loc.boltcard.scan_backup} onPress={onPressScanBackup} />

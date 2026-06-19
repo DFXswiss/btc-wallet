@@ -91,7 +91,7 @@ const LndPosReceive = () => {
         setIsWaitingForPayment(true);
         setInvoiceAmount(minSendable);
         if (timestamp === 0) timestamp = new Date().getTime() - POLLING_INTERVAL;
-        
+
         const userInvoices = await wallet.getUserInvoices(20);
         const payedInvoice = (i: { timestamp: number; amt: number; ispaid: boolean }) => {
           return i.timestamp * 1000 > timestamp && i.amt * 1000 === minSendable && i.ispaid;
@@ -101,7 +101,7 @@ const LndPosReceive = () => {
           waitingForRestart = true;
           setIsWaitingForPayment(false);
           setIsPaid(true);
-          
+
           setTimeout(() => {
             setInvoiceAmount(0);
             setIsPaid(false);
@@ -135,18 +135,18 @@ const LndPosReceive = () => {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false} style={styles.flex}>
       <ScrollView contentContainerStyle={styles.grow}>
-        <KeyboardAvoidingView behavior="position" contentContainerStyle={[styleHooks.root, styles.flex]} style={[styles.flex]}>
+        <KeyboardAvoidingView behavior="position" contentContainerStyle={[styleHooks.root, styles.flex]} style={styles.flex}>
           <View style={[styles.flex, styles.grow]}>
             <View style={styles.pickerContainer}>
               <BlueWalletSelect wallets={wallets} value={wallet?.getID()} onChange={onWalletChange} />
             </View>
-            <View style={[styles.contentContainer]}>
+            <View style={styles.contentContainer}>
               <View>
                 {isPaid && <Text style={[styleHooks.colorText, styles.qrTitle]}>Payment received successfully!</Text>}
                 {!isPaid && isWaitingForPayment && <Text style={[styleHooks.colorText, styles.qrTitle]}>Waiting for payment...</Text>}
                 {!isPaid && !isWaitingForPayment && <Text style={[styleHooks.colorText, styles.qrTitle]}>Please wait for cashier</Text>}
               </View>
-              <View style={[styles.scrollBody]}>
+              <View style={styles.scrollBody}>
                 <QRCodeComponent value={wallet.getLnurl()} />
                 <View style={styles.shareContainer}>
                   <BlueCopyTextToClipboard text={wallet.lnAddress} textStyle={styles.copyText} />
@@ -162,7 +162,7 @@ const LndPosReceive = () => {
                 {isPaid && (
                   <>
                     <Text style={[styleHooks.colorText, styles.invoiceText]}>We received {invoiceAmount / 1000} sats</Text>
-                    <Icon name="check-circle" size={70} color={'#00b300'} />
+                    <Icon name="check-circle" size={70} color="#00b300" />
                   </>
                 )}
               </View>

@@ -73,8 +73,9 @@ const Sell = () => {
     if (wallet.chain === Chain.ONCHAIN) {
       const isTransactionReplaceable = wallet.type === HDSegwitBech32Wallet.type;
 
-      const networkTransactionFees: NetworkTransactionFee = await AsyncStorage.getItem(NetworkTransactionFee.StorageKey)
-        .then(res => JSON.parse(res as string))
+      const networkTransactionFees: NetworkTransactionFee = await AsyncStorage.getItem(NetworkTransactionFee.StorageKey).then(res =>
+        JSON.parse(res as string),
+      );
 
       const changeAddress = await getChangeAddressAsync(wallet);
       const requestedSatPerByte = Number(networkTransactionFees.fastestFee);

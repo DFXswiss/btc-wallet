@@ -26,7 +26,10 @@ import Lnurl from '../../../class/lnurl';
 import { AssetDetails, TaprootLdsWallet, TaprootLdsWalletType } from '../../../class/wallets/taproot-lds-wallet';
 
 const AddLightning = () => {
-  const { asset = TaprootLdsWalletType.BTC, isOnboarding = false } = useRoute().params as { asset: TaprootLdsWalletType; isOnboarding: boolean };
+  const { asset = TaprootLdsWalletType.BTC, isOnboarding = false } = useRoute().params as {
+    asset: TaprootLdsWalletType;
+    isOnboarding: boolean;
+  };
   const { navigate } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { address, signMessage } = useWalletContext();
   const { getUser } = useLds();

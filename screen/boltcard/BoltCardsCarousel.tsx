@@ -3,8 +3,8 @@ import { FlatList, StyleSheet, TouchableOpacity, View, Dimensions, ListRenderIte
 import BoltCardUI from '../../components/BoltCardUI';
 import BoltCard from '../../class/boltcard';
 
-const screenWidth = Dimensions.get('window').width
-const cardWidth = Dimensions.get('window').width -20;
+const screenWidth = Dimensions.get('window').width;
+const cardWidth = Dimensions.get('window').width - 20;
 
 interface BoltCardsCarouselProps {
   cards: BoltCard[];
@@ -19,7 +19,7 @@ const BoltCardsCarousel: React.FC<BoltCardsCarouselProps> = ({ cards, selectedCa
   useEffect(() => {
     const selected = cards.findIndex(c => c.uid === selectedCard.uid);
     if (flatListRef.current && cardIndex !== selected) {
-      flatListRef.current.scrollToIndex({ index: selected, animated: true});
+      flatListRef.current.scrollToIndex({ index: selected, animated: true });
     }
   }, [selectedCard]);
 
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
   boltcardContent: {
     width: cardWidth,
     paddingHorizontal: 5,
-  }
+  },
 });
 
 export default BoltCardsCarousel;

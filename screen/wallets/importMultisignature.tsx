@@ -149,7 +149,9 @@ const ImportMultisignature: React.FC & { navigationOptions?: ReturnType<typeof n
             {isLoadingAnimatedQRCode && !isPotentialMultisig && <BlueText style={styles.progressText}>{urHave + '/' + urTotal}</BlueText>}
             {isPotentialMultisig && (
               <>
-                <BlueText style={styles.progressText}>{loc.formatString(loc.multisig.calculating_cosigners, { m: threshold, n: quorum })}</BlueText>
+                <BlueText style={styles.progressText}>
+                  {loc.formatString(loc.multisig.calculating_cosigners, { m: threshold, n: quorum })}
+                </BlueText>
               </>
             )}
           </View>

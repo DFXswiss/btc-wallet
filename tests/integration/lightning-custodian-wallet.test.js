@@ -218,7 +218,7 @@ describe.skip('LightningCustodianWallet', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${btoa(process.env.STRIKE + ':')}`,
+        Authorization: `Basic ${btoa(process.env.STRIKE + ':')}`,
       },
       body: 'amount=1&currency=btc&description=acceptance+test',
     });
@@ -452,11 +452,11 @@ describe.skip('LightningCustodianWallet', () => {
     const response = await fetch('https://tippin.me/lndreq/newinvoice.php', {
       method: 'POST',
       headers: {
-        'Origin': 'https://tippin.me',
+        Origin: 'https://tippin.me',
         'Accept-Encoding': 'gzip, deflate, br',
         'Accept-Language': 'en-GB,en-US;q=0.9,en;q=0.8',
         'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        Accept: 'application/json, text/javascript, */*; q=0.01',
       },
       body: 'userid=1188&username=overtorment&istaco=0&customAmnt=0&customMemo=',
     });
@@ -561,11 +561,11 @@ describe.skip('LightningCustodianWallet', () => {
     const response = await fetch('https://tippin.me/lndreq/newinvoice.php', {
       method: 'POST',
       headers: {
-        'Origin': 'https://tippin.me',
+        Origin: 'https://tippin.me',
         'Accept-Encoding': 'gzip, deflate, br',
         'Accept-Language': 'en-GB,en-US;q=0.9,en;q=0.8',
         'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        Accept: 'application/json, text/javascript, */*; q=0.01',
       },
       body: 'userid=1188&username=overtorment&istaco=0&customAmnt=0&customMemo=',
     });

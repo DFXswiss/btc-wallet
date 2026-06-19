@@ -55,11 +55,7 @@ const ToolTipMenu = (props, ref) => {
 
   const handlePress = useCallback(
     ({ nativeEvent }) => {
-      const path = nativeEvent.indexPath?.length
-        ? nativeEvent.indexPath
-        : typeof nativeEvent.index === 'number'
-        ? [nativeEvent.index]
-        : [];
+      const path = nativeEvent.indexPath?.length ? nativeEvent.indexPath : typeof nativeEvent.index === 'number' ? [nativeEvent.index] : [];
       const id = lookupId(ids, path);
       if (id !== undefined) props.onPressMenuItem(id);
     },

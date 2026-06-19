@@ -359,9 +359,9 @@ export default class Lnurl {
     return !!splitted[0].trim() && !!splitted[1].trim();
   }
 
-  static getDomainFromLightningAddress(address){
-    if(!Lnurl.isLightningAddress(address)) return '';
-    const cleanedAddress = address.trim().replace('mailto:', '')
+  static getDomainFromLightningAddress(address) {
+    if (!Lnurl.isLightningAddress(address)) return '';
+    const cleanedAddress = address.trim().replace('mailto:', '');
     const splitted = cleanedAddress.split('@');
     return splitted[1];
   }
