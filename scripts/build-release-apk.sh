@@ -76,6 +76,22 @@ bundletool add-transparency \
   --ks-key-alias="$TRANSPARENCY_ALIAS" \
   --ks-pass=pass:"$TRANSPARENCY_PASSWORD"
 
+# `bundletool add-transparency` only signs the code-transparency block and emits an
+# otherwise UNsigned bundle, so re-sign the output with the upload key. Google Play
+# rejects unsigned uploads ("All uploaded bundles must be signed"); the GitHub-release
+# flow never caught this because it only attests the AAB, never uploads it to Play.
+jarsigner \
+  -keystore "$KEYSTORE" \
+  -storepass "$KEYSTORE_PASSWORD" \
+  -keypass "$KEYSTORE_KEY_PASSWORD" \
+  -sigalg SHA256withRSA -digestalg SHA-256 \
+  "$TRANSPARENT_AAB" "$KEYSTORE_ALIAS"
+
+# Fail loudly if the bundle is somehow still unsigned before it ever reaches Play.
+# `jarsigner -verify` exits 0 even for unsigned jars, so assert on its output text.
+jarsigner -verify "$TRANSPARENT_AAB" | grep -q 'jar verified\.' \
+  || { echo "Transparent AAB is not signed after jarsigner — refusing to continue" >&2; exit 1; }
+
 keytool -exportcert \
   -alias "$TRANSPARENCY_ALIAS" \
   -keystore "$TRANSPARENCY_KEYSTORE" \
