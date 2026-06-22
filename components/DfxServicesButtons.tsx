@@ -171,11 +171,11 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
                 </View>
                 {isDfxPos && (
                   <View>
-                    <View style={{ backgroundColor: colors.background, height: '100%' }}>
+                    <View style={[styles.posWrapper, { backgroundColor: colors.background }]}>
                       <TouchableOpacity
                         onPress={handleOpenDfxPosMode}
                         disabled={isHandlingOpenServices || !isDfxAvailable}
-                        style={{ justifyContent: 'center', alignItems: 'center', width: 60, padding: 10 }}
+                        style={styles.posButton}
                       >
                         <BlueText>Point</BlueText>
                         <BlueText>of</BlueText>
@@ -196,6 +196,15 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
 export default DfxServicesButtons;
 
 const styles = StyleSheet.create({
+  posWrapper: {
+    height: '100%',
+  },
+  posButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 60,
+    padding: 10,
+  },
   tileImageStyle: {
     borderRadius: 5,
   },

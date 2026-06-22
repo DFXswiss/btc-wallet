@@ -2,12 +2,11 @@ import React, { useContext, useEffect, useState } from 'react';
 import { ScrollView, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import navigationStyle from '../../components/navigationStyle';
-import { BlueLoading, BlueText, BlueSpacing20, BlueListItem, BlueCard, BlueButton, SecondButton } from '../../BlueComponents';
+import { BlueLoading, BlueText, BlueSpacing20, BlueListItem, BlueCard, SecondButton } from '../../BlueComponents';
 import { useNavigation, useTheme } from '@react-navigation/native';
-import loc from '../../loc';
+import loc, { STORAGE_KEY as LANG_STORAGE_KEY } from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { isURv1Enabled, clearUseURv1, setUseURv1 } from '../../blue_modules/ur';
-import { STORAGE_KEY as LANG_STORAGE_KEY } from '../../loc';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PREFERRED_CURRENCY_STORAGE_KEY, EXCHANGE_RATES_STORAGE_KEY, LAST_UPDATED } from '../../blue_modules/currency';
 

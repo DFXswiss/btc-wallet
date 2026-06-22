@@ -62,7 +62,7 @@ let serverName = false;
 let disableBatching = false;
 let connectionAttempt = 0;
 let currentPeerIndex = Math.floor(Math.random() * hardcodedPeers.length);
-let isDisabledCache = undefined;
+let isDisabledCache;
 
 let latestBlockheight = false;
 let latestBlockheightTimestamp = false;
@@ -172,13 +172,7 @@ async function _initConnection() {
 
   try {
     console.log('begin connection:', JSON.stringify(usingPeer));
-    mainClient = new ElectrumClient(
-      net,
-      tls,
-      usingPeer.ssl || usingPeer.tcp,
-      usingPeer.host,
-      usingPeer.ssl ? 'tls' : 'tcp',
-    );
+    mainClient = new ElectrumClient(net, tls, usingPeer.ssl || usingPeer.tcp, usingPeer.host, usingPeer.ssl ? 'tls' : 'tcp');
 
     mainClient.onError = function (e) {
       console.log('electrum mainClient.onError():', e.message);
@@ -901,13 +895,7 @@ module.exports.calculateBlockTime = function (height) {
  * @returns {Promise<boolean>} Whether provided host:port is a valid electrum server
  */
 module.exports.testConnection = async function (host, tcpPort, sslPort) {
-  const client = new ElectrumClient(
-    net,
-    tls,
-    sslPort || tcpPort,
-    host,
-    sslPort ? 'tls' : 'tcp',
-  );
+  const client = new ElectrumClient(net, tls, sslPort || tcpPort, host, sslPort ? 'tls' : 'tcp');
 
   client.onError = () => {}; // mute
   let timeoutId = false;

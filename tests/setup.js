@@ -152,12 +152,18 @@ jest.mock('realm', () => {
 
 jest.mock('react-native-context-menu-view', () => {
   const React = require('react');
+  const PropTypes = require('prop-types');
   const { View } = require('react-native');
+  const ContextMenu = React.forwardRef(function ContextMenu(props, ref) {
+    return React.createElement(View, { ref, style: props.style }, props.children);
+  });
+  ContextMenu.propTypes = {
+    style: PropTypes.any,
+    children: PropTypes.node,
+  };
   return {
     __esModule: true,
-    default: React.forwardRef(function ContextMenu(props, ref) {
-      return React.createElement(View, { ref, style: props.style }, props.children);
-    }),
+    default: ContextMenu,
   };
 });
 

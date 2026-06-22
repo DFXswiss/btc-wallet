@@ -8,7 +8,7 @@ interface ThemedCheckboxProps {
   onChanged: (isClicked: boolean) => void;
 }
 
-export function ThemedCheckbox({ text, onChanged, initialValue = false }: ThemedCheckboxProps): JSX.Element {
+export function ThemedCheckbox({ text, onChanged, initialValue = false }: ThemedCheckboxProps): React.JSX.Element {
   const [isClicked, setIsClicked] = useState(initialValue);
   const styles = StyleSheet.create({
     container: {

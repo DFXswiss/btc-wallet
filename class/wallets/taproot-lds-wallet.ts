@@ -9,13 +9,13 @@ export enum TaprootLdsWalletType {
 }
 
 export interface AssetDetails {
-    name: TaprootLdsWalletType;
-    displayName: string;
-    status: string;
-    symbol: string;
-    minSendable: number;
-    maxSendable: string;
-    decimals: number;
+  name: TaprootLdsWalletType;
+  displayName: string;
+  status: string;
+  symbol: string;
+  minSendable: number;
+  maxSendable: string;
+  decimals: number;
 }
 
 export class TaprootLdsWallet extends LightningCustodianWallet {
@@ -31,7 +31,7 @@ export class TaprootLdsWallet extends LightningCustodianWallet {
   constructor(props: any = undefined) {
     super(props);
     /* @ts-ignore wtf */
-    this.preferredBalanceUnit = BitcoinUnit.LOCAL_CURRENCY
+    this.preferredBalanceUnit = BitcoinUnit.LOCAL_CURRENCY;
   }
 
   static create(address: string, addressOwnershipProof: string, asset: AssetDetails, walletID: string): TaprootLdsWallet {

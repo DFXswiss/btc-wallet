@@ -44,12 +44,10 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 const currency = require('../../blue_modules/currency');
 const prompt = require('../../helpers/prompt');
 
-const btcAddressRx = /^[a-zA-Z0-9]{26,35}$/;
-
 const SendDetails = () => {
   const { wallets, setSelectedWallet, sleep, txMetadata, saveToDisk } = useContext(BlueStorageContext);
   const navigation = useNavigation();
-  const { name, params: routeParams } = useRoute();
+  const { params: routeParams } = useRoute();
   const scrollView = useRef();
   const scrollIndex = useRef(0);
   const { colors } = useTheme();
@@ -387,66 +385,6 @@ const SendDetails = () => {
     return change;
   };
 
-  /**
-   * TODO: refactor this mess, get rid of regexp, use https://github.com/bitcoinjs/bitcoinjs-lib/issues/890 etc etc
-   *
-   * @param data {String} Can be address or `bitcoin:xxxxxxx` uri scheme, or invalid garbage
-   */
-  const processAddressData = data => {
-    const currentIndex = scrollIndex.current;
-    setIsLoading(true);
-    if (!data.replace) {
-      // user probably scanned PSBT and got an object instead of string..?
-      setIsLoading(false);
-      return Alert.alert(loc.errors.error, loc.send.details_address_field_is_not_valid);
-    }
-
-    const dataWithoutSchema = data.replace('bitcoin:', '').replace('BITCOIN:', '');
-    if (wallet.isAddressValid(dataWithoutSchema)) {
-      setAddresses(addrs => {
-        addrs[scrollIndex.current].address = dataWithoutSchema;
-        return [...addrs];
-      });
-      setIsLoading(false);
-      return;
-    }
-
-    let address = '';
-    let options;
-    try {
-      if (!data.toLowerCase().startsWith('bitcoin:')) data = `bitcoin:${data}`;
-      const decoded = DeeplinkSchemaMatch.bip21decode(data);
-      address = decoded.address;
-      options = decoded.options;
-    } catch (error) {
-      data = data.replace(/(amount)=([^&]+)/g, '').replace(/(amount)=([^&]+)&/g, '');
-      const decoded = DeeplinkSchemaMatch.bip21decode(data);
-      decoded.options.amount = 0;
-      address = decoded.address;
-      options = decoded.options;
-    }
-
-    console.log('options', options);
-    if (btcAddressRx.test(address) || address.startsWith('bc1') || address.startsWith('BC1')) {
-      setAddresses(addrs => {
-        addrs[scrollIndex.current].address = address;
-        addrs[scrollIndex.current].amount = options.amount;
-        addrs[scrollIndex.current].amountSats = new BigNumber(options.amount).multipliedBy(100000000).toNumber();
-        return [...addrs];
-      });
-      setUnits(u => {
-        u[scrollIndex.current] = BitcoinUnit.BTC; // also resetting current unit to BTC
-        return [...u];
-      });
-      setTransactionMemo(options.label || options.message);
-      setAmountUnit(BitcoinUnit.BTC);
-      setPayjoinUrl(options.pj || '');
-      // RN Bug: contentOffset gets reset to 0 when state changes. Remove code once this bug is resolved.
-      setTimeout(() => scrollView.current.scrollToIndex({ index: currentIndex, animated: false }), 50);
-    }
-
-    setIsLoading(false);
-  };
 
   const createTransaction = async () => {
     Keyboard.dismiss();

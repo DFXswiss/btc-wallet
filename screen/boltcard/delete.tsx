@@ -8,7 +8,8 @@ import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import { BolcardSecrets } from '../../models/boltcard';
 import { AbstractWallet } from '../../class';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { ParamListBase, useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNtag424 } from '../../api/boltcards/hooks/ntag424.hook';
 import useLdsBoltcards from '../../api/boltcards/hooks/bolcards.hook';
 import BoltCard from '../../class/boltcard';
@@ -16,9 +17,9 @@ import { HoldCardModal } from '../../components/HoldCardModal';
 import loc from '../../loc';
 import { getProgressStringGenerator } from '../../helpers/stringProgressBar';
 
-const DeleteBolcard: React.FC = () => {
+const DeleteBolcard: React.FC & { navigationOptions?: ReturnType<typeof navigationStyle> } = () => {
   const { wallets, saveToDisk } = useContext(BlueStorageContext);
-  const { navigate } = useNavigation();
+  const { navigate } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { colors } = useTheme();
   const { boltcardUid } = useRoute().params as { boltcardUid: string };
   const ldsWallet = wallets.find((w: AbstractWallet) => w.type === LightningLdsWallet.type) as LightningLdsWallet;
@@ -51,7 +52,7 @@ const DeleteBolcard: React.FC = () => {
     try {
       if (isLoading) return;
       setIsLoading(true);
-      if(Platform.OS === 'android') setIsHoldCardModalVisible(true);
+      if (Platform.OS === 'android') setIsHoldCardModalVisible(true);
       const progress = getProgressStringGenerator(resetCard ? 3 : 2);
 
       if (resetCard) {
@@ -74,9 +75,10 @@ const DeleteBolcard: React.FC = () => {
       await stopNfcSession();
       setIsSuccess(true);
       setTimeout(() => {
-        if (ldsWallet.getBoltcards().length > 0) {
-          const lastCard = ldsWallet.getBoltcards().at(-1) as BoltCard;
-          navigate('BoltCardDetails', {boltcardUid: lastCard.uid});
+        const boltcards = ldsWallet.getBoltcards();
+        if (boltcards.length > 0) {
+          const lastCard = boltcards[boltcards.length - 1];
+          navigate('BoltCardDetails', { boltcardUid: lastCard.uid });
         } else {
           navigate('WalletTransactions');
         }

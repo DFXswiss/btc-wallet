@@ -28,6 +28,7 @@ export class OpenCryptoPayPaymentLink {
   isPaymentRequestAvailable() {
     return this.isLightningPaymentRequestAvailable() || this.isOnChainPaymentRequestAvailable();
   }
+
   getLightningPaymentRequestDetails() {
     const { tag, callback, minSendable, metadata } = this.response;
     const amountSat = (minSendable / 1000).toString();

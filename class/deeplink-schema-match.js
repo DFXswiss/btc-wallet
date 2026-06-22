@@ -1,4 +1,4 @@
-import URL, { parse } from 'url';
+import legacyUrl from 'url';
 import { Chain } from '../models/bitcoinUnits';
 import Lnurl from './lnurl';
 import { OpenCryptoPayPaymentLink } from './open-crypto-pay';
@@ -26,6 +26,7 @@ class DeeplinkSchemaMatch {
    *
    * @param event {{url: string}} URL deeplink as passed to app, e.g. `bitcoin:bc1qh6tf004ty7z7un2v5ntu4mkf630545gvhs45u7?amount=666&label=Yo`
    * @param completionHandler {function} Callback that returns [string, params: object]
+   * @param context {{ wallets?: any[], saveToDisk?: () => void, addWallet?: (wallet: any) => void, walletID?: string }} Optional navigation context
    */
   static navigationRouteFor(event, completionHandler, context = { wallets: [], saveToDisk: () => {}, addWallet: () => {} }) {
     if (event.url === null) {
@@ -190,7 +191,7 @@ class DeeplinkSchemaMatch {
         },
       ]);
     } */ else {
-      const urlObject = URL.parse(event.url, true); // eslint-disable-line n/no-deprecated-api
+      const urlObject = legacyUrl.parse(event.url, true); // eslint-disable-line n/no-deprecated-api
       (async () => {
         if (
           urlObject.protocol === 'bluewallet:' ||
@@ -517,7 +518,7 @@ class DeeplinkSchemaMatch {
 
     try {
       if (DeeplinkSchemaMatch.bip21decode(text).address) return true;
-    } catch (_) { }
+    } catch (_) {}
 
     if (options.includeDualFormats) {
       if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(text)) return true;
@@ -530,46 +531,58 @@ class DeeplinkSchemaMatch {
     const url = Lnurl.getUrlFromLnurl(text);
     if (!url) return;
 
-    const { query } = parse(url, true);
+    const tag = new URL(url).searchParams.get('tag');
 
-    if (query.tag === Lnurl.TAG_LOGIN_REQUEST) {
-      return ['LnurlAuth', {
-        lnurl: text,
-        walletID: context?.walletID,
-      }];
+    if (tag === Lnurl.TAG_LOGIN_REQUEST) {
+      return [
+        'LnurlAuth',
+        {
+          lnurl: text,
+          walletID: context?.walletID,
+        },
+      ];
     }
 
     try {
       const reply = await new Lnurl(url).fetchGet(url);
 
       if (OpenCryptoPayPaymentLink.isOpenCryptoPayResponse(reply)) {
-        return ['SendDetailsRoot', {
-          screen: 'OpenCryptoPaySend',
-          params: {
-            plDetails: reply,
-            walletID: context?.walletID,
+        return [
+          'SendDetailsRoot',
+          {
+            screen: 'OpenCryptoPaySend',
+            params: {
+              plDetails: reply,
+              walletID: context?.walletID,
+            },
           },
-        }];
+        ];
       }
 
       if (reply.tag === Lnurl.TAG_PAY_REQUEST) {
-        return ['SendDetailsRoot', {
-          screen: 'ScanLndInvoice',
-          params: {
-            uri: text,
-            walletID: context?.walletID,
+        return [
+          'SendDetailsRoot',
+          {
+            screen: 'ScanLndInvoice',
+            params: {
+              uri: text,
+              walletID: context?.walletID,
+            },
           },
-        }];
+        ];
       }
 
       if (reply.tag === Lnurl.TAG_WITHDRAW_REQUEST) {
-        return ['ReceiveDetailsRoot', {
-          screen: 'LNDCreateInvoice',
-          params: {
-            uri: text,
-            walletID: context?.walletID,
+        return [
+          'ReceiveDetailsRoot',
+          {
+            screen: 'LNDCreateInvoice',
+            params: {
+              uri: text,
+              walletID: context?.walletID,
+            },
           },
-        }];
+        ];
       }
 
       throw new Error('Unsupported lnurl');
@@ -577,7 +590,6 @@ class DeeplinkSchemaMatch {
       console.error(error);
     }
   }
-    
 }
 
 export default DeeplinkSchemaMatch;

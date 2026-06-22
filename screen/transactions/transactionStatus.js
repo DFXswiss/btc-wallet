@@ -42,8 +42,8 @@ const TransactionsStatus = () => {
 
   const feeSats = useMemo(() => {
     if (!tx) return 0;
-    const inAmount = tx.inputs.reduce((acc, { value }) => (acc + value), 0);
-    const outAmount = tx.outputs.reduce((acc, { value }) => (acc + value), 0);
+    const inAmount = tx.inputs.reduce((acc, { value }) => acc + value, 0);
+    const outAmount = tx.outputs.reduce((acc, { value }) => acc + value, 0);
     return currency.btcToSatoshi(inAmount - outAmount);
   }, [tx]);
 
@@ -355,7 +355,9 @@ const TransactionsStatus = () => {
       if (txMetadata[tx.hash].memo) {
         return (
           <View style={styles.memo}>
-            <Text style={styles.memoText}><PrivateText>{txMetadata[tx.hash].memo}</PrivateText></Text>
+            <Text style={styles.memoText}>
+              <PrivateText>{txMetadata[tx.hash].memo}</PrivateText>
+            </Text>
             <BlueSpacing20 />
           </View>
         );
@@ -385,7 +387,9 @@ const TransactionsStatus = () => {
             <Text style={[styles.value, stylesHook.value]}>
               <PrivateText>{formatBalanceWithoutSuffix(tx.value, wallet.current.preferredBalanceUnit, true)}</PrivateText>{' '}
               {wallet.current.preferredBalanceUnit !== BitcoinUnit.LOCAL_CURRENCY && (
-                <Text style={[styles.valueUnit, stylesHook.valueUnit]}><PrivateText>{loc.units[wallet.current.preferredBalanceUnit]}</PrivateText></Text>
+                <Text style={[styles.valueUnit, stylesHook.valueUnit]}>
+                  <PrivateText>{loc.units[wallet.current.preferredBalanceUnit]}</PrivateText>
+                </Text>
               )}
             </Text>
           </View>
@@ -425,14 +429,10 @@ const TransactionsStatus = () => {
             <View style={styles.center}>
               <View>
                 <Text style={[styles.transactionDetailsTitle, stylesHook.transactionDetailsTitle]}>
-                  <PrivateText>
-                    {loc.send.create_to}
-                  </PrivateText>
+                  <PrivateText>{loc.send.create_to}</PrivateText>
                 </Text>
                 <Text style={[styles.transactionDetailsSubtitle, stylesHook.transactionDetailsSubtitle]}>
-                  <PrivateText>
-                    {tx?.outputs[0]?.scriptPubKey?.addresses[0]}
-                  </PrivateText>
+                  <PrivateText>{tx?.outputs[0]?.scriptPubKey?.addresses[0]}</PrivateText>
                 </Text>
               </View>
             </View>

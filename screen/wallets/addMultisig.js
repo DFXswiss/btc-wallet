@@ -17,7 +17,7 @@ const WalletsAddMultisig = () => {
   const { navigate } = useNavigation();
   const loadingAnimation = useRef();
   const { walletLabel = loc.multisig.default_label } = useRoute().params;
-  const [m, setM] = useState(2);
+  const [m] = useState(2);
   const [n, setN] = useState(3);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [format, setFormat] = useState(MultisigHDWallet.FORMAT_P2WSH);
@@ -89,16 +89,6 @@ const WalletsAddMultisig = () => {
   const isP2shP2wsh = () => format === MultisigHDWallet.FORMAT_P2SH_P2WSH || format === MultisigHDWallet.FORMAT_P2SH_P2WSH_ALT;
 
   const isP2sh = () => format === MultisigHDWallet.FORMAT_P2SH;
-
-  const increaseM = () => {
-    if (n === m) return;
-    if (m === 7) return;
-    setM(m + 1);
-  };
-  const decreaseM = () => {
-    if (m === 2) return;
-    setM(m - 1);
-  };
 
   const increaseN = () => {
     if (n === 7) return;

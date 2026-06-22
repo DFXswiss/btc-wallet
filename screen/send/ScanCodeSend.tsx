@@ -8,23 +8,28 @@ import { useQrCodeScanner } from '../../hooks/qrCodeScaner.hook';
 import useQrCodeImagePicker from '../../hooks/qrCodeImagePicker.hook';
 import BlueClipboard from '../../blue_modules/clipboard';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
-import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
+import { ParamListBase, RouteProp, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
+import { AbstractWallet } from '../../class';
 import { Chain } from '../../models/bitcoinUnits';
 import { useWalletContext } from '../../contexts/wallet.context';
 import loc from '../../loc';
 import { MultisigHDWallet } from '../../class/wallets/multisig-hd-wallet';
 
-const ScanCodeSend: React.FC = () => {
+type SendRouteParams = { walletID?: string };
+type NavigationRoute = Parameters<NativeStackNavigationProp<ParamListBase>['replace']>;
+
+const ScanCodeSend: React.FC & { navigationOptions?: ReturnType<typeof navigationStyle> } = () => {
   const { wallets, revalidateBalancesInterval } = useContext(BlueStorageContext);
   const { wallet: mainWallet } = useWalletContext();
-  const multisigWallet = wallets.find(w => w.type === MultisigHDWallet.type);
-  const { params } = useRoute();
+  const multisigWallet = wallets.find((w: AbstractWallet) => w.type === MultisigHDWallet.type);
+  const { params } = useRoute<RouteProp<{ params: SendRouteParams }, 'params'>>();
   const { isReadingQrCode, cameraCallback, setOnBarScanned, urHave, urTotal } = useQrCodeScanner();
   const { isProcessingImage, openImagePicker, setOnBarCodeInImage } = useQrCodeImagePicker();
   const { cameraStatus } = useCameraPermissions();
-  const { navigate, goBack, setOptions, replace } = useNavigation();
+  const { navigate, goBack, setOptions, replace } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const [isCameraActive, setIsCameraActive] = useState(true);
   const isFocused = useIsFocused();
 
@@ -37,9 +42,9 @@ const ScanCodeSend: React.FC = () => {
     return isReadingQrCode || isProcessingImage;
   };
 
-  const importPsbt = base64Psbt => {
+  const importPsbt = (base64Psbt: string) => {
     try {
-      if (Boolean(multisigWallet)) {
+      if (multisigWallet) {
         delayedNavigationFunction(() =>
           replace('SendDetailsRoot', {
             screen: 'PsbtMultisig',
@@ -65,16 +70,19 @@ const ScanCodeSend: React.FC = () => {
     }
 
     if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(destinationString)) {
-      const selectedWallet = wallets.find(w => w.getID() === params?.walletID);
-      const lightningWallet = wallets.find(w => w.chain === Chain.OFFCHAIN);
+      const selectedWallet = wallets.find((w: AbstractWallet) => w.getID() === params?.walletID);
+      const lightningWallet = wallets.find((w: AbstractWallet) => w.chain === Chain.OFFCHAIN);
       const uri = DeeplinkSchemaMatch.isBothBitcoinAndLightning(destinationString);
       const destinationWallet = selectedWallet || lightningWallet || mainWallet;
-      const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(destinationWallet, uri);
+      const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(destinationWallet, uri) as NavigationRoute;
 
       delayedNavigationFunction(() => replace(...route));
     } else if (DeeplinkSchemaMatch.isLnUrl(destinationString)) {
       delayedNavigationFunction(() =>
-        replace('SendDetailsRoot', { screen: 'LnurlNavigationForwarder', params: { lnurl: destinationString, walletID: params?.walletID } }),
+        replace('SendDetailsRoot', {
+          screen: 'LnurlNavigationForwarder',
+          params: { lnurl: destinationString, walletID: params?.walletID },
+        }),
       );
     } else if (
       DeeplinkSchemaMatch.isPossiblyLightningDestination(destinationString) ||
@@ -82,7 +90,7 @@ const ScanCodeSend: React.FC = () => {
     ) {
       DeeplinkSchemaMatch.navigationRouteFor(
         { url: destinationString },
-        sendScreenRoute => {
+        (sendScreenRoute: NavigationRoute) => {
           delayedNavigationFunction(() => replace(...sendScreenRoute));
         },
         { walletID: params?.walletID },
@@ -130,14 +138,10 @@ const ScanCodeSend: React.FC = () => {
         />
       )}
       {getIsProcessing() && (
-        <View
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', zIndex: 10 }}
-        >
+        <View style={styles.processingOverlay}>
           <View style={styles.loadingContainer}>
-            <ActivityIndicator style={{ marginBottom: 5 }} size={25} />
-            <BlueText style={styles.textExplanation}>
-              {`${loc._.loading} ${urHave}/${urTotal}`}
-            </BlueText>
+            <ActivityIndicator style={styles.loadingIndicator} size={25} />
+            <BlueText style={styles.textExplanation}>{`${loc._.loading} ${urHave}/${urTotal}`}</BlueText>
           </View>
         </View>
       )}
@@ -166,6 +170,19 @@ const ScanCodeSend: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  processingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  loadingIndicator: {
+    marginBottom: 5,
+  },
   container: {
     flex: 1,
   },

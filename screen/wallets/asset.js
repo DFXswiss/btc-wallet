@@ -48,13 +48,8 @@ const buttonFontSize =
     : PixelRatio.roundToNearestPixel(Dimensions.get('window').width / 26);
 
 const Asset = ({ navigation }) => {
-  const {
-    wallets,
-    saveToDisk,
-    setSelectedWallet,
-    walletTransactionUpdateStatus,
-    revalidateBalancesInterval,
-  } = useContext(BlueStorageContext);
+  const { wallets, saveToDisk, setSelectedWallet, walletTransactionUpdateStatus, revalidateBalancesInterval } =
+    useContext(BlueStorageContext);
   const { name, params } = useRoute();
   const walletID = params.walletID;
   const [isLoading, setIsLoading] = useState(false);
@@ -72,26 +67,12 @@ const Asset = ({ navigation }) => {
   const [fContainerHeight, setFContainerHeight] = useState(0);
   const elapsedTimeInterval = useRef(null);
 
-
   const stylesHook = StyleSheet.create({
     listHeaderText: {
       color: colors.foregroundColor,
     },
     list: {
       backgroundColor: colors.background,
-    },
-    dfxContainer: {
-      backgroundColor: '#0A345A',
-      alignItems: 'center',
-      height: 110,
-    },
-    dfxButtonContainer: {
-      flexGrow: 1,
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginVertical: 10,
-      gap: 10,
     },
   });
 
@@ -142,7 +123,6 @@ const Asset = ({ navigation }) => {
     }
   }, []);
 
-
   useEffect(() => {
     setOptions({ headerTitle: walletTransactionUpdateStatus === walletID ? loc.transactions.updating : '' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -175,7 +155,6 @@ const Asset = ({ navigation }) => {
     setDataSource([...getTransactionsSliced(limit)]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallets]);
-
 
   // if description of transaction has been changed we want to show new one
   useFocusEffect(
@@ -263,7 +242,6 @@ const Asset = ({ navigation }) => {
       const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(wallet, uri);
       ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
       navigate(...route);
-
     } else if (DeeplinkSchemaMatch.isLnUrl(value)) {
       navigate('SendDetailsRoot', { screen: 'LnurlNavigationForwarder', params: { lnurl: value, walletID } });
     } else {
@@ -386,7 +364,7 @@ const Asset = ({ navigation }) => {
       case LightningLdsWallet.type:
         return (
           <TouchableOpacity onPress={handleGoToBoltCard} style={styles.boltcardButton}>
-            <Image source={require('../../img/pay-card-link.png')} style={{ width: 1.3 * 30, height: 30 }} />
+            <Image source={require('../../img/pay-card-link.png')} style={styles.payCardImage} />
             <Text style={stylesHook.listHeaderText}>{loc.boltcard.pay_card}</Text>
           </TouchableOpacity>
         );
@@ -411,9 +389,7 @@ const Asset = ({ navigation }) => {
         }
         rightHeaderComponent={renderRightHeaderComponent()}
       />
-      {!isMultiSig() && (
-        <DfxServicesButtons walletID={wallet.getID()} />
-      )}
+      {!isMultiSig() && <DfxServicesButtons walletID={wallet.getID()} />}
       {isLightningTestnet() && (
         <View style={styles.testnetBanner}>
           <Text>Testnet</Text>
@@ -470,7 +446,7 @@ const Asset = ({ navigation }) => {
           icon={
             <View style={styles.scanIconContainer}>
               <Image resizeMode="stretch" source={scanImage} />
-              <Image style={{ width: 20, height: 20 }} source={require('../../img/nfc.png')} />
+              <Image style={styles.nfcImage} source={require('../../img/nfc.png')} />
             </View>
           }
           text={loc.send.details_scan}
@@ -525,6 +501,14 @@ Asset.propTypes = {
 };
 
 const styles = StyleSheet.create({
+  payCardImage: {
+    width: 1.3 * 30,
+    height: 30,
+  },
+  nfcImage: {
+    width: 20,
+    height: 20,
+  },
   flex: {
     flex: 1,
   },
@@ -579,8 +563,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  tileImageStyle: {
-    borderRadius: 5,
   },
 });

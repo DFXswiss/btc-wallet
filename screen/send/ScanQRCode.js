@@ -21,6 +21,13 @@ const Base43 = require('../../blue_modules/base43');
 const bitcoin = require('bitcoinjs-lib');
 
 const styles = StyleSheet.create({
+  nfcImage: {
+    width: 30,
+    height: 30,
+  },
+  nfcText: {
+    color: 'white',
+  },
   root: {
     flex: 1,
     backgroundColor: '#000000',
@@ -57,7 +64,6 @@ const styles = StyleSheet.create({
     bottom: 48,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
   },
   nfcTouchContent: {
     flexDirection: 'row',
@@ -323,7 +329,7 @@ const ScanQRCode = () => {
                     onBarCodeRead({ data: result.values[0] });
                   }
                 })
-                .catch(error => {
+                .catch(() => {
                   alert(loc.send.qr_error_no_qrcode);
                 })
                 .finally(() => {
@@ -403,8 +409,8 @@ const ScanQRCode = () => {
       </TouchableOpacity>
       <TouchableOpacity accessibilityRole="button" accessibilityLabel={loc._.pick_image} style={styles.nfcTouch} onPress={startNfc}>
         <View style={styles.nfcTouchContent}>
-          <Image source={require('../../img/nfc.png')} style={{ width: 30, height: 30 }} />
-          <Text style={{ color: 'white' }}>NFC</Text>
+          <Image source={require('../../img/nfc.png')} style={styles.nfcImage} />
+          <Text style={styles.nfcText}>NFC</Text>
         </View>
       </TouchableOpacity>
       {showFileImportButton && (

@@ -6,7 +6,6 @@ import { useNavigation, useTheme } from '@react-navigation/native';
 
 import { BitcoinUnit } from '../models/bitcoinUnits';
 import loc, { formatBalanceWithoutSuffix, transactionTimeToReadable } from '../loc';
-import Lnurl from '../class/lnurl';
 import { BlueStorageContext } from '../blue_modules/storage-context';
 import ToolTipMenu from './TooltipMenu';
 import { BlueListItem } from '../BlueComponents';

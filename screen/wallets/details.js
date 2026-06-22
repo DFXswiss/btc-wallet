@@ -27,7 +27,7 @@ import {
   SegwitBech32Wallet,
   WatchOnlyWallet,
   MultisigHDWallet,
-  HDAezeedWallet
+  HDAezeedWallet,
 } from '../../class';
 import loc, { formatBalanceWithoutSuffix } from '../../loc';
 import { useTheme, useRoute, useNavigation, StackActions } from '@react-navigation/native';
@@ -115,7 +115,6 @@ const WalletDetails = () => {
       return null;
     }
   }, [wallet]);
-  const [lightningWalletInfo, setLightningWalletInfo] = useState({});
   const { walletID: mainWalletId, getOwnershipProof } = useWalletContext();
   const [ownershipProof, setOwnershipProof] = useState(wallet.addressOwnershipProof);
   const [isCopied, setIsCopied] = useState(false);
@@ -358,7 +357,7 @@ const WalletDetails = () => {
   const togglePosMode = async () => {
     wallet.isPosMode = !wallet.isPosMode;
     if (!wallet.isPosMode) {
-      wallet.adjustLnurlPayAmount(1, 1 * 100 * 1000 * 1000); 
+      wallet.adjustLnurlPayAmount(1, 1 * 100 * 1000 * 1000);
     }
     await saveToDisk();
   };
@@ -495,14 +494,14 @@ const WalletDetails = () => {
             {showPosModeOptions && wallet.type === LightningLdsWallet.type && (
               <BlueListItem
                 Component={Pressable}
-                title={'Activate POS mode'}
+                title="Activate POS mode"
                 switch={{ onValueChange: togglePosMode, value: wallet.isPosMode }}
               />
             )}
             {showPosModeOptions && wallet.type === LightningLdsWallet.type && (
               <BlueListItem
                 Component={Pressable}
-                title={'Go to cashier station'}
+                title="Go to cashier station"
                 chevron
                 onPress={() => navigate('ReceiveDetailsRoot', { screen: 'CashierPos', params: { walletID: wallet.getID() } })}
               />
@@ -512,7 +511,7 @@ const WalletDetails = () => {
               <View>
                 {[LightningLdsWallet.type].includes(wallet.type) && wallet.getBoltcard() && (
                   <>
-                    <SecondButton onPress={navigateToBackupPayCardDetails} title={'Backup Pay Card Details'} chevron />
+                    <SecondButton onPress={navigateToBackupPayCardDetails} title="Backup Pay Card Details" chevron />
                   </>
                 )}
                 <BlueSpacing20 />

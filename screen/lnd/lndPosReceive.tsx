@@ -16,6 +16,7 @@ import navigationStyle from '../../components/navigationStyle';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
+import { AbstractWallet } from '../../class';
 import { Icon } from 'react-native-elements';
 import { Chain } from '../../models/bitcoinUnits';
 
@@ -31,7 +32,7 @@ const LndPosReceive = () => {
   const wallet: LightningLdsWallet = useMemo(() => wallets.find((item: any) => item.getID() === walletID), [walletID, wallets]);
   const { colors } = useTheme();
   const { setParams } = useNavigation();
-  const invoicePolling = useRef<NodeJS.Timer | undefined>();
+  const invoicePolling = useRef<NodeJS.Timeout | undefined>(undefined);
   const [isWaitingForPayment, setIsWaitingForPayment] = useState<boolean>(false);
   const [invoiceAmount, setInvoiceAmount] = useState(0);
   const [isPaid, setIsPaid] = useState(false);
@@ -56,7 +57,7 @@ const LndPosReceive = () => {
 
   useEffect(() => {
     if (wallet && wallet.getID() !== walletID) {
-      const newWallet = wallets.find(w => w.getID() === walletID);
+      const newWallet = wallets.find((w: AbstractWallet) => w.getID() === walletID);
       if (newWallet) {
         setSelectedWallet(newWallet.getID());
       }
@@ -90,9 +91,9 @@ const LndPosReceive = () => {
         setIsWaitingForPayment(true);
         setInvoiceAmount(minSendable);
         if (timestamp === 0) timestamp = new Date().getTime() - POLLING_INTERVAL;
-        
+
         const userInvoices = await wallet.getUserInvoices(20);
-        const payedInvoice = i => {
+        const payedInvoice = (i: { timestamp: number; amt: number; ispaid: boolean }) => {
           return i.timestamp * 1000 > timestamp && i.amt * 1000 === minSendable && i.ispaid;
         };
         const updatedUserInvoice = userInvoices.find(payedInvoice);
@@ -100,7 +101,7 @@ const LndPosReceive = () => {
           waitingForRestart = true;
           setIsWaitingForPayment(false);
           setIsPaid(true);
-          
+
           setTimeout(() => {
             setInvoiceAmount(0);
             setIsPaid(false);
@@ -121,7 +122,7 @@ const LndPosReceive = () => {
   };
 
   const onWalletChange = (id: string) => {
-    const newWallet = wallets.find(w => w.getID() === id);
+    const newWallet = wallets.find((w: AbstractWallet) => w.getID() === id);
     if (!newWallet) return;
 
     if (newWallet.chain !== Chain.OFFCHAIN) {
@@ -134,24 +135,24 @@ const LndPosReceive = () => {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false} style={styles.flex}>
       <ScrollView contentContainerStyle={styles.grow}>
-        <KeyboardAvoidingView behavior="position" contentContainerStyle={[styleHooks.root, styles.flex]} style={[styles.flex]}>
+        <KeyboardAvoidingView behavior="position" contentContainerStyle={[styleHooks.root, styles.flex]} style={styles.flex}>
           <View style={[styles.flex, styles.grow]}>
             <View style={styles.pickerContainer}>
               <BlueWalletSelect wallets={wallets} value={wallet?.getID()} onChange={onWalletChange} />
             </View>
-            <View style={[styles.contentContainer]}>
+            <View style={styles.contentContainer}>
               <View>
                 {isPaid && <Text style={[styleHooks.colorText, styles.qrTitle]}>Payment received successfully!</Text>}
                 {!isPaid && isWaitingForPayment && <Text style={[styleHooks.colorText, styles.qrTitle]}>Waiting for payment...</Text>}
                 {!isPaid && !isWaitingForPayment && <Text style={[styleHooks.colorText, styles.qrTitle]}>Please wait for cashier</Text>}
               </View>
-              <View style={[styles.scrollBody]}>
+              <View style={styles.scrollBody}>
                 <QRCodeComponent value={wallet.getLnurl()} />
                 <View style={styles.shareContainer}>
                   <BlueCopyTextToClipboard text={wallet.lnAddress} textStyle={styles.copyText} />
                 </View>
               </View>
-              <View style={{ justifyContent: 'center', alignItems: 'center' }}>
+              <View style={styles.centeredContainer}>
                 {isWaitingForPayment && Boolean(invoiceAmount) && !isPaid && (
                   <>
                     <Text style={[styleHooks.colorText, styles.invoiceText]}>You will be charged: {invoiceAmount / 1000} sats</Text>
@@ -161,7 +162,7 @@ const LndPosReceive = () => {
                 {isPaid && (
                   <>
                     <Text style={[styleHooks.colorText, styles.invoiceText]}>We received {invoiceAmount / 1000} sats</Text>
-                    <Icon name="check-circle" size={70} color={'#00b300'} />
+                    <Icon name="check-circle" size={70} color="#00b300" />
                   </>
                 )}
               </View>
@@ -174,9 +175,9 @@ const LndPosReceive = () => {
 };
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    justifyContent: 'space-between',
+  centeredContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   contentContainer: {
     flex: 1,
@@ -195,10 +196,6 @@ const styles = StyleSheet.create({
   grow: {
     flexGrow: 1,
   },
-  buttonsContainer: {
-    alignItems: 'center',
-    marginVertical: 5,
-  },
   copyText: {
     marginVertical: 16,
   },
@@ -214,11 +211,6 @@ const styles = StyleSheet.create({
     marginVertical: 16,
   },
   invoiceText: { fontSize: 24, textAlign: 'center', marginVertical: 16 },
-  successAnimation: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#FFF',
-  },
 });
 
 export default LndPosReceive;
@@ -226,7 +218,7 @@ LndPosReceive.routeName = 'LndPosReceive';
 LndPosReceive.navigationOptions = navigationStyle(
   {
     closeButton: true,
-    headerHideBackButton: true,
+    headerBackVisible: false,
   },
   opts => ({ ...opts, title: loc.receive.header }),
 );

@@ -1,15 +1,5 @@
 import React, { useState, useCallback, useContext, useRef, useEffect } from 'react';
-import {
-  InteractionManager,
-  ScrollView,
-  ActivityIndicator,
-  StatusBar,
-  View,
-  StyleSheet,
-  AppState,
-  Text,
-  I18nManager
-} from 'react-native';
+import { InteractionManager, ScrollView, ActivityIndicator, StatusBar, View, StyleSheet, AppState, Text, I18nManager } from 'react-native';
 import { useTheme, useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { Icon } from 'react-native-elements';
 

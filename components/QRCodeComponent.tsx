@@ -63,7 +63,9 @@ const QRCodeComponent: React.FC<QRCodeComponentProps> = ({
   ecl = 'H',
   onError = () => {},
 }) => {
-  const qrCode = useRef<any>();
+  // The instance is captured via the `getRef` callback below; the existing loose
+  // typing is preserved here. React 19's useRef requires an explicit initial value.
+  const qrCode = useRef<any>(undefined);
   const { colors } = useTheme();
 
   const handleShareQRCode = () => {

@@ -41,7 +41,7 @@ export function useDfxSessionContext(): SessionInterface {
   return useContext(DfxSessionContext);
 }
 
-export function DfxSessionContextProvider(props: PropsWithChildren<any>): JSX.Element {
+export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.JSX.Element {
   const { wallets } = useContext(BlueStorageContext);
   const { walletID: mainWalletId, address: mainAddress, signMessage, getOwnershipProof } = useWalletContext();
   const { getSignMessage, auth } = useAuth();

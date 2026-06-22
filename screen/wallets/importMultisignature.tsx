@@ -7,7 +7,8 @@ import useCameraPermissions from '../../hooks/cameraPermisions.hook';
 import { useQrCodeScanner } from '../../hooks/qrCodeScaner.hook';
 import useQrCodeImagePicker from '../../hooks/qrCodeImagePicker.hook';
 import BlueClipboard from '../../blue_modules/clipboard';
-import { useIsFocused, useNavigation } from '@react-navigation/native';
+import { useIsFocused, useNavigation, ParamListBase } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { useWalletContext } from '../../contexts/wallet.context';
 import loc from '../../loc';
@@ -15,14 +16,14 @@ import { ManualTextModal } from '../../components/ManualTextModal';
 import { MultisigHDWallet } from '../../class/wallets/multisig-hd-wallet';
 import { findCosignerIndexForSeed } from '../../class/multisig-cosigner-match';
 
-const ImportMultisignature: React.FC = () => {
+const ImportMultisignature: React.FC & { navigationOptions?: ReturnType<typeof navigationStyle> } = () => {
   const { addWallet, saveToDisk, isElectrumDisabled } = useContext(BlueStorageContext);
   const { wallet: mainWallet } = useWalletContext();
   const [isLoading, setIsLoading] = useState(false);
   const { isReadingQrCode, isLoadingAnimatedQRCode, urTotal, urHave, cameraCallback, setOnBarScanned } = useQrCodeScanner();
   const { isProcessingImage, openImagePicker, setOnBarCodeInImage } = useQrCodeImagePicker();
   const { cameraStatus } = useCameraPermissions();
-  const { navigate } = useNavigation();
+  const { navigate } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const [isCameraActive, setIsCameraActive] = useState(true);
   const [isManualTextModalVisible, setIsManualTextModalVisible] = useState(false);
   const [threshold, setThreshold] = useState(0);
@@ -143,12 +144,14 @@ const ImportMultisignature: React.FC = () => {
       {showLoading && (
         <View style={styles.loadingContainer}>
           <View style={styles.contentLoadingContainer}>
-            <ActivityIndicator style={{ marginBottom: 5 }} size={25} />
+            <ActivityIndicator style={styles.loadingIndicator} size={25} />
             <BlueText style={styles.loadingText}>{loc._.loading}</BlueText>
             {isLoadingAnimatedQRCode && !isPotentialMultisig && <BlueText style={styles.progressText}>{urHave + '/' + urTotal}</BlueText>}
             {isPotentialMultisig && (
               <>
-                <BlueText style={styles.progressText}>{loc.formatString(loc.multisig.calculating_cosigners, { m: threshold, n: quorum })}</BlueText>
+                <BlueText style={styles.progressText}>
+                  {loc.formatString(loc.multisig.calculating_cosigners, { m: threshold, n: quorum })}
+                </BlueText>
               </>
             )}
           </View>
@@ -183,6 +186,9 @@ const ImportMultisignature: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  loadingIndicator: {
+    marginBottom: 5,
+  },
   container: {
     flex: 1,
   },
@@ -235,12 +241,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 20,
     marginHorizontal: 10,
-  },
-  closeButton: {
-    minWidth: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   progressText: {
     marginTop: 5,

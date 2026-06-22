@@ -23,7 +23,6 @@ import BlueElectrum from '../../blue_modules/BlueElectrum';
 import { majorTomToGroundControl } from '../../blue_modules/notifications';
 import scanqr from '../../helpers/scan-qr';
 
-
 const BROADCAST_RESULT = Object.freeze({
   none: 'Input transaction hex',
   pending: 'pending',

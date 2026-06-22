@@ -12,7 +12,7 @@ export function useLanguageContext(): LanguageInterface {
   return useContext(LanguageContext);
 }
 
-export function LanguageContextProvider(props: PropsWithChildren): JSX.Element {
+export function LanguageContextProvider(props: PropsWithChildren): React.JSX.Element {
   const [languages, setLanguages] = useState<Language[]>();
   const { getLanguages } = useLanguage();
 

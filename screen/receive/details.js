@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
   BackHandler,
   InteractionManager,
@@ -11,7 +11,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Image
+  Image,
 } from 'react-native';
 import { useNavigation, useRoute, useTheme, useFocusEffect } from '@react-navigation/native';
 import Share from 'react-native-share';
@@ -43,7 +43,8 @@ const currency = require('../../blue_modules/currency');
 
 const ReceiveDetails = () => {
   const { walletID, address } = useRoute().params;
-  const { wallets, saveToDisk, sleep, isElectrumDisabled, refreshAllWalletTransactions, revalidateBalancesInterval} = useContext(BlueStorageContext);
+  const { wallets, saveToDisk, sleep, isElectrumDisabled, refreshAllWalletTransactions, revalidateBalancesInterval } =
+    useContext(BlueStorageContext);
   const wallet = wallets.find(w => w.getID() === walletID);
   const [customLabel, setCustomLabel] = useState('');
   const [bip21encoded, setBip21encoded] = useState();
@@ -62,11 +63,6 @@ const ReceiveDetails = () => {
   const { inputProps, amountSats, formattedUnit, changeToNextUnit } = useInputAmount();
 
   const stylesHook = StyleSheet.create({
-    modalContent: {
-      backgroundColor: colors.modal,
-      borderTopColor: colors.foregroundColor,
-      borderWidth: colors.borderWidth,
-    },
     customAmount: {
       borderColor: colors.formBorder,
       borderBottomColor: colors.formBorder,
@@ -81,14 +77,8 @@ const ReceiveDetails = () => {
     rootBackgroundColor: {
       backgroundColor: colors.elevated,
     },
-    amount: {
-      color: colors.foregroundColor,
-    },
     label: {
       color: colors.foregroundColor,
-    },
-    modalButton: {
-      backgroundColor: colors.modalButton,
     },
   });
 
@@ -260,7 +250,7 @@ const ReceiveDetails = () => {
         <KeyboardAvoidingView enabled={!Platform.isPad} behavior="position" keyboardVerticalOffset={50}>
           <View style={styles.scrollBody}>
             <QRCodeComponent value={bip21encoded} />
-            <BlueCopyTextToClipboard text={isCustom ? bip21encoded : address} textStyle={{ marginVertical: 24 }} />
+            <BlueCopyTextToClipboard text={isCustom ? bip21encoded : address} textStyle={styles.copyText} />
           </View>
           <View style={styles.share}>
             <View style={[styles.customAmount, stylesHook.customAmount]}>
@@ -408,14 +398,8 @@ const ReceiveDetails = () => {
 };
 
 const styles = StyleSheet.create({
-  modalContent: {
-    padding: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    minHeight: 350,
-    height: 350,
+  copyText: {
+    marginVertical: 24,
   },
   customAmount: {
     flexDirection: 'row',
@@ -443,26 +427,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  link: {
-    marginVertical: 16,
-    paddingHorizontal: 32,
-  },
-  amount: {
-    fontWeight: '600',
-    fontSize: 36,
-    textAlign: 'center',
-  },
   label: {
     fontWeight: '600',
     textAlign: 'center',
     paddingBottom: 24,
-  },
-  modalButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 70,
-    maxWidth: '80%',
-    borderRadius: 50,
-    fontWeight: '700',
   },
   customAmountText: {
     flex: 1,
@@ -470,17 +438,17 @@ const styles = StyleSheet.create({
     minHeight: 33,
   },
   pickerContainer: { marginHorizontal: 16 },
-  inputUnit:{
+  inputUnit: {
     color: '#81868e',
     fontSize: 16,
     marginRight: 10,
     marginLeft: 10,
   },
-  changeToNextUnitButton:{
+  changeToNextUnitButton: {
     borderLeftColor: '#676b71',
     borderLeftWidth: 1,
     paddingHorizontal: 10,
-  }
+  },
 });
 
 ReceiveDetails.navigationOptions = navigationStyle(

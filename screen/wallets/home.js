@@ -43,11 +43,11 @@ const buttonFontSize =
     : PixelRatio.roundToNearestPixel(Dimensions.get('window').width / 26);
 
 const WalletHome = ({ navigation }) => {
-  const { wallets, saveToDisk, setSelectedWallet, ldsDEV, revalidateBalancesInterval } = useContext(BlueStorageContext);
+  const { wallets, saveToDisk, setSelectedWallet, revalidateBalancesInterval } = useContext(BlueStorageContext);
   const walletID = useMemo(() => wallets[0]?.getID(), [wallets]);
   const multisigWallet = useMemo(() => wallets.find(w => w.type === MultisigHDWallet.type), [wallets]);
   const lnWallet = useMemo(() => wallets.find(w => w.type === LightningLdsWallet.type), [wallets]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [, setIsLoading] = useState(false);
   const { name } = useRoute();
   const { setParams, navigate } = useNavigation();
   const { colors, scanImage } = useTheme();
@@ -103,7 +103,6 @@ const WalletHome = ({ navigation }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallets, walletID, totalWallet]);
 
-
   const importPsbt = base64Psbt => {
     try {
       const psbt = bitcoin.Psbt.fromBase64(base64Psbt); // if it doesnt throw - all good, its valid
@@ -116,7 +115,7 @@ const WalletHome = ({ navigation }) => {
           },
         });
       }
-    } catch (_) { }
+    } catch (_) {}
   };
 
   const onBarScanned = value => {
@@ -193,7 +192,7 @@ const WalletHome = ({ navigation }) => {
       const buttons = [
         {
           text: loc._.cancel,
-          onPress: () => { },
+          onPress: () => {},
           style: 'cancel',
         },
         {
@@ -255,16 +254,6 @@ const WalletHome = ({ navigation }) => {
       screen: 'AddLightning',
       params: {
         walletID: wallet.getID(),
-      },
-    });
-  };
-
-  const navigateToAddTaproot = asset => {
-    navigate('WalletsRoot', {
-      screen: 'AddLightning',
-      params: {
-        walletID: wallet.getID(),
-        asset,
       },
     });
   };
@@ -348,18 +337,18 @@ const WalletHome = ({ navigation }) => {
                 Component={View}
                 {...(item.isActivated
                   ? {
-                    rightElement: (
-                      <SecondButton
-                        title={loc._.add}
-                        icon={{ name: 'plus', type: 'font-awesome', color: 'white', size: 12 }}
-                        onPress={item.onDummyPress}
-                      />
-                    ),
-                  }
+                      rightElement: (
+                        <SecondButton
+                          title={loc._.add}
+                          icon={{ name: 'plus', type: 'font-awesome', color: 'white', size: 12 }}
+                          onPress={item.onDummyPress}
+                        />
+                      ),
+                    }
                   : {
-                    rightTitle: loc.wallets.coming_soon,
-                    rightTitleStyle: stylesHook.comingSoon,
-                  })}
+                      rightTitle: loc.wallets.coming_soon,
+                      rightTitleStyle: stylesHook.comingSoon,
+                    })}
               />
             )}
           </TouchableOpacity>
@@ -384,7 +373,7 @@ const WalletHome = ({ navigation }) => {
           icon={
             <View style={styles.scanIconContainer}>
               <Image resizeMode="stretch" source={scanImage} />
-              <Image style={{ width: 20, height: 20 }} source={require('../../img/nfc.png')} />
+              <Image style={styles.nfcImage} source={require('../../img/nfc.png')} />
             </View>
           }
           text={loc.send.details_scan}
@@ -474,6 +463,10 @@ WalletHome.propTypes = {
 };
 
 const styles = StyleSheet.create({
+  nfcImage: {
+    width: 20,
+    height: 20,
+  },
   flex: {
     flex: 1,
   },
@@ -501,5 +494,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  }
+  },
 });

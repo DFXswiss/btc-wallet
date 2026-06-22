@@ -3,12 +3,12 @@ import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
 import loc from '../loc';
 import { pick, types, errorCodes } from '@react-native-documents/picker';
-
-const isCancel = err => err && err.code === errorCodes.OPERATION_CANCELED;
 import { launchImageLibrary } from 'react-native-image-picker';
 import RNQRGenerator from 'rn-qr-generator';
 import { isDesktop } from '../blue_modules/environment';
 import alert from '../components/Alert';
+
+const isCancel = err => err && err.code === errorCodes.OPERATION_CANCELED;
 
 const writeFileAndExportToAndroidDestionation = async ({ filename, contents, destinationLocalizedString, destination }) => {
   const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE, {
@@ -125,7 +125,7 @@ const showImagePickerAndReadImage = () => {
                   reject(new Error(loc.send.qr_error_no_qrcode));
                 }
               })
-              .catch(error => {
+              .catch(() => {
                 reject(new Error(loc.send.qr_error_no_qrcode));
               });
           }
@@ -165,7 +165,7 @@ const showFilePickerAndReadFile = async function () {
               resolve({ data: false, uri: false });
             }
           })
-          .catch(error => {
+          .catch(() => {
             resolve({ data: false, uri: false });
           });
       });

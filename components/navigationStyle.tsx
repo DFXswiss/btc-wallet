@@ -32,6 +32,7 @@ const navigationStyle = (
   }: NavigationOptions & {
     closeButton?: boolean;
     closeButtonFunc?: (deps: { navigation: any; route: any }) => React.ReactElement;
+    headerHideBackButton?: boolean;
   },
   formatter: OptionsFormatter,
 ): NavigationOptionsGetter => {
@@ -58,21 +59,20 @@ const navigationStyle = (
         );
       }
 
-      const { statusBarStyle: _ignoredStatusBarStyle, ...restOpts } = opts;
+      const restOpts = { ...opts };
+      delete restOpts.statusBarStyle;
 
       let options: NavigationOptions = {
-        headerStyle: {
-          borderBottomWidth: 0,
-          elevation: 0,
-          shadowOpacity: 0,
-          shadowOffset: { height: 0, width: 0 },
-        },
+        // Native-stack only reads `headerStyle.backgroundColor`; the former
+        // borderBottomWidth/elevation/shadow* keys were silently ignored at
+        // runtime, so omitting them is behaviour-neutral.
         headerTitleStyle: {
           fontWeight: '600',
           color: theme.colors.foregroundColor,
         },
         headerRight,
-        headerBackTitleVisible: false,
+        // headerBackTitleVisible is a JS-stack option that native-stack ignores
+        // at runtime; dropping it is behaviour-neutral.
         headerTintColor: theme.colors.foregroundColor,
         ...restOpts,
       };
@@ -91,17 +91,14 @@ export const navigationStyleTx = (opts: NavigationOptions, formatter: OptionsFor
   return theme =>
     ({ navigation, route }) => {
       let options: NavigationOptions = {
-        headerStyle: {
-          borderBottomWidth: 0,
-          elevation: 0,
-          shadowOffset: { height: 0, width: 0 },
-        },
+        // Native-stack ignores borderBottomWidth/elevation/shadow* in headerStyle
+        // (only backgroundColor is honoured) -> omitting them is behaviour-neutral.
         headerTitleStyle: {
           fontWeight: '600',
           color: theme.colors.foregroundColor,
         },
         // headerBackTitle: null,
-        headerBackTitleVisible: false,
+        // headerBackTitleVisible (JS-stack only) is ignored by native-stack -> omitted, behaviour-neutral.
         headerTintColor: theme.colors.foregroundColor,
         headerLeft: () => (
           <TouchableOpacity

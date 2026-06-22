@@ -1,5 +1,5 @@
-import React, { useContext, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, TouchableOpacity, StyleSheet, Switch, View } from 'react-native';
+import React, { useContext, useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, ListRenderItemInfo, TouchableOpacity, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-elements';
 
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
@@ -10,23 +10,37 @@ import { BitcoinUnit } from '../../models/bitcoinUnits';
 import Biometric from '../../class/biometrics';
 import loc, { formatBalance, formatBalanceWithoutSuffix } from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
-import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
-import alert from '../../components/Alert';
+import { ParamListBase, RouteProp, useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { AbstractWallet } from '../../class';
+import { CoinSelectOutput } from 'coinselect';
 import { OpenCryptoPayPaymentLink } from '../../class/open-crypto-pay';
 const currency = require('../../blue_modules/currency');
 const Bignumber = require('bignumber.js');
 const bitcoin = require('bitcoinjs-lib');
 
+// Parameters forwarded by `getOnChainPaymentNavigation` in lnurlNavigationForwarder.tsx,
+// extended with the raw lnurl reply (`paymentLinkDetails`).
+type OnchainCommitParams = {
+  recipients: CoinSelectOutput[];
+  walletID: string;
+  fee: number;
+  memo?: string;
+  tx: string;
+  satoshiPerByte: number;
+  paymentLinkDetails: unknown;
+};
+
 const OpenCrytoPayCommitOnchain = () => {
   const { wallets } = useContext(BlueStorageContext);
   const [isBiometricUseCapableAndEnabled, setIsBiometricUseCapableAndEnabled] = useState(false);
-  const { params } = useRoute();
+  const { params } = useRoute<RouteProp<{ params: OnchainCommitParams }, 'params'>>();
   const { recipients = [], walletID, fee, memo, tx, satoshiPerByte, paymentLinkDetails } = params;
   const [isLoading, setIsLoading] = useState(false);
   const [isServerError, setIsServerError] = useState(false);
-  const wallet = wallets.find(w => w.getID() === walletID);
+  const wallet = wallets.find((w: AbstractWallet) => w.getID() === walletID);
   const feeSatoshi = new Bignumber(fee).multipliedBy(100000000).toNumber();
-  const { navigate, setOptions, replace } = useNavigation();
+  const { navigate, setOptions, replace } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { colors } = useTheme();
 
   const stylesHook = StyleSheet.create({
@@ -50,9 +64,6 @@ const OpenCrytoPayCommitOnchain = () => {
     },
     root: {
       backgroundColor: colors.elevated,
-    },
-    payjoinWrapper: {
-      backgroundColor: colors.buttonDisabledBackgroundColor,
     },
   });
 
@@ -100,7 +111,7 @@ const OpenCrytoPayCommitOnchain = () => {
   const send = async () => {
     setIsLoading(true);
     try {
-      if(!paymentLinkDetails) {
+      if (!paymentLinkDetails) {
         return;
       }
 
@@ -108,7 +119,7 @@ const OpenCrytoPayCommitOnchain = () => {
       const _tx = bitcoin.Transaction.fromHex(tx);
       const result = await paymentLink.commitOnchainPayment(_tx);
 
-      if(result.error) {
+      if (result.error) {
         console.error('error', result);
         throw new Error(`${result.error} - ${result.message} - ${result.statusCode}`);
       }
@@ -129,7 +140,7 @@ const OpenCrytoPayCommitOnchain = () => {
     }
   };
 
-  const _renderItem = ({ index, item }) => {
+  const _renderItem = ({ index, item }: ListRenderItemInfo<CoinSelectOutput>) => {
     return (
       <>
         <View style={styles.valueWrap}>
@@ -182,12 +193,22 @@ const OpenCrytoPayCommitOnchain = () => {
       </View>
       <View style={styles.cardBottom}>
         <BlueCard>
-          {isServerError ? <BlueText style={styles.serverError}>{loc.send.server_error}</BlueText> :
-          <Text style={styles.cardText} testID="TransactionFee">
-            {loc.send.create_fee}: {formatBalance(feeSatoshi, BitcoinUnit.BTC)} ({currency.satoshiToLocalCurrency(feeSatoshi)})
-          </Text>
-          }
-          {isLoading ? <ActivityIndicator /> : <BlueButton disabled={isLoading} onPress={isServerError ? navigateToScanQrCode : send} title={isServerError ? loc.send.scan_qr_code : loc.send.confirm_sendNow} />}
+          {isServerError ? (
+            <BlueText style={styles.serverError}>{loc.send.server_error}</BlueText>
+          ) : (
+            <Text style={styles.cardText} testID="TransactionFee">
+              {loc.send.create_fee}: {formatBalance(feeSatoshi, BitcoinUnit.BTC)} ({currency.satoshiToLocalCurrency(feeSatoshi)})
+            </Text>
+          )}
+          {isLoading ? (
+            <ActivityIndicator />
+          ) : (
+            <BlueButton
+              disabled={isLoading}
+              onPress={isServerError ? navigateToScanQrCode : send}
+              title={isServerError ? loc.send.scan_qr_code : loc.send.confirm_sendNow}
+            />
+          )}
         </BlueCard>
       </View>
     </SafeBlueArea>
@@ -257,10 +278,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'center',
   },
-  cardContainer: {
-    flexGrow: 1,
-    width: '100%',
-  },
   cardText: {
     flexDirection: 'row',
     color: '#37c0a1',
@@ -281,19 +298,6 @@ const styles = StyleSheet.create({
   txText: {
     fontSize: 15,
     fontWeight: '600',
-  },
-  payjoinWrapper: {
-    flexDirection: 'row',
-    padding: 8,
-    borderRadius: 6,
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  payjoinText: {
-    color: '#81868e',
-    fontSize: 15,
-    fontWeight: 'bold',
   },
   serverError: {
     alignSelf: 'center',

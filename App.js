@@ -1,5 +1,4 @@
-import 'react-native-gesture-handler'; // should be on top
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { GestureHandlerRootView } from 'react-native-gesture-handler'; // should be on top
 import React, { useContext, useEffect, useRef } from 'react';
 import {
   AppState,
@@ -48,14 +47,8 @@ if (Platform.OS === 'android') {
 }
 
 const App = () => {
-  const {
-    walletsInitialized,
-    wallets,
-    addWallet,
-    saveToDisk,
-    setBalanceRefreshInterval,
-    clearBalanceRefreshInterval,
-  } = useContext(BlueStorageContext);
+  const { walletsInitialized, wallets, addWallet, saveToDisk, setBalanceRefreshInterval, clearBalanceRefreshInterval } =
+    useContext(BlueStorageContext);
   const appState = useRef(AppState.currentState);
 
   useCompanionListeners();
@@ -108,7 +101,6 @@ const App = () => {
       eventEmitter?.removeAllListeners('openSettings');
       eventEmitter?.removeAllListeners('onUserActivityOpen');
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const addListeners = () => {

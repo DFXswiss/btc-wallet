@@ -40,7 +40,7 @@ const CashierPos = () => {
   const wallet: LightningLdsWallet = useMemo(() => wallets.find((item: any) => item.getID() === walletID), [walletID, wallets]);
   const { colors } = useTheme();
   const { inputProps, amountSats, formattedUnit, changeToNextUnit, resetInput } = useInputAmount();
-  const invoicePolling = useRef<NodeJS.Timer | undefined>();
+  const invoicePolling = useRef<NodeJS.Timeout | undefined>(undefined);
   const [isWaitingForPayment, setIsWaitingForPayment] = useState<boolean>(false);
   const [invoiceAmount, setInvoiceAmount] = useState(0);
   const [isPaid, setIsPaid] = useState(false);
@@ -93,7 +93,7 @@ const CashierPos = () => {
       if (minSendable === maxSendable && minSendable > 1000 && !waitingForRestart) {
         if (timestamp === 0) timestamp = new Date().getTime() - POLLING_INTERVAL;
         const userInvoices = await wallet.getUserInvoices(20);
-        const payedInvoice = i => {
+        const payedInvoice = (i: { timestamp: number; amt: number; ispaid: boolean }) => {
           return i.timestamp * 1000 > timestamp && i.amt * 1000 === minSendable && i.ispaid;
         };
         const updatedUserInvoice = userInvoices.find(payedInvoice);
@@ -148,17 +148,17 @@ const CashierPos = () => {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'android' ? undefined : 'position'}
           contentContainerStyle={[styleHooks.root, styles.flex]}
-          style={[styles.flex]}
+          style={styles.flex}
         >
           <View style={[styles.flex, styles.grow]}>
-            <View style={[styles.contentContainer]}>
+            <View style={styles.contentContainer}>
               <View style={[styles.scrollBody, styles.flex]}>
                 <View>
                   {isPaid && (
                     <>
                       <Text style={[styleHooks.colorText, styles.qrTitle]}>Payment received successfully!</Text>
                       <Text style={[styleHooks.colorText, styles.qrTitle]}>{invoiceAmount} sats</Text>
-                      <Icon name="check-circle" size={70} color={'#00b300'} />
+                      <Icon name="check-circle" size={70} color="#00b300" />
                     </>
                   )}
                   {!isPaid && isWaitingForPayment && (
@@ -206,10 +206,6 @@ const CashierPos = () => {
 };
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
   contentContainer: {
     flex: 1,
     flexGrow: 1,
@@ -243,7 +239,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
     minHeight: 33,
   },
-  pickerContainer: { marginHorizontal: 16 },
   inputUnit: {
     color: '#81868e',
     fontSize: 16,
@@ -261,18 +256,8 @@ const styles = StyleSheet.create({
   grow: {
     flexGrow: 1,
   },
-  doneButton: {
-    paddingHorizontal: 16,
-  },
-  buttonsContainer: {
-    alignItems: 'center',
-    marginVertical: 5,
-  },
   copyText: {
     marginVertical: 16,
-  },
-  iosNfcButtonContainer: {
-    marginVertical: 10,
   },
   shareContainer: {
     flexDirection: 'row',
@@ -293,7 +278,7 @@ CashierPos.routeName = 'CashierPos';
 CashierPos.navigationOptions = navigationStyle(
   {
     closeButton: true,
-    headerHideBackButton: true,
+    headerBackVisible: false,
   },
   opts => ({ ...opts, title: loc.receive.header }),
 );
