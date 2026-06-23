@@ -167,10 +167,15 @@ const WalletDetails = () => {
     reset();
   };
 
-  const deleteCurrentWallet = () => {
-    navigate('WalletTransactions');
+  const deleteCurrentWallet = async () => {
     deleteWallet(wallet);
-    saveToDisk();
+    // Await the Realm-backed save (which opens + closes a Realm) BEFORE navigating away, so the
+    // save's microtask can't race the navigation teardown — that race is what crashes the release
+    // build (use-after-close of a Realm collection Proxy).
+    await saveToDisk();
+    // popToTop tears down WalletDetails/Settings/WalletAsset for the deleted wallet deterministically
+    // and lands on the home root, instead of relying on a navigate-to-root pop to reconcile.
+    dispatch(StackActions.popToTop());
   };
 
   const navigateToOverviewAndDeleteWallet = () => {

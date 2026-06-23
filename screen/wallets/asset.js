@@ -55,8 +55,8 @@ const Asset = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState(false);
   const multisigWallet = useMemo(() => wallets.find(w => w.type === MultisigHDWallet.type), [wallets]);
   const wallet = useMemo(() => wallets.find(w => w.getID() === walletID), [wallets, walletID]);
-  const [itemPriceUnit, setItemPriceUnit] = useState(wallet.getPreferredBalanceUnit());
-  const [dataSource, setDataSource] = useState(wallet.getTransactions(15));
+  const [itemPriceUnit, setItemPriceUnit] = useState(() => wallet?.getPreferredBalanceUnit());
+  const [dataSource, setDataSource] = useState(() => wallet?.getTransactions(15) ?? []);
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [limit, setLimit] = useState(15);
   const [pageSize, setPageSize] = useState(20);
@@ -84,6 +84,7 @@ const Asset = ({ navigation }) => {
    * @returns {Array}
    */
   const getTransactionsSliced = (lmt = Infinity) => {
+    if (!wallet) return [];
     let txs = wallet.getTransactions();
     for (const tx of txs) {
       tx.sort_ts = +new Date(tx.received);
@@ -129,6 +130,7 @@ const Asset = ({ navigation }) => {
   }, [walletTransactionUpdateStatus]);
 
   useEffect(() => {
+    if (!wallet) return;
     setIsLoading(true);
     setLimit(15);
     setPageSize(20);
@@ -138,7 +140,7 @@ const Asset = ({ navigation }) => {
     setSelectedWallet(wallet.getID());
     setDataSource(wallet.getTransactions(15));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [walletID]);
+  }, [walletID, wallet]);
 
   useEffect(() => {
     const newWallet = wallets.find(w => w.getID() === walletID);
@@ -373,6 +375,9 @@ const Asset = ({ navigation }) => {
         return null;
     }
   };
+
+  // Wallet can become undefined mid-render when it is deleted while this screen is still mounted.
+  if (!wallet) return null;
 
   return (
     <View style={styles.flex}>
