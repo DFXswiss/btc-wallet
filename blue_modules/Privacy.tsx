@@ -1,5 +1,5 @@
 import { useContext, useEffect } from 'react';
-import { CaptureProtection } from 'react-native-capture-protection';
+import { CaptureProtection, ContentMode } from 'react-native-capture-protection';
 import { BlueStorageContext } from './storage-context';
 
 interface PrivacyComponent extends React.FC {
@@ -28,7 +28,11 @@ const Privacy: PrivacyComponent = () => {
 
 Privacy.enableBlur = () => {
   if (!isPrivacyBlurEnabledRef) return;
-  CaptureProtection.prevent().catch(() => {});
+  // Show the branded splash (matching the native LaunchScreen) instead of the library's default
+  // white cover. screenshot/record are passed explicitly because prevent() only defaults them to
+  // true when called with NO argument — with a partial option they default to false.
+  const cover = { image: require('../img/dfx/splash.png'), backgroundColor: '#072440' as const, contentMode: ContentMode.center };
+  CaptureProtection.prevent({ screenshot: true, record: cover, appSwitcher: cover }).catch(() => {});
 };
 
 Privacy.disableBlur = () => {
