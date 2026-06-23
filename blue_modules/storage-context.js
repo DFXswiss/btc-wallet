@@ -273,8 +273,11 @@ export const BlueStorageProvider = ({ children }) => {
     await saveToDisk();
     A(A.ENUM.CREATED_WALLET);
     majorTomToGroundControl(w.getAllExternalAddresses(), [], []);
-    // start balance fetching at the background
-    await w.fetchBalance();
+    // Background (don't await) so import/add flows navigate immediately instead of freezing on a
+    // slow/unreachable Electrum call; refresh the list again once the balance lands.
+    w.fetchBalance()
+      .then(() => setWallets([...BlueApp.getWallets()]))
+      .catch(e => console.warn('addAndSaveWallet: fetchBalance failed', e));
     w.fetchTransactions();
     setWallets([...BlueApp.getWallets()]);
   };
