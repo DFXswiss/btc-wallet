@@ -1,5 +1,5 @@
 import React, { useContext, useRef, useState, useEffect, useMemo } from 'react';
-import { FlatList, LayoutAnimation, Platform, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, LayoutAnimation, Platform, StyleSheet, Text, View } from 'react-native';
 import { Icon } from 'react-native-elements';
 import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
@@ -32,7 +32,8 @@ const WalletsAddMultisigStep2 = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [cosignerXpubURv2, setCosignerXpubURv2] = useState(''); // string displayed in renderCosignersXpubModal()
   const [ownXpub, setOwnXpub] = useState('');
-  const scannedCache = {};
+  const [isError, setIsError] = useState(false);
+  const scannedCache = useRef({}).current; // ref so the scan-dedup cache survives re-renders
   const quorum = useRef(new Array(n));
 
   useEffect(() => {
@@ -211,7 +212,15 @@ const WalletsAddMultisigStep2 = () => {
     } catch (error) {}
   };
 
+  // Pause the scanner while a validation-error alert is open so an animated/repeated QR can't
+  // enqueue a burst of alerts that keep draining after the user navigates away.
+  const presentScanError = message => {
+    setIsError(true);
+    Alert.alert(loc.alert.default, message, [{ text: loc._.ok, onPress: () => setIsError(false) }]);
+  };
+
   const onBarCodeRead = ret => {
+    if (isError) return;
     const h = HashIt(ret.data);
     if (scannedCache[h]) {
       // this QR was already scanned by this ScanQRCode, lets prevent firing duplicate callbacks
@@ -260,21 +269,21 @@ const WalletsAddMultisigStep2 = () => {
     } catch (_) {}
 
     if (!new MultisigCosigner(ret.data).isValid()) {
-      return alert(loc.multisig.not_a_multisignature_xpub);
+      return presentScanError(loc.multisig.not_a_multisignature_xpub);
     }
 
     if (ret.data.toUpperCase().startsWith('UR')) {
-      alert('BC-UR not decoded. This should never happen');
+      presentScanError('BC-UR not decoded. This should never happen');
     } else {
       if (MultisigHDWallet.isXpubValid(ret.data) && !MultisigHDWallet.isXpubForMultisig(ret.data)) {
-        return alert(loc.multisig.not_a_multisignature_xpub);
+        return presentScanError(loc.multisig.not_a_multisignature_xpub);
       }
       if (MultisigHDWallet.isXpubValid(ret.data)) {
         return tryUsingXpub(ret.data);
       }
 
       let cosigner = new MultisigCosigner(ret.data);
-      if (!cosigner.isValid()) return alert(loc.multisig.invalid_cosigner);
+      if (!cosigner.isValid()) return presentScanError(loc.multisig.invalid_cosigner);
       if (cosigner.howManyCosignersWeHave() > 1) {
         // lets look for the correct cosigner. thats probably gona be the one with specific corresponding path,
         // for example m/48'/0'/0'/2' if user chose to setup native segwit in BW
@@ -342,7 +351,7 @@ const WalletsAddMultisigStep2 = () => {
           throw new Error('This should never happen');
       }
 
-      if (!correctFormat) return alert(loc.formatString(loc.multisig.invalid_cosigner_format, { format }));
+      if (!correctFormat) return presentScanError(loc.formatString(loc.multisig.invalid_cosigner_format, { format }));
 
       const cosignersCopy = [...cosigners];
       cosignersCopy.push([cosigner.getXpub(), cosigner.getFp(), cosigner.getPath()]);
@@ -387,7 +396,7 @@ const WalletsAddMultisigStep2 = () => {
       </View>
       <View style={styles.cameraContainer}>
         <Camera
-          scanBarcode
+          scanBarcode={!isError}
           scanThrottleDelay={0}
           onReadCode={event => onBarCodeRead({ data: event?.nativeEvent?.codeStringValue })}
           style={styles.camera}
