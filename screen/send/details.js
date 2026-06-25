@@ -955,7 +955,8 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   root: {
-    flex: 1,
+    // flexGrow (not flex:1) so tall content can exceed the viewport and scroll when the keyboard is up
+    flexGrow: 1,
     justifyContent: 'space-between',
   },
   scrollViewContent: {

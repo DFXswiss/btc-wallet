@@ -10,6 +10,7 @@ import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: '#072440',
   },
   container: {
     flex: 1,
@@ -29,6 +30,11 @@ const styles = StyleSheet.create({
   },
   splashContainer: {
     flex: 0,
+  },
+  splash: {
+    width: 220,
+    height: 70,
+    resizeMode: 'contain',
   },
 });
 

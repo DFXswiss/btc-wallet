@@ -187,7 +187,7 @@ const App = () => {
       currency.updateExchangeRate();
       setBalanceRefreshInterval();
     }
-    if (appState.current === 'active' && nextAppState.match(/background/)) clearBalanceRefreshInterval();
+    if (appState.current === 'active' && nextAppState?.match(/background/)) clearBalanceRefreshInterval();
     if (nextAppState) {
       appState.current = nextAppState;
     }

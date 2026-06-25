@@ -61,8 +61,8 @@ const WalletHome = ({ navigation }) => {
     const total = new WatchOnlyWallet();
     total.setLabel(loc.wallets.total);
     total.balance = wallets.reduce((prev, curr) => prev + (curr.isDummy ? 0 : curr.getBalance()), 0);
-    total.hideBalance = wallet.hideBalance;
-    total.preferredBalanceUnit = wallet.preferredBalanceUnit;
+    total.hideBalance = wallet?.hideBalance;
+    total.preferredBalanceUnit = wallet?.preferredBalanceUnit;
     return total;
   }, [wallets, wallet]);
 
@@ -81,7 +81,7 @@ const WalletHome = ({ navigation }) => {
   useEffect(() => {
     setIsLoading(true);
     setIsLoading(false);
-    setSelectedWallet(wallet.getID());
+    if (wallet) setSelectedWallet(wallet.getID());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletID]);
 
