@@ -18,9 +18,9 @@ def resolve_release_info(raw_tag)
 end
 
 platform :android do
-  # Open Testing ("beta"): public, link-shareable track.
+  # Internal Testing: private track for the team's testers.
   def release_track
-    "beta"
+    "internal"
   end
 
   # The attested AAB produced by scripts/build-release-apk.sh (relative to android/).
@@ -28,7 +28,7 @@ platform :android do
     "app/build/outputs/bundle/release/app-release-transparent.aab"
   end
 
-  desc "Build the attested AAB and upload to Play Store beta + stage the listing"
+  desc "Build the attested AAB and upload to Play Store internal + stage the listing"
   lane :release do
     info = resolve_release_info(ENV["NEW_VERSION"] || "dev")
 

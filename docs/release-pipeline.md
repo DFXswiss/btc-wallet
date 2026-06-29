@@ -27,7 +27,7 @@ All implemented in one PR ([#181](https://github.com/DFXswiss/btc-wallet/pull/18
 | ----- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | 1     | Versioning generator + `auto-tag` + `release` skeleton (guard + version + concurrency) | ✅ done, validated (`v9.9.9` test tag)                                  |
 | 2     | iOS lane: `match` + `gym` + `upload_to_testflight` + staged `deliver`                  | ✅ implemented (needs certs repo + ASC)                                 |
-| 3     | Android lane: `supply` → Play `beta`, on the attested AAB                              | ✅ implemented (needs Play service account)                             |
+| 3     | Android lane: `supply` → Play `internal`, on the attested AAB                              | ✅ implemented (needs Play service account)                             |
 | 4     | metadata (de-DE/en-US) + `check-store-metadata.sh` + `store-metadata.yml`              | ✅ scaffolded (real copy + legal URLs are `FIXME-`, gated by preflight) |
 | 5     | Cleanup: remove placeholder `custom_lane`; remove legacy CircleCI / App Center         | ✅ done (both deleted; BlueWallet upstream had already removed them)    |
 
@@ -54,7 +54,7 @@ All implemented in one PR ([#181](https://github.com/DFXswiss/btc-wallet/pull/18
 - Manual **`vX.Y.0`** tag (MAJOR/MINOR) = **production candidate**.
 - **`release.yml`** — on `push: tags: v*`:
   - **guard** validates the strict `vX.Y.Z` shape and routes the lane: `PATCH==0` → production candidate (GitHub release, `prerelease: false`); `PATCH>=1` → internal release (`prerelease: true`).
-  - both lanes ship to the **test tracks** (TestFlight + Play `beta`); production promotion stays a manual console action.
+  - both lanes ship to the **test tracks** (TestFlight + Play `internal`); production promotion stays a manual console action.
   - `concurrency: store-release`, `cancel-in-progress: false` — serialises store uploads so back-to-back tags can't race the same slot.
 
 ### Day-to-day: how to ship a version
@@ -81,7 +81,7 @@ All implemented in one PR ([#181](https://github.com/DFXswiss/btc-wallet/pull/18
 `android/fastlane/` (`Fastfile` + `Appfile` + `credentials.json` from a base64 secret) `beta` lane, on top of the existing signed/attested AAB:
 
 1. Build the signed AAB (reuse `build-release-apk.sh` + `KEYSTORE_*` / `TRANSPARENCY_*`).
-2. **`upload_to_play_store`** track `beta` (Open Testing) — AAB **+ changelog**, `skip_upload_metadata/images/screenshots: true`.
+2. **`upload_to_play_store`** track `internal` (Internal Testing) — AAB **+ changelog**, `skip_upload_metadata/images/screenshots: true`.
 3. A **second** `upload_to_play_store` pushing **only** metadata + images + screenshots (no changelog).
 
 - `Appfile`: `package_name("swiss.dfx.bitcoin")`, `json_key_file("./credentials.json")` (Play service account).
@@ -128,7 +128,7 @@ No secret **values** live in this repo — only names. Provision them in repo/or
 
 1. **`match` certs repo:** dedicated private repo `DFXswiss/btc-wallet-certificates`.
 2. **Languages:** trim to `de-DE` + `en-US`; drop unmaintained inherited locales.
-3. **Android track:** `beta` (Open Testing) for the automated lane; production promotion manual.
+3. **Android track:** `internal` (Internal Testing) for the automated lane; production promotion manual.
 4. **Screenshots:** committed/versioned set in-repo for the first cut; automated capture deferred.
 
 ## RN ≠ Flutter deltas (don't blindly copy RealUnit's Flutter commands)
@@ -144,7 +144,7 @@ No secret **values** live in this repo — only names. Provision them in repo/or
 
 - [x] Single-source version generator drives both platforms from the Git tag; tagless build hard-fails. _(phase 1)_
 - [x] `auto-tag` on `develop` produces internal-release tags; `vX.Y.0` = production candidate. _(phase 1)_
-- [ ] One `release` workflow on `v*` builds **and uploads** iOS (TestFlight) **and** Android (Play `beta`) from a single tag.
+- [ ] One `release` workflow on `v*` builds **and uploads** iOS (TestFlight) **and** Android (Play `internal`) from a single tag.
 - [ ] iOS listing (texts + screenshots) staged via `deliver` (never auto-submitted).
 - [ ] Android listing (texts + images + screenshots) via `supply`, separate from the binary/changelog upload.
 - [ ] `store-metadata.yml` syncs listing-only changes on demand and on metadata changes.
