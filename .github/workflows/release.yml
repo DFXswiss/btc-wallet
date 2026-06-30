@@ -4,7 +4,7 @@ name: Release
 # Triggers on every vX.Y.Z tag and routes by PATCH:
 #   PATCH == 0 (vX.Y.0) -> production-candidate (GitHub release, prerelease: false)
 #   PATCH >= 1 (vX.Y.Z) -> internal release (auto-tag output, prerelease: true)
-# Both lanes ship to the test tracks (TestFlight + Play beta); production
+# Both lanes ship to the test tracks (TestFlight + Play internal); production
 # promotion stays a manual console action.
 #
 # Required secrets:
@@ -113,7 +113,7 @@ jobs:
         run: bundle exec fastlane release
 
   android-deploy:
-    name: Android -> Play beta + listing
+    name: Android -> Play internal + listing
     needs: [guard, preflight]
     if: needs.guard.outputs.proceed == 'true'
     runs-on: ubuntu-latest
@@ -148,7 +148,7 @@ jobs:
           working-directory: android
       - name: Write Play service account
         run: echo "${{ secrets.PLAY_STORE_JSON_BASE64 }}" | base64 -d > android/credentials.json
-      - name: Build attested AAB + upload to Play beta + stage listing
+      - name: Build attested AAB + upload to Play internal + stage listing
         working-directory: android
         env:
           NEW_VERSION: ${{ github.ref_name }}

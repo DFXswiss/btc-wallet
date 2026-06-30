@@ -2,7 +2,7 @@
 
 One-time provisioning for the tag-driven store-release pipeline (see
 `docs/release-pipeline.md` for how it works). Do these once on the **`DFXswiss/btc-wallet`**
-repo; afterwards every `vX.Y.Z` tag ships to TestFlight + Play beta automatically.
+repo; afterwards every `vX.Y.Z` tag ships to TestFlight + Play internal automatically.
 
 > No secret *values* belong in this file or the repo — this only says **where to get each key**.
 > Add every secret under: GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**
@@ -85,7 +85,7 @@ capability"* — the same error class we hit signing on a device. Enabling them 
 ### 3. Google Play Console
 - Ensure the `swiss.dfx.bitcoin` app exists.
 - Create the **service account** + grant release permissions (see `PLAY_STORE_JSON_BASE64`).
-- Make sure an **Open Testing ("beta")** track exists.
+- Make sure an **Internal Testing ("internal")** track exists.
 
 ### 4. Store listing content (unblocks the preflight)
 The preflight (`scripts/check-store-metadata.sh`) blocks a release while any `FIXME-` remains. Fill these for **both** `de-DE` and `en-US`:
@@ -99,5 +99,5 @@ Limits enforced: iOS name/subtitle 30, keywords 100, promo 170, description 4000
 ## First run / dry run
 1. Add all secrets; complete steps 1–4.
 2. Push a test tag (e.g. `v0.0.1`) or merge to `develop` (auto-tag creates the next tag).
-3. The `release` workflow runs: guard → preflight → iOS (TestFlight) + Android (Play beta) → GitHub release.
+3. The `release` workflow runs: guard → preflight → iOS (TestFlight) + Android (Play internal) → GitHub release.
 4. Expect the **iOS signing step may need a small first-run tweak** (normal for CI iOS). Promotion to production stays a manual click in each console.
