@@ -1,1 +1,1 @@
-Self-custodial Bitcoin wallet
+Bitcoin & Lightning
