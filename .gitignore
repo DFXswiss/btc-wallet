@@ -92,3 +92,8 @@ artifacts/
 
 # Ruby
 vendor/*
+
+# Local reproducibility audit payloads (large APKs; keep audit/FILES.txt if useful)
+audit/**/*.apk
+audit/play-store-unpacked/
+audit/local-build-unpacked/

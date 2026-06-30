@@ -1,12 +1,12 @@
-import React, { createContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useEffect, useRef, useState } from 'react';
+import PropTypes from 'prop-types';
 import { Alert } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { useAsyncStorage } from '@react-native-async-storage/async-storage';
 import { FiatUnit } from '../models/fiatUnit';
-import Notifications from '../blue_modules/notifications';
+import { majorTomToGroundControl } from '../blue_modules/notifications';
 import { fetch as fetchNetInfo } from '@react-native-community/netinfo';
 import { STORAGE_KEY as LOC_STORAGE_KEY } from '../loc';
-import { isTorDaemonDisabled, setIsTorDaemonDisabled } from './environment';
 const BlueApp = require('../BlueApp');
 const BlueElectrum = require('./BlueElectrum');
 const currency = require('../blue_modules/currency');
@@ -31,20 +31,15 @@ export const BlueStorageProvider = ({ children }) => {
   const [isDfxPos, setIsDfxPos] = useState(false);
   const [isDfxSwap, setIsDfxSwap] = useState(false);
   const [isElectrumDisabled, setIsElectrumDisabled] = useState(true);
-  const [isTorDisabled, setIsTorDisabled] = useState(false);
   const [isPrivacyBlurEnabled, setIsPrivacyBlurEnabled] = useState(true);
   const [lastSuccessfulBalanceRefresh, setLastSuccessfulBalanceRefresh] = useState(Date.now());
   const balanceRefreshInterval = useRef(null);
   const [cameraPermissionLastAskedTime, setCameraPermissionLastAskedTime] = useState(0);
+  const [hideBalance, setHideBalance] = useState(false);
 
   useEffect(() => {
     BlueElectrum.isDisabled().then(setIsElectrumDisabled);
-    isTorDaemonDisabled().then(setIsTorDisabled);
   }, []);
-
-  useEffect(() => {
-    setIsTorDaemonDisabled(isTorDisabled);
-  }, [isTorDisabled]);
 
   const setIsHandOffUseEnabledAsyncStorage = value => {
     setIsHandOffUseEnabled(value);
@@ -71,16 +66,19 @@ export const BlueStorageProvider = ({ children }) => {
     return BlueApp.setIsDfxSwapEnabled(value);
   };
 
-  const saveToDisk = async (force = false) => {
-    if (BlueApp.getWallets().length === 0 && !force) {
-      console.log('not saving empty wallets array');
-      return;
-    }
-    BlueApp.tx_metadata = txMetadata;
-    await BlueApp.saveToDisk();
-    setWallets([...BlueApp.getWallets()]);
-    txMetadata = BlueApp.tx_metadata;
-  };
+  const saveToDisk = useCallback(
+    async (force = false) => {
+      if (BlueApp.getWallets().length === 0 && !force) {
+        console.log('not saving empty wallets array');
+        return;
+      }
+      BlueApp.tx_metadata = txMetadata;
+      await BlueApp.saveToDisk();
+      setWallets([...BlueApp.getWallets()]);
+      txMetadata = BlueApp.tx_metadata;
+    },
+    [txMetadata],
+  );
 
   const setCameraPermissionLastAskedTimeAsyncStorage = value => {
     setCameraPermissionLastAskedTime(value);
@@ -106,6 +104,8 @@ export const BlueStorageProvider = ({ children }) => {
         setIsDfxSwap(!!enabledDfxSwap);
         const cameraPermissionLastAskedTime = await BlueApp.getCameraPermissionLastAskedTime();
         setCameraPermissionLastAskedTime(cameraPermissionLastAskedTime);
+        const isHideBalance = await BlueApp.isHideBalanceEnabled();
+        setHideBalance(!!isHideBalance);
       } catch (_e) {
         setIsHandOffUseEnabledAsyncStorage(false);
         setIsHandOffUseEnabled(false);
@@ -229,7 +229,7 @@ export const BlueStorageProvider = ({ children }) => {
 
   const revalidateBalancesInterval = async () => {
     try {
-      if(BlueApp.wallets.length === 0) return;
+      if (BlueApp.wallets.length === 0) return;
 
       const isElectrumDisabled = await BlueElectrum.isDisabled();
       if (isElectrumDisabled) return;
@@ -250,6 +250,7 @@ export const BlueStorageProvider = ({ children }) => {
   };
 
   const addWallet = wallet => {
+    if (BlueApp.wallets.some(w => w.getID() === wallet.getID())) return;
     BlueApp.wallets.push(wallet);
     setWallets([...BlueApp.getWallets()]);
   };
@@ -271,11 +272,22 @@ export const BlueStorageProvider = ({ children }) => {
     addWallet(w);
     await saveToDisk();
     A(A.ENUM.CREATED_WALLET);
-    Notifications.majorTomToGroundControl(w.getAllExternalAddresses(), [], []);
-    // start balance fetching at the background
-    await w.fetchBalance();
+    majorTomToGroundControl(w.getAllExternalAddresses(), [], []);
+    // Background (don't await) so import/add flows navigate immediately instead of freezing on a
+    // slow/unreachable Electrum call; refresh the list again once the balance lands.
+    w.fetchBalance()
+      .then(() => setWallets([...BlueApp.getWallets()]))
+      .catch(e => console.warn('addAndSaveWallet: fetchBalance failed', e));
     w.fetchTransactions();
     setWallets([...BlueApp.getWallets()]);
+  };
+
+  const toggleHideBalance = () => {
+    setHideBalance(prev => {
+      const next = !prev;
+      BlueApp.setIsHideBalanceEnabled(next);
+      return next;
+    });
   };
 
   let txMetadata = BlueApp.tx_metadata || {};
@@ -355,14 +367,14 @@ export const BlueStorageProvider = ({ children }) => {
         isDoNotTrackEnabled,
         isElectrumDisabled,
         setIsElectrumDisabled,
-        isTorDisabled,
-        setIsTorDisabled,
         isPrivacyBlurEnabled,
         setIsPrivacyBlurEnabled,
         lastSuccessfulBalanceRefresh,
         setBalanceRefreshInterval,
         clearBalanceRefreshInterval,
         revalidateBalancesInterval,
+        hideBalance,
+        toggleHideBalance,
         // Feature flags
         ldsDEV,
         setLdsDEVAsyncStorage,
@@ -379,4 +391,8 @@ export const BlueStorageProvider = ({ children }) => {
       {children}
     </BlueStorageContext.Provider>
   );
+};
+
+BlueStorageProvider.propTypes = {
+  children: PropTypes.node,
 };

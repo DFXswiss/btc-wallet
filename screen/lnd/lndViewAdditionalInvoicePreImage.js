@@ -7,6 +7,8 @@ import navigationStyle from '../../components/navigationStyle';
 import loc from '../../loc';
 import QRCodeComponent from '../../components/QRCodeComponent';
 import { ScrollView } from 'react-native-gesture-handler';
+import Lnurl from '../../class/lnurl';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LNDViewAdditionalInvoicePreImage = () => {
   const { invoice, preImageData } = useRoute().params;
@@ -45,7 +47,7 @@ const LNDViewAdditionalInvoicePreImage = () => {
         {paymentHash && (
           <>
             <View style={styles.rowHeader}>
-              <BlueText style={[styles.sectionTitle]}>{loc.lndViewInvoice.payment_hash}</BlueText>
+              <BlueText style={styles.sectionTitle}>{loc.lndViewInvoice.payment_hash}</BlueText>
               <BlueCopyToClipboardButton stringToCopy={paymentHash} />
             </View>
             <BlueText style={styles.rowValue}>{paymentHash}</BlueText>
@@ -55,7 +57,7 @@ const LNDViewAdditionalInvoicePreImage = () => {
         {lnurl && (
           <>
             <View style={styles.rowHeader}>
-              <BlueText style={[styles.sectionTitle]}>LNURL</BlueText>
+              <BlueText style={styles.sectionTitle}>LNURL</BlueText>
               <BlueCopyToClipboardButton stringToCopy={lnurl} />
             </View>
             <BlueText style={styles.rowValue}>{lnurl}</BlueText>
@@ -65,7 +67,7 @@ const LNDViewAdditionalInvoicePreImage = () => {
         {hasValidPreimage() && (
           <>
             <View style={styles.rowHeader}>
-              <BlueText style={[styles.sectionTitle]}>{loc.lndViewInvoice.preimage}</BlueText>
+              <BlueText style={styles.sectionTitle}>{loc.lndViewInvoice.preimage}</BlueText>
               <BlueCopyToClipboardButton stringToCopy={preImageData} />
             </View>
             <BlueText style={styles.rowValue}>{preImageData}</BlueText>
@@ -79,7 +81,7 @@ const LNDViewAdditionalInvoicePreImage = () => {
         {domain && (
           <>
             <View style={styles.rowHeader}>
-              <BlueText style={[styles.sectionTitle]}>{loc.lndViewInvoice.domain}</BlueText>
+              <BlueText style={styles.sectionTitle}>{loc.lndViewInvoice.domain}</BlueText>
             </View>
             <BlueText style={styles.rowValue}>{domain}</BlueText>
             <View style={styles.marginBottom18} />
@@ -88,7 +90,7 @@ const LNDViewAdditionalInvoicePreImage = () => {
         {memo && (
           <>
             <View style={styles.rowHeader}>
-              <BlueText style={[styles.sectionTitle]}>{loc.lndViewInvoice.memo}</BlueText>
+              <BlueText style={styles.sectionTitle}>{loc.lndViewInvoice.memo}</BlueText>
             </View>
             <BlueText style={styles.rowValue}>{memo}</BlueText>
             <View style={styles.marginBottom18} />
@@ -97,7 +99,7 @@ const LNDViewAdditionalInvoicePreImage = () => {
         {description && (
           <>
             <View style={styles.rowHeader}>
-              <BlueText style={[styles.sectionTitle]}>{loc.lndViewInvoice.description}</BlueText>
+              <BlueText style={styles.sectionTitle}>{loc.lndViewInvoice.description}</BlueText>
             </View>
             <BlueText style={styles.rowValue}>{description}</BlueText>
             <View style={styles.marginBottom18} />
@@ -106,7 +108,7 @@ const LNDViewAdditionalInvoicePreImage = () => {
         {value && (
           <>
             <View style={styles.rowHeader}>
-              <BlueText style={[styles.sectionTitle]}>{loc.lndViewInvoice.value}</BlueText>
+              <BlueText style={styles.sectionTitle}>{loc.lndViewInvoice.value}</BlueText>
             </View>
             <BlueText style={styles.rowValue}>{`${value} sats`}</BlueText>
             <View style={styles.marginBottom18} />
@@ -115,7 +117,7 @@ const LNDViewAdditionalInvoicePreImage = () => {
         {(fee || fee === 0) && (
           <>
             <View style={styles.rowHeader}>
-              <BlueText style={[styles.sectionTitle]}>{loc.send.create_fee}</BlueText>
+              <BlueText style={styles.sectionTitle}>{loc.send.create_fee}</BlueText>
             </View>
             <BlueText style={styles.rowValue}>{feeString}</BlueText>
             <View style={styles.marginBottom18} />
@@ -124,7 +126,7 @@ const LNDViewAdditionalInvoicePreImage = () => {
         {received && (
           <>
             <View style={styles.rowHeader}>
-              <BlueText style={[styles.sectionTitle]}>{loc.transactions.details_received}</BlueText>
+              <BlueText style={styles.sectionTitle}>{loc.transactions.details_received}</BlueText>
             </View>
             <BlueText style={styles.rowValue}>{received}</BlueText>
             <View style={styles.marginBottom18} />

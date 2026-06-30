@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { NativeStackScreenProps } from 'react-native-screens/lib/typescript/native-stack';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { BlueCopyTextToClipboard } from '../../BlueComponents';
 import QRCodeComponent from '../../components/QRCodeComponent';
 import loc from '../../loc';

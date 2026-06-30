@@ -20,9 +20,8 @@ import {
   SafeBlueArea,
 } from '../../BlueComponents';
 import BlueElectrum from '../../blue_modules/BlueElectrum';
-import Notifications from '../../blue_modules/notifications';
+import { majorTomToGroundControl } from '../../blue_modules/notifications';
 import scanqr from '../../helpers/scan-qr';
-
 
 const BROADCAST_RESULT = Object.freeze({
   none: 'Input transaction hex',
@@ -64,7 +63,7 @@ const Broadcast = () => {
 
         setBroadcastResult(BROADCAST_RESULT.success);
         ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
-        Notifications.majorTomToGroundControl([], [], [txid]);
+        majorTomToGroundControl([], [], [txid]);
       } else {
         setBroadcastResult(BROADCAST_RESULT.error);
       }

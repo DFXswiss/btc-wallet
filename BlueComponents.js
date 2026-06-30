@@ -1,5 +1,5 @@
 /* eslint react/prop-types: "off", react-native/no-inline-styles: "off" */
-import React, { Component, forwardRef, useState } from 'react';
+import React, { Component, forwardRef } from 'react';
 import PropTypes from 'prop-types';
 import { Icon, Text, Header, ListItem, Avatar } from 'react-native-elements';
 import {
@@ -24,10 +24,11 @@ import {
 import Clipboard from '@react-native-clipboard/clipboard';
 import NetworkTransactionFees, { NetworkTransactionFee, NetworkTransactionFeeType } from './models/networkTransactionFees';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useTheme } from '@react-navigation/native';
+import { CommonActions, useNavigation, useTheme } from '@react-navigation/native';
 import { BlueCurrentTheme } from './components/themes';
 import loc, { formatStringAddTwoWhiteSpaces } from './loc';
 import PickerSelect from 'react-native-picker-select';
+import PlusIcon from './components/icons/PlusIcon';
 
 const { height, width } = Dimensions.get('window');
 const aspectRatio = height / width;
@@ -83,7 +84,20 @@ export const BlueButton = props => {
   );
 };
 
-export const SecondButton = forwardRef((props, ref) => {
+/**
+ * @typedef {import('react-native').TouchableOpacityProps & {
+ *   title?: string,
+ *   backgroundColor?: string,
+ *   disabled?: boolean,
+ *   isLoading?: boolean,
+ *   image?: { source: import('react-native').ImageSourcePropType },
+ *   icon?: { name: string, type?: string, color?: string, size?: number },
+ * }} SecondButtonProps
+ */
+/**
+ * @type {React.ForwardRefExoticComponent<SecondButtonProps & React.RefAttributes<any>>}
+ */
+export const SecondButton = forwardRef((/** @type {SecondButtonProps} */ props, ref) => {
   const { colors } = useTheme();
   let backgroundColor = props.backgroundColor ? props.backgroundColor : colors.buttonBlueBackgroundColor;
   let fontColor = colors.buttonTextColor;
@@ -429,74 +443,103 @@ export const BlueTextCentered = props => {
   return <Text {...props} style={{ color: colors.foregroundColor, textAlign: 'center' }} />;
 };
 
-export const BlueListItem = React.memo(props => {
-  const { colors } = useTheme();
+/**
+ * @typedef {Object} BlueListItemProps
+ * @property {import('react-native').StyleProp<import('react-native').ViewStyle>} [containerStyle]
+ * @property {React.ComponentType<any>} [Component]
+ * @property {boolean} [bottomDivider]
+ * @property {boolean} [topDivider]
+ * @property {string} [testID]
+ * @property {() => void} [onPress]
+ * @property {() => void} [onLongPress]
+ * @property {boolean} [disabled]
+ * @property {import('react-native').SwitchProps} [switch]
+ * @property {React.ReactNode} [leftAvatar]
+ * @property {object} [leftIcon]
+ * @property {React.ReactNode} [title]
+ * @property {React.ReactNode} [subtitle]
+ * @property {number} [subtitleNumberOfLines]
+ * @property {React.ReactNode} [rightElement]
+ * @property {React.ReactNode} [rightTitle]
+ * @property {import('react-native').StyleProp<import('react-native').TextStyle>} [rightTitleStyle]
+ * @property {boolean} [isLoading]
+ * @property {boolean} [chevron]
+ * @property {object} [rightIcon]
+ * @property {boolean} [checkmark]
+ */
+/**
+ * @type {React.FC<BlueListItemProps>}
+ */
+export const BlueListItem = React.memo(
+  /** @param {BlueListItemProps} props */ props => {
+    const { colors } = useTheme();
 
-  return (
-    <ListItem
-      containerStyle={props.containerStyle ?? { backgroundColor: 'transparent', borderColor: '#113759' }}
-      Component={props.Component ?? TouchableOpacity}
-      bottomDivider={props.bottomDivider !== undefined ? props.bottomDivider : true}
-      topDivider={props.topDivider !== undefined ? props.topDivider : false}
-      testID={props.testID}
-      onPress={props.onPress}
-      onLongPress={props.onLongPress}
-      disabled={props.disabled}
-      accessible={props.switch === undefined}
-    >
-      {props.leftAvatar && <Avatar>{props.leftAvatar}</Avatar>}
-      {props.leftIcon && <Avatar icon={props.leftIcon} />}
-      <ListItem.Content>
-        <ListItem.Title
-          style={{
-            color: props.disabled ? colors.buttonDisabledTextColor : colors.foregroundColor,
-            fontSize: 16,
-            fontWeight: '500',
-            writingDirection: I18nManager.isRTL ? 'rtl' : 'ltr',
-          }}
-          numberOfLines={0}
-          accessible={props.switch === undefined}
-        >
-          {props.title}
-        </ListItem.Title>
-        {props.subtitle && (
-          <ListItem.Subtitle
-            numberOfLines={props.subtitleNumberOfLines ?? 1}
-            accessible={props.switch === undefined}
+    return (
+      <ListItem
+        containerStyle={props.containerStyle ?? { backgroundColor: 'transparent', borderColor: '#113759' }}
+        Component={props.Component ?? TouchableOpacity}
+        bottomDivider={props.bottomDivider !== undefined ? props.bottomDivider : true}
+        topDivider={props.topDivider !== undefined ? props.topDivider : false}
+        testID={props.testID}
+        onPress={props.onPress}
+        onLongPress={props.onLongPress}
+        disabled={props.disabled}
+        accessible={props.switch === undefined}
+      >
+        {props.leftAvatar && <Avatar>{props.leftAvatar}</Avatar>}
+        {props.leftIcon && <Avatar icon={props.leftIcon} />}
+        <ListItem.Content>
+          <ListItem.Title
             style={{
-              flexWrap: 'wrap',
+              color: props.disabled ? colors.buttonDisabledTextColor : colors.foregroundColor,
+              fontSize: 16,
+              fontWeight: '500',
               writingDirection: I18nManager.isRTL ? 'rtl' : 'ltr',
-              color: colors.alternativeTextColor,
-              fontWeight: '400',
-              fontSize: 14,
             }}
+            numberOfLines={0}
+            accessible={props.switch === undefined}
           >
-            {props.subtitle}
-          </ListItem.Subtitle>
-        )}
-      </ListItem.Content>
-      {(props.rightElement || props.rightTitle) && (
-        <ListItem.Content right style={{ flex: 1 }}>
-          {props.rightElement ?? (
-            <ListItem.Title style={props.rightTitleStyle} numberOfLines={0} right>
-              {props.rightTitle}
-            </ListItem.Title>
+            {props.title}
+          </ListItem.Title>
+          {props.subtitle && (
+            <ListItem.Subtitle
+              numberOfLines={props.subtitleNumberOfLines ?? 1}
+              accessible={props.switch === undefined}
+              style={{
+                flexWrap: 'wrap',
+                writingDirection: I18nManager.isRTL ? 'rtl' : 'ltr',
+                color: colors.alternativeTextColor,
+                fontWeight: '400',
+                fontSize: 14,
+              }}
+            >
+              {props.subtitle}
+            </ListItem.Subtitle>
           )}
         </ListItem.Content>
-      )}
-      {props.isLoading ? (
-        <ActivityIndicator />
-      ) : (
-        <>
-          {props.chevron && <ListItem.Chevron iconStyle={{ transform: [{ scaleX: I18nManager.isRTL ? -1 : 1 }] }} />}
-          {props.rightIcon && <Avatar icon={props.rightIcon} />}
-          {props.switch && <Switch {...props.switch} accessibilityLabel={props.title} accessible accessibilityRole="switch" />}
-          {props.checkmark && <ListItem.CheckBox iconType="octaicon" checkedColor="#0070FF" checkedIcon="check" checked />}
-        </>
-      )}
-    </ListItem>
-  );
-});
+        {(props.rightElement || props.rightTitle) && (
+          <ListItem.Content right style={{ flex: 1 }}>
+            {props.rightElement ?? (
+              <ListItem.Title style={props.rightTitleStyle} numberOfLines={0} right>
+                {props.rightTitle}
+              </ListItem.Title>
+            )}
+          </ListItem.Content>
+        )}
+        {props.isLoading ? (
+          <ActivityIndicator />
+        ) : (
+          <>
+            {props.chevron && <ListItem.Chevron iconStyle={{ transform: [{ scaleX: I18nManager.isRTL ? -1 : 1 }] }} />}
+            {props.rightIcon && <Avatar icon={props.rightIcon} />}
+            {props.switch && <Switch {...props.switch} accessibilityLabel={props.title} accessible accessibilityRole="switch" />}
+            {props.checkmark && <ListItem.CheckBox iconType="octaicon" checkedColor="#0070FF" checkedIcon="check" checked />}
+          </>
+        )}
+      </ListItem>
+    );
+  },
+);
 
 export const BlueFormLabel = props => {
   const { colors } = useTheme();
@@ -665,6 +708,10 @@ export const BlueSpacing10 = props => {
   return <View {...props} style={{ height: 10, opacity: 0 }} />;
 };
 
+/**
+ * @typedef {{ onPress?: () => void }} BlueDismissKeyboardInputAccessoryProps
+ * @type {((props?: BlueDismissKeyboardInputAccessoryProps) => JSX.Element | null) & { InputAccessoryViewID: string }}
+ */
 export const BlueDismissKeyboardInputAccessory = ({ onPress } = {}) => {
   const { colors } = useTheme();
   BlueDismissKeyboardInputAccessory.InputAccessoryViewID = 'BlueDismissKeyboardInputAccessory';
@@ -695,7 +742,6 @@ export const BlueDismissKeyboardInputAccessory = ({ onPress } = {}) => {
 
 export const BlueDoneAndDismissKeyboardInputAccessory = props => {
   const { colors } = useTheme();
-  BlueDoneAndDismissKeyboardInputAccessory.InputAccessoryViewID = 'BlueDoneAndDismissKeyboardInputAccessory';
 
   const onPasteTapped = async () => {
     const clipboard = await Clipboard.getString();
@@ -724,6 +770,7 @@ export const BlueDoneAndDismissKeyboardInputAccessory = props => {
     return <KeyboardAvoidingView>{inputView}</KeyboardAvoidingView>;
   }
 };
+BlueDoneAndDismissKeyboardInputAccessory.InputAccessoryViewID = 'BlueDoneAndDismissKeyboardInputAccessory';
 
 export const BlueLoading = props => {
   return (
@@ -987,47 +1034,72 @@ const useSelectorStyles = () => {
 };
 
 export const BlueWalletSelect = ({ wallets, value, onChange }) => {
-  return Platform.OS === 'ios' ? (
-    <BlueWalletSelectIOS wallets={wallets} value={value} onChange={onChange} />
-  ) : (
-    <BlueWalletSelectBase wallets={wallets} value={value} onChange={onChange} />
-  );
-};
-
-export const BlueWalletSelectIOS = ({ wallets, value, onChange }) => {
-  const [internalValue, setInternalValue] = useState(value);
-
-  const handleDone = () => onChange(internalValue);
-
-  return (
-    <BlueWalletSelectBase
-      wallets={wallets}
-      value={internalValue}
-      onChange={setInternalValue}
-      onDonePress={handleDone}
-      onClose={handleDone}
-    />
-  );
-};
-
-export const BlueWalletSelectBase = ({ wallets, value, onChange, ...props }) => {
   const { colors } = useTheme();
-  const pickerStyles = useSelectorStyles();
+  const navigation = useNavigation();
+
+  const selected = wallets.find(w => w.getID() === value);
+  const label = selected ? `${selected.getLabel()}${selected.isPosMode ? ' (POS mode)' : ''}` : '';
+
+  const onPress = () => {
+    navigation.navigate('SelectWallet', {
+      availableWallets: wallets,
+      onWalletSelect: (picked, { navigation: { pop } }) => {
+        if (!picked) return;
+        if (picked.getID() === value) {
+          pop();
+          return;
+        }
+        // Same-chain: caller mutates via setParams and returns nothing -> pop.
+        // Cross-chain: caller returns { name, params } -> atomic replace.
+        const target = onChange(picked.getID());
+        if (target && typeof target === 'object' && target.name) {
+          navigation.dispatch(state => {
+            if (!state || state.routes.length < 2) {
+              return CommonActions.navigate(target);
+            }
+            const routes = [...state.routes];
+            routes.pop();
+            routes[routes.length - 1] = { name: target.name, params: target.params };
+            return CommonActions.reset({ ...state, routes, index: routes.length - 1 });
+          });
+        } else {
+          pop();
+        }
+      },
+    });
+  };
 
   return (
-    <PickerSelect
-      value={value}
-      onValueChange={onChange}
-      items={wallets.map(w => ({ label: `${w.getLabel()}${w.isPosMode ? ' (POS mode)' : ''}`, value: w.getID() }))}
-      placeholder={{}}
-      style={pickerStyles}
-      useNativeAndroidPickerStyle={false}
-      fixAndroidTouchableBug
-      Icon={() => <Icon size={18} name="sync-alt" type="material-icons" color={colors.foregroundColor} />}
-      {...props}
-    />
+    <TouchableOpacity
+      accessibilityRole="button"
+      activeOpacity={0.7}
+      onPress={onPress}
+      style={[styles.walletSelectButton, { borderColor: colors.formBorder, backgroundColor: colors.inputBackgroundColor }]}
+    >
+      <Text numberOfLines={1} style={[styles.walletSelectLabel, { color: colors.foregroundColor }]}>
+        {label}
+      </Text>
+      <Icon size={18} name="sync-alt" type="material-icons" color={colors.foregroundColor} />
+    </TouchableOpacity>
   );
 };
+
+const styles = StyleSheet.create({
+  walletSelectButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    paddingVertical: Platform.OS === 'ios' ? 16 : 10,
+    borderWidth: 1,
+    borderRadius: 4,
+  },
+  walletSelectLabel: {
+    flex: 1,
+    fontSize: 14,
+    marginRight: 12,
+  },
+});
 
 export const Selector = ({ items, selectedValue, onValueChange }) => {
   const { colors } = useTheme();
@@ -1045,4 +1117,4 @@ export const Selector = ({ items, selectedValue, onValueChange }) => {
       Icon={() => <Icon size={18} name="sync-alt" type="material-icons" color={colors.foregroundColor} />}
     />
   );
-}
+};

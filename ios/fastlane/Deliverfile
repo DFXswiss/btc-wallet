@@ -1,0 +1,8 @@
+# Shared defaults for the beta (binary + listing) and store_metadata lanes.
+app_identifier "swiss.dfx.bitcoin"
+
+force true                              # no interactive prompts (CI)
+submit_for_review false                 # a human clicks Submit in App Store Connect
+automatic_release false                 # never auto-release to the public
+precheck_include_in_app_purchases false # no IAPs
+overwrite_screenshots true              # CI delivers the canonical set

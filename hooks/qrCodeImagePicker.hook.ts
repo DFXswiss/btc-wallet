@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { launchImageLibrary } from 'react-native-image-picker';
+import { launchImageLibrary, ImageLibraryOptions } from 'react-native-image-picker';
 import loc from '../loc';
 import RNQRGenerator from 'rn-qr-generator';
 
@@ -10,43 +10,39 @@ const useQrCodeImagePicker = () => {
   const openImagePicker = () => {
     if (!isLoading) {
       setIsLoading(true);
-      launchImageLibrary(
-        {
-          title: null,
-          mediaType: 'photo',
-          takePhotoButtonTitle: null,
-          maxHeight: 800,
-          maxWidth: 600,
-          selectionLimit: 1,
-        },
-        response => {
-          if (response.didCancel) {
-            setIsLoading(false);
+      const options: ImageLibraryOptions = {
+        mediaType: 'photo',
+        maxHeight: 800,
+        maxWidth: 600,
+        selectionLimit: 1,
+      };
+      launchImageLibrary(options, response => {
+        if (response.didCancel) {
+          setIsLoading(false);
+        } else {
+          const asset = response.assets?.[0];
+          if (asset?.uri) {
+            RNQRGenerator.detect({ uri: decodeURI(asset.uri.toString()) })
+              .then(result => {
+                if (result && result.values && result.values.length > 0) {
+                  onBarCodeRead({ data: result.values[0] });
+                }
+              })
+              .catch(error => {
+                alert(loc.send.qr_error_no_qrcode);
+              })
+              .finally(() => {
+                setIsLoading(false);
+              });
           } else {
-            const asset = response.assets[0];
-            if (asset.uri) {
-              RNQRGenerator.detect({ uri: decodeURI(asset.uri.toString()) })
-                .then(result => {
-                  if (result && result.values && result.values.length > 0) {
-                    onBarCodeRead({ data: result.values[0] });
-                  }
-                })
-                .catch(error => {
-                  alert(loc.send.qr_error_no_qrcode);
-                })
-                .finally(() => {
-                  setIsLoading(false);
-                });
-            } else {
-              setIsLoading(false);
-            }
+            setIsLoading(false);
           }
-        },
-      );
+        }
+      });
     }
   };
 
-  const handleOnSetOnBarScanned = callback => setOnBarCodeRead(() => callback);
+  const handleOnSetOnBarScanned = (callback: (data: { data: string }) => void) => setOnBarCodeRead(() => callback);
 
   return {
     isProcessingImage: isLoading,

@@ -2,6 +2,7 @@ import { LnurlpResponse } from '../../models/lnurl';
 import BoltCard from '../boltcard';
 import Lnurl from '../lnurl';
 import { LightningCustodianWallet } from './lightning-custodian-wallet';
+import { Hit } from '../../api/boltcards/definitions/apiDtos';
 
 export class LightningLdsWallet extends LightningCustodianWallet {
   static type = 'lightningLdsWallet';
@@ -13,6 +14,7 @@ export class LightningLdsWallet extends LightningCustodianWallet {
   boltcard?: BoltCard;
   boltcards: BoltCard[] = [];
   isPosMode: boolean = false;
+  cachedHits?: Hit[];
 
   static create(address: string, addressOwnershipProof: string): LightningLdsWallet {
     const wallet = new LightningLdsWallet();
@@ -33,14 +35,14 @@ export class LightningLdsWallet extends LightningCustodianWallet {
 
   getInvoiceId(): string {
     if (!this.lndhubInvoiceUrl) throw new Error('Lndhub invoice url is not set');
-    const [_, invoiceId] = this.lndhubInvoiceUrl.split('lndhub://invoice:');
+    const [, invoiceId] = this.lndhubInvoiceUrl.split('lndhub://invoice:');
     return invoiceId;
   }
 
   getAdminKey(): string {
     const secret = this.getSecret();
     const [adminKeyUrl] = secret.split('@');
-    const [_, adminKey] = adminKeyUrl.split('lndhub://admin:');
+    const [, adminKey] = adminKeyUrl.split('lndhub://admin:');
     return adminKey;
   }
 

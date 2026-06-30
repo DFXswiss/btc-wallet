@@ -3,14 +3,14 @@ import { View, StyleSheet, Text } from 'react-native';
 import { BlueLoading } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
 import loc from '../../loc';
-import { useNavigation, useRoute, RouteProp, NavigationProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, ParamListBase } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { OpenCryptoPayPaymentLink } from '../../class/open-crypto-pay';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import { useWalletContext } from '../../contexts/wallet.context';
 import Lnurl from '../../class/lnurl';
-import { parse } from 'url';
-import { AbstractWallet, HDSegwitBech32Wallet } from '../../class';
+import { AbstractWallet, HDSegwitBech32Wallet, LegacyWallet } from '../../class';
 import BigNumber from 'bignumber.js';
 import { AbstractHDElectrumWallet } from '../../class/wallets/abstract-hd-electrum-wallet';
 import { isInternalDomain } from '../../helpers/freeLightningDomains';
@@ -25,7 +25,7 @@ const LnurlNavigationForwarder = () => {
   const { wallet: mainWallet } = useWalletContext();
   const { params } = useRoute<RouteProp<{ params: RouteParams }>>();
   const { lnurl } = params || {};
-  const navigation = useNavigation<NavigationProp<any>>();
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const [isOnchainPayment, setIsOnchainPayment] = useState(false);
 
   const getSuitableLightningWallet = (paymentLink: OpenCryptoPayPaymentLink) => {
@@ -46,6 +46,11 @@ const LnurlNavigationForwarder = () => {
       throw new Error('Onchain payment request not available');
     }
 
+    if (!(mainWallet instanceof LegacyWallet)) {
+      throw new Error('Onchain payment request not available');
+    }
+    const onchainWallet = mainWallet;
+
     const { amountSats, minFee } = paymentLink.getOnChainPaymentRequestDetails() as { amountSats: number; minFee: number };
     const { address, options } = await paymentLink.getOnchainRecipientDetails();
     if (!address) {
@@ -53,25 +58,27 @@ const LnurlNavigationForwarder = () => {
     }
 
     const changeAddress =
-      mainWallet instanceof AbstractHDElectrumWallet
-        ? mainWallet._getInternalAddressByIndex(mainWallet.getNextFreeChangeAddressIndex())
-        : mainWallet.getAddress();
+      onchainWallet instanceof AbstractHDElectrumWallet
+        ? onchainWallet._getInternalAddressByIndex(onchainWallet.getNextFreeChangeAddressIndex())
+        : onchainWallet.getAddress();
 
     if (!changeAddress) {
       throw new Error('Failed to get change address');
     }
 
-    const utxos = await mainWallet.getUtxo();
+    const utxos = await onchainWallet.getUtxo();
 
     const feeRate = Math.ceil(Number(minFee));
     const targets = [{ value: parseInt(amountSats.toString(), 10), address }];
 
-    const { tx, outputs, fee } = mainWallet.createTransaction(
+    const { tx, outputs, fee } = onchainWallet.createTransaction(
       utxos,
       targets,
       feeRate,
       changeAddress,
       HDSegwitBech32Wallet.finalRBFSequence,
+      false,
+      0,
     );
 
     if (!tx) {
@@ -96,23 +103,23 @@ const LnurlNavigationForwarder = () => {
     const { invoice } = await paymentLink.getLightningRecipientDetails();
 
     return {
-        invoice,
-        amountSat,
-        amountUnit: BitcoinUnit.SATS,
-        description,
-        walletID: wallet.getID(),
-        free: isInternalDomain(paymentLink.getCallbackUrl()),
-      }; 
+      invoice,
+      amountSat,
+      amountUnit: BitcoinUnit.SATS,
+      description,
+      walletID: wallet.getID(),
+      free: isInternalDomain(paymentLink.getCallbackUrl()),
+    };
   };
 
   const getNavigationByLnurl = async (lnurl: string) => {
     const url = Lnurl.getUrlFromLnurl(lnurl);
     if (!url) return;
 
-    const { query } = parse(url, true);
+    const tag = new URL(url).searchParams.get('tag');
 
     const isOffchain = wallets.find((w: any) => w.getID() === params?.walletID)?.chain === Chain.OFFCHAIN;
-    if (query.tag === Lnurl.TAG_LOGIN_REQUEST) {
+    if (tag === Lnurl.TAG_LOGIN_REQUEST) {
       return navigation.navigate('LnurlAuth', {
         lnurl,
         walletID: isOffchain ? params?.walletID : undefined,
@@ -139,7 +146,9 @@ const LnurlNavigationForwarder = () => {
 
         if (isMainWalletSuitable(paymentLink)) {
           setIsOnchainPayment(true);
-          await mainWallet?.fetchUtxo();
+          if (mainWallet instanceof LegacyWallet) {
+            await mainWallet.fetchUtxo();
+          }
           const navigationParams = await getOnChainPaymentNavigation(paymentLink);
           return navigation.replace('SendDetailsRoot', {
             screen: 'OpenCryptoPayCommitOnchain',
@@ -151,7 +160,7 @@ const LnurlNavigationForwarder = () => {
         }
 
         const lnWallet = wallets.find((w: any) => w.chain === Chain.OFFCHAIN);
-        if(lnWallet) {
+        if (lnWallet) {
           return navigation.replace('SendDetailsRoot', {
             screen: 'LnurlPay',
             params: await getLightningPaymentNavigation(lnWallet, paymentLink),
@@ -191,7 +200,7 @@ const LnurlNavigationForwarder = () => {
   }, [lnurl]);
 
   return (
-    <View style={[styles.loadingIndicator]}>
+    <View style={styles.loadingIndicator}>
       <BlueLoading style={styles.loading} />
       <Text style={styles.text}>{isOnchainPayment ? loc.lnd.lnurl_loader_text_onchain : loc.lnd.lnurl_loader_text}</Text>
     </View>

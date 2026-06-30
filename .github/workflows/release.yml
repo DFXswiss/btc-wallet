@@ -1,0 +1,220 @@
+name: Release
+
+# Single tag-driven store-release pipeline (mirrors RealUnitCH/app's release.yaml).
+# Triggers on every vX.Y.Z tag and routes by PATCH:
+#   PATCH == 0 (vX.Y.0) -> production-candidate (GitHub release, prerelease: false)
+#   PATCH >= 1 (vX.Y.Z) -> internal release (auto-tag output, prerelease: true)
+# Both lanes ship to the test tracks (TestFlight + Play internal); production
+# promotion stays a manual console action.
+#
+# Required secrets:
+#   iOS:     APP_STORE_CONNECT_KEY, APP_STORE_CONNECT_KEY_ID, APP_STORE_CONNECT_ISSUER_ID,
+#            MATCH_SSH_KEY (deploy key for the certs repo), MATCH_PASSWORD
+#   Android: PLAY_STORE_JSON_BASE64, KEYSTORE_*, TRANSPARENCY_*
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: store-release
+  cancel-in-progress: false # serialise store uploads; never cancel one mid-flight
+
+jobs:
+  guard:
+    name: Validate tag + derive version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      proceed: ${{ steps.check.outputs.proceed }}
+      is_prerelease: ${{ steps.check.outputs.is_prerelease }}
+      release_tag: ${{ steps.ver.outputs.release_tag }}
+      marketing_version: ${{ steps.ver.outputs.marketing_version }}
+      version_code: ${{ steps.ver.outputs.version_code }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect tag + route lane
+        id: check
+        run: |
+          set -euo pipefail
+          TAG="${{ github.ref_name }}"
+          if ! echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::notice::$TAG is not a plain vX.Y.Z tag; skipping release."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"; echo "is_prerelease=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "proceed=true" >> "$GITHUB_OUTPUT"
+          PATCH=$(echo "$TAG" | cut -d. -f3)
+          if [ "$PATCH" -eq 0 ]; then
+            echo "::notice::$TAG (PATCH=0) -> production-candidate."; echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::$TAG (PATCH=$PATCH) -> internal release."; echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Derive version (hard-fail on dev sentinel)
+        id: ver
+        if: steps.check.outputs.proceed == 'true'
+        run: |
+          set -euo pipefail
+          OUT=$(bash scripts/release-version.sh "${{ github.ref_name }}")
+          echo "$OUT"; echo "$OUT" >> "$GITHUB_OUTPUT"
+          VC=$(echo "$OUT" | grep '^version_code=' | cut -d= -f2)
+          [ "$VC" != "0" ] || { echo "::error::dev sentinel must never reach a release"; exit 1; }
+
+  preflight:
+    name: Store metadata preflight
+    needs: guard
+    if: needs.guard.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject FIXME placeholders + enforce character limits
+        run: bash scripts/check-store-metadata.sh
+
+  ios-deploy:
+    name: iOS -> TestFlight + App Store listing
+    needs: [guard, preflight]
+    if: needs.guard.outputs.proceed == 'true'
+    runs-on: macos-26 # Xcode 26 / iOS 26 SDK — the toolchain validated green and matches the Podfile's Xcode 26 patches
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: SSH access for fastlane match
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.MATCH_SSH_KEY }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install node_modules (RN postinstall + pods)
+        run: npm ci
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: ios
+      - name: Select prod env
+        run: echo ".env.prd" > /tmp/envfile
+      - name: Write App Store Connect API key
+        run: |
+          echo "${{ secrets.APP_STORE_CONNECT_KEY }}" > "$RUNNER_TEMP/AuthKey.p8"
+          echo "FASTLANE_APPLE_API_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+          echo "FASTLANE_APPLE_API_KEY_ID=${{ secrets.APP_STORE_CONNECT_KEY_ID }}" >> "$GITHUB_ENV"
+          echo "FASTLANE_APPLE_API_ISSUER_ID=${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}" >> "$GITHUB_ENV"
+          echo "MATCH_PASSWORD=${{ secrets.MATCH_PASSWORD }}" >> "$GITHUB_ENV"
+      - name: Build + upload to TestFlight + stage listing
+        working-directory: ios
+        env:
+          NEW_VERSION: ${{ github.ref_name }}
+        run: bundle exec fastlane release
+
+  android-deploy:
+    name: Android -> Play internal + listing
+    needs: [guard, preflight]
+    if: needs.guard.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      id-token: write # actions/attest: request the OIDC signing token
+      attestations: write # actions/attest: write provenance to the attestation store
+    env:
+      BUNDLETOOL_VERSION: 1.18.3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Install node_modules
+        run: npm ci --omit=dev
+      - name: Install pinned bundletool
+        run: bash ./.github/scripts/install-bundletool.sh
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: android
+      - name: Write Play service account
+        run: echo "${{ secrets.PLAY_STORE_JSON_BASE64 }}" | base64 -d > android/credentials.json
+      - name: Build attested AAB + upload to Play internal + stage listing
+        working-directory: android
+        env:
+          NEW_VERSION: ${{ github.ref_name }}
+          KEYSTORE_FILE_HEX: ${{ secrets.KEYSTORE_FILE_HEX }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
+          KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
+          TRANSPARENCY_KEYSTORE_HEX: ${{ secrets.TRANSPARENCY_KEYSTORE_HEX }}
+          TRANSPARENCY_PASSWORD: ${{ secrets.TRANSPARENCY_PASSWORD }}
+          TRANSPARENCY_ALIAS: ${{ secrets.TRANSPARENCY_ALIAS }}
+        run: bundle exec fastlane release
+      - name: Prepare release assets + checksums
+        run: bash ./.github/scripts/prepare-release-assets.sh
+      # Provenance for the same attested artifacts the v* flow has always produced,
+      # now built at the tag-derived version (previously in build-release-apk.yml).
+      - name: Attest APK
+        uses: actions/attest@v4
+        with:
+          subject-path: ./android/app/build/outputs/apk/release/app-release.apk
+      - name: Attest APK signature
+        uses: actions/attest@v4
+        with:
+          subject-path: ./android/app/build/outputs/apk/release/app-release.apk.idsig
+      - name: Attest AAB
+        uses: actions/attest@v4
+        with:
+          subject-path: ./android/app/build/outputs/bundle/release/app-release-transparent.aab
+      - name: Attest transparency certificate
+        uses: actions/attest@v4
+        with:
+          subject-path: ./android/app/build/outputs/bundle/release/transparency-cert.pem
+      - name: Attest checksums
+        uses: actions/attest@v4
+        with:
+          subject-path: ${{ env.RELEASE_ASSETS_DIR }}/SHA256SUMS
+      - name: Upload attested assets for the github-release job
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-assets
+          path: ${{ env.RELEASE_ASSETS_DIR }}
+          if-no-files-found: error
+
+  github-release:
+    name: GitHub release
+    needs: [guard, ios-deploy, android-deploy]
+    if: needs.guard.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Download attested release assets
+        uses: actions/download-artifact@v4
+        with:
+          name: android-release-assets
+          path: release-assets
+      - name: Create / update release + attach attested assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          PRERELEASE: ${{ needs.guard.outputs.is_prerelease }}
+        run: |
+          set -euo pipefail
+          FLAG=""
+          [ "$PRERELEASE" = "true" ] && FLAG="--prerelease"
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release edit "$TAG" --repo "${{ github.repository }}" $FLAG
+          else
+            gh release create "$TAG" --repo "${{ github.repository }}" --title "$TAG" --generate-notes $FLAG
+          fi
+          gh release upload "$TAG" --repo "${{ github.repository }}" --clobber release-assets/*

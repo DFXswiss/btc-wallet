@@ -11,16 +11,17 @@ import useLdsBoltcards from '../../api/boltcards/hooks/bolcards.hook';
 import { useNtag424 } from '../../api/boltcards/hooks/ntag424.hook';
 import { AbstractWallet } from '../../class';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useTheme } from '@react-navigation/native';
+import { ParamListBase, useNavigation, useTheme } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import loc from '../../loc';
 import BoltCard from '../../class/boltcard';
 import { TypeError } from '../../helpers/ErrorCodes';
 import { HoldCardModal } from '../../components/HoldCardModal';
 import { getProgressStringGenerator } from '../../helpers/stringProgressBar';
 
-const AddBoltcard: React.FC = () => {
+const AddBoltcard: React.FC & { navigationOptions?: ReturnType<typeof navigationStyle> } = () => {
   const { wallets, saveToDisk } = useContext(BlueStorageContext);
-  const { navigate } = useNavigation();
+  const { navigate } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { colors } = useTheme();
   const ldsWallet = wallets.find((w: AbstractWallet) => w.type === LightningLdsWallet.type) as LightningLdsWallet;
   const [isLoading, setIsLoading] = useState(false);
@@ -162,7 +163,7 @@ const AddBoltcard: React.FC = () => {
     <SafeAreaView style={stylesHooks.root}>
       <View style={styles.imageContainer}>
         <View style={styles.logoContainer}>
-          <Image source={require('../../img/pay-card-link.png')} style={{ width: 1.3 * 60, height: 60 }} />
+          <Image source={require('../../img/pay-card-link.png')} style={styles.cardLinkImage} />
         </View>
       </View>
       <View style={styles.descriptionContainer}>
@@ -182,6 +183,10 @@ const AddBoltcard: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  cardLinkImage: {
+    width: 1.3 * 60,
+    height: 60,
+  },
   imageContainer: {
     marginVertical: 24,
     alignItems: 'center',
@@ -206,11 +211,6 @@ const styles = StyleSheet.create({
   logoContainer: {
     padding: 4,
     borderRadius: 15,
-  },
-  boltcardLogo: {
-    width: 100,
-    height: 100,
-    alignSelf: 'center',
   },
   buttonContiner: {
     paddingHorizontal: 24,

@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, TouchableOpacity, ScrollView, View, TextInput, Linking, Platform, Text, StyleSheet } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
-import DocumentPicker from 'react-native-document-picker';
+import { pick, types, errorCodes } from '@react-native-documents/picker';
 import { useNavigation, useRoute, useTheme, useIsFocused } from '@react-navigation/native';
 import RNFS from 'react-native-fs';
 import Biometric from '../../class/biometrics';
@@ -11,7 +11,7 @@ import { SecondButton, BlueText, SafeBlueArea, BlueCard, BlueSpacing20, BlueCopy
 import navigationStyle from '../../components/navigationStyle';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
-import Notifications from '../../blue_modules/notifications';
+import { majorTomToGroundControl } from '../../blue_modules/notifications';
 import { DynamicQRCode } from '../../components/DynamicQRCode';
 import alert from '../../components/Alert';
 const BlueElectrum = require('../../blue_modules/BlueElectrum');
@@ -129,7 +129,7 @@ const PsbtWithHardwareWallet = () => {
         setIsLoading(false);
         const txDecoded = bitcoin.Transaction.fromHex(txHex);
         const txid = txDecoded.getId();
-        Notifications.majorTomToGroundControl([], [], [txid]);
+        majorTomToGroundControl([], [], [txid]);
         if (memo) {
           txMetadata[txid] = { memo };
         }
@@ -191,8 +191,8 @@ const PsbtWithHardwareWallet = () => {
 
   const openSignedTransaction = async () => {
     try {
-      const res = await DocumentPicker.pickSingle({
-        type: Platform.OS === 'ios' ? ['io.bluewallet.psbt', 'io.bluewallet.psbt.txn'] : [DocumentPicker.types.allFiles],
+      const [res] = await pick({
+        type: Platform.OS === 'ios' ? ['io.bluewallet.psbt', 'io.bluewallet.psbt.txn'] : [types.allFiles],
       });
       const file = await RNFS.readFile(res.uri);
       if (file) {
@@ -201,7 +201,7 @@ const PsbtWithHardwareWallet = () => {
         throw new Error();
       }
     } catch (err) {
-      if (!DocumentPicker.isCancel(err)) {
+      if (!(err && err.code === errorCodes.OPERATION_CANCELED)) {
         alert(loc.send.details_no_signed_tx);
       }
     }

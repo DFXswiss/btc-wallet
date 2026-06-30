@@ -21,7 +21,6 @@ import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import alert from '../../components/Alert';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
-import { useReplaceModalScreen } from '../../hooks/replaceModalScreen.hook';
 import { isFreeDomain, isInternalDomain } from '../../helpers/freeLightningDomains';
 const currency = require('../../blue_modules/currency');
 
@@ -29,7 +28,6 @@ const ScanLndInvoice = () => {
   const { wallets } = useContext(BlueStorageContext);
   const { colors } = useTheme();
   const { walletID, uri } = useRoute().params;
-  const name = useRoute().name;
   /** @type {LightningCustodianWallet} */
   const wallet = useMemo(
     () => wallets.find(item => item.getID() === walletID) || wallets.find(item => item.chain === Chain.OFFCHAIN),
@@ -37,7 +35,6 @@ const ScanLndInvoice = () => {
   );
   const suitableWallets = useMemo(() => wallets.filter(item => item.chain === Chain.OFFCHAIN), [wallets]);
   const { navigate, setParams, goBack } = useNavigation();
-  const replace = useReplaceModalScreen();
   const [isLoading, setIsLoading] = useState(false);
   const [destination, setDestination] = useState('');
   const [unit, setUnit] = useState(BitcoinUnit.SATS);
@@ -72,7 +69,7 @@ const ScanLndInvoice = () => {
     if (!newWallet) return;
 
     if (newWallet.chain !== Chain.OFFCHAIN) {
-      return replace({ name: 'SendDetails', params: { walletID: id } });
+      return { name: 'SendDetails', params: { walletID: id } };
     }
 
     setParams({ walletID: id });
@@ -102,7 +99,7 @@ const ScanLndInvoice = () => {
     setDesc(ln.getDescription());
     setIsDescDisabled(Boolean(ln.getDescription()));
     setDomain(ln.getDomain());
-    if(isFreeDomain(ln.getDomain())){
+    if (isFreeDomain(ln.getDomain())) {
       setIsTxFree(true);
     }
     setIsLoading(false);
@@ -114,7 +111,7 @@ const ScanLndInvoice = () => {
     setIsDescDisabled(false);
     const domain = Lnurl.getDomainFromLightningAddress(destinationString);
     setDomain(domain);
-    if(isFreeDomain(domain)){
+    if (isFreeDomain(domain)) {
       setIsTxFree(true);
     }
   };
@@ -224,7 +221,7 @@ const ScanLndInvoice = () => {
       screen: 'LnurlPay',
       params: {
         invoice: destination,
-        amountSat: amountSat,
+        amountSat,
         amountUnit: BitcoinUnit.SATS,
         description: decoded.description,
         walletID: walletID || wallet.getID(),
@@ -246,8 +243,8 @@ const ScanLndInvoice = () => {
   };
 
   const getFees = () => {
-    if(isTxFree || isInternalDomain(domain)) return loc._.free;
-    
+    if (isTxFree || isInternalDomain(domain)) return loc._.free;
+
     const min = 0;
     const max = Math.floor(amountSat * 0.03);
     return `${min} ${BitcoinUnit.SATS} - ${max} ${BitcoinUnit.SATS}`;
@@ -285,7 +282,10 @@ const ScanLndInvoice = () => {
     );
   }
 
-  const formatDestination = destination.length > 25 ? `${destination.substring(0, 18)}.....${destination.substring(destination.length - 18)}` : destination;
+  const formatDestination =
+    destination && destination.length > 25
+      ? `${destination.substring(0, 18)}.....${destination.substring(destination.length - 18)}`
+      : destination || '';
 
   return (
     <SafeBlueArea style={stylesHook.root}>
@@ -323,12 +323,7 @@ const ScanLndInvoice = () => {
             )}
             <BlueText style={styles.label}>Note</BlueText>
             <View style={styles.noteContainer}>
-              <BlueFormInput
-                value={desc}
-                onChangeText={setDesc}
-                editable={!isDescDisabled}
-                color={colors.feeText}
-              />
+              <BlueFormInput value={desc} onChangeText={setDesc} editable={!isDescDisabled} color={colors.feeText} />
             </View>
             <View style={styles.fee}>
               <BlueText style={stylesHook.fee}>{loc.send.create_fee}</BlueText>
@@ -378,7 +373,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 20,
   },
-  pickerContainer: { 
+  pickerContainer: {
     marginHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 12,
@@ -389,7 +384,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 12,
     color: '#818181',
-    fontSize: 16
+    fontSize: 16,
   },
   fee: {
     flexDirection: 'row',

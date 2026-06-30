@@ -32,7 +32,7 @@ import {
   BlueListItem,
 } from '../../BlueComponents';
 import { BlueCurrentTheme } from '../../components/themes';
-import { isDesktop, isTorCapable } from '../../blue_modules/environment';
+import { isDesktop } from '../../blue_modules/environment';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import WidgetCommunication from '../../blue_modules/WidgetCommunication';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
@@ -78,14 +78,22 @@ class ElectrumSettings extends Component {
       isAndroidAddressKeyboardVisible: false,
     });
 
+    const safeGetConfig = async () => {
+      try {
+        return await BlueElectrum.getConfig();
+      } catch (_) {
+        return { connected: false };
+      }
+    };
+
     const inverval = setInterval(async () => {
       this.setState({
-        config: await BlueElectrum.getConfig(),
+        config: await safeGetConfig(),
       });
     }, 500);
 
     this.setState({
-      config: await BlueElectrum.getConfig(),
+      config: await safeGetConfig(),
       inverval,
     });
 
@@ -308,10 +316,7 @@ class ElectrumSettings extends Component {
           <BlueCard>
             <View style={styles.inputWrap}>
               <TextInput
-                placeholder={
-                  loc.formatString(loc.settings.electrum_host, { example: '10.20.30.40' }) +
-                  (isTorCapable ? ' (' + loc.settings.tor_supported + ')' : '')
-                }
+                placeholder={loc.formatString(loc.settings.electrum_host, { example: '10.20.30.40' })}
                 value={this.state.host}
                 onChangeText={text => {
                   const host = text.trim();
@@ -466,12 +471,14 @@ ElectrumSettings.propTypes = {
   lastConnectionSuccess: PropTypes.number,
 };
 
-export default ElectrumSettingsWrapper = (props) => {
+const ElectrumSettingsWrapper = props => {
   const { lastSuccessfulBalanceRefresh } = useContext(BlueStorageContext);
-  return <ElectrumSettings {...props} lastConnectionSuccess={lastSuccessfulBalanceRefresh} />
-}
+  return <ElectrumSettings {...props} lastConnectionSuccess={lastSuccessfulBalanceRefresh} />;
+};
 
 ElectrumSettingsWrapper.navigationOptions = navigationStyle({}, opts => ({ ...opts, title: loc.settings.electrum_settings_server }));
+
+export default ElectrumSettingsWrapper;
 
 const styles = StyleSheet.create({
   status: {

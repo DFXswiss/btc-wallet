@@ -1,16 +1,5 @@
 import React, { useContext } from 'react';
-import {
-  TouchableOpacity,
-  ScrollView,
-  Linking,
-  Image,
-  View,
-  Text,
-  StyleSheet,
-  useWindowDimensions,
-  Platform,
-  Alert,
-} from 'react-native';
+import { TouchableOpacity, ScrollView, Linking, Image, View, Text, StyleSheet, useWindowDimensions, Platform, Alert } from 'react-native';
 import { useNavigation, useTheme } from '@react-navigation/native';
 import { Icon } from 'react-native-elements';
 import { getApplicationName, getVersion, getBundleId, getBuildNumber, getUniqueId, hasGmsSync } from 'react-native-device-info';

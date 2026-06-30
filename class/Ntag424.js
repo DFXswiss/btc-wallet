@@ -2,28 +2,42 @@ import { randomBytes } from 'crypto';
 import crc from 'crc';
 import { errorCodes, isoSelectErrorCodes, changeKeyErrorCodes, changeFileSettingsErrorCodes, TypeError } from '../helpers/ErrorCodes';
 
-var CryptoJS = require('../helpers/Cmac');
-var AES = require('crypto-js/aes');
+const CryptoJS = require('../helpers/Cmac');
+const AES = require('crypto-js/aes');
 
-var Ntag424 = {};
+const Ntag424 = {};
 Ntag424.ti = null;
 Ntag424.sesAuthEncKey = null;
 Ntag424.sesAuthMacKey = null;
 Ntag424.cmdCtrDec = null;
 Ntag424.util = {};
-Ntag424.sendAPDUCommand = () => Promise.reject('sendAPDUCommand not set');
+
+// Wraps a Promise rejection reason in an Error instance while preserving any
+// additional fields (code/type) that consumers rely on, satisfying
+// prefer-promise-reject-errors without changing the rejection payload shape.
+Ntag424.util.toRejectionError = reason => {
+  if (reason instanceof Error) return reason;
+  if (reason && typeof reason === 'object') {
+    const err = new Error(reason.message);
+    Object.assign(err, reason);
+    return err;
+  }
+  return new Error(String(reason));
+};
+const toRejectionError = Ntag424.util.toRejectionError;
+Ntag424.sendAPDUCommand = () => Promise.reject(new Error('sendAPDUCommand not set'));
 
 const hexToBytes = (Ntag424.util.hexToBytes = hex => {
-  let bytes = [];
+  const bytes = [];
   for (let c = 0; c < hex.length; c += 2) bytes.push(parseInt(hex.substr(c, 2), 16));
   return bytes;
 });
 
 // Convert a byte array to a hex string
 const bytesToHex = (Ntag424.util.bytesToHex = bytes => {
-  let hex = [];
+  const hex = [];
   for (let i = 0; i < bytes.length; i++) {
-    let current = bytes[i] < 0 ? bytes[i] + 256 : bytes[i];
+    const current = bytes[i] < 0 ? bytes[i] + 256 : bytes[i];
     hex.push((current >>> 4).toString(16));
     hex.push((current & 0xf).toString(16));
   }
@@ -31,12 +45,12 @@ const bytesToHex = (Ntag424.util.bytesToHex = bytes => {
 });
 
 function leftRotate(bytesArr, rotatebit = 1) {
-  let first = bytesArr.shift();
+  const first = bytesArr.shift();
   bytesArr.push(first);
   return bytesArr;
 }
 
-//Encrypted IV
+// Encrypted IV
 function ivEncryption(ti, cmdCtr, sesAuthEncKey) {
   const ivData = AES.encrypt(CryptoJS.enc.Hex.parse('A55A' + ti + cmdCtr + '0000000000000000'), CryptoJS.enc.Hex.parse(sesAuthEncKey), {
     mode: CryptoJS.mode.ECB,
@@ -58,7 +72,7 @@ function ivEncryptionResponse(ti, cmdCtr, sesAuthEncKey) {
 }
 
 function padForEnc(data, byteLen) {
-  var paddedData = data;
+  let paddedData = data;
   if (data.length < byteLen * 2) {
     paddedData += '80';
     paddedData = paddedData.padEnd(byteLen * 2, '00');
@@ -72,7 +86,7 @@ function padForEnc(data, byteLen) {
  * @returns
  */
 function decToHexLsbFirst(dec, bytes) {
-  //lsb first
+  // lsb first
   return dec
     .toString(16)
     .padStart(2, '0')
@@ -117,18 +131,20 @@ Ntag424.sendAPDUCommand = async function (commandBytes) {
  * @returns
  */
 Ntag424.isoSelectFileApplication = async function () {
-  //For selecting the application immediately, the ISO/IEC 7816-4 DF name D2760000850101h can be used.
+  // For selecting the application immediately, the ISO/IEC 7816-4 DF name D2760000850101h can be used.
   const isoSelectFileBytes = hexToBytes('00A4040007D276000085010100');
   const isoSelectRes = await Ntag424.sendAPDUCommand(isoSelectFileBytes);
   const resultHex = bytesToHex([isoSelectRes.sw1, isoSelectRes.sw2]);
   if (resultHex == '9000') {
     return Promise.resolve(resultHex);
-  } else { 
-    return Promise.reject({
-      message:'ISO Select File Failed, code ' + resultHex + ' ' + isoSelectErrorCodes[resultHex],
-      code: resultHex,
-      type: TypeError.ISO_SELECT
-    });
+  } else {
+    return Promise.reject(
+      toRejectionError({
+        message: 'ISO Select File Failed, code ' + resultHex + ' ' + isoSelectErrorCodes[resultHex],
+        code: resultHex,
+        type: TypeError.ISO_SELECT,
+      }),
+    );
   }
 };
 
@@ -142,7 +158,7 @@ Ntag424.isoSelectFileApplication = async function () {
  * CommMode N/A
  */
 Ntag424.AuthEv2First = async function (keyNo, pKey) {
-  //iso select file before auth
+  // iso select file before auth
   try {
     await Ntag424.isoSelectFileApplication();
 
@@ -150,7 +166,7 @@ Ntag424.AuthEv2First = async function (keyNo, pKey) {
     const Result = await Ntag424.sendAPDUCommand(bytes);
     console.log('Result: ', bytesToHex([Result.sw1, Result.sw2]));
     const resultData = bytesToHex(Result.response);
-    //91AF is the successful code
+    // 91AF is the successful code
     const resultCode = bytesToHex([Result.sw1, Result.sw2]);
     if (resultCode == '91af') {
       const key = CryptoJS.enc.Hex.parse(pKey);
@@ -158,7 +174,7 @@ Ntag424.AuthEv2First = async function (keyNo, pKey) {
       const aesEncryptOption = {
         padding: CryptoJS.pad.NoPadding,
         mode: CryptoJS.mode.CBC,
-        iv: iv,
+        iv,
         keySize: 128 / 8,
       };
       const RndBDec = AES.decrypt({ ciphertext: CryptoJS.enc.Hex.parse(resultData) }, key, aesEncryptOption);
@@ -175,10 +191,10 @@ Ntag424.AuthEv2First = async function (keyNo, pKey) {
       const secondAuthBytes = hexToBytes('90AF000020' + RndARndBEnc + '00');
       const secondAuthRes = await Ntag424.sendAPDUCommand(secondAuthBytes);
       console.log('Result: ', bytesToHex([secondAuthRes.sw1, secondAuthRes.sw2]));
-      //9100 is the successful code
+      // 9100 is the successful code
       const secondAuthResultCode = bytesToHex([secondAuthRes.sw1, secondAuthRes.sw2]);
       if (secondAuthResultCode == '9100') {
-        //auth successful
+        // auth successful
         const secondAuthResultData = bytesToHex(secondAuthRes.response);
         const secondAuthResultDataDec = AES.decrypt({ ciphertext: CryptoJS.enc.Hex.parse(secondAuthResultData) }, key, aesEncryptOption);
         const secondAuthResultDataDecStr = CryptoJS.enc.Hex.stringify(secondAuthResultDataDec);
@@ -186,19 +202,19 @@ Ntag424.AuthEv2First = async function (keyNo, pKey) {
         const tiBytes = hexToBytes(secondAuthResultDataDecStr).slice(0, 4);
         const ti = bytesToHex(tiBytes);
 
-        var WordArray = CryptoJS.lib.WordArray;
+        const WordArray = CryptoJS.lib.WordArray;
         const xor = CryptoJS.ext.xor(new WordArray.init(hexToBytes(RndA.slice(4, 16))), new WordArray.init(hexToBytes(RndB.slice(0, 12))));
         let svPost = RndA.slice(0, 4);
         svPost += bytesToHex(xor.words);
         svPost += RndB.slice(12, 32) + RndA.slice(16, 32);
-        //SV1 = A5h||5Ah||00h||01h||00h||80h||RndA[15..14]|| ( RndA[13..8] # RndB[15..10])||RndB[9..0]||RndA[7..0]
+        // SV1 = A5h||5Ah||00h||01h||00h||80h||RndA[15..14]|| ( RndA[13..8] # RndB[15..10])||RndB[9..0]||RndA[7..0]
         let sv1 = 'A55A00010080';
         sv1 += svPost;
         const sesAuthEnc = CryptoJS.CMAC(key, CryptoJS.enc.Hex.parse(sv1));
         const sesAuthEncKey = sesAuthEnc.toString();
 
-        //SV2 = 5Ah||A5h||00h||01h||00h||80h||RndA[15..14]|| ( RndA[13..8] # RndB[15..10])||RndB[9..0]||RndA[7..0]
-        //# == XOR-operator
+        // SV2 = 5Ah||A5h||00h||01h||00h||80h||RndA[15..14]|| ( RndA[13..8] # RndB[15..10])||RndB[9..0]||RndA[7..0]
+        // # == XOR-operator
 
         let sv2 = '5AA500010080';
         sv2 += svPost;
@@ -210,23 +226,27 @@ Ntag424.AuthEv2First = async function (keyNo, pKey) {
         Ntag424.cmdCtrDec = 0;
         return Promise.resolve({ sesAuthEncKey, sesAuthMacKey, ti });
       } else {
-        //auth failed
-        return Promise.reject({
-          message: 'Auth Failed, code ' + secondAuthResultCode + ' ' + errorCodes[secondAuthResultCode],
-          code: secondAuthResultCode,
-          type: TypeError.AUTH_FAILED
-        });
+        // auth failed
+        return Promise.reject(
+          toRejectionError({
+            message: 'Auth Failed, code ' + secondAuthResultCode + ' ' + errorCodes[secondAuthResultCode],
+            code: secondAuthResultCode,
+            type: TypeError.AUTH_FAILED,
+          }),
+        );
       }
     } else {
-      //auth failed
-      return Promise.reject({
-        message: 'Auth Failed, code ' + resultCode + ' ' + errorCodes[resultCode],
-        code: resultCode,
-        type: TypeError.AUTH_FAILED
-      });
+      // auth failed
+      return Promise.reject(
+        toRejectionError({
+          message: 'Auth Failed, code ' + resultCode + ' ' + errorCodes[resultCode],
+          code: resultCode,
+          type: TypeError.AUTH_FAILED,
+        }),
+      );
     }
   } catch (ex) {
-    return Promise.reject(ex);
+    return Promise.reject(toRejectionError(ex));
   }
 };
 
@@ -242,7 +262,7 @@ Ntag424.AuthEv2NonFirst = async (keyNo, pKey) => {
   const Result = await Ntag424.sendAPDUCommand(bytes);
   console.log('auth ev2 non first part 1 Result: ', bytesToHex([Result.sw1, Result.sw2]));
   const resultData = bytesToHex(Result.response);
-  //91AF is the successful code
+  // 91AF is the successful code
   const resultCode = bytesToHex([Result.sw1, Result.sw2]);
   if (resultCode == '91af') {
     const key = CryptoJS.enc.Hex.parse(pKey);
@@ -250,7 +270,7 @@ Ntag424.AuthEv2NonFirst = async (keyNo, pKey) => {
     const aesEncryptOption = {
       padding: CryptoJS.pad.NoPadding,
       mode: CryptoJS.mode.CBC,
-      iv: iv,
+      iv,
       keySize: 128 / 8,
     };
     const RndBDec = AES.decrypt({ ciphertext: CryptoJS.enc.Hex.parse(resultData) }, key, aesEncryptOption);
@@ -267,26 +287,30 @@ Ntag424.AuthEv2NonFirst = async (keyNo, pKey) => {
     const secondAuthBytes = hexToBytes('90AF000020' + RndARndBEnc + '00');
     const secondAuthRes = await Ntag424.sendAPDUCommand(secondAuthBytes);
     console.log('auth ev2 non first part 2 Result: ', bytesToHex([secondAuthRes.sw1, secondAuthRes.sw2]));
-    //9100 is the successful code
+    // 9100 is the successful code
     const secondAuthResultCode = bytesToHex([secondAuthRes.sw1, secondAuthRes.sw2]);
     if (secondAuthResultCode == '9100') {
-      //auth successful
+      // auth successful
       return Promise.resolve('Successful');
     } else {
-      //auth failed
-      return Promise.reject({
-        message: 'Auth Failed, code ' + secondAuthResultCode + ' ' + errorCodes[secondAuthResultCode],
-        code: secondAuthResultCode,
-        type: TypeError.AUTH_FAILED
-      });
+      // auth failed
+      return Promise.reject(
+        toRejectionError({
+          message: 'Auth Failed, code ' + secondAuthResultCode + ' ' + errorCodes[secondAuthResultCode],
+          code: secondAuthResultCode,
+          type: TypeError.AUTH_FAILED,
+        }),
+      );
     }
   } else {
-    //auth failed
-    return Promise.reject({
-      message: 'Auth Failed, code ' + resultCode + ' ' + errorCodes[resultCode],
-      code: resultCode,
-      type: TypeError.AUTH_FAILED
-    });
+    // auth failed
+    return Promise.reject(
+      toRejectionError({
+        message: 'Auth Failed, code ' + resultCode + ' ' + errorCodes[resultCode],
+        code: resultCode,
+        type: TypeError.AUTH_FAILED,
+      }),
+    );
   }
 };
 
@@ -336,27 +360,27 @@ Ntag424.encData = function (cmdDataPadd, cmdCtr) {
  * @returns
  */
 Ntag424.setBoltCardFileSettings = (piccOffset, macOffset) => {
-  //File Option SDM and mirroring enabled, CommMode: plain
-  var cmdData = '40';
-  //Access rights (FileAR.ReadWrite: 0x0, FileAR.Change: 0x0, FileAR.Read: 0xE, FileAR.Write; 0x0)
+  // File Option SDM and mirroring enabled, CommMode: plain
+  let cmdData = '40';
+  // Access rights (FileAR.ReadWrite: 0x0, FileAR.Change: 0x0, FileAR.Read: 0xE, FileAR.Write; 0x0)
   cmdData += '00E0';
-  //UID mirror: 1
-  //SDMReadCtr: 1
-  //SDMReadCtrLimit: 0
-  //SDMENCFileData: 0
-  //ASCII Encoding mode: 1
+  // UID mirror: 1
+  // SDMReadCtr: 1
+  // SDMReadCtrLimit: 0
+  // SDMENCFileData: 0
+  // ASCII Encoding mode: 1
   cmdData += 'C1';
-  //sdm access rights
-  //RFU: 0F
-  //CtrRet: 0F
-  //MetaRead: 01
-  //FileRead: 02
+  // sdm access rights
+  // RFU: 0F
+  // CtrRet: 0F
+  // MetaRead: 01
+  // FileRead: 02
   cmdData += 'FF12';
-  //ENCPICCDataOffset
+  // ENCPICCDataOffset
   cmdData += piccOffset.toString(16).padEnd(6, '0');
-  //SDMMACOffset
+  // SDMMACOffset
   cmdData += macOffset.toString(16).padEnd(6, '0');
-  //SDMMACInputOffset
+  // SDMMACInputOffset
   cmdData += macOffset.toString(16).padEnd(6, '0');
   return Ntag424.changeFileSettings(cmdData);
 };
@@ -367,24 +391,24 @@ Ntag424.setBoltCardFileSettings = (piccOffset, macOffset) => {
  * @returns
  */
 Ntag424.resetFileSettings = () => {
-  //File Option SDM and mirroring enabled, CommMode: plain
-  var cmdData = '40';
-  //Access rights (FileAR.ReadWrite: 0xE, FileAR.Change: 0x0, FileAR.Read: 0xE, FileAR.Write; 0xE)
+  // File Option SDM and mirroring enabled, CommMode: plain
+  let cmdData = '40';
+  // Access rights (FileAR.ReadWrite: 0xE, FileAR.Change: 0x0, FileAR.Read: 0xE, FileAR.Write; 0xE)
   cmdData += 'E0EE';
 
-  //UID mirror: 0
+  // UID mirror: 0
   // SDMReadCtr: 0
   // SDMReadCtrLimit: 0
   // SDMENCFileData: 0
   // ASCII Encoding mode: 1
   cmdData += '01';
-  //sdm access rights
-  //RFU: 0F
-  //CtrRet: 0F
-  //MetaRead: 0F
-  //FileRead: 0F
+  // sdm access rights
+  // RFU: 0F
+  // CtrRet: 0F
+  // MetaRead: 0F
+  // FileRead: 0F
   cmdData += 'FFFF';
-  //no picc offset and mac offset
+  // no picc offset and mac offset
   return Ntag424.changeFileSettings(cmdData);
 };
 /**
@@ -420,11 +444,13 @@ Ntag424.changeFileSettings = async cmdData => {
   if (resCode == '9100') {
     return Promise.resolve('Successful');
   } else {
-    return Promise.reject({
-      message: 'Change file settings Failed, code ' + resCode + ' ' + changeFileSettingsErrorCodes[resCode],
-      code: resCode,
-      type: TypeError.CHANGE_FILE_SETTINGS
-    });
+    return Promise.reject(
+      toRejectionError({
+        message: 'Change file settings Failed, code ' + resCode + ' ' + changeFileSettingsErrorCodes[resCode],
+        code: resCode,
+        type: TypeError.CHANGE_FILE_SETTINGS,
+      }),
+    );
   }
 };
 
@@ -444,25 +470,25 @@ Ntag424.changeFileSettings = async cmdData => {
 Ntag424.changeKey = async (keyNo, key, newKey, keyVersion) => {
   const cmdCtr = decToHexLsbFirst(Ntag424.cmdCtrDec++, 2);
 
-  var keyData = '';
+  let keyData = '';
   const newKeyBytes = hexToBytes(newKey);
   if (keyNo == '00') {
-    //if key 0 is to be changed
-    //keyData = NewKey || KeyVer 17 byte
+    // if key 0 is to be changed
+    // keyData = NewKey || KeyVer 17 byte
     // 0000000000000000000000000000
     // 0000000000000000000000000000
-    keyData = padForEnc(newKey + keyVersion, 32); //32 byte
+    keyData = padForEnc(newKey + keyVersion, 32); // 32 byte
   } else {
-    //if key 1 to 4 are to be changed
-    //keyData = (NewKey XOR OldKey) || KeyVer || CRC32NK
+    // if key 1 to 4 are to be changed
+    // keyData = (NewKey XOR OldKey) || KeyVer || CRC32NK
     // crc32
-    var WordArray = CryptoJS.lib.WordArray;
+    const WordArray = CryptoJS.lib.WordArray;
 
     const oldNewXorBytes = CryptoJS.ext.xor(new WordArray.init(hexToBytes(key)), new WordArray.init(newKeyBytes)).words;
     const oldNewXor = bytesToHex(oldNewXorBytes);
     const crc32Reversed = crc.crcjam(newKeyBytes).toString(16).padStart(8, '0');
     const crc32 = bytesToHex(hexToBytes(crc32Reversed).reverse());
-    keyData = padForEnc(oldNewXor + keyVersion + crc32, 32); //32 bytes
+    keyData = padForEnc(oldNewXor + keyVersion + crc32, 32); // 32 bytes
   }
 
   const encKeyData = Ntag424.encData(keyData, cmdCtr);
@@ -480,11 +506,13 @@ Ntag424.changeKey = async (keyNo, key, newKey, keyVersion) => {
   if (resCode == '9100') {
     return Promise.resolve('Successful');
   } else {
-    return Promise.reject({
-      message: 'Change file settings Failed, code ' + resCode + ' ' + changeKeyErrorCodes[resCode],
-      code: resCode,
-      type: TypeError.CHANGE_FILE_SETTINGS
-    });
+    return Promise.reject(
+      toRejectionError({
+        message: 'Change file settings Failed, code ' + resCode + ' ' + changeKeyErrorCodes[resCode],
+        code: resCode,
+        type: TypeError.CHANGE_FILE_SETTINGS,
+      }),
+    );
   }
 };
 
@@ -495,7 +523,7 @@ Ntag424.changeKey = async (keyNo, key, newKey, keyVersion) => {
  * @returns
  */
 Ntag424.getCardUid = async () => {
-  var cmdCtr = decToHexLsbFirst(Ntag424.cmdCtrDec++, 2);
+  let cmdCtr = decToHexLsbFirst(Ntag424.cmdCtrDec++, 2);
   const commandMac = CryptoJS.CMAC(CryptoJS.enc.Hex.parse(Ntag424.sesAuthMacKey), CryptoJS.enc.Hex.parse('51' + cmdCtr + Ntag424.ti));
   const commandMacHex = commandMac.toString();
 
@@ -510,7 +538,6 @@ Ntag424.getCardUid = async () => {
   const responseAPDU = bytesToHex(getCardUidRes.response);
   const resCode = bytesToHex([getCardUidRes.sw1, getCardUidRes.sw2]);
 
-  const resMacT = responseAPDU.slice(-16);
   cmdCtr = decToHexLsbFirst(Ntag424.cmdCtrDec, 2);
 
   const iv = ivEncryptionResponse(Ntag424.ti, cmdCtr, Ntag424.sesAuthEncKey);
@@ -529,11 +556,13 @@ Ntag424.getCardUid = async () => {
   if (resCode == '9100') {
     return Promise.resolve(uid);
   } else {
-    return Promise.reject({
-      message: 'Get Card UID Failed, code ' + resCode + ' ' + errorCodes[resCode],
-      code: resCode,
-      type: TypeError.OTHERS
-    });
+    return Promise.reject(
+      toRejectionError({
+        message: 'Get Card UID Failed, code ' + resCode + ' ' + errorCodes[resCode],
+        code: resCode,
+        type: TypeError.OTHERS,
+      }),
+    );
   }
 };
 
@@ -548,39 +577,43 @@ Ntag424.setNdefMessage = async ndefMessageByte => {
   try {
     await Ntag424.isoSelectFileApplication();
 
-    const secondISO = await Ntag424.sendAPDUCommand(hexToBytes('00A4000002E10300'));
+    await Ntag424.sendAPDUCommand(hexToBytes('00A4000002E10300'));
 
     const isoSelectFileBytes = hexToBytes('00A4000002E10400');
     const isoSelectRes = await Ntag424.sendAPDUCommand(isoSelectFileBytes);
     const resultHex = bytesToHex([isoSelectRes.sw1, isoSelectRes.sw2]);
     if (resultHex == '9000') {
     } else {
-      return Promise.reject({
-        message: 'ISO Select File Failed, code ' + resultHex + ' ' + errorCodes[resultHex],
-        code: resultHex,
-        type: TypeError.ISO_SELECT
-      });
+      return Promise.reject(
+        toRejectionError({
+          message: 'ISO Select File Failed, code ' + resultHex + ' ' + errorCodes[resultHex],
+          code: resultHex,
+          type: TypeError.ISO_SELECT,
+        }),
+      );
     }
 
     const ndefMessage = bytesToHex(ndefMessageByte);
     const ndefLength = ndefMessageByte.length.toString(16).padStart(4, '0');
     const lc = ndefMessageByte.length + 2;
     const lcHex = lc.toString(16).padStart(2, '0');
-    //ndef message (up to 248 byte including secure messaging)
+    // ndef message (up to 248 byte including secure messaging)
     const isoUpdateBinary = '00D60000' + lcHex + ndefLength + ndefMessage;
     const isoUpdateBinaryRes = await Ntag424.sendAPDUCommand(hexToBytes(isoUpdateBinary));
     const resCode = bytesToHex([isoUpdateBinaryRes.sw1, isoUpdateBinaryRes.sw2]);
     if (resCode == '9000') {
       return Promise.resolve(resCode);
     } else {
-      return Promise.reject({
-        message: 'Set NDEF Message Failed, code ' + resCode + ' ' + errorCodes[resCode],
-        code: resCode,
-        type: TypeError.OTHERS
-      });
+      return Promise.reject(
+        toRejectionError({
+          message: 'Set NDEF Message Failed, code ' + resCode + ' ' + errorCodes[resCode],
+          code: resCode,
+          type: TypeError.OTHERS,
+        }),
+      );
     }
   } catch (e) {
-    return Promise.reject('setNdefMessage Failed: ', e);
+    return Promise.reject(new Error('setNdefMessage Failed: '));
   }
 };
 
@@ -592,7 +625,7 @@ Ntag424.setNdefMessage = async ndefMessageByte => {
  * @returns
  */
 Ntag424.readData = async offset => {
-  //read the entire StandardData file, starting from the position specified in the offset value.
+  // read the entire StandardData file, starting from the position specified in the offset value.
   const length = '000000';
 
   const readDataHex = '90AD000007' + '02' + offset + length + '00';
@@ -603,11 +636,13 @@ Ntag424.readData = async offset => {
   if (resCode == '9100') {
     return Promise.resolve(resData);
   } else {
-    return Promise.reject({
-      message: 'Read Data Failed, code ' + resCode + ' ' + errorCodes[resCode],
-      code: resCode,
-      type: TypeError.OTHERS
-    });
+    return Promise.reject(
+      toRejectionError({
+        message: 'Read Data Failed, code ' + resCode + ' ' + errorCodes[resCode],
+        code: resCode,
+        type: TypeError.OTHERS,
+      }),
+    );
   }
 };
 
@@ -627,11 +662,13 @@ Ntag424.isoReadBinary = async offset => {
   const resultHex = bytesToHex([isoSelectRes.sw1, isoSelectRes.sw2]);
   if (resultHex == '9000') {
   } else {
-    return Promise.reject({
-      message: 'ISO Select File Failed, code ' + resultHex + ' ' + errorCodes[resultHex],
-      code: resultHex,
-      type: TypeError.ISO_SELECT
-    });
+    return Promise.reject(
+      toRejectionError({
+        message: 'ISO Select File Failed, code ' + resultHex + ' ' + errorCodes[resultHex],
+        code: resultHex,
+        type: TypeError.ISO_SELECT,
+      }),
+    );
   }
 
   const cmdHex = '00B00000' + offset;
@@ -642,11 +679,13 @@ Ntag424.isoReadBinary = async offset => {
   if (resCode == '9000') {
     return Promise.resolve(resData);
   } else {
-    return Promise.reject({
-      message: 'isoReadBinary Failed, code ' + resCode + ' ' + errorCodes[resCode],
-      code: resCode,
-      type: TypeError.OTHERS
-    });
+    return Promise.reject(
+      toRejectionError({
+        message: 'isoReadBinary Failed, code ' + resCode + ' ' + errorCodes[resCode],
+        code: resCode,
+        type: TypeError.OTHERS,
+      }),
+    );
   }
 };
 
@@ -658,7 +697,7 @@ Ntag424.isoReadBinary = async offset => {
  * @returns
  */
 Ntag424.getKeyVersion = async keyNo => {
-  var cmdHex = '9064000001' + keyNo + '00';
+  const cmdHex = '9064000001' + keyNo + '00';
   const res = await Ntag424.sendAPDUCommand(hexToBytes(cmdHex));
   const resData = res.response;
   const resCode = bytesToHex([res.sw1, res.sw2]);
@@ -666,11 +705,13 @@ Ntag424.getKeyVersion = async keyNo => {
   if (resCode == '9100') {
     return Promise.resolve(keyVersion);
   } else {
-    return Promise.reject({
-      message: 'Get Key Version Failed, code ' + resCode + ' ' + errorCodes[resCode],
-      code: resCode,
-      type: TypeError.OTHERS
-    });
+    return Promise.reject(
+      toRejectionError({
+        message: 'Get Key Version Failed, code ' + resCode + ' ' + errorCodes[resCode],
+        code: resCode,
+        type: TypeError.OTHERS,
+      }),
+    );
   }
 };
 
@@ -688,7 +729,7 @@ Ntag424.getKeyVersion = async keyNo => {
  * @returns
  */
 Ntag424.getVersion = async () => {
-  //first part
+  // first part
 
   const firstHex = '9060000000';
   const firstRes = await Ntag424.sendAPDUCommand(hexToBytes(firstHex));
@@ -700,15 +741,15 @@ Ntag424.getVersion = async () => {
   gerVersionErrorCodes['917e'] = 'LENGTH_ERROR Command size not allowed.';
   gerVersionErrorCodes['91ee'] = 'MEMORY_ERROR Failure when reading or writing to non-volatile memory.';
 
-  var resCode = bytesToHex([firstRes.sw1, firstRes.sw2]);
+  let resCode = bytesToHex([firstRes.sw1, firstRes.sw2]);
   if (resCode == '91af') {
-    //second part
+    // second part
     const secondHex = '90AF000000';
     const secondRes = await Ntag424.sendAPDUCommand(hexToBytes(secondHex));
     const secondResData = bytesToHex(secondRes.response);
     resCode = bytesToHex([secondRes.sw1, secondRes.sw2]);
     if (resCode == '91af') {
-      //third part
+      // third part
       const thirdHex = '90AF000000';
       const thirdRes = await Ntag424.sendAPDUCommand(hexToBytes(thirdHex));
       const thirdResData = bytesToHex(thirdRes.response);
@@ -738,11 +779,13 @@ Ntag424.getVersion = async () => {
       }
     }
   }
-  return Promise.reject({
-    message: 'Get Version Failed, code ' + resCode + ' ' + gerVersionErrorCodes[resCode],
-    code: resCode,
-    type: TypeError.OTHERS
-  });
+  return Promise.reject(
+    toRejectionError({
+      message: 'Get Version Failed, code ' + resCode + ' ' + gerVersionErrorCodes[resCode],
+      code: resCode,
+      type: TypeError.OTHERS,
+    }),
+  );
 };
 
 /**
@@ -779,11 +822,13 @@ Ntag424.setConfiguration = async (option, configData) => {
   if (resCode == '9100') {
     return Promise.resolve('Successful');
   } else {
-    return Promise.reject({
-      message: 'Set Configuration Failed, code ' + resCode + ' ' + changeFileSettingsErrorCodes[resCode],
-      code: resCode,
-      type: TypeError.CHANGE_FILE_SETTINGS
-    });
+    return Promise.reject(
+      toRejectionError({
+        message: 'Set Configuration Failed, code ' + resCode + ' ' + changeFileSettingsErrorCodes[resCode],
+        code: resCode,
+        type: TypeError.CHANGE_FILE_SETTINGS,
+      }),
+    );
   }
 };
 
@@ -809,7 +854,7 @@ Ntag424.setPrivateUid = () => {
  * @returns
  */
 Ntag424.testPAndC = async (pVal, cVal, uid, piccKey, macKey) => {
-  var result = { pTest: false, cTest: false };
+  const result = { pTest: false, cTest: false };
   const decPiccData = AES.decrypt({ ciphertext: CryptoJS.enc.Hex.parse(pVal) }, CryptoJS.enc.Hex.parse(piccKey), {
     padding: CryptoJS.pad.NoPadding,
     mode: CryptoJS.mode.CBC,

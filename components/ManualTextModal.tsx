@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import BottomModal from './BottomModal';
 import { StyleSheet, TextInput, View, Keyboard } from 'react-native';
 import { useTheme } from '@react-navigation/native';
-import { BlueButton, BlueDismissKeyboardInputAccessory, BlueSpacing10, BlueSpacing20, BlueText, SecondButton } from '../BlueComponents';
+import { BlueButton, BlueDismissKeyboardInputAccessory, BlueSpacing20, BlueText } from '../BlueComponents';
 import loc from '../loc';
 import { Icon } from 'react-native-elements';
 
@@ -14,14 +14,17 @@ interface ManualTextModalProps {
   onClose: () => void;
 }
 
-export const ManualTextModal: React.FC<ManualTextModalProps> = ({ title, isVisible, onMessageAccepted, validateMessage = () => true, onClose }) => {
+export const ManualTextModal: React.FC<ManualTextModalProps> = ({
+  title,
+  isVisible,
+  onMessageAccepted,
+  validateMessage = () => true,
+  onClose,
+}) => {
   const [text, setText] = useState('');
   const { colors } = useTheme();
 
   const stylesHooks = StyleSheet.create({
-    textdesc: {
-      color: colors.alternativeTextColor,
-    },
     modalContainer: {
       backgroundColor: colors.elevated,
     },
@@ -48,21 +51,15 @@ export const ManualTextModal: React.FC<ManualTextModalProps> = ({ title, isVisib
     <>
       <BottomModal isVisible={isVisible} onClose={onClose} avoidKeyboard>
         <View style={[styles.modalContainer, stylesHooks.modalContainer]}>
-          <View style={[styles.contentContainer]}>
+          <View style={styles.contentContainer}>
             <View style={styles.headerContainer}>
-              <View style={{ paddingVertical: 15, alignItems: 'center' }}>
-                <Icon 
-                  name="close" 
-                  type="material"
-                  size={28}
-                  onPress={onClose}
-                  color={colors.text}
-                />
+              <View style={styles.closeIconContainer}>
+                <Icon name="close" type="material" size={28} onPress={onClose} color={colors.text} />
               </View>
-              <View style={{ paddingVertical: 10, alignItems: 'center' }}>
+              <View style={styles.titleContainer}>
                 <BlueText style={styles.title}>{title}</BlueText>
               </View>
-              <View style={{ width: 30 }} />
+              <View style={styles.headerSpacer} />
             </View>
             <View style={[styles.inputContainer, stylesHooks.inputContainer]}>
               <TextInput
@@ -88,16 +85,16 @@ export const ManualTextModal: React.FC<ManualTextModalProps> = ({ title, isVisib
 };
 
 const styles = StyleSheet.create({
-  textdesc: {
-    fontWeight: '500',
-    alignSelf: 'center',
-    textAlign: 'center',
-    marginBottom: 16,
+  closeIconContainer: {
+    paddingVertical: 15,
+    alignItems: 'center',
   },
-  textdescBold: {
-    fontWeight: '700',
-    alignSelf: 'center',
-    textAlign: 'center',
+  titleContainer: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  headerSpacer: {
+    width: 30,
   },
   modalContainer: {
     minHeight: 460,
@@ -118,14 +115,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 20,
     fontSize: 16,
-  },
-  modalCardIconContainer: {
-    padding: 8,
-    marginBottom: 24,
-  },
-  boltcardLinkImage: {
-    width: 1.3 * 50,
-    height: 50,
   },
   modalButtonContainer: {
     width: '100%',

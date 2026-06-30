@@ -1,5 +1,16 @@
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { View, Text, StatusBar, ScrollView, BackHandler, TouchableOpacity, StyleSheet, I18nManager, Image, Platform, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StatusBar,
+  ScrollView,
+  BackHandler,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  Platform,
+  ActivityIndicator,
+} from 'react-native';
 import Share from 'react-native-share';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { Icon } from 'react-native-elements';
@@ -29,8 +40,8 @@ const LNDViewInvoice = () => {
   const { invoice, walletID } = useRoute().params;
   const { wallets, setSelectedWallet, fetchAndSaveWalletTransactions } = useContext(BlueStorageContext);
   const wallet = wallets.find(w => w.getID() === walletID);
-  const { colors, closeImage } = useTheme();
-  const { goBack, navigate, setParams, setOptions, getParent } = useNavigation();
+  const { colors } = useTheme();
+  const { goBack, navigate, setParams, setOptions } = useNavigation();
   const [isLoading, setIsLoading] = useState(typeof invoice === 'string');
   const [isFetchingInvoices, setIsFetchingInvoices] = useState(true);
   const [invoiceStatusChanged, setInvoiceStatusChanged] = useState(false);
@@ -39,7 +50,7 @@ const LNDViewInvoice = () => {
   const [isLoadingNfcInvoice, setIsLoadingNfcInvoice] = useState(false);
   const isModal = useNavigationState(state => state.routeNames[0] === LNDCreateInvoice.routeName);
   const { isNfcActive, startReading, stopReading } = useNFC();
-  
+
   const stylesHook = StyleSheet.create({
     root: {
       backgroundColor: colors.background,
@@ -71,8 +82,8 @@ const LNDViewInvoice = () => {
   );
 
   const handleStartReadingNfc = async () => {
-    startReading(handleNfcRead)
-  }
+    startReading(handleNfcRead);
+  };
 
   useEffect(() => {
     if (!invoice?.payment_request || isLoading) return;
@@ -85,10 +96,10 @@ const LNDViewInvoice = () => {
   }, [invoice.payment_request, isLoading]);
 
   useEffect(() => {
-    BackHandler.addEventListener('hardwareBackPress', handleBackButton);
+    const subscription = BackHandler.addEventListener('hardwareBackPress', handleBackButton);
 
     return () => {
-      BackHandler.removeEventListener('hardwareBackPress', handleBackButton);
+      subscription.remove();
       clearInterval(fetchInvoiceInterval.current);
       fetchInvoiceInterval.current = undefined;
     };
@@ -284,11 +295,15 @@ const LNDViewInvoice = () => {
               ) : (
                 Platform.select({
                   ios: (
-                    <SecondButton onPress={handleStartReadingNfc} title={'Use Boltcard'} image={{ source: require('../../img/bolt-card.png') }} />
+                    <SecondButton
+                      onPress={handleStartReadingNfc}
+                      title="Use Boltcard"
+                      image={{ source: require('../../img/bolt-card.png') }}
+                    />
                   ),
                   android: (
                     <View style={styles.buttonsContainer}>
-                      <Image source={require('../../img/bolt-card.png')} style={{ width: 40, height: 40 }} />
+                      <Image source={require('../../img/bolt-card.png')} style={styles.boltCardIcon} />
                     </View>
                   ),
                 })
@@ -309,6 +324,10 @@ const LNDViewInvoice = () => {
 };
 
 const styles = StyleSheet.create({
+  boltCardIcon: {
+    width: 40,
+    height: 40,
+  },
   root: {
     flex: 1,
     justifyContent: 'space-between',
@@ -347,7 +366,7 @@ const styles = StyleSheet.create({
   },
   buttonsContainer: {
     alignItems: 'center',
-  }
+  },
 });
 
 LNDViewInvoice.navigationOptions = navigationStyle({}, opts => ({

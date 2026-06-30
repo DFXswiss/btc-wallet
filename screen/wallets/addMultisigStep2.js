@@ -1,8 +1,9 @@
 import React, { useContext, useRef, useState, useEffect, useMemo } from 'react';
-import { FlatList, LayoutAnimation, Platform, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, LayoutAnimation, Platform, StyleSheet, Text, View } from 'react-native';
 import { Icon } from 'react-native-elements';
 import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
+import PropTypes from 'prop-types';
 
 import { BlueButton, BlueSpacing10 } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
@@ -12,7 +13,7 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { BlueURDecoder, encodeUR } from '../../blue_modules/ur';
 import QRCodeComponent from '../../components/QRCodeComponent';
 import alert from '../../components/Alert';
-import { Camera } from 'react-native-camera-kit';
+import { Camera } from 'react-native-camera-kit-no-google';
 import { ScrollView } from 'react-native-gesture-handler';
 const createHash = require('create-hash');
 
@@ -31,7 +32,8 @@ const WalletsAddMultisigStep2 = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [cosignerXpubURv2, setCosignerXpubURv2] = useState(''); // string displayed in renderCosignersXpubModal()
   const [ownXpub, setOwnXpub] = useState('');
-  const scannedCache = {};
+  const [isError, setIsError] = useState(false);
+  const scannedCache = useRef({}).current; // ref so the scan-dedup cache survives re-renders
   const quorum = useRef(new Array(n));
 
   useEffect(() => {
@@ -103,7 +105,7 @@ const WalletsAddMultisigStep2 = () => {
     await saveToDisk();
     A(A.ENUM.CREATED_WALLET);
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
-    navigation.navigate('WalletTransactions')
+    navigation.navigate('WalletTransactions');
   };
 
   const getPath = () => {
@@ -210,7 +212,15 @@ const WalletsAddMultisigStep2 = () => {
     } catch (error) {}
   };
 
+  // Pause the scanner while a validation-error alert is open so an animated/repeated QR can't
+  // enqueue a burst of alerts that keep draining after the user navigates away.
+  const presentScanError = message => {
+    setIsError(true);
+    Alert.alert(loc.alert.default, message, [{ text: loc._.ok, onPress: () => setIsError(false) }]);
+  };
+
   const onBarCodeRead = ret => {
+    if (isError) return;
     const h = HashIt(ret.data);
     if (scannedCache[h]) {
       // this QR was already scanned by this ScanQRCode, lets prevent firing duplicate callbacks
@@ -259,21 +269,21 @@ const WalletsAddMultisigStep2 = () => {
     } catch (_) {}
 
     if (!new MultisigCosigner(ret.data).isValid()) {
-      return alert(loc.multisig.not_a_multisignature_xpub);
+      return presentScanError(loc.multisig.not_a_multisignature_xpub);
     }
 
     if (ret.data.toUpperCase().startsWith('UR')) {
-      alert('BC-UR not decoded. This should never happen');
+      presentScanError('BC-UR not decoded. This should never happen');
     } else {
       if (MultisigHDWallet.isXpubValid(ret.data) && !MultisigHDWallet.isXpubForMultisig(ret.data)) {
-        return alert(loc.multisig.not_a_multisignature_xpub);
+        return presentScanError(loc.multisig.not_a_multisignature_xpub);
       }
       if (MultisigHDWallet.isXpubValid(ret.data)) {
         return tryUsingXpub(ret.data);
       }
 
       let cosigner = new MultisigCosigner(ret.data);
-      if (!cosigner.isValid()) return alert(loc.multisig.invalid_cosigner);
+      if (!cosigner.isValid()) return presentScanError(loc.multisig.invalid_cosigner);
       if (cosigner.howManyCosignersWeHave() > 1) {
         // lets look for the correct cosigner. thats probably gona be the one with specific corresponding path,
         // for example m/48'/0'/0'/2' if user chose to setup native segwit in BW
@@ -305,7 +315,7 @@ const WalletsAddMultisigStep2 = () => {
       }
 
       // if the cosigner is the same as the one we already have, we don't need to add it again
-      if(cosigner.getXpub() === ownXpub) {
+      if (cosigner.getXpub() === ownXpub) {
         ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
         return;
       }
@@ -315,7 +325,7 @@ const WalletsAddMultisigStep2 = () => {
         if (existingCosigner[0] === cosigner.getXpub()) {
           ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
           return;
-        };
+        }
       }
 
       // now, validating that cosigner is in correct format:
@@ -341,7 +351,7 @@ const WalletsAddMultisigStep2 = () => {
           throw new Error('This should never happen');
       }
 
-      if (!correctFormat) return alert(loc.formatString(loc.multisig.invalid_cosigner_format, { format }));
+      if (!correctFormat) return presentScanError(loc.formatString(loc.multisig.invalid_cosigner_format, { format }));
 
       const cosignersCopy = [...cosigners];
       cosignersCopy.push([cosigner.getXpub(), cosigner.getFp(), cosigner.getPath()]);
@@ -362,6 +372,9 @@ const WalletsAddMultisigStep2 = () => {
       <Text style={stylesHook.keyCircleText}>{text}</Text>
     </View>
   );
+  KeyCircleUncheck.propTypes = {
+    text: PropTypes.node,
+  };
 
   const _renderKeyItem = el => {
     const isChecked = el.index < cosigners.length;
@@ -378,15 +391,20 @@ const WalletsAddMultisigStep2 = () => {
           keyExtractor={(_item, index) => `${index}`}
         />
       </View>
-      <View style={[styles.qrContainer]}>
+      <View style={styles.qrContainer}>
         <QRCodeComponent value={cosignerXpubURv2} size={290} />
       </View>
       <View style={styles.cameraContainer}>
-        <Camera scanBarcode onReadCode={event => onBarCodeRead({ data: event?.nativeEvent?.codeStringValue })} style={styles.camera} />
+        <Camera
+          scanBarcode={!isError}
+          scanThrottleDelay={0}
+          onReadCode={event => onBarCodeRead({ data: event?.nativeEvent?.codeStringValue })}
+          style={styles.camera}
+        />
       </View>
       <View style={styles.buttonContainer}>
         <BlueButton isLoading={isLoading} title={loc.multisig.create} onPress={onCreate} disabled={cosigners.length !== n} />
-        {Platform.OS === 'ios' && (<BlueSpacing10 />)}
+        {Platform.OS === 'ios' && <BlueSpacing10 />}
       </View>
     </ScrollView>
   );
@@ -407,7 +425,7 @@ const styles = StyleSheet.create({
   },
   cameraContainer: {
     position: 'relative',
-    flexGrow: 1
+    flexGrow: 1,
   },
   camera: {
     flex: 1,

@@ -17,7 +17,7 @@ export function useWalletContext(): WalletInterface {
   return useContext(WalletContext);
 }
 
-export function WalletContextProvider(props: PropsWithChildren<any>): JSX.Element {
+export function WalletContextProvider(props: PropsWithChildren<any>): React.JSX.Element {
   const { wallets, walletsInitialized, saveToDisk } = useContext(BlueStorageContext);
   const { getSignMessage } = useAuth();
 

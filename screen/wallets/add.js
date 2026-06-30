@@ -3,7 +3,6 @@ import {
   Text,
   Linking,
   ScrollView,
-  ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -222,7 +221,7 @@ const WalletsAdd = () => {
       </View>
       <View style={styles.buttonContainer}>
         <View style={styles.createButton}>
-          <BlueButton testID="Create" title={loc.wallets.add_create} onPress={createWallet} isLoading={isLoading}/> 
+          <BlueButton testID="Create" title={loc.wallets.add_create} onPress={createWallet} isLoading={isLoading} />
         </View>
         {!isLoading && (
           <BlueButtonLink

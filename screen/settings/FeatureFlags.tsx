@@ -12,17 +12,17 @@ const styles = StyleSheet.create({
 });
 
 const FeatureFlags: React.FC = () => {
-  const { 
-    ldsDEV, 
-    setLdsDEVAsyncStorage, 
-    isPosMode, 
-    setIsPosModeAsyncStorage, 
-    isDfxPos, 
+  const {
+    ldsDEV,
+    setLdsDEVAsyncStorage,
+    isPosMode,
+    setIsPosModeAsyncStorage,
+    isDfxPos,
     setIsDfxPosAsyncStorage,
     isDfxSwap,
-    setIsDfxSwapAsyncStorage
+    setIsDfxSwapAsyncStorage,
   } = useContext(BlueStorageContext);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading] = useState(false);
   const { colors } = useTheme();
 
   const stylesWithThemeHook = {

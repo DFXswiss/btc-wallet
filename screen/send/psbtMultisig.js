@@ -11,7 +11,7 @@ import { BitcoinUnit } from '../../models/bitcoinUnits';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import alert from '../../components/Alert';
 import Biometric from '../../class/biometrics';
-import Notifications from '../../blue_modules/notifications';
+import { majorTomToGroundControl } from '../../blue_modules/notifications';
 import { DynamicQRCode } from '../../components/DynamicQRCode';
 const bitcoin = require('bitcoinjs-lib');
 const BigNumber = require('bignumber.js');
@@ -51,12 +51,6 @@ const PsbtMultisig = () => {
     },
     textFiat: {
       color: colors.alternativeTextColor,
-    },
-    provideSignatureButton: {
-      backgroundColor: colors.buttonDisabledBackgroundColor,
-    },
-    provideSignatureButtonText: {
-      color: colors.buttonTextColor,
     },
     vaultKeyCircle: {
       backgroundColor: colors.buttonDisabledBackgroundColor,
@@ -140,7 +134,6 @@ const PsbtMultisig = () => {
 
   useEffect(() => {
     Biometric.isBiometricUseCapableAndEnabled().then(setIsBiometricUseCapableAndEnabled);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const _combinePSBT = () => {
@@ -184,7 +177,7 @@ const PsbtMultisig = () => {
   const send = async (tx, fee) => {
     await broadcast(tx);
     const txid = bitcoin.Transaction.fromHex(tx).getId();
-    Notifications.majorTomToGroundControl([], [], [txid]);
+    majorTomToGroundControl([], [], [txid]);
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
     const amount = formatBalanceWithoutSuffix(totalSat, BitcoinUnit.BTC, false);
     navigate('Success', {
@@ -326,7 +319,7 @@ const PsbtMultisig = () => {
         <View style={styles.marginConfirmButton}>
           <BlueButton
             disabled={hasSigned || isConfirmEnabled()}
-            title={'Sign'}
+            title="Sign"
             isLoading={isSignign}
             onPress={onSign}
             testID="PsbtMultisigSignButton"
@@ -402,17 +395,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     flexWrap: 'wrap',
   },
-  provideSignatureButton: {
-    marginTop: 24,
-    marginLeft: 40,
-    height: 48,
-    borderRadius: 8,
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 8,
-  },
-  provideSignatureButtonText: { fontWeight: '600', fontSize: 15 },
   vaultKeyText: { fontSize: 18, fontWeight: 'bold' },
   vaultKeyTextWrapper: { justifyContent: 'center', alignItems: 'center', paddingLeft: 16 },
   vaultKeyCircle: {
@@ -438,12 +420,6 @@ const styles = StyleSheet.create({
   marginConfirmButton: { marginTop: 16, marginHorizontal: 32, marginBottom: 48 },
   marginNotPartOfMultisig: { marginTop: 22, marginHorizontal: 32, marginBottom: 30, borderTopWidth: 1, borderTopColor: '#c4c4c4' },
   marginNotPartOfMultisigText: { fontSize: 18, fontWeight: 'bold', textAlign: 'center', paddingTop: 16 },
-  height80: {
-    height: 80,
-  },
-  footerSpacing: {
-    height: 100,
-  },
 });
 
 PsbtMultisig.navigationOptions = navigationStyle({ closeButton: true }, opts => ({ ...opts, title: loc.multisig.header }));

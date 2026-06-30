@@ -19,7 +19,9 @@ import QRCodeComponent from '../../../components/QRCodeComponent';
 
 interface RouteParams {
   walletID: string;
-  paymentRouteId?: string;
+  // Passed from cashierPos as the numeric route id (`selectedRoute: number | null`);
+  // the former `string` typing did not match the runtime value.
+  paymentRouteId?: number;
 }
 
 enum PosStatus {
@@ -112,7 +114,7 @@ const ReceiveDfxPos = () => {
   useEffect(() => {
     (async () => {
       const { sell } = await getPaymentRoutes(walletID);
-      const route = paymentRouteId ? sell.find(s => s.id === paymentRouteId) : sell[0];
+      const route = paymentRouteId ? sell.find((s: SellRoute) => s.id === paymentRouteId) : sell[0];
       setSellRoutes(sell);
       handleRouteChanged(route);
       setIsLoading(false);
@@ -131,7 +133,7 @@ const ReceiveDfxPos = () => {
 
   if (isLoading) {
     return (
-      <View style={[styles.loading]}>
+      <View style={styles.loading}>
         <ActivityIndicator />
       </View>
     );
@@ -143,10 +145,10 @@ const ReceiveDfxPos = () => {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'android' ? undefined : 'position'}
           contentContainerStyle={[styleHooks.root, styles.flex]}
-          style={[styles.flex]}
+          style={styles.flex}
         >
           <View style={[styles.flex, styles.grow]}>
-            <View style={[styles.contentContainer]}>
+            <View style={styles.contentContainer}>
               <View style={styles.pickerContainer}>
                 <Selector items={getRouteItems()} selectedValue={selectedRoute} onValueChange={onRouteChange} />
               </View>
@@ -174,7 +176,7 @@ const ReceiveDfxPos = () => {
                       <BlueSpacing10 />
                     </>
                   )}
-                  <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                  <View style={styles.qrContainer}>
                     <QRCodeComponent value={lnurl} />
                   </View>
                   {posStatus === PosStatus.PAID && (
@@ -182,7 +184,7 @@ const ReceiveDfxPos = () => {
                       <Text style={[styleHooks.colorText, styles.qrTitle]}>
                         {invoiceAmount} {fiatUnit}
                       </Text>
-                      <Icon name="check-circle" size={70} color={'#00b300'} />
+                      <Icon name="check-circle" size={70} color="#00b300" />
                     </>
                   )}
                   {(posStatus === PosStatus.LOADING_PAYMENT_INFO || posStatus === PosStatus.WAITING_PAYMENT) && (
@@ -192,7 +194,7 @@ const ReceiveDfxPos = () => {
                     </>
                   )}
                 </View>
-                <View style={styles.shareContainer}></View>
+                <View style={styles.shareContainer} />
               </View>
             </View>
           </View>
@@ -203,13 +205,13 @@ const ReceiveDfxPos = () => {
 };
 
 const styles = StyleSheet.create({
+  qrContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   loading: {
     flex: 1,
     justifyContent: 'center',
-  },
-  root: {
-    flex: 1,
-    justifyContent: 'space-between',
   },
   contentContainer: {
     flex: 1,

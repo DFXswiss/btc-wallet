@@ -7,7 +7,7 @@ import { BlueListItem } from '../BlueComponents';
 import TransactionOffchainIcon from './icons/TransactionOffchainIcon';
 import { Hit } from '../api/boltcards/definitions/apiDtos';
 
-const BoltcardTransactionList: React.FC<{transactions: Hit[]}> = ({ transactions = [] }) => {
+const BoltcardTransactionList: React.FC<{ transactions: Hit[] }> = ({ transactions = [] }) => {
   const { colors } = useTheme();
 
   const stylesHook = StyleSheet.create({
@@ -16,19 +16,6 @@ const BoltcardTransactionList: React.FC<{transactions: Hit[]}> = ({ transactions
     },
     list: {
       backgroundColor: colors.background,
-    },
-    dfxContainer: {
-      backgroundColor: '#0A345A',
-      alignItems: 'center',
-      height: 110,
-    },
-    dfxButtonContainer: {
-      flexGrow: 1,
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginVertical: 10,
-      gap: 10,
     },
   });
 

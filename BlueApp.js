@@ -23,7 +23,6 @@ import {
   SLIP39SegwitBech32Wallet,
 } from './class/';
 import { randomBytes } from './class/rng';
-import alert from './components/Alert';
 import { LightningLdsWallet } from './class/wallets/lightning-lds-wallet';
 import { TaprootLdsWallet } from './class/wallets/taproot-lds-wallet';
 
@@ -49,6 +48,7 @@ class AppStorage {
   static DFX_POS = 'dfx_pos';
   static DFX_SWAP = 'dfx_swap';
   static CAMERA_PERMISSION_LAST_ASKED_TIME = 'camera_permission_last_asked_time';
+  static HIDE_BALANCE = 'hide_balance';
 
   static keys2migrate = [AppStorage.HANDOFF_STORAGE_KEY, AppStorage.DO_NOT_TRACK, AppStorage.ADVANCED_MODE_ENABLED];
 
@@ -333,7 +333,7 @@ class AppStorage {
       try {
         realm = await this.getRealm();
       } catch (error) {
-        console.log("ERROR: ", error.message);
+        console.log('ERROR: ', error.message);
       }
       data = JSON.parse(data);
       if (!data.wallets) return false;
@@ -404,9 +404,9 @@ class AppStorage {
               tempObj.type === LightningCustodianWallet.type
                 ? LightningCustodianWallet.fromJson(key)
                 : tempObj.type === LightningLdsWallet.type
-                ? LightningLdsWallet.fromJson(key)
-                : TaprootLdsWallet.fromJson(key);
-                
+                  ? LightningLdsWallet.fromJson(key)
+                  : TaprootLdsWallet.fromJson(key);
+
             let lndhub = false;
             try {
               lndhub = await AsyncStorage.getItem(AppStorage.LNDHUB);
@@ -435,7 +435,7 @@ class AppStorage {
         try {
           if (realm) this.inflateWalletFromRealm(realm, unserializedWallet);
         } catch (error) {
-          console.log("ERROR: ", error.message);
+          console.log('ERROR: ', error.message);
         }
 
         // done
@@ -696,7 +696,7 @@ class AppStorage {
       await Promise.all(
         this.wallets.map(wallet => {
           return wallet.fetchBalance();
-        })
+        }),
       );
     }
   };
@@ -833,7 +833,6 @@ class AppStorage {
     await AsyncStorage.setItem(AppStorage.ADVANCED_MODE_ENABLED, value ? '1' : '');
   };
 
-
   isLdsDevEnabled = async () => {
     try {
       return !!(await AsyncStorage.getItem(AppStorage.FF_LDS_DEV_API));
@@ -854,6 +853,17 @@ class AppStorage {
 
   setIsPOSmodeEnabled = async value => {
     await AsyncStorage.setItem(AppStorage.POS_MODE, value ? '1' : '');
+  };
+
+  isHideBalanceEnabled = async () => {
+    try {
+      return !!(await AsyncStorage.getItem(AppStorage.HIDE_BALANCE));
+    } catch (_) {}
+    return false;
+  };
+
+  setIsHideBalanceEnabled = async value => {
+    await AsyncStorage.setItem(AppStorage.HIDE_BALANCE, value ? '1' : '');
   };
 
   isDfxPOSEnabled = async () => {

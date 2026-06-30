@@ -27,12 +27,12 @@ import {
   SegwitBech32Wallet,
   WatchOnlyWallet,
   MultisigHDWallet,
-  HDAezeedWallet
+  HDAezeedWallet,
 } from '../../class';
 import loc, { formatBalanceWithoutSuffix } from '../../loc';
 import { useTheme, useRoute, useNavigation, StackActions } from '@react-navigation/native';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
-import Notifications from '../../blue_modules/notifications';
+import { unsubscribe } from '../../blue_modules/notifications';
 import { AbstractHDElectrumWallet } from '../../class/wallets/abstract-hd-electrum-wallet';
 import alert from '../../components/Alert';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
@@ -115,7 +115,6 @@ const WalletDetails = () => {
       return null;
     }
   }, [wallet]);
-  const [lightningWalletInfo, setLightningWalletInfo] = useState({});
   const { walletID: mainWalletId, getOwnershipProof } = useWalletContext();
   const [ownershipProof, setOwnershipProof] = useState(wallet.addressOwnershipProof);
   const [isCopied, setIsCopied] = useState(false);
@@ -168,10 +167,15 @@ const WalletDetails = () => {
     reset();
   };
 
-  const deleteCurrentWallet = () => {
-    navigate('WalletTransactions');
+  const deleteCurrentWallet = async () => {
     deleteWallet(wallet);
-    saveToDisk();
+    // Await the Realm-backed save (which opens + closes a Realm) BEFORE navigating away, so the
+    // save's microtask can't race the navigation teardown — that race is what crashes the release
+    // build (use-after-close of a Realm collection Proxy).
+    await saveToDisk();
+    // popToTop tears down WalletDetails/Settings/WalletAsset for the deleted wallet deterministically
+    // and lands on the home root, instead of relying on a navigate-to-root pop to reconcile.
+    dispatch(StackActions.popToTop());
   };
 
   const navigateToOverviewAndDeleteWallet = () => {
@@ -180,7 +184,7 @@ const WalletDetails = () => {
     try {
       externalAddresses = wallet.getAllExternalAddresses();
     } catch (_) {}
-    Notifications.unsubscribe(externalAddresses, [], []);
+    unsubscribe(externalAddresses, [], []);
     if (isMainWallet) {
       deleteAllWallets();
     } else {
@@ -358,7 +362,7 @@ const WalletDetails = () => {
   const togglePosMode = async () => {
     wallet.isPosMode = !wallet.isPosMode;
     if (!wallet.isPosMode) {
-      wallet.adjustLnurlPayAmount(1, 1 * 100 * 1000 * 1000); 
+      wallet.adjustLnurlPayAmount(1, 1 * 100 * 1000 * 1000);
     }
     await saveToDisk();
   };
@@ -495,14 +499,14 @@ const WalletDetails = () => {
             {showPosModeOptions && wallet.type === LightningLdsWallet.type && (
               <BlueListItem
                 Component={Pressable}
-                title={'Activate POS mode'}
+                title="Activate POS mode"
                 switch={{ onValueChange: togglePosMode, value: wallet.isPosMode }}
               />
             )}
             {showPosModeOptions && wallet.type === LightningLdsWallet.type && (
               <BlueListItem
                 Component={Pressable}
-                title={'Go to cashier station'}
+                title="Go to cashier station"
                 chevron
                 onPress={() => navigate('ReceiveDetailsRoot', { screen: 'CashierPos', params: { walletID: wallet.getID() } })}
               />
@@ -512,7 +516,7 @@ const WalletDetails = () => {
               <View>
                 {[LightningLdsWallet.type].includes(wallet.type) && wallet.getBoltcard() && (
                   <>
-                    <SecondButton onPress={navigateToBackupPayCardDetails} title={'Backup Pay Card Details'} chevron />
+                    <SecondButton onPress={navigateToBackupPayCardDetails} title="Backup Pay Card Details" chevron />
                   </>
                 )}
                 <BlueSpacing20 />

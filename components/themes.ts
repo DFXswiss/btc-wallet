@@ -143,3 +143,11 @@ export class BlueCurrentTheme {
 }
 
 BlueCurrentTheme.updateColorScheme();
+
+// react-navigation's useTheme() returns its default Theme type, but the app
+// renders NavigationContainer with the custom BlueDefaultTheme/BlueDarkTheme
+// (see App.js). Augment the module so useTheme() reflects the real (custom)
+// theme shape — type-only, no runtime effect.
+declare module '@react-navigation/native' {
+  export function useTheme(): Theme;
+}

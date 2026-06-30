@@ -77,7 +77,7 @@ const startImport = (importTextOrig, askPassphrase = false, searchAccounts = fal
     // 7. check if its private key (segwit address P2SH) TODO
     // 7. check if its private key (legacy address) TODO
     // 8. check if its a json array from BC-UR with multiple accounts
-    let text = importTextOrig.trim();
+    const text = importTextOrig.trim();
     let password;
 
     // BIP38 password required

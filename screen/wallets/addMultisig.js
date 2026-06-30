@@ -17,7 +17,7 @@ const WalletsAddMultisig = () => {
   const { navigate } = useNavigation();
   const loadingAnimation = useRef();
   const { walletLabel = loc.multisig.default_label } = useRoute().params;
-  const [m, setM] = useState(2);
+  const [m] = useState(2);
   const [n, setN] = useState(3);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [format, setFormat] = useState(MultisigHDWallet.FORMAT_P2WSH);
@@ -89,16 +89,6 @@ const WalletsAddMultisig = () => {
   const isP2shP2wsh = () => format === MultisigHDWallet.FORMAT_P2SH_P2WSH || format === MultisigHDWallet.FORMAT_P2SH_P2WSH_ALT;
 
   const isP2sh = () => format === MultisigHDWallet.FORMAT_P2SH;
-
-  const increaseM = () => {
-    if (n === m) return;
-    if (m === 7) return;
-    setM(m + 1);
-  };
-  const decreaseM = () => {
-    if (m === 2) return;
-    setM(m - 1);
-  };
 
   const increaseN = () => {
     if (n === 7) return;
@@ -206,7 +196,14 @@ const WalletsAddMultisig = () => {
     <SafeAreaView style={stylesHook.root}>
       <View style={styles.descriptionContainer}>
         <View style={styles.imageWrapper}>
-          <LottieView source={require('../../img/msvault.json')} autoPlay ref={loadingAnimation} loop={false} />
+          <LottieView
+            style={styles.lottieVault}
+            source={require('../../img/msvault.json')}
+            autoPlay
+            ref={loadingAnimation}
+            loop={false}
+            resizeMode="contain"
+          />
         </View>
         <Text style={[styles.textdesc, stylesHook.textdesc]}>
           <Text style={[styles.textdescBold, stylesHook.textdesc]}>{loc.multisig.what_is_multidevice}</Text>
@@ -324,10 +321,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   imageWrapper: {
-    borderWidth: 0,
-    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     height: 160,
     marginBottom: 30,
+  },
+  lottieVault: {
+    width: 212,
+    height: 160,
   },
   rowCenter: {
     flexDirection: 'row',

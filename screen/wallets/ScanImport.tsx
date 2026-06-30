@@ -1,20 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, StatusBar, ActivityIndicator, TouchableOpacity, Image } from 'react-native';
+import { View, StyleSheet, StatusBar, ActivityIndicator } from 'react-native';
 import navigationStyle from '../../components/navigationStyle';
-import { Camera } from 'react-native-camera-kit';
+import { Camera } from 'react-native-camera-kit-no-google';
 import { BlueButton, BlueText } from '../../BlueComponents';
 import useCameraPermissions from '../../hooks/cameraPermisions.hook';
 import { useQrCodeScanner } from '../../hooks/qrCodeScaner.hook';
 import useQrCodeImagePicker from '../../hooks/qrCodeImagePicker.hook';
-import { useIsFocused, useNavigation } from '@react-navigation/native';
+import { useIsFocused, useNavigation, ParamListBase } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import loc from '../../loc';
 
-const ScanImport: React.FC = () => {
+const ScanImport: React.FC & { navigationOptions?: ReturnType<typeof navigationStyle> } = () => {
   const { isReadingQrCode, cameraCallback, setOnBarScanned, urHave, urTotal } = useQrCodeScanner();
   const { isProcessingImage, openImagePicker, setOnBarCodeInImage } = useQrCodeImagePicker();
   const { cameraStatus } = useCameraPermissions();
-  const { replace } = useNavigation();
+  const { replace } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const [isCameraActive, setIsCameraActive] = useState(true);
   const isFocused = useIsFocused();
 
@@ -51,20 +52,17 @@ const ScanImport: React.FC = () => {
       {isCameraFocused && (
         <Camera
           scanBarcode
+          scanThrottleDelay={0}
           onReadCode={(event: any) => cameraCallback({ data: event?.nativeEvent?.codeStringValue })}
           style={styles.camera}
         />
       )}
       {getIsProcessing() && (
-        <View
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', zIndex: 10 }}
-        >
+        <View style={styles.processingOverlay}>
           <View style={styles.loadingContainer}>
-            <ActivityIndicator style={{ marginBottom: 5 }} size={25} />
+            <ActivityIndicator style={styles.loadingIndicator} size={25} />
             {Boolean(urHave) && Boolean(urTotal) && (
-              <BlueText style={styles.textExplanation}>
-                {`${loc._.loading} ${urHave}/${urTotal}`}
-              </BlueText>
+              <BlueText style={styles.textExplanation}>{`${loc._.loading} ${urHave}/${urTotal}`}</BlueText>
             )}
           </View>
         </View>
@@ -80,7 +78,7 @@ const ScanImport: React.FC = () => {
         />
         <BlueButton
           style={styles.actionButton}
-          onPress={()=>delayedNavigationFunction(()=>replace('ImportWallet'))}
+          onPress={() => delayedNavigationFunction(() => replace('ImportWallet'))}
           icon={{ name: 'keyboard', type: 'material', color: '#ffffff', size: 38 }}
         />
       </View>
@@ -89,6 +87,19 @@ const ScanImport: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  processingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  loadingIndicator: {
+    marginBottom: 5,
+  },
   container: {
     flex: 1,
   },

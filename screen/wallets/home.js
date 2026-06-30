@@ -31,9 +31,9 @@ import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import BoltCard from '../../class/boltcard';
-import { TaprootLdsWallet, TaprootLdsWalletType } from '../../class/wallets/taproot-lds-wallet';
 import scanqrHelper from '../../helpers/scan-qr';
 import DfxServicesButtons from '../../components/DfxServicesButtons';
+import { usePrivateText } from '../../hooks/usePrivateText';
 
 const fs = require('../../blue_modules/fs');
 
@@ -43,25 +43,26 @@ const buttonFontSize =
     : PixelRatio.roundToNearestPixel(Dimensions.get('window').width / 26);
 
 const WalletHome = ({ navigation }) => {
-  const { wallets, saveToDisk, setSelectedWallet, ldsDEV, revalidateBalancesInterval } = useContext(BlueStorageContext);
+  const { wallets, saveToDisk, setSelectedWallet, revalidateBalancesInterval } = useContext(BlueStorageContext);
   const walletID = useMemo(() => wallets[0]?.getID(), [wallets]);
   const multisigWallet = useMemo(() => wallets.find(w => w.type === MultisigHDWallet.type), [wallets]);
   const lnWallet = useMemo(() => wallets.find(w => w.type === LightningLdsWallet.type), [wallets]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [, setIsLoading] = useState(false);
   const { name } = useRoute();
   const { setParams, navigate } = useNavigation();
   const { colors, scanImage } = useTheme();
   const walletActionButtonsRef = useRef();
   const { width } = useWindowDimensions();
   const isFocused = useIsFocused();
+  const getPrivateText = usePrivateText();
 
   const wallet = useMemo(() => wallets.find(w => w.getID() === walletID), [wallets, walletID]);
   const totalWallet = useMemo(() => {
     const total = new WatchOnlyWallet();
     total.setLabel(loc.wallets.total);
     total.balance = wallets.reduce((prev, curr) => prev + (curr.isDummy ? 0 : curr.getBalance()), 0);
-    total.hideBalance = wallet.hideBalance;
-    total.preferredBalanceUnit = wallet.preferredBalanceUnit;
+    total.hideBalance = wallet?.hideBalance;
+    total.preferredBalanceUnit = wallet?.preferredBalanceUnit;
     return total;
   }, [wallets, wallet]);
 
@@ -80,7 +81,7 @@ const WalletHome = ({ navigation }) => {
   useEffect(() => {
     setIsLoading(true);
     setIsLoading(false);
-    setSelectedWallet(wallet.getID());
+    if (wallet) setSelectedWallet(wallet.getID());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletID]);
 
@@ -101,7 +102,6 @@ const WalletHome = ({ navigation }) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallets, walletID, totalWallet]);
-
 
   const importPsbt = base64Psbt => {
     try {
@@ -140,7 +140,7 @@ const WalletHome = ({ navigation }) => {
       return;
     }
 
-    if(DeeplinkSchemaMatch.isLnUrl(value)) {
+    if (DeeplinkSchemaMatch.isLnUrl(value)) {
       return navigate('SendDetailsRoot', { screen: 'LnurlNavigationForwarder', params: { lnurl: value, walletID } });
     }
 
@@ -258,16 +258,6 @@ const WalletHome = ({ navigation }) => {
     });
   };
 
-  const navigateToAddTaproot = asset => {
-    navigate('WalletsRoot', {
-      screen: 'AddLightning',
-      params: {
-        walletID: wallet.getID(),
-        asset,
-      },
-    });
-  };
-
   const displayWallets = useMemo(() => {
     const tmpWallets = [];
 
@@ -335,7 +325,7 @@ const WalletHome = ({ navigation }) => {
                 subtitleNumberOfLines={1}
                 subtitle={item.subtitle}
                 Component={View}
-                rightTitle={formatBalance(item.wallet.getBalance(), item.wallet.getPreferredBalanceUnit(), true).toString()}
+                rightTitle={getPrivateText(formatBalance(item.wallet.getBalance(), item.wallet.getPreferredBalanceUnit(), true).toString())}
                 rightTitleStyle={styles.walletBalance}
                 chevron
               />
@@ -383,7 +373,7 @@ const WalletHome = ({ navigation }) => {
           icon={
             <View style={styles.scanIconContainer}>
               <Image resizeMode="stretch" source={scanImage} />
-              <Image style={{ width: 20, height: 20 }} source={require('../../img/nfc.png')} />
+              <Image style={styles.nfcImage} source={require('../../img/nfc.png')} />
             </View>
           }
           text={loc.send.details_scan}
@@ -414,11 +404,11 @@ WalletHome.navigationOptions = navigationStyle({}, (options, { theme, navigation
       height: 34,
       padding: 8,
       borderRadius: 8,
-      backgroundColor: route?.params?.backupWarning ? '#FFF389' : theme.colors.buttonBackgroundColor,
+      backgroundColor: Platform.OS === 'ios' ? undefined : route?.params?.backupWarning ? '#FFF389' : theme.colors.buttonBackgroundColor,
     },
     backupSeedText: {
       marginLeft: 4,
-      color: route?.params?.backupWarning ? '#072440' : theme.colors.buttonAlternativeTextColor,
+      color: theme.colors.buttonAlternativeTextColor,
       fontWeight: '600',
       fontSize: 14,
     },
@@ -436,7 +426,7 @@ WalletHome.navigationOptions = navigationStyle({}, (options, { theme, navigation
           }}
         >
           <View style={styles.backupSeedContainer}>
-            {route?.params?.backupWarning && <Icon name="warning-outline" type="ionicon" size={18} color="#072440" />}
+            {route?.params?.backupWarning && <Icon name="warning-outline" type="ionicon" size={18} color="#FFFFFF" />}
             <Text style={stylesHook.backupSeedText}>
               {route?.params?.backupWarning ? loc.wallets.backupSeedWarning : loc.wallets.backupSeed}
             </Text>
@@ -473,14 +463,16 @@ WalletHome.propTypes = {
 };
 
 const styles = StyleSheet.create({
+  nfcImage: {
+    width: 20,
+    height: 20,
+  },
   flex: {
     flex: 1,
   },
   walletDetails: {
     justifyContent: 'center',
-    alignItems: 'flex-end',
-    paddingLeft: 12,
-    paddingVertical:12
+    alignItems: 'center',
   },
   backupSeedContainer: {
     flex: 1,
@@ -502,5 +494,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  }
+  },
 });

@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { RouteProp, useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { ParamListBase, RouteProp, useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BlueButton, SafeBlueArea } from '../../BlueComponents';
 import { navigationStyleTx } from '../../components/navigationStyle';
@@ -29,7 +30,7 @@ type SellRouteProps = RouteProp<
 >;
 
 const Sell = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { wallets, sleep } = useContext(BlueStorageContext);
   const { colors } = useTheme();
   const { routeId, amount, 'wallet-id': walletId } = useRoute<SellRouteProps>().params;
@@ -39,7 +40,6 @@ const Sell = () => {
   const [sell, setSell] = useState<SellInfo>();
 
   const [changeAddress, setChangeAddress] = useState<string>();
-  const [networkTransactionFees, setNetworkTransactionFees] = useState(new NetworkTransactionFee(3, 2, 1));
 
   const stylesHook = StyleSheet.create({
     container: {
@@ -72,8 +72,9 @@ const Sell = () => {
     if (wallet.chain === Chain.ONCHAIN) {
       const isTransactionReplaceable = wallet.type === HDSegwitBech32Wallet.type;
 
-      const networkTransactionFees: NetworkTransactionFee = await AsyncStorage.getItem(NetworkTransactionFee.StorageKey)
-        .then(res => JSON.parse(res as string))
+      const networkTransactionFees: NetworkTransactionFee = await AsyncStorage.getItem(NetworkTransactionFee.StorageKey).then(res =>
+        JSON.parse(res as string),
+      );
 
       const changeAddress = await getChangeAddressAsync(wallet);
       const requestedSatPerByte = Number(networkTransactionFees.fastestFee);

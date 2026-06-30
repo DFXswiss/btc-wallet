@@ -1,11 +1,10 @@
 import React from 'react';
 import { ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import Notifications from '../../blue_modules/notifications';
+import { isNotificationsCapable } from '../../blue_modules/notifications';
 import navigationStyle from '../../components/navigationStyle';
 import { SafeBlueArea, BlueListItem } from '../../BlueComponents';
 import loc from '../../loc';
-import { isTorCapable } from '../../blue_modules/environment';
 
 const NetworkSettings = () => {
   const { navigate } = useNavigation();
@@ -14,15 +13,11 @@ const NetworkSettings = () => {
     navigate('ElectrumSettings');
   };
 
-  const navigateToTorSettings = () => {
-    navigate('TorSettings');
-  };
-
   return (
     <SafeBlueArea>
       <ScrollView>
         <BlueListItem title={loc.settings.network_electrum} onPress={navigateToElectrumSettings} testID="ElectrumSettings" chevron />
-        {Notifications.isNotificationsCapable && (
+        {isNotificationsCapable && (
           <BlueListItem
             title={loc.settings.notifications}
             onPress={() => navigate('NotificationSettings')}
@@ -30,7 +25,6 @@ const NetworkSettings = () => {
             chevron
           />
         )}
-        {isTorCapable && <BlueListItem title={loc.settings.tor_settings} onPress={navigateToTorSettings} testID="TorSettings" chevron />}
       </ScrollView>
     </SafeBlueArea>
   );

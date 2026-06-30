@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useContext, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import {
   View,
   Text,
@@ -14,8 +14,10 @@ import {
 import { BlueCard, BlueLoading, BlueSpacing20, BlueText, SecondButton } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
 import loc from '../../loc';
-import { useTheme, useRoute, useNavigation } from '@react-navigation/native';
+import { useTheme, useRoute, useNavigation, ParamListBase } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
+import { AbstractWallet } from '../../class';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { BolcardSecrets, BoltCardModel } from '../../models/boltcard';
@@ -47,26 +49,11 @@ const styles = StyleSheet.create({
     writingDirection: I18nManager.isRTL ? 'rtl' : 'ltr',
     color: '#81868e',
   },
-  textValue: {
-    fontWeight: '500',
-    fontSize: 14,
-  },
-  hardware: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   delete: {
     color: '#e73955',
     fontSize: 15,
     fontWeight: '500',
     textAlign: 'center',
-  },
-  row: {
-    flexDirection: 'row',
-  },
-  marginRight16: {
-    marginRight: 16,
   },
   fieldValueContainer: {
     marginBottom: 12,
@@ -87,7 +74,7 @@ const styles = StyleSheet.create({
   },
 });
 
-const CopyField = ({ value }: { value: string }) => {
+const CopyField = ({ value }: { value: string | undefined }) => {
   const [isCopied, setIsCopied] = useState(false);
   const { colors } = useTheme();
 
@@ -124,9 +111,9 @@ interface TappedCardDetails {
 
 const TappedCardDetails = () => {
   const { wallets, saveToDisk } = useContext(BlueStorageContext);
-  const lnWallet = wallets.find(w => w.type === LightningLdsWallet.type);
+  const lnWallet = wallets.find((w: AbstractWallet) => w.type === LightningLdsWallet.type);
   const { tappedCardDetails } = useRoute().params as { tappedCardDetails: TappedCardDetails };
-  const { navigate, replace, goBack } = useNavigation();
+  const { navigate, replace, goBack } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const [uid, setUid] = useState('');
   const [lnurlw, setLnurlw] = useState('');
   const [minWithdraw, setMinWithdraw] = useState(0);
@@ -170,7 +157,7 @@ const TappedCardDetails = () => {
           setLnurlw(_lnurlw);
           if (_lnurlw) {
             try {
-              const { payLink, minWithdrawable, maxWithdrawable, ...rest } = await BoltCard.queryWidthdrawDetails(_lnurlw);
+              const { payLink, minWithdrawable, maxWithdrawable } = await BoltCard.queryWidthdrawDetails(_lnurlw);
               setMinWithdraw(minWithdrawable);
               setMaxWithdraw(maxWithdrawable);
               setLnurlp(payLink);
@@ -210,12 +197,6 @@ const TappedCardDetails = () => {
   const stylesHook = StyleSheet.create({
     textLabel1: {
       color: colors.feeText,
-    },
-    textLabel2: {
-      color: colors.feeText,
-    },
-    textValue: {
-      color: colors.outputValue,
     },
   });
 
@@ -291,8 +272,8 @@ const TappedCardDetails = () => {
                 {isEmptyCard
                   ? loc.boltcard.card_state_empty
                   : isCardWrittenWithErrors
-                  ? loc.boltcard.card_written_error
-                  : loc.boltcard.card_state_written}
+                    ? loc.boltcard.card_written_error
+                    : loc.boltcard.card_state_written}
               </BlueText>
               <BlueSpacing20 />
 
@@ -323,7 +304,7 @@ const TappedCardDetails = () => {
 
               {(Boolean(minWithdraw) || Boolean(maxWithdraw)) && (
                 <>
-                  <Text style={[styles.textLabel1, stylesHook.textLabel1]}>{'Min and Max widhtdrawable'}</Text>
+                  <Text style={[styles.textLabel1, stylesHook.textLabel1]}>Min and Max widhtdrawable</Text>
                   <BlueText>
                     {minWithdraw} - {maxWithdraw} sats
                   </BlueText>
@@ -340,7 +321,7 @@ const TappedCardDetails = () => {
 
               {(Boolean(minPay) || Boolean(maxPay)) && (
                 <>
-                  <Text style={[styles.textLabel1, stylesHook.textLabel1]}>{'Min and Max payable'}</Text>
+                  <Text style={[styles.textLabel1, stylesHook.textLabel1]}>Min and Max payable</Text>
                   <BlueText>
                     {minPay} - {maxPay} sats
                   </BlueText>

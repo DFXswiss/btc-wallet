@@ -14,7 +14,8 @@ import {
   ScrollView,
 } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
-import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { useNavigation, useRoute, useTheme, ParamListBase } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Share from 'react-native-share';
 import {
   BlueButton,
@@ -30,13 +31,12 @@ import navigationStyle from '../../components/navigationStyle';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
-import Notifications from '../../blue_modules/notifications';
+import { AbstractWallet } from '../../class';
+import { majorTomToGroundControl, tryToObtainPermissions } from '../../blue_modules/notifications';
 import useInputAmount from '../../hooks/useInputAmount';
 import { SuccessView } from '../send/success';
 import { useNFC } from '../../hooks/nfc.hook';
 import BoltCard from '../../class/boltcard';
-import { useReplaceModalScreen } from '../../hooks/replaceModalScreen.hook';
-
 interface RouteParams {
   walletID: string;
 }
@@ -46,14 +46,12 @@ const LNDReceive = () => {
   const { walletID } = useRoute().params as RouteParams;
   const wallet = useMemo(() => wallets.find((item: any) => item.getID() === walletID), [walletID, wallets]);
   const { colors } = useTheme();
-  // @ts-ignore - useNavigation non-sense
-  const { setParams, getParent, navigate } = useNavigation();
-  const replace = useReplaceModalScreen();
+  const { setParams, getParent } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const [isInvoiceLoading, setIsInvoiceLoading] = useState(false);
   const [description, setDescription] = useState('');
   const { inputProps, amountSats, formattedUnit, changeToNextUnit } = useInputAmount();
   const [invoiceRequest, setInvoiceRequest] = useState();
-  const invoicePolling = useRef<NodeJS.Timer | undefined>();
+  const invoicePolling = useRef<NodeJS.Timeout | undefined>(undefined);
   const [isPaid, setIsPaid] = useState(false);
   const inputAmountRef = useRef<TextInput | null>(null);
   const inputDescriptionRef = useRef<TextInput | null>(null);
@@ -82,7 +80,7 @@ const LNDReceive = () => {
 
   useEffect(() => {
     if (wallet && wallet.getID() !== walletID) {
-      const newWallet = wallets.find(w => w.getID() === walletID);
+      const newWallet = wallets.find((w: AbstractWallet) => w.getID() === walletID);
       if (newWallet) {
         setSelectedWallet(newWallet.getID());
       }
@@ -101,7 +99,10 @@ const LNDReceive = () => {
     cancelInvoicePolling(); // clear any previous polling
     invoicePolling.current = setInterval(async () => {
       const userInvoices = await wallet.getUserInvoices(20);
-      const updatedUserInvoice = userInvoices.find(i => i.payment_request === invoice);
+      const updatedUserInvoice = userInvoices.find(
+        (i: { payment_request: string; ispaid: boolean; description?: string; timestamp: number; expire_time: number }) =>
+          i.payment_request === invoice,
+      );
       if (!updatedUserInvoice) {
         return;
       }
@@ -124,7 +125,6 @@ const LNDReceive = () => {
         cancelInvoicePolling();
         setInvoiceRequest(undefined);
         generateInvoice(); // invoice expired, generate new one
-        return;
       }
     }, 3000);
   };
@@ -162,8 +162,8 @@ const LNDReceive = () => {
     const invoiceRequest = await wallet.addInvoice(amountSats, description);
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
     const decoded = await wallet.decodeInvoice(invoiceRequest);
-    await Notifications.tryToObtainPermissions();
-    Notifications.majorTomToGroundControl([], [decoded.payment_hash], []);
+    await tryToObtainPermissions();
+    majorTomToGroundControl([], [decoded.payment_hash], []);
 
     setTimeout(async () => {
       await wallet.getUserInvoices(1);
@@ -179,15 +179,14 @@ const LNDReceive = () => {
   const onWalletChange = (id: string) => {
     if (id === wallet?.getID()) return;
 
-    const newWallet = wallets.find(w => w.getID() === id);
+    const newWallet = wallets.find((w: AbstractWallet) => w.getID() === id);
     if (!newWallet) return;
 
     if (newWallet.chain !== Chain.OFFCHAIN) {
-      return replace({ name: 'ReceiveDetails', params: { walletID: id } });
+      return { name: 'ReceiveDetails', params: { walletID: id } };
     }
-    
+
     setParams({ walletID: id });
-    navigate('LNDReceive', { walletID: id });
   };
 
   const handleOnBlur = () => {
@@ -198,7 +197,7 @@ const LNDReceive = () => {
   };
 
   const handleShareButtonPressed = () => {
-    Share.open({ message: invoiceRequest ? invoiceRequest : wallet.lnAddress }).catch(error => console.log(error));
+    Share.open({ message: invoiceRequest || wallet.lnAddress }).catch(error => console.log(error));
   };
 
   if (isPaid) {
@@ -206,7 +205,7 @@ const LNDReceive = () => {
       <View style={styles.root}>
         <SuccessView amount={amountSats} amountUnit={BitcoinUnit.SATS} invoiceDescription={description} shouldAnimate={true} />
         <View style={styles.doneButton}>
-          <BlueButton onPress={() => getParent().popToTop()} title={loc.send.success_done} />
+          <BlueButton onPress={() => getParent<NativeStackNavigationProp<ParamListBase>>()?.popToTop()} title={loc.send.success_done} />
           <BlueSpacing40 />
         </View>
       </View>
@@ -216,18 +215,18 @@ const LNDReceive = () => {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false} style={styles.flex}>
       <ScrollView contentContainerStyle={styles.grow}>
-        <KeyboardAvoidingView behavior="position" contentContainerStyle={[styleHooks.root, styles.flex]} style={[styles.flex]}>
+        <KeyboardAvoidingView behavior="position" contentContainerStyle={[styleHooks.root, styles.flex]} style={styles.flex}>
           <View style={[styles.flex, styles.grow]}>
             <View style={styles.pickerContainer}>
               <BlueWalletSelect wallets={wallets} value={wallet?.getID()} onChange={onWalletChange} />
             </View>
-            <View style={[styles.contentContainer]}>
+            <View style={styles.contentContainer}>
               <View style={[styles.scrollBody, styles.flex]}>
                 {isInvoiceLoading ? (
                   <ActivityIndicator />
                 ) : (
                   <>
-                    <QRCodeComponent value={invoiceRequest ? invoiceRequest : wallet.getLnurl?.() || wallet.lnAddress} />
+                    <QRCodeComponent value={invoiceRequest || wallet.getLnurl?.() || wallet.lnAddress} />
                     <View style={styles.shareContainer}>
                       <BlueCopyTextToClipboard
                         text={invoiceRequest || wallet.lnAddress}
@@ -235,7 +234,7 @@ const LNDReceive = () => {
                         textStyle={styles.copyText}
                       />
                       <TouchableOpacity accessibilityRole="button" onPress={handleShareButtonPressed}>
-                        <Image resizeMode="stretch" source={require('../../img/share-icon.png')} style={{ width: 18, height: 20 }} />
+                        <Image resizeMode="stretch" source={require('../../img/share-icon.png')} style={styles.shareIcon} />
                       </TouchableOpacity>
                     </View>
                   </>
@@ -281,15 +280,15 @@ const LNDReceive = () => {
                         <View style={styles.iosNfcButtonContainer}>
                           <SecondButton
                             onPress={startNfcOnIos}
-                            disabled={!Boolean(invoiceRequest)}
-                            title={'Use Boltcard'}
+                            disabled={!invoiceRequest}
+                            title="Use Boltcard"
                             image={{ source: require('../../img/bolt-card.png') }}
                           />
                         </View>
                       ),
                       android: (
                         <View style={styles.buttonsContainer}>
-                          <Image source={require('../../img/bolt-card.png')} style={{ width: 40, height: 40 }} />
+                          <Image source={require('../../img/bolt-card.png')} style={styles.boltCardIcon} />
                         </View>
                       ),
                     })}
@@ -312,6 +311,14 @@ const LNDReceive = () => {
 };
 
 const styles = StyleSheet.create({
+  shareIcon: {
+    width: 18,
+    height: 20,
+  },
+  boltCardIcon: {
+    width: 40,
+    height: 40,
+  },
   root: {
     flex: 1,
     justifyContent: 'space-between',

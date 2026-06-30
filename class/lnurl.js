@@ -1,12 +1,11 @@
 import { bech32 } from 'bech32';
 import bolt11 from 'bolt11';
-import { isTorDaemonDisabled } from '../blue_modules/environment';
 import { parse } from 'url'; // eslint-disable-line n/no-deprecated-api
 import { createHmac } from 'crypto';
 import secp256k1 from 'secp256k1';
+import loc from '../loc';
 const CryptoJS = require('crypto-js');
 const createHash = require('create-hash');
-const torrific = require('../blue_modules/torrific');
 const ONION_REGEX = /^(http:\/\/[^/:@]+\.onion(?::\d{1,5})?)(\/.*)?$/; // regex for onion URL
 
 /**
@@ -27,7 +26,7 @@ export default class Lnurl {
 
   static findlnurl(bodyOfText) {
     const cleanedText = bodyOfText.replace('mailto:', '').toLowerCase();
-    const res = /(?:http.*[&?]lightning=|lightning:)?(lnurl1[02-9ac-hj-np-z]+)/.exec(cleanedText);
+    const res = /^(?:http.*[&?]lightning=|lightning:)?(lnurl1[02-9ac-hj-np-z]+)/.exec(cleanedText);
     if (res) {
       return res[1];
     }
@@ -82,11 +81,9 @@ export default class Lnurl {
   }
 
   async fetchGet(url) {
-    const parsedOnionUrl = Lnurl.parseOnionUrl(url);
-    if (parsedOnionUrl) {
-      return _fetchGetTor(parsedOnionUrl);
+    if (Lnurl.isOnionUrl(url)) {
+      throw new Error(loc.settings.tor_unsupported);
     }
-
     const resp = await fetch(url, { method: 'GET' });
     if (resp.status >= 300) {
       throw new Error('Bad response from server');
@@ -362,35 +359,10 @@ export default class Lnurl {
     return !!splitted[0].trim() && !!splitted[1].trim();
   }
 
-  static getDomainFromLightningAddress(address){
-    if(!Lnurl.isLightningAddress(address)) return '';
-    const cleanedAddress = address.trim().replace('mailto:', '')
+  static getDomainFromLightningAddress(address) {
+    if (!Lnurl.isLightningAddress(address)) return '';
+    const cleanedAddress = address.trim().replace('mailto:', '');
     const splitted = cleanedAddress.split('@');
     return splitted[1];
   }
-}
-
-async function _fetchGetTor(parsedOnionUrl) {
-  const torDaemonDisabled = await isTorDaemonDisabled();
-  if (torDaemonDisabled) {
-    throw new Error('Tor onion url support disabled');
-  }
-  const [baseURI, path] = parsedOnionUrl;
-  const tor = new torrific.Torsbee({
-    baseURI,
-  });
-  const response = await tor.get(path || '/', {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Content-Type': 'application/json',
-    },
-  });
-  const json = response.body;
-  if (typeof json === 'undefined' || response.err) {
-    throw new Error('Bad response from server: ' + response.err + ' ' + JSON.stringify(response.body));
-  }
-  if (json.status === 'ERROR') {
-    throw new Error('Reply from server: ' + json.reason);
-  }
-  return json;
 }

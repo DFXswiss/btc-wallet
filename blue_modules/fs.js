@@ -2,12 +2,13 @@ import { Alert, Linking, PermissionsAndroid, Platform } from 'react-native';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
 import loc from '../loc';
-import DocumentPicker from 'react-native-document-picker';
-import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+import { pick, types, errorCodes } from '@react-native-documents/picker';
+import { launchImageLibrary } from 'react-native-image-picker';
 import RNQRGenerator from 'rn-qr-generator';
-import { presentCameraNotAuthorizedAlert } from '../class/camera';
 import { isDesktop } from '../blue_modules/environment';
 import alert from '../components/Alert';
+
+const isCancel = err => err && err.code === errorCodes.OPERATION_CANCELED;
 
 const writeFileAndExportToAndroidDestionation = async ({ filename, contents, destinationLocalizedString, destination }) => {
   const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE, {
@@ -72,13 +73,13 @@ const writeFileAndExport = async function (filename, contents) {
  */
 const openSignedTransaction = async function () {
   try {
-    const res = await DocumentPicker.pickSingle({
-      type: Platform.OS === 'ios' ? ['io.bluewallet.psbt', 'io.bluewallet.psbt.txn'] : [DocumentPicker.types.allFiles],
+    const [res] = await pick({
+      type: Platform.OS === 'ios' ? ['io.bluewallet.psbt', 'io.bluewallet.psbt.txn'] : [types.allFiles],
     });
 
     return await _readPsbtFileIntoBase64(res.uri);
   } catch (err) {
-    if (!DocumentPicker.isCancel(err)) {
+    if (!isCancel(err)) {
       alert(loc.send.details_no_signed_tx);
     }
   }
@@ -124,7 +125,7 @@ const showImagePickerAndReadImage = () => {
                   reject(new Error(loc.send.qr_error_no_qrcode));
                 }
               })
-              .catch(error => {
+              .catch(() => {
                 reject(new Error(loc.send.qr_error_no_qrcode));
               });
           }
@@ -136,18 +137,11 @@ const showImagePickerAndReadImage = () => {
 
 const showFilePickerAndReadFile = async function () {
   try {
-    const res = await DocumentPicker.pickSingle({
+    const [res] = await pick({
       type:
         Platform.OS === 'ios'
-          ? [
-              'io.bluewallet.psbt',
-              'io.bluewallet.psbt.txn',
-              'io.bluewallet.backup',
-              DocumentPicker.types.plainText,
-              'public.json',
-              DocumentPicker.types.images,
-            ]
-          : [DocumentPicker.types.allFiles],
+          ? ['io.bluewallet.psbt', 'io.bluewallet.psbt.txn', 'io.bluewallet.backup', types.plainText, 'public.json', types.images]
+          : [types.allFiles],
     });
 
     const uri = Platform.OS === 'ios' ? decodeURI(res.uri) : res.uri;
@@ -160,7 +154,7 @@ const showFilePickerAndReadFile = async function () {
       return { data: file, uri: decodeURI(res.uri) };
     }
 
-    if (res?.type === DocumentPicker.types.images || res?.type?.startsWith('image/')) {
+    if (res?.type === types.images || res?.type?.startsWith('image/')) {
       return new Promise(resolve => {
         const uri2 = res.uri.toString().replace('file://', '');
         RNQRGenerator.detect({ uri: decodeURI(uri2) })
@@ -171,7 +165,7 @@ const showFilePickerAndReadFile = async function () {
               resolve({ data: false, uri: false });
             }
           })
-          .catch(error => {
+          .catch(() => {
             resolve({ data: false, uri: false });
           });
       });

@@ -1,6 +1,5 @@
 import React, { useContext, useEffect, useState, useRef, useMemo } from 'react';
 import { ActivityIndicator, Alert, FlatList, LayoutAnimation, StyleSheet, View } from 'react-native';
-import IdleTimerManager from 'react-native-idle-timer';
 import { StackActions, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { BlueButton, BlueButtonLink, BlueFormLabel, BlueSpacing10, BlueSpacing20, SafeBlueArea } from '../../BlueComponents';
@@ -74,7 +73,7 @@ const ImportWalletDiscovery = () => {
     const onProgress = data => setProgress(data);
 
     const onWallet = wallet => {
-      if(wallet.type === WatchOnlyWallet.type) return;
+      if (wallet.type === WatchOnlyWallet.type) return;
 
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       const id = wallet.getID();
@@ -102,18 +101,16 @@ const ImportWalletDiscovery = () => {
     const [firstPrivateKey] = multisig?.getCosigners().filter(c => typeof c === 'string' && !MultisigHDWallet.isXpubString(c)) || [];
     const possibleSecret = firstPrivateKey || importText;
 
-    IdleTimerManager.setIdleTimerDisabled(true);
-
     task.current = startImport(possibleSecret, askPassphrase, searchAccounts, onProgress, onWallet, onPassword);
 
     task.current.promise
-      .then(({ cancelled, wallets}) => {
+      .then(({ cancelled, wallets }) => {
         const w = wallets.filter(w => w.type !== WatchOnlyWallet.type);
 
         if (cancelled) return;
         if (w.length === 1) {
           saveWallet(w[0], multisig);
-          if(multisig) onWallet(multisig);
+          if (multisig) onWallet(multisig);
         }
         if (w.length === 0) {
           ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
@@ -126,7 +123,6 @@ const ImportWalletDiscovery = () => {
       .finally(() => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setLoading(false);
-        IdleTimerManager.setIdleTimerDisabled(false);
       });
 
     return () => task.current.stop();

@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { ScrollView, StyleSheet, Platform, View } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { useWalletContext } from '../../contexts/wallet.context';
 import navigationStyle from '../../components/navigationStyle';
 import { BlueListItem, BlueHeaderDefaultSub } from '../../BlueComponents';
@@ -83,5 +83,5 @@ const Settings = () => {
 
 export default Settings;
 Settings.navigationOptions = navigationStyle({
-  headerTitle: Platform.select({ ios: loc.settings.header, default: '' })
+  headerTitle: Platform.select({ ios: loc.settings.header, default: '' }),
 });

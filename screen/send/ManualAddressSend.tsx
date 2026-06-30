@@ -4,18 +4,23 @@ import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import navigationStyle from '../../components/navigationStyle';
 import { BlueButton, BlueSpacing40, BlueText } from '../../BlueComponents';
 import { ScrollView, TextInput } from 'react-native-gesture-handler';
-import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { ParamListBase, RouteProp, useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { useWalletContext } from '../../contexts/wallet.context';
+import { AbstractWallet } from '../../class';
 import { Chain } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 
-const ManualAddressSend: React.FC = () => {
+type SendRouteParams = { walletID?: string };
+type NavigationRoute = Parameters<NativeStackNavigationProp<ParamListBase>['replace']>;
+
+const ManualAddressSend: React.FC & { navigationOptions?: ReturnType<typeof navigationStyle> } = () => {
   const { wallets } = useContext(BlueStorageContext);
   const { wallet: mainWallet } = useWalletContext();
-  const { params } = useRoute();
-  const { replace } = useNavigation();
+  const { params } = useRoute<RouteProp<{ params: SendRouteParams }, 'params'>>();
+  const { replace } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const [address, setAddress] = useState('');
   const [disableContinue, setDisableContinue] = useState(true);
   const { colors } = useTheme();
@@ -39,15 +44,15 @@ const ManualAddressSend: React.FC = () => {
 
   const onContinue = () => {
     if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(address)) {
-      const selectedWallet = wallets.find(w => w.getID() === params?.walletID);
-      const lightningWallet = wallets.find(w => w.chain === Chain.OFFCHAIN);
+      const selectedWallet = wallets.find((w: AbstractWallet) => w.getID() === params?.walletID);
+      const lightningWallet = wallets.find((w: AbstractWallet) => w.chain === Chain.OFFCHAIN);
       const uri = DeeplinkSchemaMatch.isBothBitcoinAndLightning(address);
       const destinationWallet = selectedWallet || lightningWallet || mainWallet;
-      const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(destinationWallet, uri);
+      const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(destinationWallet, uri) as NavigationRoute;
       ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
       replace(...route);
     } else if (DeeplinkSchemaMatch.isPossiblyLightningDestination(address) || DeeplinkSchemaMatch.isPossiblyOnChainDestination(address)) {
-      DeeplinkSchemaMatch.navigationRouteFor({ url: address }, completionValue => {
+      DeeplinkSchemaMatch.navigationRouteFor({ url: address }, (completionValue: NavigationRoute) => {
         ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
         replace(...completionValue);
       });

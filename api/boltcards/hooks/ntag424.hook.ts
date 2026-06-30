@@ -54,15 +54,18 @@ const defaultOptions: UseNtag424OptionsInterface = {
 export function useNtag424({ manualSessionControl } = defaultOptions): UseNtag424Interface {
   useEffect(() => {
     Ntag424.setSendAPDUCommand(async (commandBytes: number[]) => {
-      const response = Platform.OS == 'ios' ? await NfcManager.sendCommandAPDUIOS(commandBytes) : await NfcManager.transceive(commandBytes);
-      let newResponse: any = response;
-      if (Platform.OS == 'android') {
-        newResponse = {};
-        newResponse.response = response.slice(0, -2);
-        newResponse.sw1 = response.slice(-2, -1);
-        newResponse.sw2 = response.slice(-1);
+      if (Platform.OS == 'ios') {
+        return NfcManager.sendCommandAPDUIOS(commandBytes);
       }
-      return newResponse;
+      const response = await NfcManager.transceive(commandBytes);
+      if (Platform.OS == 'android') {
+        return {
+          response: response.slice(0, -2),
+          sw1: response.slice(-2, -1),
+          sw2: response.slice(-1),
+        };
+      }
+      return response;
     });
 
     return () => {
@@ -106,7 +109,10 @@ export function useNtag424({ manualSessionControl } = defaultOptions): UseNtag42
 
       let ndefMessage = '';
       try {
-        ndefMessage = Ndef.uri.decodePayload(tag.ndefMessage?.[0]?.payload);
+        // nfc-manager types the record payload as `any[]` (a byte array); decodePayload
+        // expects a Uint8Array. Converting yields the identical decoded string and keeps
+        // the existing try/catch fallthrough if the payload is missing.
+        ndefMessage = Ndef.uri.decodePayload(Uint8Array.from(tag.ndefMessage?.[0]?.payload));
       } catch (_) {}
 
       await Ntag424.isoSelectFileApplication();
@@ -195,9 +201,10 @@ export function useNtag424({ manualSessionControl } = defaultOptions): UseNtag42
 
       await Ntag424.AuthEv2First('00', cardDetails.k0);
 
-      const params: any = {};
-      setNdefMessage.replace(/[?&]+([^=&]+)=([^&]*)/gi, function (m, key, value) {
+      const params: Record<string, string> = {};
+      setNdefMessage.replace(/[?&]+([^=&]+)=([^&]*)/gi, function (m: string, key: string, value: string) {
         params[key] = value;
+        return m;
       });
       if (!params['p'] || !params['c']) throw new Error('Invalid lnurlw data');
 

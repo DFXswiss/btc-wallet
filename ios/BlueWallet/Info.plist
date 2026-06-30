@@ -50,7 +50,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
-			<string>Alternate</string> 
+			<string>Alternate</string>
 			<key>LSItemContentTypes</key>
 			<array>
 				<string>public.jpeg</string>
@@ -198,6 +198,8 @@
 		<string>swiss.dfx.bitcoin.receiveonchain</string>
 		<string>swiss.dfx.bitcoin.xpub</string>
 	</array>
+	<key>RCTNewArchEnabled</key>
+	<true/>
 	<key>UIAppFonts</key>
 	<array>
 		<string>AntDesign.ttf</string>

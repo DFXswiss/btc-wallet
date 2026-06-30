@@ -21,6 +21,21 @@
     "react-native/no-inline-styles": "error",
     "react-native/no-unused-styles": "error",
     "react-native/no-single-element-style-arrays": "error",
+    // Adding missing useEffect/useCallback deps can change runtime behaviour
+    // (extra effect/render runs) in a live wallet -> warn, fix case-by-case.
+    "react-hooks/exhaustive-deps": "warn",
+    // react-hooks v7 ships the react-compiler analysis as rules. btc-wallet does
+    // not use react-compiler (no babel plugin) -> these are not actionable here
+    // and not behaviour-neutral to "fix". Treat as warn (rules-of-hooks stays error).
+    "react-hooks/refs": "warn",
+    "react-hooks/immutability": "warn",
+    "react-hooks/set-state-in-effect": "warn",
+    "react-hooks/globals": "warn",
+    "react-hooks/use-memo": "warn",
+    "react-hooks/purity": "warn",
+    "react-hooks/preserve-manual-memoization": "warn",
+    "react-hooks/static-components": "warn",
+    "react-hooks/incompatible-library": "warn",
     "prettier/prettier": [
       "warn",
       {
@@ -45,6 +60,9 @@
     // disable rules that are superseded by @typescript-eslint rules
     "no-unused-vars": "off",
     "no-use-before-define": "off",
+    // base rule misfires on TS parameter-property constructors; TS-aware version understands them
+    "no-useless-constructor": "off",
+    "@typescript-eslint/no-useless-constructor": "error",
 
     // disable rules that we want to enforce only for typescript files
     "@typescript-eslint/explicit-module-boundary-types": "off",

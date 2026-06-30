@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { ParamListBase, useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
   Keyboard,
@@ -43,7 +44,7 @@ enum PosStatus {
 }
 
 const CashierDfxPos = () => {
-  const { navigate } = useNavigation();
+  const { navigate } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { walletID } = useRoute().params as RouteParams;
   const [sellRoutes, setSellRoutes] = useState<SellRoute[]>([]);
   const [selectedRoute, setSelectedRoute] = useState<null | number>(null);
@@ -177,7 +178,7 @@ const CashierDfxPos = () => {
 
   if (isLoading) {
     return (
-      <View style={[styles.loading]}>
+      <View style={styles.loading}>
         <ActivityIndicator />
       </View>
     );
@@ -189,10 +190,10 @@ const CashierDfxPos = () => {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'android' ? undefined : 'position'}
           contentContainerStyle={[styleHooks.root, styles.flex]}
-          style={[styles.flex]}
+          style={styles.flex}
         >
           <View style={[styles.flex, styles.grow]}>
-            <View style={[styles.contentContainer]}>
+            <View style={styles.contentContainer}>
               <View style={styles.pickerContainer}>
                 <Selector items={getRouteItems()} selectedValue={selectedRoute} onValueChange={onRouteChange} />
               </View>
@@ -204,7 +205,7 @@ const CashierDfxPos = () => {
                       <Text style={[styleHooks.colorText, styles.qrTitle]}>
                         {invoiceAmount} {fiatUnit}
                       </Text>
-                      <Icon name="check-circle" size={70} color={'#00b300'} />
+                      <Icon name="check-circle" size={70} color="#00b300" />
                     </>
                   )}
                   {posStatus === PosStatus.WAITING_PAYMENT && (
@@ -225,7 +226,7 @@ const CashierDfxPos = () => {
                     </>
                   )}
                 </View>
-                <View style={styles.shareContainer}></View>
+                <View style={styles.shareContainer} />
               </View>
               <View style={styles.share}>
                 {posStatus === PosStatus.WAITING_CASHIER && (
@@ -275,10 +276,6 @@ const styles = StyleSheet.create({
   loading: {
     flex: 1,
     justifyContent: 'center',
-  },
-  root: {
-    flex: 1,
-    justifyContent: 'space-between',
   },
   contentContainer: {
     flex: 1,

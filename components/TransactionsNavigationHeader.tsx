@@ -91,7 +91,7 @@ const TransactionsNavigationHeader: React.FC<TransactionsNavigationHeaderProps> 
 
   const changeWalletBalanceUnit = () => {
     // @ts-ignore: Ugh
-    menuRef.current?.dismissMenu();
+    menuRef.current?.dismissMenu?.();
     let newWalletPreferredUnit = wallet.getPreferredBalanceUnit();
 
     if (newWalletPreferredUnit === BitcoinUnit.BTC) {

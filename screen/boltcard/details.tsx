@@ -7,16 +7,16 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import useLdsBoltcards from '../../api/boltcards/hooks/bolcards.hook';
 import { AbstractWallet } from '../../class';
-import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { ParamListBase, useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import loc from '../../loc';
 import BoltcardTransactionList from '../../components/BoltcardTransactionList';
 import BoltCard from '../../class/boltcard';
 import { Hit } from '../../api/boltcards/definitions/apiDtos';
 import useInputAmount from '../../hooks/useInputAmount';
-import alert from '../../components/Alert';
 import BoltCardsCarousel from './BoltCardsCarousel';
 
-const BoltcardDetails: React.FC = () => {
+const BoltcardDetails: React.FC & { navigationOptions?: ReturnType<typeof navigationStyle> } = () => {
   const { colors } = useTheme();
   const { wallets, saveToDisk } = useContext(BlueStorageContext);
   const ldsWallet = wallets.find((w: AbstractWallet) => w.type === LightningLdsWallet.type) as LightningLdsWallet;
@@ -27,13 +27,13 @@ const BoltcardDetails: React.FC = () => {
     [params],
   ) as BoltCard;
   const [card, setCard] = useState(defaultCard);
-  const { navigate } = useNavigation();
+  const { navigate } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const [isEditCard, setIsEditCard] = useState(false);
   const [hits, setHits] = useState<Hit[]>(ldsWallet.cachedHits || []);
   const { getHits, enableBoltcard, updateBoltcard } = useLdsBoltcards();
   const [isPolling, setIsPolling] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const pollInterval = useRef<NodeJS.Timeout>();
+  const pollInterval = useRef<NodeJS.Timeout | undefined>(undefined);
   const [cardName, setCardName] = useState('');
   const { amountSats: dailySats, formattedUnit: dailyUnit, inputProps: dailyInputProps, resetInput: resetDaily } = useInputAmount();
   const { amountSats: txLimitSats, formattedUnit: txLimitUnit, inputProps: txLimitInputProps, resetInput: resetTxLimit } = useInputAmount();
@@ -83,16 +83,10 @@ const BoltcardDetails: React.FC = () => {
     optionText: {
       color: colors.foregroundColor,
     },
-    textdesc: {
-      color: colors.alternativeTextColor,
-    },
     textInputContainer: {
       borderColor: colors.formBorder,
       borderBottomColor: colors.formBorder,
       backgroundColor: colors.inputBackgroundColor,
-    },
-    inputTitle: {
-      color: colors.foregroundColor,
     },
     textInput: {
       color: colors.foregroundColor,
@@ -129,7 +123,7 @@ const BoltcardDetails: React.FC = () => {
       resetInputs();
     } catch (error) {
       setIsUpdating(false);
-      console.log("ERROR: ", error);
+      console.log('ERROR: ', error);
     }
   };
 
@@ -153,7 +147,7 @@ const BoltcardDetails: React.FC = () => {
     return (
       <TouchableOpacity onPress={onPress} style={styles.optionButton}>
         <Icon name={icon} size={24} color={colors.foregroundColor} />
-        <Text style={[stylesHooks.optionText]}>{title}</Text>
+        <Text style={stylesHooks.optionText}>{title}</Text>
       </TouchableOpacity>
     );
   };
