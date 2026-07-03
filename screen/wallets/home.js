@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { Icon } from 'react-native-elements';
 import { useRoute, useNavigation, useTheme, useIsFocused } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as bitcoin from 'bitcoinjs-lib';
 import { BlueListItem, SecondButton } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
@@ -48,13 +49,15 @@ const WalletHome = ({ navigation }) => {
   const multisigWallet = useMemo(() => wallets.find(w => w.type === MultisigHDWallet.type), [wallets]);
   const lnWallet = useMemo(() => wallets.find(w => w.type === LightningLdsWallet.type), [wallets]);
   const [, setIsLoading] = useState(false);
-  const { name } = useRoute();
+  const { name, params } = useRoute();
   const { setParams, navigate } = useNavigation();
   const { colors, scanImage } = useTheme();
   const walletActionButtonsRef = useRef();
   const { width } = useWindowDimensions();
   const isFocused = useIsFocused();
   const getPrivateText = usePrivateText();
+  const insets = useSafeAreaInsets();
+  const headerOverlayHeight = insets.top + 44;
 
   const wallet = useMemo(() => wallets.find(w => w.getID() === walletID), [wallets, walletID]);
   const totalWallet = useMemo(() => {
@@ -75,6 +78,15 @@ const WalletHome = ({ navigation }) => {
     },
     comingSoon: {
       color: colors.alternativeTextColor,
+    },
+    backupSeed: {
+      backgroundColor: params?.backupWarning ? '#FFF389' : colors.buttonBackgroundColor,
+    },
+    backupSeedText: {
+      marginLeft: 4,
+      color: colors.buttonAlternativeTextColor,
+      fontWeight: '600',
+      fontSize: 14,
     },
   });
 
@@ -300,6 +312,7 @@ const WalletHome = ({ navigation }) => {
         navigation={navigation}
         wallet={totalWallet}
         width={width}
+        headerOverlayHeight={headerOverlayHeight}
         showRBFWarning={!wallet.allowRBF()}
         onWalletChange={total =>
           InteractionManager.runAfterInteractions(async () => {
@@ -311,6 +324,30 @@ const WalletHome = ({ navigation }) => {
           })
         }
       />
+      {Platform.OS === 'android' && (
+        <View style={[styles.navHeader, { top: insets.top }]}>
+          {params?.showsBackupSeed ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              testID="backupSeed"
+              style={[styles.backupSeedButton, stylesHook.backupSeed]}
+              onPress={() => navigate('BackupSeedRoot', { screenName: 'BackupExplanation' })}
+            >
+              <View style={styles.backupSeedContainer}>
+                {params?.backupWarning && <Icon name="warning-outline" type="ionicon" size={18} color="#FFFFFF" />}
+                <Text style={stylesHook.backupSeedText}>
+                  {params?.backupWarning ? loc.wallets.backupSeedWarning : loc.wallets.backupSeed}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <View />
+          )}
+          <TouchableOpacity accessibilityRole="button" testID="Settings" style={styles.walletDetails} onPress={() => navigate('Settings')}>
+            <Icon name="more-horiz" type="material" size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      )}
       <DfxServicesButtons />
       <View style={[styles.list, stylesHook.list]}>
         {displayWallets.map((item, i) => (
@@ -399,12 +436,19 @@ const WalletHome = ({ navigation }) => {
 export default WalletHome;
 
 WalletHome.navigationOptions = navigationStyle({}, (options, { theme, navigation, route }) => {
+  if (Platform.OS === 'android') {
+    return {
+      ...options,
+      headerShown: false,
+      gestureEnabled: false,
+    };
+  }
+
   const stylesHook = StyleSheet.create({
     backupSeed: {
       height: 34,
       padding: 8,
       borderRadius: 8,
-      backgroundColor: Platform.OS === 'ios' ? undefined : route?.params?.backupWarning ? '#FFF389' : theme.colors.buttonBackgroundColor,
     },
     backupSeedText: {
       marginLeft: 4,
@@ -415,6 +459,7 @@ WalletHome.navigationOptions = navigationStyle({}, (options, { theme, navigation
   });
 
   return {
+    ...options,
     headerLeft: () =>
       route?.params?.showsBackupSeed ? (
         <TouchableOpacity
@@ -444,15 +489,11 @@ WalletHome.navigationOptions = navigationStyle({}, (options, { theme, navigation
       </TouchableOpacity>
     ),
     title: '',
+    headerTransparent: true,
     headerStyle: {
       backgroundColor: 'transparent',
-      borderBottomWidth: 0,
-      elevation: 0,
-      // shadowRadius: 0,
-      shadowOffset: { height: 0, width: 0 },
     },
     headerTintColor: '#FFFFFF',
-    headerBackTitleVisible: false,
     headerBackVisible: false,
     gestureEnabled: false,
   };
@@ -473,6 +514,22 @@ const styles = StyleSheet.create({
   walletDetails: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  navHeader: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    zIndex: 1,
+  },
+  backupSeedButton: {
+    height: 34,
+    padding: 8,
+    borderRadius: 8,
   },
   backupSeedContainer: {
     flex: 1,
