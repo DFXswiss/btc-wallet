@@ -108,15 +108,19 @@ const WalletAddresses = () => {
     const newAddresses = [];
 
     for (let index = 0; index <= walletInstance.next_free_change_address_index; index++) {
-      const address = getAddress(walletInstance, index, true);
-
-      newAddresses.push(address);
+      try {
+        newAddresses.push(getAddress(walletInstance, index, true));
+      } catch (error) {
+        console.error('error', error);
+      }
     }
 
     for (let index = 0; index < walletInstance.next_free_address_index + walletInstance.gap_limit; index++) {
-      const address = getAddress(walletInstance, index, false);
-
-      newAddresses.push(address);
+      try {
+        newAddresses.push(getAddress(walletInstance, index, false));
+      } catch (error) {
+        console.error('error', error);
+      }
     }
 
     setAddresses(newAddresses);
