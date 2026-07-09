@@ -60,7 +60,7 @@ const ReceiveDetails = () => {
   const [initialUnconfirmed, setInitialUnconfirmed] = useState(0);
   const [displayBalance, setDisplayBalance] = useState('');
   const fetchAddressInterval = useRef();
-  const { inputProps, amountSats, formattedUnit, changeToNextUnit } = useInputAmount();
+  const { inputProps, amountSats, formattedUnit, changeToNextUnit, resetInput } = useInputAmount();
 
   const stylesHook = StyleSheet.create({
     customAmount: {
@@ -386,6 +386,8 @@ const ReceiveDetails = () => {
     setInitialUnconfirmed(0);
     setIntervalMs(5000);
     setBip21encoded(undefined);
+    setCustomLabel('');
+    resetInput();
     setParams({ walletID: id, address: null });
   };
 
