@@ -41,6 +41,38 @@ import useInputAmount from '../../hooks/useInputAmount';
 import NetworkTransactionFees from '../../models/networkTransactionFees';
 const currency = require('../../blue_modules/currency');
 
+// Pure decision for a wallet switch on the receive screen. Kept at module
+// scope (no component state) so it is unit-testable without rendering.
+// Returns { action: 'none' | 'navigate' | 'reset', target? }.
+export const resolveWalletChange = (newWallet, currentWalletId) => {
+  if (!newWallet || newWallet.getID() === currentWalletId) return { action: 'none' };
+  if (newWallet.chain !== Chain.ONCHAIN) {
+    return {
+      action: 'navigate',
+      target: { name: newWallet.isPosMode ? 'PosReceive' : 'LNDReceive', params: { walletID: newWallet.getID() } },
+    };
+  }
+  return { action: 'reset' };
+};
+
+// Resets the whole pending-payment watcher + input state so nothing (view
+// flags, balance baselines, eta, poll cadence, stale bip21 string, custom
+// amount/label) leaks across wallets. Setters are injected so it can be
+// unit-tested in isolation.
+export const resetReceiveState = setters => {
+  setters.setShowAddress(false);
+  setters.setShowPendingBalance(false);
+  setters.setShowConfirmedBalance(false);
+  setters.setDisplayBalance('');
+  setters.setEta('');
+  setters.setInitialConfirmed(0);
+  setters.setInitialUnconfirmed(0);
+  setters.setIntervalMs(5000);
+  setters.setBip21encoded(undefined);
+  setters.setCustomLabel('');
+  setters.resetInput();
+};
+
 const ReceiveDetails = () => {
   const { walletID, address } = useRoute().params;
   const { wallets, saveToDisk, sleep, isElectrumDisabled, refreshAllWalletTransactions, revalidateBalancesInterval } =
@@ -368,26 +400,24 @@ const ReceiveDetails = () => {
   };
 
   const onWalletChange = id => {
-    if (id === wallet?.getID()) return;
-
     const newWallet = wallets.find(w => w.getID() === id);
-    if (!newWallet) return;
+    const decision = resolveWalletChange(newWallet, wallet?.getID());
+    if (decision.action === 'none') return;
+    if (decision.action === 'navigate') return decision.target;
 
-    if (newWallet.chain !== Chain.ONCHAIN) {
-      return { name: newWallet.isPosMode ? 'PosReceive' : 'LNDReceive', params: { walletID: id } };
-    }
-
-    setShowAddress(false);
-    setShowPendingBalance(false);
-    setShowConfirmedBalance(false);
-    setDisplayBalance('');
-    setEta('');
-    setInitialConfirmed(0);
-    setInitialUnconfirmed(0);
-    setIntervalMs(5000);
-    setBip21encoded(undefined);
-    setCustomLabel('');
-    resetInput();
+    resetReceiveState({
+      setShowAddress,
+      setShowPendingBalance,
+      setShowConfirmedBalance,
+      setDisplayBalance,
+      setEta,
+      setInitialConfirmed,
+      setInitialUnconfirmed,
+      setIntervalMs,
+      setBip21encoded,
+      setCustomLabel,
+      resetInput,
+    });
     setParams({ walletID: id, address: null });
   };
 
