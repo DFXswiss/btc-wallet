@@ -1,7 +1,7 @@
 import React, { useContext, useRef, useState, useEffect, useMemo } from 'react';
-import { Alert, FlatList, LayoutAnimation, Platform, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Platform, StyleSheet, Text, View } from 'react-native';
 import { Icon } from 'react-native-elements';
-import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { useIsFocused, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import PropTypes from 'prop-types';
 
@@ -35,6 +35,7 @@ const WalletsAddMultisigStep2 = () => {
   const [isError, setIsError] = useState(false);
   const scannedCache = useRef({}).current; // ref so the scan-dedup cache survives re-renders
   const quorum = useRef(new Array(n));
+  const isFocused = useIsFocused();
 
   useEffect(() => {
     if (cosigners.length === 0) {
@@ -192,7 +193,6 @@ const WalletsAddMultisigStep2 = () => {
 
     const cosignersCopy = [...cosigners];
     cosignersCopy.push([xpub, fp, path]);
-    if (Platform.OS !== 'android') LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setCosigners(cosignersCopy);
   };
 
@@ -355,7 +355,6 @@ const WalletsAddMultisigStep2 = () => {
 
       const cosignersCopy = [...cosigners];
       cosignersCopy.push([cosigner.getXpub(), cosigner.getFp(), cosigner.getPath()]);
-      if (Platform.OS !== 'android') LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
       setCosigners(cosignersCopy);
     }
@@ -395,12 +394,14 @@ const WalletsAddMultisigStep2 = () => {
         <QRCodeComponent value={cosignerXpubURv2} size={290} />
       </View>
       <View style={styles.cameraContainer}>
-        <Camera
-          scanBarcode={!isError}
-          scanThrottleDelay={0}
-          onReadCode={event => onBarCodeRead({ data: event?.nativeEvent?.codeStringValue })}
-          style={styles.camera}
-        />
+        {isFocused && (
+          <Camera
+            scanBarcode={!isError}
+            scanThrottleDelay={0}
+            onReadCode={event => onBarCodeRead({ data: event?.nativeEvent?.codeStringValue })}
+            style={styles.camera}
+          />
+        )}
       </View>
       <View style={styles.buttonContainer}>
         <BlueButton isLoading={isLoading} title={loc.multisig.create} onPress={onCreate} disabled={cosigners.length !== n} />

@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState, useRef, useMemo } from 'react';
-import { ActivityIndicator, Alert, FlatList, LayoutAnimation, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, StyleSheet, View } from 'react-native';
 import { StackActions, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { BlueButton, BlueButtonLink, BlueFormLabel, BlueSpacing10, BlueSpacing20, SafeBlueArea } from '../../BlueComponents';
@@ -75,7 +75,6 @@ const ImportWalletDiscovery = () => {
     const onWallet = wallet => {
       if (wallet.type === WatchOnlyWallet.type) return;
 
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       const id = wallet.getID();
       let subtitle;
       try {
@@ -121,7 +120,6 @@ const ImportWalletDiscovery = () => {
         Alert.alert('import error', e.message);
       })
       .finally(() => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setLoading(false);
       });
 

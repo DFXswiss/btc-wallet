@@ -1,7 +1,7 @@
 /* eslint react/prop-types: "off", react-native/no-inline-styles: "off" */
 import React, { Component } from 'react';
 import { Text } from 'react-native-elements';
-import { Dimensions, LayoutAnimation, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Dimensions, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { encodeUR } from '../blue_modules/ur';
 import QRCodeComponent from './QRCodeComponent';
 import { BlueCurrentTheme } from '../components/themes';
@@ -108,7 +108,6 @@ export class DynamicQRCode extends Component {
           accessibilityRole="button"
           testID="DynamicCode"
           onPress={() => {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
             this.setState(prevState => ({ hideControls: !prevState.hideControls }));
           }}
         >
