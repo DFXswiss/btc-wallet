@@ -151,8 +151,8 @@ async function _initConnection() {
     usingPeer = savedPeer;
   }
 
-  await DefaultPreference.setName('group.swiss.dfx.bitcoin');
   try {
+    await DefaultPreference.setName('group.swiss.dfx.bitcoin');
     if (usingPeer.host.endsWith('onion')) {
       const randomPeer = await getCurrentPeer();
       await DefaultPreference.set(ELECTRUM_HOST, randomPeer.host);
