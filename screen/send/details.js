@@ -6,7 +6,6 @@ import {
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
-  LayoutAnimation,
   Platform,
   ScrollView,
   StatusBar,
@@ -213,7 +212,6 @@ const SendDetails = () => {
       })
       .catch(e => console.log('loading recommendedFees error', e))
       .finally(() => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setNetworkTransactionFeesIsLoading(false);
       });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -323,7 +321,6 @@ const SendDetails = () => {
   // we need to re-calculate fees if user opens-closes coin control
   useFocusEffect(
     useCallback(() => {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setDumb(v => !v);
     }, []),
   );
@@ -384,7 +381,6 @@ const SendDetails = () => {
 
     return change;
   };
-
 
   const createTransaction = async () => {
     Keyboard.dismiss();

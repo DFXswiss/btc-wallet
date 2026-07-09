@@ -5,7 +5,6 @@ import {
   InteractionManager,
   Keyboard,
   KeyboardAvoidingView,
-  LayoutAnimation,
   Platform,
   StatusBar,
   StyleSheet,
@@ -326,7 +325,6 @@ const ViewEditMultisigCosigners = () => {
       return alert(e.message);
     }
 
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setWallet(wallet);
     setIsProvideMnemonicsModalVisible(false);
     setImportText('');

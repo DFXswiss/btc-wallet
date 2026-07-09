@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import BigNumber from 'bignumber.js';
 import { Badge, Icon, Text } from 'react-native-elements';
-import { Image, LayoutAnimation, StyleSheet, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { Image, StyleSheet, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import confirm from '../helpers/confirm';
 import { BitcoinUnit } from '../models/bitcoinUnits';
@@ -203,16 +203,13 @@ class AmountInput extends Component {
   };
 
   updateRate = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     this.setState({ isRateBeingUpdated: true }, async () => {
       try {
         await currency.updateExchangeRate();
         currency.mostRecentFetchedRate().then(mostRecentFetchedRate => {
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
           this.setState({ mostRecentFetchedRate });
         });
       } finally {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         this.setState({ isRateBeingUpdated: false, isRateOutdated: await currency.isRateOutdated() });
       }
     });
