@@ -13,7 +13,7 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { BlueURDecoder, encodeUR } from '../../blue_modules/ur';
 import QRCodeComponent from '../../components/QRCodeComponent';
 import alert from '../../components/Alert';
-import { Camera } from 'react-native-camera-kit-no-google';
+import { CosignerCamera } from './CosignerCamera';
 import { ScrollView } from 'react-native-gesture-handler';
 const createHash = require('create-hash');
 
@@ -394,14 +394,12 @@ const WalletsAddMultisigStep2 = () => {
         <QRCodeComponent value={cosignerXpubURv2} size={290} />
       </View>
       <View style={styles.cameraContainer}>
-        {isFocused && (
-          <Camera
-            scanBarcode={!isError}
-            scanThrottleDelay={0}
-            onReadCode={event => onBarCodeRead({ data: event?.nativeEvent?.codeStringValue })}
-            style={styles.camera}
-          />
-        )}
+        <CosignerCamera
+          isFocused={isFocused}
+          scanBarcode={!isError}
+          onReadCode={event => onBarCodeRead({ data: event?.nativeEvent?.codeStringValue })}
+          style={styles.camera}
+        />
       </View>
       <View style={styles.buttonContainer}>
         <BlueButton isLoading={isLoading} title={loc.multisig.create} onPress={onCreate} disabled={cosigners.length !== n} />
