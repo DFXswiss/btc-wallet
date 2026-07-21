@@ -47,6 +47,7 @@ const storageKey = 'ELECTRUM_PEERS';
 const defaultPeer = { host: 'electrum1.bluewallet.io', ssl: '443' };
 const hardcodedPeers = [
   { host: 'mainnet.foundationdevices.com', ssl: '50002' },
+  { host: 'bitcoin.lu.ke', ssl: '50002' },
   { host: 'electrum1.bluewallet.io', ssl: '443' },
   { host: 'electrum.acinq.co', ssl: '50002' },
   { host: 'electrum.bitaroo.net', ssl: '50002' },
