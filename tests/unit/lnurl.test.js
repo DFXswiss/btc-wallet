@@ -10,6 +10,12 @@ describe('LNURL', function () {
     assert.strictEqual(Lnurl.findlnurl('https://site.com/?lightning=' + base.toUpperCase()), base);
     assert.strictEqual(Lnurl.findlnurl('https://site.com/?nada=nada&lightning=' + base), base);
     assert.strictEqual(Lnurl.findlnurl('https://site.com/?nada=nada&lightning=' + base.toUpperCase()), base);
+    assert.strictEqual(Lnurl.findlnurl('lightning:' + base), base);
+    assert.strictEqual(Lnurl.findlnurl('dfxtaro:lightning:' + base), base);
+    assert.strictEqual(Lnurl.findlnurl('dfxtaro:lightning:' + base.toUpperCase()), base);
+    assert.strictEqual(Lnurl.findlnurl('DFXTARO:LIGHTNING:' + base.toUpperCase()), base);
+    assert.strictEqual(Lnurl.findlnurl('dfxtaro:' + base), base);
+    assert.strictEqual(Lnurl.findlnurl('bluewallet:lightning:' + base), base);
     assert.strictEqual(Lnurl.findlnurl('bs'), null);
     assert.strictEqual(Lnurl.findlnurl('https://site.com'), null);
     assert.strictEqual(Lnurl.findlnurl('https://site.com/?bs=' + base), null);

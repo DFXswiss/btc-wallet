@@ -120,9 +120,12 @@ const LnurlNavigationForwarder = () => {
 
     const isOffchain = wallets.find((w: any) => w.getID() === params?.walletID)?.chain === Chain.OFFCHAIN;
     if (tag === Lnurl.TAG_LOGIN_REQUEST) {
-      return navigation.navigate('LnurlAuth', {
-        lnurl,
-        walletID: isOffchain ? params?.walletID : undefined,
+      return navigation.replace('SendDetailsRoot', {
+        screen: 'LnurlAuth',
+        params: {
+          lnurl,
+          walletID: isOffchain ? params?.walletID : undefined,
+        },
       });
     }
 
