@@ -35,6 +35,7 @@ export type SendDetailsStackParamList = {
   ScanLndInvoice: object;
   LnurlPay: object;
   LnurlPaySuccess: object;
+  LnurlAuth: { walletID?: string; lnurl: string };
   LnurlNavigationForwarder: object;
   OpenCryptoPayCommitOnchain: object;
 };
@@ -42,6 +43,7 @@ export type SendDetailsStackParamList = {
 export type ReceiveDetailsStackParamList = {
   ReceiveDetails: { walletID: string; address?: string };
   LNDCreateInvoice: object;
+  LnurlAuth: { walletID?: string; lnurl: string };
   LNDReceive: object;
   PosReceive: object;
   CashierPos: object;
@@ -137,7 +139,7 @@ export type WalletsStackParamList = {
   IsItMyAddress: undefined;
   LnurlPay: object;
   LnurlPaySuccess: object;
-  LnurlAuth: object;
+  LnurlAuth: { walletID?: string; lnurl: string };
   Success: object;
   WalletAddresses: { walletID: string };
 };

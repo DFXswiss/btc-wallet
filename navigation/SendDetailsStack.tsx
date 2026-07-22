@@ -14,6 +14,7 @@ import CoinControl from '../screen/send/coinControl';
 import ScanLndInvoice from '../screen/lnd/scanLndInvoice';
 import LnurlPay from '../screen/lnd/lnurlPay';
 import LnurlPaySuccess from '../screen/lnd/lnurlPaySuccess';
+import LnurlAuth from '../screen/lnd/lnurlAuth';
 import LnurlNavigationForwarder from '../screen/lnd/lnurlNavigationForwarder';
 import OpenCryptoPayCommitOnchain from '../screen/open-crypto-pay/openCrytoPayCommitOnchain';
 
@@ -38,6 +39,7 @@ const SendDetailsStack = () => {
       <Stack.Screen name="ScanLndInvoice" component={ScanLndInvoice} options={ScanLndInvoice.navigationOptions(theme)} />
       <Stack.Screen name="LnurlPay" component={LnurlPay} options={LnurlPay.navigationOptions(theme)} />
       <Stack.Screen name="LnurlPaySuccess" component={LnurlPaySuccess} options={LnurlPaySuccess.navigationOptions(theme)} />
+      <Stack.Screen name="LnurlAuth" component={LnurlAuth} options={LnurlAuth.navigationOptions(theme)} />
       <Stack.Screen
         name="LnurlNavigationForwarder"
         component={LnurlNavigationForwarder}

@@ -25,7 +25,11 @@ export default class Lnurl {
   }
 
   static findlnurl(bodyOfText) {
-    const cleanedText = bodyOfText.replace('mailto:', '').toLowerCase();
+    // the app's own URI schemes may wrap a lightning: link, e.g. dfxtaro:lightning:LNURL1... or dfxtaro://lightning:LNURL1...
+    const cleanedText = bodyOfText
+      .toLowerCase()
+      .replace('mailto:', '')
+      .replace(/^(?:dfxtaro|bluewallet):(?:\/\/)?/, '');
     const res = /^(?:http.*[&?]lightning=|lightning:)?(lnurl1[02-9ac-hj-np-z]+)/.exec(cleanedText);
     if (res) {
       return res[1];
