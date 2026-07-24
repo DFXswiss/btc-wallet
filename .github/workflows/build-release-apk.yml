@@ -66,6 +66,9 @@ jobs:
           TRANSPARENCY_PASSWORD: ${{ secrets.TRANSPARENCY_PASSWORD }}
           TRANSPARENCY_ALIAS: ${{ secrets.TRANSPARENCY_ALIAS }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_URL: https://sentry.dfxserve.com/
+          SENTRY_ORG: sentry
+          SENTRY_PROJECT: btc-taro
         run: ./scripts/build-release-apk.sh
 
       - name: Prepare release assets and checksums

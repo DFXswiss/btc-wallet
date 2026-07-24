@@ -1,8 +1,18 @@
-# Crash reports (Apple native, no third-party tools)
+# Crash reports
 
-The app ships **no crash-reporting SDK** and sends no telemetry. We rely on Apple's built-in
-crash collection, which surfaces in **Xcode → Window → Organizer → Crashes** (and the crash
-section of App Store Connect) for the app id `swiss.dfx.bitcoin`.
+The app ships the Sentry SDK (`@sentry/react-native`, self-hosted at `sentry.dfxserve.com`),
+which is now the primary way JS and native crashes/errors reach us — see `App.js` for the
+`Sentry.init()` config and `blue_modules/analytics.js` for how it respects the in-app
+Do Not Track toggle. No PII is collected (`sendDefaultPii: false`).
+
+The Apple-native flow below (Organizer/App Store Connect crash reports, no SDK involved)
+still works as a fallback — for example for a user who's opted out of Sentry via Do Not
+Track, or for pre-Sentry builds. It only covers iOS; Android crash triage goes through Sentry.
+
+## Apple-native fallback (no third-party tools)
+
+Apple's built-in crash collection surfaces in **Xcode → Window → Organizer → Crashes** (and the
+crash section of App Store Connect) for the app id `swiss.dfx.bitcoin`.
 
 For a crash to appear there, readable, four things must line up:
 
