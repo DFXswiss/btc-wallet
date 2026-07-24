@@ -11,6 +11,9 @@ name: Release
 #   iOS:     APP_STORE_CONNECT_KEY, APP_STORE_CONNECT_KEY_ID, APP_STORE_CONNECT_ISSUER_ID,
 #            MATCH_SSH_KEY (deploy key for the certs repo), MATCH_PASSWORD
 #   Android: PLAY_STORE_JSON_BASE64, KEYSTORE_*, TRANSPARENCY_*
+#   Both:    SENTRY_AUTH_TOKEN (required: a missing token fails the release
+#            intentionally, rather than silently shipping without crash
+#            symbolication - see the explicit guards in each Fastfile/script)
 
 on:
   workflow_dispatch:
@@ -110,6 +113,7 @@ jobs:
         working-directory: ios
         env:
           NEW_VERSION: ${{ github.ref_name }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: bundle exec fastlane release
 
   android-deploy:
@@ -159,6 +163,7 @@ jobs:
           TRANSPARENCY_KEYSTORE_HEX: ${{ secrets.TRANSPARENCY_KEYSTORE_HEX }}
           TRANSPARENCY_PASSWORD: ${{ secrets.TRANSPARENCY_PASSWORD }}
           TRANSPARENCY_ALIAS: ${{ secrets.TRANSPARENCY_ALIAS }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: bundle exec fastlane release
       - name: Prepare release assets + checksums
         run: bash ./.github/scripts/prepare-release-assets.sh
