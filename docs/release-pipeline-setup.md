@@ -49,6 +49,16 @@ Used by `upload_to_testflight`, `deliver`, and `match`.
 These already exist (used by `build-release-apk.yml`). The new pipeline reuses them — nothing to do.
 (For reference, the `*_HEX` ones are `xxd -plain keystore.jks`.)
 
+### Crash reporting (Sentry)
+Used by both platforms' Release-configuration builds to upload debug symbols / source
+maps (`docs/crash-reports.md` covers the app-side setup). A missing/empty value fails
+the build intentionally — see the guards in `scripts/build-release-apk.sh` and
+`ios/fastlane/Fastfile`.
+| Secret / value | What it is | Where to get it |
+| --- | --- | --- |
+| `SENTRY_AUTH_TOKEN` (secret) | Auth token for `sentry-cli` uploads. | `sentry.dfxserve.com` → **Settings → Auth Tokens** (org-level if available), scopes `project:releases`, `project:read`, `org:read`. |
+| `SENTRY_URL`, `SENTRY_ORG`, `SENTRY_PROJECT` (plain values, not secrets) | Where to upload to — `sentry-cli` defaults to `sentry.io` without these. | Already fixed for this self-hosted instance/project: `https://sentry.dfxserve.com/`, `sentry`, `btc-taro`. Set as **variables**, or plain `env:` values as the existing workflows already do. |
+
 ### Optional variable
 | Name | When needed | Where |
 | --- | --- | --- |

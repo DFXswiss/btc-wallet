@@ -32,6 +32,37 @@ import WidgetCommunication from './blue_modules/WidgetCommunication';
 import HandoffComponent from './components/handoff';
 import Privacy from './blue_modules/Privacy';
 import { addEventListener } from '@react-native-community/netinfo';
+import * as Sentry from '@sentry/react-native';
+const BlueApp = require('./BlueApp');
+
+// blue_modules/analytics.js's setSentryEnabled() only toggles JS-side event
+// delivery (client.getOptions().enabled) - it can't retroactively stop native
+// crash handling once initialized. enableNative can only be set at init time,
+// so the persisted Do Not Track choice has to be read (async, AsyncStorage-
+// backed) before Sentry.init() runs, not after. Deferring init briefly - rather
+// than initializing native handling unconditionally and hoping to disable it
+// later - is what actually keeps an opted-out user's native crashes local.
+BlueApp.isDoNotTrackEnabled().then(doNotTrack => {
+  Sentry.init({
+    dsn: 'https://3442e1e21177204b9c8d25d2f682b485@sentry.dfxserve.com/4',
+
+    // Set both here, atomically, from the one resolved value: blue_modules/
+    // analytics.js reads this same async preference independently for live
+    // toggling later, and racing two separate reads of it at startup could
+    // otherwise leave the JS side briefly enabled for an opted-out user.
+    enableNative: !doNotTrack,
+    enabled: !doNotTrack,
+
+    // Do not attach IP address, cookies, or other PII to events.
+    sendDefaultPii: false,
+
+    // Enable Logs
+    enableLogs: true,
+
+    // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+    // spotlight: __DEV__,
+  });
+});
 const currency = require('./blue_modules/currency');
 const BlueElectrum = require('./blue_modules/BlueElectrum');
 
@@ -223,4 +254,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default App;
+export default Sentry.wrap(App);
