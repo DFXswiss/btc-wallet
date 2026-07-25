@@ -1,9 +1,11 @@
 const BlueApp = require('../BlueApp');
 const Sentry = require('@sentry/react-native');
 
-// Sentry.init() runs synchronously at import time (App.js), before this module loads,
-// so a client already exists here. Toggling client.getOptions().enabled is the same
-// mechanism the SDK itself uses internally (see Client.close()) to gate event sending.
+// App.js defers Sentry.init() behind its own isDoNotTrackEnabled() read (so native
+// crash handling, which can only be gated at init time, respects opt-out from the
+// start) - Sentry.getClient() may not exist yet when this runs. Toggling
+// client.getOptions().enabled is the same mechanism the SDK itself uses internally
+// (see Client.close()) to gate event sending, and is a no-op if there's no client yet.
 const setSentryEnabled = enabled => {
   const client = Sentry.getClient();
   if (client) {
@@ -11,9 +13,12 @@ const setSentryEnabled = enabled => {
   }
 };
 
-// Apply the persisted opt-out choice as soon as it's read, closing the gap that made
-// upstream BlueWallet remove Sentry entirely (opt-out toggle didn't stop network calls,
-// BlueWallet/BlueWallet#3309/#3621): until this resolves, Sentry stays at its init default.
+// Re-applies the persisted opt-out choice independently of App.js's own init-time
+// read (belt and suspenders for the JS side; App.js already gates both `enabled`
+// and `enableNative` atomically from its own read), and is what handles it live if
+// the user flips the toggle in Settings mid-session via A.setOptOut below. Closes
+// the gap that made upstream BlueWallet remove Sentry entirely (opt-out toggle
+// didn't stop network calls, BlueWallet/BlueWallet#3309/#3621).
 BlueApp.isDoNotTrackEnabled().then(doNotTrack => setSentryEnabled(!doNotTrack));
 
 const A = async event => {};
