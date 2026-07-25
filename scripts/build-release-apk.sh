@@ -9,6 +9,8 @@ set -euo pipefail
 #   TRANSPARENCY_KEYSTORE_HEX hex-encoded code transparency keystore
 #   TRANSPARENCY_PASSWORD
 #   TRANSPARENCY_ALIAS
+#   SENTRY_AUTH_TOKEN         required so the release build fails loud instead of
+#                             silently shipping without crash symbolication
 #
 # Optional:
 #   BUILD_NUMBER              deterministic versionCode override
@@ -19,7 +21,7 @@ cd "$REPO_ROOT"
 
 # ── validate ──────────────────────────────────────────────────────────────────
 for var in KEYSTORE_FILE_HEX KEYSTORE_PASSWORD KEYSTORE_KEY_PASSWORD KEYSTORE_ALIAS \
-           TRANSPARENCY_KEYSTORE_HEX TRANSPARENCY_PASSWORD TRANSPARENCY_ALIAS; do
+           TRANSPARENCY_KEYSTORE_HEX TRANSPARENCY_PASSWORD TRANSPARENCY_ALIAS SENTRY_AUTH_TOKEN; do
   [ -n "${!var:-}" ] || { echo "Missing required env: $var" >&2; exit 1; }
 done
 

@@ -111,6 +111,11 @@ platform :ios do
   # the App Store listing staged alongside the TestFlight build.
   desc "Tag-driven store release: TestFlight + stage the App Store listing"
   lane :release do
+    # Fail fast with a clear message instead of deep inside the Xcode "Upload
+    # Debug Symbols to Sentry" build phase, which would fail the whole build
+    # on a missing token anyway but with a much less obvious error.
+    UI.user_error!("SENTRY_AUTH_TOKEN is required for store release builds") if ENV.fetch("SENTRY_AUTH_TOKEN", "").empty?
+
     setup_ci
     info = resolve_release_info(ENV["NEW_VERSION"] || "dev")
     api_key = get_api_key

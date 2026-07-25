@@ -7,6 +7,8 @@ name: Deploy (develop)
 #
 # Required repository secrets:
 #   KEYSTORE_FILE_HEX, KEYSTORE_PASSWORD, KEYSTORE_KEY_PASSWORD, KEYSTORE_ALIAS
+#   SENTRY_AUTH_TOKEN (required: a missing token fails this build intentionally,
+#   rather than silently shipping without crash symbolication)
 
 on:
   push:
@@ -48,8 +50,10 @@ jobs:
           KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
           KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
           BUILD_NUMBER: ${{ github.run_number }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
           set -euo pipefail
+          [ -n "${SENTRY_AUTH_TOKEN:-}" ] || { echo "Missing required env: SENTRY_AUTH_TOKEN" >&2; exit 1; }
           KS="$(mktemp /tmp/app-signing.XXXXXX.keystore)"; chmod 600 "$KS"
           trap 'shred -u "$KS" 2>/dev/null || rm -f "$KS"' EXIT
           printf '%s' "$KEYSTORE_FILE_HEX" | xxd -plain -revert > "$KS"

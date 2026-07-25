@@ -32,6 +32,20 @@ import WidgetCommunication from './blue_modules/WidgetCommunication';
 import HandoffComponent from './components/handoff';
 import Privacy from './blue_modules/Privacy';
 import { addEventListener } from '@react-native-community/netinfo';
+import * as Sentry from '@sentry/react-native';
+
+Sentry.init({
+  dsn: 'https://3442e1e21177204b9c8d25d2f682b485@sentry.dfxserve.com/4',
+
+  // Do not attach IP address, cookies, or other PII to events.
+  sendDefaultPii: false,
+
+  // Enable Logs
+  enableLogs: true,
+
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // spotlight: __DEV__,
+});
 const currency = require('./blue_modules/currency');
 const BlueElectrum = require('./blue_modules/BlueElectrum');
 
@@ -223,4 +237,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default App;
+export default Sentry.wrap(App);
