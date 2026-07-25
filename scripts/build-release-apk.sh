@@ -11,6 +11,11 @@ set -euo pipefail
 #   TRANSPARENCY_ALIAS
 #   SENTRY_AUTH_TOKEN         required so the release build fails loud instead of
 #                             silently shipping without crash symbolication
+#   SENTRY_URL, SENTRY_ORG, SENTRY_PROJECT
+#                             not secrets, but sentry-cli needs all three to know
+#                             where to upload - without them it defaults to
+#                             sentry.io and fails with "An organization ID or
+#                             slug is required"
 #
 # Optional:
 #   BUILD_NUMBER              deterministic versionCode override
@@ -21,7 +26,8 @@ cd "$REPO_ROOT"
 
 # ── validate ──────────────────────────────────────────────────────────────────
 for var in KEYSTORE_FILE_HEX KEYSTORE_PASSWORD KEYSTORE_KEY_PASSWORD KEYSTORE_ALIAS \
-           TRANSPARENCY_KEYSTORE_HEX TRANSPARENCY_PASSWORD TRANSPARENCY_ALIAS SENTRY_AUTH_TOKEN; do
+           TRANSPARENCY_KEYSTORE_HEX TRANSPARENCY_PASSWORD TRANSPARENCY_ALIAS \
+           SENTRY_AUTH_TOKEN SENTRY_URL SENTRY_ORG SENTRY_PROJECT; do
   [ -n "${!var:-}" ] || { echo "Missing required env: $var" >&2; exit 1; }
 done
 

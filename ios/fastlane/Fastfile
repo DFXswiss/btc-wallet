@@ -113,8 +113,10 @@ platform :ios do
   lane :release do
     # Fail fast with a clear message instead of deep inside the Xcode "Upload
     # Debug Symbols to Sentry" build phase, which would fail the whole build
-    # on a missing token anyway but with a much less obvious error.
-    UI.user_error!("SENTRY_AUTH_TOKEN is required for store release builds") if ENV.fetch("SENTRY_AUTH_TOKEN", "").empty?
+    # on any of these missing anyway but with a much less obvious error.
+    %w[SENTRY_AUTH_TOKEN SENTRY_URL SENTRY_ORG SENTRY_PROJECT].each do |var|
+      UI.user_error!("#{var} is required for store release builds") if ENV.fetch(var, "").empty?
+    end
 
     setup_ci
     info = resolve_release_info(ENV["NEW_VERSION"] || "dev")
