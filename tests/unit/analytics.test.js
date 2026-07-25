@@ -55,4 +55,20 @@ describe('blue_modules/analytics', () => {
     assert.ok(forwarded instanceof Error);
     assert.strictEqual(forwarded.message, 'plain string error');
   });
+
+  // Separate from the tests above: the module also applies the persisted Do Not
+  // Track choice on load (before any explicit setOptOut call), which is what
+  // actually closes the upstream gap - resets the module registry so the
+  // top-level `BlueApp.isDoNotTrackEnabled().then(...)` runs fresh, then flushes
+  // the microtask queue before asserting. Last in the file since resetModules()
+  // affects the shared cache for any test declared after it.
+  it('applies the persisted Do Not Track state to Sentry on module load', async () => {
+    jest.resetModules();
+    require('../../BlueApp').isDoNotTrackEnabled.mockResolvedValueOnce(true);
+
+    require('../../blue_modules/analytics');
+    await new Promise(process.nextTick);
+
+    assert.strictEqual(mockSentryOptions.enabled, false);
+  });
 });
