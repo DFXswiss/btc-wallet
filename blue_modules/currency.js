@@ -85,7 +85,6 @@ async function updateExchangeRate() {
     // not updating too often
     return;
   }
-  console.log('updating exchange rate...');
 
   let rate;
   try {
@@ -160,7 +159,7 @@ function satoshiToLocalCurrency(satoshi, format = true) {
       maximumFractionDigits: 8,
     });
   } catch (error) {
-    console.warn('currency: Intl.NumberFormat unavailable for preferred fiat, formatting degraded', error);
+    console.warn('satoshiToLocalCurrency: Intl.NumberFormat unavailable for preferred fiat, formatting degraded', error);
     formatter = new Intl.NumberFormat(FiatUnit.USD.locale, {
       style: 'currency',
       currency: preferredFiatCurrency.endPointKey,

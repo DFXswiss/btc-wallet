@@ -74,7 +74,6 @@ const SendCreate = () => {
       });
 
       if (granted === PermissionsAndroid.RESULTS.GRANTED || Platform.Version >= 33) {
-        console.log('Storage Permission: Granted');
         const filePath = RNFS.DownloadDirectoryPath + `/${fileName}`;
         try {
           await RNFS.writeFile(filePath, tx);
@@ -84,7 +83,6 @@ const SendCreate = () => {
           alert(e.message);
         }
       } else {
-        console.log('Storage Permission: Denied');
         Alert.alert(loc.send.permission_storage_title, loc.send.permission_storage_denied_message, [
           {
             text: loc.send.open_settings,

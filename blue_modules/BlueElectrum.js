@@ -76,6 +76,22 @@ let rotatePeerTimeout = null;
 
 let networkConnected = true;
 
+// Substrings safe to report for a user-configured peer: they describe the failure
+// mode without carrying the host or IP the native error string embeds.
+const SAFE_ERROR_TOKENS = [
+  'ECONNREFUSED',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'ECONNRESET',
+  'EPIPE',
+  'certificate',
+  'handshake',
+  'timed out',
+  'refused',
+];
+
 async function isDisabled() {
   if (isDisabledCache !== undefined) return isDisabledCache;
 
@@ -150,8 +166,14 @@ async function _initConnection() {
   const peerLabel = isCustomPeer ? 'user-configured server' : usingPeer.host;
   // Native socket errors embed the host/IP ("failed to connect to <host>/<ip>",
   // "Unable to resolve host ..."), which would leak a user-configured server's
-  // address past the peerLabel masking above. Reduce those to a code.
-  const scrubPeer = e => (isCustomPeer ? String(e?.code ?? e?.name ?? 'connection error') : e);
+  // address past the peerLabel masking above. react-native-tcp-socket emits the
+  // error as a plain string, so match against an allowlist rather than reading
+  // .code - only allowlisted tokens can ever be emitted for a custom peer.
+  const scrubPeer = e => {
+    if (!isCustomPeer) return e;
+    const text = String(e?.code ?? e?.message ?? e ?? '');
+    return SAFE_ERROR_TOKENS.find(token => text.includes(token)) ?? 'connection error';
+  };
 
   try {
     await DefaultPreference.setName('group.swiss.dfx.bitcoin');

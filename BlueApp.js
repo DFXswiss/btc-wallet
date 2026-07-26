@@ -408,7 +408,7 @@ class AppStorage {
             try {
               lndhub = await AsyncStorage.getItem(AppStorage.LNDHUB);
             } catch (error) {
-              console.error('BlueApp: failed to read LNDHub URI from storage', error);
+              console.error('loadFromDisk: failed to read LNDHub URI from storage', error);
             }
 
             if (unserializedWallet.baseURI) {

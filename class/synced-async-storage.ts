@@ -83,7 +83,6 @@ export default class SyncedAsyncStorage {
       })
         .then(async response => {
           const text = await response.text();
-          console.log('saved, seq num:', text);
           resolve(text);
         })
         .catch(reason => reject(reason));
@@ -144,8 +143,6 @@ export default class SyncedAsyncStorage {
     const remoteSeqNum = (await response.text()) || '0';
     const localSeqNum = await this.getLocalSeqNum();
     if (+remoteSeqNum > +localSeqNum) {
-      console.log('remote storage is ahead, need to sync;', +remoteSeqNum, '>', +localSeqNum);
-
       // sort to ensure channel_manager comes first
       for (const key of (await this.getAllKeysRemote()).sort()) {
         const value = await this.getItemRemote(key);
@@ -153,8 +150,6 @@ export default class SyncedAsyncStorage {
       }
 
       await AsyncStorage.setItem(this.namespace + '_' + 'seqnum', remoteSeqNum);
-    } else {
-      console.log('storage is up-to-date, no need for sync');
     }
   }
 }

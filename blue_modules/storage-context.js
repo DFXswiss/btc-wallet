@@ -69,7 +69,6 @@ export const BlueStorageProvider = ({ children }) => {
   const saveToDisk = useCallback(
     async (force = false) => {
       if (BlueApp.getWallets().length === 0 && !force) {
-        console.log('not saving empty wallets array');
         return;
       }
       BlueApp.tx_metadata = txMetadata;
@@ -193,7 +192,6 @@ export const BlueStorageProvider = ({ children }) => {
       // 5sec debounce:
       setWalletTransactionUpdateStatus(walletID);
       if (+new Date() - _lastTimeTriedToRefetchWallet[walletID] < 5000) {
-        console.log('re-fetch wallet happens too fast; NOP');
         return;
       }
       _lastTimeTriedToRefetchWallet[walletID] = +new Date();
@@ -247,7 +245,7 @@ export const BlueStorageProvider = ({ children }) => {
 
       setBalanceRefreshInterval();
     } catch (err) {
-      console.error('Error revalidating balances', err);
+      console.error('revalidateBalancesInterval: failed', err);
     }
   };
 

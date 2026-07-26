@@ -87,7 +87,7 @@ export class DynamicQRCode extends Component {
   };
 
   onError = () => {
-    console.log('Data is too large for QR Code.');
+    console.warn('DynamicQRCode: payload too large to encode');
     this.setState({ displayQRCode: false });
   };
 

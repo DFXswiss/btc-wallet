@@ -142,7 +142,7 @@ const App = () => {
     DeviceQuickActions.popInitialAction().then(popInitialAction);
     EventEmitter?.getMostRecentUserActivity()
       .then(onUserActivityOpen)
-      .catch(() => console.log('No userActivity object sent'));
+      .catch(() => {});
     handleAppStateChange(undefined);
     eventEmitter?.addListener('openSettings', openSettings);
     eventEmitter?.addListener('onUserActivityOpen', onUserActivityOpen);
@@ -219,8 +219,9 @@ const App = () => {
       // earliest point at which the answer is actually known.
       //
       // Fires on the first report that says we have a network, and again on every
-      // offline -> online transition, since the cascade dies against the
-      // networkConnected guard while offline and nothing else re-enters it. Not
+      // offline -> online transition: while offline every connectMain() returns at
+      // the networkConnected guard, so reconnecting here is immediate instead of
+      // waiting for the next waitTillConnected() timeout to drive it. Not
       // level-triggered: reconnecting when already connected re-arms the 30 minute
       // peer rotation timer.
       if (!isOffline && wasElectrumOnline.current !== true) {

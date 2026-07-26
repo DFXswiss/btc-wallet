@@ -130,7 +130,7 @@ const OpenCrytoPayCommitOnchain = () => {
         amount: Number(amountFormatted),
       });
     } catch (error) {
-      console.error('error', error);
+      console.error('openCryptoPay: onchain commit failed', error);
       setIsServerError(true);
     } finally {
       setIsLoading(false);

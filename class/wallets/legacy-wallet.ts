@@ -117,7 +117,7 @@ export class LegacyWallet extends AbstractWallet {
       this.unconfirmed_balance = Number(balance.unconfirmed);
       this._lastBalanceFetch = +new Date();
     } catch (error) {
-      console.warn('LegacyWallet.fetchBalance failed, keeping stale balance', error);
+      console.warn('LegacyWallet.fetchBalance: failed, keeping stale balance', error);
     }
   }
 

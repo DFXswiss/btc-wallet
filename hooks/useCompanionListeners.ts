@@ -24,7 +24,6 @@ const useCompanionListeners = () => {
 
   const processPushNotifications = useCallback(async (): Promise<boolean> => {
     if (!walletsInitialized) {
-      console.log('not processing push notifications because wallets are not initialized');
       return false;
     }
 
@@ -39,7 +38,7 @@ const useCompanionListeners = () => {
         try {
           removeAllDeliveredNotifications();
         } catch (error) {
-          console.error('Failed to remove delivered notifications:', error);
+          console.error('useCompanionListeners: failed to remove delivered notifications', error);
         }
       }, 5000);
 
@@ -83,8 +82,6 @@ const useCompanionListeners = () => {
             }
             return true;
           }
-        } else {
-          console.log('could not find wallet while processing push notification, NOP');
         }
       }
 
@@ -92,7 +89,7 @@ const useCompanionListeners = () => {
         refreshAllWalletTransactions();
       }
     } catch (error) {
-      console.error('Failed to process push notifications:', error);
+      console.error('useCompanionListeners: failed to process push notifications', error);
     }
     return false;
   }, [walletsInitialized, wallets, fetchAndSaveWalletTransactions, refreshAllWalletTransactions]);

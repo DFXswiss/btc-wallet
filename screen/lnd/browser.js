@@ -409,25 +409,20 @@ export default class Browser extends Component {
           }
 
           if (json && json.enable) {
-            console.log('webln enabled');
             this.setState({ weblnEnabled: true });
           }
         }}
         onLoadStart={e => {
           alreadyInjected = false;
-          console.log('load start');
           this.setState({ pageIsLoading: true, weblnEnabled: false });
         }}
         onLoadEnd={e => {
-          console.log('load end');
           this.setState({ url: e.nativeEvent.url, pageIsLoading: false });
         }}
         onLoadProgress={e => {
-          console.log('progress:', e.nativeEvent.progress);
           if (!alreadyInjected && e.nativeEvent.progress > 0.5) {
             this.webView.current?.injectJavaScript(injectedParadise);
             alreadyInjected = true;
-            console.log('injected');
           }
         }}
       />

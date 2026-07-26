@@ -120,7 +120,6 @@ const TransactionsStatus = () => {
       fetchTxInterval.current = undefined;
     }
 
-    console.log('setting up interval to check tx...');
     fetchTxInterval.current = setInterval(async () => {
       try {
         setIntervalMs(31000); // upon first execution we increase poll interval;

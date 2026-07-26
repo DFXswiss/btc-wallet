@@ -152,7 +152,7 @@ const storeIncomingNotification = async (
     if (payload.foreground && onProcessNotificationsHandler) {
       await onProcessNotificationsHandler();
     }
-  } catch (error) {
+  } catch (_) {
   } finally {
     if (completion) {
       if (status.foreground) {
@@ -592,7 +592,7 @@ export const getSavedUri = async () => {
   } catch (e) {
     try {
       await AsyncStorage.setItem(GROUNDCONTROL_BASE_URI, groundControlUri);
-    } catch (storageError) {}
+    } catch (_) {}
     throw e;
   }
 };
