@@ -91,6 +91,7 @@ const SAFE_ERROR_TOKENS = [
   'ECONNRESET',
   'EHOSTUNREACH',
   'ENETUNREACH',
+  'ETIMEDOUT',
   'EPIPE',
   'unable to resolve host',
   'no address associated',
