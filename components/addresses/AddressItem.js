@@ -110,8 +110,6 @@ const AddressItem = ({ item, balanceUnit, walletID, allowSignVerifyMessage }) =>
         ref={menuRef}
         actions={getAvailableActions()}
         onPressMenuItem={onToolTipPress}
-        previewQRCode
-        previewValue={item.address}
         onPress={navigateToReceive}
       >
         <ListItem key={item.key} containerStyle={stylesHook.container}>
