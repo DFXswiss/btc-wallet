@@ -117,7 +117,7 @@ const OpenCrytoPayCommitOnchain = () => {
       const result = await paymentLink.commitOnchainPayment(_tx);
 
       if (result.error) {
-        console.error('error', result);
+        console.error('openCryptoPay: commitOnchainPayment rejected', result.error, result.statusCode);
         throw new Error(`${result.error} - ${result.message} - ${result.statusCode}`);
       }
 

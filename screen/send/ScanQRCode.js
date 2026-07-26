@@ -369,7 +369,7 @@ const ScanQRCode = () => {
       onBarScanned({ data: { ...card, secrets: authKeys } });
     } catch (error) {
       setHoldCardModalVisible(false);
-      console.log('#### error ###', error, error?.message, error.constructor?.name);
+      console.error('ScanQRCode: NFC card read failed', error);
     }
     stopNfcSession();
   };

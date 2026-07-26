@@ -199,7 +199,7 @@ const SendDetails = () => {
         if (!fees?.fastestFee) return;
         setNetworkTransactionFees(fees);
       })
-      .catch(e => console.log('loading cached recommendedFees error', e));
+      .catch(e => console.warn('send/details: loading cached recommendedFees failed', e));
 
     // load fresh fees from servers
 
@@ -210,7 +210,7 @@ const SendDetails = () => {
         setNetworkTransactionFees(fees);
         await AsyncStorage.setItem(NetworkTransactionFee.StorageKey, JSON.stringify(fees));
       })
-      .catch(e => console.log('loading recommendedFees error', e))
+      .catch(e => console.warn('send/details: loading recommendedFees failed', e))
       .finally(() => {
         setNetworkTransactionFeesIsLoading(false);
       });
@@ -233,7 +233,7 @@ const SendDetails = () => {
         // we need to re-calculate fees
         setDumb(v => !v);
       })
-      .catch(e => console.log('fetchUtxo error', e));
+      .catch(e => console.warn('send/details: fetchUtxo failed', e));
   }, [wallet]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // recalc fees in effect so we don't block render

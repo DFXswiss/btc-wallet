@@ -60,7 +60,7 @@ function WatchConnectivity() {
           });
           lastPreferredCurrency.current = preferredFiatCurrency.endPointKey;
         }
-      } catch (e) {}
+      } catch (_) {}
     }
   }, [preferredFiatCurrency, walletsInitialized, isReachable, isInstalled]);
 
@@ -100,7 +100,7 @@ function WatchConnectivity() {
             const decoded = await wallet.decodeInvoice(invoiceRequest);
             majorTomToGroundControl([], [decoded.payment_hash], []);
           }
-        } catch (e) {}
+        } catch (_) {}
         return invoiceRequest;
       } catch (error) {
         return error;

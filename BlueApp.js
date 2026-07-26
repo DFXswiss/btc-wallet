@@ -738,7 +738,7 @@ class AppStorage {
         if (!(this.wallets[index].allowBIP47() && this.wallets[index].isBIP47Enabled())) return;
         await this.wallets[index].fetchBIP47SenderPaymentCodes();
       } catch (error) {
-        console.error('Failed to fetch sender payment codes for wallet', index, error);
+        console.error(`fetchSenderPaymentCodes: failed for wallet index ${index}`, error);
       }
     } else {
       for (const wallet of this.wallets) {
@@ -746,7 +746,7 @@ class AppStorage {
           if (!(wallet.allowBIP47() && wallet.isBIP47Enabled())) continue;
           await wallet.fetchBIP47SenderPaymentCodes();
         } catch (error) {
-          console.error('Failed to fetch sender payment codes for wallet', wallet.label, error);
+          console.error('fetchSenderPaymentCodes: failed for wallet', error);
         }
       }
     }

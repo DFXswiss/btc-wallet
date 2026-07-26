@@ -90,7 +90,7 @@ const AddBoltcard: React.FC & { navigationOptions?: ReturnType<typeof navigation
         if (error.code === '6982') return navigate('WrittenCardError');
         break;
       default:
-        console.log(JSON.stringify(error));
+        console.error('boltcard/add: unhandled card setup error', error);
     }
   };
 

@@ -119,7 +119,7 @@ const BoltcardDetails: React.FC & { navigationOptions?: ReturnType<typeof naviga
       resetInputs();
     } catch (error) {
       setIsUpdating(false);
-      console.log('ERROR: ', error);
+      console.error('boltcard/details: failed to update card', error);
     }
   };
 

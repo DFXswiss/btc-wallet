@@ -148,6 +148,10 @@ async function _initConnection() {
     isCustomPeer = true;
   }
   const peerLabel = isCustomPeer ? 'user-configured server' : usingPeer.host;
+  // Native socket errors embed the host/IP ("failed to connect to <host>/<ip>",
+  // "Unable to resolve host ..."), which would leak a user-configured server's
+  // address past the peerLabel masking above. Reduce those to a code.
+  const scrubPeer = e => (isCustomPeer ? String(e?.code ?? e?.name ?? 'connection error') : e);
 
   try {
     await DefaultPreference.setName('group.swiss.dfx.bitcoin');
@@ -163,7 +167,7 @@ async function _initConnection() {
     }
 
     WidgetCommunication.reloadAllTimelines();
-  } catch (e) {
+  } catch (_) {
     // Must be running on Android
   }
 
@@ -172,7 +176,7 @@ async function _initConnection() {
     mainClient = new ElectrumClient(net, tls, usingPeer.ssl || usingPeer.tcp, usingPeer.host, usingPeer.ssl ? 'tls' : 'tcp');
 
     mainClient.onError = function (e) {
-      console.warn(`[electrum] socket error on ${peerLabel}, reconnecting`, e);
+      console.warn(`_initConnection: socket error on ${peerLabel}, reconnecting`, scrubPeer(e));
       mainClient.close();
       connectMain();
     };
@@ -195,7 +199,7 @@ async function _initConnection() {
       throw new Error('Electrum connection timed out');
     }
 
-    console.log(`[electrum] connected to ${peerLabel} in ${Date.now() - connectStartedAt}ms - ${ver[0]}`);
+    console.log(`_initConnection: connected to ${peerLabel} in ${Date.now() - connectStartedAt}ms - ${ver[0]}`);
     serverName = ver[0];
 
     if (ver[0].startsWith('ElectrumPersonalServer') || ver[0].startsWith('electrs') || ver[0].startsWith('Fulcrum')) {
@@ -230,8 +234,8 @@ async function _initConnection() {
     // Duration separates "server is slow" (~10s, the initElectrum race timed out)
     // from "server refused / DNS failed" (fast). Attempt number shows cascade depth.
     console.warn(
-      `[electrum] connect to ${peerLabel} failed after ${Date.now() - connectStartedAt}ms (attempt ${connectionAttempt + 1})`,
-      e,
+      `_initConnection: connect to ${peerLabel} failed after ${Date.now() - connectStartedAt}ms (attempt ${connectionAttempt + 1})`,
+      scrubPeer(e),
     );
   }
 }

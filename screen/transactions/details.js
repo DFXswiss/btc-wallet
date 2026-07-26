@@ -114,18 +114,16 @@ const TransactionsDetails = () => {
       .then(supported => {
         if (supported) {
           Linking.openURL(url).catch(e => {
-            console.log('openURL failed in handleOnOpenTransactionOnBlockExporerTapped');
-            console.log(e.message);
+            console.warn('transactionDetails: openURL failed for block explorer', e);
             alert(e.message);
           });
         } else {
-          console.log('canOpenURL supported is false in handleOnOpenTransactionOnBlockExporerTapped');
+          console.warn('transactionDetails: block explorer URL not supported');
           alert(loc.transactions.open_url_error);
         }
       })
       .catch(e => {
-        console.log('canOpenURL failed in handleOnOpenTransactionOnBlockExporerTapped');
-        console.log(e.message);
+        console.warn('transactionDetails: canOpenURL failed for block explorer', e);
         alert(e.message);
       });
   };

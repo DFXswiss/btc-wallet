@@ -186,7 +186,7 @@ class ElectrumSettings extends Component {
             await DefaultPreference.clear(BlueElectrum.ELECTRUM_SSL_PORT);
             await DefaultPreference.clear(BlueElectrum.ELECTRUM_TCP_PORT);
             WidgetCommunication.reloadAllTimelines();
-          } catch (e) {
+          } catch (_) {
             // Must be running on Android
           }
           ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
@@ -214,7 +214,7 @@ class ElectrumSettings extends Component {
             await DefaultPreference.set(BlueElectrum.ELECTRUM_TCP_PORT, port);
             await DefaultPreference.set(BlueElectrum.ELECTRUM_SSL_PORT, sslPort);
             WidgetCommunication.reloadAllTimelines();
-          } catch (e) {
+          } catch (_) {
             // Must be running on Android
           }
           ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });

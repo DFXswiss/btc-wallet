@@ -197,7 +197,7 @@ const handleAppStateChange = async (nextAppState: AppStateStatus) => {
         }
       }
     }
-  } catch (error) {}
+  } catch (_) {}
 };
 
 AppState.addEventListener('change', handleAppStateChange);
@@ -339,7 +339,7 @@ export const setLevels = async (levelAll: boolean) => {
     } else {
       await AsyncStorage.removeItem(NOTIFICATIONS_NO_AND_DONT_ASK_FLAG);
     }
-  } catch (error) {}
+  } catch (_) {}
 };
 
 export const addNotification = async (notification: TPayload) => {
@@ -384,7 +384,7 @@ const postTokenConfig = async () => {
 };
 
 const _setPushToken = async (token: TPushToken) => {
-  return await AsyncStorage.setItem(PUSH_TOKEN, JSON.stringify(token));
+  return AsyncStorage.setItem(PUSH_TOKEN, JSON.stringify(token));
 };
 
 /**
@@ -409,8 +409,6 @@ const configureNotifications = async (onProcessNotifications?: () => void): Prom
       notificationSubscriptions = [
         Notifications.events().registerRemoteNotificationsRegistered(async event => {
           const token = createPushToken(event.deviceToken);
-          if (__DEV__) {
-          }
           await _setPushToken(token);
           await postTokenConfig().catch(() => {});
           settlePendingRegistration(true);
@@ -653,7 +651,6 @@ export const initializeNotifications = async (onProcessNotifications?: () => voi
 
     if (canProceed) {
       await configureNotifications(onProcessNotifications);
-    } else {
     }
   } catch (error) {
     baseURI = groundControlUri;

@@ -173,7 +173,7 @@ const LNDViewInvoice = () => {
                 }
               }
             }
-          } catch (error) {}
+          } catch (_) {}
         }
       }, 3000);
     } else {

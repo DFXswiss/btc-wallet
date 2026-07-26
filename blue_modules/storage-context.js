@@ -179,7 +179,7 @@ export const BlueStorageProvider = ({ children }) => {
       setLastSuccessfulBalanceRefresh(Date.now());
     } catch (err) {
       noErr = false;
-      console.warn('refreshAllWalletTransactions failed, retrying on next interval', err);
+      console.warn('refreshAllWalletTransactions: failed, retrying on next interval', err);
     } finally {
       setWalletTransactionUpdateStatus(WalletTransactionsStatus.NONE);
     }
@@ -203,7 +203,7 @@ export const BlueStorageProvider = ({ children }) => {
       await fetchWalletTransactions(index);
     } catch (err) {
       noErr = false;
-      console.warn('fetchAndSaveWalletTransactions failed for wallet index ' + index + ', retrying on next refresh', err);
+      console.warn(`fetchAndSaveWalletTransactions: wallet index ${index} failed, retrying on next refresh`, err);
     } finally {
       setWalletTransactionUpdateStatus(WalletTransactionsStatus.NONE);
     }
@@ -238,9 +238,12 @@ export const BlueStorageProvider = ({ children }) => {
         return;
       }
 
+      // isConnected is `boolean | null`; only a definite false means offline. Coercing
+      // unknown to offline would gate connectMain() off for every caller.
       const netInfo = await fetchNetInfo();
-      BlueElectrum.setNetworkConnected(netInfo.isConnected);
-      if (!netInfo.isConnected) return;
+      const isOffline = netInfo.isConnected === false;
+      BlueElectrum.setNetworkConnected(!isOffline);
+      if (isOffline) return;
 
       setBalanceRefreshInterval();
     } catch (err) {
