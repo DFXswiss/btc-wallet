@@ -41,7 +41,7 @@ export class DynamicQRCode extends Component {
         },
       );
     } catch (e) {
-      console.log(e);
+      console.error('DynamicQRCode: failed to initialise fragment encoder', e);
       this.setState({ displayQRCode: false, hideControls });
     }
   }

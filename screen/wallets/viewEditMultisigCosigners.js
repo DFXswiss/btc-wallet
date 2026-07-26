@@ -321,7 +321,7 @@ const ViewEditMultisigCosigners = () => {
     try {
       wallet.replaceCosignerXpubWithSeed(currentlyEditingCosignerNum, hd.getSecret(), passphrase);
     } catch (e) {
-      console.log(e);
+      console.error('viewEditMultisigCosigners: failed to replace cosigner xpub with seed', e);
       return alert(e.message);
     }
 

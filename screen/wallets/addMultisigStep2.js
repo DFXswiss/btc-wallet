@@ -250,7 +250,7 @@ const WalletsAddMultisigStep2 = () => {
     try {
       onBarScanned(ret.data);
     } catch (e) {
-      console.log(e);
+      console.debug('addMultisigStep2: onBarScanned handler threw', e);
     }
   };
 

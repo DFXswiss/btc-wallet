@@ -126,8 +126,6 @@ const ReceiveDetails = () => {
 
   // re-fetching address balance periodically
   useEffect(() => {
-    console.log('receive/defails - useEffect');
-
     if (fetchAddressInterval.current) {
       // interval already exists, lets cleanup it and recreate, so theres no duplicate intervals
       clearInterval(fetchAddressInterval.current);
@@ -140,9 +138,7 @@ const ReceiveDetails = () => {
         const address2use = address || decoded.address;
         if (!address2use) return;
 
-        console.log('checking address', address2use, 'for balance...');
         const balance = await BlueElectrum.getBalanceByAddress(address2use);
-        console.log('...got', balance);
 
         if (balance.unconfirmed > 0) {
           if (initialConfirmed === 0 && initialUnconfirmed === 0) {
@@ -211,7 +207,7 @@ const ReceiveDetails = () => {
           }
         }
       } catch (error) {
-        console.log(error);
+        console.warn('receiveDetails: balance poll tick failed, retrying next tick', error);
       }
     }, intervalMs);
   }, [bip21encoded, address, initialConfirmed, initialUnconfirmed, intervalMs, refreshAllWalletTransactions, walletID]);
@@ -326,7 +322,6 @@ const ReceiveDetails = () => {
   };
 
   const obtainWalletAddress = useCallback(async () => {
-    console.log('receive/details - componentDidMount');
     wallet.setUserHasSavedExport(true);
     let newAddress;
     if (address) {
@@ -396,7 +391,7 @@ const ReceiveDetails = () => {
   }, [amountSats, customLabel]);
 
   const handleShareButtonPressed = () => {
-    Share.open({ message: bip21encoded }).catch(error => console.log(error));
+    Share.open({ message: bip21encoded }).catch(() => {});
   };
 
   const onWalletChange = id => {

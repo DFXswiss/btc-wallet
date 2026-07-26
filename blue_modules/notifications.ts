@@ -144,7 +144,6 @@ const storeIncomingNotification = async (
     markNotificationHandled(notificationKey);
 
     if (!payload.subText && !payload.message) {
-      console.warn('Notification missing required fields:', payload);
       return;
     }
 
@@ -154,7 +153,6 @@ const storeIncomingNotification = async (
       await onProcessNotificationsHandler();
     }
   } catch (error) {
-    console.error('Failed to store incoming notification:', error);
   } finally {
     if (completion) {
       if (status.foreground) {
@@ -169,10 +167,8 @@ const storeIncomingNotification = async (
 const checkAndroidNotificationPermission = async () => {
   try {
     const { status } = await checkNotifications();
-    console.log('Notification permission check:', status);
     return status === RESULTS.GRANTED;
   } catch (err) {
-    console.error('Failed to check notification permission:', err);
     return false;
   }
 };
@@ -182,7 +178,6 @@ export const checkNotificationPermissionStatus = async () => {
     const { status } = await checkNotifications();
     return status;
   } catch (error) {
-    console.error('Failed to check notification permissions:', error);
     return 'unavailable';
   }
 };
@@ -202,9 +197,7 @@ const handleAppStateChange = async (nextAppState: AppStateStatus) => {
         }
       }
     }
-  } catch (error) {
-    console.error('Failed handling app state notification refresh:', error);
-  }
+  } catch (error) {}
 };
 
 AppState.addEventListener('change', handleAppStateChange);
@@ -221,10 +214,7 @@ export const cleanUserOptOutFlag = async () => {
  * @returns {Promise<boolean>} TRUE if permissions were obtained, FALSE otherwise
  */
 export const tryToObtainPermissions = async (): Promise<boolean> => {
-  console.log('tryToObtainPermissions: Starting user-triggered permission request');
-
   if (!isNotificationsCapable) {
-    console.log('tryToObtainPermissions: Device not capable');
     return false;
   }
 
@@ -241,12 +231,10 @@ export const tryToObtainPermissions = async (): Promise<boolean> => {
       Platform.OS === 'android' && Platform.Version < 33 ? rationale : undefined,
     );
     if (status !== RESULTS.GRANTED) {
-      console.log('tryToObtainPermissions: Permission denied');
       return false;
     }
     return configureNotifications();
   } catch (error) {
-    console.error('Error requesting notification permissions:', error);
     return false;
   }
 };
@@ -256,68 +244,43 @@ export const tryToObtainPermissions = async (): Promise<boolean> => {
  * be notified if they were paid
  */
 export const majorTomToGroundControl = async (addresses: string[], hashes: string[], txids: string[]) => {
-  console.log('majorTomToGroundControl: Starting notification registration', {
-    addressCount: addresses?.length,
-    hashCount: hashes?.length,
-    txidCount: txids?.length,
+  const noAndDontAskFlag = await AsyncStorage.getItem(NOTIFICATIONS_NO_AND_DONT_ASK_FLAG);
+  if (noAndDontAskFlag === 'true') {
+    return;
+  }
+
+  if (!Array.isArray(addresses) || !Array.isArray(hashes) || !Array.isArray(txids)) {
+    throw new Error('No addresses, hashes, or txids provided');
+  }
+
+  const pushToken = await getPushToken();
+  if (!pushToken || !pushToken.token || !pushToken.os) {
+    return;
+  }
+
+  const requestBody = JSON.stringify({
+    addresses,
+    hashes,
+    txids,
+    token: pushToken.token,
+    os: pushToken.os,
   });
 
-  try {
-    const noAndDontAskFlag = await AsyncStorage.getItem(NOTIFICATIONS_NO_AND_DONT_ASK_FLAG);
-    if (noAndDontAskFlag === 'true') {
-      console.warn('User has opted out of notifications.');
-      return;
-    }
+  const response = await fetch(`${baseURI}/majorTomToGroundControl`, {
+    method: 'POST',
+    headers: _getHeaders(),
+    body: requestBody,
+  });
 
-    if (!Array.isArray(addresses) || !Array.isArray(hashes) || !Array.isArray(txids)) {
-      throw new Error('No addresses, hashes, or txids provided');
-    }
+  if (!response.ok) {
+    throw new Error(`Ground Control request failed with status ${response.status}: ${response.statusText}`);
+  }
 
-    const pushToken = await getPushToken();
-    console.log('majorTomToGroundControl: Retrieved push token:', !!pushToken);
-    if (!pushToken || !pushToken.token || !pushToken.os) {
-      return;
-    }
-
-    const requestBody = JSON.stringify({
-      addresses,
-      hashes,
-      txids,
-      token: pushToken.token,
-      os: pushToken.os,
-    });
-
-    let response;
-    try {
-      console.log('majorTomToGroundControl: Sending request to:', `${baseURI}/majorTomToGroundControl`);
-      response = await fetch(`${baseURI}/majorTomToGroundControl`, {
-        method: 'POST',
-        headers: _getHeaders(),
-        body: requestBody,
-      });
-    } catch (networkError) {
-      console.error('Network request failed:', networkError);
-      throw networkError;
-    }
-
-    if (!response.ok) {
-      throw new Error(`Ground Control request failed with status ${response.status}: ${response.statusText}`);
-    }
-
-    const responseText = await response.text();
-    if (responseText) {
-      try {
-        return JSON.parse(responseText);
-      } catch (jsonError) {
-        console.error('Error parsing response JSON:', jsonError);
-        throw jsonError;
-      }
-    } else {
-      return {};
-    }
-  } catch (error) {
-    console.error('Error in majorTomToGroundControl:', error);
-    throw error;
+  const responseText = await response.text();
+  if (responseText) {
+    return JSON.parse(responseText);
+  } else {
+    return {};
   }
 };
 
@@ -328,23 +291,18 @@ export const majorTomToGroundControl = async (addresses: string[], hashes: strin
  * sound: boolean
  */
 export const checkPermissions = async () => {
-  try {
-    if (Platform.OS === 'ios') {
-      return Notifications.ios.checkPermissions();
-    }
-
-    const { status } = await checkNotifications();
-    const granted = status === RESULTS.GRANTED;
-    return {
-      alert: granted,
-      badge: granted,
-      sound: granted,
-      status,
-    };
-  } catch (error) {
-    console.error('Error checking permissions:', error);
-    throw error;
+  if (Platform.OS === 'ios') {
+    return Notifications.ios.checkPermissions();
   }
+
+  const { status } = await checkNotifications();
+  const granted = status === RESULTS.GRANTED;
+  return {
+    alert: granted,
+    badge: granted,
+    sound: granted,
+    status,
+  };
 };
 
 /**
@@ -372,20 +330,16 @@ export const setLevels = async (levelAll: boolean) => {
     }
 
     if (!levelAll) {
-      console.log('Disabling notifications as user opted out...');
       Notifications.removeAllDeliveredNotifications();
       if (Platform.OS === 'ios') {
         Notifications.ios.setBadgeCount(0);
         Notifications.ios.cancelAllLocalNotifications();
       }
       await AsyncStorage.setItem(NOTIFICATIONS_NO_AND_DONT_ASK_FLAG, 'true');
-      console.log('Notifications disabled successfully');
     } else {
       await AsyncStorage.removeItem(NOTIFICATIONS_NO_AND_DONT_ASK_FLAG);
     }
-  } catch (error) {
-    console.error('Error setting notification levels:', error);
-  }
+  } catch (error) {}
 };
 
 export const addNotification = async (notification: TPayload) => {
@@ -395,7 +349,6 @@ export const addNotification = async (notification: TPayload) => {
     notifications = JSON.parse(String(stringified));
     if (!Array.isArray(notifications)) notifications = [];
   } catch (e) {
-    console.error(e);
     notifications = [];
   }
 
@@ -404,19 +357,15 @@ export const addNotification = async (notification: TPayload) => {
 };
 
 const postTokenConfig = async () => {
-  console.log('postTokenConfig: Starting token configuration');
   const pushToken = await getPushToken();
-  console.log('postTokenConfig: Retrieved push token:', !!pushToken);
 
   if (!pushToken || !pushToken.token || !pushToken.os) {
-    console.log('postTokenConfig: Invalid token or missing OS info');
     return;
   }
 
   try {
     const lang = (await AsyncStorage.getItem('lang')) || 'en';
     const appVersion = getSystemName() + ' ' + getSystemVersion() + ';' + getApplicationName() + ' ' + getVersion();
-    console.log('postTokenConfig: Posting configuration', { lang, appVersion });
 
     await fetch(`${baseURI}/setTokenConfiguration`, {
       method: 'POST',
@@ -429,19 +378,13 @@ const postTokenConfig = async () => {
       }),
     });
   } catch (e) {
-    console.error(e);
     await AsyncStorage.setItem('lang', 'en');
     throw e;
   }
 };
 
 const _setPushToken = async (token: TPushToken) => {
-  try {
-    return await AsyncStorage.setItem(PUSH_TOKEN, JSON.stringify(token));
-  } catch (error) {
-    console.error('Error setting push token:', error);
-    throw error;
-  }
+  return await AsyncStorage.setItem(PUSH_TOKEN, JSON.stringify(token));
 };
 
 /**
@@ -450,7 +393,6 @@ const _setPushToken = async (token: TPushToken) => {
  * @returns {Promise<boolean>} whether successfully registered for remote push notifications
  */
 const configureNotifications = async (onProcessNotifications?: () => void): Promise<boolean> => {
-  console.log('configureNotifications()');
   if (onProcessNotifications) {
     onProcessNotificationsHandler = onProcessNotifications;
   }
@@ -458,7 +400,6 @@ const configureNotifications = async (onProcessNotifications?: () => void): Prom
   try {
     const { status } = await checkNotifications();
     if (status !== RESULTS.GRANTED) {
-      console.log('configureNotifications: Permissions not granted');
       return false;
     }
 
@@ -467,21 +408,17 @@ const configureNotifications = async (onProcessNotifications?: () => void): Prom
     if (notificationSubscriptions.length === 0) {
       notificationSubscriptions = [
         Notifications.events().registerRemoteNotificationsRegistered(async event => {
-          console.log('processing event', event);
           const token = createPushToken(event.deviceToken);
           if (__DEV__) {
-            console.log('configureNotifications: Token received:', token);
           }
           await _setPushToken(token);
-          await postTokenConfig().catch(error => console.error('Failed to post token configuration:', error));
+          await postTokenConfig().catch(() => {});
           settlePendingRegistration(true);
         }),
-        Notifications.events().registerRemoteNotificationsRegistrationFailed(error => {
-          console.error('Registration error:', error);
+        Notifications.events().registerRemoteNotificationsRegistrationFailed(() => {
           settlePendingRegistration(false);
         }),
         Notifications.events().registerRemoteNotificationsRegistrationDenied(() => {
-          console.log('Remote notification registration denied');
           settlePendingRegistration(false);
         }),
         Notifications.events().registerNotificationReceivedForeground(async (notification, completion) => {
@@ -503,15 +440,13 @@ const configureNotifications = async (onProcessNotifications?: () => void): Prom
     Notifications.getInitialNotification()
       .then(async initialNotification => {
         if (initialNotification) {
-          console.log('App was launched by a push notification:', initialNotification);
           await storeIncomingNotification(initialNotification, { foreground: false, userInteraction: true });
         }
       })
-      .catch(error => console.error('Failed to retrieve initial notification:', error));
+      .catch(() => {});
 
     return await waitForRemoteRegistration();
   } catch (error) {
-    console.error('Error in configureNotifications:', error);
     return false;
   }
 };
@@ -536,7 +471,6 @@ export const getPushToken = async (): Promise<TPushToken> => {
     const token = await AsyncStorage.getItem(PUSH_TOKEN);
     return JSON.parse(String(token)) as TPushToken;
   } catch (e) {
-    console.error(e);
     AsyncStorage.removeItem(PUSH_TOKEN);
     throw e;
   }
@@ -576,7 +510,6 @@ export const unsubscribe = async (addresses: string[], hashes: string[], txids: 
 
   const token = await getPushToken();
   if (!token?.token || !token?.os) {
-    console.error('No push token or OS found');
     return;
   }
 
@@ -588,23 +521,17 @@ export const unsubscribe = async (addresses: string[], hashes: string[], txids: 
     os: token.os,
   });
 
-  try {
-    const response = await fetch(`${baseURI}/unsubscribe`, {
-      method: 'POST',
-      headers: _getHeaders(),
-      body,
-    });
+  const response = await fetch(`${baseURI}/unsubscribe`, {
+    method: 'POST',
+    headers: _getHeaders(),
+    body,
+  });
 
-    if (!response.ok) {
-      console.error('Failed to unsubscribe:', response.statusText);
-      return;
-    }
-
-    return response;
-  } catch (error) {
-    console.error('Error during unsubscribe:', error);
-    throw error;
+  if (!response.ok) {
+    return;
   }
+
+  return response;
 };
 
 const _getHeaders = () => {
@@ -621,20 +548,15 @@ export const clearStoredNotifications = async () => {
 };
 
 export const getDeliveredNotifications: () => Promise<Record<string, any>[]> = () => {
-  try {
-    if (Platform.OS !== 'ios') {
-      return Promise.resolve([]);
-    }
-
-    return Notifications.ios
-      .getDeliveredNotifications()
-      .then(notifications =>
-        notifications.map(notification => normalizeNotificationPayload(notification, { foreground: true, userInteraction: false })),
-      );
-  } catch (error) {
-    console.error('Error getting delivered notifications:', error);
-    throw error;
+  if (Platform.OS !== 'ios') {
+    return Promise.resolve([]);
   }
+
+  return Notifications.ios
+    .getDeliveredNotifications()
+    .then(notifications =>
+      notifications.map(notification => normalizeNotificationPayload(notification, { foreground: true, userInteraction: false })),
+    );
 };
 
 export const removeDeliveredNotifications = (identifiers: string[] = []) => {
@@ -658,13 +580,8 @@ export const getDefaultUri = () => {
 };
 
 export const saveUri = async (uri: string) => {
-  try {
-    baseURI = uri || groundControlUri;
-    await AsyncStorage.setItem(GROUNDCONTROL_BASE_URI, baseURI);
-  } catch (error) {
-    console.error('Error saving URI:', error);
-    throw error;
-  }
+  baseURI = uri || groundControlUri;
+  await AsyncStorage.setItem(GROUNDCONTROL_BASE_URI, baseURI);
 };
 
 export const getSavedUri = async () => {
@@ -675,12 +592,9 @@ export const getSavedUri = async () => {
     }
     return baseUriStored;
   } catch (e) {
-    console.error(e);
     try {
       await AsyncStorage.setItem(GROUNDCONTROL_BASE_URI, groundControlUri);
-    } catch (storageError) {
-      console.error('Failed to reset URI:', storageError);
-    }
+    } catch (storageError) {}
     throw e;
   }
 };
@@ -693,7 +607,6 @@ export const isNotificationsEnabled = async () => {
 
     return !isDisabledByUser && !!token && !!levels.level_all;
   } catch (error) {
-    console.log('Error checking notification levels:', error);
     if (error instanceof SyntaxError) {
       throw error;
     }
@@ -708,11 +621,9 @@ export const getStoredNotifications = async (): Promise<TPayload[]> => {
     if (!Array.isArray(notifications)) notifications = [];
   } catch (e) {
     if (e instanceof SyntaxError) {
-      console.error('Invalid notifications format:', e);
       notifications = [];
       await AsyncStorage.setItem(NOTIFICATIONS_STORAGE, '[]');
     } else {
-      console.error('Error accessing notifications:', e);
       throw e;
     }
   }
@@ -721,25 +632,19 @@ export const getStoredNotifications = async (): Promise<TPayload[]> => {
 };
 
 export const initializeNotifications = async (onProcessNotifications?: () => void) => {
-  console.log('initializeNotifications: Starting initialization');
-
   try {
     const noAndDontAskFlag = await AsyncStorage.getItem(NOTIFICATIONS_NO_AND_DONT_ASK_FLAG);
-    console.log('initializeNotifications: No ask flag status:', noAndDontAskFlag);
 
     if (noAndDontAskFlag === 'true') {
-      console.warn('User has opted out of notifications.');
       return;
     }
 
     const baseUriStored = await AsyncStorage.getItem(GROUNDCONTROL_BASE_URI);
     baseURI = baseUriStored || groundControlUri;
-    console.log('Base URI set to:', baseURI);
 
     setApplicationIconBadgeNumber(0);
 
     currentPermissionStatus = await checkNotificationPermissionStatus();
-    console.log('initializeNotifications: Permission status:', currentPermissionStatus);
 
     const canProceed =
       Platform.OS === 'android'
@@ -747,14 +652,11 @@ export const initializeNotifications = async (onProcessNotifications?: () => voi
         : currentPermissionStatus === 'granted';
 
     if (canProceed) {
-      console.log('initializeNotifications: Can proceed with notification setup');
       await configureNotifications(onProcessNotifications);
     } else {
-      console.log('Notifications require user action to enable');
     }
   } catch (error) {
-    console.error('Failed to initialize notifications:', error);
     baseURI = groundControlUri;
-    await AsyncStorage.setItem(GROUNDCONTROL_BASE_URI, groundControlUri).catch(err => console.error('Failed to reset URI:', err));
+    await AsyncStorage.setItem(GROUNDCONTROL_BASE_URI, groundControlUri).catch(() => {});
   }
 };

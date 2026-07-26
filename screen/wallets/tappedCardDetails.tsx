@@ -182,7 +182,7 @@ const TappedCardDetails = () => {
               setIsRegisteredInServer(uidIsCorrect && k0IsCorrect && k1IsCorrect && k2IsCorrect);
               setServerDetails(currCard);
             } catch (_) {
-              console.log(_);
+              console.error('tappedCardDetails: failed to verify card registration against server', _);
               setIsRegisteredInServer(false);
             }
           }

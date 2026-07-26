@@ -714,7 +714,7 @@ export class AbstractHDElectrumWallet extends AbstractHDWallet {
       // finally fetching balance
       await this._fetchBalance();
     } catch (err) {
-      console.warn(err);
+      console.warn('AbstractHDElectrumWallet.fetchBalance failed during rescan, keeping stale balance', err);
     }
   }
 

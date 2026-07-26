@@ -138,7 +138,6 @@ const LNDViewInvoice = () => {
 
   useEffect(() => {
     setSelectedWallet(walletID);
-    console.log('LNDViewInvoice - useEffect');
     if (!invoice.ispaid) {
       fetchInvoiceInterval.current = setInterval(async () => {
         if (isFetchingInvoices) {
@@ -174,9 +173,7 @@ const LNDViewInvoice = () => {
                 }
               }
             }
-          } catch (error) {
-            console.log(error);
-          }
+          } catch (error) {}
         }
       }, 3000);
     } else {
@@ -201,7 +198,7 @@ const LNDViewInvoice = () => {
   };
 
   const handleOnSharePressed = () => {
-    Share.open({ message: `lightning:${invoice.payment_request}` }).catch(error => console.log(error));
+    Share.open({ message: `lightning:${invoice.payment_request}` }).catch(() => {});
   };
 
   useEffect(() => {

@@ -153,7 +153,9 @@ const WalletDetails = () => {
   useEffect(() => {
     if (isMainWallet && !ownershipProof) {
       setTimeout(() => {
-        getOwnershipProof().then(setOwnershipProof).catch(console.error);
+        getOwnershipProof()
+          .then(setOwnershipProof)
+          .catch(e => console.error('walletDetails: failed to obtain ownership proof', e));
       }, 1);
     }
   }, []);

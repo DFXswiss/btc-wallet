@@ -33,8 +33,6 @@ let usedBucketNum = false;
 let savingInProgress = 0; // its both a flag and a counter of attempts to write to disk
 const prompt = require('./helpers/prompt');
 const currency = require('./blue_modules/currency');
-const BlueElectrum = require('./blue_modules/BlueElectrum');
-BlueElectrum.connectMain();
 
 class AppStorage {
   static FLAG_ENCRYPTED = 'data_encrypted';
@@ -113,14 +111,13 @@ class AppStorage {
     try {
       return await this.getItem(key);
     } catch (error) {
-      console.warn('error reading', key, error.message);
-      console.warn('fallback to realm');
+      console.warn(`getItemWithFallbackToRealm: keychain read failed for "${key}", falling back to realm`, error);
       const realmKeyValue = await this.openRealmKeyValue();
       const obj = realmKeyValue.objectForPrimaryKey('KeyValue', key); // search for a realm object with a primary key
       value = obj?.value;
       realmKeyValue.close();
       if (value) {
-        console.warn('successfully recovered', value.length, 'bytes from realm for key', key);
+        console.warn(`getItemWithFallbackToRealm: recovered ${value.length} bytes from realm for "${key}"`);
         return value;
       }
       return null;
@@ -132,7 +129,7 @@ class AppStorage {
     try {
       data = await this.getItemWithFallbackToRealm(AppStorage.FLAG_ENCRYPTED);
     } catch (error) {
-      console.warn('error reading `' + AppStorage.FLAG_ENCRYPTED + '` key:', error.message);
+      console.warn(`storageIsEncrypted: failed to read "${AppStorage.FLAG_ENCRYPTED}", assuming not encrypted`, error);
       return false;
     }
 
@@ -333,7 +330,7 @@ class AppStorage {
       try {
         realm = await this.getRealm();
       } catch (error) {
-        console.log('ERROR: ', error.message);
+        console.error('loadFromDisk: getRealm failed, wallet tx cache unavailable', error);
       }
       data = JSON.parse(data);
       if (!data.wallets) return false;
@@ -411,17 +408,13 @@ class AppStorage {
             try {
               lndhub = await AsyncStorage.getItem(AppStorage.LNDHUB);
             } catch (error) {
-              console.warn(error);
+              console.error('BlueApp: failed to read LNDHub URI from storage', error);
             }
 
             if (unserializedWallet.baseURI) {
               unserializedWallet.setBaseURI(unserializedWallet.baseURI); // not really necessary, just for the sake of readability
-              console.log('using saved uri for for ln wallet:', unserializedWallet.baseURI);
             } else if (lndhub) {
-              console.log('using wallet-wide settings ', lndhub, 'for ln wallet');
               unserializedWallet.setBaseURI(lndhub);
-            } else {
-              console.log('wallet does not have a baseURI. Continuing init...');
             }
             unserializedWallet.init();
             break;
@@ -435,7 +428,7 @@ class AppStorage {
         try {
           if (realm) this.inflateWalletFromRealm(realm, unserializedWallet);
         } catch (error) {
-          console.log('ERROR: ', error.message);
+          console.error('loadFromDisk: failed to inflate wallet from realm', error);
         }
 
         // done
@@ -584,7 +577,8 @@ class AppStorage {
    */
   async saveToDisk() {
     if (savingInProgress) {
-      if (++savingInProgress > 10) console.warn('ERROR: Critical error. Last actions were not saved'); // should never happen
+      // should never happen
+      if (++savingInProgress > 10) console.error(`saveToDisk: ${savingInProgress} concurrent save attempts, last actions were not saved`);
       await new Promise(resolve => setTimeout(resolve, 1000 * savingInProgress)); // sleep
       return this.saveToDisk();
     }
@@ -596,7 +590,7 @@ class AppStorage {
       try {
         realm = await this.getRealm();
       } catch (error) {
-        console.error(`saveToDisk: getRealm: ${error.message}`);
+        console.error('saveToDisk: getRealm failed, tx cache will not be written', error);
       }
       for (const key of this.wallets) {
         if (typeof key === 'boolean') continue;
@@ -669,9 +663,9 @@ class AppStorage {
       this.saveToRealmKeyValue(realmkeyValue, AppStorage.FLAG_ENCRYPTED, this.cachedPassword ? '1' : '');
       realmkeyValue.close();
     } catch (error) {
-      console.error('save to disk exception:', error.message);
+      console.error('saveToDisk: failed to persist wallet data', error);
       if (error.message.includes('Realm file decryption failed')) {
-        console.warn('purging realm key-value database file');
+        console.warn('saveToDisk: realm file decryption failed, purging realm key-value database file');
         this.purgeRealmKeyValueFile();
       }
     } finally {
@@ -942,9 +936,7 @@ const BlueApp = new AppStorage();
 let unlockAttempt = 0;
 
 const startAndDecrypt = async retry => {
-  console.log('startAndDecrypt');
   if (BlueApp.getWallets().length > 0) {
-    console.log('App already has some wallets, so we are in already started state, exiting startAndDecrypt');
     return true;
   }
   await BlueApp.migrateKeys();
@@ -961,7 +953,7 @@ const startAndDecrypt = async retry => {
   } catch (error) {
     // in case of exception reading from keystore, lets retry instead of assuming there is no storage and
     // proceeding with no wallets
-    console.warn('exception loading from disk:', error);
+    console.error('startAndDecrypt: failed to load wallets from disk, retrying', error);
     wasException = true;
   }
 
@@ -971,12 +963,11 @@ const startAndDecrypt = async retry => {
       await new Promise(resolve => setTimeout(resolve, 3000)); // sleep
       success = await BlueApp.loadFromDisk(password);
     } catch (error) {
-      console.warn('second exception loading from disk:', error);
+      console.error('startAndDecrypt: second attempt to load wallets from disk failed', error);
     }
   }
 
   if (success) {
-    console.log('loaded from disk');
     // We want to return true to let the UnlockWith screen that its ok to proceed.
     return true;
   }

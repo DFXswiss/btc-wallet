@@ -156,7 +156,6 @@ export const BlueStorageProvider = ({ children }) => {
 
   const refreshAllWalletTransactions = async () => {
     if (!BlueApp.wallets.length) return;
-    console.log('refreshAllWalletTransactions');
 
     let noErr = true;
     try {
@@ -180,7 +179,7 @@ export const BlueStorageProvider = ({ children }) => {
       setLastSuccessfulBalanceRefresh(Date.now());
     } catch (err) {
       noErr = false;
-      console.warn(err);
+      console.warn('refreshAllWalletTransactions failed, retrying on next interval', err);
     } finally {
       setWalletTransactionUpdateStatus(WalletTransactionsStatus.NONE);
     }
@@ -204,7 +203,7 @@ export const BlueStorageProvider = ({ children }) => {
       await fetchWalletTransactions(index);
     } catch (err) {
       noErr = false;
-      console.warn(err);
+      console.warn('fetchAndSaveWalletTransactions failed for wallet index ' + index + ', retrying on next refresh', err);
     } finally {
       setWalletTransactionUpdateStatus(WalletTransactionsStatus.NONE);
     }
@@ -221,9 +220,9 @@ export const BlueStorageProvider = ({ children }) => {
   const setBalanceRefreshInterval = () => {
     if (!wallets) return;
     clearBalanceRefreshInterval();
-    refreshAllWalletTransactions().catch(console.error);
+    refreshAllWalletTransactions().catch(err => console.error('setBalanceRefreshInterval: initial refresh rejected', err));
     balanceRefreshInterval.current = setInterval(() => {
-      refreshAllWalletTransactions().catch(console.error);
+      refreshAllWalletTransactions().catch(err => console.error('setBalanceRefreshInterval: scheduled refresh rejected', err));
     }, 20 * 1000);
   };
 

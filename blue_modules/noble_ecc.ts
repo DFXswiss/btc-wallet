@@ -41,7 +41,6 @@ type Hex = string | Uint8Array;
 type PrivKey = Hex | bigint | number;
 
 necc.utils.privateAdd = (privateKey: PrivKey, tweak: Hex) => {
-  console.log({ privateKey, tweak });
   const p = normal(privateKey);
   const t = normal(tweak);
   return necc.utils.privateAdd(necc.utils.mod(p + t, necc.CURVE.n));

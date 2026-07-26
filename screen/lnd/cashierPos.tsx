@@ -130,7 +130,7 @@ const CashierPos = () => {
       setIsWaitingForPayment(true);
       initInvoicePolling();
     } catch (error) {
-      console.log(error);
+      console.error('lnd/cashierPos: failed to generate invoice', error);
     }
   };
 

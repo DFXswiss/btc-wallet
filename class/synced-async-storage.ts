@@ -150,7 +150,6 @@ export default class SyncedAsyncStorage {
       for (const key of (await this.getAllKeysRemote()).sort()) {
         const value = await this.getItemRemote(key);
         await AsyncStorage.setItem(this.namespace + '_' + key, value);
-        console.log('synced', key, 'to', value);
       }
 
       await AsyncStorage.setItem(this.namespace + '_' + 'seqnum', remoteSeqNum);

@@ -24,7 +24,7 @@ const writeFileAndExportToAndroidDestionation = async ({ filename, contents, des
       await RNFS.writeFile(filePath, contents);
       alert(loc.formatString(loc._.file_saved, { filePath: filename, destination: destinationLocalizedString }));
     } catch (e) {
-      console.log(e);
+      console.error('fs: writeFile to Android destination failed', e);
       alert(e.message);
     }
   } else {
@@ -50,9 +50,7 @@ const writeFileAndExport = async function (filename, contents) {
       url: 'file://' + filePath,
       saveToFiles: isDesktop,
     })
-      .catch(error => {
-        console.log(error);
-      })
+      .catch(() => {})
       .finally(() => {
         RNFS.unlink(filePath);
       });

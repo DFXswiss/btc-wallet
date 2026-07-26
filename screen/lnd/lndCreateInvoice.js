@@ -81,7 +81,7 @@ const LNDCreateInvoice = () => {
         await processLnurl(uri);
       }
     } catch (e) {
-      console.log(e);
+      console.error('lndCreateInvoice: failed to prepare receive details', e);
     }
     setIsLoading(false);
   };
@@ -373,7 +373,7 @@ const LNDCreateInvoice = () => {
   }
 
   const handleShareButtonPressed = () => {
-    Share.open({ message: wallet.current.lnAddress }).catch(error => console.log(error));
+    Share.open({ message: wallet.current.lnAddress }).catch(() => {});
   };
 
   return (

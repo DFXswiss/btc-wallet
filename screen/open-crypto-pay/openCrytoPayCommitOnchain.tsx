@@ -68,10 +68,7 @@ const OpenCrytoPayCommitOnchain = () => {
   });
 
   useEffect(() => {
-    console.log('openCrytoPayCommitOnchain - useEffect');
-    console.log('address = ', recipients);
     Biometric.isBiometricUseCapableAndEnabled().then(setIsBiometricUseCapableAndEnabled);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

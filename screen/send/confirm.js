@@ -60,10 +60,7 @@ const Confirm = () => {
   });
 
   useEffect(() => {
-    console.log('send/confirm - useEffect');
-    console.log('address = ', recipients);
     Biometric.isBiometricUseCapableAndEnabled().then(setIsBiometricUseCapableAndEnabled);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

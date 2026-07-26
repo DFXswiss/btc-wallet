@@ -89,13 +89,6 @@ const TransactionsDetails = () => {
       }
     }
 
-    for (const w of wallets) {
-      for (const t of w.getTransactions()) {
-        if (t.hash === hash) {
-          console.log('tx', hash, 'belongs to', w.getLabel());
-        }
-      }
-    }
     if (txMetadata[foundTx.hash]) {
       if (txMetadata[foundTx.hash].memo) {
         setMemo(txMetadata[foundTx.hash].memo);

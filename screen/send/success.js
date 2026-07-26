@@ -31,10 +31,6 @@ const Success = () => {
       color: colors.alternativeTextColor2,
     },
   });
-  useEffect(() => {
-    console.log('send/success - useEffect');
-  }, []);
-
   return (
     <SafeAreaView style={[styles.root, stylesHook.root]}>
       <SuccessView

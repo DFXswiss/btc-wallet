@@ -111,7 +111,6 @@ export default class CPFP extends Component {
   }
 
   async componentDidMount() {
-    console.log('transactions/CPFP - componentDidMount');
     this.setState({
       isLoading: true,
       newFeeRate: '',

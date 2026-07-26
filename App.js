@@ -81,6 +81,7 @@ const App = () => {
   const { walletsInitialized, wallets, addWallet, saveToDisk, setBalanceRefreshInterval, clearBalanceRefreshInterval } =
     useContext(BlueStorageContext);
   const appState = useRef(AppState.currentState);
+  const didAttemptInitialElectrumConnect = useRef(false);
 
   useCompanionListeners();
 
@@ -204,7 +205,22 @@ const App = () => {
 
   useEffect(() => {
     const unsubscribe = addEventListener(state => {
-      BlueElectrum.setNetworkConnected(state.isConnected);
+      // isConnected is `boolean | null`, where null means "not yet determined".
+      // Only a definite false means offline - treating unknown as offline would
+      // gate connectMain() off entirely (see the networkConnected check there)
+      // and leave Electrum wedged with no connection and no retry.
+      const isOffline = state.isConnected === false;
+      BlueElectrum.setNetworkConnected(!isOffline);
+
+      // The initial connect used to run at BlueApp.js module scope, before NetInfo
+      // had reported anything - and BlueElectrum defaults networkConnected to true,
+      // so a cold start with no network burned the whole retry cascade for nothing.
+      // NetInfo delivers the current state as soon as we subscribe, so this is the
+      // earliest point at which the answer is actually known.
+      if (!isOffline && !didAttemptInitialElectrumConnect.current) {
+        didAttemptInitialElectrumConnect.current = true;
+        BlueElectrum.connectMain();
+      }
     });
 
     return () => {

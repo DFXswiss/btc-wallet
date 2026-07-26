@@ -12,7 +12,6 @@ import alert from '../../components/Alert';
 export default class RBFCancel extends CPFP {
   static contextType = BlueStorageContext;
   async componentDidMount() {
-    console.log('transactions/RBFCancel - componentDidMount');
     this.setState({
       isLoading: true,
       newFeeRate: '',

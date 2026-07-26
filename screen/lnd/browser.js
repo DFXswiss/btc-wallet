@@ -330,7 +330,6 @@ export default class Browser extends Component {
         source={{ uri: this.state.url }}
         onMessage={e => {
           // this is a handler which receives messages sent from within the browser
-          console.log('---- message from the bus:', e.nativeEvent.data);
           let json = false;
           try {
             json = JSON.parse(e.nativeEvent.data);
@@ -354,11 +353,10 @@ export default class Browser extends Component {
               'Page',
               'This page asks for permission to pay an invoice',
               [
-                { text: 'Cancel', onPress: () => console.log('Cancel Pressed'), style: 'cancel' },
+                { text: 'Cancel', style: 'cancel' },
                 {
                   text: 'Pay',
                   onPress: () => {
-                    console.log('OK Pressed');
                     this.props.navigation.navigate('SendDetailsRoot', {
                       screen: 'ScanLndInvoice',
                       params: {
@@ -384,7 +382,7 @@ export default class Browser extends Component {
               'Page',
               'This page wants to pay you ' + amount + ' sats (' + json.makeInvoice.defaultMemo + ')',
               [
-                { text: 'No thanks', onPress: () => console.log('Cancel Pressed'), style: 'cancel' },
+                { text: 'No thanks', style: 'cancel' },
                 {
                   text: 'Accept',
                   onPress: async () => {

@@ -135,7 +135,7 @@ class ElectrumSettings extends Component {
   clearHistoryAlert() {
     ReactNativeHapticFeedback.trigger('impactHeavy', { ignoreAndroidSystemSettings: false });
     Alert.alert(loc.settings.electrum_clear_alert_title, loc.settings.electrum_clear_alert_message, [
-      { text: loc.settings.electrum_clear_alert_cancel, onPress: () => console.log('Cancel Pressed'), style: 'cancel' },
+      { text: loc.settings.electrum_clear_alert_cancel, style: 'cancel' },
       { text: loc.settings.electrum_clear_alert_ok, onPress: () => this.clearHistory() },
     ]);
   }
@@ -188,7 +188,6 @@ class ElectrumSettings extends Component {
             WidgetCommunication.reloadAllTimelines();
           } catch (e) {
             // Must be running on Android
-            console.log(e);
           }
           ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
           alert(loc.settings.electrum_saved);
@@ -217,7 +216,6 @@ class ElectrumSettings extends Component {
             WidgetCommunication.reloadAllTimelines();
           } catch (e) {
             // Must be running on Android
-            console.log(e);
           }
           ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
           alert(loc.settings.electrum_saved);

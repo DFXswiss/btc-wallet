@@ -438,7 +438,7 @@ class DeeplinkSchemaMatch {
             }
           }
         } catch (e) {
-          console.log(e);
+          console.error('DeeplinkSchemaMatch: failed to extract lightning invoice from BIP-21 URI', e);
         }
         if (btc && lndInvoice) break;
       }

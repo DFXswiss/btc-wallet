@@ -46,7 +46,6 @@ const SendCreate = () => {
   useEffect(() => {
     Privacy.enableBlur();
 
-    console.log('send/create - useEffect');
     return () => {
       Privacy.disableBlur();
     };
@@ -61,9 +60,7 @@ const SendCreate = () => {
         url: 'file://' + filePath,
         saveToFiles: isDesktop,
       })
-        .catch(error => {
-          console.log(error);
-        })
+        .catch(() => {})
         .finally(() => {
           RNFS.unlink(filePath);
         });
@@ -83,7 +80,7 @@ const SendCreate = () => {
           await RNFS.writeFile(filePath, tx);
           alert(loc.formatString(loc.send.txSaved, { filePath }));
         } catch (e) {
-          console.log(e);
+          console.error('send/create: failed to write transaction file to downloads', e);
           alert(e.message);
         }
       } else {

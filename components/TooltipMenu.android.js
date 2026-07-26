@@ -19,9 +19,7 @@ const ToolTipMenu = (props, ref) => {
     }
   }, [ref]);
 
-  const dismissMenu = () => {
-    console.log('dismissMenu Not implemented');
-  };
+  const dismissMenu = () => {};
 
   const showMenu = () => {
     const menu = [];

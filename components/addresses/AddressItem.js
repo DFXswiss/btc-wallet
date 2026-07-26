@@ -65,7 +65,7 @@ const AddressItem = ({ item, balanceUnit, walletID, allowSignVerifyMessage }) =>
   };
 
   const handleSharePress = () => {
-    Share.open({ message: item.address }).catch(error => console.log(error));
+    Share.open({ message: item.address }).catch(() => {});
   };
 
   const onToolTipPress = id => {
