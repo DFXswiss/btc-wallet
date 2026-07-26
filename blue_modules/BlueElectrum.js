@@ -77,19 +77,32 @@ let rotatePeerTimeout = null;
 let networkConnected = true;
 
 // Substrings safe to report for a user-configured peer: they describe the failure
-// mode without carrying the host or IP the native error string embeds.
+// mode without carrying the host or IP the native error string embeds. Matched
+// case-insensitively against the strings Android (SocketException/SSLHandshake)
+// and iOS (localizedDescription) actually produce, not Node errno names.
 const SAFE_ERROR_TOKENS = [
   'ECONNREFUSED',
-  'ETIMEDOUT',
-  'ENOTFOUND',
+  'ECONNRESET',
   'EHOSTUNREACH',
   'ENETUNREACH',
-  'ECONNRESET',
   'EPIPE',
-  'certificate',
+  'trust anchor',
+  'certif',
+  'ssl',
+  'tls',
   'handshake',
   'timed out',
+  'timeout',
   'refused',
+  'unable to resolve host',
+  'no address associated',
+  'unreachable',
+  'no route',
+  'reset',
+  'broken pipe',
+  // Ordered last: these are the least specific, so a more precise token wins first.
+  'failed to connect',
+  'osstatus',
 ];
 
 async function isDisabled() {
@@ -171,8 +184,8 @@ async function _initConnection() {
   // .code - only allowlisted tokens can ever be emitted for a custom peer.
   const scrubPeer = e => {
     if (!isCustomPeer) return e;
-    const text = String(e?.code ?? e?.message ?? e ?? '');
-    return SAFE_ERROR_TOKENS.find(token => text.includes(token)) ?? 'connection error';
+    const text = String(e?.code ?? e?.message ?? e ?? '').toLowerCase();
+    return SAFE_ERROR_TOKENS.find(token => text.includes(token.toLowerCase())) ?? 'connection error';
   };
 
   try {

@@ -24,7 +24,9 @@ const writeFileAndExportToAndroidDestionation = async ({ filename, contents, des
       await RNFS.writeFile(filePath, contents);
       alert(loc.formatString(loc._.file_saved, { filePath: filename, destination: destinationLocalizedString }));
     } catch (e) {
-      console.error('fs: writeFile to Android destination failed', e);
+      // The message contains the full path, and filename is a wallet label at
+      // some call sites - report the code only.
+      console.error('fs: writeFile to Android destination failed', e?.code ?? 'write failed');
       alert(e.message);
     }
   } else {

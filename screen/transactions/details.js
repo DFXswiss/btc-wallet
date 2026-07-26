@@ -114,7 +114,8 @@ const TransactionsDetails = () => {
       .then(supported => {
         if (supported) {
           Linking.openURL(url).catch(e => {
-            console.warn('transactionDetails: openURL failed for block explorer', e);
+            // The rejection message embeds the full URL, i.e. the txid - log neither.
+            console.warn('transactionDetails: openURL failed for block explorer');
             alert(e.message);
           });
         } else {
@@ -123,7 +124,8 @@ const TransactionsDetails = () => {
         }
       })
       .catch(e => {
-        console.warn('transactionDetails: canOpenURL failed for block explorer', e);
+        // Same here: the rejection message embeds the URL and therefore the txid.
+        console.warn('transactionDetails: canOpenURL failed for block explorer');
         alert(e.message);
       });
   };
