@@ -168,7 +168,7 @@ const checkAndroidNotificationPermission = async () => {
   try {
     const { status } = await checkNotifications();
     return status === RESULTS.GRANTED;
-  } catch (err) {
+  } catch (_) {
     return false;
   }
 };
@@ -177,7 +177,7 @@ export const checkNotificationPermissionStatus = async () => {
   try {
     const { status } = await checkNotifications();
     return status;
-  } catch (error) {
+  } catch (_) {
     return 'unavailable';
   }
 };
@@ -234,7 +234,7 @@ export const tryToObtainPermissions = async (): Promise<boolean> => {
       return false;
     }
     return configureNotifications();
-  } catch (error) {
+  } catch (_) {
     return false;
   }
 };
@@ -348,7 +348,7 @@ export const addNotification = async (notification: TPayload) => {
     const stringified = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE);
     notifications = JSON.parse(String(stringified));
     if (!Array.isArray(notifications)) notifications = [];
-  } catch (e) {
+  } catch (_) {
     notifications = [];
   }
 
@@ -444,7 +444,7 @@ const configureNotifications = async (onProcessNotifications?: () => void): Prom
       .catch(() => {});
 
     return await waitForRemoteRegistration();
-  } catch (error) {
+  } catch (_) {
     return false;
   }
 };
@@ -652,7 +652,7 @@ export const initializeNotifications = async (onProcessNotifications?: () => voi
     if (canProceed) {
       await configureNotifications(onProcessNotifications);
     }
-  } catch (error) {
+  } catch (_) {
     baseURI = groundControlUri;
     await AsyncStorage.setItem(GROUNDCONTROL_BASE_URI, groundControlUri).catch(() => {});
   }

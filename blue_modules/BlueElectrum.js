@@ -79,30 +79,36 @@ let networkConnected = true;
 // Substrings safe to report for a user-configured peer: they describe the failure
 // mode without carrying the host or IP the native error string embeds. Matched
 // case-insensitively against the strings Android (SocketException/SSLHandshake)
-// and iOS (localizedDescription) actually produce, not Node errno names.
+// and iOS (localizedDescription) actually produce - including the errno names
+// those strings embed verbatim, e.g. "connect failed: ECONNREFUSED".
+//
+// ORDER MATTERS. The text being matched still contains the hostname, so a short
+// token can match from inside it: a DNS failure against "electrum-ssl.example.com"
+// would report 'ssl' if that token came first. Unambiguous multi-word tokens are
+// listed before short generic ones for that reason.
 const SAFE_ERROR_TOKENS = [
   'ECONNREFUSED',
   'ECONNRESET',
   'EHOSTUNREACH',
   'ENETUNREACH',
   'EPIPE',
+  'unable to resolve host',
+  'no address associated',
   'trust anchor',
-  'certif',
-  'ssl',
-  'tls',
+  'broken pipe',
+  'no route',
+  'failed to connect',
   'handshake',
   'timed out',
   'timeout',
-  'refused',
-  'unable to resolve host',
-  'no address associated',
   'unreachable',
-  'no route',
-  'reset',
-  'broken pipe',
-  // Ordered last: these are the least specific, so a more precise token wins first.
-  'failed to connect',
+  'refused',
   'osstatus',
+  // Short and liable to appear inside a hostname - last resort only.
+  'certif',
+  'reset',
+  'ssl',
+  'tls',
 ];
 
 async function isDisabled() {
