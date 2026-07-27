@@ -32,6 +32,7 @@ import WidgetCommunication from './blue_modules/WidgetCommunication';
 import HandoffComponent from './components/handoff';
 import Privacy from './blue_modules/Privacy';
 import { addEventListener } from '@react-native-community/netinfo';
+import { getUniqueIdSync } from 'react-native-device-info';
 import * as Sentry from '@sentry/react-native';
 // Not re-exported by @sentry/react-native. Both are pinned to exact versions so they
 // stay a single deduped instance: Sentry keys its carrier by SDK version, so a second
@@ -73,6 +74,13 @@ BlueApp.isDoNotTrackEnabled().then(doNotTrack => {
     // uncomment the line below to enable Spotlight (https://spotlightjs.com)
     // spotlight: __DEV__,
   });
+
+  // Identify the device here, not from analytics.js's own Do Not Track read: that
+  // module is imported first and so resolves first, and the scope->native bridge is
+  // installed inside init() without replaying a user set before it. Setting it there
+  // alone would leave native crashes carrying the SDK's own install id while JS
+  // events and logs carry this one - the same split this is meant to remove.
+  Sentry.setUser(doNotTrack ? null : { id: getUniqueIdSync() });
 });
 const currency = require('./blue_modules/currency');
 const BlueElectrum = require('./blue_modules/BlueElectrum');

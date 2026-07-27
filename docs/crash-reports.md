@@ -24,9 +24,19 @@ What is reported, when Do Not Track is off:
   support request cannot be matched to its telemetry.
 
 No PII beyond that id is collected (`sendDefaultPii: false` — no IP address, cookies, or
-user profile). Turning Do Not Track on stops event delivery and clears the id from the
-JS and native scopes; turning it back off re-attaches it and re-registers the console
-capture without needing a restart.
+user profile).
+
+Toggling Do Not Track mid-session does not do everything a restart does, so be precise
+about it:
+
+- **Turning it on** stops the JS client from sending immediately and clears the id from
+  the JS and native scopes. The native SDK was already started, though, and only JS-side
+  delivery is gated — it keeps running until the app is restarted, after which it is not
+  started at all.
+- **Turning it off** re-attaches the id and installs the JS integrations that `Sentry.init()`
+  skipped while the client was disabled, so caught errors, uncaught errors and source-map
+  frame rewriting all resume. Native reporting does **not** resume: `enableNative` is fixed
+  at init and only takes effect on the next app start.
 
 The Apple-native flow below (Organizer/App Store Connect crash reports, no SDK involved)
 still works as a fallback — for example for a user who's opted out of Sentry via Do Not

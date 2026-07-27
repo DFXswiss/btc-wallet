@@ -8,37 +8,41 @@ jest.mock('../../BlueApp', () => ({
   isDoNotTrackEnabled: jest.fn().mockResolvedValue(false),
 }));
 
-const mockSentryOptions = { enabled: true };
-// What the client currently has registered. Sentry.init() only wires integrations up
-// when the client is enabled at that moment, so for a user who launched with Do Not
-// Track on this legitimately starts out empty.
-let mockIntegrations = [];
+// The resolved integration list sits on the options whether or not the client is
+// enabled; what init() skips for a disabled client is *installing* them.
+const RESOLVED_INTEGRATIONS = [{ name: 'CaptureConsole' }, { name: 'ReactNativeErrorHandlers' }, { name: 'Dedupe' }];
+const mockSentryOptions = { enabled: true, integrations: RESOLVED_INTEGRATIONS };
+// What the client actually has installed - legitimately empty for a user who
+// launched with Do Not Track on.
+let mockInstalled = [];
 jest.mock('@sentry/react-native', () => ({
-  getClient: jest.fn(() => ({
-    getOptions: () => mockSentryOptions,
-    getIntegrationByName: name => mockIntegrations.find(i => i.name === name),
-  })),
-  addIntegration: jest.fn(integration => mockIntegrations.push(integration)),
+  getClient: jest.fn(() => ({ getOptions: () => mockSentryOptions })),
+  addIntegration: jest.fn(integration => {
+    if (!mockInstalled.some(i => i.name === integration.name)) mockInstalled.push(integration);
+  }),
   setUser: jest.fn(),
   captureException: jest.fn(),
-}));
-
-// Like @sentry/react-native above, this ships ESM that jest does not transform
-// (no @sentry entry in transformIgnorePatterns), so stub the factory and assert
-// on the options we pass it.
-jest.mock('@sentry/core', () => ({
-  captureConsoleIntegration: jest.fn(options => ({ name: 'CaptureConsole', options })),
 }));
 
 describe('blue_modules/analytics', () => {
   beforeEach(() => {
     mockSentryOptions.enabled = true;
-    mockIntegrations = [];
+    mockInstalled = [];
     jest.clearAllMocks();
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  // App.js imports captureConsoleIntegration from @sentry/core, which only resolves to
+  // the same instance the SDK uses while both stay on one hoisted copy. A second copy
+  // would make the integration's own client check never match and it would stop filing
+  // issues with no error anywhere, so pin drift has to fail here instead.
+  it('@sentry/core is pinned to exactly what @sentry/react-native depends on', () => {
+    const ours = require('../../package.json').dependencies['@sentry/core'];
+    const theirs = require('@sentry/react-native/package.json').dependencies['@sentry/core'];
+    assert.strictEqual(ours, theirs);
   });
 
   it('setOptOut(true) disables the Sentry client (opting out must actually stop event delivery)', () => {
@@ -77,26 +81,24 @@ describe('blue_modules/analytics', () => {
   });
 
   // Sentry.init() skips integration setup entirely when the client is disabled, and
-  // flipping `enabled` afterwards cannot install one. Without re-registering here, a user
-  // who launches with Do Not Track on and then turns it off would have every caught error
-  // go unreported until the next app start.
-  it('setOptOut(false) registers console capture that init skipped while opted out', () => {
+  // flipping `enabled` afterwards installs nothing. A user who launches with Do Not
+  // Track on and then turns it off must get the WHOLE resolved list - not just console
+  // capture, but the uncaught-error handlers and the frame rewriting source maps need.
+  it('setOptOut(false) installs the integrations init skipped while opted out', () => {
     const A = require('../../blue_modules/analytics');
     const Sentry = require('@sentry/react-native');
     A.setOptOut(false);
-    assert.strictEqual(Sentry.addIntegration.mock.calls.length, 1);
-    const registered = Sentry.addIntegration.mock.calls[0][0];
-    assert.strictEqual(registered.name, 'CaptureConsole');
-    // errors only - console.warn is far too noisy to open issues from
-    assert.deepStrictEqual(registered.options, { levels: ['error'] });
+    // joined rather than compared as arrays: jest hands the mock's calls back from
+    // another realm, so deepStrictEqual fails the prototype check on identical content
+    const installed = Sentry.addIntegration.mock.calls.map(c => c[0].name).join(',');
+    assert.strictEqual(installed, 'CaptureConsole,ReactNativeErrorHandlers,Dedupe');
   });
 
-  it('does not register console capture twice when it is already present', () => {
+  it('installs nothing while opted out', () => {
     const A = require('../../blue_modules/analytics');
     const Sentry = require('@sentry/react-native');
-    A.setOptOut(false);
-    A.setOptOut(false);
-    assert.strictEqual(Sentry.addIntegration.mock.calls.length, 1);
+    A.setOptOut(true);
+    assert.strictEqual(Sentry.addIntegration.mock.calls.length, 0);
   });
 
   it('logError forwards an Error instance to console.error unchanged', () => {

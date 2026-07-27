@@ -1,6 +1,5 @@
 const BlueApp = require('../BlueApp');
 const Sentry = require('@sentry/react-native');
-const { captureConsoleIntegration } = require('@sentry/core');
 const { getUniqueIdSync } = require('react-native-device-info');
 
 // App.js defers Sentry.init() behind its own isDoNotTrackEnabled() read (so native
@@ -12,12 +11,15 @@ const setSentryEnabled = enabled => {
   const client = Sentry.getClient();
   if (client) {
     client.getOptions().enabled = enabled;
-    // Sentry.init() only wires integrations up when the client is enabled at that
-    // moment, and flipping `enabled` afterwards cannot install them. Without this,
-    // a user who launches with Do Not Track on and then turns it off would get no
-    // console capture at all until the next app start.
-    if (enabled && !client.getIntegrationByName('CaptureConsole')) {
-      Sentry.addIntegration(captureConsoleIntegration({ levels: ['error'] }));
+    if (enabled) {
+      // Sentry.init() skips integration setup entirely on a disabled client, so a
+      // user who launched with Do Not Track on has NONE installed - not just no
+      // console capture, but no error handlers, no frame rewriting (so source maps
+      // cannot match) and no dedupe. The resolved list is on the options either
+      // way; installing a name that is already installed is a no-op. Integrations
+      // that need the native SDK are absent from it, because enableNative was false
+      // at init - native reporting only comes back on the next app start.
+      client.getOptions().integrations.forEach(integration => Sentry.addIntegration(integration));
     }
   }
   // Identify the device on both error events and logs. Without a scope user the
