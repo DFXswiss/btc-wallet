@@ -14,6 +14,7 @@ import { AbstractWallet, HDSegwitBech32Wallet, LegacyWallet } from '../../class'
 import BigNumber from 'bignumber.js';
 import { AbstractHDElectrumWallet } from '../../class/wallets/abstract-hd-electrum-wallet';
 import { isInternalDomain } from '../../helpers/freeLightningDomains';
+import { toError } from '../../helpers/errors';
 
 type RouteParams = {
   lnurl: string;
@@ -193,7 +194,7 @@ const LnurlNavigationForwarder = () => {
 
       throw new Error('Unsupported lnurl');
     } catch (error) {
-      console.error('lnurlNavigationForwarder: failed to route lnurl', error);
+      console.error(toError('lnurlNavigationForwarder: failed to route lnurl', error), error);
       navigation.goBack();
     }
   };

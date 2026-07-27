@@ -16,7 +16,7 @@ import BoltCard from '../../class/boltcard';
 import { HoldCardModal } from '../../components/HoldCardModal';
 import loc from '../../loc';
 import { getProgressStringGenerator } from '../../helpers/stringProgressBar';
-import { toError } from '../../api/dfx/definitions/error';
+import { toError } from '../../helpers/errors';
 
 const DeleteBolcard: React.FC & { navigationOptions?: ReturnType<typeof navigationStyle> } = () => {
   const { wallets, saveToDisk } = useContext(BlueStorageContext);
@@ -69,7 +69,7 @@ const DeleteBolcard: React.FC & { navigationOptions?: ReturnType<typeof navigati
         await deleteBoltcard(ldsWallet.getAdminKey(), card);
         updateProgress(`${loc.boltcard.writting_hold}\n\n${progress.next()}`);
       } catch (_) {
-        console.error(toError('boltcard/delete: server-side card deletion failed after card was wiped', _));
+        console.error(toError('boltcard/delete: server-side card deletion failed after card was wiped', _), _);
       }
       ldsWallet.deleteBoltcard(card);
       await saveToDisk();
@@ -87,7 +87,7 @@ const DeleteBolcard: React.FC & { navigationOptions?: ReturnType<typeof navigati
     } catch (error) {
       setIsLoading(false);
       stopNfcSession();
-      console.error(toError('boltcard/delete: card deletion flow failed', error));
+      console.error(toError('boltcard/delete: card deletion flow failed', error), error);
     }
   };
 

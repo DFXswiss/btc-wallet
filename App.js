@@ -34,10 +34,10 @@ import Privacy from './blue_modules/Privacy';
 import { addEventListener } from '@react-native-community/netinfo';
 import { getUniqueIdSync } from 'react-native-device-info';
 import * as Sentry from '@sentry/react-native';
-// Not re-exported by @sentry/react-native. Both are pinned to exact versions so they
-// stay a single deduped instance: Sentry keys its carrier by SDK version, so a second
-// copy would make the integration's own client check never match and it would stop
-// filing issues silently.
+// Not re-exported by @sentry/react-native. Both are pinned to exact versions so they stay
+// a single deduped instance: Sentry keys its carrier by SDK version, so a copy at a
+// *different* version would get its own client, the integration's own client check would
+// never match, and it would stop filing issues silently.
 import { captureConsoleIntegration } from '@sentry/core';
 const BlueApp = require('./BlueApp');
 
