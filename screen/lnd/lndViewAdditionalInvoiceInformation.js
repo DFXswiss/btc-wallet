@@ -8,7 +8,7 @@ import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import QRCodeComponent from '../../components/QRCodeComponent';
 import alert from '../../components/Alert';
-import { toError } from '../../helpers/errors';
+import { reportError } from '../../helpers/errors';
 
 const LNDViewAdditionalInvoiceInformation = () => {
   const { walletID } = useRoute().params;
@@ -34,7 +34,7 @@ const LNDViewAdditionalInvoiceInformation = () => {
           setWalletInfo(wallet.info_raw);
         })
         .catch(error => {
-          console.error(toError('lndViewAdditionalInvoiceInformation: wallet.fetchInfo failed', error), error);
+          reportError('lndViewAdditionalInvoiceInformation: wallet.fetchInfo failed', error);
           alert(loc.errors.network);
           goBack();
         });

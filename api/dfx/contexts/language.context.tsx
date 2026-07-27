@@ -1,6 +1,6 @@
 import React, { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
 import { Language } from '../definitions/language';
-import { toError } from '../../../helpers/errors';
+import { reportError } from '../../../helpers/errors';
 import { useLanguage } from '../hooks/language.hook';
 
 interface LanguageInterface {
@@ -20,7 +20,7 @@ export function LanguageContextProvider(props: PropsWithChildren): React.JSX.Ele
   useEffect(() => {
     getLanguages()
       .then(setLanguages)
-      .catch(e => console.error(toError('LanguageContext: failed to load languages', e), e));
+      .catch(e => reportError('LanguageContext: failed to load languages', e));
   }, [getLanguages]);
 
   const context: LanguageInterface = useMemo(() => ({ languages: languages?.filter(l => l.enable) }), [languages]);

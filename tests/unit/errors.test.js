@@ -1,6 +1,6 @@
 const assert = require('assert');
 
-const { toError } = require('../../helpers/errors');
+const { toError, reportError } = require('../../helpers/errors');
 
 // The HTTP layers reject with the parsed error body rather than an Error, and Sentry files
 // an issue from the first Error among the console arguments. Everything below is about what
@@ -52,10 +52,30 @@ describe('helpers/errors toError', () => {
     assert.ok(toError('ctx', { type: 'AUTH_FAILED', code: '91ae' }).message.includes('AUTH_FAILED'));
   });
 
-  it('never renders an object as [object Object]', () => {
-    // the last shape is the trap: `message` present, but itself an object
-    for (const shape of [{}, { statusCode: 500 }, { unexpected: 'shape' }, { statusCode: 400, message: { code: 'x' } }]) {
-      assert.ok(!toError('ctx', shape).message.includes('[object Object]'), `leaked for ${JSON.stringify(shape)}`);
+  it('never renders an object as [object Object], in the value or the type', () => {
+    // both traps: `message` present but itself an object, and the same for `statusCode` -
+    // the type is half the issue title, so an unguarded one puts it right back
+    const shapes = [
+      {},
+      { statusCode: 500 },
+      { unexpected: 'shape' },
+      { statusCode: 400, message: { code: 'x' } },
+      { statusCode: { a: 1 } },
+    ];
+    for (const shape of shapes) {
+      const error = toError('ctx', shape);
+      assert.ok(!error.message.includes('[object Object]'), `value leaked for ${JSON.stringify(shape)}`);
+      assert.ok(!error.name.includes('[object Object]'), `type leaked for ${JSON.stringify(shape)}`);
+    }
+  });
+
+  // Whatever came off the wire is bounded, whichever field it arrived in: an issue title is
+  // not the place for a 5 kB error body.
+  it('caps a long detail from either branch', () => {
+    for (const shape of [{ detail: 'a'.repeat(5000) }, { statusCode: 500, message: 'b'.repeat(5000) }]) {
+      const { message } = toError('ctx', shape);
+      assert.ok(message.length <= 'ctx: '.length + 203, `not capped: ${message.length}`);
+      assert.ok(message.endsWith('...'), 'truncation should be marked');
     }
   });
 
@@ -66,5 +86,46 @@ describe('helpers/errors toError', () => {
     const circular = {};
     circular.self = circular;
     assert.strictEqual(toError('ctx', circular).message, 'ctx');
+  });
+
+  // The Error is built inside the helper, so without popping frames the culprit shown on
+  // every issue in the app would be helpers/errors.ts rather than the code that failed.
+  it('pops its own frames so the culprit is the call site', () => {
+    assert.strictEqual(toError('ctx', 'boom').framesToPop, 1);
+    // and it must not be serialized along with the error
+    assert.ok(!Object.keys(toError('ctx', 'boom')).includes('framesToPop'));
+  });
+});
+
+describe('helpers/errors reportError', () => {
+  let calls;
+  beforeEach(() => {
+    calls = [];
+    jest.spyOn(console, 'error').mockImplementation((...args) => calls.push(args));
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  // Context first: the console-to-logs integration only builds a message template when the
+  // first argument is a string. captureConsole still files the wrapper, because it takes the
+  // first Error among the arguments rather than the first argument.
+  it('logs the context first, then the wrapper, then the original', () => {
+    const original = { statusCode: 404, message: 'Not found' };
+    reportError('receivePos: poll failed', original);
+
+    const [args] = calls;
+    assert.strictEqual(args[0], 'receivePos: poll failed');
+    assert.ok(args[1] instanceof Error);
+    assert.strictEqual(args[1].name, 'ApiError404');
+    assert.strictEqual(args[2], original);
+    // what captureConsole would pick
+    assert.strictEqual(
+      args.find(a => a instanceof Error),
+      args[1],
+    );
+  });
+
+  it('pops the extra helper frame it adds', () => {
+    reportError('ctx', new Error('boom'));
+    assert.strictEqual(calls[0][1].framesToPop, 2);
   });
 });

@@ -15,7 +15,7 @@ import BoltCard from '../../class/boltcard';
 import { Hit } from '../../api/boltcards/definitions/apiDtos';
 import useInputAmount from '../../hooks/useInputAmount';
 import BoltCardsCarousel from './BoltCardsCarousel';
-import { toError } from '../../helpers/errors';
+import { reportError } from '../../helpers/errors';
 
 const BoltcardDetails: React.FC & { navigationOptions?: ReturnType<typeof navigationStyle> } = () => {
   const { colors } = useTheme();
@@ -120,7 +120,7 @@ const BoltcardDetails: React.FC & { navigationOptions?: ReturnType<typeof naviga
       resetInputs();
     } catch (error) {
       setIsUpdating(false);
-      console.error(toError('boltcard/details: failed to update card', error), error);
+      reportError('boltcard/details: failed to update card', error);
     }
   };
 
