@@ -17,7 +17,9 @@ export function LanguageContextProvider(props: PropsWithChildren): React.JSX.Ele
   const { getLanguages } = useLanguage();
 
   useEffect(() => {
-    getLanguages().then(setLanguages).catch(console.error);
+    getLanguages()
+      .then(setLanguages)
+      .catch(e => console.error('LanguageContext: failed to load languages', e));
   }, [getLanguages]);
 
   const context: LanguageInterface = useMemo(() => ({ languages: languages?.filter(l => l.enable) }), [languages]);

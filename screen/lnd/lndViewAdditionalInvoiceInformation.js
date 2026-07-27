@@ -33,7 +33,7 @@ const LNDViewAdditionalInvoiceInformation = () => {
           setWalletInfo(wallet.info_raw);
         })
         .catch(error => {
-          console.log(error);
+          console.error('lndViewAdditionalInvoiceInformation: wallet.fetchInfo failed', error);
           alert(loc.errors.network);
           goBack();
         });

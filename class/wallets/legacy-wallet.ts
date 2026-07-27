@@ -117,7 +117,7 @@ export class LegacyWallet extends AbstractWallet {
       this.unconfirmed_balance = Number(balance.unconfirmed);
       this._lastBalanceFetch = +new Date();
     } catch (error) {
-      console.warn(error);
+      console.warn('LegacyWallet.fetchBalance: failed, keeping stale balance', error);
     }
   }
 
@@ -152,7 +152,7 @@ export class LegacyWallet extends AbstractWallet {
 
       this.utxo = newUtxos;
     } catch (error) {
-      console.warn(error);
+      console.warn('LegacyWallet.fetchUtxo: txhex hydration failed, utxo set may be partial', error);
     }
   }
 
@@ -368,7 +368,6 @@ export class LegacyWallet extends AbstractWallet {
    */
   async broadcastTx(txhex: string): Promise<boolean> {
     const broadcast = await BlueElectrum.broadcastV2(txhex);
-    console.log({ broadcast });
     if (broadcast.indexOf('successfully') !== -1) return true;
     return broadcast.length === 64; // this means return string is txid (precise length), so it was broadcasted ok
   }

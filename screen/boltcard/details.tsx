@@ -39,18 +39,14 @@ const BoltcardDetails: React.FC & { navigationOptions?: ReturnType<typeof naviga
   const { amountSats: txLimitSats, formattedUnit: txLimitUnit, inputProps: txLimitInputProps, resetInput: resetTxLimit } = useInputAmount();
 
   const initPolling = useCallback(async () => {
-    try {
-      pollInterval.current = setInterval(async () => {
-        if (isPolling) return;
-        setIsPolling(true);
-        const latestHits = await getHits(ldsWallet.getInvoiceId());
-        ldsWallet.cachedHits = latestHits;
-        setHits(latestHits);
-        setIsPolling(false);
-      }, 5000);
-    } catch (_) {
-      console.log(_);
-    }
+    pollInterval.current = setInterval(async () => {
+      if (isPolling) return;
+      setIsPolling(true);
+      const latestHits = await getHits(ldsWallet.getInvoiceId());
+      ldsWallet.cachedHits = latestHits;
+      setHits(latestHits);
+      setIsPolling(false);
+    }, 5000);
   }, [card]);
 
   const stopPolling = () => {
@@ -123,7 +119,7 @@ const BoltcardDetails: React.FC & { navigationOptions?: ReturnType<typeof naviga
       resetInputs();
     } catch (error) {
       setIsUpdating(false);
-      console.log('ERROR: ', error);
+      console.error('boltcard/details: failed to update card', error);
     }
   };
 

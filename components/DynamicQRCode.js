@@ -41,7 +41,7 @@ export class DynamicQRCode extends Component {
         },
       );
     } catch (e) {
-      console.log(e);
+      console.error('DynamicQRCode: failed to initialise fragment encoder', e);
       this.setState({ displayQRCode: false, hideControls });
     }
   }
@@ -87,7 +87,7 @@ export class DynamicQRCode extends Component {
   };
 
   onError = () => {
-    console.log('Data is too large for QR Code.');
+    console.warn('DynamicQRCode: payload too large to encode');
     this.setState({ displayQRCode: false });
   };
 

@@ -2,7 +2,6 @@ import React, { forwardRef, useCallback, useMemo } from 'react';
 import ContextMenu from 'react-native-context-menu-view';
 import PropTypes from 'prop-types';
 import { TouchableOpacity } from 'react-native';
-import QRCodeComponent from './QRCodeComponent';
 
 const mapAction = action => {
   const item = {
@@ -64,8 +63,6 @@ const ToolTipMenu = (props, ref) => {
 
   const isButton = !!props.isButton;
   const isMenuPrimaryAction = !!props.isMenuPrimaryAction;
-  const previewQRCode = props.previewQRCode ?? false;
-  const previewValue = props.previewValue;
   const disabled = props.disabled ?? false;
   const buttonStyle = props.buttonStyle;
 
@@ -81,7 +78,6 @@ const ToolTipMenu = (props, ref) => {
       onPress={handlePress}
       dropdownMenuMode={isMenuPrimaryAction}
       previewBackgroundColor="transparent"
-      preview={previewQRCode ? <QRCodeComponent value={previewValue} isMenuAvailable={false} /> : undefined}
       style={isButton ? buttonStyle : undefined}
     >
       {props.onPress ? (
@@ -105,9 +101,7 @@ ToolTipMenu.propTypes = {
   onPressMenuItem: PropTypes.func.isRequired,
   isMenuPrimaryAction: PropTypes.bool,
   isButton: PropTypes.bool,
-  previewQRCode: PropTypes.bool,
   onPress: PropTypes.func,
-  previewValue: PropTypes.string,
   disabled: PropTypes.bool,
   buttonStyle: PropTypes.object,
 };

@@ -193,7 +193,7 @@ const LnurlNavigationForwarder = () => {
 
       throw new Error('Unsupported lnurl');
     } catch (error) {
-      console.error(error);
+      console.error('lnurlNavigationForwarder: failed to route lnurl', error);
       navigation.goBack();
     }
   };

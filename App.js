@@ -81,6 +81,7 @@ const App = () => {
   const { walletsInitialized, wallets, addWallet, saveToDisk, setBalanceRefreshInterval, clearBalanceRefreshInterval } =
     useContext(BlueStorageContext);
   const appState = useRef(AppState.currentState);
+  const wasElectrumOnline = useRef(undefined);
 
   useCompanionListeners();
 
@@ -141,7 +142,7 @@ const App = () => {
     DeviceQuickActions.popInitialAction().then(popInitialAction);
     EventEmitter?.getMostRecentUserActivity()
       .then(onUserActivityOpen)
-      .catch(() => console.log('No userActivity object sent'));
+      .catch(() => {});
     handleAppStateChange(undefined);
     eventEmitter?.addListener('openSettings', openSettings);
     eventEmitter?.addListener('onUserActivityOpen', onUserActivityOpen);
@@ -204,7 +205,29 @@ const App = () => {
 
   useEffect(() => {
     const unsubscribe = addEventListener(state => {
-      BlueElectrum.setNetworkConnected(state.isConnected);
+      // isConnected is `boolean | null`, where null means "not yet determined".
+      // Only a definite false means offline - treating unknown as offline would
+      // gate connectMain() off entirely (see the networkConnected check there)
+      // and leave Electrum wedged with no connection and no retry.
+      const isOffline = state.isConnected === false;
+      BlueElectrum.setNetworkConnected(!isOffline);
+
+      // The initial connect used to run at BlueApp.js module scope, before NetInfo
+      // had reported anything - and BlueElectrum defaults networkConnected to true,
+      // so a cold start with no network burned the whole retry cascade for nothing.
+      // NetInfo delivers the current state as soon as we subscribe, so this is the
+      // earliest point at which the answer is actually known.
+      //
+      // Fires on the first report that says we have a network, and again on every
+      // offline -> online transition: while offline every connectMain() returns at
+      // the networkConnected guard, so reconnecting here is immediate instead of
+      // waiting for the next waitTillConnected() timeout to drive it. Not
+      // level-triggered: reconnecting when already connected re-arms the 30 minute
+      // peer rotation timer.
+      if (!isOffline && wasElectrumOnline.current !== true) {
+        BlueElectrum.connectMain();
+      }
+      wasElectrumOnline.current = !isOffline;
     });
 
     return () => {

@@ -153,7 +153,7 @@ export class AbstractHDWallet extends LegacyWallet {
       try {
         txs = await BlueElectrum.getTransactionsByAddress(address);
       } catch (Err: any) {
-        console.warn('BlueElectrum.getTransactionsByAddress()', Err.message);
+        console.warn('getAddressAsync: address lookup failed, returning unverified external address', Err);
       }
       if (txs.length === 0) {
         // found free address
@@ -191,7 +191,7 @@ export class AbstractHDWallet extends LegacyWallet {
       try {
         txs = await BlueElectrum.getTransactionsByAddress(address);
       } catch (Err: any) {
-        console.warn('BlueElectrum.getTransactionsByAddress()', Err.message);
+        console.warn('getChangeAddressAsync: address lookup failed, returning unverified change address', Err);
       }
       if (txs.length === 0) {
         // found free address

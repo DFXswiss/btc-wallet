@@ -34,7 +34,7 @@ const SettingsPrivacy = () => {
         setIsQuickActionsEnabled(await DeviceQuickActions.getEnabled());
         setIsDisplayWidgetBalanceAllowed(await WidgetCommunication.isBalanceDisplayAllowed());
       } catch (e) {
-        console.log(e);
+        console.error('SettingsPrivacy: failed to load privacy settings', e);
       }
       setIsLoading(false);
     })();
@@ -47,7 +47,7 @@ const SettingsPrivacy = () => {
       await BlueClipboard().setReadClipboardAllowed(value);
       setIsReadClipboardAllowed(value);
     } catch (e) {
-      console.log(e);
+      console.error('SettingsPrivacy: failed to persist clipboard-read setting, UI now out of sync', e);
     }
     setIsLoading(false);
   };
@@ -59,7 +59,7 @@ const SettingsPrivacy = () => {
       A.setOptOut(value);
       await setDoNotTrack(value);
     } catch (e) {
-      console.log(e);
+      console.error('SettingsPrivacy: failed to persist Do-Not-Track setting, opt-out may not be honored', e);
     }
     setIsLoading(false);
   };
@@ -70,7 +70,7 @@ const SettingsPrivacy = () => {
       await DeviceQuickActions.setEnabled(value);
       setIsQuickActionsEnabled(value);
     } catch (e) {
-      console.log(e);
+      console.error('SettingsPrivacy: failed to persist quick-actions setting, UI now out of sync', e);
     }
     setIsLoading(false);
   };
@@ -81,7 +81,7 @@ const SettingsPrivacy = () => {
       await WidgetCommunication.setBalanceDisplayAllowed(value);
       setIsDisplayWidgetBalanceAllowed(value);
     } catch (e) {
-      console.log(e);
+      console.error('SettingsPrivacy: failed to persist widget-balance setting, UI now out of sync', e);
     }
     setIsLoading(false);
   };

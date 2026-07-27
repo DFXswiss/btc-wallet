@@ -109,7 +109,7 @@ const LightningSettings: React.FC & { navigationOptions: NavigationOptionsGetter
       alert(loc.settings.lightning_saved);
     } catch (error) {
       alert(loc.settings.lightning_error_lndhub_uri);
-      console.log(error);
+      console.error('lightningSettings: failed to save LNDHub URI', error);
     }
     setIsLoading(false);
   }, [URI]);

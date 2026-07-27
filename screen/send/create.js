@@ -46,7 +46,6 @@ const SendCreate = () => {
   useEffect(() => {
     Privacy.enableBlur();
 
-    console.log('send/create - useEffect');
     return () => {
       Privacy.disableBlur();
     };
@@ -61,9 +60,7 @@ const SendCreate = () => {
         url: 'file://' + filePath,
         saveToFiles: isDesktop,
       })
-        .catch(error => {
-          console.log(error);
-        })
+        .catch(() => {})
         .finally(() => {
           RNFS.unlink(filePath);
         });
@@ -77,17 +74,15 @@ const SendCreate = () => {
       });
 
       if (granted === PermissionsAndroid.RESULTS.GRANTED || Platform.Version >= 33) {
-        console.log('Storage Permission: Granted');
         const filePath = RNFS.DownloadDirectoryPath + `/${fileName}`;
         try {
           await RNFS.writeFile(filePath, tx);
           alert(loc.formatString(loc.send.txSaved, { filePath }));
         } catch (e) {
-          console.log(e);
+          console.error('send/create: failed to write transaction file to downloads', e);
           alert(e.message);
         }
       } else {
-        console.log('Storage Permission: Denied');
         Alert.alert(loc.send.permission_storage_title, loc.send.permission_storage_denied_message, [
           {
             text: loc.send.open_settings,

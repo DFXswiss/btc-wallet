@@ -90,7 +90,6 @@ class AmountInput extends Component {
    */
   onAmountUnitChange(previousUnit, newUnit) {
     const amount = this.props.amount || 0;
-    const log = `${amount}(${previousUnit}) ->`;
     let sats = 0;
     switch (previousUnit) {
       case BitcoinUnit.BTC:
@@ -109,7 +108,6 @@ class AmountInput extends Component {
     }
 
     const newInputValue = formatBalancePlain(sats, newUnit, false);
-    console.log(`${log} ${sats}(sats) -> ${newInputValue}(${newUnit})`);
 
     if (newUnit === BitcoinUnit.LOCAL_CURRENCY && previousUnit === BitcoinUnit.SATS) {
       // we cache conversion, so when we will need reverse conversion there wont be a rounding error

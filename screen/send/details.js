@@ -145,7 +145,7 @@ const SendDetails = () => {
         setAmountUnit(BitcoinUnit.BTC);
         setPayjoinUrl(pjUrl);
       } catch (error) {
-        console.log(error);
+        console.error('send/details: failed to parse incoming payment request', error);
         Alert.alert(loc.errors.error, loc.send.details_error_decode);
       }
     } else if (routeParams.address) {
@@ -199,7 +199,7 @@ const SendDetails = () => {
         if (!fees?.fastestFee) return;
         setNetworkTransactionFees(fees);
       })
-      .catch(e => console.log('loading cached recommendedFees error', e));
+      .catch(e => console.warn('send/details: loading cached recommendedFees failed', e));
 
     // load fresh fees from servers
 
@@ -210,7 +210,7 @@ const SendDetails = () => {
         setNetworkTransactionFees(fees);
         await AsyncStorage.setItem(NetworkTransactionFee.StorageKey, JSON.stringify(fees));
       })
-      .catch(e => console.log('loading recommendedFees error', e))
+      .catch(e => console.warn('send/details: loading recommendedFees failed', e))
       .finally(() => {
         setNetworkTransactionFeesIsLoading(false);
       });
@@ -233,7 +233,7 @@ const SendDetails = () => {
         // we need to re-calculate fees
         setDumb(v => !v);
       })
-      .catch(e => console.log('fetchUtxo error', e));
+      .catch(e => console.warn('send/details: fetchUtxo failed', e));
   }, [wallet]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // recalc fees in effect so we don't block render
@@ -390,31 +390,24 @@ const SendDetails = () => {
       let error;
       if (!transaction.amount || transaction.amount < 0 || parseFloat(transaction.amount) === 0) {
         error = loc.send.details_amount_field_is_not_valid;
-        console.log('validation error');
       } else if (parseFloat(transaction.amountSats) <= 500) {
         error = loc.send.details_amount_field_is_less_than_minimum_amount_sat;
-        console.log('validation error');
       } else if (!requestedSatPerByte || parseFloat(requestedSatPerByte) < 1) {
         error = loc.send.details_fee_field_is_not_valid;
-        console.log('validation error');
       } else if (!transaction.address) {
         error = loc.send.details_address_field_is_not_valid;
-        console.log('validation error');
       } else if (balance - transaction.amountSats < 0) {
         // first sanity check is that sending amount is not bigger than available balance
         error = frozenBalance > 0 ? loc.send.details_total_exceeds_balance_frozen : loc.send.details_total_exceeds_balance;
-        console.log('validation error');
       } else if (transaction.address) {
         const address = transaction.address.trim().toLowerCase();
         if (address.startsWith('lnb') || address.startsWith('lightning:lnb')) {
           error = loc.send.provided_address_is_invoice;
-          console.log('validation error');
         }
       }
 
       if (!error) {
         if (!wallet.isAddressValid(transaction.address)) {
-          console.log('validation error');
           error = loc.send.details_address_field_is_not_valid;
         }
       }
@@ -441,7 +434,6 @@ const SendDetails = () => {
     const change = await getChangeAddressAsync();
     const requestedSatPerByte = Number(feeRate);
     const lutxo = utxo || wallet.getUtxo();
-    console.log({ requestedSatPerByte, lutxo: lutxo.length });
 
     const targets = [];
     for (const transaction of addresses) {
@@ -469,7 +461,6 @@ const SendDetails = () => {
     );
 
     if (tx && routeParams.launchedBy && psbt) {
-      console.warn('navigating back to ', routeParams.launchedBy);
       navigation.navigate(routeParams.launchedBy, { psbt });
     }
 

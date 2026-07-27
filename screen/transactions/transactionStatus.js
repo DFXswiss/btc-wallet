@@ -111,8 +111,6 @@ const TransactionsStatus = () => {
 
   // re-fetching tx status periodically
   useEffect(() => {
-    console.log('transactionStatus - useEffect');
-
     if (!tx || tx?.confirmations) return;
     if (!hash) return;
 
@@ -122,15 +120,12 @@ const TransactionsStatus = () => {
       fetchTxInterval.current = undefined;
     }
 
-    console.log('setting up interval to check tx...');
     fetchTxInterval.current = setInterval(async () => {
       try {
         setIntervalMs(31000); // upon first execution we increase poll interval;
 
-        console.log('checking tx', hash, 'for confirmations...');
         const transactions = await BlueElectrum.multiGetTransactionByTxid([hash], 10, true);
         const txFromElectrum = transactions[hash];
-        console.log('got txFromElectrum=', txFromElectrum);
 
         const address = (txFromElectrum?.vout[0]?.scriptPubKey?.addresses || []).pop();
 
@@ -142,11 +137,9 @@ const TransactionsStatus = () => {
             if (tempTxM.tx_hash === hash) txFromMempool = tempTxM;
           }
           if (!txFromMempool) return;
-          console.log('txFromMempool=', txFromMempool);
 
           const satPerVbyte = Math.round(txFromMempool.fee / txFromElectrum.vsize);
           const fees = await NetworkTransactionFees.recommendedFees();
-          console.log('fees=', fees, 'satPerVbyte=', satPerVbyte);
           if (satPerVbyte >= fees.fastestFee) {
             setEta(loc.formatString(loc.transactions.eta_fastest));
           } else if (satPerVbyte >= fees.mediumFee) {
@@ -168,7 +161,7 @@ const TransactionsStatus = () => {
           wallet?.current?.getID() && fetchAndSaveWalletTransactions(wallet.current.getID());
         }
       } catch (error) {
-        console.log(error);
+        console.warn('transactionStatus: confirmation poll tick failed, retrying next tick', error);
       }
     }, intervalMs);
   }, [hash, intervalMs, tx, fetchAndSaveWalletTransactions]);
@@ -215,10 +208,6 @@ const TransactionsStatus = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallet.current]);
-
-  useEffect(() => {
-    console.log('transactionStatus - useEffect');
-  }, []);
 
   const checkPossibilityOfCPFP = async () => {
     if (!wallet.current.allowRBF()) {

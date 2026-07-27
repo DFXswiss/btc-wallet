@@ -89,13 +89,6 @@ const TransactionsDetails = () => {
       }
     }
 
-    for (const w of wallets) {
-      for (const t of w.getTransactions()) {
-        if (t.hash === hash) {
-          console.log('tx', hash, 'belongs to', w.getLabel());
-        }
-      }
-    }
     if (txMetadata[foundTx.hash]) {
       if (txMetadata[foundTx.hash].memo) {
         setMemo(txMetadata[foundTx.hash].memo);
@@ -121,18 +114,18 @@ const TransactionsDetails = () => {
       .then(supported => {
         if (supported) {
           Linking.openURL(url).catch(e => {
-            console.log('openURL failed in handleOnOpenTransactionOnBlockExporerTapped');
-            console.log(e.message);
+            // The rejection message embeds the full URL, i.e. the txid - log neither.
+            console.warn('transactionDetails: openURL failed for block explorer');
             alert(e.message);
           });
         } else {
-          console.log('canOpenURL supported is false in handleOnOpenTransactionOnBlockExporerTapped');
+          console.warn('transactionDetails: block explorer URL not supported');
           alert(loc.transactions.open_url_error);
         }
       })
       .catch(e => {
-        console.log('canOpenURL failed in handleOnOpenTransactionOnBlockExporerTapped');
-        console.log(e.message);
+        // Same here: the rejection message embeds the URL and therefore the txid.
+        console.warn('transactionDetails: canOpenURL failed for block explorer');
         alert(e.message);
       });
   };

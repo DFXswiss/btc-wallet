@@ -117,11 +117,7 @@ const About = () => {
       openAppStoreIfInAppFails: true,
       fallbackPlatformURL: 'https://dfx.swiss',
     };
-    Rate.rate(options, success => {
-      if (success) {
-        console.log('User Rated.');
-      }
-    });
+    Rate.rate(options);
   };
 
   return (

@@ -16,13 +16,7 @@ console.warn = (...args) => {
 
 const consoleLogOrig = console.log;
 console.log = (...args) => {
-  if (
-    typeof args[0] === 'string' &&
-    (args[0].startsWith('updating exchange rate') ||
-      args[0].startsWith('begin connection') ||
-      args[0].startsWith('TLS Connected to') ||
-      args[0].startsWith('connected to'))
-  ) {
+  if (typeof args[0] === 'string' && (args[0].startsWith('TLS Connected to') || args[0].startsWith('_initConnection: connected to'))) {
     return;
   }
   consoleLogOrig.apply(consoleLogOrig, args);

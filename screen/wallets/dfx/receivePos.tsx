@@ -101,7 +101,7 @@ const ReceiveDfxPos = () => {
         setPosStatus(PosStatus.WAITING_CASHIER);
       }
     } catch (error) {
-      console.log(error);
+      console.error('receivePos: payment status poll failed', error);
       setPosStatus(PosStatus.NOT_AVAILABLE);
     }
   };

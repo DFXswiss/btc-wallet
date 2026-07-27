@@ -35,7 +35,7 @@ export default class NetworkTransactionFees {
           resolve(networkFee);
         }
       } catch (err) {
-        console.warn(err);
+        console.warn('networkTransactionFees: fee estimate fetch failed, using hardcoded defaults', err);
         const networkFee = new NetworkTransactionFee(2, 1, 1);
         resolve(networkFee);
       }

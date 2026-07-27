@@ -121,7 +121,7 @@ const CashierDfxPos = () => {
         setPosStatus(PosStatus.WAITING_CASHIER);
       }
     } catch (error) {
-      console.log(error);
+      console.error('dfx/cashierPos: payment status poll failed', error);
       setPosStatus(PosStatus.NOT_AVAILABLE);
     }
   };
@@ -152,7 +152,7 @@ const CashierDfxPos = () => {
       onPendingPayment(paymentData);
       resetInput();
     } catch (error) {
-      console.log(error);
+      console.error('dfx/cashierPos: createPayment failed', error);
     } finally {
       setIsGeneratingInvoice(false);
     }
@@ -163,7 +163,7 @@ const CashierDfxPos = () => {
       setIsCanceling(true);
       await cancelPayment(walletID, selectedRoute as number);
     } catch (error) {
-      console.log(error);
+      console.error('dfx/cashierPos: cancelPayment failed', error);
     } finally {
       setIsCanceling(false);
       setPosStatus(PosStatus.WAITING_CASHIER);

@@ -57,7 +57,7 @@ const useCameraPermissions = () => {
           setCameraStatus(false);
         }
       } catch (err) {
-        console.warn(err);
+        console.warn('cameraPermissions: permission query failed, treating as denied', err);
       }
     })();
   }, []);

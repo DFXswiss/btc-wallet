@@ -69,7 +69,6 @@ export const BlueStorageProvider = ({ children }) => {
   const saveToDisk = useCallback(
     async (force = false) => {
       if (BlueApp.getWallets().length === 0 && !force) {
-        console.log('not saving empty wallets array');
         return;
       }
       BlueApp.tx_metadata = txMetadata;
@@ -156,7 +155,6 @@ export const BlueStorageProvider = ({ children }) => {
 
   const refreshAllWalletTransactions = async () => {
     if (!BlueApp.wallets.length) return;
-    console.log('refreshAllWalletTransactions');
 
     let noErr = true;
     try {
@@ -180,7 +178,7 @@ export const BlueStorageProvider = ({ children }) => {
       setLastSuccessfulBalanceRefresh(Date.now());
     } catch (err) {
       noErr = false;
-      console.warn(err);
+      console.warn('refreshAllWalletTransactions: failed, retrying on next interval', err);
     } finally {
       setWalletTransactionUpdateStatus(WalletTransactionsStatus.NONE);
     }
@@ -194,7 +192,6 @@ export const BlueStorageProvider = ({ children }) => {
       // 5sec debounce:
       setWalletTransactionUpdateStatus(walletID);
       if (+new Date() - _lastTimeTriedToRefetchWallet[walletID] < 5000) {
-        console.log('re-fetch wallet happens too fast; NOP');
         return;
       }
       _lastTimeTriedToRefetchWallet[walletID] = +new Date();
@@ -204,7 +201,7 @@ export const BlueStorageProvider = ({ children }) => {
       await fetchWalletTransactions(index);
     } catch (err) {
       noErr = false;
-      console.warn(err);
+      console.warn(`fetchAndSaveWalletTransactions: wallet index ${index} failed, retrying on next refresh`, err);
     } finally {
       setWalletTransactionUpdateStatus(WalletTransactionsStatus.NONE);
     }
@@ -221,9 +218,9 @@ export const BlueStorageProvider = ({ children }) => {
   const setBalanceRefreshInterval = () => {
     if (!wallets) return;
     clearBalanceRefreshInterval();
-    refreshAllWalletTransactions().catch(console.error);
+    refreshAllWalletTransactions().catch(err => console.error('setBalanceRefreshInterval: initial refresh rejected', err));
     balanceRefreshInterval.current = setInterval(() => {
-      refreshAllWalletTransactions().catch(console.error);
+      refreshAllWalletTransactions().catch(err => console.error('setBalanceRefreshInterval: scheduled refresh rejected', err));
     }, 20 * 1000);
   };
 
@@ -239,13 +236,16 @@ export const BlueStorageProvider = ({ children }) => {
         return;
       }
 
+      // isConnected is `boolean | null`; only a definite false means offline. Coercing
+      // unknown to offline would gate connectMain() off for every caller.
       const netInfo = await fetchNetInfo();
-      BlueElectrum.setNetworkConnected(netInfo.isConnected);
-      if (!netInfo.isConnected) return;
+      const isOffline = netInfo.isConnected === false;
+      BlueElectrum.setNetworkConnected(!isOffline);
+      if (isOffline) return;
 
       setBalanceRefreshInterval();
     } catch (err) {
-      console.error('Error revalidating balances', err);
+      console.error('revalidateBalancesInterval: failed', err);
     }
   };
 

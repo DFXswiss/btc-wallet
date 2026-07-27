@@ -69,7 +69,7 @@ const WalletsAddMultisigStep2 = () => {
     } catch (e) {
       setIsLoading(false);
       alert(e.message);
-      console.log('create MS wallet error', e);
+      console.error('addMultisigStep2: failed to create multisig wallet', e);
     }
   };
 
@@ -250,7 +250,7 @@ const WalletsAddMultisigStep2 = () => {
     try {
       onBarScanned(ret.data);
     } catch (e) {
-      console.log(e);
+      console.debug('addMultisigStep2: onBarScanned handler threw', e);
     }
   };
 
