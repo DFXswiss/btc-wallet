@@ -33,27 +33,35 @@ describe('blue_modules/analytics', () => {
     assert.strictEqual(mockSentryOptions.enabled, true);
   });
 
-  it('logError forwards an Error instance to Sentry.captureException unchanged', () => {
+  // logError deliberately does NOT call captureException: App.js's captureConsole
+  // integration turns console.error into the issue, so capturing here too would
+  // file everything twice. It must hand that integration an Error, not a string -
+  // that is what makes it capture an exception with a stack instead of a message.
+  it('logError forwards an Error instance to console.error unchanged', () => {
     const A = require('../../blue_modules/analytics');
     const Sentry = require('@sentry/react-native');
     const err = new Error('boom');
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
 
     A.logError(err);
 
-    assert.strictEqual(Sentry.captureException.mock.calls.length, 1);
-    assert.strictEqual(Sentry.captureException.mock.calls[0][0], err);
+    assert.strictEqual(consoleError.mock.calls.length, 1);
+    assert.strictEqual(consoleError.mock.calls[0][0], err);
+    assert.strictEqual(Sentry.captureException.mock.calls.length, 0);
+    consoleError.mockRestore();
   });
 
   it('logError wraps a non-Error value in an Error before forwarding', () => {
     const A = require('../../blue_modules/analytics');
-    const Sentry = require('@sentry/react-native');
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
 
     A.logError('plain string error');
 
-    assert.strictEqual(Sentry.captureException.mock.calls.length, 1);
-    const forwarded = Sentry.captureException.mock.calls[0][0];
+    assert.strictEqual(consoleError.mock.calls.length, 1);
+    const forwarded = consoleError.mock.calls[0][0];
     assert.ok(forwarded instanceof Error);
     assert.strictEqual(forwarded.message, 'plain string error');
+    consoleError.mockRestore();
   });
 
   // Separate from the tests above: the module also applies the persisted Do Not

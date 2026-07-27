@@ -37,9 +37,12 @@ A.setOptOut = value => {
   setSentryEnabled(!value);
 };
 
+// App.js's captureConsole integration already turns console.error into an issue,
+// so capturing here as well would file every error twice. Passing an Error (not a
+// string) is what makes that integration capture an exception with a stack rather
+// than a bare message.
 A.logError = errorString => {
-  console.error(errorString);
-  Sentry.captureException(errorString instanceof Error ? errorString : new Error(String(errorString)));
+  console.error(errorString instanceof Error ? errorString : new Error(String(errorString)));
 };
 
 module.exports = A;
