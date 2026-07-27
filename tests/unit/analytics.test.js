@@ -12,14 +12,9 @@ jest.mock('../../BlueApp', () => ({
 // enabled; what init() skips for a disabled client is *installing* them.
 const RESOLVED_INTEGRATIONS = [{ name: 'CaptureConsole' }, { name: 'ReactNativeErrorHandlers' }, { name: 'Dedupe' }];
 const mockSentryOptions = { enabled: true, integrations: RESOLVED_INTEGRATIONS };
-// What the client actually has installed - legitimately empty for a user who
-// launched with Do Not Track on.
-let mockInstalled = [];
 jest.mock('@sentry/react-native', () => ({
   getClient: jest.fn(() => ({ getOptions: () => mockSentryOptions })),
-  addIntegration: jest.fn(integration => {
-    if (!mockInstalled.some(i => i.name === integration.name)) mockInstalled.push(integration);
-  }),
+  addIntegration: jest.fn(),
   setUser: jest.fn(),
   captureException: jest.fn(),
 }));
@@ -27,7 +22,6 @@ jest.mock('@sentry/react-native', () => ({
 describe('blue_modules/analytics', () => {
   beforeEach(() => {
     mockSentryOptions.enabled = true;
-    mockInstalled = [];
     jest.clearAllMocks();
   });
 
@@ -45,6 +39,15 @@ describe('blue_modules/analytics', () => {
     assert.strictEqual(ours, theirs);
   });
 
+  // Matching specifiers are not sufficient - npm can still nest a second copy, which has
+  // its own carrier and so its own client, and the integration bails when they differ.
+  it('@sentry/core is not installed a second time under @sentry/react-native', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const nested = path.join(__dirname, '../../node_modules/@sentry/react-native/node_modules/@sentry/core');
+    assert.ok(!fs.existsSync(nested), 'a nested @sentry/core copy silently disables console capture');
+  });
+
   it('setOptOut(true) disables the Sentry client (opting out must actually stop event delivery)', () => {
     const A = require('../../blue_modules/analytics');
     A.setOptOut(true);
@@ -58,10 +61,6 @@ describe('blue_modules/analytics', () => {
     assert.strictEqual(mockSentryOptions.enabled, true);
   });
 
-  // logError deliberately does NOT call captureException: App.js's captureConsole
-  // integration turns console.error into the issue, so capturing here too would
-  // file everything twice. It must hand that integration an Error, not a string -
-  // that is what makes it capture an exception with a stack instead of a message.
   // The id goes on the scope *user*, not a scope attribute: attributes reach logs only,
   // while the user reaches both logs and error events. Without it the native layer fills
   // in its own install id for error events, which is a different value than the one the
@@ -101,6 +100,10 @@ describe('blue_modules/analytics', () => {
     assert.strictEqual(Sentry.addIntegration.mock.calls.length, 0);
   });
 
+  // logError deliberately does NOT call captureException: the captureConsole integration
+  // turns console.error into the issue, so capturing here too would file everything twice.
+  // It must hand that integration an Error, not a string - that is what makes it capture
+  // an exception with a stack instead of a message titled after the integration's frame.
   it('logError forwards an Error instance to console.error unchanged', () => {
     const A = require('../../blue_modules/analytics');
     const Sentry = require('@sentry/react-native');

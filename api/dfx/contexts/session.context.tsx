@@ -1,6 +1,6 @@
 import React, { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
 import { Linking, Alert } from 'react-native';
-import { ApiError } from '../definitions/error';
+import { ApiError, toError } from '../definitions/error';
 import { useWalletContext } from '../../../contexts/wallet.context';
 import Config from 'react-native-config';
 import jwtDecode from 'jwt-decode';
@@ -95,7 +95,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
         await call({ url: UserUrl.change, method: 'PUT', data: update }, token.accessToken);
       }
     } catch (e) {
-      console.error('Failed to update language:', e);
+      console.error(toError('Failed to update language', e));
     }
 
     return token;
@@ -169,7 +169,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
       const url = `${Config.REACT_APP_SRV_URL}/${service}?session=${token}&balances=${balance}@BTC&redirect-uri=${redirectUri}&lang=${lang}`;
       return Linking.openURL(url);
     } catch (e) {
-      console.error('Failed to open services:', e);
+      console.error(toError('Failed to open services', e));
       setIsUnavailable(true);
       throw e;
     }
@@ -191,7 +191,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
       connect(wallets.filter((w: any) => w.type !== MultisigHDWallet.type).map((w: any) => w.getID()))
         .then(() => setIsInitialized(true))
         .catch(e => {
-          console.error('DFX session init failed', e);
+          console.error(toError('DFX session init failed', e));
           setIsUnavailable(true);
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps

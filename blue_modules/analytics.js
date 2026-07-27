@@ -16,9 +16,10 @@ const setSentryEnabled = enabled => {
       // user who launched with Do Not Track on has NONE installed - not just no
       // console capture, but no error handlers, no frame rewriting (so source maps
       // cannot match) and no dedupe. The resolved list is on the options either
-      // way; installing a name that is already installed is a no-op. Integrations
-      // that need the native SDK are absent from it, because enableNative was false
-      // at init - native reporting only comes back on the next app start.
+      // way; installing a name that is already installed is a no-op. What this cannot
+      // bring back is anything behind the SDK's enableNative gate, which was false at
+      // init - that covers the console-to-logs integrations too, not just native-only
+      // ones, so neither native reporting nor log records resume before a restart.
       client.getOptions().integrations.forEach(integration => Sentry.addIntegration(integration));
     }
   }

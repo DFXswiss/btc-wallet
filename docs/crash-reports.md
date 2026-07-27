@@ -35,8 +35,11 @@ about it:
   started at all.
 - **Turning it off** re-attaches the id and installs the JS integrations that `Sentry.init()`
   skipped while the client was disabled, so caught errors, uncaught errors and source-map
-  frame rewriting all resume. Native reporting does **not** resume: `enableNative` is fixed
-  at init and only takes effect on the next app start.
+  frame rewriting all resume. Two things do **not** resume until the next app start, both
+  because the SDK puts them behind its `enableNative` gate, which is fixed at init: native
+  crash reporting, and log records — the console-to-logs integration sits behind that same
+  gate even though it is pure JS. So a session that launched opted out reports errors as
+  issues, but sends no logs.
 
 The Apple-native flow below (Organizer/App Store Connect crash reports, no SDK involved)
 still works as a fallback — for example for a user who's opted out of Sentry via Do Not
