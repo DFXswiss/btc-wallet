@@ -55,7 +55,7 @@ export function WalletContextProvider(props: PropsWithChildren<any>): React.JSX.
         try {
           return await wallets?.[0]?.signMessage(message, address);
         } catch (e: any) {
-          console.error(e.message, e.code);
+          console.error(new Error('signMessage failed'), e.message, e.code);
           throw e;
         }
       },

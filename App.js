@@ -32,10 +32,11 @@ import WidgetCommunication from './blue_modules/WidgetCommunication';
 import HandoffComponent from './components/handoff';
 import Privacy from './blue_modules/Privacy';
 import { addEventListener } from '@react-native-community/netinfo';
-import { getUniqueIdSync } from 'react-native-device-info';
 import * as Sentry from '@sentry/react-native';
-// Not re-exported by @sentry/react-native, but it pins @sentry/core to an exact
-// version, so this resolves to the same deduped instance the SDK itself uses.
+// Not re-exported by @sentry/react-native. Both are pinned to exact versions so they
+// stay a single deduped instance: Sentry keys its carrier by SDK version, so a second
+// copy would make the integration's own client check never match and it would stop
+// filing issues silently.
 import { captureConsoleIntegration } from '@sentry/core';
 const BlueApp = require('./BlueApp');
 
@@ -72,15 +73,6 @@ BlueApp.isDoNotTrackEnabled().then(doNotTrack => {
     // uncomment the line below to enable Spotlight (https://spotlightjs.com)
     // spotlight: __DEV__,
   });
-
-  // Error events get a user id from the native layer, logs do not - the SDK's
-  // log enricher copies scope *attributes* onto each log but never the scope
-  // user. Without this every log row has user.id = null, so "6 Electrum drops"
-  // can't be told apart from "6 users affected". Same id the About screen shows
-  // for support, so this adds no identifier that isn't already reported.
-  if (!doNotTrack) {
-    Sentry.getGlobalScope().setAttributes({ 'user.id': getUniqueIdSync() });
-  }
 });
 const currency = require('./blue_modules/currency');
 const BlueElectrum = require('./blue_modules/BlueElectrum');

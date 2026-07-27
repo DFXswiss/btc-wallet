@@ -1,5 +1,7 @@
 const BlueApp = require('../BlueApp');
 const Sentry = require('@sentry/react-native');
+const { captureConsoleIntegration } = require('@sentry/core');
+const { getUniqueIdSync } = require('react-native-device-info');
 
 // App.js defers Sentry.init() behind its own isDoNotTrackEnabled() read (so native
 // crash handling, which can only be gated at init time, respects opt-out from the
@@ -10,7 +12,21 @@ const setSentryEnabled = enabled => {
   const client = Sentry.getClient();
   if (client) {
     client.getOptions().enabled = enabled;
+    // Sentry.init() only wires integrations up when the client is enabled at that
+    // moment, and flipping `enabled` afterwards cannot install them. Without this,
+    // a user who launches with Do Not Track on and then turns it off would get no
+    // console capture at all until the next app start.
+    if (enabled && !client.getIntegrationByName('CaptureConsole')) {
+      Sentry.addIntegration(captureConsoleIntegration({ levels: ['error'] }));
+    }
   }
+  // Identify the device on both error events and logs. Without a scope user the
+  // native layer fills in its own install id, but only for error events - a log row
+  // then carries no user at all, and the two ids are different values that cannot be
+  // joined. Setting it here uses one id for both, the same one the About screen
+  // offers to copy for support, and tracks the opt-out toggle live rather than only
+  // at init. See docs/crash-reports.md for what this id is.
+  Sentry.setUser(enabled ? { id: getUniqueIdSync() } : null);
 };
 
 // Re-applies the persisted opt-out choice independently of App.js's own init-time

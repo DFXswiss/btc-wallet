@@ -3,7 +3,30 @@
 The app ships the Sentry SDK (`@sentry/react-native`, self-hosted at `sentry.dfxserve.com`),
 which is now the primary way JS and native crashes/errors reach us — see `App.js` for the
 `Sentry.init()` config and `blue_modules/analytics.js` for how it respects the in-app
-Do Not Track toggle. No PII is collected (`sendDefaultPii: false`).
+Do Not Track toggle.
+
+What is reported, when Do Not Track is off:
+
+- **Crashes and uncaught errors**, as before.
+- **Caught errors that reach `console.error`**, filed as issues by the `captureConsole`
+  integration (error level only — `console.warn` stays a breadcrumb and a log). Without
+  this a handled error was recorded but never alerted on.
+- **The device support id** shown on the About screen, set as the Sentry user id so it
+  appears on both error events and log records. Without it a log row carries no user at
+  all, and one device failing repeatedly cannot be told apart from many devices failing
+  once.
+
+  Note what this id is: `react-native-device-info`'s `getUniqueIdSync()` — `identifierForVendor`
+  on iOS, `ANDROID_ID` on Android. It is more durable than what the SDK reports on its own
+  (a random per-install UUID that resets on reinstall): `ANDROID_ID` is stable per device and
+  signing key and survives reinstalling the app. It is used deliberately, because it is the
+  id the About screen offers the user to copy for support — using anything else means a
+  support request cannot be matched to its telemetry.
+
+No PII beyond that id is collected (`sendDefaultPii: false` — no IP address, cookies, or
+user profile). Turning Do Not Track on stops event delivery and clears the id from the
+JS and native scopes; turning it back off re-attaches it and re-registers the console
+capture without needing a restart.
 
 The Apple-native flow below (Organizer/App Store Connect crash reports, no SDK involved)
 still works as a fallback — for example for a user who's opted out of Sentry via Do Not

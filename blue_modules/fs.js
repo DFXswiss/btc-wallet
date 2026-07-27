@@ -26,7 +26,7 @@ const writeFileAndExportToAndroidDestionation = async ({ filename, contents, des
     } catch (e) {
       // The message contains the full path, and filename is a wallet label at
       // some call sites - report the code only.
-      console.error('fs: writeFile to Android destination failed', e?.code ?? 'write failed');
+      console.error(new Error('fs: writeFile to Android destination failed'), e?.code ?? 'write failed');
       alert(e.message);
     }
   } else {

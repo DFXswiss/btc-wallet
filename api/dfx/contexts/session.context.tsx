@@ -191,7 +191,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
       connect(wallets.filter((w: any) => w.type !== MultisigHDWallet.type).map((w: any) => w.getID()))
         .then(() => setIsInitialized(true))
         .catch(e => {
-          console.error('DFX session init error: ', e.message?.toString());
+          console.error(new Error('DFX session init failed'), e.message?.toString());
           setIsUnavailable(true);
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps
