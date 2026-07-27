@@ -29,23 +29,16 @@ describe('blue_modules/analytics', () => {
     jest.restoreAllMocks();
   });
 
-  // App.js imports captureConsoleIntegration from @sentry/core, which only resolves to
-  // the same instance the SDK uses while both stay on one hoisted copy. A second copy
-  // would make the integration's own client check never match and it would stop filing
-  // issues with no error anywhere, so pin drift has to fail here instead.
-  it('@sentry/core is pinned to exactly what @sentry/react-native depends on', () => {
-    const ours = require('../../package.json').dependencies['@sentry/core'];
-    const theirs = require('@sentry/react-native/package.json').dependencies['@sentry/core'];
-    assert.strictEqual(ours, theirs);
-  });
-
-  // Matching specifiers are not sufficient - npm can still nest a second copy, which has
-  // its own carrier and so its own client, and the integration bails when they differ.
-  it('@sentry/core is not installed a second time under @sentry/react-native', () => {
-    const fs = require('fs');
+  // App.js takes captureConsoleIntegration from @sentry/core, which only works while that
+  // resolves to the very module the SDK itself loaded. Sentry keys its carrier by SDK
+  // version, so a copy at a *different* version gets its own client and the integration's
+  // `getClient() !== client` guard turns the handler into a no-op - no error, no failing
+  // test, just no issues. Assert the resolution rather than the version specifiers or one
+  // nesting path: any of @sentry/browser, /react and friends can pull a copy in too.
+  it('@sentry/core resolves to the same module the SDK loaded', () => {
     const path = require('path');
-    const nested = path.join(__dirname, '../../node_modules/@sentry/react-native/node_modules/@sentry/core');
-    assert.ok(!fs.existsSync(nested), 'a nested @sentry/core copy silently disables console capture');
+    const sdkDir = path.dirname(require.resolve('@sentry/react-native/package.json'));
+    assert.strictEqual(require.resolve('@sentry/core', { paths: [sdkDir] }), require.resolve('@sentry/core'));
   });
 
   it('setOptOut(true) disables the Sentry client (opting out must actually stop event delivery)', () => {

@@ -2,6 +2,7 @@ import React, { createContext, PropsWithChildren, useContext, useMemo } from 're
 import { BlueStorageContext } from '../blue_modules/storage-context';
 import { useAuth } from '../api/dfx/hooks/auth.hook';
 import { AbstractWallet } from '../class';
+import { toError } from '../api/dfx/definitions/error';
 
 interface WalletInterface {
   wallet?: AbstractWallet
@@ -55,7 +56,7 @@ export function WalletContextProvider(props: PropsWithChildren<any>): React.JSX.
         try {
           return await wallets?.[0]?.signMessage(message, address);
         } catch (e: any) {
-          console.error('signMessage failed', e);
+          console.error(toError('signMessage failed', e));
           throw e;
         }
       },

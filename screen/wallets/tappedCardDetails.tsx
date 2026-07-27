@@ -28,6 +28,7 @@ import { useNtag424 } from '../../api/boltcards/hooks/ntag424.hook';
 import { HoldCardModal } from '../../components/HoldCardModal';
 import alert from '../../components/Alert';
 import QRCodeComponent from '../../components/QRCodeComponent';
+import { toError } from '../../api/dfx/definitions/error';
 
 const styles = StyleSheet.create({
   scrollViewContent: {
@@ -182,7 +183,7 @@ const TappedCardDetails = () => {
               setIsRegisteredInServer(uidIsCorrect && k0IsCorrect && k1IsCorrect && k2IsCorrect);
               setServerDetails(currCard);
             } catch (_) {
-              console.error('tappedCardDetails: failed to verify card registration against server', _);
+              console.error(toError('tappedCardDetails: failed to verify card registration against server', _));
               setIsRegisteredInServer(false);
             }
           }

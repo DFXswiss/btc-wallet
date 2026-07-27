@@ -27,6 +27,7 @@ import { Icon } from 'react-native-elements';
 import useInputAmount from '../../../hooks/useInputAmount';
 import { BitcoinUnit } from '../../../models/bitcoinUnits';
 import { FiatUnit } from '../../../models/fiatUnit';
+import { toError } from '../../../api/dfx/definitions/error';
 const currency = require('../../../blue_modules/currency');
 
 interface RouteParams {
@@ -121,7 +122,7 @@ const CashierDfxPos = () => {
         setPosStatus(PosStatus.WAITING_CASHIER);
       }
     } catch (error) {
-      console.error('dfx/cashierPos: payment status poll failed', error);
+      console.error(toError('dfx/cashierPos: payment status poll failed', error));
       setPosStatus(PosStatus.NOT_AVAILABLE);
     }
   };
@@ -152,7 +153,7 @@ const CashierDfxPos = () => {
       onPendingPayment(paymentData);
       resetInput();
     } catch (error) {
-      console.error('dfx/cashierPos: createPayment failed', error);
+      console.error(toError('dfx/cashierPos: createPayment failed', error));
     } finally {
       setIsGeneratingInvoice(false);
     }
@@ -163,7 +164,7 @@ const CashierDfxPos = () => {
       setIsCanceling(true);
       await cancelPayment(walletID, selectedRoute as number);
     } catch (error) {
-      console.error('dfx/cashierPos: cancelPayment failed', error);
+      console.error(toError('dfx/cashierPos: cancelPayment failed', error));
     } finally {
       setIsCanceling(false);
       setPosStatus(PosStatus.WAITING_CASHIER);

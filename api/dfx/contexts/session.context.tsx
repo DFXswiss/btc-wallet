@@ -167,7 +167,11 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
       const redirectUri = encodeURIComponent(`dfxtaro://?wallet-id=${walletId}`);
 
       const url = `${Config.REACT_APP_SRV_URL}/${service}?session=${token}&balances=${balance}@BTC&redirect-uri=${redirectUri}&lang=${lang}`;
-      return Linking.openURL(url);
+      // Both platforms put the whole URL in the rejection message, and this one carries the
+      // session token and the balance. Replace it before it can reach an alert or a report.
+      return await Linking.openURL(url).catch(() => {
+        throw new Error(`openServices: could not open the ${service} service`);
+      });
     } catch (e) {
       console.error(toError('Failed to open services', e));
       setIsUnavailable(true);
