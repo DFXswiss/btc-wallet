@@ -1,6 +1,31 @@
 import { ApiError } from '../api/dfx/definitions/error';
 
 const MAX_DETAIL_LENGTH = 200;
+const MAX_TYPE_LENGTH = 60;
+
+// Derives the exception type, which is what Sentry groups on once a stack contributes.
+//
+// The invariant is that it ENDS in "Error": the stack parser skips the header line by looking
+// for the literal "Error: ", and a type without that suffix leaves the header to be parsed as
+// a phantom frame that absorbs the frame pop, putting the culprit back on this helper.
+//
+// Everything here is third-party input reached from inside a catch block, so nothing is
+// allowed to throw: `name` can be a getter, and a getter is somebody else's code.
+function deriveType(statusCode: unknown, cause: Error | undefined): string {
+  if (typeof statusCode === 'number') return `Api${statusCode}Error`;
+
+  let name: unknown;
+  try {
+    name = cause?.name;
+  } catch {
+    name = undefined;
+  }
+  // Flattened and capped for the same reasons as the detail: a newline would land in the
+  // stack header, and the type is half the issue title.
+  const base = typeof name === 'string' ? name.replace(/\s+/g, ' ').trim().slice(0, MAX_TYPE_LENGTH) : '';
+  const type = base || 'ApiError';
+  return type.endsWith('Error') ? type : `${type}Error`;
+}
 
 // Renders whatever is left of a rejection once the known shapes are exhausted. Objects are
 // serialized rather than String()'d, which would only ever give "[object Object]"; anything
@@ -43,25 +68,9 @@ function toError(context: string, e: unknown, framesToPop: number): Error {
   const flat = raw?.replace(/\s+/g, ' ').trim();
   const detail = flat && flat.length > MAX_DETAIL_LENGTH ? `${flat.slice(0, MAX_DETAIL_LENGTH)}...` : flat;
   const error = new Error(detail ? `${context}: ${detail}` : context);
-  // Once a stack contributes, Sentry groups on the exception type and ignores the message,
-  // so the status has to go in the type for a 400 and a 500 from one site to stay apart.
-  // Keep a non-API cause's own type: an NFC or signing failure is not an ApiError.
-  // Type-guarded like `message` above: a body with a non-numeric statusCode would otherwise
-  // put "[object Object]" straight back into the title, which is half of what this prevents.
-  //
-  // Api404Error, not ApiError404: the stack parser skips the header line by looking for the
-  // literal "Error: " in it, so a type that does not end in Error leaves the header to be
-  // parsed as a frame whenever the message looks path-like - which a 404 body routinely does.
-  // That phantom frame then absorbs the pop below and the culprit reverts to this helper.
-  // cause.name is third-party input like the rest of the body, so it is type-guarded the same
-  // way - without that, the endsWith() below throws on a non-string name, out of a catch block.
-  const type = typeof statusCode === 'number' ? `Api${statusCode}Error` : (typeof cause?.name === 'string' && cause.name) || 'ApiError';
-  // The suffix is the invariant, not just a naming style, so enforce it on the cause's own
-  // type too: that value comes from third-party code and an empty or Error-less name would
-  // leave the header parseable again. `||` rather than `??` so an empty name is replaced.
-  // endsWith, not includes: the parser looks for the literal "Error: ", so a name that merely
-  // contains Error - ErrorHandler, ErrorEvent - leaves the header just as parseable as Timeout.
-  error.name = type.endsWith('Error') ? type : `${type}Error`;
+  // Api404Error rather than ApiError404, and a non-API cause keeps its own type: an NFC or
+  // signing failure is not an ApiError. See deriveType for why the suffix matters.
+  error.name = deriveType(statusCode, cause);
   // Deliberately NOT attached as `cause`: the RN SDK's linked-errors integration appends,
   // and Sentry titles an issue from the last exception, so chaining would put the original
   // back in the title and undo the attribution above. reportError() passes it as a trailing

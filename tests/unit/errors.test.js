@@ -90,6 +90,27 @@ describe('helpers/errors toError', () => {
     }
   });
 
+  // Everything read off a cause is third-party input reached from inside a catch block, so
+  // none of it may throw or land unflattened in the stack header.
+  it('survives a hostile cause name', () => {
+    const withName = descriptor => Object.defineProperty(new Error('boom'), 'name', descriptor);
+
+    // a getter is somebody else's code, and this runs inside a catch block
+    const throwing = withName({
+      get() {
+        throw new Error('nope');
+      },
+    });
+    assert.strictEqual(reported('ctx', throwing).name, 'ApiError');
+
+    // trailing space would otherwise fail endsWith and yield "Error Error"
+    assert.strictEqual(reported('ctx', withName({ value: 'Error ' })).name, 'Error');
+    // a newline would land in the stack header
+    assert.ok(!reported('ctx', withName({ value: 'Ti\nmeout' })).name.includes('\n'));
+    // the type is half the issue title, so it is bounded like the detail
+    assert.ok(reported('ctx', withName({ value: 'A'.repeat(300) })).name.length <= 65);
+  });
+
   // A non-string name would make the suffix check throw, out of a catch block, at every site.
   it('survives a cause with a non-string name', () => {
     assert.strictEqual(reported('ctx', Object.assign(new Error('boom'), { name: 42 })).name, 'ApiError');
