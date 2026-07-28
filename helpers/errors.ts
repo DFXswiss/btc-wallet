@@ -1,6 +1,7 @@
 import { ApiError } from '../api/dfx/definitions/error';
 
 const MAX_DETAIL_LENGTH = 200;
+const MAX_RAW_LENGTH = 10_000;
 const MAX_TYPE_LENGTH = 60;
 
 // Reads one property off a rejection. Anything reached from a catch block is third-party
@@ -38,7 +39,9 @@ function deriveType(statusCode: unknown, cause: Error | undefined): string {
 // Length is capped by the caller, so both this and a body-supplied `message` get bounded.
 function describe(e: unknown): string | undefined {
   if (e == null) return undefined;
-  if (typeof e !== 'object') return String(e);
+  // String() runs toString/valueOf/Symbol.toPrimitive - somebody else's code again, and
+  // `typeof e !== 'object'` is true for functions, which can carry all three.
+  if (typeof e !== 'object') return safeRead(() => String(e));
   try {
     return JSON.stringify(e);
   } catch {
@@ -61,7 +64,10 @@ function describe(e: unknown): string | undefined {
 // (`TypeError: Network request failed`, thrown inside the fetch polyfill with no app
 // frames), merge every site in the app into one unattributable issue.
 function toError(context: string, e: unknown, framesToPop: number): Error {
-  const cause = e instanceof Error ? e : undefined;
+  // instanceof consults the prototype chain, which a Proxy can trap - the last place in here
+  // where third-party code runs. A hostile one falls through to the body branch, where every
+  // read is already guarded.
+  const cause = safeRead(() => (e instanceof Error ? e : undefined));
   const body = cause ? undefined : (e as Partial<ApiError> | undefined);
   // Every read below can be a getter - somebody else's function - and all of this runs inside
   // a catch block, so none of it may throw. deriveType guards `name` the same way.
@@ -78,7 +84,9 @@ function toError(context: string, e: unknown, framesToPop: number): Error {
   // just a string: injected "    at ..." lines parse as real frames, which both pushes the
   // true frames down past the pop below and lets the remote end choose what the issue blames.
   // Capping alone would not help - the injection fits well inside the limit.
-  const flat = raw?.replace(/\s+/g, ' ').trim();
+  // Bounded well above MAX_DETAIL_LENGTH before the regex runs: serializing a deep object
+  // graph can produce a very large string, and flattening that is the expensive part.
+  const flat = raw?.slice(0, MAX_RAW_LENGTH).replace(/\s+/g, ' ').trim();
   const detail = flat && flat.length > MAX_DETAIL_LENGTH ? `${flat.slice(0, MAX_DETAIL_LENGTH)}...` : flat;
   const error = new Error(detail ? `${context}: ${detail}` : context);
   // Api404Error rather than ApiError404, and a non-API cause keeps its own type: an NFC or

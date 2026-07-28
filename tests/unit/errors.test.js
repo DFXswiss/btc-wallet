@@ -123,6 +123,15 @@ describe('helpers/errors toError', () => {
     assert.strictEqual(reported('ctx', throwing).message, 'ctx');
   });
 
+  it('survives a body whose message getter throws', () => {
+    const throwing = Object.defineProperty({ statusCode: 500 }, 'message', {
+      get() {
+        throw new Error('nope');
+      },
+    });
+    assert.strictEqual(reported('ctx', throwing).name, 'Api500Error');
+  });
+
   it('survives a body whose statusCode getter throws', () => {
     const throwing = Object.defineProperty({ message: 'Bad' }, 'statusCode', {
       get() {
@@ -130,6 +139,33 @@ describe('helpers/errors toError', () => {
       },
     });
     assert.strictEqual(reported('ctx', throwing).name, 'ApiError');
+  });
+
+  // A non-string message reached .replace() and threw before it was guarded - the worse half
+  // of the same bug, and the half that had no test.
+  it('survives a cause with a non-string message', () => {
+    const nonString = Object.defineProperty(new Error('boom'), 'message', { value: 42 });
+    assert.strictEqual(reported('ctx', nonString).message, 'ctx');
+  });
+
+  // The last two places somebody else's code runs during reporting: String() on a function
+  // reaches its toString, and instanceof consults a Proxy's getPrototypeOf trap.
+  it('survives a rejection that is a hostile function or proxy', () => {
+    const hostileFn = () => {};
+    hostileFn.toString = () => {
+      throw new Error('nope');
+    };
+    assert.strictEqual(reported('ctx', hostileFn).message, 'ctx');
+
+    const hostileProxy = new Proxy(
+      {},
+      {
+        getPrototypeOf() {
+          throw new Error('nope');
+        },
+      },
+    );
+    assert.ok(reported('ctx', hostileProxy) instanceof Error);
   });
 
   // A non-string name would make the suffix check throw, out of a catch block, at every site.
