@@ -97,7 +97,7 @@ describe('blue_modules/analytics', () => {
   // turns console.error into the issue, so capturing here too would file everything twice.
   // It must hand that integration an Error, not a string - that is what makes it capture
   // an exception with a stack instead of a message titled after the integration's frame.
-  it('logError forwards an Error instance to console.error unchanged', () => {
+  it('logError forwards a caller-built Error without popping any frame', () => {
     const A = require('../../blue_modules/analytics');
     const Sentry = require('@sentry/react-native');
     const err = new Error('boom');
@@ -110,6 +110,8 @@ describe('blue_modules/analytics', () => {
     // still files an exception with a stack
     assert.strictEqual(consoleError.mock.calls[0][0], 'boom');
     assert.strictEqual(consoleError.mock.calls[0][1], err);
+    // no pop: the caller built this Error, so its top frame is already the right culprit
+    assert.strictEqual(err.framesToPop, undefined);
     assert.strictEqual(Sentry.captureException.mock.calls.length, 0);
   });
 
@@ -124,6 +126,15 @@ describe('blue_modules/analytics', () => {
     const forwarded = consoleError.mock.calls[0][1];
     assert.ok(forwarded instanceof Error);
     assert.strictEqual(forwarded.message, 'plain string error');
+    // built in here, so one frame has to go or every such issue is blamed on analytics.js
+    assert.strictEqual(forwarded.framesToPop, 1);
+    const culprit = forwarded.stack
+      .split('\n')
+      .filter(l => !l.includes('Error: '))
+      .filter(l => /\s+at\s/.test(l))[forwarded.framesToPop];
+    assert.ok(!culprit.includes('blue_modules/analytics'), `culprit is still the helper: ${culprit}`);
+    // and it must not be serialized into every payload
+    assert.ok(!Object.keys(forwarded).includes('framesToPop'));
   });
 
   // Separate from the tests above: the module also applies the persisted Do Not

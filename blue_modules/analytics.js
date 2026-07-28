@@ -63,7 +63,9 @@ A.setOptOut = value => {
 // template attributes when the first argument is a string. captureConsole still finds the
 // Error, since it takes the first Error among the arguments rather than the first argument.
 A.logError = errorString => {
-  const error = errorString instanceof Error ? errorString : new Error(String(errorString));
+  // Flattened for the same reason as helpers/errors.ts: a stack is just a string, so
+  // newlines in the value would parse as frames and absorb the pop below.
+  const error = errorString instanceof Error ? errorString : new Error(String(errorString).replace(/\s+/g, ' ').trim());
   // Only when this constructed it: otherwise the top frame is this function, and every issue
   // filed through logError would be blamed on analytics.js rather than on its caller.
   if (!(errorString instanceof Error)) {

@@ -8,11 +8,13 @@ const { reportError } = require('../../helpers/errors');
 // its value reads "... [object Object]" whatever went wrong, and one status cannot be told
 // from another.
 // The header line can itself contain " at " once a server-supplied message is folded into it,
-// so drop it the way the SDK's parser does before counting frames.
+// so drop it the way the SDK's parser does - by content, not by position. Dropping line 0
+// would agree with the SDK on correct code and so hide the regression these tests exist to
+// catch: a type not ending in Error leaves the header parseable as a frame.
 const frameLines = error =>
   error.stack
     .split('\n')
-    .slice(1)
+    .filter(l => !l.includes('Error: '))
     .filter(l => /\s+at\s/.test(l));
 
 describe('helpers/errors toError', () => {
