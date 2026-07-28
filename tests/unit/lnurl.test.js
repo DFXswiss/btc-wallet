@@ -154,6 +154,63 @@ describe('LNURL', function () {
     assert.strictEqual(LN.getCommentAllowed(), false);
   });
 
+  it('can requestBolt11FromLnurlPayService() when the invoice has no description_hash', async () => {
+    // some services (e.g. Wallet of Satoshi) return an invoice with a plain `description` tag
+    // instead of the `description_hash` LUD-06 asks for. that must not block the payment.
+    const LN = new Lnurl('testuser@example.com');
+
+    LN.fetchGet = () => {
+      return {
+        status: 'OK',
+        callback: 'https://example.com/api/v1/lnurl/payreq/00000000-0000-0000-0000-000000000000',
+        tag: 'payRequest',
+        maxSendable: 1000000000,
+        minSendable: 1000,
+        metadata: '[["text/plain","Pay to Wallet of Satoshi user: testuser"],["text/identifier","testuser@example.com"]]',
+      };
+    };
+    await LN.callLnurlPayService();
+
+    LN.fetchGet = () => {
+      return {
+        status: 'OK',
+        pr: 'lnbc20n1pj48ugqpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdpl2pshjgr5dus9wctvd3jhggr0vcs9xct5daeks6fqw4ek2u36yp6x2um5w4ek2usxqrrsscqpfsapyhslrges8uppeeqv8l3v3yq74j9ny70pf0aa039mxp7pvu7hqr0guqg5rxcgy9h7ux9je9hq5w6yj45wx2xwxdr4ncj809lxq49qq6pumnl',
+        routes: [],
+      };
+    };
+
+    const rez = await LN.requestBolt11FromLnurlPayService(2);
+    assert.strictEqual(rez.status, 'OK');
+    assert.strictEqual(LN.decodeInvoice(rez.pr).description_hash, undefined);
+  });
+
+  it('rejects callLnurlPayService() with a clear error when the lnurl is not parseable', async () => {
+    const LN = new Lnurl('bs');
+    await assert.rejects(LN.callLnurlPayService(), err => {
+      assert.strictEqual(err.message, 'Invalid LNURL');
+      return true;
+    });
+  });
+
+  it('defaults max to 0 when the service omits maxSendable', async () => {
+    const LN = new Lnurl('testuser@example.com');
+
+    LN.fetchGet = () => {
+      return {
+        status: 'OK',
+        callback: 'https://example.com/api/v1/lnurl/payreq/00000000-0000-0000-0000-000000000000',
+        tag: 'payRequest',
+        minSendable: 1000,
+        metadata: '[["text/plain","Pay to testuser"]]',
+      };
+    };
+
+    const payload = await LN.callLnurlPayService();
+    assert.strictEqual(payload.max, 0);
+    // an undefined max used to produce NaN, which silently disabled the upper amount bound
+    await assert.rejects(LN.requestBolt11FromLnurlPayService(100));
+  });
+
   it('can callLnurlPayService() and requestBolt11FromLnurlPayService() with comment', async () => {
     const LN = new Lnurl('lnurl1dp68gurn8ghj7cmgv96zucnvd9u8gampd3kx2apwvdhk6tmpwp5j7um9dejz6ar90p6q3eqkzd');
 
@@ -260,6 +317,14 @@ describe('lightning address', function () {
       requestedUri,
       'https://lightninglogin.live/login?k1=2191be568cfe6d2a8e8a90ce04c15edf70fdcae6c1b9faff684acab6f400fa0d&tag=login&sig=304502210093ab4ead8dd619f2ddb3d52bd4bb01725badcb2a3daa3870fb41a38096f9a37d0220464a32e94e13dcec20ea94b94df0fa52f45cd88b01d7247042136ad0c71752d2&key=03e7b61e57efff1925ab9082625400cae2c8ad88a984e7aa4987abb77818570018',
     );
+  });
+
+  it('rejects authenticate() with a clear error when the lnurl is not parseable', async () => {
+    const LN = new Lnurl('bs');
+    await assert.rejects(LN.authenticate('lndhub://dc56b8cf8ef3b60060cf:94eac57510de2738451d'), err => {
+      assert.strictEqual(err.message, 'Invalid URL: hostname is null');
+      return true;
+    });
   });
 
   it('returns the server error response as the reject error from lnurl-auth', async () => {
