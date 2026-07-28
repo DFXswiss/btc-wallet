@@ -581,7 +581,11 @@ class AppStorage {
       // Error, not a bare string: the captureConsole integration titles an issue
       // after its own frame unless it finds an Error among the console args.
       if (++savingInProgress > 10)
-        console.error(new Error('saveToDisk: too many concurrent save attempts, last actions were not saved'), savingInProgress);
+        console.error(
+          'saveToDisk: too many concurrent save attempts, last actions were not saved',
+          new Error('saveToDisk: too many concurrent save attempts, last actions were not saved'),
+          savingInProgress,
+        );
       await new Promise(resolve => setTimeout(resolve, 1000 * savingInProgress)); // sleep
       return this.saveToDisk();
     }

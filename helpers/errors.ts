@@ -30,26 +30,34 @@ function describe(e: unknown): string | undefined {
 // unchanged instead would drop `context` and, for the commonest mobile failure of all
 // (`TypeError: Network request failed`, thrown inside the fetch polyfill with no app
 // frames), merge every site in the app into one unattributable issue.
-export function toError(context: string, e: unknown, framesToPop = 1): Error {
+function toError(context: string, e: unknown, framesToPop: number): Error {
   const cause = e instanceof Error ? e : undefined;
   const { statusCode, message } = (cause ? {} : (e ?? {})) as Partial<ApiError>;
   // Not every backend answers with {statusCode, message} - LNbits replies {"detail": ...} -
   // so an unrecognized body would otherwise reach the title as nothing at all.
   const raw = cause?.message ?? (typeof message === 'string' ? message : undefined) ?? (cause ? undefined : describe(e));
-  // Cap whatever came off the wire, not just the serialized branch: `message` is from the
-  // same untrusted body and would otherwise reach the title at any length.
-  const detail = raw && raw.length > MAX_DETAIL_LENGTH ? `${raw.slice(0, MAX_DETAIL_LENGTH)}...` : raw;
+  // Flatten before capping. A server-supplied message can contain newlines, and the stack is
+  // just a string: injected "    at ..." lines parse as real frames, which both pushes the
+  // true frames down past the pop below and lets the remote end choose what the issue blames.
+  // Capping alone would not help - the injection fits well inside the limit.
+  const flat = raw?.replace(/\s+/g, ' ').trim();
+  const detail = flat && flat.length > MAX_DETAIL_LENGTH ? `${flat.slice(0, MAX_DETAIL_LENGTH)}...` : flat;
   const error = new Error(detail ? `${context}: ${detail}` : context);
   // Once a stack contributes, Sentry groups on the exception type and ignores the message,
   // so the status has to go in the type for a 400 and a 500 from one site to stay apart.
   // Keep a non-API cause's own type: an NFC or signing failure is not an ApiError.
   // Type-guarded like `message` above: a body with a non-numeric statusCode would otherwise
   // put "[object Object]" straight back into the title, which is half of what this prevents.
-  error.name = typeof statusCode === 'number' ? `ApiError${statusCode}` : (cause?.name ?? 'ApiError');
+  //
+  // Api404Error, not ApiError404: the stack parser skips the header line by looking for the
+  // literal "Error: " in it, so a type that does not end in Error leaves the header to be
+  // parsed as a frame whenever the message looks path-like - which a 404 body routinely does.
+  // That phantom frame then absorbs the pop below and the culprit reverts to this helper.
+  error.name = typeof statusCode === 'number' ? `Api${statusCode}Error` : (cause?.name ?? 'ApiError');
   // Deliberately NOT attached as `cause`: the RN SDK's linked-errors integration appends,
   // and Sentry titles an issue from the last exception, so chaining would put the original
-  // back in the title and undo the attribution above. Callers pass it as a second console
-  // argument instead, so its message and own properties land in extra.arguments.
+  // back in the title and undo the attribution above. reportError() passes it as a trailing
+  // console argument instead, so its message and own properties land in extra.arguments.
   //
   // The cost, accepted knowingly: when the original did carry app frames - an NFC or signing
   // failure - only the wrapper's stack is parsed, so the issue points at the catch block
@@ -60,20 +68,23 @@ export function toError(context: string, e: unknown, framesToPop = 1): Error {
   // issue. Per-site attribution for all of them beats exact frames for some of them.
   //
   // The Error is constructed in here, so without this the top frame - and therefore the
-  // culprit shown on every issue - would be this helper rather than the caller. Passed in
-  // rather than redefined afterwards: the property is non-enumerable, to stay out of
-  // serialization, and so also non-configurable, which makes a second write throw.
-  Object.defineProperty(error, 'framesToPop', { value: framesToPop });
+  // culprit shown on every issue - would be this helper rather than the caller. Defined the
+  // way the SDK defines it on its own fetch errors: non-enumerable so it stays out of
+  // serialization, but still writable and configurable, since defineProperty otherwise
+  // defaults all three to false and a second write would throw.
+  Object.defineProperty(error, 'framesToPop', { value: framesToPop, writable: true, configurable: true });
   return error;
 }
 
 // Reports a caught rejection: the issue gets a per-site exception, the log keeps a readable
 // template, and the original stays inspectable.
 //
-// The context goes first because the console-to-logs integration only builds a message
-// template when the first argument is a string - with an Error there, the log body becomes a
-// JSON blob of the whole stack. captureConsole is unaffected either way: it takes the first
-// *Error* among the arguments, which is still the wrapper.
+// The context goes first because the console-to-logs integration only emits the
+// sentry.message.template and sentry.message.parameter.N attributes when the first argument
+// is a string; without them a log has no parameterized template to group or search on. The
+// body itself is formatConsoleArgs(args) either way and still carries the serialized wrapper,
+// so this buys the attributes, not a shorter body. captureConsole is unaffected: it takes the
+// first *Error* among the arguments, which is still the wrapper.
 export function reportError(context: string, e: unknown): void {
   // Two frames, not one: toError built the Error, and it was called from in here.
   console.error(context, toError(context, e, 2), e);

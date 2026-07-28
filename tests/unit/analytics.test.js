@@ -106,7 +106,10 @@ describe('blue_modules/analytics', () => {
     A.logError(err);
 
     assert.strictEqual(consoleError.mock.calls.length, 1);
-    assert.strictEqual(consoleError.mock.calls[0][0], err);
+    // message first so the logs integration can template it, Error second so captureConsole
+    // still files an exception with a stack
+    assert.strictEqual(consoleError.mock.calls[0][0], 'boom');
+    assert.strictEqual(consoleError.mock.calls[0][1], err);
     assert.strictEqual(Sentry.captureException.mock.calls.length, 0);
   });
 
@@ -117,7 +120,8 @@ describe('blue_modules/analytics', () => {
     A.logError('plain string error');
 
     assert.strictEqual(consoleError.mock.calls.length, 1);
-    const forwarded = consoleError.mock.calls[0][0];
+    assert.strictEqual(consoleError.mock.calls[0][0], 'plain string error');
+    const forwarded = consoleError.mock.calls[0][1];
     assert.ok(forwarded instanceof Error);
     assert.strictEqual(forwarded.message, 'plain string error');
   });

@@ -56,12 +56,20 @@ A.setOptOut = value => {
   setSentryEnabled(!value);
 };
 
-// App.js's captureConsole integration already turns console.error into an issue,
-// so capturing here as well would file every error twice. Passing an Error (not a
-// string) is what makes that integration capture an exception with a stack rather
-// than a bare message.
+// App.js's captureConsole integration already turns console.error into an issue, so
+// capturing here as well would file every error twice. It has to be handed an Error, not a
+// string, for that integration to file an exception with a stack rather than a bare message
+// - but the message goes first, because the console-to-logs integration only emits its
+// template attributes when the first argument is a string. captureConsole still finds the
+// Error, since it takes the first Error among the arguments rather than the first argument.
 A.logError = errorString => {
-  console.error(errorString instanceof Error ? errorString : new Error(String(errorString)));
+  const error = errorString instanceof Error ? errorString : new Error(String(errorString));
+  // Only when this constructed it: otherwise the top frame is this function, and every issue
+  // filed through logError would be blamed on analytics.js rather than on its caller.
+  if (!(errorString instanceof Error)) {
+    Object.defineProperty(error, 'framesToPop', { value: 1, writable: true, configurable: true });
+  }
+  console.error(error.message, error);
 };
 
 module.exports = A;
