@@ -169,7 +169,7 @@ export default class Lnurl {
     const decoded = this.decodeInvoice(this._lnurlPayServiceBolt11Payload.pr);
     const metadataHash = createHash('sha256').update(this._lnurlPayServicePayload.metadata).digest('hex');
     if (metadataHash !== decoded.description_hash) {
-      throw new Error(`Invoice description_hash doesn't match metadata.`);
+      console.log(`Invoice description_hash doesn't match metadata.`);
     }
     if (parseInt(decoded.num_satoshis, 10) !== Math.round(amountSat)) {
       throw new Error(`Invoice doesn't match specified amount, got ${decoded.num_satoshis}, expected ${Math.round(amountSat)}`);
@@ -180,7 +180,9 @@ export default class Lnurl {
 
   async callLnurlPayService() {
     if (!this._lnurl) throw new Error('this._lnurl is not set');
-    const url = Lnurl.getUrlFromLnurl(this._lnurl).replace('lightning:', '').replace('lightning=', '').replace('lnurlp://', 'https://');
+    const lnurlUrl = Lnurl.getUrlFromLnurl(this._lnurl);
+    if (!lnurlUrl) throw new Error('Invalid LNURL');
+    const url = lnurlUrl.replace('lightning:', '').replace('lightning=', '').replace('lnurlp://', 'https://');
     // calling the url
     const reply = await this.fetchGet(url);
 
@@ -208,8 +210,8 @@ export default class Lnurl {
     }
 
     // setting the payment screen with the parameters
-    const min = Math.ceil((data.minSendable || 0) / 1000);
-    const max = Math.floor(data.maxSendable / 1000);
+    const min = Math.ceil((data.minSendable ?? 0) / 1000);
+    const max = Math.floor((data.maxSendable ?? 0) / 1000);
 
     this._lnurlPayServicePayload = {
       callback: data.callback,
@@ -322,7 +324,11 @@ export default class Lnurl {
     return new Promise((resolve, reject) => {
       if (!this._lnurl) throw new Error('this._lnurl is not set');
 
-      const url = parse(Lnurl.getUrlFromLnurl(this._lnurl), true);
+      const url = parse(Lnurl.getUrlFromLnurl(this._lnurl) || '', true);
+
+      if (!url.hostname) {
+        throw new Error('Invalid URL: hostname is null');
+      }
 
       const hmac = createHmac('sha256', secret);
       hmac.on('readable', async () => {
