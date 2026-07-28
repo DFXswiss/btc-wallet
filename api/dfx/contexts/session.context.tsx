@@ -1,6 +1,7 @@
 import React, { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
 import { Linking, Alert } from 'react-native';
 import { ApiError } from '../definitions/error';
+import { reportError } from '../../../helpers/errors';
 import { useWalletContext } from '../../../contexts/wallet.context';
 import Config from 'react-native-config';
 import jwtDecode from 'jwt-decode';
@@ -95,7 +96,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
         await call({ url: UserUrl.change, method: 'PUT', data: update }, token.accessToken);
       }
     } catch (e) {
-      console.error('Failed to update language:', e);
+      reportError('Failed to update language', e);
     }
 
     return token;
@@ -167,9 +168,13 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
       const redirectUri = encodeURIComponent(`dfxtaro://?wallet-id=${walletId}`);
 
       const url = `${Config.REACT_APP_SRV_URL}/${service}?session=${token}&balances=${balance}@BTC&redirect-uri=${redirectUri}&lang=${lang}`;
-      return Linking.openURL(url);
+      // Both platforms put the whole URL in the rejection message, and this one carries the
+      // session token and the balance. Replace it before it can reach an alert or a report.
+      return await Linking.openURL(url).catch(() => {
+        throw new Error(`openURL rejected for ${service}`);
+      });
     } catch (e) {
-      console.error('Failed to open services:', e);
+      reportError('Failed to open services', e);
       setIsUnavailable(true);
       throw e;
     }
@@ -191,7 +196,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
       connect(wallets.filter((w: any) => w.type !== MultisigHDWallet.type).map((w: any) => w.getID()))
         .then(() => setIsInitialized(true))
         .catch(e => {
-          console.error('DFX session init error: ', e.message?.toString());
+          reportError('DFX session init failed', e);
           setIsUnavailable(true);
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps

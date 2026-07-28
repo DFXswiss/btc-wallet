@@ -1,5 +1,6 @@
 const BlueApp = require('../BlueApp');
 const Sentry = require('@sentry/react-native');
+const { getUniqueIdSync } = require('react-native-device-info');
 
 // App.js defers Sentry.init() behind its own isDoNotTrackEnabled() read (so native
 // crash handling, which can only be gated at init time, respects opt-out from the
@@ -10,7 +11,25 @@ const setSentryEnabled = enabled => {
   const client = Sentry.getClient();
   if (client) {
     client.getOptions().enabled = enabled;
+    if (enabled) {
+      // Sentry.init() skips integration setup entirely on a disabled client, so a
+      // user who launched with Do Not Track on has NONE installed - not just no
+      // console capture, but no error handlers, no frame rewriting (so source maps
+      // cannot match) and no dedupe. The resolved list is on the options either
+      // way; installing a name that is already installed is a no-op. What this cannot
+      // bring back is anything behind the SDK's enableNative gate, which was false at
+      // init - that covers the console-to-logs integrations too, not just native-only
+      // ones, so neither native reporting nor log records resume before a restart.
+      client.getOptions().integrations.forEach(integration => Sentry.addIntegration(integration));
+    }
   }
+  // Identify the device on both error events and logs. Without a scope user the
+  // native layer fills in its own install id, but only for error events - a log row
+  // then carries no user at all, and the two ids are different values that cannot be
+  // joined. Setting it here uses one id for both, the same one the About screen
+  // offers to copy for support, and tracks the opt-out toggle live rather than only
+  // at init. See docs/crash-reports.md for what this id is.
+  Sentry.setUser(enabled ? { id: getUniqueIdSync() } : null);
 };
 
 // Re-applies the persisted opt-out choice independently of App.js's own init-time
@@ -37,9 +56,22 @@ A.setOptOut = value => {
   setSentryEnabled(!value);
 };
 
+// App.js's captureConsole integration already turns console.error into an issue, so
+// capturing here as well would file every error twice. It has to be handed an Error, not a
+// string, for that integration to file an exception with a stack rather than a bare message
+// - but the message goes first, because the console-to-logs integration only emits its
+// template attributes when the first argument is a string. captureConsole still finds the
+// Error, since it takes the first Error among the arguments rather than the first argument.
 A.logError = errorString => {
-  console.error(errorString);
-  Sentry.captureException(errorString instanceof Error ? errorString : new Error(String(errorString)));
+  // Flattened for the same reason as helpers/errors.ts: a stack is just a string, so
+  // newlines in the value would parse as frames and absorb the pop below.
+  const error = errorString instanceof Error ? errorString : new Error(String(errorString).replace(/\s+/g, ' ').trim());
+  // Only when this constructed it: otherwise the top frame is this function, and every issue
+  // filed through logError would be blamed on analytics.js rather than on its caller.
+  if (!(errorString instanceof Error)) {
+    Object.defineProperty(error, 'framesToPop', { value: 1, writable: true, configurable: true });
+  }
+  console.error(error.message, error);
 };
 
 module.exports = A;

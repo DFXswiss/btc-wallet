@@ -27,6 +27,7 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import useInputAmount from '../../hooks/useInputAmount';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import { Icon } from 'react-native-elements';
+import { reportError } from '../../helpers/errors';
 
 const POLLING_INTERVAL = 3000;
 
@@ -130,7 +131,7 @@ const CashierPos = () => {
       setIsWaitingForPayment(true);
       initInvoicePolling();
     } catch (error) {
-      console.error('lnd/cashierPos: failed to generate invoice', error);
+      reportError('lnd/cashierPos: failed to generate invoice', error);
     }
   };
 

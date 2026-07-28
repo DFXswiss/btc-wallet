@@ -16,6 +16,7 @@ import { navigationStyleTx } from '../../../components/navigationStyle';
 import { PaymentStatus, usePaymentLinks } from '../../../api/dfx/hooks/payment-link.hook';
 import { Icon } from 'react-native-elements';
 import QRCodeComponent from '../../../components/QRCodeComponent';
+import { reportError } from '../../../helpers/errors';
 
 interface RouteParams {
   walletID: string;
@@ -101,7 +102,7 @@ const ReceiveDfxPos = () => {
         setPosStatus(PosStatus.WAITING_CASHIER);
       }
     } catch (error) {
-      console.error('receivePos: payment status poll failed', error);
+      reportError('receivePos: payment status poll failed', error);
       setPosStatus(PosStatus.NOT_AVAILABLE);
     }
   };

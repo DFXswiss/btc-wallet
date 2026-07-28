@@ -50,7 +50,7 @@ jest.mock('react-native-permissions', () => require('react-native-permissions/mo
 
 jest.mock('react-native-device-info', () => {
   return {
-    getUniqueId: jest.fn().mockReturnValue('uniqueId'),
+    getUniqueIdSync: jest.fn().mockReturnValue('uniqueId'),
     getSystemName: jest.fn(),
     getDeviceType: jest.fn().mockReturnValue(false),
     hasGmsSync: jest.fn().mockReturnValue(true),

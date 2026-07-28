@@ -18,6 +18,7 @@ import BoltCard from '../../class/boltcard';
 import { TypeError } from '../../helpers/ErrorCodes';
 import { HoldCardModal } from '../../components/HoldCardModal';
 import { getProgressStringGenerator } from '../../helpers/stringProgressBar';
+import { reportError } from '../../helpers/errors';
 
 const AddBoltcard: React.FC & { navigationOptions?: ReturnType<typeof navigationStyle> } = () => {
   const { wallets, saveToDisk } = useContext(BlueStorageContext);
@@ -81,7 +82,7 @@ const AddBoltcard: React.FC & { navigationOptions?: ReturnType<typeof navigation
   }, []);
 
   const setupBoltcardErrorHandler = (error: any) => {
-    if (!error.type) return console.error('boltcard/add: card setup failed with untyped error', error);
+    if (!error.type) return reportError('boltcard/add: card setup failed with untyped error', error);
     switch (error.type) {
       case TypeError.AUTH_FAILED:
         if (error.code === '91ae') return navigate('WrittenCardError');
@@ -90,7 +91,7 @@ const AddBoltcard: React.FC & { navigationOptions?: ReturnType<typeof navigation
         if (error.code === '6982') return navigate('WrittenCardError');
         break;
       default:
-        console.error('boltcard/add: unhandled card setup error', error);
+        reportError('boltcard/add: unhandled card setup error', error);
     }
   };
 

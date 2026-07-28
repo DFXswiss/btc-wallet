@@ -15,6 +15,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AbstractWallet } from '../../class';
 import { CoinSelectOutput } from 'coinselect';
 import { OpenCryptoPayPaymentLink } from '../../class/open-crypto-pay';
+import { reportError } from '../../helpers/errors';
 const currency = require('../../blue_modules/currency');
 const Bignumber = require('bignumber.js');
 const bitcoin = require('bitcoinjs-lib');
@@ -131,7 +132,7 @@ const OpenCrytoPayCommitOnchain = () => {
         amount: Number(amountFormatted),
       });
     } catch (error) {
-      console.error('openCryptoPay: onchain commit failed', error);
+      reportError('openCryptoPay: onchain commit failed', error);
       setIsServerError(true);
     } finally {
       setIsLoading(false);

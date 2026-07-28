@@ -36,6 +36,7 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { majorTomToGroundControl, tryToObtainPermissions } from '../../blue_modules/notifications';
 import alert from '../../components/Alert';
 import { parse } from 'url'; // eslint-disable-line n/no-deprecated-api
+import { reportError } from '../../helpers/errors';
 const currency = require('../../blue_modules/currency');
 
 const LNDCreateInvoice = () => {
@@ -81,7 +82,7 @@ const LNDCreateInvoice = () => {
         await processLnurl(uri);
       }
     } catch (e) {
-      console.error('lndCreateInvoice: failed to prepare receive details', e);
+      reportError('lndCreateInvoice: failed to prepare receive details', e);
     }
     setIsLoading(false);
   };
