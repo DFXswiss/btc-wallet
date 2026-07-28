@@ -137,6 +137,23 @@ describe('blue_modules/analytics', () => {
     assert.ok(!Object.keys(forwarded).includes('framesToPop'));
   });
 
+  // Same reason helpers/errors.ts flattens: a stack is just a string, so newlines in the
+  // value parse as real frames and the pop above lands on one of them instead.
+  it('logError does not let newlines in the value inject stack frames', () => {
+    const A = require('../../blue_modules/analytics');
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    A.logError('boom\n    at attackerFrame (/evil.js:1:1)');
+
+    const forwarded = consoleError.mock.calls[0][1];
+    assert.ok(!forwarded.message.includes('\n'), 'value should be flattened to one line');
+    const culprit = forwarded.stack
+      .split('\n')
+      .filter(l => !l.includes('Error: '))
+      .filter(l => /\s+at\s/.test(l))[forwarded.framesToPop];
+    assert.ok(!culprit.includes('attackerFrame'), `injected frame became the culprit: ${culprit}`);
+  });
+
   // Separate from the tests above: the module also applies the persisted Do Not
   // Track choice on load (before any explicit setOptOut call), which is what
   // actually closes the upstream gap - resets the module registry so the

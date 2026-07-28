@@ -72,6 +72,29 @@ describe('helpers/errors toError', () => {
     assert.strictEqual(reported('ctx', new Error('boom')).name, 'Error');
   });
 
+  // The whole attribution rests on the type ending in Error, so it is forced onto a cause's
+  // own name too - that value is third-party. ErrorHandler is the trap: it contains "Error"
+  // but the header still lacks the literal "Error: " the parser looks for.
+  it('forces the Error suffix onto a cause type that lacks it', () => {
+    const named = name => Object.assign(new Error('/api/v1/some/path at handler'), { name });
+
+    assert.strictEqual(reported('ctx', named('Timeout')).name, 'TimeoutError');
+    assert.strictEqual(reported('ctx', named('ErrorHandler')).name, 'ErrorHandlerError');
+    assert.strictEqual(reported('ctx', named('')).name, 'ApiError');
+
+    // both shapes, since they fail the invariant for different reasons
+    for (const name of ['Timeout', 'ErrorHandler']) {
+      const wrapped = reported('ctx', named(name));
+      const culprit = frameLines(wrapped)[wrapped.framesToPop];
+      assert.ok(!culprit.includes('helpers/errors'), `culprit is still the helper for ${name}: ${culprit}`);
+    }
+  });
+
+  // A non-string name would make the suffix check throw, out of a catch block, at every site.
+  it('survives a cause with a non-string name', () => {
+    assert.strictEqual(reported('ctx', Object.assign(new Error('boom'), { name: 42 })).name, 'ApiError');
+  });
+
   // Not every backend answers with {statusCode, message}: the boltcard API is LNbits, which
   // replies {"detail": ...}. Dropping it here would leave the issue title carrying only the
   // context, with no trace of what actually failed.

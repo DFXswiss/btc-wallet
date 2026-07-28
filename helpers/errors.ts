@@ -53,11 +53,15 @@ function toError(context: string, e: unknown, framesToPop: number): Error {
   // literal "Error: " in it, so a type that does not end in Error leaves the header to be
   // parsed as a frame whenever the message looks path-like - which a 404 body routinely does.
   // That phantom frame then absorbs the pop below and the culprit reverts to this helper.
-  const type = typeof statusCode === 'number' ? `Api${statusCode}Error` : cause?.name || 'ApiError';
+  // cause.name is third-party input like the rest of the body, so it is type-guarded the same
+  // way - without that, the endsWith() below throws on a non-string name, out of a catch block.
+  const type = typeof statusCode === 'number' ? `Api${statusCode}Error` : (typeof cause?.name === 'string' && cause.name) || 'ApiError';
   // The suffix is the invariant, not just a naming style, so enforce it on the cause's own
   // type too: that value comes from third-party code and an empty or Error-less name would
   // leave the header parseable again. `||` rather than `??` so an empty name is replaced.
-  error.name = type.includes('Error') ? type : `${type}Error`;
+  // endsWith, not includes: the parser looks for the literal "Error: ", so a name that merely
+  // contains Error - ErrorHandler, ErrorEvent - leaves the header just as parseable as Timeout.
+  error.name = type.endsWith('Error') ? type : `${type}Error`;
   // Deliberately NOT attached as `cause`: the RN SDK's linked-errors integration appends,
   // and Sentry titles an issue from the last exception, so chaining would put the original
   // back in the title and undo the attribution above. reportError() passes it as a trailing
