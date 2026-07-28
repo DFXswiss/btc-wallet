@@ -208,7 +208,7 @@ describe('LNURL', function () {
     const payload = await LN.callLnurlPayService();
     assert.strictEqual(payload.max, 0);
     // an undefined max used to produce NaN, which silently disabled the upper amount bound
-    await assert.rejects(LN.requestBolt11FromLnurlPayService(100));
+    await assert.rejects(LN.requestBolt11FromLnurlPayService(100), /The specified amount is invalid/);
   });
 
   it('can callLnurlPayService() and requestBolt11FromLnurlPayService() with comment', async () => {
