@@ -107,8 +107,29 @@ describe('helpers/errors toError', () => {
     assert.strictEqual(reported('ctx', withName({ value: 'Error ' })).name, 'Error');
     // a newline would land in the stack header
     assert.ok(!reported('ctx', withName({ value: 'Ti\nmeout' })).name.includes('\n'));
-    // the type is half the issue title, so it is bounded like the detail
-    assert.ok(reported('ctx', withName({ value: 'A'.repeat(300) })).name.length <= 65);
+    // the exact value, not just the bound: capping AFTER the suffix enforcement would still
+    // satisfy a length check while chopping the Error off the end, which is the whole invariant
+    assert.strictEqual(reported('ctx', withName({ value: 'A'.repeat(300) })).name, `${'A'.repeat(60)}Error`);
+  });
+
+  // message and statusCode are getters on the same hostile object as name, so they get the
+  // same treatment - a throw from any of them escapes a catch block at every reporting site.
+  it('survives a cause whose message getter throws', () => {
+    const throwing = Object.defineProperty(new Error('boom'), 'message', {
+      get() {
+        throw new Error('nope');
+      },
+    });
+    assert.strictEqual(reported('ctx', throwing).message, 'ctx');
+  });
+
+  it('survives a body whose statusCode getter throws', () => {
+    const throwing = Object.defineProperty({ message: 'Bad' }, 'statusCode', {
+      get() {
+        throw new Error('nope');
+      },
+    });
+    assert.strictEqual(reported('ctx', throwing).name, 'ApiError');
   });
 
   // A non-string name would make the suffix check throw, out of a catch block, at every site.

@@ -151,7 +151,10 @@ describe('blue_modules/analytics', () => {
       .split('\n')
       .filter(l => !l.includes('Error: '))
       .filter(l => /\s+at\s/.test(l))[forwarded.framesToPop];
-    assert.ok(!culprit.includes('attackerFrame'), `injected frame became the culprit: ${culprit}`);
+    // asserted on the helper, not on 'attackerFrame': under the un-flatten mutation the
+    // injected line becomes frame 0 and the pop lands on analytics.js, so checking for the
+    // attacker frame here could never fail
+    assert.ok(!culprit.includes('blue_modules/analytics'), `culprit is still the helper: ${culprit}`);
   });
 
   // Separate from the tests above: the module also applies the persisted Do Not

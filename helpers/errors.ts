@@ -3,23 +3,28 @@ import { ApiError } from '../api/dfx/definitions/error';
 const MAX_DETAIL_LENGTH = 200;
 const MAX_TYPE_LENGTH = 60;
 
+// Reads one property off a rejection. Anything reached from a catch block is third-party
+// code - `name`, `message` and `statusCode` can all be getters - and a throw here would turn
+// a handled error into an unhandled one at every reporting site.
+function safeRead<T>(get: () => T): T | undefined {
+  try {
+    return get();
+  } catch {
+    return undefined;
+  }
+}
+
 // Derives the exception type, which is what Sentry groups on once a stack contributes.
 //
 // The invariant is that it ENDS in "Error": the stack parser skips the header line by looking
 // for the literal "Error: ", and a type without that suffix leaves the header to be parsed as
 // a phantom frame that absorbs the frame pop, putting the culprit back on this helper.
 //
-// Everything here is third-party input reached from inside a catch block, so nothing is
-// allowed to throw: `name` can be a getter, and a getter is somebody else's code.
+// `name` is read through safeRead for the same reason as everything else off a rejection.
 function deriveType(statusCode: unknown, cause: Error | undefined): string {
   if (typeof statusCode === 'number') return `Api${statusCode}Error`;
 
-  let name: unknown;
-  try {
-    name = cause?.name;
-  } catch {
-    name = undefined;
-  }
+  const name = safeRead(() => cause?.name);
   // Flattened and capped for the same reasons as the detail: a newline would land in the
   // stack header, and the type is half the issue title.
   const base = typeof name === 'string' ? name.replace(/\s+/g, ' ').trim().slice(0, MAX_TYPE_LENGTH) : '';
@@ -57,10 +62,18 @@ function describe(e: unknown): string | undefined {
 // frames), merge every site in the app into one unattributable issue.
 function toError(context: string, e: unknown, framesToPop: number): Error {
   const cause = e instanceof Error ? e : undefined;
-  const { statusCode, message } = (cause ? {} : (e ?? {})) as Partial<ApiError>;
+  const body = cause ? undefined : (e as Partial<ApiError> | undefined);
+  // Every read below can be a getter - somebody else's function - and all of this runs inside
+  // a catch block, so none of it may throw. deriveType guards `name` the same way.
+  const statusCode = safeRead(() => body?.statusCode);
+  const bodyMessage = safeRead(() => body?.message);
+  const causeMessage = safeRead(() => cause?.message);
   // Not every backend answers with {statusCode, message} - LNbits replies {"detail": ...} -
   // so an unrecognized body would otherwise reach the title as nothing at all.
-  const raw = cause?.message ?? (typeof message === 'string' ? message : undefined) ?? (cause ? undefined : describe(e));
+  const raw =
+    (typeof causeMessage === 'string' ? causeMessage : undefined) ??
+    (typeof bodyMessage === 'string' ? bodyMessage : undefined) ??
+    (cause ? undefined : describe(e));
   // Flatten before capping. A server-supplied message can contain newlines, and the stack is
   // just a string: injected "    at ..." lines parse as real frames, which both pushes the
   // true frames down past the pop below and lets the remote end choose what the issue blames.
