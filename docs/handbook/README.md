@@ -241,13 +241,45 @@ zbarimg -q --raw docs/handbook/screenshots/02-wallet/06-export-backup.png   # mu
 Zusaetzlich laeuft ueber den ganzen Satz eine OCR-Probe: keine Folge von vier
 aufeinanderfolgenden BIP39-Woertern (die ungeschwaerzten Originale hatten zwoelf).
 
-**Weiterhin nicht abgebildet.** Alles, was echtes Guthaben voraussetzt —
-Transaktionsliste mit Eintraegen, Transaktionsdetails, Gebuehrenwahl, RBF/CPFP,
-PSBT-Signatur. Ein Umweg ueber eine Watch-only-Adresse scheidet aus: der
-entsprechende Zweig in `class/wallet-import.js` ist seit dem Upstream-Commit
-`e56894628` (2021) auskommentiert, ein Adress-Import endet in „Es wurden keine
-Wallets gefunden". Ebenfalls nicht abgebildet: die Bezahlkarte (Boltcard braucht
-NFC, im Simulator nicht vorhanden), die Cosigner-Verwaltung einer fertig
-eingerichteten Multi-Device-Wallet (drei Geraete) und die Kacheln
-„Kaufen"/„Verkaufen", die einen externen Browser oeffnen und damit kein
-App-Screen sind.
+## Abdeckung — was fehlt und warum
+
+Das Issue verlangt „jeden Screen, in jeder Variante, in jedem Szenario". Dieser
+Stand erfuellt das **nicht**. Die Zahlen, damit die Luecke nachpruefbar ist statt
+ungefaehr: `navigation/` registriert **109** Routen, davon 17 reine
+Stack-Wrapper (Endung `Root`), bleiben **92 echte Screens**. Abgebildet sind
+**42**.
+
+Die Luecke ist nicht zufaellig, sondern hat drei benennbare Ursachen:
+
+**1. Kein Guthaben** — jeder Screen, der eine echte Transaktion voraussetzt:
+`TransactionDetails`, `TransactionStatus`, `CreateTransaction`, `Confirm`,
+`Success`, `CoinControl`, `CPFP`, `RBFBumpFee`, `RBFCancel`, `PsbtMultisig`,
+`PsbtMultisigQRCode`, `PsbtWithHardwareWallet`, dazu die Lightning-Seiten
+`LNDViewInvoice`, `LNDViewAdditionalInvoiceInformation`,
+`LNDViewAdditionalInvoicePreImage`, `LnurlPay`, `LnurlPaySuccess`, `LnurlAuth`.
+
+Der uebliche Umweg — eine Watch-only-Adresse mit vorhandener Historie
+importieren — steht nicht offen: der entsprechende Zweig in
+`class/wallet-import.js` ist seit dem Upstream-Commit `e56894628` (2021)
+auskommentiert; ein Adress-Import endet in „Es wurden keine Wallets gefunden".
+Ein Testnetz gibt es nicht, `bitcoin.networks.bitcoin` ist fest verdrahtet.
+Diese Screens brauchen also echte Coins auf einer Wallet.
+
+**2. Keine Hardware** — `AddBoltcard`, `BackupBoltcard`, `DeleteBoltcard`,
+`BoltCardDetails`, `TappedCardDetails` brauchen NFC, das der iOS-Simulator nicht
+hat. Ebenso die POS-Strecke (`PosReceive`, `CashierPos`, `CashierDfxPos`,
+`ReceiveDfxPos`), soweit sie an einer Karte haengt.
+
+**3. Kein zweites und drittes Geraet** — `ViewEditMultisigCosigners` und
+`ExportMultisigCoordinationSetup` setzen eine fertig eingerichtete
+Multi-Device-Wallet voraus, also drei parallel laufende Instanzen. Abgebildet ist
+nur der erste Einrichtungsschritt.
+
+Ausserdem kein App-Screen und deshalb bewusst nicht im Satz: die Kacheln
+„Kaufen"/„Verkaufen" oeffnen einen externen Browser.
+
+Wer die Luecke schliessen will, braucht in dieser Reihenfolge: eine Wallet mit
+einem kleinen Betrag on-chain und ein paar Sats auf Lightning (deckt Ursache 1
+ab), ein echtes Geraet mit NFC und eine Boltcard (Ursache 2), drei Geraete
+(Ursache 3).
+
