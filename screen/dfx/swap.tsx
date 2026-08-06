@@ -36,6 +36,7 @@ const Swap = () => {
   const { routeId, amount, 'wallet-id': walletId } = useRoute<SwapRouteProps>().params;
   const { getInfo } = useSwap();
   const [isLoading, setIsLoading] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [swapInfo, setSwapInfo] = useState<SwapInfo>();
   const [changeAddress, setChangeAddress] = useState<string>();
 
@@ -197,7 +198,20 @@ const Swap = () => {
           </View>
           <View style={styles.buttonContainer}>
             <View style={styles.button}>
-              <BlueButton onPress={() => handleConfirm().catch(handleError)} title={loc.swap.confirm} />
+              {isConfirming ? (
+                <ActivityIndicator />
+              ) : (
+                <BlueButton
+                  onPress={() => {
+                    if (isConfirming) return;
+                    setIsConfirming(true);
+                    handleConfirm()
+                      .catch(handleError)
+                      .finally(() => setIsConfirming(false));
+                  }}
+                  title={loc.swap.confirm}
+                />
+              )}
             </View>
           </View>
         </View>

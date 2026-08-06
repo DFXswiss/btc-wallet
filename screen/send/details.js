@@ -69,7 +69,6 @@ const SendDetails = () => {
   const [feeUnit, setFeeUnit] = useState();
   const [amountUnit, setAmountUnit] = useState();
   const [utxo, setUtxo] = useState(null);
-  const [utxoFetchFailed, setUtxoFetchFailed] = useState(false);
   const [frozenBalance, setFrozenBlance] = useState(false);
   const [payjoinUrl, setPayjoinUrl] = useState(null);
   const [changeAddress, setChangeAddress] = useState();
@@ -228,17 +227,14 @@ const SendDetails = () => {
     setChangeAddress(null);
     setIsTransactionReplaceable(wallet.type === HDSegwitBech32Wallet.type && !routeParams.noRbf);
 
-    // update wallet UTXO
-    setUtxoFetchFailed(false);
+    // update wallet UTXO (best-effort, for balance/fee display; the authoritative
+    // refresh that gates signing happens again in createTransaction())
     Utils.withRetry(() => wallet.fetchUtxo())
       .then(() => {
         // we need to re-calculate fees
         setDumb(v => !v);
       })
-      .catch(e => {
-        console.warn('send/details: fetchUtxo failed after retries', e);
-        setUtxoFetchFailed(true);
-      });
+      .catch(e => console.warn('send/details: fetchUtxo failed after retries', e));
   }, [wallet]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // recalc fees in effect so we don't block render
@@ -389,14 +385,20 @@ const SendDetails = () => {
 
   const createTransaction = async () => {
     Keyboard.dismiss();
+    setIsLoading(true);
 
-    if (utxoFetchFailed) {
+    // authoritative refresh right before signing — the mount-time fetch above is
+    // only for the initial balance/fee display and can be arbitrarily stale by
+    // the time the user actually taps Next
+    try {
+      await Utils.withRetry(() => wallet.fetchUtxo());
+    } catch (e) {
+      setIsLoading(false);
       Alert.alert(loc.errors.error, loc.send.details_utxo_refresh_failed);
       ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
       return;
     }
 
-    setIsLoading(true);
     const requestedSatPerByte = feeRate;
     for (const [index, transaction] of addresses.entries()) {
       let error;

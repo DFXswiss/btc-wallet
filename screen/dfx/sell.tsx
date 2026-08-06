@@ -38,6 +38,7 @@ const Sell = () => {
   const { getInfo: getSellInfo } = useSell();
   const { toDescription } = useFiat();
   const [isLoading, setIsLoading] = useState(true);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [sell, setSell] = useState<SellInfo>();
 
   const [changeAddress, setChangeAddress] = useState<string>();
@@ -184,7 +185,21 @@ const Sell = () => {
           </View>
           <View style={styles.buttonContainer}>
             <View style={styles.button}>
-              <BlueButton onPress={() => handleConfirm().catch(handleError)} title={loc.sell.confirm} testID="SellConfirm" />
+              {isConfirming ? (
+                <ActivityIndicator />
+              ) : (
+                <BlueButton
+                  onPress={() => {
+                    if (isConfirming) return;
+                    setIsConfirming(true);
+                    handleConfirm()
+                      .catch(handleError)
+                      .finally(() => setIsConfirming(false));
+                  }}
+                  title={loc.sell.confirm}
+                  testID="SellConfirm"
+                />
+              )}
             </View>
           </View>
         </View>
