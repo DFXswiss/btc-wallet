@@ -165,6 +165,11 @@ Bei Push auf `develop` (relevante Pfade) baut
 serverseitigen Deploy-Hook aus. Anschliessend Smoke gegen
 `https://handbook.taro.dfx.swiss/healthz`.
 
+Der Deploy-Workflow verlangt die GitHub-Secrets `DOCKER_USERNAME`,
+`DOCKER_PASSWORD`, `DEPLOY_PRD_HOST`, `DEPLOY_PRD_USER`, `DEPLOY_PRD_SSH_KEY`
+und `DEPLOY_PRD_SSH_KNOWN_HOSTS`; fehlt oder leer ist eines davon, bricht er
+sofort ab und nennt die fehlenden **Namen** (kein Build, kein Image-Push).
+
 Image- und Service-Name stehen laut Issue #211 noch unter Bestätigung durch
 @TaprootFreak.
 

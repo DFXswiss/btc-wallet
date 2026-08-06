@@ -42,6 +42,43 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     steps:
+      # Preflight before any side effect (checkout, docker login, image push).
+      # This workflow is not on the default branch until merged, so
+      # `gh workflow run` cannot exercise it first — the merge to develop is
+      # the first sharp run. Without this check, a missing DEPLOY_PRD_* secret
+      # would only fail after docker login+push already published
+      # dfxswiss/dfx-taro-handbook:latest. Pattern matches deploy-develop.yml
+      # (collect all missing names; never echo values).
+      - name: Require deploy secrets
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          DEPLOY_PRD_HOST: ${{ secrets.DEPLOY_PRD_HOST }}
+          DEPLOY_PRD_USER: ${{ secrets.DEPLOY_PRD_USER }}
+          DEPLOY_PRD_SSH_KEY: ${{ secrets.DEPLOY_PRD_SSH_KEY }}
+          DEPLOY_PRD_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_PRD_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          missing=""
+          for var in \
+            DOCKER_USERNAME \
+            DOCKER_PASSWORD \
+            DEPLOY_PRD_HOST \
+            DEPLOY_PRD_USER \
+            DEPLOY_PRD_SSH_KEY \
+            DEPLOY_PRD_SSH_KNOWN_HOSTS
+          do
+            # Indirect expansion: only the name is printed on failure.
+            if [ -z "${!var:-}" ]; then
+              missing="${missing} ${var}"
+            fi
+          done
+          if [ -n "$missing" ]; then
+            echo "Missing required secrets (empty or unset):${missing}" >&2
+            echo "handbook-deploy: refusing to build/push without full secret set." >&2
+            exit 1
+          fi
+
       - name: Checkout
         # SHA verified via gh api repos/actions/checkout/commits/v7.0.1
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
