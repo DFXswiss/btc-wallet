@@ -15,6 +15,7 @@ import { useSwap } from '../../api/dfx/hooks/swap.hook';
 import { useWalletContext } from '../../contexts/wallet.context';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import { SwapInfo } from '../../api/dfx/definitions/swap';
+import { Utils } from '../../helpers/utils';
 const currency = require('../../blue_modules/currency');
 
 type SwapRouteProps = RouteProp<
@@ -81,6 +82,7 @@ const Swap = () => {
       const networkTransactionFees = await NetworkTransactionFees.recommendedFees();
       const changeAddress = await getChangeAddressAsync(wallet);
       const requestedSatPerByte = Number(networkTransactionFees.fastestFee);
+      await Utils.withRetry(() => wallet.fetchUtxo());
       const lutxo = wallet.getUtxo();
       const targets = [{ address: swapInfo?.deposit.address, value: currency.btcToSatoshi(amount) }];
       const { tx, outputs, psbt, fee } = wallet.createTransaction(

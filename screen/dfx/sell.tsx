@@ -16,6 +16,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NetworkTransactionFee } from '../../models/networkTransactionFees';
 import BigNumber from 'bignumber.js';
 import { Chain } from '../../models/bitcoinUnits';
+import { Utils } from '../../helpers/utils';
 const currency = require('../../blue_modules/currency');
 
 type SellRouteProps = RouteProp<
@@ -78,6 +79,7 @@ const Sell = () => {
 
       const changeAddress = await getChangeAddressAsync(wallet);
       const requestedSatPerByte = Number(networkTransactionFees.fastestFee);
+      await Utils.withRetry(() => wallet.fetchUtxo());
       const lutxo = wallet.getUtxo();
       const targets = [{ address: sell?.deposit.address, value: currency.btcToSatoshi(amount) }];
       const { tx, outputs, psbt, fee } = wallet.createTransaction(

@@ -42,6 +42,7 @@ import { AbstractHDElectrumWallet } from '../../class/wallets/abstract-hd-electr
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 const currency = require('../../blue_modules/currency');
 const prompt = require('../../helpers/prompt');
+const { Utils } = require('../../helpers/utils');
 
 const SendDetails = () => {
   const { wallets, setSelectedWallet, sleep, txMetadata, saveToDisk } = useContext(BlueStorageContext);
@@ -68,6 +69,7 @@ const SendDetails = () => {
   const [feeUnit, setFeeUnit] = useState();
   const [amountUnit, setAmountUnit] = useState();
   const [utxo, setUtxo] = useState(null);
+  const [utxoFetchFailed, setUtxoFetchFailed] = useState(false);
   const [frozenBalance, setFrozenBlance] = useState(false);
   const [payjoinUrl, setPayjoinUrl] = useState(null);
   const [changeAddress, setChangeAddress] = useState();
@@ -227,13 +229,16 @@ const SendDetails = () => {
     setIsTransactionReplaceable(wallet.type === HDSegwitBech32Wallet.type && !routeParams.noRbf);
 
     // update wallet UTXO
-    wallet
-      .fetchUtxo()
+    setUtxoFetchFailed(false);
+    Utils.withRetry(() => wallet.fetchUtxo())
       .then(() => {
         // we need to re-calculate fees
         setDumb(v => !v);
       })
-      .catch(e => console.warn('send/details: fetchUtxo failed', e));
+      .catch(e => {
+        console.warn('send/details: fetchUtxo failed after retries', e);
+        setUtxoFetchFailed(true);
+      });
   }, [wallet]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // recalc fees in effect so we don't block render
@@ -384,6 +389,13 @@ const SendDetails = () => {
 
   const createTransaction = async () => {
     Keyboard.dismiss();
+
+    if (utxoFetchFailed) {
+      Alert.alert(loc.errors.error, loc.send.details_utxo_refresh_failed);
+      ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
+      return;
+    }
+
     setIsLoading(true);
     const requestedSatPerByte = feeRate;
     for (const [index, transaction] of addresses.entries()) {

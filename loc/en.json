@@ -172,6 +172,7 @@
     "details_scan_hint": "Double tap to scan or import a destination",
     "details_total_exceeds_balance": "The sending amount exceeds the available balance.",
     "details_total_exceeds_balance_frozen": "The sending amount exceeds the available balance. Please note that frozen coins are excluded.",
+    "details_utxo_refresh_failed": "Could not refresh your balance. Please check your connection and try again.",
     "details_wallet_before_tx": "Before creating a transaction, you must first add a Bitcoin wallet.",
     "dynamic_init": "Initializing",
     "dynamic_next": "Next",

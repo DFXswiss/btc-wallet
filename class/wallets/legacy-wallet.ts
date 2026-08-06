@@ -152,7 +152,8 @@ export class LegacyWallet extends AbstractWallet {
 
       this.utxo = newUtxos;
     } catch (error) {
-      console.warn('LegacyWallet.fetchUtxo: txhex hydration failed, utxo set may be partial', error);
+      console.warn('LegacyWallet.fetchUtxo: failed, utxo set may be stale', error);
+      throw error;
     }
   }
 

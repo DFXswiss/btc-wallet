@@ -37,4 +37,16 @@ export class Utils {
   // static formatIban(iban?: string): string | null {
   //   return IbanTools.friendlyFormatIBAN(iban);
   // }
+
+  static async withRetry<T>(fn: () => Promise<T>, attempts = 3, delayMs = 500): Promise<T> {
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        if (attempt === attempts) throw error;
+        await new Promise(resolve => setTimeout(resolve, delayMs * attempt));
+      }
+    }
+    throw new Error('unreachable');
+  }
 }
