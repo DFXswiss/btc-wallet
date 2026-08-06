@@ -1,0 +1,34 @@
+appId: swiss.dfx.bitcoin
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: 'Erstellen'
+    timeout: 60000
+- tapOn: 'Erstellen'
+- extendedWaitUntil:
+    visible: 'Jetzt überspringen'
+    timeout: 60000
+- tapOn: 'lightning.space'
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn: 'Fortsetzen'
+- extendedWaitUntil:
+    visible: 'Wallet Backup'
+    timeout: 60000
+# Mitteilungs-Dialog einmal abraeumen
+- tapOn:
+    point: '16%,93%'
+- waitForAnimationToEnd:
+    timeout: 12000
+- runFlow:
+    when:
+      visible: 'Nicht erlauben'
+    commands:
+      - tapOn: 'Nicht erlauben'
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn: 'Schließen'
+- extendedWaitUntil:
+    visible: 'Wallet Backup'
+    timeout: 30000

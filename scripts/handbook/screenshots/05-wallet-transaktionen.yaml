@@ -1,0 +1,8 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: _setup.yaml
+- tapOn:
+    point: '50%,50%'
+- waitForAnimationToEnd:
+    timeout: 12000
+- takeScreenshot: shots/02-wallet/04-onchain-transaktionen

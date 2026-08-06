@@ -1,0 +1,64 @@
+{
+  "screenshots": {
+    "01-onboarding": {
+      "title": "Erststart und Wallet-Anlage",
+      "description": "Haftungsausschluss, Auswahl des LNDHub-Anbieters (lightning.space, DFX.swiss, benutzerdefiniert), Wallet-Übersicht nach der Anlage und die Mitteilungs-Berechtigung beim ersten Öffnen von „Erhalten\"."
+    },
+    "02-wallet": {
+      "title": "Wallet, Backup und Export",
+      "description": "Wallet-Übersicht, Erklärseite zur Wiederherstellungsphrase, Meldung signieren/verifizieren, Transaktionsliste, Adressliste, Export/Backup, xPub und die Wiederherstellungsphrase. Auf den beiden letzten Seiten sind Phrase und Export-QR nachträglich geschwärzt — sie gehören nicht in ein öffentliches Repository."
+    },
+    "03-einstellungen": {
+      "title": "Einstellungen",
+      "description": "Einstellungsmenü und alle erreichbaren Unterseiten: Allgemein, Privatsphäre, On-Chain- und Lightning-Wallet, Währung, Sprache, Sicherheit, Netzwerk mit Electrum-Server und Benachrichtigungen, Werkzeuge mit Adressprüfung und Transaktions-Publizierung, Feature Flags und Über."
+    },
+    "04-empfangen-senden": {
+      "title": "Empfangen und Senden",
+      "description": "Empfangsseite mit Adress-QR-Code und optionalen Feldern für Betrag und Beschreibung sowie der QR-Scanner, den „Senden\" öffnet."
+    },
+    "06-wallet-hinzufuegen": {
+      "title": "Weitere Wallet anlegen",
+      "description": "Einstiegsseiten für die Multi-Device-Wallet (3-Geräte-Setup) und für die Lightning-Wallet über einen LNDHub-Anbieter."
+    },
+    "07-multi-device": {
+      "title": "Multi-Device-Wallet einrichten",
+      "description": "Erster Schritt der 3-Geräte-Einrichtung: eigener QR-Code, Fortschrittsanzeige über die drei Geräte und der Scanner für die QR-Codes der beiden anderen."
+    },
+    "08-lightning": {
+      "title": "Lightning-Wallet",
+      "description": "Übersicht mit angelegter Lightning-Wallet über lightning.space, Wallet-Detailseite mit Zugang zur Bezahlkarte und die Empfangsseite mit Lightning-Adresse."
+    }
+  },
+  "docs": {
+    "README.md": {
+      "title": "README"
+    },
+    "CONTRIBUTING.md": {
+      "title": "Beitragen"
+    },
+    "CODE_OF_CONDUCT.md": {
+      "title": "Verhaltenskodex"
+    },
+    "FAQ.md": {
+      "title": "FAQ"
+    },
+    "RELEASE.md": {
+      "title": "Release-Hinweise"
+    },
+    "SECURITY.md": {
+      "title": "Sicherheitsrichtlinie"
+    },
+    "dfx-setup.md": {
+      "title": "DFX-Setup"
+    },
+    "docs/crash-reports.md": {
+      "title": "Crash-Reports"
+    },
+    "docs/release-pipeline.md": {
+      "title": "Release-Pipeline"
+    },
+    "docs/release-pipeline-setup.md": {
+      "title": "Release-Pipeline Setup"
+    }
+  }
+}

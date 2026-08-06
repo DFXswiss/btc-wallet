@@ -1,0 +1,108 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: _setup.yaml
+- tapOn:
+    point: '90%,10%'
+- extendedWaitUntil:
+    visible: 'Allgemein'
+    timeout: 20000
+- takeScreenshot: shots/03-einstellungen/01-menue
+
+- tapOn: 'Allgemein'
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: shots/03-einstellungen/02-allgemein
+- tapOn: 'Settings'
+- extendedWaitUntil:
+    visible: 'Feature Flags'
+    timeout: 15000
+
+- tapOn: 'On-Chain-Wallet'
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: shots/03-einstellungen/03-onchain-wallet
+- tapOn: 'Settings'
+- extendedWaitUntil:
+    visible: 'Feature Flags'
+    timeout: 15000
+
+- tapOn: 'Lightning-Wallet'
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: shots/03-einstellungen/04-lightning-wallet
+- tapOn: 'Settings'
+- extendedWaitUntil:
+    visible: 'Feature Flags'
+    timeout: 15000
+
+- tapOn: 'Multi-Device-Wallet'
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: shots/03-einstellungen/05-multi-device-wallet
+- tapOn: 'Settings'
+- extendedWaitUntil:
+    visible: 'Feature Flags'
+    timeout: 15000
+
+- tapOn: 'Währung'
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: shots/03-einstellungen/06-waehrung
+- tapOn: 'Settings'
+- extendedWaitUntil:
+    visible: 'Feature Flags'
+    timeout: 15000
+
+- tapOn: 'Sprache'
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: shots/03-einstellungen/07-sprache
+- tapOn: 'Settings'
+- extendedWaitUntil:
+    visible: 'Feature Flags'
+    timeout: 15000
+
+- tapOn: 'Sicherheit'
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: shots/03-einstellungen/08-sicherheit
+- tapOn: 'Settings'
+- extendedWaitUntil:
+    visible: 'Feature Flags'
+    timeout: 15000
+
+- tapOn: 'Netzwerk'
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: shots/03-einstellungen/09-netzwerk
+- tapOn: 'Settings'
+- extendedWaitUntil:
+    visible: 'Feature Flags'
+    timeout: 15000
+
+- tapOn: 'Werkzeuge'
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: shots/03-einstellungen/10-werkzeuge
+- tapOn: 'Settings'
+- extendedWaitUntil:
+    visible: 'Feature Flags'
+    timeout: 15000
+
+- tapOn: 'Feature Flags'
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: shots/03-einstellungen/11-feature-flags
+- tapOn: 'Settings'
+- extendedWaitUntil:
+    visible: 'Feature Flags'
+    timeout: 15000
+
+- tapOn: 'Über'
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: shots/03-einstellungen/12-ueber
+- tapOn: 'Settings'
+- extendedWaitUntil:
+    visible: 'Feature Flags'
+    timeout: 15000
