@@ -414,8 +414,15 @@ const SendDetails = () => {
     // only for the initial balance/fee display and can be arbitrarily stale by
     // the time the user actually taps Next. Goes through refreshUtxo() so it joins
     // rather than races an already-in-flight mount-time fetch.
+    let freshUtxo;
     try {
       await refreshUtxo();
+      // capture right here, before any further await - wallet.utxo is a shared, mutable
+      // field on a singleton wallet instance (also touched independently by e.g.
+      // coinControl.js), so reading it later (e.g. after createPsbtTransaction()'s own
+      // await for the change address) could pick up someone else's concurrent write
+      // instead of the fetch we just authoritatively waited for
+      freshUtxo = utxo || wallet.getUtxo();
     } catch (e) {
       setIsLoading(false);
       Alert.alert(loc.errors.error, loc.send.details_utxo_refresh_failed);
@@ -460,7 +467,7 @@ const SendDetails = () => {
     }
 
     try {
-      await createPsbtTransaction();
+      await createPsbtTransaction(freshUtxo);
     } catch (Err) {
       setIsLoading(false);
       Alert.alert(loc.errors.error, Err.message);
@@ -468,10 +475,9 @@ const SendDetails = () => {
     }
   };
 
-  const createPsbtTransaction = async () => {
+  const createPsbtTransaction = async lutxo => {
     const change = await getChangeAddressAsync();
     const requestedSatPerByte = Number(feeRate);
-    const lutxo = utxo || wallet.getUtxo();
 
     const targets = [];
     for (const transaction of addresses) {
