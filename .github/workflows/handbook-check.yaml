@@ -56,6 +56,123 @@ jobs:
           build-args: |
             GIT_SHA=${{ github.sha }}
 
+      # Gate: image must contain the same artifact counts as a host-side build.
+      # Catches Dockerfile COPY drift (hardcoded name lists that omit new
+      # top-level *.md or img/icon*.png while build.js discovery still sees them).
+      # Uses the runner's preinstalled Node (ubuntu-24.04-arm) — no setup-node
+      # pin needed for this comparison.
+      - name: Host vs image artifact counts
+        run: |
+          set -euo pipefail
+          node --version
+          npm install --prefix ./_handbook-deps --no-save --no-audit --no-fund marked@15.0.7
+          NODE_PATH=./_handbook-deps/node_modules \
+            node scripts/handbook/build.js /tmp/handbook-host-out
+          # Extract baked manifest without starting entrypoint (needs creds).
+          cid=$(docker create dfx-taro-handbook:pr-check)
+          docker cp "$cid:/usr/share/nginx/html/manifest.json" /tmp/handbook-image-manifest.json
+          docker rm "$cid" >/dev/null
+          node <<'NODE'
+          const fs = require('fs');
+          const CATS = ['screenshots', 'docs', 'store', 'assets'];
+
+          function fail(msg) {
+            console.error(msg);
+            process.exit(1);
+          }
+
+          // Per-side foundation checks: two empty or broken manifests must never
+          // compare equal. Vacuous pass (both sides 0 / missing artifacts) is a
+          // failure of the gate, not a green check.
+          function countsForSide(label, m) {
+            if (!m || typeof m !== 'object' || Array.isArray(m)) {
+              fail(`handbook host/image: ${label} manifest is not an object`);
+            }
+            if (!Object.prototype.hasOwnProperty.call(m, 'artifacts')) {
+              fail(`handbook host/image: ${label} artifacts missing`);
+            }
+            if (!Array.isArray(m.artifacts)) {
+              fail(
+                `handbook host/image: ${label} artifacts is not an array ` +
+                  `(got ${typeof m.artifacts})`,
+              );
+            }
+            if (m.artifacts.length === 0) {
+              fail(`handbook host/image: ${label} artifacts is empty`);
+            }
+
+            let by;
+            if (
+              Object.prototype.hasOwnProperty.call(m, 'counts') &&
+              m.counts !== null &&
+              typeof m.counts === 'object' &&
+              !Array.isArray(m.counts)
+            ) {
+              by = {};
+              for (const c of CATS) {
+                if (!Object.prototype.hasOwnProperty.call(m.counts, c)) {
+                  fail(
+                    `handbook host/image: ${label} counts.${c} missing`,
+                  );
+                }
+                const v = m.counts[c];
+                if (typeof v !== 'number' || !Number.isFinite(v) || !Number.isInteger(v) || v < 0) {
+                  fail(
+                    `handbook host/image: ${label} counts.${c} is not a ` +
+                      `non-negative integer (got ${JSON.stringify(v)})`,
+                  );
+                }
+                by[c] = v;
+              }
+            } else {
+              by = { screenshots: 0, docs: 0, store: 0, assets: 0 };
+              for (const a of m.artifacts) {
+                if (!a || typeof a !== 'object') continue;
+                if (a.category === 'screenshot') by.screenshots += 1;
+                else if (a.category === 'doc') by.docs += 1;
+                else if (a.category === 'store') by.store += 1;
+                else if (a.category === 'asset') by.assets += 1;
+              }
+            }
+
+            const sum = CATS.reduce((s, c) => s + by[c], 0);
+            if (sum === 0) {
+              fail(
+                `handbook host/image: ${label} sum of category counts is 0`,
+              );
+            }
+            return by;
+          }
+
+          const host = JSON.parse(
+            fs.readFileSync('/tmp/handbook-host-out/manifest.json', 'utf8'),
+          );
+          const image = JSON.parse(
+            fs.readFileSync('/tmp/handbook-image-manifest.json', 'utf8'),
+          );
+          const h = countsForSide('host', host);
+          const i = countsForSide('image', image);
+
+          let bad = false;
+          for (const c of CATS) {
+            // Both sides always have every category as a number after
+            // countsForSide — missing keys cannot slip through as undefined===undefined.
+            if (h[c] !== i[c]) {
+              console.error(
+                `handbook host/image drift: category=${c} host=${h[c]} image=${i[c]}`,
+              );
+              bad = true;
+            }
+          }
+          if (bad) {
+            console.error(
+              'Image artifact counts differ from host build — check Dockerfile COPY ' +
+                'globs/directories (hardcoded name lists omit new files silently).',
+            );
+            process.exit(1);
+          }
+          NODE
+
       - name: Entrypoint fails without credentials
         run: |
           set -euo pipefail

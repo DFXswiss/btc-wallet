@@ -15,13 +15,21 @@ ENV GIT_SHA=${GIT_SHA}
 RUN npm install --prefix ./_handbook-deps --no-save --no-audit --no-fund marked@15.0.7
 
 # Only paths needed for discovery/build (keep context small).
+# Directory COPYs mirror whole source trees so new files appear without edits.
+# Top-level *.md and img/icon*.png MUST be globs, not name lists: build.js
+# discovers these sources itself — a fixed name list would silently omit any
+# new ARCHITECTURE.md / icon@4x.png from the shipped handbook (no error).
+# Empty globs fail the docker build; both currently match (top-level *.md and
+# at least one icon*.png). build.js then applies its own skip rules (e.g.
+# blue_modules, docs/handbook) — so COPY *.md only needs to include what
+# discovery might want; filtering stays in the script.
 COPY scripts/handbook/ ./scripts/handbook/
 COPY docs/ ./docs/
 COPY android/fastlane/metadata/ ./android/fastlane/metadata/
 COPY ios/fastlane/metadata/ ./ios/fastlane/metadata/
 COPY img/dfx/ ./img/dfx/
-COPY img/icon.png img/icon@2x.png img/icon@3x.png ./img/
-COPY README.md CONTRIBUTING.md CODE_OF_CONDUCT.md FAQ.md RELEASE.md SECURITY.md dfx-setup.md ./
+COPY img/icon*.png ./img/
+COPY *.md ./
 
 RUN NODE_PATH=./_handbook-deps/node_modules node scripts/handbook/build.js /out
 

@@ -104,6 +104,18 @@ PNG liegt (nur `.gitkeep`), greift der Floor-Guard `MIN_SCREENSHOTS=1` und der
 Build bricht ab. Sobald echte Screenshots liegen, entfällt `.gitkeep` und der
 Build läuft durch. Danach `MIN_SCREENSHOTS` anheben.
 
+## Docker-Build-Kontext und Discovery
+
+`Dockerfile.handbook` speist den Builder nur mit den Quellen, die `build.js`
+entdeckt. **Ganze Verzeichnisse** (`docs/`, `scripts/handbook/`, Store-Metadaten,
+`img/dfx/`) kommen per `COPY …/`. **Top-Level-Markdown und Icons** kommen per
+Glob (`COPY *.md ./`, `COPY img/icon*.png ./img/`) — nicht als namentliche Liste.
+Eine Namensliste im Dockerfile bricht das Discovery-Versprechen: `build.js` würde
+eine neue Datei lokal mitzählen, das Image sie aber still weglassen (ohne
+Build-Fehler; Floor-Guards greifen oft nicht). Der PR-Workflow
+`handbook-check` vergleicht deshalb die Artefaktzahlen je Kategorie aus einem
+Host-Build mit dem `manifest.json` im Image und macht den Job bei Abweichung rot.
+
 ## Docker-Image lokal
 
 ```bash
