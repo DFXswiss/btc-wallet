@@ -50,6 +50,11 @@ const SendDetails = () => {
   const { params: routeParams } = useRoute();
   const scrollView = useRef();
   const scrollIndex = useRef(0);
+  // De-dupes concurrent fetchUtxo() calls: the mount-time refresh (for balance/fee display)
+  // and the authoritative pre-sign refresh in createTransaction() must never run as two
+  // independent, unsynchronized calls against the same wallet - a slow first one resolving
+  // after a faster second one would silently overwrite the just-verified fresh UTXO set.
+  const utxoFetchRef = useRef(null);
   const { colors } = useTheme();
 
   // state
@@ -77,6 +82,17 @@ const SendDetails = () => {
   // if utxo is limited we use it to calculate available balance
   const balance = utxo ? utxo.reduce((prev, curr) => prev + curr.value, 0) : wallet?.getBalance();
   const allBalance = formatBalanceWithoutSuffix(balance, BitcoinUnit.BTC, true);
+
+  // Single-flight fetchUtxo(): if one is already in progress, join it instead of starting
+  // a second, unsynchronized one against the same wallet.
+  const refreshUtxo = () => {
+    if (!utxoFetchRef.current) {
+      utxoFetchRef.current = Utils.withRetry(() => wallet.fetchUtxo()).finally(() => {
+        utxoFetchRef.current = null;
+      });
+    }
+    return utxoFetchRef.current;
+  };
 
   // if cutomFee is not set, we need to choose highest possible fee for wallet balance
   // if there are no funds for even Slow option, use 1 sat/vbyte fee
@@ -228,8 +244,10 @@ const SendDetails = () => {
     setIsTransactionReplaceable(wallet.type === HDSegwitBech32Wallet.type && !routeParams.noRbf);
 
     // update wallet UTXO (best-effort, for balance/fee display; the authoritative
-    // refresh that gates signing happens again in createTransaction())
-    Utils.withRetry(() => wallet.fetchUtxo())
+    // refresh that gates signing happens again in createTransaction(), sharing this
+    // same in-flight fetch via refreshUtxo()/utxoFetchRef so the two never race)
+    utxoFetchRef.current = null;
+    refreshUtxo()
       .then(() => {
         // we need to re-calculate fees
         setDumb(v => !v);
@@ -389,9 +407,10 @@ const SendDetails = () => {
 
     // authoritative refresh right before signing — the mount-time fetch above is
     // only for the initial balance/fee display and can be arbitrarily stale by
-    // the time the user actually taps Next
+    // the time the user actually taps Next. Goes through refreshUtxo() so it joins
+    // rather than races an already-in-flight mount-time fetch.
     try {
-      await Utils.withRetry(() => wallet.fetchUtxo());
+      await refreshUtxo();
     } catch (e) {
       setIsLoading(false);
       Alert.alert(loc.errors.error, loc.send.details_utxo_refresh_failed);
