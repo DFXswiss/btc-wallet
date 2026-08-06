@@ -20,7 +20,7 @@ const fs = require('fs');
 const path = require('path');
 
 // --- Floor guards (today's counts minus a small buffer; never exact) ---
-const MIN_SCREENSHOTS = 32;
+const MIN_SCREENSHOTS = 35;
 const MIN_DOCS = 8;
 const MIN_STORE_FIELDS = 12;
 const MIN_ASSETS = 20;

@@ -1,0 +1,33 @@
+appId: swiss.dfx.bitcoin
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: 'Wallet importieren'
+    timeout: 60000
+- tapOn: 'Wallet importieren'
+- waitForAnimationToEnd:
+    timeout: 12000
+- tapOn:
+    point: '61%,88%'
+- extendedWaitUntil:
+    visible: 'Importieren'
+    timeout: 20000
+- tapOn:
+    id: 'MnemonicInput'
+- inputText: 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
+- waitForAnimationToEnd:
+    timeout: 3000
+- runFlow:
+    when:
+      visible: 'Fertig'
+    commands:
+      - tapOn: 'Fertig'
+- tapOn:
+    point: '50%,95%'
+- extendedWaitUntil:
+    visible: 'Wallet aus Trefferliste wählen'
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 20000
+- takeScreenshot: shots/09-import/03-trefferliste

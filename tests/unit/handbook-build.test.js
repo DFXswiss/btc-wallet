@@ -19,16 +19,40 @@ const { spawnSync } = require('child_process');
 
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const SCRIPT = path.resolve(REPO_ROOT, 'scripts/handbook/build.js');
-// Must match scripts/handbook/build.js — floors and PNG size.
-const MIN_SCREENSHOTS = 32;
-const MIN_DOCS = 8;
-const MIN_STORE_FIELDS = 12;
-const MIN_ASSETS = 20;
-const MIN_PNG_BYTES = 1000;
-const MIN_ASSET_PNG_BYTES = 100;
-// Mid-band size: above the asset floor, below the screenshot floor — pins the
-// split between MIN_ASSET_PNG_BYTES and MIN_PNG_BYTES.
-const ASSET_MID_BYTES = 150;
+
+/**
+ * Read a numeric `const NAME = <int>;` from build.js source.
+ * Exactly one match required — no silent default (that would re-introduce a
+ * second source of truth and mask renames/duplication in build.js).
+ * Do not require() build.js: it runs main() on load.
+ */
+function readBuildConst(name) {
+  const src = fs.readFileSync(SCRIPT, 'utf8');
+  const re = new RegExp('^const\\s+' + name + '\\s*=\\s*(-?\\d+)\\s*;\\s*$', 'm');
+  const matches = src.match(new RegExp(re.source, 'gm'));
+  if (!matches || matches.length === 0) {
+    throw new Error(`handbook-build tests: const ${name} not found in ${SCRIPT}`);
+  }
+  if (matches.length !== 1) {
+    throw new Error(`handbook-build tests: const ${name} matches ${matches.length} times in ${SCRIPT} (need exactly 1)`);
+  }
+  const m = matches[0].match(re);
+  const n = Number(m[1]);
+  if (!Number.isFinite(n) || !Number.isInteger(n)) {
+    throw new Error(`handbook-build tests: const ${name} is not an integer (got ${JSON.stringify(m[1])})`);
+  }
+  return n;
+}
+
+// Single source of truth: scripts/handbook/build.js (not a hand-copied table).
+const MIN_SCREENSHOTS = readBuildConst('MIN_SCREENSHOTS');
+const MIN_DOCS = readBuildConst('MIN_DOCS');
+const MIN_STORE_FIELDS = readBuildConst('MIN_STORE_FIELDS');
+const MIN_ASSETS = readBuildConst('MIN_ASSETS');
+const MIN_PNG_BYTES = readBuildConst('MIN_PNG_BYTES');
+const MIN_ASSET_PNG_BYTES = readBuildConst('MIN_ASSET_PNG_BYTES');
+// Mid-band: between the two floors (derived, not a third hardcoded threshold).
+const ASSET_MID_BYTES = Math.floor((MIN_ASSET_PNG_BYTES + MIN_PNG_BYTES) / 2);
 
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -268,11 +292,14 @@ describe('unit - handbook build guards', () => {
   });
 
   it('accepts mid-size assets while rejecting screenshots of the same size', function () {
-    // Pins MIN_ASSET_PNG_BYTES vs MIN_PNG_BYTES: 150 B is valid for assets
-    // but not for screenshots. Raising MIN_ASSET_PNG_BYTES to 1000 turns
-    // the asset half red; lowering only MIN_PNG_BYTES would still leave the
-    // screenshot half asserting failure at 150 B under a 1000-floor (and
-    // the asset half still needs the lower asset floor to pass).
+    // Pins MIN_ASSET_PNG_BYTES vs MIN_PNG_BYTES: size is the midpoint of the
+    // two floors (valid for assets, invalid for screenshots). Raising
+    // MIN_ASSET_PNG_BYTES to meet MIN_PNG_BYTES collapses the band and
+    // turns the asset half red.
+    assert.ok(
+      ASSET_MID_BYTES > MIN_ASSET_PNG_BYTES && ASSET_MID_BYTES < MIN_PNG_BYTES,
+      `mid-band ${ASSET_MID_BYTES} not strictly between asset floor ${MIN_ASSET_PNG_BYTES} and screenshot floor ${MIN_PNG_BYTES}`,
+    );
     const { fixture: fxShot, out: outShot } = freshDirs();
     populateValidFixture(fxShot, { shotCount: 1, shotSize: ASSET_MID_BYTES });
     const rShot = runBuild(outShot, { HANDBOOK_REPO_ROOT: fxShot });

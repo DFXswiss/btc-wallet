@@ -214,10 +214,19 @@ die Wallet einen App-Neustart deshalb nicht ueberlebt.
 
 **Screenshot-gesperrte Seiten.** `blue_modules/Privacy.tsx` ruft auf sensiblen
 Seiten `CaptureProtection.prevent({ screenshot: true })` auf — Wiederherstellungs-
-phrase, Adressliste, Export/Backup und xPub sind im Screenshot sonst schwarz.
-Der Flow `09-geschuetzte-screens.yaml` schaltet den Schutz vorher ueber das
-Easter Egg in `SettingsPrivacy.js` ab (Abschnitts-Header „Allgemein" auf der
-Privatsphaere-Seite zwoelfmal tippen).
+phrase, Adressliste, Export/Backup, xPub und der Import-Pfad. Die Sperre wirkt auf
+den **iOS-Screenshot-Pfad**; Maestros `takeScreenshot` liefert dort ein schwarzes
+Bild.
+
+Der Framebuffer des Simulators ist davon nicht betroffen. Gemessen am selben
+Bildschirm im selben Moment: Maestro `mean=0.0014` (schwarz),
+`xcrun simctl io <udid> screenshot` `mean=0.583` (echter Inhalt). Fuer diese
+Seiten also mit Maestro **navigieren** und mit `simctl` **aufnehmen** — das ist
+der einfachere Weg und aendert im Gegensatz zum Easter Egg in
+`SettingsPrivacy.js` keine App-Einstellung. Der Flow
+`09-geschuetzte-screens.yaml` nutzt noch den Easter-Egg-Weg; beide fuehren zum
+selben Bild. Ob die Sperre auf echter Hardware ebenso umgehbar ist, wurde
+**nicht** geprueft.
 
 Auf `02-wallet/06-export-backup.png` und `02-wallet/08-wiederherstellungsphrase.png`
 sind die zwoelf Woerter und der Export-QR-Code **nachtraeglich geschwaerzt**. Die
@@ -229,9 +238,16 @@ jeder Aenderung an diesen Bildern:
 zbarimg -q --raw docs/handbook/screenshots/02-wallet/06-export-backup.png   # muss leer sein
 ```
 
-**Weiterhin nicht abgebildet**, weil im Simulator nicht erreichbar: alles, was
-echtes Guthaben voraussetzt (Transaktionsdetails, Gebuehrenwahl, RBF/CPFP,
-PSBT-Signatur), die Bezahlkarte (Boltcard braucht NFC), die Cosigner-Verwaltung
-einer fertig eingerichteten Multi-Device-Wallet (drei Geraete) sowie die Kacheln
+Zusaetzlich laeuft ueber den ganzen Satz eine OCR-Probe: keine Folge von vier
+aufeinanderfolgenden BIP39-Woertern (die ungeschwaerzten Originale hatten zwoelf).
+
+**Weiterhin nicht abgebildet.** Alles, was echtes Guthaben voraussetzt —
+Transaktionsliste mit Eintraegen, Transaktionsdetails, Gebuehrenwahl, RBF/CPFP,
+PSBT-Signatur. Ein Umweg ueber eine Watch-only-Adresse scheidet aus: der
+entsprechende Zweig in `class/wallet-import.js` ist seit dem Upstream-Commit
+`e56894628` (2021) auskommentiert, ein Adress-Import endet in „Es wurden keine
+Wallets gefunden". Ebenfalls nicht abgebildet: die Bezahlkarte (Boltcard braucht
+NFC, im Simulator nicht vorhanden), die Cosigner-Verwaltung einer fertig
+eingerichteten Multi-Device-Wallet (drei Geraete) und die Kacheln
 „Kaufen"/„Verkaufen", die einen externen Browser oeffnen und damit kein
 App-Screen sind.

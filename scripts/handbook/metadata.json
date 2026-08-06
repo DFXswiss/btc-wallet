@@ -27,6 +27,10 @@
     "08-lightning": {
       "title": "Lightning-Wallet",
       "description": "Übersicht mit angelegter Lightning-Wallet über lightning.space, Wallet-Detailseite mit Zugang zur Bezahlkarte und die Empfangsseite mit Lightning-Adresse."
+    },
+    "09-import": {
+      "title": "Wallet importieren",
+      "description": "QR-Scanner als Einstieg, manuelle Eingabe von Phrase, privatem Schlüssel oder WIF, und die Trefferliste der erkannten Wallet-Typen (BIP44, BIP49, BIP84) mit Ableitungspfad und der Option auf einen eigenen Pfad."
     }
   },
   "docs": {
