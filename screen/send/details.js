@@ -87,9 +87,14 @@ const SendDetails = () => {
   // a second, unsynchronized one against the same wallet.
   const refreshUtxo = () => {
     if (!utxoFetchRef.current) {
-      utxoFetchRef.current = Utils.withRetry(() => wallet.fetchUtxo()).finally(() => {
-        utxoFetchRef.current = null;
+      const fetchPromise = Utils.withRetry(() => wallet.fetchUtxo()).finally(() => {
+        // only clear if we're still the current fetch - an abandoned one (e.g. from a
+        // wallet switch) must not clobber a newer one that's since taken its place
+        if (utxoFetchRef.current === fetchPromise) {
+          utxoFetchRef.current = null;
+        }
       });
+      utxoFetchRef.current = fetchPromise;
     }
     return utxoFetchRef.current;
   };
