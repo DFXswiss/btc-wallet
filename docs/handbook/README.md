@@ -2,8 +2,10 @@
 
 Statische, deutschsprachige Übersichtsseite aller committeten Screenshots,
 Store-Listing-Texte, App-Assets und Markdown-Dokumentation dieses Repos.
-Ausgeliefert von nginx in einem Docker-Image hinter Basic Auth unter
-[handbook.taro.dfx.swiss](https://handbook.taro.dfx.swiss).
+Ausgeliefert von nginx in einem Docker-Image **öffentlich** (ohne Anmeldewand)
+unter [handbook.taro.dfx.swiss](https://handbook.taro.dfx.swiss).
+Owner-Entscheid 2026-08-06 / Issue #211: alles im Handbuch ist ohnehin
+öffentlich im Repository, die Seite soll ohne Anmeldung lesbar sein.
 
 ## Wie es funktioniert
 
@@ -126,18 +128,12 @@ docker build -f Dockerfile.handbook \
   --build-arg GIT_SHA="$(git rev-parse HEAD)" \
   -t dfx-taro-handbook:local .
 
-# Credentials nur zur lokalen Prüfung — echte Werte kommen von der Deployment-Umgebung
-docker run --rm -p 8080:8080 \
-  -e HANDBOOK_USER=local \
-  -e HANDBOOK_PASSWORD=local \
-  dfx-taro-handbook:local
+# Keine Credentials — das Handbuch ist öffentlich
+docker run --rm -p 8080:8080 dfx-taro-handbook:local
 ```
 
-- `http://127.0.0.1:8080/healthz` → `200 OK` ohne Auth
-- `http://127.0.0.1:8080/` → `401` ohne Auth, `200` mit Basic Auth
-
-Ohne `HANDBOOK_USER` / `HANDBOOK_PASSWORD` startet der Container **nicht**
-(fail loud).
+- `http://127.0.0.1:8080/healthz` → `200 OK`
+- `http://127.0.0.1:8080/` → `200` ohne Anmeldung
 
 ## Screenshot hinzufügen
 
@@ -159,35 +155,28 @@ Ohne `HANDBOOK_USER` / `HANDBOOK_PASSWORD` startet der Container **nicht**
 
 ## Deployment
 
-Der Deploy-Workflow (`.github/workflows/handbook-deploy.yaml`) baut das Image
+Bei Push auf `develop` (relevante Pfade) baut
+`.github/workflows/handbook-deploy.yaml` das Image
 `dfxswiss/dfx-taro-handbook:latest` (linux/arm64), pusht es, löst den
 serverseitigen Deploy-Hook aus und pollt anschliessend
-`https://handbook.taro.dfx.swiss/healthz`.
+`https://handbook.taro.dfx.swiss/healthz`. Manuell: `workflow_dispatch`.
 
-**Derzeit nur manuell** (`workflow_dispatch`): automatischer Deploy auf Push
-nach `develop` ist ausgesetzt, solange (1) `handbook.taro.dfx.swiss` nicht
-auflöst, (2) der Reverse-Proxy fehlt und (3) auf dem Deploy-Host kein Service
-`dfx-taro-handbook` existiert. Sonst würde jeder Merge mit handbook-relevanten
-Pfaden (u. a. `*.md`, `docs/**`) auf `develop` rot enden, oft nach bereits
-gepushtem Image. Der `push:`-Block mit den Pfadfiltern liegt auskommentiert im
-Workflow und wird reaktiviert, sobald die drei Bedingungen erfüllt sind.
+Solange DNS, Reverse-Proxy oder der Service `dfx-taro-handbook` auf dem
+Deploy-Host noch fehlen, kann der Job nach erfolgreichem Image-Push am SSH-
+oder Smoke-Schritt scheitern — laut Issue #211 bewusst (Image zuerst, Server
+danach).
 
 Der Deploy-Workflow verlangt die GitHub-Secrets `DOCKER_USERNAME`,
 `DOCKER_PASSWORD`, `DEPLOY_PRD_HOST`, `DEPLOY_PRD_USER`, `DEPLOY_PRD_SSH_KEY`
-und `DEPLOY_PRD_SSH_KNOWN_HOSTS`; fehlt oder leer ist eines davon, bricht er
-sofort ab und nennt die fehlenden **Namen** (kein Build, kein Image-Push).
+und `DEPLOY_PRD_SSH_KNOWN_HOSTS` (Docker Hub und SSH — **nicht** App-Auth);
+fehlt oder leer ist eines davon, bricht er sofort ab und nennt die fehlenden
+**Namen** (kein Build, kein Image-Push). Runtime-Zugangsdaten für das Handbuch
+gibt es nicht: die Seite ist öffentlich.
 
-Image- und Service-Name stehen laut Issue #211 noch unter Bestätigung durch
-@TaprootFreak.
-
-Basic-Auth-Zugangsdaten werden **ausschliesslich** in der Deployment-Umgebung
-als `HANDBOOK_USER` / `HANDBOOK_PASSWORD` gesetzt. Weder Klartext noch Hash
-gehören in dieses öffentliche Repository.
-
-Der PR-Check (`.github/workflows/handbook-check.yaml`) ist davon **unberührt**
-und läuft weiter auf jedem nicht-Draft-PR: Image-Build ohne Push,
-Container-Smoke (`/healthz`, Auth-Wand 401/200, Stichprobe aus
-`manifest.json` je Kategorie, Host-vs-Image-Artefaktzahlen).
+Der PR-Check (`.github/workflows/handbook-check.yaml`) läuft auf jedem
+nicht-Draft-PR: Image-Build ohne Push, Container-Smoke (`/healthz` und `/`
+jeweils **200 unauthentifiziert**), Stichprobe aus `manifest.json` je
+Kategorie, Host-vs-Image-Artefaktzahlen.
 
 ## Screenshots erzeugen
 

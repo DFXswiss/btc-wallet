@@ -68,7 +68,7 @@ jobs:
           npm install --prefix ./_handbook-deps --no-save --no-audit --no-fund marked@15.0.7
           NODE_PATH=./_handbook-deps/node_modules \
             node scripts/handbook/build.js /tmp/handbook-host-out
-          # Extract baked manifest without starting entrypoint (needs creds).
+          # Extract baked manifest without starting the container.
           cid=$(docker create dfx-taro-handbook:pr-check)
           docker cp "$cid:/usr/share/nginx/html/manifest.json" /tmp/handbook-image-manifest.json
           docker rm "$cid" >/dev/null
@@ -173,23 +173,12 @@ jobs:
           }
           NODE
 
-      - name: Entrypoint fails without credentials
-        run: |
-          set -euo pipefail
-          # Fail loud: container must not start an unauthenticated handbook.
-          if docker run --rm --name handbook-noauth dfx-taro-handbook:pr-check; then
-            echo "expected container to exit non-zero without HANDBOOK_USER/PASSWORD" >&2
-            exit 1
-          fi
-          echo "entrypoint correctly refused start without credentials"
-
-      - name: Container smoke (healthz, auth wall, manifest sample)
+      - name: Container smoke (public handbook, healthz, manifest sample)
         run: |
           set -euo pipefail
           docker rm -f handbook-smoke >/dev/null 2>&1 || true
+          # No credentials — handbook is public; image must start without them.
           docker run -d --name handbook-smoke -p 8080:8080 \
-            -e HANDBOOK_USER=ci \
-            -e HANDBOOK_PASSWORD=ci \
             dfx-taro-handbook:pr-check
 
           for i in $(seq 1 20); do
@@ -199,22 +188,14 @@ jobs:
             sleep 1
           done
 
-          # /healthz is outside auth_basic
           body=$(curl -fsS --max-time 5 http://127.0.0.1:8080/healthz)
           echo "$body" | grep -q OK
 
-          # Gated root must be 401 without credentials
-          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:8080/)
-          if [ "$code" != "401" ]; then
-            echo "expected 401 from / without auth, got $code" >&2
-            docker logs handbook-smoke >&2 || true
-            exit 1
-          fi
-
-          # With test credentials: 200 (follow redirect to index.html)
-          code=$(curl -sS -o /dev/null -w '%{http_code}' -u ci:ci -L --max-time 5 http://127.0.0.1:8080/)
+          # Public root: 200 without credentials. This is the line that fails
+          # if an auth wall is reintroduced (401) — do not drop it.
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -L --max-time 5 http://127.0.0.1:8080/)
           if [ "$code" != "200" ]; then
-            echo "expected 200 from / with auth, got $code" >&2
+            echo "expected 200 from / unauthenticated, got $code" >&2
             docker logs handbook-smoke >&2 || true
             exit 1
           fi
@@ -236,7 +217,7 @@ jobs:
           const paths = Object.values(byCat)
             .map((a) => a.outputPath)
             .filter((p) => p && p !== 'index.html');
-          // Always include index.html as a gated page sample
+          // Always include index.html as a public page sample
           paths.unshift('index.html');
           // Encode per segment: a filename may legitimately contain '#' or '?',
           // which curl would otherwise read as fragment/query and cut the path short.
@@ -246,7 +227,7 @@ jobs:
 
           while IFS= read -r path; do
             [ -n "$path" ] || continue
-            code=$(curl -sS -o /dev/null -w '%{http_code}' -u ci:ci --max-time 10 \
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 \
               "http://127.0.0.1:8080/${path}")
             # Anything outside 2xx is a failure. Checking only for 404 let a 401,
             # 403 or 500 pass as if the artifact were served correctly.

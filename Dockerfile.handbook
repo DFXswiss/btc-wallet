@@ -2,8 +2,7 @@
 #
 # Static nginx host for the DFX BTC Taro Wallet handbook.
 # Multi-stage: Node discovers screenshots, store metadata, assets and docs
-# and generates index.html; nginx serves the result behind Basic Auth
-# (credentials from env at start).
+# and generates index.html; stock nginx serves the result publicly (no auth).
 
 FROM node:20-alpine AS builder
 WORKDIR /work
@@ -35,17 +34,11 @@ RUN NODE_PATH=./_handbook-deps/node_modules node scripts/handbook/build.js /out
 
 FROM nginx:1.27-alpine
 
-# htpasswd binary for runtime credential file generation.
-RUN apk add --no-cache apache2-utils
-
 COPY handbook.nginx.conf /etc/nginx/conf.d/default.conf
-COPY scripts/handbook/docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
 
 COPY --from=builder /out/ /usr/share/nginx/html/
 
-# Do not bake htpasswd into the image — entrypoint creates it from env.
-ENTRYPOINT ["/docker-entrypoint.sh"]
+# Stock nginx image entrypoint (no custom entrypoint — handbook is public).
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \

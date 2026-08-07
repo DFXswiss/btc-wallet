@@ -1,32 +1,27 @@
 # Build, push and deploy the DFX BTC Taro Wallet handbook on develop.
 # Image: dfxswiss/dfx-taro-handbook:latest → handbook.taro.dfx.swiss
-#
-# Credentials for Basic Auth are NOT in this repo; the container receives
-# HANDBOOK_USER / HANDBOOK_PASSWORD from the deployment environment only.
+# Public handbook — no runtime auth gate, no app login credentials.
 
 name: Handbook Deploy
 
-# Automatic deploy is suspended until all three are true:
-#   1. handbook.taro.dfx.swiss resolves (DNS)
-#   2. reverse proxy routes that host to the handbook container
-#   3. deploy host has service dfx-taro-handbook
-# Until then only workflow_dispatch runs (no red jobs on every docs/*.md push).
-# Re-enable: uncomment the push: block below (path filters preserved).
+# Until DNS/proxy/service for handbook.taro.dfx.swiss are live, the job may
+# fail at SSH or the public smoke poll after a successful image push — that is
+# intentional (issue #211 merge order: push image first, server side later).
 on:
-  # push:
-  #   branches: [develop]
-  #   paths:
-  #     - 'docs/**'
-  #     - 'scripts/handbook/**'
-  #     - 'android/fastlane/metadata/**'
-  #     - 'ios/fastlane/metadata/**'
-  #     - 'img/dfx/**'
-  #     - 'img/icon*.png'
-  #     - '*.md'
-  #     - 'Dockerfile.handbook'
-  #     - 'handbook.nginx.conf'
-  #     - '.github/workflows/handbook-deploy.yaml'
-  #     - '.github/workflows/handbook-check.yaml'
+  push:
+    branches: [develop]
+    paths:
+      - 'docs/**'
+      - 'scripts/handbook/**'
+      - 'android/fastlane/metadata/**'
+      - 'ios/fastlane/metadata/**'
+      - 'img/dfx/**'
+      - 'img/icon*.png'
+      - '*.md'
+      - 'Dockerfile.handbook'
+      - 'handbook.nginx.conf'
+      - '.github/workflows/handbook-deploy.yaml'
+      - '.github/workflows/handbook-check.yaml'
   workflow_dispatch:
 
 permissions:
@@ -36,7 +31,7 @@ concurrency:
   group: handbook-deploy
   cancel-in-progress: false
 
-# Image- and service-name per issue #211 — still to be confirmed by @TaprootFreak.
+# Fixed values per issue #211.
 env:
   DOCKER_TAGS: dfxswiss/dfx-taro-handbook:latest
   DEPLOY_SERVICE: dfx-taro-handbook
