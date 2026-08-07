@@ -1002,6 +1002,8 @@ module.exports.setBatchingDisabled = () => {
 module.exports.setBatchingEnabled = () => {
   disableBatching = false;
 };
+
+module.exports.isBatchingDisabled = () => disableBatching;
 module.exports.connectMain = connectMain;
 module.exports.isDisabled = isDisabled;
 module.exports.setDisabled = setDisabled;

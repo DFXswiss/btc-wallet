@@ -910,10 +910,23 @@ export class AbstractHDElectrumWallet extends AbstractHDWallet {
     addressess = [...new Set(addressess)]; // deduplicate just for any case
 
     const fetchedUtxo = await BlueElectrum.multiGetUtxoByAddress(addressess);
-    this._utxo = [];
+    let newUtxo: any[] = [];
     for (const arr of Object.values(fetchedUtxo)) {
-      this._utxo = this._utxo.concat(arr);
+      newUtxo = newUtxo.concat(arr);
     }
+
+    if (newUtxo.length === 0 && this._utxo.length > 0 && BlueElectrum.isBatchingDisabled()) {
+      // Some servers (ElectrumPersonalServer, or an electrs version this client fails to detect)
+      // don't support the batched listunspent call multiGetUtxoByAddress() needs, and resolve
+      // with an empty result by design on every call, regardless of actual balance - expecting
+      // getUtxo() to fall back to deriving UTXOs from transaction history instead. That's a
+      // structural no-op, not a real "you have no UTXOs now" signal, so silently replacing an
+      // already-known-good UTXO set with it - right before a caller signs off of it - would be
+      // worse than surfacing the failure and letting the caller's own retry/abort handling run.
+      throw new Error('fetchUtxo(): server does not support batched UTXO lookups; refusing to discard the previously known UTXO set');
+    }
+
+    this._utxo = newUtxo;
 
     // backward compatibility TODO: remove when we make sure `.utxo` is not used
     this.utxo = this._utxo;
