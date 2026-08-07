@@ -46,4 +46,13 @@ describe('helpers/dfxMaxAmount DfxMaxAmount', () => {
     const confirmed = await DfxMaxAmount.wasConfirmed('wallet-1', DfxService.SWAP, '0.9999', 100000000);
     assert.strictEqual(confirmed, false);
   });
+
+  // A remembered value is single-use, so a later, unrelated confirm can't coincidentally match it.
+  it('consumes the remembered value on read, so a second check no longer matches', async () => {
+    await DfxMaxAmount.remember('wallet-1', DfxService.SELL, 99990000, 100000000);
+    const first = await DfxMaxAmount.wasConfirmed('wallet-1', DfxService.SELL, '0.9999', 100000000);
+    const second = await DfxMaxAmount.wasConfirmed('wallet-1', DfxService.SELL, '0.9999', 100000000);
+    assert.strictEqual(first, true);
+    assert.strictEqual(second, false);
+  });
 });

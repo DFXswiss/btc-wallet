@@ -415,6 +415,7 @@ const SendDetails = () => {
     // the time the user actually taps Next. Goes through refreshUtxo() so it joins
     // rather than races an already-in-flight mount-time fetch.
     let freshUtxo;
+    let coinControlUtxoSpent = false;
     try {
       await refreshUtxo();
       // capture right here, before any further await - wallet.utxo is a shared, mutable
@@ -422,20 +423,25 @@ const SendDetails = () => {
       // coinControl.js), so reading it later (e.g. after createPsbtTransaction()'s own
       // await for the change address) could pick up someone else's concurrent write
       // instead of the fetch we just authoritatively waited for
-      const currentUtxo = wallet.getUtxo();
       if (utxo) {
         // Coin Control restricts signing to a specific, earlier-selected set of coins - the array
         // itself predates this refresh, so re-validate it against what's still actually unspent
         // rather than trusting it outright (a selected coin could have been spent meanwhile).
-        const stillUnspent = new Set(currentUtxo.map(({ txid, vout }) => `${txid}:${vout}`));
+        // Coin Control's own list is frozen-inclusive (wallet.getUtxo(true) in coinControl.js),
+        // since it's the one place a user can deliberately choose to spend a frozen coin - validate
+        // against that same frozen-inclusive set, not the frozen-excluding default.
+        const stillUnspent = new Set(wallet.getUtxo(true).map(({ txid, vout }) => `${txid}:${vout}`));
         freshUtxo = utxo.filter(({ txid, vout }) => stillUnspent.has(`${txid}:${vout}`));
-        if (freshUtxo.length !== utxo.length) throw new Error('Selected coin is no longer available');
+        if (freshUtxo.length !== utxo.length) {
+          coinControlUtxoSpent = true;
+          throw new Error('Selected coin is no longer available');
+        }
       } else {
-        freshUtxo = currentUtxo;
+        freshUtxo = wallet.getUtxo();
       }
     } catch (e) {
       setIsLoading(false);
-      Alert.alert(loc.errors.error, loc.send.details_utxo_refresh_failed);
+      Alert.alert(loc.errors.error, coinControlUtxoSpent ? loc.send.details_coin_control_utxo_spent : loc.send.details_utxo_refresh_failed);
       ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
       return;
     }

@@ -38,6 +38,10 @@ export class Utils {
   //   return IbanTools.friendlyFormatIBAN(iban);
   // }
 
+  static sumUtxoValue(utxos: Array<{ value: number }>): number {
+    return utxos.reduce((sum, u) => sum + u.value, 0);
+  }
+
   static async withRetry<T>(fn: () => Promise<T>, attempts = 3, delayMs = 500): Promise<T> {
     for (let attempt = 1; attempt <= attempts; attempt++) {
       try {

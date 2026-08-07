@@ -84,7 +84,7 @@ const Sell = () => {
       const requestedSatPerByte = Number(networkTransactionFees.fastestFee);
       await Utils.withRetry(() => wallet.fetchUtxo());
       const lutxo = wallet.getUtxo();
-      const isMaxAmount = await DfxMaxAmount.wasConfirmed(walletId, DfxService.SELL, amount, wallet.getBalance());
+      const isMaxAmount = await DfxMaxAmount.wasConfirmed(walletId, DfxService.SELL, amount, Utils.sumUtxoValue(lutxo));
       const targets = isMaxAmount
         ? [{ address: sell?.deposit.address }]
         : [{ address: sell?.deposit.address, value: currency.btcToSatoshi(amount) }];
