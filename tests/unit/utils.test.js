@@ -2,6 +2,17 @@ const assert = require('assert');
 
 const { Utils } = require('../../helpers/utils');
 
+describe('helpers/utils Utils.sumUtxoValue', () => {
+  it('returns 0 for an empty UTXO set', () => {
+    assert.strictEqual(Utils.sumUtxoValue([]), 0);
+  });
+
+  it('sums the value of multiple UTXOs', () => {
+    const total = Utils.sumUtxoValue([{ value: 1000 }, { value: 2500 }, { value: 7 }]);
+    assert.strictEqual(total, 3507);
+  });
+});
+
 describe('helpers/utils Utils.withRetry', () => {
   it('returns the result on the first try without retrying', async () => {
     let calls = 0;
