@@ -16,6 +16,10 @@
  * Regression gates (tests 3–5) encode the REQUIRED post-fix behaviour; they FAIL today
  * on purpose so CI stays red until the sell-Max defect is fixed.
  *
+ * Note: the unit gate runs with jest -b (bail), so while the gates are red, suites
+ * scheduled after this one are skipped in that run. This is a known, temporary
+ * side effect until the fix lands.
+ *
  * No network, no AsyncStorage — pure wallet/coinselect math with injected UTXOs/balances.
  */
 
@@ -149,16 +153,11 @@ describe('DFX sell flow: Max amount handling', () => {
   it('sell confirm must not fail when part of the balance is frozen', () => {
     const w = makeWallet({ freeze: true });
     const amount = apiFloor5(launchBalancesParam(w, 3));
-    const amountSats = currency.btcToSatoshi(amount);
 
-    // Defect precondition: launch amount exceeds spendable (non-frozen) utxo sum
-    assert.ok(
-      amountSats > SPENDABLE_WHEN_FROZEN,
-      `precondition: launch amount (${amountSats} sats) must exceed spendable non-frozen sum (${SPENDABLE_WHEN_FROZEN}); ` +
-        'getBalance() includes the frozen UTXO while getUtxo() does not — that gap is the defect',
-    );
-
-    // Must not throw ("Not enough balance…" is the current broken outcome)
+    // With the current launch mirror the amount (~1,749,400 sats) exceeds the spendable
+    // non-frozen sum (1,500,000): getBalance() includes the frozen UTXO while getUtxo()
+    // does not — that gap is the defect. A launch-side fix shrinks the amount, a
+    // confirm-side fix absorbs it; either way the confirm below must build a tx.
     const { tx, outputs, fee } = sellConfirm(w, amount, 3);
 
     assert.ok(tx, 'expected a transaction');
@@ -167,10 +166,17 @@ describe('DFX sell flow: Max amount handling', () => {
       'expected deposit address in outputs',
     );
     const depositOut = outputs.find(o => o.address === DEPOSIT_ADDR);
-    // A correct fix may reduce the sent amount send-max-style or clamp it — both acceptable
+    // A correct fix may reduce the sent amount send-max-style or clamp it — both acceptable.
+    // Upper bound: must not spend frozen funds. Lower bound: must still be a genuine
+    // Max-sell (a token 1-sat deposit output would not fix anything).
     assert.ok(
       depositOut.value + fee <= SPENDABLE_WHEN_FROZEN,
       `output value (${depositOut.value}) + fee (${fee}) must not exceed spendable ${SPENDABLE_WHEN_FROZEN}`,
+    );
+    assert.ok(
+      depositOut.value + fee >= SPENDABLE_WHEN_FROZEN - 5000,
+      `output value (${depositOut.value}) + fee (${fee}) must stay within 5000 sats of spendable ${SPENDABLE_WHEN_FROZEN} — ` +
+        'a Max sell must move essentially the whole spendable balance',
     );
   });
 
@@ -191,6 +197,11 @@ describe('DFX sell flow: Max amount handling', () => {
     assert.ok(
       depositOut.value + fee <= TOTAL_BALANCE,
       `output value (${depositOut.value}) + fee (${fee}) must not exceed spendable ${TOTAL_BALANCE}`,
+    );
+    // Lower bound: the fix must still move essentially the whole balance (no token output)
+    assert.ok(
+      depositOut.value + fee >= TOTAL_BALANCE - 5000,
+      `output value (${depositOut.value}) + fee (${fee}) must stay within 5000 sats of spendable ${TOTAL_BALANCE}`,
     );
   });
 
