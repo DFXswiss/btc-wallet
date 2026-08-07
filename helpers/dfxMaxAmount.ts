@@ -33,6 +33,16 @@ interface StoredMaxAmount {
  * e.g. after backing out of the review screen, or after a transient createTransaction() failure -
  * still gets the safe sweep treatment as long as nothing about the proposal is actually stale.
  * It's naturally superseded the next time this wallet/service opens the widget again.
+ *
+ * Known, accepted limitation: matching is necessarily done against the backend's 5-significant-
+ * digit-rounded echo (see ASSET_PRECISION below), since that's the only amount this ever sees -
+ * the widget doesn't tell us whether the user pressed MAX or typed a number that happens to round
+ * to the same value. A manually-edited amount landing in the same rounding bucket as the true max
+ * (a few dozen to low hundreds of sats, depending on magnitude) is indistinguishable from a
+ * genuine MAX re-confirmation and will sweep the full balance instead of leaving that difference
+ * unspent. The destination is still the one the user confirmed; only the swept amount can be off
+ * by less than one rounding bucket. Closing this fully would need the widget to signal "this was
+ * MAX" explicitly rather than just echoing a number.
  */
 export class DfxMaxAmount {
   private static key(walletId: string, service: DfxService): string {
