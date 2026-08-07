@@ -140,12 +140,14 @@ export class LegacyWallet extends AbstractWallet {
         // See the identical guard in AbstractHDElectrumWallet.fetchUtxo() - some servers resolve
         // multiGetUtxoByAddress() with {} on every call when they don't support batched
         // listunspent, regardless of actual balance. Don't let that structural no-op silently
-        // replace an already-known-good UTXO set right before a caller signs off of it - but
-        // accept it once the transaction-history-derived view agrees the wallet is genuinely
-        // empty, so this can't become a permanent lockout once a real balance-to-zero happens.
-        if (this.getDerivedUtxoFromOurTransaction().length > 0) {
-          throw new Error('fetchUtxo(): server does not support batched UTXO lookups; refusing to discard the previously known UTXO set');
-        }
+        // replace an already-known-good UTXO set right before a caller signs off of it.
+        //
+        // Deliberately NOT cross-checked against getDerivedUtxoFromOurTransaction(): for a
+        // LEGACY address with >1000 historical transactions, fetchTransactions() refuses to load
+        // history at all (see fetchTransactions()'s own guard below), so that view would read
+        // "empty" forever regardless of the real balance, silently letting this exact wipe back
+        // in. Throwing every time is recoverable (reconnect/restart); a silently wrong send isn't.
+        throw new Error('fetchUtxo(): server does not support batched UTXO lookups; refusing to discard the previously known UTXO set');
       }
 
       this.utxo = newUtxo;

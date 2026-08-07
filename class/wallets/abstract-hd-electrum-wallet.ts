@@ -924,14 +924,13 @@ export class AbstractHDElectrumWallet extends AbstractHDWallet {
       // already-known-good UTXO set with it - right before a caller signs off of it - would be
       // worse than surfacing the failure and letting the caller's own retry/abort handling run.
       //
-      // Cross-check against that same transaction-history-derived view before refusing: if it
-      // also finds nothing, the wallet has genuinely been spent to zero and there's nothing left
-      // to protect - accepting that (instead of throwing regardless) keeps this from becoming a
-      // permanent lockout once a real balance-to-zero happens, since multiGetUtxoByAddress() can
-      // never again resolve non-empty on such a server to naturally clear the condition.
-      if (this.getDerivedUtxoFromOurTransaction().length > 0) {
-        throw new Error('fetchUtxo(): server does not support batched UTXO lookups; refusing to discard the previously known UTXO set');
-      }
+      // Deliberately NOT cross-checked against getDerivedUtxoFromOurTransaction(): that view is
+      // refreshed on its own independent timer (fetchTransactions(), not this call) and can lag
+      // or under-cover real funds - a stale/incomplete "also empty" read there would silently let
+      // this exact wipe back in, just gated on a different, harder-to-reason-about condition. This
+      // throws every time instead, for as long as this connection stays in this mode; it clears on
+      // reconnect/restart. A blocked send is recoverable; a silently wrong one is not.
+      throw new Error('fetchUtxo(): server does not support batched UTXO lookups; refusing to discard the previously known UTXO set');
     }
 
     this._utxo = newUtxo;
