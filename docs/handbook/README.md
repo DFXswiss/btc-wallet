@@ -237,7 +237,28 @@ lesbare Phrase gehoert nicht in ein oeffentliches Repository. Gegenprobe nach
 jeder Aenderung an diesen Bildern:
 
 ```bash
-zbarimg -q --raw docs/handbook/screenshots/02-wallet/06-export-backup.png   # muss leer sein
+# ueber den GANZEN Satz, nicht ueber eine Datei — genau diese Verkuerzung hat
+# beim ersten Anlauf zwei Signaturen und zwei erweiterte Public Keys durchgelassen
+for f in docs/handbook/screenshots/**/*.png; do zbarimg -q --raw "$f"; done
+```
+
+Erlaubt ist genau ein Treffer: die On-Chain-Empfangsadresse in
+`04-empfangen-senden/01-erhalten.png` — sie ist der Inhalt dieses Screens und eine
+einzelne Wegwerf-Adresse. Jeder weitere Treffer ist ein Fund.
+
+Zusaetzlich geschwaerzt, weil sie Anmeldematerial bzw. dauerhaft gueltige
+Schluessel zeigen: das Feld „DFX-Adressen-Besitznachweis" in
+`03-einstellungen/03-wallet-einstellungen.png` und `19-lightning-wallet.png` (eine
+Signatur ueber eine **statische Nachricht ohne Nonce**, siehe
+`api/dfx/hooks/auth.hook.ts` — laeuft nie ab), der Account-`zpub` in
+`02-wallet/07-xpub.png`, der Cosigner-QR in `07-multi-device/01-erstellung-qr.png`
+und die Lightning-Adresse in `08-lightning/03-rechnung-erstellen.png`.
+
+Gegenprobe zusaetzlich per OCR:
+
+```bash
+# darf nichts finden
+grep -oiE "[zx]pub6[A-Za-z0-9]{20,}" <ocr-ausgabe>
 ```
 
 Zusaetzlich laeuft ueber den ganzen Satz eine OCR-Probe: keine Folge von vier
