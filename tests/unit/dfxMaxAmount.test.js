@@ -32,6 +32,23 @@ describe('helpers/dfxMaxAmount DfxMaxAmount', () => {
     assert.strictEqual(confirmed, false);
   });
 
+  // The DFX backend rounds the amount it echoes back through the widget to 5 significant digits
+  // (ROUND_HALF_UP) before the deeplink returns it - not a 1-satoshi string round-trip wobble.
+  // A raw, un-rounded proposal of 1,749,256 sats comes back as 1,749,300 sats (44 sats off), and
+  // a naive tight tolerance would reject that as "not the max", silently falling back to a
+  // fixed-value target and reintroducing the frozen-balance/fee-drift bugs this exists to avoid.
+  it('confirms a real widget round-trip even though the backend rounded the amount to 5 significant digits', async () => {
+    await DfxMaxAmount.remember('wallet-1', DfxService.SELL, 1749256, 50000000);
+    const confirmed = await DfxMaxAmount.wasConfirmed('wallet-1', DfxService.SELL, '0.017493', 50000000);
+    assert.strictEqual(confirmed, true);
+  });
+
+  it('still rejects a confirmed amount that is genuinely a different, smaller amount', async () => {
+    await DfxMaxAmount.remember('wallet-1', DfxService.SELL, 1749256, 50000000);
+    const confirmed = await DfxMaxAmount.wasConfirmed('wallet-1', DfxService.SELL, '0.01', 50000000);
+    assert.strictEqual(confirmed, false);
+  });
+
   // This is the whole point of tracking the balance alongside the amount: an unrelated pay-in
   // landing while the user is still in the widget must not turn into a sweep of funds they
   // never saw quoted there.

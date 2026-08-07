@@ -1,8 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import BigNumber from 'bignumber.js';
 import { DfxService } from '../api/dfx/contexts/session.context';
 const currency = require('../blue_modules/currency');
 
-// Rounding slack for the BTC string round-tripping through the DFX web widget (Number() parse + toString()).
+// The DFX backend rounds asset amounts to 5 significant digits (Util.roundReadable with
+// AmountType.ASSET, ROUND_HALF_UP) before the widget echoes one back through the deeplink - e.g.
+// 1,749,256 sats comes back as 1,749,300, a 44-sat difference, not a 1-sat string-parsing wobble.
+// Round our own proposal the same way before comparing, instead of guessing at a tolerance window.
+const ASSET_PRECISION = 5;
+
+// Slack for the actual BTC string round-trip through the widget (Number() parse + toString()) on
+// top of the shared 5-significant-digit rounding above.
 const SATS_TOLERANCE = 1;
 
 interface StoredMaxAmount {
@@ -31,8 +39,15 @@ export class DfxMaxAmount {
     return `DfxMaxAmountSats:${walletId}:${service}`;
   }
 
+  // Mirrors the backend's Util.roundReadable(amount, AmountType.ASSET): 5 significant digits,
+  // ROUND_HALF_UP. Rounding the sats integer directly matches rounding the BTC string the widget
+  // actually sees - multiplying/dividing by a power of ten doesn't change significant digits.
+  private static roundToAssetPrecision(sats: number): number {
+    return new BigNumber(sats).precision(ASSET_PRECISION, BigNumber.ROUND_HALF_UP).toNumber();
+  }
+
   static async remember(walletId: string, service: DfxService, amountSats: number, walletBalanceSats: number): Promise<void> {
-    const value: StoredMaxAmount = { amountSats, walletBalanceSats };
+    const value: StoredMaxAmount = { amountSats: DfxMaxAmount.roundToAssetPrecision(amountSats), walletBalanceSats };
     await AsyncStorage.setItem(DfxMaxAmount.key(walletId, service), JSON.stringify(value));
   }
 
