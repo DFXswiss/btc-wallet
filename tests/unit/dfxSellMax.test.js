@@ -1,19 +1,13 @@
 /**
- * DFX sell-flow Max-amount regression suite, adapted from the failing-test bug report in #216.
+ * DFX sell-flow Max-amount regression suite. Exercises the real production code (DfxMaxAmount,
+ * wallet.createTransaction/getUtxo, currency.btcToSatoshi) end to end rather than reimplemented
+ * mirrors, so it tracks the actual implementation instead of a frozen snapshot of past behaviour.
  *
- * Unlike the original report, this exercises the real production code (DfxMaxAmount,
- * wallet.createTransaction/getUtxo, currency.btcToSatoshi) instead of reimplemented mirrors of
- * the pre-fix logic - a mirror of an already-fixed bug would keep asserting the old behaviour
- * forever, silently drifting from what the app actually does.
- *
- * Defect chain the gates below guard against (see helpers/dfxMaxAmount.ts and screen/dfx/sell.tsx
- * for the actual fix):
- *   1. Launch proposes a Max balance to the DFX web widget, computed from spendable UTXOs.
- *   2. The backend rounds that amount to 5 significant digits before echoing it back.
- *   3. Confirm must recognise that rounded echo as "still the max" and build a send-max target -
- *      not a fixed-value one - so frozen coins and fee-rate drift between launch and confirm
- *      can't turn a Max sell into "Not enough balance".
- *   4. Separately, any confirmed amount - Max or not - must never reach coinselect as a
+ * Invariants guarded:
+ *   1. Confirm must recognise a widget round-trip of the proposed Max amount as "still the max"
+ *      and build a send-max target - not a fixed-value one - so frozen coins and fee-rate drift
+ *      between launch and confirm can't turn a Max sell into "Not enough balance".
+ *   2. Separately, any confirmed amount - Max or not - must never reach coinselect as a
  *      fractional number of satoshis.
  */
 import assert from 'assert';
@@ -73,10 +67,10 @@ function launchMax(w, feeRate) {
   return { maxSats: sweepable - fee, sweepable };
 }
 
-// Mirrors the DFX backend's Util.roundReadable(amount, AmountType.ASSET): 5 significant digits,
-// ROUND_HALF_UP - the widget doesn't echo the exact proposal, it echoes this rounded amount.
-function backendRoundedAmountString(sats) {
-  return currency.satoshiToBTC(new BigNumber(sats).precision(5, BigNumber.ROUND_HALF_UP).toNumber());
+// Simulates the widget's own precision loss - it doesn't echo the exact proposal back, it echoes
+// an amount floored to 5 significant digits (see helpers/dfxMaxAmount.ts's matching floor).
+function widgetEchoedAmountString(sats) {
+  return currency.satoshiToBTC(new BigNumber(sats).precision(5, BigNumber.ROUND_FLOOR).toNumber());
 }
 
 // Mirrors screen/dfx/sell.tsx's handleConfirm() target selection - real DfxMaxAmount,
@@ -88,7 +82,7 @@ async function sellConfirm(w, confirmedAmountBtc, feeRate) {
   return w.createTransaction(lutxo, targets, feeRate, changeAddress(w), HDSegwitBech32Wallet.defaultRBFSequence);
 }
 
-describe('DFX sell flow: Max amount handling (regression suite from #216)', () => {
+describe('DFX sell flow: Max amount handling', () => {
   afterEach(async () => {
     await AsyncStorage.clear();
   });
@@ -113,7 +107,7 @@ describe('DFX sell flow: Max amount handling (regression suite from #216)', () =
     const { maxSats, sweepable } = launchMax(w, 3);
     await DfxMaxAmount.remember(WALLET_ID, DfxService.SELL, maxSats, sweepable);
 
-    const { tx, outputs, fee } = await sellConfirm(w, backendRoundedAmountString(maxSats), 3);
+    const { tx, outputs, fee } = await sellConfirm(w, widgetEchoedAmountString(maxSats), 3);
 
     assert.ok(tx, 'expected a transaction');
     const depositOut = outputs.find(o => o.address === DEPOSIT_ADDR);
@@ -134,7 +128,7 @@ describe('DFX sell flow: Max amount handling (regression suite from #216)', () =
     await DfxMaxAmount.remember(WALLET_ID, DfxService.SELL, maxSats, sweepable);
 
     // Launch estimated at feeRate 3; confirm runs at feeRate 4 - must not throw.
-    const { tx, outputs, fee } = await sellConfirm(w, backendRoundedAmountString(maxSats), 4);
+    const { tx, outputs, fee } = await sellConfirm(w, widgetEchoedAmountString(maxSats), 4);
 
     assert.ok(tx, 'expected a transaction');
     const depositOut = outputs.find(o => o.address === DEPOSIT_ADDR);
@@ -147,8 +141,8 @@ describe('DFX sell flow: Max amount handling (regression suite from #216)', () =
   });
 
   it('sell confirm handles amounts with more than 8 decimal places without crashing', async () => {
-    // Not a Max scenario - a genuine small partial amount, exactly what the backend's
-    // 5-significant-digit floor can produce for a sub-0.001 BTC balance.
+    // Not a Max scenario - a genuine small partial amount with enough decimal places to
+    // multiply out to a fractional satoshi if btcToSatoshi() didn't floor it first.
     const amountStr = '0.000012345';
     const sats = currency.btcToSatoshi(amountStr);
     assert.ok(Number.isInteger(sats), `btcToSatoshi must always return a whole number of satoshis, got ${sats}`);

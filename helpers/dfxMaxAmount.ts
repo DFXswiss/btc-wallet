@@ -3,10 +3,10 @@ import BigNumber from 'bignumber.js';
 import { DfxService } from '../api/dfx/contexts/session.context';
 const currency = require('../blue_modules/currency');
 
-// The DFX backend rounds asset amounts to 5 significant digits (Util.roundReadable with
-// AmountType.ASSET, ROUND_HALF_UP) before the widget echoes one back through the deeplink - e.g.
-// 1,749,256 sats comes back as 1,749,300, a 44-sat difference, not a 1-sat string-parsing wobble.
-// Round our own proposal the same way before comparing, instead of guessing at a tolerance window.
+// The amount the widget echoes back has already lost precision: it's floored to 5 significant
+// digits, not just subject to a small string round-trip wobble. Floor our own proposal the same
+// way before comparing, instead of guessing at a tolerance window that doesn't scale with the
+// amount's magnitude.
 const ASSET_PRECISION = 5;
 
 // Slack for the actual BTC string round-trip through the widget (Number() parse + toString()) on
@@ -34,14 +34,14 @@ interface StoredMaxAmount {
  * still gets the safe sweep treatment as long as nothing about the proposal is actually stale.
  * It's naturally superseded the next time this wallet/service opens the widget again.
  *
- * Known, accepted limitation: matching is necessarily done against the backend's 5-significant-
- * digit-rounded echo (see ASSET_PRECISION below), since that's the only amount this ever sees -
- * the widget doesn't tell us whether the user pressed MAX or typed a number that happens to round
- * to the same value. A manually-edited amount landing in the same rounding bucket as the true max
- * is indistinguishable from a genuine MAX re-confirmation and will sweep the full balance instead
- * of leaving that difference unspent. The bucket scales with the amount's own magnitude - roughly
- * half of 10^(digit count - 5) sats, so tens of sats for a sub-0.01 BTC balance but up to several
- * thousand sats for a multi-BTC one. The destination is still the one the user confirmed; only the
+ * Known, accepted limitation: matching is necessarily done against the widget's own 5-significant-
+ * digit-floored echo (see ASSET_PRECISION below), since that's the only amount this ever sees -
+ * the widget doesn't tell us whether the user pressed MAX or typed a number that happens to floor
+ * to the same value. A manually-edited amount landing in the same bucket as the true max is
+ * indistinguishable from a genuine MAX re-confirmation and will sweep the full balance instead of
+ * leaving that difference unspent. The bucket scales with the amount's own magnitude - up to
+ * roughly 10^(digit count - 5) sats, so tens of sats for a sub-0.01 BTC balance but up to tens of
+ * thousands for a multi-BTC one. The destination is still the one the user confirmed; only the
  * swept amount can be off by less than one bucket. Closing this fully would need the widget to
  * signal "this was MAX" explicitly rather than just echoing a number.
  */
@@ -50,15 +50,15 @@ export class DfxMaxAmount {
     return `DfxMaxAmountSats:${walletId}:${service}`;
   }
 
-  // Mirrors the backend's Util.roundReadable(amount, AmountType.ASSET): 5 significant digits,
-  // ROUND_HALF_UP. Rounding the sats integer directly matches rounding the BTC string the widget
-  // actually sees - multiplying/dividing by a power of ten doesn't change significant digits.
-  private static roundToAssetPrecision(sats: number): number {
-    return new BigNumber(sats).precision(ASSET_PRECISION, BigNumber.ROUND_HALF_UP).toNumber();
+  // Matches the widget's own precision loss: 5 significant digits, floored. Applying this to the
+  // sats integer directly gives the same digits as applying it to the BTC string would -
+  // multiplying/dividing by a power of ten doesn't change significant digits.
+  private static floorToAssetPrecision(sats: number): number {
+    return new BigNumber(sats).precision(ASSET_PRECISION, BigNumber.ROUND_FLOOR).toNumber();
   }
 
   static async remember(walletId: string, service: DfxService, amountSats: number, walletBalanceSats: number): Promise<void> {
-    const value: StoredMaxAmount = { amountSats: DfxMaxAmount.roundToAssetPrecision(amountSats), walletBalanceSats };
+    const value: StoredMaxAmount = { amountSats: DfxMaxAmount.floorToAssetPrecision(amountSats), walletBalanceSats };
     await AsyncStorage.setItem(DfxMaxAmount.key(walletId, service), JSON.stringify(value));
   }
 

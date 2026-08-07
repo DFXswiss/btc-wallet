@@ -40,8 +40,7 @@ describe('currency', () => {
     // Exact 8-decimal inputs are unaffected.
     assert.strictEqual(currency.btcToSatoshi('1.23456789'), 123456789);
 
-    // A backend that floors to 5 significant digits can hand back more than 8 decimal
-    // places for a small amount, which otherwise multiplies out to a fractional satoshi.
+    // More than 8 decimal places multiplies out to a fractional satoshi if not floored.
     assert.strictEqual(currency.btcToSatoshi('0.000012345'), 1234);
     assert.ok(Number.isInteger(currency.btcToSatoshi('0.000012345')));
 
