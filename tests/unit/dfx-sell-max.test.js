@@ -11,21 +11,29 @@
  *      are not spendable at confirm → coinselect throws "Not enough balance…".
  *   4. Related gaps: fee-rate rise between launch and confirm, and fractional satoshis
  *      from btcToSatoshi on >8-decimal strings, also trip the fixed-value path.
+ *   5. Fee-cache gap: sell confirm reads AsyncStorage NetworkTransactionFee.StorageKey and
+ *      does Number(JSON.parse(res).fastestFee) with no empty-cache guard — reachable via
+ *      an external dfxtaro://sell deeplink that never ran the launch path that writes the cache.
  *
- * Controls (tests 1–2) document behaviour that already works and must stay green.
- * Regression gates (tests 3–5) encode the REQUIRED post-fix behaviour; they FAIL today
+ * Controls (tests 1–2, C3–C5) document behaviour that already works and must stay green.
+ * Regression gates (tests 3–5, G6) encode the REQUIRED post-fix behaviour; they FAIL today
  * on purpose so CI stays red until the sell-Max defect is fixed.
  *
  * Note: the unit gate runs with jest -b (bail), so while the gates are red, suites
  * scheduled after this one are skipped in that run. This is a known, temporary
  * side effect until the fix lands.
  *
- * No network, no AsyncStorage — pure wallet/coinselect math with injected UTXOs/balances.
+ * No network — pure wallet/coinselect math with injected UTXOs/balances.
+ * G6 uses the AsyncStorage jest mock only to exercise the empty fee-cache path.
  */
 
 import assert from 'assert';
 import BigNumber from 'bignumber.js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { HDSegwitBech32Wallet } from '../../class';
+import { NetworkTransactionFee } from '../../models/networkTransactionFees';
+
+jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
 
 const currency = require('../../blue_modules/currency');
 
@@ -46,6 +54,14 @@ const TOTAL_BALANCE = VAL0 + VAL1 + VAL2; // 1,750,000
 const TXID0 = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const TXID1 = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
 const TXID2 = 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
+// Dust utxos for C4 (addresses 3..7)
+const TXID_DUST = [
+  'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+  'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+  'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+  '1111111111111111111111111111111111111111111111111111111111111111',
+  '2222222222222222222222222222222222222222222222222222222222222222',
+];
 
 // Backend sell deposit address (P2SH)
 const DEPOSIT_ADDR = '3HoYu1UhmuZe33puQtkt9Q21y7kyi4adiC';
@@ -74,6 +90,48 @@ function makeWallet({ freeze } = {}) {
 
   if (freeze) {
     w.setUTXOMetadata(TXID2, 0, { frozen: true });
+  }
+
+  return w;
+}
+
+/**
+ * Flexible wallet builder for robustness controls (C3–C5). Does NOT replace makeWallet —
+ * the original five tests keep using makeWallet unchanged.
+ *
+ * Each spec: { index, value, txid, unconfirmed?, confirmations?, frozen? }
+ * Address is derived from the wallet via _getExternalAddressByIndex(index).
+ */
+function makeWalletWith(utxoSpecs) {
+  const w = new HDSegwitBech32Wallet();
+  w.setSecret(SEED);
+
+  w._utxo = utxoSpecs.map(spec => {
+    const address = w._getExternalAddressByIndex(spec.index);
+    const entry = {
+      value: spec.value,
+      address,
+      txId: spec.txid,
+      vout: 0,
+      txid: spec.txid,
+      amount: spec.value,
+      wif: '-',
+    };
+    if (spec.confirmations !== undefined) {
+      entry.confirmations = spec.confirmations;
+    }
+    return entry;
+  });
+
+  for (const spec of utxoSpecs) {
+    if (spec.unconfirmed) {
+      w._balances_by_external_index[spec.index] = { c: 0, u: spec.value };
+    } else {
+      w._balances_by_external_index[spec.index] = { c: spec.value, u: 0 };
+    }
+    if (spec.frozen) {
+      w.setUTXOMetadata(spec.txid, 0, { frozen: true });
+    }
   }
 
   return w;
@@ -119,6 +177,22 @@ function sellConfirm(w, amountString, feeRate) {
   return w.createTransaction(w.getUtxo(), targets, feeRate, changeAddress(w), HDSegwitBech32Wallet.defaultRBFSequence);
 }
 
+/**
+ * mirrors screen/dfx/sell.tsx:75-89 INCLUDING the fee-cache read — update this mirror
+ * together with the production flow when fixing; the assertions define the required behaviour
+ *
+ * Production (sell.tsx:75-80):
+ *   AsyncStorage.getItem(NetworkTransactionFee.StorageKey).then(res => JSON.parse(res as string))
+ *   then Number(networkTransactionFees.fastestFee)
+ * Empty cache: getItem → null → JSON.parse(null) → null → .fastestFee TypeError.
+ */
+async function sellConfirmViaFeeCache(w, amountString) {
+  const networkTransactionFees = await AsyncStorage.getItem(NetworkTransactionFee.StorageKey).then(res => JSON.parse(res));
+  const requestedSatPerByte = Number(networkTransactionFees.fastestFee);
+  const targets = [{ address: DEPOSIT_ADDR, value: currency.btcToSatoshi(amountString) }];
+  return w.createTransaction(w.getUtxo(), targets, requestedSatPerByte, changeAddress(w), HDSegwitBech32Wallet.defaultRBFSequence);
+}
+
 describe('DFX sell flow: Max amount handling', () => {
   it('control: in-wallet Max (send-max target) builds a tx even with a frozen UTXO', () => {
     const w = makeWallet({ freeze: true });
@@ -138,6 +212,65 @@ describe('DFX sell flow: Max amount handling', () => {
 
   it('control: sell confirm builds a tx in the clean case (same fee rate, nothing frozen)', () => {
     const w = makeWallet();
+    const amount = apiFloor5(launchBalancesParam(w, 3));
+    const { tx, outputs, fee } = sellConfirm(w, amount, 3);
+
+    assert.ok(tx, 'expected a transaction');
+    assert.ok(
+      outputs.some(o => o.address === DEPOSIT_ADDR),
+      'expected deposit address in outputs',
+    );
+    assert.ok(fee > 0, 'expected a positive fee');
+  });
+
+  it('control: sell confirm builds in the clean case with a single-utxo wallet', () => {
+    const w = makeWalletWith([{ index: 0, value: VAL0, txid: TXID0 }]);
+    const amount = apiFloor5(launchBalancesParam(w, 3));
+    const { tx, outputs, fee } = sellConfirm(w, amount, 3);
+
+    assert.ok(tx, 'expected a transaction');
+    assert.ok(
+      outputs.some(o => o.address === DEPOSIT_ADDR),
+      'expected deposit address in outputs',
+    );
+    assert.ok(fee > 0, 'expected a positive fee');
+  });
+
+  it('control: sell confirm builds when the wallet also holds detrimental dust utxos', () => {
+    // Three standard utxos PLUS five 150-sat dust utxos on external indexes 3..7.
+    // At fee rate 3 a P2WPKH input costs ~204 sats — more than each dust contributes —
+    // so launch's send-max fee estimate still walks getUtxo() (includes dust) while
+    // confirm's coinselect can skip the uneconomic inputs. That asymmetry must not
+    // prevent confirm from building.
+    const specs = [
+      { index: 0, value: VAL0, txid: TXID0 },
+      { index: 1, value: VAL1, txid: TXID1 },
+      { index: 2, value: VAL2, txid: TXID2 },
+    ];
+    for (let i = 0; i < 5; i++) {
+      specs.push({ index: 3 + i, value: 150, txid: TXID_DUST[i] });
+    }
+    const w = makeWalletWith(specs);
+    const amount = apiFloor5(launchBalancesParam(w, 3));
+    const { tx, outputs, fee } = sellConfirm(w, amount, 3);
+
+    assert.ok(tx, 'expected a transaction');
+    assert.ok(
+      outputs.some(o => o.address === DEPOSIT_ADDR),
+      'expected deposit address in outputs',
+    );
+    assert.ok(fee > 0, 'expected a positive fee');
+  });
+
+  it('control: sell confirm builds when part of the balance is unconfirmed', () => {
+    // Standard three utxos, but the 250,000-sat one is unconfirmed: balances {c:0,u:VAL2}
+    // and utxo confirmations: 0. Launch counts it (getBalance includes u); getUtxo also
+    // carries it — consistent end-to-end, so confirm must build.
+    const w = makeWalletWith([
+      { index: 0, value: VAL0, txid: TXID0 },
+      { index: 1, value: VAL1, txid: TXID1 },
+      { index: 2, value: VAL2, txid: TXID2, unconfirmed: true, confirmations: 0 },
+    ]);
     const amount = apiFloor5(launchBalancesParam(w, 3));
     const { tx, outputs, fee } = sellConfirm(w, amount, 3);
 
@@ -229,5 +362,25 @@ describe('DFX sell flow: Max amount handling', () => {
     // 1234 or 1235 both acceptable (floor or round of 1234.5)
     assert.ok(Number.isInteger(depositOut.value), `output value must be an integer number of satoshis, got ${depositOut.value}`);
     assert.ok(depositOut.value >= 1234 && depositOut.value <= 1235, `output value must be 1234 or 1235, got ${depositOut.value}`);
+  });
+
+  // FAILS until the sell-Max defect is fixed; this is the regression gate
+  it('sell confirm must not depend on a pre-populated network fee cache', async () => {
+    // Empty cache: do not seed NetworkTransactionFee.StorageKey.
+    // Rationale: the sell screen is reachable via an external dfxtaro://sell deeplink
+    // without the launch path (DfxServicesButtons.getEstimatedOnChainFee) ever having
+    // written the cache. Required behaviour: a sane fallback fee so confirm still builds.
+    // Today: JSON.parse(null) → null → .fastestFee TypeError.
+    const w = makeWallet();
+    const amount = apiFloor5(launchBalancesParam(w, 3));
+
+    const { tx, outputs } = await sellConfirmViaFeeCache(w, amount);
+
+    assert.ok(tx, 'expected a transaction');
+    assert.ok(
+      outputs.some(o => o.address === DEPOSIT_ADDR),
+      'expected deposit address in outputs',
+    );
+    // No fee-band assertion — any sane fee is fine for this gate
   });
 });
