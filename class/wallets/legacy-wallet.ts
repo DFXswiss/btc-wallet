@@ -131,10 +131,24 @@ export class LegacyWallet extends AbstractWallet {
       const address = this.getAddress();
       if (!address) throw new Error('LegacyWallet: Invalid address');
       const utxos = await BlueElectrum.multiGetUtxoByAddress([address]);
-      this.utxo = [];
+      let newUtxo: Utxo[] = [];
       for (const arr of Object.values(utxos)) {
-        this.utxo = this.utxo.concat(arr);
+        newUtxo = newUtxo.concat(arr);
       }
+
+      if (newUtxo.length === 0 && this.utxo.length > 0 && BlueElectrum.isBatchingDisabled()) {
+        // See the identical guard in AbstractHDElectrumWallet.fetchUtxo() - some servers resolve
+        // multiGetUtxoByAddress() with {} on every call when they don't support batched
+        // listunspent, regardless of actual balance. Don't let that structural no-op silently
+        // replace an already-known-good UTXO set right before a caller signs off of it - but
+        // accept it once the transaction-history-derived view agrees the wallet is genuinely
+        // empty, so this can't become a permanent lockout once a real balance-to-zero happens.
+        if (this.getDerivedUtxoFromOurTransaction().length > 0) {
+          throw new Error('fetchUtxo(): server does not support batched UTXO lookups; refusing to discard the previously known UTXO set');
+        }
+      }
+
+      this.utxo = newUtxo;
 
       // now we need to fetch txhash for each input as required by PSBT
       if (LegacyWallet.type !== this.type) return; // but only for LEGACY single-address wallets
