@@ -21,8 +21,10 @@ interface StoredMaxAmount {
  * a sweep would spend more than what the user actually saw confirmed on the widget's amount
  * field, so this deliberately falls back to treating it as a genuine fixed amount instead.
  *
- * A remembered value is single-use: wasConfirmed() clears it once read, so it can't linger and
- * coincidentally match a much later, unrelated confirm.
+ * A remembered value is left in place (not consumed on read) so that retrying handleConfirm() -
+ * e.g. after backing out of the review screen, or after a transient createTransaction() failure -
+ * still gets the safe sweep treatment as long as nothing about the proposal is actually stale.
+ * It's naturally superseded the next time this wallet/service opens the widget again.
  */
 export class DfxMaxAmount {
   private static key(walletId: string, service: DfxService): string {
@@ -42,7 +44,6 @@ export class DfxMaxAmount {
   ): Promise<boolean> {
     const stored = await AsyncStorage.getItem(DfxMaxAmount.key(walletId, service));
     if (!stored) return false;
-    await AsyncStorage.removeItem(DfxMaxAmount.key(walletId, service));
 
     const { amountSats, walletBalanceSats }: StoredMaxAmount = JSON.parse(stored);
     if (walletBalanceSats !== currentWalletBalanceSats) return false;

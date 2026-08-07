@@ -47,12 +47,14 @@ describe('helpers/dfxMaxAmount DfxMaxAmount', () => {
     assert.strictEqual(confirmed, false);
   });
 
-  // A remembered value is single-use, so a later, unrelated confirm can't coincidentally match it.
-  it('consumes the remembered value on read, so a second check no longer matches', async () => {
+  // A remembered value isn't consumed on read, so retrying handleConfirm() (e.g. backing out of
+  // the review screen, or after a transient createTransaction() failure) still gets the safe
+  // sweep treatment as long as nothing about the original proposal has actually gone stale.
+  it('keeps matching on repeated checks as long as nothing changed', async () => {
     await DfxMaxAmount.remember('wallet-1', DfxService.SELL, 99990000, 100000000);
     const first = await DfxMaxAmount.wasConfirmed('wallet-1', DfxService.SELL, '0.9999', 100000000);
     const second = await DfxMaxAmount.wasConfirmed('wallet-1', DfxService.SELL, '0.9999', 100000000);
     assert.strictEqual(first, true);
-    assert.strictEqual(second, false);
+    assert.strictEqual(second, true);
   });
 });

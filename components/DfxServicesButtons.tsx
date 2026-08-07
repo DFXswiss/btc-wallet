@@ -21,6 +21,7 @@ import SellIt from '../img/dfx/buttons/sell_it.png';
 import SwapEn from '../img/dfx/buttons/swap.png';
 import NetworkTransactionFees, { NetworkTransactionFee } from '../models/networkTransactionFees';
 import { AbstractHDElectrumWallet } from '../class/wallets/abstract-hd-electrum-wallet';
+import { Utxo } from '../class/wallets/types';
 import { BlueText } from '../BlueComponents';
 import { LightningLdsWallet } from '../class/wallets/lightning-lds-wallet';
 import { useWalletContext } from '../contexts/wallet.context';
@@ -88,7 +89,7 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
     return change;
   };
 
-  const getEstimatedOnChainFee = async (lutxo: Array<{ value: number }>) => {
+  const getEstimatedOnChainFee = async (lutxo: Utxo[]) => {
     const changeAddress = await getChangeAddressAsync(wallet);
     const dustTarget = [{ address: '36JxaUrpDzkEerkTf1FzwHNE1Hb7cCjgJV' }];
     const networkTransactionFees = await NetworkTransactionFees.recommendedFees();
@@ -102,34 +103,34 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
   // total value, rather than the separately-cached wallet.getBalance() - that cache is only
   // updated by a background poll that's suspended while the DFX widget has the app backgrounded,
   // so it can't be trusted as the "what did we actually propose" baseline DfxMaxAmount relies on.
-  const getBalanceByDfxService = async (service: DfxService) => {
+  // Returns the sweepable total alongside the estimate so the caller can hand DfxMaxAmount the
+  // exact same snapshot the estimate was computed from, instead of re-reading wallet.getUtxo()
+  // later (wallet.utxo is a shared, mutable field - a second, later read isn't guaranteed to
+  // still match, e.g. if an unrelated fetchUtxo() elsewhere resolves in between).
+  const getBalanceByDfxService = async (service: DfxService): Promise<{ maxBalance: number; sweepableBalance: number }> => {
     if (wallet.chain === Chain.ONCHAIN && (service === DfxService.SELL || service === DfxService.SWAP)) {
       await Utils.withRetry(() => wallet.fetchUtxo());
-      const lutxo = wallet.getUtxo();
+      const lutxo: Utxo[] = wallet.getUtxo();
       const sweepableBalance = Utils.sumUtxoValue(lutxo);
       try {
         const fee = await getEstimatedOnChainFee(lutxo);
-        return sweepableBalance - fee;
+        return { maxBalance: sweepableBalance - fee, sweepableBalance };
       } catch (_) {
-        return 0;
+        return { maxBalance: 0, sweepableBalance };
       }
     }
 
     const balance = wallet.getBalance();
-    if (service === DfxService.SELL || service === DfxService.SWAP) {
-      return balance - balance * 0.03;
-    }
-    return balance;
+    const maxBalance = service === DfxService.SELL || service === DfxService.SWAP ? balance - balance * 0.03 : balance;
+    return { maxBalance, sweepableBalance: balance };
   };
 
   const handleOpenServices = async (service: DfxService) => {
     setIsHandlingOpenServices(true);
     try {
-      const maxBalance = await getBalanceByDfxService(service);
+      const { maxBalance, sweepableBalance } = await getBalanceByDfxService(service);
       if (wallet.chain === Chain.ONCHAIN && (service === DfxService.SELL || service === DfxService.SWAP)) {
-        // getBalanceByDfxService() already refreshed the UTXO set above, so this reads that same
-        // fresh snapshot rather than triggering (or racing) a second fetch.
-        await DfxMaxAmount.remember(wallet.getID(), service, maxBalance, Utils.sumUtxoValue(wallet.getUtxo()));
+        await DfxMaxAmount.remember(wallet.getID(), service, maxBalance, sweepableBalance);
       }
       await openServices(wallet.getID(), new BigNumber(currency.satoshiToBTC(maxBalance)).toString(), service);
     } catch (e: any) {
