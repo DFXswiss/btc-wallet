@@ -81,30 +81,33 @@ jobs:
           fi
 
       - name: Checkout
-        # SHA verified via gh api repos/actions/checkout/commits/v7.0.1
+        # Pin SHA for v4.4.0 (gh api repos/actions/checkout/commits/v4.4.0)
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Log in to Docker Hub
-        # SHA verified via gh api repos/docker/login-action/commits/v4.6.0
+        # Pin SHA for v3.7.0 (gh api repos/docker/login-action/commits/v3.7.0)
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Set up Docker Buildx
-        # SHA verified via gh api repos/docker/setup-buildx-action/commits/v4.2.0
+        # Pin SHA for v3.12.0 (gh api repos/docker/setup-buildx-action/commits/v3.12.0)
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Build and push Docker image
-        # SHA verified via gh api repos/docker/build-push-action/commits/v7.3.0
-        # v7 requires Actions Runner ≥ v2.327.1 (Node 24). Inputs we use
-        # (context/file/push/tags/platforms/build-args) are unchanged from v6.
+        # Pin SHA for v6.19.2 (gh api repos/docker/build-push-action/commits/v6.19.2)
+        # Tag both :latest (rolling) and :${{ github.sha }} (immutable). If SSH or
+        # smoke fails after push, rollback is possible by redeploying the last
+        # known-good SHA tag — automation of that rollback is an ops decision.
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: ./Dockerfile.handbook
           push: true
-          tags: ${{ env.DOCKER_TAGS }}
+          tags: |
+            ${{ env.DOCKER_TAGS }}
+            dfxswiss/dfx-taro-handbook:${{ github.sha }}
           platforms: linux/arm64
           build-args: |
             GIT_SHA=${{ github.sha }}
@@ -122,19 +125,25 @@ jobs:
 
       # IdentitiesOnly + IdentityAgent=none pin SSH to the explicit deploy key
       # so OpenSSH does not probe default/agent keys first and exhaust
-      # MaxAuthTries on the server.
+      # MaxAuthTries on the server. Secrets only via env (never ${{ secrets.* }}
+      # in the shell command line).
       - name: Deploy via SSH
+        env:
+          DEPLOY_PRD_SSH_KEY: ${{ secrets.DEPLOY_PRD_SSH_KEY }}
+          DEPLOY_PRD_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_PRD_SSH_KNOWN_HOSTS }}
+          DEPLOY_PRD_HOST: ${{ secrets.DEPLOY_PRD_HOST }}
+          DEPLOY_PRD_USER: ${{ secrets.DEPLOY_PRD_USER }}
         run: |
           set -euo pipefail
           mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_PRD_SSH_KEY }}" > ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_PRD_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          echo "${{ secrets.DEPLOY_PRD_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          printf '%s\n' "$DEPLOY_PRD_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           ssh -i ~/.ssh/deploy_key \
             -o IdentitiesOnly=yes \
             -o IdentityAgent=none \
-            -o ProxyCommand="cloudflared access ssh --hostname ${{ secrets.DEPLOY_PRD_HOST }}" \
-            ${{ secrets.DEPLOY_PRD_USER }}@${{ secrets.DEPLOY_PRD_HOST }} \
+            -o ProxyCommand="cloudflared access ssh --hostname \"$DEPLOY_PRD_HOST\"" \
+            "${DEPLOY_PRD_USER}@${DEPLOY_PRD_HOST}" \
             "${{ env.DEPLOY_SERVICE }}"
 
       # Poll public /healthz so a green job cannot lie when the container is up

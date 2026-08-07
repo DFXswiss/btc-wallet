@@ -34,6 +34,23 @@ const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const MARKED_INSTALL =
   'npm install --prefix ./_handbook-deps --no-save --no-audit --no-fund marked@15.0.7';
 
+// Repo-relative discovery roots (same strings discovery walks). prepareOutputDir
+// refuses to empty these or any ancestor path that would wipe them.
+const SOURCE_SCREENSHOTS_REL = 'docs/handbook/screenshots';
+const SOURCE_DOCS_REL = 'docs';
+const SOURCE_ANDROID_META_REL = 'android/fastlane/metadata/android';
+const SOURCE_IOS_META_REL = 'ios/fastlane/metadata';
+const SOURCE_DFX_ASSETS_REL = 'img/dfx';
+const SOURCE_IMG_REL = 'img';
+const DISCOVERY_SOURCE_RELS = [
+  SOURCE_SCREENSHOTS_REL,
+  SOURCE_DOCS_REL,
+  SOURCE_ANDROID_META_REL,
+  SOURCE_IOS_META_REL,
+  SOURCE_DFX_ASSETS_REL,
+  SOURCE_IMG_REL,
+];
+
 const SORT_LOCALE = 'en';
 
 function sortStrings(a, b) {
@@ -202,15 +219,6 @@ function copyFile(src, dest) {
 }
 
 /**
- * Empty the output directory before writing so a rebuild never leaves stale
- * files from a previous run (deleted markdown still present as HTML, old
- * discovery trees, leftover foreign files). The CLI accepts an arbitrary
- * path, so rmdir must never touch the repo, .git, the filesystem root or
- * the home directory — a wrong argument would be catastrophic.
- *
- * Missing outDir is fine (nothing to clear); writers recreate it.
- */
-/**
  * Resolve the user's home directory without a cwd-shaped fallback.
  * path.resolve('') === process.cwd(), so falling back to an empty string
  * would silently compare against the working directory when home is unknown:
@@ -233,6 +241,21 @@ function resolveHomeDir() {
   return path.resolve(String(raw));
 }
 
+/** True if `a` is the same path as `b` or a strict ancestor of `b`. */
+function isSameOrAncestor(a, b) {
+  return a === b || b.startsWith(a + path.sep);
+}
+
+/**
+ * Empty the output directory before writing so a rebuild never leaves stale
+ * files from a previous run (deleted markdown still present as HTML, old
+ * discovery trees, leftover foreign files). The CLI accepts an arbitrary
+ * path, so rmdir must never touch the repo root, discovery source trees
+ * (screenshots, store metadata, assets, docs), .git, the filesystem root or
+ * the home directory — a wrong argument would be catastrophic.
+ *
+ * Missing outDir is fine (nothing to clear); writers recreate it.
+ */
 function prepareOutputDir(outDir, repoRoot) {
   const resolvedOut = path.resolve(outDir);
   const resolvedRoot = path.resolve(repoRoot);
@@ -254,15 +277,23 @@ function prepareOutputDir(outDir, repoRoot) {
     );
   }
   // Repo root itself, or any ancestor of the repo (emptying would wipe the tree).
-  if (
-    resolvedOut === resolvedRoot ||
-    resolvedRoot === resolvedOut ||
-    resolvedRoot.startsWith(resolvedOut + path.sep)
-  ) {
+  if (isSameOrAncestor(resolvedOut, resolvedRoot)) {
     fail(
       'handbook: refusing to empty output path that is the repo root or an ' +
         `ancestor of it: ${resolvedOut} (repo root: ${resolvedRoot})`,
     );
+  }
+  // Never empty a discovery source tree (or an ancestor that would wipe it).
+  // E.g. outDir=docs/handbook/screenshots would delete the PNG set.
+  for (const rel of DISCOVERY_SOURCE_RELS) {
+    const protectedPath = path.resolve(resolvedRoot, rel);
+    if (isSameOrAncestor(resolvedOut, protectedPath)) {
+      fail(
+        'handbook: refusing to empty output path that is a discovery source ' +
+          `root or an ancestor of one: ${resolvedOut} ` +
+          `(would wipe source ${rel} at ${protectedPath})`,
+      );
+    }
   }
   // Never touch anything under .git (object store, hooks, config).
   const segments = resolvedOut.split(path.sep);
@@ -512,19 +543,60 @@ function resolvePosix(fromDir, relHref) {
 }
 
 /**
+ * Strip active HTML/script vectors from marked output before link rewriting.
+ * marked does not sanitize by default; without this, any repo *.md is shipped
+ * to handbook.taro.dfx.swiss with scripts and javascript: URLs intact.
+ * CSP is a second layer; this cleans the HTML itself.
+ */
+function stripDangerousHtml(html) {
+  let out = String(html);
+  // Remove script/iframe/object/embed blocks (content discarded).
+  out = out.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+  out = out.replace(/<script\b[^>]*\/>/gi, '');
+  out = out.replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, '');
+  out = out.replace(/<iframe\b[^>]*\/>/gi, '');
+  out = out.replace(/<object\b[^>]*>[\s\S]*?<\/object>/gi, '');
+  out = out.replace(/<object\b[^>]*\/>/gi, '');
+  out = out.replace(/<embed\b[^>]*\/?>/gi, '');
+  // Drop inline event handlers (onerror=, onclick=, …).
+  out = out.replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+  // Neutralize dangerous URL schemes in href/src (keep data:image/*).
+  out = out.replace(
+    /\b(href|src)\s*=\s*(["'])([^"']*)\2/gi,
+    (full, attr, q, url) => {
+      const trimmed = String(url).trim();
+      const lower = trimmed.toLowerCase();
+      if (
+        lower.startsWith('javascript:') ||
+        lower.startsWith('vbscript:') ||
+        (lower.startsWith('data:') && !/^data:image\//i.test(trimmed))
+      ) {
+        return attr + '=' + q + q;
+      }
+      return full;
+    },
+  );
+  return out;
+}
+
+/**
  * After marked renders markdown, local links that target files not copied into
  * the handbook output would fail the integrity check. This repo's docs link to
  * scripts, platform trees, etc. that are intentionally out of scope.
  *
  * Behaviour (documented in docs/handbook/README.md):
+ * 0. Strip script/iframe/object/embed, on* handlers, and javascript:/vbscript:/
+ *    non-image data: URLs (defence in depth with CSP).
  * 1. Relative *.md links that resolve to a discovered handbook doc are
  *    rewritten to the corresponding HTML output path.
  * 2. Any other relative src/href that does not resolve under the output
  *    directory is stripped to plain text (label kept, link removed) and
  *    logged once per occurrence on stderr.
- * Absolute URIs and pure fragment links are left alone.
+ * Absolute URIs (except neutralized schemes above) and pure fragment links
+ * are left alone.
  */
 function sanitizeDocHtml(html, docOutRel, discoveredMdToOut) {
+  html = stripDangerousHtml(html);
   const pageDir = path.posix.dirname(docOutRel);
   // Source directory of the original .md (repo-relative) for resolving
   // relative .md links against the repo tree, not the output tree.
@@ -723,12 +795,12 @@ function main() {
   const screenshotEntries = [];
 
   // -------------------------------------------------------------------------
-  // Source A — Screenshots: docs/handbook/screenshots/**/*.png
+  // Source A — Screenshots under SOURCE_SCREENSHOTS_REL/**/*.png
   // Group key = POSIX-relative directory under screenshots root; files
   // directly in the root get group "allgemein". Nested dirs keep full path
   // (e.g. settings/dfx). Discovery only — copy after collision check.
   // -------------------------------------------------------------------------
-  const screenshotsRoot = path.join(repoRoot, 'docs/handbook/screenshots');
+  const screenshotsRoot = path.join(repoRoot, SOURCE_SCREENSHOTS_REL);
   const screenshotPngs = listPngRecursive(screenshotsRoot);
   for (const { abs, relPosix } of screenshotPngs) {
     assertValidPng(abs);
@@ -739,7 +811,7 @@ function main() {
     const entry = {
       category: 'screenshot',
       outputPath: relOut,
-      sourcePath: path.posix.join('docs/handbook/screenshots', relPosix),
+      sourcePath: path.posix.join(SOURCE_SCREENSHOTS_REL, relPosix),
       title: titleFromFilename(filename),
       group,
       _abs: abs,
@@ -764,7 +836,7 @@ function main() {
     fail(
       `handbook floor guard: found ${screenshotEntries.length} screenshots, ` +
         `need at least MIN_SCREENSHOTS=${MIN_SCREENSHOTS}. ` +
-        'Check docs/handbook/screenshots/**/*.png ' +
+        `Check ${SOURCE_SCREENSHOTS_REL}/**/*.png ` +
         `(scanned: ${screenshotsRoot}).`,
     );
   }
@@ -804,11 +876,8 @@ function main() {
   // -------------------------------------------------------------------------
   // Source C — Store listing (Android + iOS fastlane metadata)
   // -------------------------------------------------------------------------
-  const androidMetaRoot = path.join(
-    repoRoot,
-    'android/fastlane/metadata/android',
-  );
-  const iosMetaRoot = path.join(repoRoot, 'ios/fastlane/metadata');
+  const androidMetaRoot = path.join(repoRoot, SOURCE_ANDROID_META_REL);
+  const iosMetaRoot = path.join(repoRoot, SOURCE_IOS_META_REL);
   if (!fs.existsSync(androidMetaRoot)) {
     fail(
       `handbook: missing Android store-metadata root ${androidMetaRoot} ` +
@@ -833,10 +902,7 @@ function main() {
       .sort(sortStrings);
     for (const locale of locales) {
       const localeAbs = path.join(androidMetaRoot, locale);
-      const localeRel = path.posix.join(
-        'android/fastlane/metadata/android',
-        locale,
-      );
+      const localeRel = path.posix.join(SOURCE_ANDROID_META_REL, locale);
       const fields = collectStoreFields(localeAbs, localeRel);
       for (const f of fields) {
         storeEntries.push({
@@ -852,7 +918,7 @@ function main() {
 
   // iOS: global *.txt directly under metadata/, then locale subdirs
   {
-    const iosRootRel = 'ios/fastlane/metadata';
+    const iosRootRel = SOURCE_IOS_META_REL;
     const globalFields = [];
     const entries = fs
       .readdirSync(iosMetaRoot, { withFileTypes: true })
@@ -906,7 +972,7 @@ function main() {
     fail(
       `handbook floor guard: found ${storeEntries.length} store fields, ` +
         `need at least MIN_STORE_FIELDS=${MIN_STORE_FIELDS}. ` +
-        'Check android/fastlane/metadata/android/ and ios/fastlane/metadata/.',
+        `Check ${SOURCE_ANDROID_META_REL}/ and ${SOURCE_IOS_META_REL}/.`,
     );
   }
 
@@ -921,18 +987,18 @@ function main() {
   }
 
   // -------------------------------------------------------------------------
-  // Source D — App assets: img/dfx/**/*.png + img/icon*.png
+  // Source D — App assets: SOURCE_DFX_ASSETS_REL/**/*.png + img/icon*.png
   // -------------------------------------------------------------------------
   const assetSpecs = [];
-  const dfxDir = path.join(repoRoot, 'img/dfx');
+  const dfxDir = path.join(repoRoot, SOURCE_DFX_ASSETS_REL);
   for (const { abs, relPosix } of listPngRecursive(dfxDir)) {
     assertValidPng(abs, MIN_ASSET_PNG_BYTES);
-    const src = path.posix.join('img/dfx', relPosix);
+    const src = path.posix.join(SOURCE_DFX_ASSETS_REL, relPosix);
     const out = path.posix.join('assets/dfx', relPosix);
     assetSpecs.push({ abs, src, out, title: path.posix.basename(relPosix) });
   }
   // Icon files: directory scan of img/ with icon*.png filter (not a hard-coded list)
-  const imgDir = path.join(repoRoot, 'img');
+  const imgDir = path.join(repoRoot, SOURCE_IMG_REL);
   if (fs.existsSync(imgDir)) {
     const iconNames = fs
       .readdirSync(imgDir, { withFileTypes: true })
@@ -949,7 +1015,7 @@ function main() {
       assertValidPng(abs, MIN_ASSET_PNG_BYTES);
       assetSpecs.push({
         abs,
-        src: path.posix.join('img', name),
+        src: path.posix.join(SOURCE_IMG_REL, name),
         out: path.posix.join('assets', name),
         title: name,
       });
@@ -961,7 +1027,7 @@ function main() {
     fail(
       `handbook floor guard: found ${assetSpecs.length} assets, ` +
         `need at least MIN_ASSETS=${MIN_ASSETS}. ` +
-        'Check img/dfx/**/*.png and img/icon*.png.',
+        `Check ${SOURCE_DFX_ASSETS_REL}/**/*.png and ${SOURCE_IMG_REL}/icon*.png.`,
     );
   }
 
@@ -1439,36 +1505,36 @@ function main() {
       }
   `;
 
-  const script = `
-    (function () {
-      function openTargetFromHash() {
-        var hash = location.hash ? location.hash.slice(1) : '';
-        if (!hash) return;
-        // IDs may start with a digit — use getElementById, not querySelector('#'+…).
-        var el = document.getElementById(hash);
-        if (!el) return;
-        var details = el.closest ? el.closest('details.spec') : null;
-        if (!details && el.tagName === 'DETAILS') details = el;
-        if (details) details.open = true;
-        if (typeof el.scrollIntoView === 'function') {
-          el.scrollIntoView({ block: 'start' });
-        }
-      }
-      document.addEventListener('DOMContentLoaded', openTargetFromHash);
-      window.addEventListener('hashchange', openTargetFromHash);
-
-      document.addEventListener('click', function (ev) {
-        var t = ev.target;
-        if (!t || !t.getAttribute) return;
-        if (t.id === 'toc-expand-all') {
-          document.querySelectorAll('details.spec').forEach(function (d) { d.open = true; });
-        }
-        if (t.id === 'toc-collapse-all') {
-          document.querySelectorAll('details.spec').forEach(function (d) { d.open = false; });
-        }
-      });
-    })();
-  `;
+  // TOC/hash helper as external file so CSP can use script-src 'self'
+  // without 'unsafe-inline'. Deterministic contents (no timestamps).
+  const handbookJs =
+    '(function () {\n' +
+    '  function openTargetFromHash() {\n' +
+    "    var hash = location.hash ? location.hash.slice(1) : '';\n" +
+    '    if (!hash) return;\n' +
+    '    // IDs may start with a digit — use getElementById, not querySelector.\n' +
+    '    var el = document.getElementById(hash);\n' +
+    '    if (!el) return;\n' +
+    "    var details = el.closest ? el.closest('details.spec') : null;\n" +
+    "    if (!details && el.tagName === 'DETAILS') details = el;\n" +
+    '    if (details) details.open = true;\n' +
+    "    if (typeof el.scrollIntoView === 'function') {\n" +
+    "      el.scrollIntoView({ block: 'start' });\n" +
+    '    }\n' +
+    '  }\n' +
+    "  document.addEventListener('DOMContentLoaded', openTargetFromHash);\n" +
+    "  window.addEventListener('hashchange', openTargetFromHash);\n" +
+    "  document.addEventListener('click', function (ev) {\n" +
+    '    var t = ev.target;\n' +
+    '    if (!t || !t.getAttribute) return;\n' +
+    "    if (t.id === 'toc-expand-all') {\n" +
+    "      document.querySelectorAll('details.spec').forEach(function (d) { d.open = true; });\n" +
+    '    }\n' +
+    "    if (t.id === 'toc-collapse-all') {\n" +
+    "      document.querySelectorAll('details.spec').forEach(function (d) { d.open = false; });\n" +
+    '    }\n' +
+    '  });\n' +
+    '})();\n';
 
   let tocItems = [];
   let sectionsHtml = '';
@@ -1677,12 +1743,21 @@ function main() {
     `<code>scripts/handbook/build.js</code>.` +
     `</footer>\n` +
     `</main>\n</div>\n` +
-    `<script>${script}\n</script>\n` +
+    `<script src="handbook.js"></script>\n` +
     `</body>\n</html>\n`;
 
   ensureDir(outDir);
   const indexPath = path.join(outDir, 'index.html');
   fs.writeFileSync(indexPath, indexHtml, 'utf8');
+  const handbookJsPath = path.join(outDir, 'handbook.js');
+  fs.writeFileSync(handbookJsPath, handbookJs, 'utf8');
+  artifacts.push({
+    category: 'asset',
+    outputPath: 'handbook.js',
+    sourcePath: 'scripts/handbook/build.js',
+    title: 'handbook.js',
+    group: null,
+  });
 
   // Stable artifact order for deterministic manifest
   artifacts.sort((a, b) => {

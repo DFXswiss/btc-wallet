@@ -1,6 +1,6 @@
 appId: swiss.dfx.bitcoin
 ---
-- runFlow: _setup_ln.yaml
+- runFlow: _setup-lightning.yaml
 - tapOn:
     point: '50%,58%'
 - extendedWaitUntil:

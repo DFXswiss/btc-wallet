@@ -37,9 +37,8 @@ Ausgabe pro Build:
 
 Guards (Build bricht ab bei Verletzung):
 
-- **Floor:** mindestens `MIN_SCREENSHOTS` (1) PNGs — **offen:** Wert bewusst
-  niedrig, solange der Screenshot-Bestand noch wächst; nach dem ersten echten
-  Set auf den Ist-Bestand (minus Puffer) anheben
+- **Floor:** mindestens `MIN_SCREENSHOTS` (35) PNGs (aktuell 42 committiert;
+  Boden bei Bestandszuwachs anheben)
 - **Floor:** mindestens `MIN_DOCS` (8) Markdown-Dokumente (nach Ausschlussregeln)
 - **Floor:** mindestens `MIN_STORE_FIELDS` (12) Store-Textfelder
 - **Floor:** mindestens `MIN_ASSETS` (20) PNGs unter Assets
@@ -53,8 +52,9 @@ Guards (Build bricht ab bei Verletzung):
   (z. B. `README.md` und `docs/README.md` → `docs/README.html`), bricht der
   Build ab und nennt beide Quellpfade — stilles Überschreiben ist verboten
 - **Leeres Ausgabeverzeichnis:** jeder Lauf leert das Zielverzeichnis zuerst
-  (mit Wächtern gegen Repo-Root, `.git`, `/` und Home), damit keine veralteten
-  Dateien eines früheren Builds überleben
+  (Wächter gegen Repo-Root, Discovery-Quellen wie `docs/handbook/screenshots`
+  und `img/dfx`, `.git`, `/` und Home), damit keine veralteten Dateien und
+  keine Quellbäume gelöscht werden
 
 Überschreitung der Mindestzahl ist **kein** Fehler — neue Dateien landen
 automatisch.
@@ -79,8 +79,9 @@ Metadaten in `scripts/handbook/metadata.json` sind **nur Anreicherung**:
 ```
 
 Fehlende Einträge sind kein Fehler; verwaiste Einträge erzeugen nur eine
-Warnung auf stderr. Der `screenshots`-Block ist zunächst leer — Gruppen
-entstehen mit dem Screenshot-Set.
+Warnung auf stderr. Unter `screenshots` sind derzeit acht Gruppen mit
+Titel und Beschreibung gepflegt; neue Gruppen ohne Eintrag nutzen den
+Verzeichnisnamen als Titel.
 
 ## Lokal bauen
 
@@ -101,10 +102,9 @@ Optional: `GIT_SHA=…` (oder `HANDBOOK_GIT_SHA`) setzt den Stand im Seitenkopf.
 Optional: `HANDBOOK_REPO_ROOT=/pfad/zum/repo` überschreibt die Root-Erkennung
 (Standard: zwei Ebenen über dem Script).
 
-**Hinweis Screenshots:** Solange unter `docs/handbook/screenshots/` noch keine
-PNG liegt (nur `.gitkeep`), greift der Floor-Guard `MIN_SCREENSHOTS=1` und der
-Build bricht ab. Sobald echte Screenshots liegen, entfällt `.gitkeep` und der
-Build läuft durch. Danach `MIN_SCREENSHOTS` anheben.
+**Hinweis Screenshots:** Der Floor `MIN_SCREENSHOTS` (derzeit 35) bricht den
+Build ab, wenn zu wenige PNG unter `docs/handbook/screenshots/` liegen. Bei
+Bestandszuwachs den Wert in `scripts/handbook/build.js` anheben.
 
 ## Docker-Build-Kontext und Discovery
 
@@ -145,7 +145,8 @@ docker run --rm -p 8080:8080 dfx-taro-handbook:local
    Mapping-Tabelle und **keinen** Count anpassen.
 4. Optional: in `scripts/handbook/metadata.json` unter `screenshots` einen
    deutschen Titel/Beschreibung für den Gruppenschlüssel ergänzen.
-5. `.gitkeep` im Screenshots-Verzeichnis entfällt, sobald echte Dateien liegen.
+5. Optional: Maestro-Flow unter `scripts/handbook/screenshots/` mit passendem
+   `takeScreenshot: shots/<pfad>` ergänzen (genau ein Erzeuger pro PNG).
 
 ## Markdown-Dokument hinzufügen
 
@@ -208,11 +209,13 @@ man alle `takeScreenshot: shots/<pfad>` gegen `docs/handbook/screenshots/**.png`
 abgleicht (Soll: 42 Treffer, 0 verwaist, 0 ohne Flow). Wer den Satz erweitert,
 haelt diese Zuordnung mit; sonst ist die Wiederholbarkeit nur behauptet.
 
-`_setup.yaml` ist der gemeinsame Vorlauf: frischer App-Start, Wallet anlegen,
-LNDHub ueberspringen und den Mitteilungs-Dialog einmal abraeumen, damit er die
-spaetere Navigation nicht verdeckt. Jeder Flow bindet ihn per `runFlow` ein,
-weil der Simulator-Build ohne Code-Signing keine Keychain-Entitlements hat und
-die Wallet einen App-Neustart deshalb nicht ueberlebt.
+`_setup.yaml` ist der gemeinsame Vorlauf fuer die meisten Flows: frischer
+App-Start, Wallet anlegen, LNDHub ueberspringen und den Mitteilungs-Dialog
+einmal abraeumen. Lightning-Flows binden `_setup-lightning.yaml` ein. Zwei
+Flows starten selbst mit `launchApp: clearState` und ohne `_setup*`:
+`01-onboarding.yaml` und `16-import.yaml` (sie brauchen den frischen
+Onboarding-/Import-Zustand). Der Simulator-Build ohne Code-Signing hat keine
+Keychain-Entitlements; die Wallet ueberlebt einen App-Neustart deshalb nicht.
 
 **Screenshot-gesperrte Seiten.** `blue_modules/Privacy.tsx` ruft auf sensiblen
 Seiten `CaptureProtection.prevent({ screenshot: true })` auf — Wiederherstellungs-

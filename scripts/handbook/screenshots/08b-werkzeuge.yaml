@@ -11,15 +11,5 @@ appId: swiss.dfx.bitcoin
     visible: 'Transaktion publizieren'
     timeout: 15000
 - takeScreenshot: shots/03-einstellungen/16-werkzeuge-uebersicht
-- tapOn: 'Ist dies meine Adresse\?'
-- waitForAnimationToEnd:
-    timeout: 8000
-- takeScreenshot: shots/03-einstellungen/17-ist-dies-meine-adresse
-- tapOn: 'Werkzeuge'
-- extendedWaitUntil:
-    visible: 'Transaktion publizieren'
-    timeout: 15000
-- tapOn: 'Transaktion publizieren'
-- waitForAnimationToEnd:
-    timeout: 8000
-- takeScreenshot: shots/03-einstellungen/18-transaktion-publizieren
+# 17-ist-dies-meine-adresse und 18-transaktion-publizieren: nur in
+# 08-einstellungen-tiefe.yaml, damit jedes PNG genau einen Erzeuger hat.

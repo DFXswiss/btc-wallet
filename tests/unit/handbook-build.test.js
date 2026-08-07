@@ -83,6 +83,29 @@ function writeText(filePath, content) {
  * Minimal fixture that satisfies all floors so a full build can succeed.
  * Collision / PNG cases mutate this base.
  */
+function countStoreFields(root) {
+  let storeN = 0;
+  function walkStore(d) {
+    if (!fs.existsSync(d)) return;
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) {
+        if (e.name !== 'images') walkStore(p);
+      } else if (e.name.endsWith('.txt')) storeN += 1;
+    }
+  }
+  walkStore(path.join(root, 'android/fastlane/metadata'));
+  walkStore(path.join(root, 'ios/fastlane/metadata'));
+  return storeN;
+}
+
+/**
+ * Minimal fixture that satisfies all floors so a full build can succeed.
+ * Collision / PNG / floor cases mutate this base via opts.
+ *
+ * opts.storeFieldCount: if set, create exactly that many store .txt fields
+ * (for floor-guard tests). Both platform roots always exist.
+ */
 function populateValidFixture(root, opts = {}) {
   const shotCount = opts.shotCount !== undefined ? opts.shotCount : MIN_SCREENSHOTS;
   const docCount = opts.docCount !== undefined ? opts.docCount : MIN_DOCS;
@@ -91,8 +114,10 @@ function populateValidFixture(root, opts = {}) {
   const assetSize = opts.assetSize !== undefined ? opts.assetSize : MIN_ASSET_PNG_BYTES + 50;
   // shotMagic: true = full magic; false = all zeros; 'last-byte' = first 7 ok
   const shotMagic = opts.shotMagic !== undefined ? opts.shotMagic : true;
+  const storeFieldCount = opts.storeFieldCount !== undefined ? opts.storeFieldCount : null;
+  const docContents = opts.docContents || {};
 
-  // Screenshots
+  // Screenshots (valid PNG magic + size unless shotMagic overrides)
   for (let i = 0; i < shotCount; i++) {
     const name = `shot-${String(i).padStart(2, '0')}.png`;
     const p = path.join(root, 'docs/handbook/screenshots/group', name);
@@ -108,43 +133,64 @@ function populateValidFixture(root, opts = {}) {
 
   // Markdown docs (root-level names to avoid path collisions)
   for (let i = 0; i < docCount; i++) {
-    writeText(path.join(root, `DOC-${i}.md`), `# Doc ${i}\n\nBody.\n`);
+    const name = `DOC-${i}.md`;
+    const body = docContents[name] !== undefined ? docContents[name] : `# Doc ${i}\n\nBody.\n`;
+    writeText(path.join(root, name), body);
   }
 
-  // Store fields (≥ MIN_STORE_FIELDS)
-  const androidFields = ['title', 'short_description', 'full_description', 'changelogs/default'];
-  for (const locale of ['de-DE', 'en-US']) {
-    for (const f of androidFields) {
-      writeText(path.join(root, 'android/fastlane/metadata/android', locale, `${f}.txt`), `${locale} ${f}`);
+  // Store: both platform roots required; field count controllable.
+  fs.mkdirSync(path.join(root, 'android/fastlane/metadata/android'), { recursive: true });
+  fs.mkdirSync(path.join(root, 'ios/fastlane/metadata'), { recursive: true });
+  if (storeFieldCount === null) {
+    const androidFields = ['title', 'short_description', 'full_description', 'changelogs/default'];
+    for (const locale of ['de-DE', 'en-US']) {
+      for (const f of androidFields) {
+        writeText(path.join(root, 'android/fastlane/metadata/android', locale, `${f}.txt`), `${locale} ${f}`);
+      }
     }
-  }
-  writeText(path.join(root, 'ios/fastlane/metadata/copyright.txt'), '2026');
-  writeText(path.join(root, 'ios/fastlane/metadata/primary_category.txt'), 'FINANCE');
-  for (const locale of ['de-DE', 'en-US']) {
-    for (const f of ['name', 'description', 'keywords', 'subtitle']) {
-      writeText(path.join(root, 'ios/fastlane/metadata', locale, `${f}.txt`), `${locale} ${f}`);
+    writeText(path.join(root, 'ios/fastlane/metadata/copyright.txt'), '2026');
+    writeText(path.join(root, 'ios/fastlane/metadata/primary_category.txt'), 'FINANCE');
+    for (const locale of ['de-DE', 'en-US']) {
+      for (const f of ['name', 'description', 'keywords', 'subtitle']) {
+        writeText(path.join(root, 'ios/fastlane/metadata', locale, `${f}.txt`), `${locale} ${f}`);
+      }
     }
-  }
-  // Count is well above MIN_STORE_FIELDS=12 (assert for safety).
-  let storeN = 0;
-  function walkStore(d) {
-    if (!fs.existsSync(d)) return;
-    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
-      const p = path.join(d, e.name);
-      if (e.isDirectory()) {
-        if (e.name !== 'images') walkStore(p);
-      } else if (e.name.endsWith('.txt')) storeN += 1;
+    assert.ok(countStoreFields(root) >= MIN_STORE_FIELDS, `fixture store fields ${countStoreFields(root)}`);
+  } else {
+    // Exactly N fields: fill android/en-US first, then ios/global, then ios/en-US.
+    let n = 0;
+    const candidates = [];
+    for (const f of ['title', 'short_description', 'full_description', 'changelogs/default']) {
+      candidates.push(['android/fastlane/metadata/android/en-US', f]);
     }
+    candidates.push(['ios/fastlane/metadata', 'copyright']);
+    candidates.push(['ios/fastlane/metadata', 'primary_category']);
+    for (const f of ['name', 'description', 'keywords', 'subtitle', 'release_notes', 'promotional_text']) {
+      candidates.push(['ios/fastlane/metadata/en-US', f]);
+    }
+    for (const [dir, f] of candidates) {
+      if (n >= storeFieldCount) break;
+      writeText(path.join(root, dir, `${f}.txt`), `field ${n}`);
+      n += 1;
+    }
+    // Empty locale dirs so roots exist even if N is small
+    fs.mkdirSync(path.join(root, 'android/fastlane/metadata/android/en-US'), {
+      recursive: true,
+    });
+    assert.strictEqual(countStoreFields(root), storeFieldCount);
   }
-  walkStore(path.join(root, 'android/fastlane/metadata'));
-  walkStore(path.join(root, 'ios/fastlane/metadata'));
-  assert.ok(storeN >= MIN_STORE_FIELDS, `fixture store fields ${storeN}`);
 
   // Assets
   for (let i = 0; i < assetCount; i++) {
     writePng(path.join(root, 'img/dfx', `asset-${i}.png`), assetSize);
   }
-  writePng(path.join(root, 'img/icon.png'), assetSize);
+  // icon.png always written when assetCount > 0 so img/ is non-empty for discovery;
+  // when testing asset floor with assetCount = MIN-1, do not double-count: icon is
+  // included in assetCount via loop only when we want full set. Write icon only
+  // as extra for full fixtures (when assetCount >= MIN_ASSETS).
+  if (assetCount >= MIN_ASSETS) {
+    writePng(path.join(root, 'img/icon.png'), assetSize);
+  }
 }
 
 function runBuild(outDir, envExtra = {}) {
@@ -238,12 +284,32 @@ describe('unit - handbook build guards', () => {
   it('refuses output dir equal to the home directory', function () {
     const { fixture } = freshDirs();
     populateValidFixture(fixture);
-    const home = os.homedir();
-    assert.ok(home && home.length > 1, 'test host must have a resolvable home');
+    // Synthetic HOME under tmpRoot only — never use the real user home as
+    // outDir (a failed guard would rmSync it). resolveHomeDir() prefers env.
+    const fakeHome = fs.mkdtempSync(path.join(tmpRoot, 'fake-home-'));
+    writeText(path.join(fakeHome, 'CANARY'), 'keep\n');
 
-    const r = runBuild(home, { HANDBOOK_REPO_ROOT: fixture, HOME: home });
+    const r = runBuild(fakeHome, {
+      HANDBOOK_REPO_ROOT: fixture,
+      HOME: fakeHome,
+    });
     assert.notStrictEqual(r.status, 0, r.stderr);
     assert.match(r.stderr, /home directory/i);
+    assert.ok(fs.existsSync(path.join(fakeHome, 'CANARY')), 'fake home not emptied');
+  });
+
+  it('refuses output dir equal to a discovery source root', function () {
+    const { fixture } = freshDirs();
+    populateValidFixture(fixture);
+    const shotRoot = path.join(fixture, 'docs/handbook/screenshots');
+    const canary = path.join(shotRoot, 'group', 'shot-00.png');
+    assert.ok(fs.existsSync(canary), 'fixture must have a screenshot canary');
+
+    const r = runBuild(shotRoot, { HANDBOOK_REPO_ROOT: fixture });
+    assert.notStrictEqual(r.status, 0, r.stderr);
+    assert.match(r.stderr, /discovery source/i);
+    assert.match(r.stderr, /docs\/handbook\/screenshots/);
+    assert.ok(fs.existsSync(canary), 'screenshot source must not be deleted');
   });
 
   it('rejects screenshot PNG just below MIN_PNG_BYTES', function () {
@@ -348,10 +414,163 @@ describe('unit - handbook build guards', () => {
     assert.strictEqual(r.status, 0, `stderr=${r.stderr}\nstdout=${r.stdout}`);
     assert.ok(fs.existsSync(path.join(out, 'index.html')));
     assert.ok(fs.existsSync(path.join(out, 'manifest.json')));
+    assert.ok(fs.existsSync(path.join(out, 'handbook.js')));
+    const indexHtml = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+    assert.ok(!/<script(?![^>]*\bsrc=)/i.test(indexHtml), 'index.html must not contain inline <script> (CSP script-src self)');
+    assert.match(indexHtml, /src="handbook\.js"/);
     const manifest = JSON.parse(fs.readFileSync(path.join(out, 'manifest.json'), 'utf8'));
     assert.ok(manifest.counts.screenshots >= MIN_SCREENSHOTS);
     assert.ok(manifest.counts.docs >= MIN_DOCS);
     assert.ok(manifest.counts.store >= MIN_STORE_FIELDS);
     assert.ok(manifest.counts.assets >= MIN_ASSETS);
+  });
+
+  // --- Floor guards (mutation target: `if (…length < MIN_*)` → `if (false)`) ---
+
+  it('floor guard rejects fewer than MIN_SCREENSHOTS valid PNGs', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, {
+      shotCount: MIN_SCREENSHOTS - 1,
+      shotSize: MIN_PNG_BYTES + 1,
+    });
+    const r = runBuild(out, { HANDBOOK_REPO_ROOT: fixture });
+    assert.notStrictEqual(r.status, 0, r.stderr);
+    assert.match(r.stderr, /MIN_SCREENSHOTS/);
+    assert.match(r.stderr, new RegExp(String(MIN_SCREENSHOTS - 1)));
+  });
+
+  it('floor guard rejects fewer than MIN_DOCS markdown files', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, {
+      docCount: MIN_DOCS - 1,
+      shotSize: MIN_PNG_BYTES + 1,
+    });
+    const r = runBuild(out, { HANDBOOK_REPO_ROOT: fixture });
+    assert.notStrictEqual(r.status, 0, r.stderr);
+    assert.match(r.stderr, /MIN_DOCS/);
+  });
+
+  it('floor guard rejects fewer than MIN_STORE_FIELDS store fields', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, {
+      storeFieldCount: MIN_STORE_FIELDS - 1,
+      shotSize: MIN_PNG_BYTES + 1,
+    });
+    const r = runBuild(out, { HANDBOOK_REPO_ROOT: fixture });
+    assert.notStrictEqual(r.status, 0, r.stderr);
+    assert.match(r.stderr, /MIN_STORE_FIELDS/);
+  });
+
+  it('floor guard rejects fewer than MIN_ASSETS asset PNGs', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, {
+      assetCount: MIN_ASSETS - 1,
+      shotSize: MIN_PNG_BYTES + 1,
+    });
+    const r = runBuild(out, { HANDBOOK_REPO_ROOT: fixture });
+    assert.notStrictEqual(r.status, 0, r.stderr);
+    assert.match(r.stderr, /MIN_ASSETS/);
+  });
+
+  it('rejects screenshot PNG of exactly MIN_PNG_BYTES (strict upper-bound floor)', function () {
+    // Pins `st.size <= minBytes` — mutation to `<` would accept exact size.
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, {
+      shotCount: 1,
+      shotSize: MIN_PNG_BYTES,
+    });
+    const r = runBuild(out, { HANDBOOK_REPO_ROOT: fixture });
+    assert.notStrictEqual(r.status, 0, r.stderr);
+    assert.match(r.stderr, /PNG guard/i);
+    assert.match(r.stderr, new RegExp(`${MIN_PNG_BYTES} bytes`));
+  });
+
+  // --- Render / sanitize (need marked + full floors) ---
+
+  it('strips dangerous HTML and rewrites or drops local links', function () {
+    const { fixture, out } = freshDirs();
+    // Markdown links first (so marked parses them); then raw HTML vectors.
+    const evilScheme = ['java', 'script', ':'].join('');
+    const danger =
+      '# Title\n\n' +
+      '[broken](./missing-file.txt)\n\n' +
+      '[peer](./DOC-1.md)\n\n' +
+      '<script>alert(1)</script>\n\n' +
+      '<img src=x onerror="alert(2)">\n\n' +
+      '<a href="' +
+      evilScheme +
+      'alert(3)">js</a>\n';
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docContents: { 'DOC-0.md': danger },
+    });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const html = fs.readFileSync(path.join(out, 'docs/DOC-0.html'), 'utf8');
+    assert.ok(!/<script/i.test(html), 'script tags stripped');
+    assert.ok(!/onerror/i.test(html), 'on* handlers stripped');
+    assert.ok(!new RegExp('java' + 'script:', 'i').test(html), 'dangerous URL scheme neutralized');
+    // Link becomes plain label text; no remaining href to the missing path.
+    assert.ok(!/href="[^"]*missing-file/i.test(html), 'unresolved local href stripped');
+    assert.match(html, /href="DOC-1\.html"/);
+    assert.match(r.stderr, /stripped unresolved local link/);
+  });
+
+  it('escapes HTML special characters in store field content on index', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    // Overwrite one store field with special chars
+    writeText(path.join(fixture, 'android/fastlane/metadata/android/en-US/title.txt'), `A <b> & "q" 's'`);
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+    assert.ok(index.includes('&lt;b&gt;'), 'angle brackets escaped');
+    assert.ok(index.includes('&amp;'), 'ampersand escaped');
+    assert.ok(index.includes('&quot;q&quot;') || index.includes('&#39;'), 'quotes escaped');
+    assert.ok(!index.includes('A <b> & "q"'), 'raw specials must not appear');
+  });
+
+  it('dedupes heading slugs within one document', function () {
+    const { fixture, out } = freshDirs();
+    // ["A","A","A-1","A"] → a, a-1, a-1-1, a-2 (GitHub-compatible counter)
+    const md = '# A\n\n# A\n\n# A-1\n\n# A\n';
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docContents: { 'DOC-0.md': md },
+    });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const html = fs.readFileSync(path.join(out, 'docs/DOC-0.html'), 'utf8');
+    const ids = [...html.matchAll(/id="([^"]+)"/g)].map(m => m[1]);
+    assert.deepStrictEqual(ids, ['a', 'a-1', 'a-1-1', 'a-2']);
+  });
+
+  it('percent-encodes # and ? in asset href/src paths', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    writePng(path.join(fixture, 'img/dfx', 'hash#tag.png'), MIN_ASSET_PNG_BYTES + 50);
+    writePng(path.join(fixture, 'img/dfx', 'q?x.png'), MIN_ASSET_PNG_BYTES + 50);
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+    assert.match(index, /hash%23tag\.png/);
+    assert.match(index, /q%3Fx\.png/);
+    assert.ok(fs.existsSync(path.join(out, 'assets/dfx/hash#tag.png')));
   });
 });
