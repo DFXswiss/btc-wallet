@@ -17,28 +17,15 @@ appId: swiss.dfx.bitcoin
     visible: 'Feature Flags'
     timeout: 15000
 
+# On-Chain-Wallet → Wallet-Einstellungen (committiert als 03-wallet-einstellungen).
+# Lightning-Wallet / Multi-Device-Wallet: Menueeintraege oeffnen keinen eigenen
+# Screen (graue Duplikate des Einstellungsmenues) — daher kein takeScreenshot
+# und kein Tap; die Lightning-Wallet-Settings deckt 15-lightning-einstellungen
+# unter 03-einstellungen/19-lightning-wallet ab.
 - tapOn: 'On-Chain-Wallet'
 - waitForAnimationToEnd:
     timeout: 6000
-- takeScreenshot: shots/03-einstellungen/03-onchain-wallet
-- tapOn: 'Settings'
-- extendedWaitUntil:
-    visible: 'Feature Flags'
-    timeout: 15000
-
-- tapOn: 'Lightning-Wallet'
-- waitForAnimationToEnd:
-    timeout: 6000
-- takeScreenshot: shots/03-einstellungen/04-lightning-wallet
-- tapOn: 'Settings'
-- extendedWaitUntil:
-    visible: 'Feature Flags'
-    timeout: 15000
-
-- tapOn: 'Multi-Device-Wallet'
-- waitForAnimationToEnd:
-    timeout: 6000
-- takeScreenshot: shots/03-einstellungen/05-multi-device-wallet
+- takeScreenshot: shots/03-einstellungen/03-wallet-einstellungen
 - tapOn: 'Settings'
 - extendedWaitUntil:
     visible: 'Feature Flags'

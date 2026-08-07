@@ -43,7 +43,10 @@ appId: swiss.dfx.bitcoin
 - extendedWaitUntil:
     visible: 'Bereit'
     timeout: 25000
+# Backup-Erklaerung (vor dem Phrase-Screen).
+- takeScreenshot: shots/02-wallet/02-backup-erklaerung
 - tapOn: 'Bereit'
 - waitForAnimationToEnd:
     timeout: 9000
-- takeScreenshot: shots/11-geschuetzt/04-wiederherstellungsphrase
+# Privacy.enableBlur — Maestro oft schwarz; ggf. simctl io screenshot.
+- takeScreenshot: shots/02-wallet/08-wiederherstellungsphrase

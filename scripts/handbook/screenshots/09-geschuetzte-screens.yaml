@@ -34,7 +34,10 @@ appId: swiss.dfx.bitcoin
     visible: 'On-Chain-Wallet'
     timeout: 15000
 
-# Jetzt die zuvor schwarzen Screens
+# Screens hinter Privacy.enableBlur(). Ohne Blur-Off liefert Maestros
+# takeScreenshot oft nur Schwarz — dann mit
+#   xcrun simctl io <udid> screenshot <pfad>
+# aufnehmen (committeter Satz wurde so erzeugt).
 - tapOn: 'On-Chain-Wallet'
 - extendedWaitUntil:
     visible: 'Adressen anzeigen'
@@ -42,7 +45,8 @@ appId: swiss.dfx.bitcoin
 - tapOn: 'Adressen anzeigen'
 - waitForAnimationToEnd:
     timeout: 12000
-- takeScreenshot: shots/11-geschuetzt/01-adressen
+# Privacy.enableBlur — Maestro oft schwarz; ggf. simctl io screenshot.
+- takeScreenshot: shots/02-wallet/05-adressen
 - tapOn:
     point: '20%,10%'
 - extendedWaitUntil:
@@ -52,7 +56,8 @@ appId: swiss.dfx.bitcoin
 - tapOn: 'Exportieren / Backup'
 - waitForAnimationToEnd:
     timeout: 12000
-- takeScreenshot: shots/11-geschuetzt/02-export-backup
+# Privacy.enableBlur — Maestro oft schwarz; ggf. simctl io screenshot.
+- takeScreenshot: shots/02-wallet/06-export-backup
 - tapOn:
     point: '20%,10%'
 - extendedWaitUntil:
@@ -62,4 +67,5 @@ appId: swiss.dfx.bitcoin
 - tapOn: 'Wallet xPub zeigen'
 - waitForAnimationToEnd:
     timeout: 12000
-- takeScreenshot: shots/11-geschuetzt/03-xpub
+# Privacy.enableBlur — Maestro oft schwarz; ggf. simctl io screenshot.
+- takeScreenshot: shots/02-wallet/07-xpub

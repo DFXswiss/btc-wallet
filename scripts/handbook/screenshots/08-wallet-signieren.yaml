@@ -13,4 +13,4 @@ appId: swiss.dfx.bitcoin
 - tapOn: 'Meldung signieren/verifizieren'
 - waitForAnimationToEnd:
     timeout: 12000
-- takeScreenshot: shots/02-wallet/07-signieren-verifizieren
+- takeScreenshot: shots/02-wallet/03-signieren-verifizieren

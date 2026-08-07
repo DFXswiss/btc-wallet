@@ -48,6 +48,8 @@ appId: swiss.dfx.bitcoin
     visible: 'Werkzeuge'
     timeout: 15000
 
+# Werkzeuge-Unterseiten: Nummern am committeten Satz (17/18). Die Uebersicht
+# (16-werkzeuge-uebersicht) deckt 08b-werkzeuge.yaml ab.
 - tapOn: 'Werkzeuge'
 - extendedWaitUntil:
     visible: 'Ist dies meine Adresse'
@@ -55,7 +57,7 @@ appId: swiss.dfx.bitcoin
 - tapOn: 'Ist dies meine Adresse'
 - waitForAnimationToEnd:
     timeout: 8000
-- takeScreenshot: shots/03-einstellungen/16-ist-dies-meine-adresse
+- takeScreenshot: shots/03-einstellungen/17-ist-dies-meine-adresse
 - tapOn: 'Werkzeuge'
 - extendedWaitUntil:
     visible: 'Transaktion publizieren'
@@ -63,4 +65,4 @@ appId: swiss.dfx.bitcoin
 - tapOn: 'Transaktion publizieren'
 - waitForAnimationToEnd:
     timeout: 8000
-- takeScreenshot: shots/03-einstellungen/17-transaktion-publizieren
+- takeScreenshot: shots/03-einstellungen/18-transaktion-publizieren

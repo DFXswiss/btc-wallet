@@ -1,6 +1,10 @@
 appId: swiss.dfx.bitcoin
 ---
 - runFlow: _setup.yaml
+# Wallet-Uebersicht nach _setup (Home mit Wallet Backup).
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: shots/02-wallet/01-uebersicht
 - tapOn:
     point: '50%,50%'
 - waitForAnimationToEnd:

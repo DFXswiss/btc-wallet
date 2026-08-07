@@ -41,4 +41,5 @@ appId: swiss.dfx.bitcoin
 - tapOn: 'Wallet xPub zeigen'
 - waitForAnimationToEnd:
     timeout: 12000
-- takeScreenshot: shots/11-geschuetzt/03-xpub
+# Privacy.enableBlur — Maestro oft schwarz; ggf. simctl io screenshot.
+- takeScreenshot: shots/02-wallet/07-xpub

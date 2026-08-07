@@ -213,6 +213,12 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home
 maestro test scripts/handbook/screenshots/01-onboarding.yaml
 ```
 
+Jedes committete PNG hat genau einen erzeugenden `takeScreenshot:`-Schritt, und
+kein Flow zielt auf einen Namen, den es im Satz nicht gibt — nachpruefbar, indem
+man alle `takeScreenshot: shots/<pfad>` gegen `docs/handbook/screenshots/**.png`
+abgleicht (Soll: 42 Treffer, 0 verwaist, 0 ohne Flow). Wer den Satz erweitert,
+haelt diese Zuordnung mit; sonst ist die Wiederholbarkeit nur behauptet.
+
 `_setup.yaml` ist der gemeinsame Vorlauf: frischer App-Start, Wallet anlegen,
 LNDHub ueberspringen und den Mitteilungs-Dialog einmal abraeumen, damit er die
 spaetere Navigation nicht verdeckt. Jeder Flow bindet ihn per `runFlow` ein,
