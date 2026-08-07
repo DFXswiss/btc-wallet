@@ -101,3 +101,6 @@ audit/local-build-unpacked/
 # Sentry (contains a local auth.token; CI must supply SENTRY_AUTH_TOKEN via env instead)
 android/sentry.properties
 ios/sentry.properties
+# Handbook (scripts/handbook) — isolierte marked-Installation und lokales Build-Output
+_handbook-deps/
+docs/handbook/build/

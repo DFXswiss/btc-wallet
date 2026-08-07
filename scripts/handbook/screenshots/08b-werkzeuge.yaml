@@ -1,0 +1,15 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: _setup.yaml
+- tapOn:
+    point: '90%,10%'
+- extendedWaitUntil:
+    visible: 'Werkzeuge'
+    timeout: 20000
+- tapOn: 'Werkzeuge'
+- extendedWaitUntil:
+    visible: 'Transaktion publizieren'
+    timeout: 15000
+- takeScreenshot: shots/03-einstellungen/16-werkzeuge-uebersicht
+# 17-ist-dies-meine-adresse und 18-transaktion-publizieren: nur in
+# 08-einstellungen-tiefe.yaml, damit jedes PNG genau einen Erzeuger hat.
