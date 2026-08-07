@@ -8,6 +8,8 @@ import loc from '../../loc';
 import { useSell } from '../../api/dfx/hooks/sell.hook';
 import { useFiat } from '../../api/dfx/hooks/fiat.hook';
 import { SellInfo } from '../../api/dfx/definitions/sell';
+import { DfxService } from '../../api/dfx/contexts/session.context';
+import { DfxMaxAmount } from '../../helpers/dfxMaxAmount';
 import { Icon } from 'react-native-elements';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { HDSegwitBech32Wallet, WatchOnlyWallet } from '../../class';
@@ -82,7 +84,10 @@ const Sell = () => {
       const requestedSatPerByte = Number(networkTransactionFees.fastestFee);
       await Utils.withRetry(() => wallet.fetchUtxo());
       const lutxo = wallet.getUtxo();
-      const targets = [{ address: sell?.deposit.address, value: currency.btcToSatoshi(amount) }];
+      const isMaxAmount = await DfxMaxAmount.wasConfirmed(walletId, DfxService.SELL, amount);
+      const targets = isMaxAmount
+        ? [{ address: sell?.deposit.address }]
+        : [{ address: sell?.deposit.address, value: currency.btcToSatoshi(amount) }];
       const { tx, outputs, psbt, fee } = wallet.createTransaction(
         lutxo,
         targets,

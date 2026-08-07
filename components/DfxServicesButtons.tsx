@@ -24,6 +24,7 @@ import { AbstractHDElectrumWallet } from '../class/wallets/abstract-hd-electrum-
 import { BlueText } from '../BlueComponents';
 import { LightningLdsWallet } from '../class/wallets/lightning-lds-wallet';
 import { useWalletContext } from '../contexts/wallet.context';
+import { DfxMaxAmount } from '../helpers/dfxMaxAmount';
 
 const currency = require('../blue_modules/currency');
 
@@ -114,6 +115,9 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
     setIsHandlingOpenServices(true);
     try {
       const maxBalance = await getBalanceByDfxService(service);
+      if (wallet.chain === Chain.ONCHAIN && (service === DfxService.SELL || service === DfxService.SWAP)) {
+        await DfxMaxAmount.remember(wallet.getID(), service, maxBalance);
+      }
       await openServices(wallet.getID(), new BigNumber(currency.satoshiToBTC(maxBalance)).toString(), service);
     } catch (e: any) {
       Alert.alert('Something went wrong', e.message?.toString(), [
