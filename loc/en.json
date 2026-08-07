@@ -306,6 +306,8 @@
     "passwords_do_not_match": "Passwords do not match.",
     "plausible_deniability": "Plausible Deniability",
     "privacy": "Privacy",
+    "privacy_prevent_screenshots": "Prevent Screenshots",
+    "privacy_prevent_screenshots_explanation": "Block screenshots and screen recording on sensitive screens, such as your backup phrase, keys and addresses. Off by default.",
     "privacy_read_clipboard": "Read Clipboard",
     "privacy_system_settings": "System Settings",
     "privacy_quickactions": "Wallet Shortcuts",
