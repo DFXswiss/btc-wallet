@@ -116,7 +116,7 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
     try {
       const maxBalance = await getBalanceByDfxService(service);
       if (wallet.chain === Chain.ONCHAIN && (service === DfxService.SELL || service === DfxService.SWAP)) {
-        await DfxMaxAmount.remember(wallet.getID(), service, maxBalance);
+        await DfxMaxAmount.remember(wallet.getID(), service, maxBalance, wallet.getBalance());
       }
       await openServices(wallet.getID(), new BigNumber(currency.satoshiToBTC(maxBalance)).toString(), service);
     } catch (e: any) {

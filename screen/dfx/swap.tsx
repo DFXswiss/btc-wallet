@@ -87,7 +87,7 @@ const Swap = () => {
       const requestedSatPerByte = Number(networkTransactionFees.fastestFee);
       await Utils.withRetry(() => wallet.fetchUtxo());
       const lutxo = wallet.getUtxo();
-      const isMaxAmount = await DfxMaxAmount.wasConfirmed(walletId, DfxService.SWAP, amount);
+      const isMaxAmount = await DfxMaxAmount.wasConfirmed(walletId, DfxService.SWAP, amount, wallet.getBalance());
       const targets = isMaxAmount
         ? [{ address: swapInfo?.deposit.address }]
         : [{ address: swapInfo?.deposit.address, value: currency.btcToSatoshi(amount) }];
@@ -203,20 +203,16 @@ const Swap = () => {
           </View>
           <View style={styles.buttonContainer}>
             <View style={styles.button}>
-              {isConfirming ? (
-                <ActivityIndicator />
-              ) : (
-                <BlueButton
-                  onPress={() => {
-                    if (isConfirming) return;
-                    setIsConfirming(true);
-                    handleConfirm()
-                      .catch(handleError)
-                      .finally(() => setIsConfirming(false));
-                  }}
-                  title={loc.swap.confirm}
-                />
-              )}
+              <BlueButton
+                onPress={() => {
+                  setIsConfirming(true);
+                  handleConfirm()
+                    .catch(handleError)
+                    .finally(() => setIsConfirming(false));
+                }}
+                title={loc.swap.confirm}
+                isLoading={isConfirming}
+              />
             </View>
           </View>
         </View>

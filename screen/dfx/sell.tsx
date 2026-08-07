@@ -84,7 +84,7 @@ const Sell = () => {
       const requestedSatPerByte = Number(networkTransactionFees.fastestFee);
       await Utils.withRetry(() => wallet.fetchUtxo());
       const lutxo = wallet.getUtxo();
-      const isMaxAmount = await DfxMaxAmount.wasConfirmed(walletId, DfxService.SELL, amount);
+      const isMaxAmount = await DfxMaxAmount.wasConfirmed(walletId, DfxService.SELL, amount, wallet.getBalance());
       const targets = isMaxAmount
         ? [{ address: sell?.deposit.address }]
         : [{ address: sell?.deposit.address, value: currency.btcToSatoshi(amount) }];
@@ -190,21 +190,17 @@ const Sell = () => {
           </View>
           <View style={styles.buttonContainer}>
             <View style={styles.button}>
-              {isConfirming ? (
-                <ActivityIndicator />
-              ) : (
-                <BlueButton
-                  onPress={() => {
-                    if (isConfirming) return;
-                    setIsConfirming(true);
-                    handleConfirm()
-                      .catch(handleError)
-                      .finally(() => setIsConfirming(false));
-                  }}
-                  title={loc.sell.confirm}
-                  testID="SellConfirm"
-                />
-              )}
+              <BlueButton
+                onPress={() => {
+                  setIsConfirming(true);
+                  handleConfirm()
+                    .catch(handleError)
+                    .finally(() => setIsConfirming(false));
+                }}
+                title={loc.sell.confirm}
+                testID="SellConfirm"
+                isLoading={isConfirming}
+              />
             </View>
           </View>
         </View>

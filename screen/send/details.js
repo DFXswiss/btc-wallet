@@ -422,7 +422,17 @@ const SendDetails = () => {
       // coinControl.js), so reading it later (e.g. after createPsbtTransaction()'s own
       // await for the change address) could pick up someone else's concurrent write
       // instead of the fetch we just authoritatively waited for
-      freshUtxo = utxo || wallet.getUtxo();
+      const currentUtxo = wallet.getUtxo();
+      if (utxo) {
+        // Coin Control restricts signing to a specific, earlier-selected set of coins - the array
+        // itself predates this refresh, so re-validate it against what's still actually unspent
+        // rather than trusting it outright (a selected coin could have been spent meanwhile).
+        const stillUnspent = new Set(currentUtxo.map(({ txid, vout }) => `${txid}:${vout}`));
+        freshUtxo = utxo.filter(({ txid, vout }) => stillUnspent.has(`${txid}:${vout}`));
+        if (freshUtxo.length !== utxo.length) throw new Error('Selected coin is no longer available');
+      } else {
+        freshUtxo = currentUtxo;
+      }
     } catch (e) {
       setIsLoading(false);
       Alert.alert(loc.errors.error, loc.send.details_utxo_refresh_failed);
