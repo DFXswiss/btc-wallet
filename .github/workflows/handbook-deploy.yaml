@@ -6,21 +6,27 @@
 
 name: Handbook Deploy
 
+# Automatic deploy is suspended until all three are true:
+#   1. handbook.taro.dfx.swiss resolves (DNS)
+#   2. reverse proxy routes that host to the handbook container
+#   3. deploy host has service dfx-taro-handbook
+# Until then only workflow_dispatch runs (no red jobs on every docs/*.md push).
+# Re-enable: uncomment the push: block below (path filters preserved).
 on:
-  push:
-    branches: [develop]
-    paths:
-      - 'docs/**'
-      - 'scripts/handbook/**'
-      - 'android/fastlane/metadata/**'
-      - 'ios/fastlane/metadata/**'
-      - 'img/dfx/**'
-      - 'img/icon*.png'
-      - '*.md'
-      - 'Dockerfile.handbook'
-      - 'handbook.nginx.conf'
-      - '.github/workflows/handbook-deploy.yaml'
-      - '.github/workflows/handbook-check.yaml'
+  # push:
+  #   branches: [develop]
+  #   paths:
+  #     - 'docs/**'
+  #     - 'scripts/handbook/**'
+  #     - 'android/fastlane/metadata/**'
+  #     - 'ios/fastlane/metadata/**'
+  #     - 'img/dfx/**'
+  #     - 'img/icon*.png'
+  #     - '*.md'
+  #     - 'Dockerfile.handbook'
+  #     - 'handbook.nginx.conf'
+  #     - '.github/workflows/handbook-deploy.yaml'
+  #     - '.github/workflows/handbook-check.yaml'
   workflow_dispatch:
 
 permissions:

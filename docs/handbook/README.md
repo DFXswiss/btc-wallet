@@ -159,11 +159,18 @@ Ohne `HANDBOOK_USER` / `HANDBOOK_PASSWORD` startet der Container **nicht**
 
 ## Deployment
 
-Bei Push auf `develop` (relevante Pfade) baut
-`.github/workflows/handbook-deploy.yaml` das Image
-`dfxswiss/dfx-taro-handbook:latest` (linux/arm64), pusht es und löst den
-serverseitigen Deploy-Hook aus. Anschliessend Smoke gegen
+Der Deploy-Workflow (`.github/workflows/handbook-deploy.yaml`) baut das Image
+`dfxswiss/dfx-taro-handbook:latest` (linux/arm64), pusht es, löst den
+serverseitigen Deploy-Hook aus und pollt anschliessend
 `https://handbook.taro.dfx.swiss/healthz`.
+
+**Derzeit nur manuell** (`workflow_dispatch`): automatischer Deploy auf Push
+nach `develop` ist ausgesetzt, solange (1) `handbook.taro.dfx.swiss` nicht
+auflöst, (2) der Reverse-Proxy fehlt und (3) auf dem Deploy-Host kein Service
+`dfx-taro-handbook` existiert. Sonst würde jeder Merge mit handbook-relevanten
+Pfaden (u. a. `*.md`, `docs/**`) auf `develop` rot enden, oft nach bereits
+gepushtem Image. Der `push:`-Block mit den Pfadfiltern liegt auskommentiert im
+Workflow und wird reaktiviert, sobald die drei Bedingungen erfüllt sind.
 
 Der Deploy-Workflow verlangt die GitHub-Secrets `DOCKER_USERNAME`,
 `DOCKER_PASSWORD`, `DEPLOY_PRD_HOST`, `DEPLOY_PRD_USER`, `DEPLOY_PRD_SSH_KEY`
@@ -177,10 +184,10 @@ Basic-Auth-Zugangsdaten werden **ausschliesslich** in der Deployment-Umgebung
 als `HANDBOOK_USER` / `HANDBOOK_PASSWORD` gesetzt. Weder Klartext noch Hash
 gehören in dieses öffentliche Repository.
 
-Pull Requests (nicht-Draft) laufen durch
-`.github/workflows/handbook-check.yaml`: Image-Build ohne Push,
+Der PR-Check (`.github/workflows/handbook-check.yaml`) ist davon **unberührt**
+und läuft weiter auf jedem nicht-Draft-PR: Image-Build ohne Push,
 Container-Smoke (`/healthz`, Auth-Wand 401/200, Stichprobe aus
-`manifest.json` je Kategorie).
+`manifest.json` je Kategorie, Host-vs-Image-Artefaktzahlen).
 
 ## Screenshots erzeugen
 
