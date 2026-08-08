@@ -68,13 +68,19 @@ export class DfxMaxAmount {
     confirmedAmountBtc: string,
     currentWalletBalanceSats: number,
   ): Promise<boolean> {
-    const stored = await AsyncStorage.getItem(DfxMaxAmount.key(walletId, service));
-    if (!stored) return false;
+    try {
+      const stored = await AsyncStorage.getItem(DfxMaxAmount.key(walletId, service));
+      if (!stored) return false;
 
-    const { amountSats, walletBalanceSats }: StoredMaxAmount = JSON.parse(stored);
-    if (walletBalanceSats !== currentWalletBalanceSats) return false;
+      const { amountSats, walletBalanceSats }: StoredMaxAmount = JSON.parse(stored);
+      if (walletBalanceSats !== currentWalletBalanceSats) return false;
 
-    const confirmedSats = currency.btcToSatoshi(confirmedAmountBtc);
-    return Math.abs(amountSats - confirmedSats) <= SATS_TOLERANCE;
+      const confirmedSats = currency.btcToSatoshi(confirmedAmountBtc);
+      return Math.abs(amountSats - confirmedSats) <= SATS_TOLERANCE;
+    } catch (_) {
+      // An unreadable or corrupt stored value must not block the confirm - fall back to the
+      // fixed-value path, which never sends more than the amount the user actually confirmed.
+      return false;
+    }
   }
 }
