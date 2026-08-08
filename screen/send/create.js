@@ -13,7 +13,7 @@ import { BitcoinUnit } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 import { DynamicQRCode } from '../../components/DynamicQRCode';
 import { isDesktop } from '../../blue_modules/environment';
-import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import alert from '../../components/Alert';
 const bitcoin = require('bitcoinjs-lib');
 const currency = require('../../blue_modules/currency');
@@ -43,13 +43,17 @@ const SendCreate = () => {
     },
   });
 
-  useEffect(() => {
-    Privacy.enableBlur();
+  // on focus, not on mount: the setting can change while this screen sits in the stack, and
+  // enableBlur() reads it at call time - a mount-only call would keep the stale decision
+  useFocusEffect(
+    useCallback(() => {
+      Privacy.enableBlur();
 
-    return () => {
-      Privacy.disableBlur();
-    };
-  }, []);
+      return () => {
+        Privacy.disableBlur();
+      };
+    }, []),
+  );
 
   const exportTXN = useCallback(async () => {
     const fileName = `${Date.now()}.txn`;
