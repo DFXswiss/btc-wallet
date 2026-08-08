@@ -203,11 +203,11 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home
 maestro test scripts/handbook/screenshots/01-onboarding.yaml
 ```
 
-Jedes committete PNG hat genau einen erzeugenden `takeScreenshot:`-Schritt —
-nachpruefbar, indem man alle `takeScreenshot: shots/<pfad>` gegen
-`docs/handbook/screenshots/**.png` abgleicht (Soll: 41 Treffer, 0 verwaist). Wer
-den Satz erweitert, haelt diese Zuordnung mit; sonst ist die Wiederholbarkeit nur
-behauptet.
+Jedes committete PNG hat genau einen erzeugenden `takeScreenshot:`-Schritt, und
+kein Flow zielt auf einen Namen, den es im Satz nicht gibt — nachpruefbar, indem
+man alle `takeScreenshot: shots/<pfad>` gegen `docs/handbook/screenshots/**.png`
+abgleicht (Soll: 41 Treffer, 0 verwaist, 0 ohne Flow). Wer den Satz erweitert,
+haelt diese Zuordnung mit; sonst ist die Wiederholbarkeit nur behauptet.
 
 `_setup.yaml` ist der gemeinsame Vorlauf fuer die meisten Flows: frischer
 App-Start, Wallet anlegen und den Mitteilungs-Dialog einmal abraeumen. Die
@@ -275,10 +275,10 @@ Das Issue verlangt „jeden Screen, in jeder Variante, in jedem Szenario". Diese
 Stand erfuellt das **nicht**. Die Zahlen, damit die Luecke nachpruefbar ist statt
 ungefaehr: `navigation/` registriert **109** Routen, davon 17 reine
 Stack-Wrapper (Endung `Root`), bleiben **92 echte Screens**. Die **41**
-committeten PNGs bilden davon **33 verschiedene Screens** ab — fuenf Screens
+committeten PNGs bilden davon **33 verschiedene Screens** ab — sechs Screens
 sind mehrfach abgebildet, weil sie in mehreren Varianten vorkommen:
-`WalletTransactions` (3 Bilder), `ReceiveDetails`, `WalletAsset`,
-`WalletDetails` und `Tools` (je 2). **59 Screens fehlen ganz.**
+`WalletTransactions` und `AddLightning` (je 3 Bilder), `ReceiveDetails`,
+`WalletAsset`, `WalletDetails` und `Tools` (je 2). **59 Screens fehlen ganz.**
 
 Die Luecke ist nicht zufaellig, sondern hat drei benennbare Ursachen:
 
