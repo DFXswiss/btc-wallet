@@ -1630,4 +1630,100 @@ describe('unit - handbook build guards', () => {
       },
     );
   });
+
+  // --- Caption Erklärsatz (cap-text) is emitted, scoped, and escaped ---
+
+  it('emits one escaped cap-text under the title for each content caption with text', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    // Fixture group/shot-NN.png: three controlled captions on de + fr.
+    // shot-00: title + text; shot-01: title only (no empty cap-text);
+    // shot-02: title + text with HTML specials.
+    const evilDe = 'A <b> & "q" DE';
+    const evilFr = 'A <b> & "q" FR';
+    withPatchedContent(
+      'de',
+      data => {
+        data.chapters = [
+          {
+            id: 'cap-probe',
+            title: 'Caption probe DE',
+            summary: '',
+            intro: '',
+            groups: ['group'],
+          },
+        ];
+        data.captions = {
+          'group/shot-00': { title: 'Titel DE 00', text: 'Erklaersatz DE 00' },
+          'group/shot-01': { title: 'Titel DE 01 only' },
+          'group/shot-02': { title: 'Titel DE evil', text: evilDe },
+        };
+      },
+      () => {
+        withPatchedContent(
+          'fr',
+          data => {
+            data.captions = Object.assign({}, data.captions, {
+              'group/shot-00': { title: 'Titre FR 00', text: 'Phrase FR 00' },
+              'group/shot-01': { title: 'Titre FR 01 only' },
+              'group/shot-02': { title: 'Titre FR evil', text: evilFr },
+            });
+          },
+          () => {
+            const r = runBuild(out, {
+              HANDBOOK_REPO_ROOT: fixture,
+              NODE_PATH: markedNodePath,
+              GIT_SHA: 't',
+            });
+            assert.strictEqual(r.status, 0, r.stderr);
+
+            // Exactly two images carry text → exactly two cap-text paragraphs.
+            const expectedWithText = 2;
+
+            function assertCard(html, dataFile, title, bodyText, expectCapText) {
+              const card = html.match(new RegExp(`<figure class="shot-card"[^>]*data-file="${dataFile}"[\\s\\S]*?</figure>`));
+              assert.ok(card, `card for ${dataFile}`);
+              const c = card[0];
+              assert.match(c, new RegExp(`class="name permalink"[^>]*>${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}<`));
+              if (expectCapText) {
+                // Own element under the title row, not merely anywhere on the page.
+                assert.match(c, new RegExp(`class="name permalink"[\\s\\S]*?</div>\\s*<p class="cap-text">${bodyText}</p>`));
+                assert.strictEqual((c.match(/class="cap-text"/g) || []).length, 1, `${dataFile}: one cap-text inside its card`);
+              } else {
+                assert.ok(!/class="cap-text"/.test(c), `${dataFile}: title-only caption must not emit cap-text`);
+                assert.ok(!/<p class="cap-text"><\/p>/.test(c), `${dataFile}: no empty cap-text paragraph`);
+              }
+            }
+
+            const de = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+            const deCaps = de.match(/<p class="cap-text">[\s\S]*?<\/p>/g) || [];
+            assert.strictEqual(
+              deCaps.length,
+              expectedWithText,
+              `de: expected ${expectedWithText} cap-text paragraphs, got ${deCaps.length}`,
+            );
+            assertCard(de, 'shot-00', 'Titel DE 00', 'Erklaersatz DE 00', true);
+            assertCard(de, 'shot-01', 'Titel DE 01 only', null, false);
+            assertCard(de, 'shot-02', 'Titel DE evil', 'A &lt;b&gt; &amp; &quot;q&quot; DE', true);
+            assert.ok(!de.includes(evilDe), 'de: raw evil caption text must not appear');
+
+            // Foreign page: sentence from that locale's content file, not DE.
+            const fr = fs.readFileSync(path.join(out, 'fr/index.html'), 'utf8');
+            const frCaps = fr.match(/<p class="cap-text">[\s\S]*?<\/p>/g) || [];
+            assert.strictEqual(
+              frCaps.length,
+              expectedWithText,
+              `fr: expected ${expectedWithText} cap-text paragraphs, got ${frCaps.length}`,
+            );
+            assertCard(fr, 'shot-00', 'Titre FR 00', 'Phrase FR 00', true);
+            assertCard(fr, 'shot-01', 'Titre FR 01 only', null, false);
+            assertCard(fr, 'shot-02', 'Titre FR evil', 'A &lt;b&gt; &amp; &quot;q&quot; FR', true);
+            assert.ok(!fr.includes('Erklaersatz DE 00'), 'fr must not use DE explanation');
+            assert.ok(!fr.includes(evilFr), 'fr: raw evil caption text must not appear');
+            assert.ok(!fr.includes(evilDe), 'fr: DE evil raw text must not appear');
+          },
+        );
+      },
+    );
+  });
 });
