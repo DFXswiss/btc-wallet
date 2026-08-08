@@ -10,6 +10,7 @@ import { HDSegwitBech32Wallet, MultisigHDWallet, WatchOnlyWallet } from '../../c
 import startImport from '../../class/wallet-import';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import prompt from '../../helpers/prompt';
+import { walletCreatedRoute } from '../../helpers/wallet-created-route';
 
 const ImportWalletDiscovery = () => {
   const navigation = useNavigation();
@@ -49,15 +50,7 @@ const ImportWalletDiscovery = () => {
       await addAndSaveWallet(multisigWallet);
     }
 
-    navigation.dispatch(
-      StackActions.replace('WalletsRoot', {
-        screen: 'AddLightning',
-        params: {
-          walletID: mainWallet.getID(),
-          isOnboarding: true,
-        },
-      }),
-    );
+    navigation.dispatch(StackActions.replace(...walletCreatedRoute()));
   };
 
   const tryMultisigBackup = backupText => {

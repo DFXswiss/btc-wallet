@@ -7,8 +7,14 @@ appId: swiss.dfx.bitcoin
     timeout: 60000
 - tapOn: 'Erstellen'
 - extendedWaitUntil:
-    visible: 'Jetzt überspringen'
+    visible: 'Wallet Backup'
     timeout: 60000
+# Lightning-Wallet ist opt-in: "Hinzufuegen" in der Lightning-Zeile der Uebersicht.
+- tapOn:
+    point: '85%,58%'
+- extendedWaitUntil:
+    visible: 'lightning.space'
+    timeout: 30000
 - tapOn: 'lightning.space'
 - waitForAnimationToEnd:
     timeout: 3000

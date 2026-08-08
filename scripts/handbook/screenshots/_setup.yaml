@@ -12,10 +12,6 @@ appId: swiss.dfx.bitcoin
     timeout: 60000
 - tapOn: 'Erstellen'
 - extendedWaitUntil:
-    visible: 'Jetzt überspringen'
-    timeout: 60000
-- tapOn: 'Jetzt überspringen'
-- extendedWaitUntil:
     visible: 'Wallet Backup'
     timeout: 60000
 # Mitteilungs-Dialog einmal provozieren und abraeumen, damit er spaetere

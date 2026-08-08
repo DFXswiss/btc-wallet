@@ -26,9 +26,8 @@ import Lnurl from '../../../class/lnurl';
 import { AssetDetails, TaprootLdsWallet, TaprootLdsWalletType } from '../../../class/wallets/taproot-lds-wallet';
 
 const AddLightning = () => {
-  const { asset = TaprootLdsWalletType.BTC, isOnboarding = false } = useRoute().params as {
+  const { asset = TaprootLdsWalletType.BTC } = useRoute().params as {
     asset: TaprootLdsWalletType;
-    isOnboarding: boolean;
   };
   const { navigate } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { address, signMessage } = useWalletContext();
@@ -213,7 +212,7 @@ const AddLightning = () => {
           <BlueButton title={loc._.continue} onPress={onCreate} disabled={(useCustom && !dataValid) || useDFXswiss} isLoading={isLoading} />
           <BlueSpacing20 />
           {/* @ts-ignore component in JS */}
-          <SecondButton title={isOnboarding ? loc._.skip : loc._.cancel} onPress={onBack} />
+          <SecondButton title={loc._.cancel} onPress={onBack} />
         </View>
       </ScrollView>
     </SafeBlueArea>

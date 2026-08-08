@@ -6,3 +6,11 @@ appId: swiss.dfx.bitcoin
 - waitForAnimationToEnd:
     timeout: 15000
 - takeScreenshot: shots/06-wallet-hinzufuegen/02-lightning
+- tapOn: 'Benutzerdefiniert'
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: shots/06-wallet-hinzufuegen/03-lightning-benutzerdefiniert
+- tapOn: 'DFX.swiss'
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: shots/06-wallet-hinzufuegen/04-lightning-dfx-swiss

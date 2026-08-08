@@ -2,7 +2,7 @@
   "screenshots": {
     "01-onboarding": {
       "title": "Erststart und Wallet-Anlage",
-      "description": "Haftungsausschluss, Auswahl des LNDHub-Anbieters (lightning.space, DFX.swiss, benutzerdefiniert), Wallet-Übersicht nach der Anlage und die Mitteilungs-Berechtigung beim ersten Öffnen von „Erhalten\"."
+      "description": "Haftungsausschluss mit „Erstellen\" und „Wallet importieren\", Wallet-Übersicht direkt nach der Anlage und die Mitteilungs-Berechtigung beim ersten Öffnen von „Erhalten\". Die Lightning-Wallet ist nicht Teil des Erststarts — sie wird über „Hinzufügen\" auf der Wallet-Übersicht angelegt (siehe „Weitere Wallet anlegen\")."
     },
     "02-wallet": {
       "title": "Wallet, Backup und Export",
@@ -18,7 +18,7 @@
     },
     "06-wallet-hinzufuegen": {
       "title": "Weitere Wallet anlegen",
-      "description": "Einstiegsseiten für die Multi-Device-Wallet (3-Geräte-Setup) und für die Lightning-Wallet über einen LNDHub-Anbieter."
+      "description": "Einstiegsseiten für die Multi-Device-Wallet (3-Geräte-Setup) und für die Lightning-Wallet über einen LNDHub-Anbieter: Anbieterauswahl (lightning.space, DFX.swiss, benutzerdefiniert), die Eingabefelder des benutzerdefinierten Anbieters und der Hinweis, dass DFX.swiss noch nicht verfügbar ist."
     },
     "07-multi-device": {
       "title": "Multi-Device-Wallet einrichten",

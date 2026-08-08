@@ -24,6 +24,7 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import alert from '../../components/Alert';
 import Config from 'react-native-config';
 import { useAuth } from '../../api/dfx/hooks/auth.hook';
+import { walletCreatedRoute } from '../../helpers/wallet-created-route';
 const BlueApp = require('../../BlueApp');
 const AppStorage = BlueApp.AppStorage;
 
@@ -122,15 +123,7 @@ const WalletsAdd = () => {
     addWallet(w);
     await saveToDisk();
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
-    dispatch(
-      StackActions.replace('WalletsRoot', {
-        screen: 'AddLightning',
-        params: {
-          walletID: w.getID(),
-          isOnboarding: true,
-        },
-      }),
-    );
+    dispatch(StackActions.replace(...walletCreatedRoute()));
   };
 
   const navigateToEntropy = () => {
