@@ -106,15 +106,17 @@ const SEED_RUN_LIMIT = 5;
  * empty, and the gate reports "longest BIP39 run 0" and exits 0. That is the
  * same vacuous pass the scan-set comparison closes one level up.
  *
- * The 70 published PNGs currently yield 1264 tokens. 300 is far below that and
- * far above the zero a broken tool produces.
+ * The 70 published PNGs yield 1264 tokens under tesseract 5.5.3 and 1263 under
+ * the 5.3.4 the CI runner ships — a spread of one token, so the floor can sit
+ * close to reality. 900 leaves room for the image set to shrink to the
+ * MIN_SCREENSHOTS floor (~1050 tokens) and still catches a tool gone blind for
+ * a third of the set. An earlier 300 was 24% of the yield: the four most
+ * text-rich images clear that on their own.
  *
- * A sum alone only catches total blindness, though: the four most text-rich
- * images add up to 352 on their own, so a tool blind for the other 66 would
- * still clear this floor while a phrase sits unread in one of them. That is
- * what SCREENSHOTS_MUST_YIELD_OCR is for.
+ * A sum still only measures bulk, which is what SCREENSHOTS_MUST_YIELD_OCR is
+ * for.
  */
-const MIN_OCR_TOKENS = 300;
+const MIN_OCR_TOKENS = 900;
 
 /**
  * Every screenshot must return at least one word. A screen of a wallet UI
@@ -131,15 +133,24 @@ const SCREENSHOTS_MUST_YIELD_OCR = 'screenshots/';
 /**
  * Extended public keys. One of them in a screenshot exposes every address of
  * that account, and the handbook documents that an export screen once carried
- * one. Base58 excludes 0, O, I and l, which also keeps this off ordinary prose.
+ * one.
  *
- * The upper-case SLIP-132 prefixes are not decoration: this wallet produces
- * `Ypub` and `Zpub` for multisig accounts itself
- * (class/wallets/multisig-hd-wallet.js), shows them on the cosigner and export
- * screens, and the handbook already has a multi-device chapter. No word
- * boundary either — OCR happily glues the key to the label in front of it.
+ * Written for OCR output, not for a key on the wire. A rendered 111-character
+ * key never comes back in one piece: tesseract breaks it at glyph boundaries
+ * and confuses Q/0, 1/l, f/£. Requiring 20 contiguous base58 characters
+ * therefore caught 1 of 18 rendered variants of a real zpub; 10 contiguous
+ * alphanumerics catch 17 of 18. Insisting on base58 (no 0, O, I, l) buys no
+ * precision here and costs detections, because a misread of exactly those
+ * characters ends the run. False positives measured at 0 over the OCR text of
+ * all 70 published PNGs, every .md and loc/*.json in this repository, and
+ * /usr/share/dict/words.
+ *
+ * Upper case matters for two reasons: this wallet emits `Ypub` and `Zpub` for
+ * multisig itself (class/wallets/multisig-hd-wallet.js), and OCR read the
+ * leading lower-case `z` as `Z` in all 18 renders. No word boundary — OCR
+ * glues the key to the label in front of it.
  */
-const EXTENDED_KEY_RE = /[xyztuvXYZTUV]pub[1-9A-HJ-NP-Za-km-z]{20,}/;
+const EXTENDED_KEY_RE = /[xyztuvXYZTUV]pub[A-Za-z0-9]{10,}/;
 
 /** Longest runs worth naming in the summary, for diagnosis. */
 const REPORT_TOP_N = 5;
@@ -252,8 +263,20 @@ function ocrYieldProblems(tokens, floor) {
  * blind for part of the set — the sum floor above cannot see that.
  */
 function ocrCoverageProblems(perFile, prefix) {
-  const silent = perFile
-    .filter(f => f.rel.startsWith(prefix) && f.tokens === 0)
+  const inScope = perFile.filter(f => f.rel.startsWith(prefix));
+  if (inScope.length === 0) {
+    // The same vacuous pass the scan-set comparison closes one level up: with
+    // nothing to look at, "no silent screenshot" is true and meaningless. The
+    // prefix mirrors the output layout of build.js; if that ever moves, this
+    // says so instead of quietly checking nothing.
+    return [
+      `no published image sits under "${prefix}", so the per-screenshot OCR check ` +
+        'had nothing to look at. Either the build output moved or the screenshots ' +
+        'are gone — both are failures, not a clean run.',
+    ];
+  }
+  const silent = inScope
+    .filter(f => f.tokens === 0)
     .map(f => f.rel)
     .sort();
   if (!silent.length) return [];

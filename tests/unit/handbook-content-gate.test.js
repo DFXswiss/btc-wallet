@@ -142,6 +142,9 @@ describe('unit - handbook content gate', () => {
   });
 
   it('keeps every allowlist entry pointed at a real screenshot path', function () {
+    // An empty allowlist would make qrProblems vacuously clean and take the
+    // blind-zbarimg canary with it.
+    assert.ok(Object.keys(gate.QR_ALLOWLIST).length >= 1, 'the allowlist is the QR canary — it must not be empty');
     // A typo here disables the QR rule for the intended file while silently
     // covering nothing, and the gate would fail on the real receive screen.
     for (const rel of Object.keys(gate.QR_ALLOWLIST)) {
@@ -168,10 +171,22 @@ describe('unit - handbook content gate', () => {
       assert.deepStrictEqual(gate.ocrYieldProblems(gate.MIN_OCR_TOKENS, gate.MIN_OCR_TOKENS), []);
     });
 
-    it('keeps the OCR floor well below what the real image set yields', function () {
-      // Measured: the 70 published PNGs return 1264 alphabetic tokens.
+    it('keeps the OCR floor between a blind tool and the real yield', function () {
+      // Measured: the 70 published PNGs return 1264 alphabetic tokens under
+      // tesseract 5.5.3 and 1263 under the 5.3.4 the CI runner ships.
       assert.ok(gate.MIN_OCR_TOKENS > 0, 'a floor of 0 cannot detect a blind tool');
-      assert.ok(gate.MIN_OCR_TOKENS < 1264, `floor ${gate.MIN_OCR_TOKENS} is above the measured yield`);
+      assert.ok(gate.MIN_OCR_TOKENS < 1263, `floor ${gate.MIN_OCR_TOKENS} is above the measured yield`);
+      // A floor far below reality only catches total blindness: the four most
+      // text-rich images alone return 352.
+      assert.ok(gate.MIN_OCR_TOKENS > 352, `floor ${gate.MIN_OCR_TOKENS} is cleared by four images alone`);
+    });
+
+    it('refuses to report clean when nothing is in scope', function () {
+      // Same vacuous pass one level down: with no screenshots in the set, "no
+      // silent screenshot" is true and worthless.
+      const problems = gate.ocrCoverageProblems([{ rel: 'assets/logo.png', tokens: 0 }], gate.SCREENSHOTS_MUST_YIELD_OCR);
+      assert.strictEqual(problems.length, 1);
+      assert.match(problems[0], /nothing to look at/);
     });
 
     it('reads an extended public key out of OCR text', function () {
