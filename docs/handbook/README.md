@@ -37,7 +37,7 @@ Ausgabe pro Build:
 
 Guards (Build bricht ab bei Verletzung):
 
-- **Floor:** mindestens `MIN_SCREENSHOTS` (35) PNGs (aktuell 39 committiert;
+- **Floor:** mindestens `MIN_SCREENSHOTS` (35) PNGs (aktuell 41 committiert;
   Boden bei Bestandszuwachs anheben)
 - **Floor:** mindestens `MIN_DOCS` (8) Markdown-Dokumente (nach Ausschlussregeln)
 - **Floor:** mindestens `MIN_STORE_FIELDS` (12) Store-Textfelder
@@ -205,17 +205,9 @@ maestro test scripts/handbook/screenshots/01-onboarding.yaml
 
 Jedes committete PNG hat genau einen erzeugenden `takeScreenshot:`-Schritt —
 nachpruefbar, indem man alle `takeScreenshot: shots/<pfad>` gegen
-`docs/handbook/screenshots/**.png` abgleicht (Soll: 39 Treffer, 0 verwaist). Wer
+`docs/handbook/screenshots/**.png` abgleicht (Soll: 41 Treffer, 0 verwaist). Wer
 den Satz erweitert, haelt diese Zuordnung mit; sonst ist die Wiederholbarkeit nur
 behauptet.
-
-**Zwei Flow-Schritte haben derzeit kein committetes Bild** (41 Schritte, 39
-PNGs): `06-wallet-hinzufuegen/03-lightning-benutzerdefiniert` und
-`06-wallet-hinzufuegen/04-lightning-dfx-swiss`. Die bisherigen Bilder zeigten
-diese beiden Varianten aus dem alten Onboarding (Fusszeile „Jetzt
-ueberspringen") und sind mit dem Opt-in-Umbau der Lightning-Wallet ungueltig
-geworden. Der Flow `06b-wallet-lightning.yaml` erzeugt sie im richtigen Zustand,
-sobald er das naechste Mal auf einem Mac mit iOS-Simulator laeuft.
 
 `_setup.yaml` ist der gemeinsame Vorlauf fuer die meisten Flows: frischer
 App-Start, Wallet anlegen und den Mitteilungs-Dialog einmal abraeumen. Die
@@ -282,8 +274,11 @@ aufeinanderfolgenden BIP39-Woertern (die ungeschwaerzten Originale hatten zwoelf
 Das Issue verlangt „jeden Screen, in jeder Variante, in jedem Szenario". Dieser
 Stand erfuellt das **nicht**. Die Zahlen, damit die Luecke nachpruefbar ist statt
 ungefaehr: `navigation/` registriert **109** Routen, davon 17 reine
-Stack-Wrapper (Endung `Root`), bleiben **92 echte Screens**. Abgebildet sind
-**39**.
+Stack-Wrapper (Endung `Root`), bleiben **92 echte Screens**. Die **41**
+committeten PNGs bilden davon **33 verschiedene Screens** ab — fuenf Screens
+sind mehrfach abgebildet, weil sie in mehreren Varianten vorkommen:
+`WalletTransactions` (3 Bilder), `ReceiveDetails`, `WalletAsset`,
+`WalletDetails` und `Tools` (je 2). **59 Screens fehlen ganz.**
 
 Die Luecke ist nicht zufaellig, sondern hat drei benennbare Ursachen:
 

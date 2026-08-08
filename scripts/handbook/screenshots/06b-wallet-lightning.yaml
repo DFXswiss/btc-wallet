@@ -3,6 +3,9 @@ appId: swiss.dfx.bitcoin
 - runFlow: _setup.yaml
 - tapOn:
     point: '85%,58%'
+- extendedWaitUntil:
+    visible: 'lightning.space'
+    timeout: 30000
 - waitForAnimationToEnd:
     timeout: 15000
 - takeScreenshot: shots/06-wallet-hinzufuegen/02-lightning
