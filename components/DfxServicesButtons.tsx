@@ -134,7 +134,10 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
       }
       await openServices(wallet.getID(), new BigNumber(currency.satoshiToBTC(maxBalance)).toString(), service);
     } catch (e: any) {
-      Alert.alert('Something went wrong', e.message?.toString(), [
+      // same actionable copy Send/Sell/Swap use for this structural condition
+      const message =
+        e?.code === 'ELECTRUM_BATCHING_UNSUPPORTED' ? loc.send.details_utxo_refresh_unsupported_server : e.message?.toString();
+      Alert.alert('Something went wrong', message, [
         {
           text: loc._.ok,
           onPress: () => {},
