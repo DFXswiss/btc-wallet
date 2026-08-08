@@ -309,11 +309,13 @@ function isSameOrAncestor(a, b) {
  * Empty the output directory before writing so a rebuild never leaves stale
  * files from a previous run (deleted markdown still present as HTML, old
  * discovery trees, leftover foreign files). The CLI accepts an arbitrary
- * path, so rmdir must never touch the repo root, discovery source trees
- * (screenshots, store metadata, assets, docs), .git, the filesystem root or
- * the home directory — a wrong argument would be catastrophic.
+ * path, so rmdir must never touch the repo (any path inside the tree is a
+ * potential source — listMarkdownFiles walks from repoRoot), discovery source
+ * roots (clearer messages), .git, the filesystem root or the home directory.
+ * A wrong argument would otherwise be catastrophic.
  *
  * Missing outDir is fine (nothing to clear); writers recreate it.
+ * Legitimate targets live outside the repo (CI/Docker: /out, /tmp/…).
  */
 function prepareOutputDir(outDir, repoRoot) {
   const resolvedOut = path.resolve(outDir);
@@ -344,6 +346,8 @@ function prepareOutputDir(outDir, repoRoot) {
   }
   // Never empty a discovery source tree (or an ancestor that would wipe it).
   // E.g. outDir=docs/handbook/screenshots would delete the PNG set.
+  // Kept for a precise message; the generic in-repo guard below is the
+  // complete protection (covers subdirs and sources not listed here).
   for (const rel of DISCOVERY_SOURCE_RELS) {
     const protectedPath = path.resolve(resolvedRoot, rel);
     if (isSameOrAncestor(resolvedOut, protectedPath)) {
@@ -359,6 +363,16 @@ function prepareOutputDir(outDir, repoRoot) {
   if (segments.includes('.git')) {
     fail(
       `handbook: refusing to empty output path that contains a .git segment: ${resolvedOut}`,
+    );
+  }
+  // Any path inside the repository is a potential source (screenshots subdirs,
+  // scripts/handbook, content templates, metadata, …). Refuse generically so
+  // a second hand-maintained allowlist cannot drift from discovery.
+  if (isSameOrAncestor(resolvedRoot, resolvedOut)) {
+    fail(
+      'handbook: refusing to empty output path inside the repository: ' +
+        `${resolvedOut} (repo root: ${resolvedRoot}). ` +
+        'Write to a directory outside the repo (e.g. /tmp/handbook-out).',
     );
   }
 
@@ -2256,15 +2270,16 @@ const ABSOLUTE_URI_SCHEME_RE = /^[a-z][a-z0-9+.-]*:/i;
 
 function collectRelativeRefs(html) {
   const refs = [];
-  // Only match real attribute names, after start-of-string, whitespace or '<'.
+  // Only match real attribute names, after start-of-string, whitespace, '/' or '<'.
   // A word boundary alone also matches after '-' and ':', so data-src,
   // xlink:href and ng-src would be checked as if a browser resolved them.
-  // Alternation per quote style so a double-quoted value may contain apostrophes
-  // (e.g. href="docs/Bank's%20Guide.md" from marked link parsing).
-  const re = /(?:^|[\s<])(?:src|href)=(?:"([^"]*)"|'([^']*)')/g;
+  // Alternation per quote style (and unquoted) so a double-quoted value may
+  // contain apostrophes (e.g. href="docs/Bank's%20Guide.md") and so unquoted
+  // values are not skipped by integrity checks.
+  const re = /(?:^|[\s/<])(?:src|href)=(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g;
   let m;
   while ((m = re.exec(html)) !== null) {
-    const raw = m[1] !== undefined ? m[1] : m[2];
+    const raw = m[1] !== undefined ? m[1] : m[2] !== undefined ? m[2] : m[3];
     if (
       ABSOLUTE_URI_SCHEME_RE.test(raw) ||
       raw.startsWith('//') ||
@@ -2309,13 +2324,45 @@ function resolvePosix(fromDir, relHref) {
 }
 
 /**
+ * Fail closed when open/close counts for active blocks disagree. A non-greedy
+ * `<tag>…</tag>` replace would otherwise delete everything up to the next
+ * closer in the document (silent content loss, green build).
+ */
+function assertBalancedDangerBlocks(html) {
+  for (const tag of ['script', 'iframe', 'object']) {
+    let opens = 0;
+    const openRe = new RegExp('<' + tag + '\\b([^>]*)>', 'gi');
+    let m;
+    while ((m = openRe.exec(html)) !== null) {
+      const attrs = m[1] || '';
+      if (/\/\s*$/.test(attrs)) continue; // self-closing
+      opens += 1;
+    }
+    const closeMatches = html.match(new RegExp('</' + tag + '\\s*>', 'gi'));
+    const closes = closeMatches ? closeMatches.length : 0;
+    if (opens !== closes) {
+      fail(
+        `handbook sanitizer: unbalanced <${tag}> blocks ` +
+          `(${opens} open, ${closes} close). Refusing to strip across content ` +
+          'boundaries — fix the markdown source.',
+      );
+    }
+  }
+}
+
+/**
  * Strip active HTML/script vectors from marked output before link rewriting.
  * marked does not sanitize by default; without this, any repo *.md is shipped
  * to handbook.taro.dfx.swiss with scripts and javascript: URLs intact.
  * CSP is a second layer; this cleans the HTML itself.
+ *
+ * Attribute separators: HTML allows `/` as well as whitespace between
+ * attributes (`<img/onerror=…>`). Values may be unquoted. Both must be
+ * covered — whitespace-only / quote-only patterns miss live vectors.
  */
 function stripDangerousHtml(html) {
   let out = String(html);
+  assertBalancedDangerBlocks(out);
   // Remove script/iframe/object/embed blocks (content discarded).
   out = out.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
   out = out.replace(/<script\b[^>]*\/>/gi, '');
@@ -2324,12 +2371,27 @@ function stripDangerousHtml(html) {
   out = out.replace(/<object\b[^>]*>[\s\S]*?<\/object>/gi, '');
   out = out.replace(/<object\b[^>]*\/>/gi, '');
   out = out.replace(/<embed\b[^>]*\/?>/gi, '');
-  // Drop inline event handlers (onerror=, onclick=, …).
-  out = out.replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+  // Navigation / document chrome not needed in handbook body, and not covered
+  // by CSP alone (meta refresh has no directive; form-action is separate).
+  out = out.replace(/<meta\b[^>]*\/?>/gi, '');
+  out = out.replace(/<base\b[^>]*\/?>/gi, '');
+  out = out.replace(/<link\b[^>]*\/?>/gi, '');
+  out = out.replace(/<form\b[^>]*>[\s\S]*?<\/form>/gi, '');
+  out = out.replace(/<\/?form\b[^>]*\/?>/gi, '');
+  // Drop inline event handlers (onerror=, onclick=, …). `/` is a valid
+  // attribute separator in HTML, not only whitespace.
+  out = out.replace(/[\s/]+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
   // Neutralize dangerous URL schemes in href/src (keep data:image/*).
+  // Quoted and unquoted attribute values.
   out = out.replace(
-    /\b(href|src)\s*=\s*(["'])([^"']*)\2/gi,
-    (full, attr, q, url) => {
+    /\b(href|src)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
+    (full, attr, dQuoted, sQuoted, unquoted) => {
+      const url =
+        dQuoted !== undefined
+          ? dQuoted
+          : sQuoted !== undefined
+            ? sQuoted
+            : unquoted;
       const trimmed = String(url).trim();
       const lower = trimmed.toLowerCase();
       if (
@@ -2337,7 +2399,9 @@ function stripDangerousHtml(html) {
         lower.startsWith('vbscript:') ||
         (lower.startsWith('data:') && !/^data:image\//i.test(trimmed))
       ) {
-        return attr + '=' + q + q;
+        if (dQuoted !== undefined) return attr + '=""';
+        if (sQuoted !== undefined) return attr + "=''";
+        return attr + '=""';
       }
       return full;
     },
@@ -2351,8 +2415,10 @@ function stripDangerousHtml(html) {
  * scripts, platform trees, etc. that are intentionally out of scope.
  *
  * Behaviour (documented in docs/handbook/README.md):
- * 0. Strip script/iframe/object/embed, on* handlers, and javascript:/vbscript:/
- *    non-image data: URLs (defence in depth with CSP).
+ * 0. Strip script/iframe/object/embed/meta/form/base/link, on* handlers
+ *    (whitespace or `/` separators, quoted or unquoted values), and
+ *    javascript:/vbscript:/non-image data: URLs; fail on unbalanced
+ *    script/iframe/object (defence in depth with CSP + form-action).
  * 1. Relative *.md links that resolve to a discovered handbook doc are
  *    rewritten to the corresponding HTML output path.
  * 2. Any other relative src/href that does not resolve under the output
@@ -2433,11 +2499,13 @@ function sanitizeDocHtml(html, docOutRel, discoveredMdToOut) {
     );
   }
 
-  // Rewrite or strip <a href="...">…</a>
+  // Rewrite or strip <a href=…>…</a> (whitespace or `/` after tag name;
+  // quoted or unquoted href).
   html = html.replace(
-    /<a\s+([^>]*?)href=(?:"([^"]*)"|'([^']*)')([^>]*)>([\s\S]*?)<\/a>/gi,
-    (full, pre, dHref, sHref, post, inner) => {
-      const href = dHref !== undefined ? dHref : sHref;
+    /<a[\s/]+([^>]*?)href=(?:"([^"]*)"|'([^']*)'|([^\s>]+))([^>]*)>([\s\S]*?)<\/a>/gi,
+    (full, pre, dHref, sHref, uHref, post, inner) => {
+      const href =
+        dHref !== undefined ? dHref : sHref !== undefined ? sHref : uHref;
       if (
         ABSOLUTE_URI_SCHEME_RE.test(href) ||
         href.startsWith('//') ||
@@ -2447,7 +2515,7 @@ function sanitizeDocHtml(html, docOutRel, discoveredMdToOut) {
       }
       const rewritten = tryRewriteMdLink(href);
       if (rewritten !== null) {
-        const q = dHref !== undefined ? '"' : "'";
+        const q = dHref !== undefined ? '"' : sHref !== undefined ? "'" : '"';
         return `<a ${pre}href=${q}${rewritten}${q}${post}>${inner}</a>`;
       }
       if (targetExists(href)) return full;
@@ -2459,16 +2527,20 @@ function sanitizeDocHtml(html, docOutRel, discoveredMdToOut) {
   // Replace remote absolute <img> (http/https/protocol-relative) with alt text —
   // CSP img-src is 'self' data: only. Keep data:image/* and fragment-only.
   // Strip unresolved relative <img> the same way (label kept, src removed).
+  // `/` is a valid attribute separator (not only whitespace); src/alt may be
+  // unquoted.
   html = html.replace(
-    /<img\s+([^>]*?)src=(?:"([^"]*)"|'([^']*)')([^>]*?)\/?>/gi,
-    (full, pre, dSrc, sSrc, post) => {
-      const src = dSrc !== undefined ? dSrc : sSrc;
+    /<img[\s/]+([^>]*?)src=(?:"([^"]*)"|'([^']*)'|([^\s>]+))([^>]*?)\/?>/gi,
+    (full, pre, dSrc, sSrc, uSrc, post) => {
+      const src = dSrc !== undefined ? dSrc : sSrc !== undefined ? sSrc : uSrc;
       const decodedSrc = decodeHtmlEntities(src).split('#')[0].split('?')[0];
-      const altMatch = full.match(/\balt=(?:"([^"]*)"|'([^']*)')/i);
+      const altMatch = full.match(/\balt=(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
       const alt = altMatch
         ? altMatch[1] !== undefined
           ? altMatch[1]
-          : altMatch[2]
+          : altMatch[2] !== undefined
+            ? altMatch[2]
+            : altMatch[3]
         : '';
       const altOut = alt ? escapeHtml(decodeHtmlEntities(alt)) : '';
       // data:image is CSP-legal and may be intentional; leave alone.

