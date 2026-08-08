@@ -248,7 +248,8 @@ async function _initConnection() {
       disableBatching = true;
 
       // exeptions for versions:
-      const [electrumImplementation, electrumVersion] = ver[0].split(' ');
+      // electrs reports "electrs/x.y.z" (slash), Fulcrum "Fulcrum x.y.z" (space) - accept both
+      const [electrumImplementation, electrumVersion] = ver[0].split(/[ /]/);
       switch (electrumImplementation) {
         case 'electrs':
           if (semVerToInt(electrumVersion) >= semVerToInt('0.9.0')) {
