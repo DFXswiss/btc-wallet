@@ -35,7 +35,7 @@ interface StoredMaxAmount {
  * It's naturally superseded the next time this wallet/service opens the widget again.
  *
  * Known, accepted limitation: matching is necessarily done against the widget's own 5-significant-
- * digit-floored echo (see ASSET_PRECISION below), since that's the only amount this ever sees -
+ * digit-floored echo (see ASSET_PRECISION above), since that's the only amount this ever sees -
  * the widget doesn't tell us whether the user pressed MAX or typed a number that happens to floor
  * to the same value. A manually-edited amount landing in the same bucket as the true max is
  * indistinguishable from a genuine MAX re-confirmation and will sweep the full balance instead of
