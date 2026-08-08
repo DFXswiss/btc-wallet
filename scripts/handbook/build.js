@@ -31,7 +31,8 @@ const MIN_ASSETS = 20;
 const MIN_PNG_BYTES = 1000;
 const MIN_ASSET_PNG_BYTES = 100;
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-const MARKED_INSTALL = 'npm install --prefix ./_handbook-deps --no-save --no-audit --no-fund marked@15.0.7';
+const MARKED_INSTALL =
+  'npm install --prefix ./_handbook-deps --no-save --no-audit --no-fund marked@15.0.7';
 
 // Repo-relative discovery roots (same strings discovery walks). prepareOutputDir
 // refuses to empty these or any ancestor path that would wipe them.
@@ -139,7 +140,17 @@ function createHeadingRenderer() {
     seen.set(candidate, 1);
     if (!seen.has(slug)) seen.set(slug, 1);
     slug = candidate;
-    return '<h' + depth + ' id="' + slug + '">' + this.parser.parseInline(tokens) + '</h' + depth + '>\n';
+    return (
+      '<h' +
+      depth +
+      ' id="' +
+      slug +
+      '">' +
+      this.parser.parseInline(tokens) +
+      '</h' +
+      depth +
+      '>\n'
+    );
   };
   return renderer;
 }
@@ -151,7 +162,12 @@ function markedParse(md) {
 }
 
 function escapeHtml(str) {
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // Inverse of escapeHtml, for re-reading paths out of already-escaped HTML.
@@ -183,7 +199,7 @@ function encodeHtmlPath(p) {
 function decodeHtmlPath(p) {
   return String(p)
     .split('/')
-    .map(seg => {
+    .map((seg) => {
       try {
         return decodeURIComponent(seg);
       } catch {
@@ -246,14 +262,19 @@ function prepareOutputDir(outDir, repoRoot) {
   const homeDir = resolveHomeDir();
 
   if (resolvedOut === path.resolve('/')) {
-    fail('handbook: refusing to use filesystem root (/) as output directory.');
+    fail(
+      'handbook: refusing to use filesystem root (/) as output directory.',
+    );
   }
   if (homeDir === null) {
     console.error(
-      'handbook warning: home directory could not be determined; ' + 'skipping home-directory output guard (other guards still apply).',
+      'handbook warning: home directory could not be determined; ' +
+        'skipping home-directory output guard (other guards still apply).',
     );
   } else if (resolvedOut === homeDir) {
-    fail(`handbook: refusing to use home directory as output directory: ${resolvedOut}`);
+    fail(
+      `handbook: refusing to use home directory as output directory: ${resolvedOut}`,
+    );
   }
   // Repo root itself, or any ancestor of the repo (emptying would wipe the tree).
   if (isSameOrAncestor(resolvedOut, resolvedRoot)) {
@@ -277,7 +298,9 @@ function prepareOutputDir(outDir, repoRoot) {
   // Never touch anything under .git (object store, hooks, config).
   const segments = resolvedOut.split(path.sep);
   if (segments.includes('.git')) {
-    fail(`handbook: refusing to empty output path that contains a .git segment: ${resolvedOut}`);
+    fail(
+      `handbook: refusing to empty output path that contains a .git segment: ${resolvedOut}`,
+    );
   }
 
   if (fs.existsSync(resolvedOut)) {
@@ -311,8 +334,11 @@ function assertNoOutputCollisions(artifacts) {
   }
   collisions.sort((a, b) => sortStrings(a.outPath, b.outPath));
   if (collisions.length > 0) {
-    const lines = collisions.map(c => {
-      return `  ${c.outPath}\n` + c.sources.map(s => `    - ${s}`).join('\n');
+    const lines = collisions.map((c) => {
+      return (
+        `  ${c.outPath}\n` +
+        c.sources.map((s) => `    - ${s}`).join('\n')
+      );
     });
     fail(
       'handbook output collision: multiple sources claim the same output path ' +
@@ -330,7 +356,10 @@ function assertValidPng(filePath, minBytes = MIN_PNG_BYTES) {
     fail(`handbook PNG guard: cannot stat ${filePath}: ${err.message}`);
   }
   if (st.size <= minBytes) {
-    fail(`handbook PNG guard: ${filePath} is ${st.size} bytes (must be > ${minBytes}). ` + 'Possible incomplete checkout or LFS pointer.');
+    fail(
+      `handbook PNG guard: ${filePath} is ${st.size} bytes (must be > ${minBytes}). ` +
+        'Possible incomplete checkout or LFS pointer.',
+    );
   }
   const fd = fs.openSync(filePath, 'r');
   const buf = Buffer.alloc(8);
@@ -340,7 +369,10 @@ function assertValidPng(filePath, minBytes = MIN_PNG_BYTES) {
     fs.closeSync(fd);
   }
   if (!buf.equals(PNG_MAGIC)) {
-    fail(`handbook PNG guard: ${filePath} does not start with PNG magic bytes. ` + 'Possible incomplete checkout or LFS pointer.');
+    fail(
+      `handbook PNG guard: ${filePath} does not start with PNG magic bytes. ` +
+        'Possible incomplete checkout or LFS pointer.',
+    );
   }
 }
 
@@ -401,7 +433,7 @@ function defaultDocTitle(relSrc) {
   const base = path.posix.basename(relSrc).replace(/\.md$/i, '');
   const words = base.split(/[-_]+/).filter(Boolean);
   if (words.length === 0) return base;
-  return words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  return words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
 function titleFromFilename(filename) {
@@ -502,7 +534,11 @@ function collectRelativeRefs(html) {
   let m;
   while ((m = re.exec(html)) !== null) {
     const raw = m[1] !== undefined ? m[1] : m[2];
-    if (ABSOLUTE_URI_SCHEME_RE.test(raw) || raw.startsWith('//') || raw.startsWith('#')) {
+    if (
+      ABSOLUTE_URI_SCHEME_RE.test(raw) ||
+      raw.startsWith('//') ||
+      raw.startsWith('#')
+    ) {
       continue;
     }
     // Browser order: decode HTML entities first (a literal '#' inside an entity
@@ -525,7 +561,9 @@ function collectRelativeRefs(html) {
  *   infrastructure/Readme.md   → docs/infrastructure/Readme.html
  */
 function docOutputPath(relSrc) {
-  const outInner = (relSrc.startsWith('docs/') ? relSrc.slice(5) : relSrc).replace(/\.md$/i, '.html');
+  const outInner = (
+    relSrc.startsWith('docs/') ? relSrc.slice(5) : relSrc
+  ).replace(/\.md$/i, '.html');
   return path.posix.join('docs', outInner);
 }
 
@@ -558,18 +596,21 @@ function stripDangerousHtml(html) {
   // Drop inline event handlers (onerror=, onclick=, …).
   out = out.replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
   // Neutralize dangerous URL schemes in href/src (keep data:image/*).
-  out = out.replace(/\b(href|src)\s*=\s*(["'])([^"']*)\2/gi, (full, attr, q, url) => {
-    const trimmed = String(url).trim();
-    const lower = trimmed.toLowerCase();
-    if (
-      lower.startsWith('javascript:') ||
-      lower.startsWith('vbscript:') ||
-      (lower.startsWith('data:') && !/^data:image\//i.test(trimmed))
-    ) {
-      return attr + '=' + q + q;
-    }
-    return full;
-  });
+  out = out.replace(
+    /\b(href|src)\s*=\s*(["'])([^"']*)\2/gi,
+    (full, attr, q, url) => {
+      const trimmed = String(url).trim();
+      const lower = trimmed.toLowerCase();
+      if (
+        lower.startsWith('javascript:') ||
+        lower.startsWith('vbscript:') ||
+        (lower.startsWith('data:') && !/^data:image\//i.test(trimmed))
+      ) {
+        return attr + '=' + q + q;
+      }
+      return full;
+    },
+  );
   return out;
 }
 
@@ -613,11 +654,15 @@ function sanitizeDocHtml(html, docOutRel, discoveredMdToOut) {
     const key = docOutRel + '\0' + ref;
     if (logged.has(key)) return;
     logged.add(key);
-    console.error(`handbook: stripped unresolved local link in ${docOutRel}: ${ref}`);
+    console.error(
+      `handbook: stripped unresolved local link in ${docOutRel}: ${ref}`,
+    );
   }
 
   function tryRewriteMdLink(rawHref) {
-    const decoded = decodeHtmlPath(decodeHtmlEntities(rawHref).split('#')[0].split('?')[0]);
+    const decoded = decodeHtmlPath(
+      decodeHtmlEntities(rawHref).split('#')[0].split('?')[0],
+    );
     if (!decoded || ABSOLUTE_URI_SCHEME_RE.test(decoded) || decoded.startsWith('//')) {
       return null;
     }
@@ -630,50 +675,79 @@ function sanitizeDocHtml(html, docOutRel, discoveredMdToOut) {
     let rel = path.posix.relative(pageDir, targetOut);
     if (!rel) rel = path.posix.basename(targetOut);
     // Preserve fragment if present
-    const frag = decodeHtmlEntities(rawHref).includes('#') ? '#' + decodeHtmlEntities(rawHref).split('#').slice(1).join('#') : '';
+    const frag = decodeHtmlEntities(rawHref).includes('#')
+      ? '#' + decodeHtmlEntities(rawHref).split('#').slice(1).join('#')
+      : '';
     return encodeHtmlPath(rel) + frag;
   }
 
   function targetExists(rawHref) {
-    const decoded = decodeHtmlPath(decodeHtmlEntities(rawHref).split('#')[0].split('?')[0]);
+    const decoded = decodeHtmlPath(
+      decodeHtmlEntities(rawHref).split('#')[0].split('?')[0],
+    );
     if (!decoded) return true; // empty after strip — ignore
-    if (ABSOLUTE_URI_SCHEME_RE.test(decoded) || decoded.startsWith('//') || decoded.startsWith('#')) {
+    if (
+      ABSOLUTE_URI_SCHEME_RE.test(decoded) ||
+      decoded.startsWith('//') ||
+      decoded.startsWith('#')
+    ) {
       return true;
     }
     // Candidate under the output tree relative to the page dir
     const underPage = resolvePosix(pageDir, decoded);
     // Also allow absolute-from-handbook-root style (no leading /)
-    return fs.existsSync(path.join(sanitizeDocHtml._outDir, underPage)) || fs.existsSync(path.join(sanitizeDocHtml._outDir, decoded));
+    return (
+      fs.existsSync(path.join(sanitizeDocHtml._outDir, underPage)) ||
+      fs.existsSync(path.join(sanitizeDocHtml._outDir, decoded))
+    );
   }
 
   // Rewrite or strip <a href="...">…</a>
-  html = html.replace(/<a\s+([^>]*?)href=(?:"([^"]*)"|'([^']*)')([^>]*)>([\s\S]*?)<\/a>/gi, (full, pre, dHref, sHref, post, inner) => {
-    const href = dHref !== undefined ? dHref : sHref;
-    if (ABSOLUTE_URI_SCHEME_RE.test(href) || href.startsWith('//') || href.startsWith('#')) {
-      return full;
-    }
-    const rewritten = tryRewriteMdLink(href);
-    if (rewritten !== null) {
-      const q = dHref !== undefined ? '"' : "'";
-      return `<a ${pre}href=${q}${rewritten}${q}${post}>${inner}</a>`;
-    }
-    if (targetExists(href)) return full;
-    logOnce(decodeHtmlEntities(href).split('#')[0].split('?')[0]);
-    return inner;
-  });
+  html = html.replace(
+    /<a\s+([^>]*?)href=(?:"([^"]*)"|'([^']*)')([^>]*)>([\s\S]*?)<\/a>/gi,
+    (full, pre, dHref, sHref, post, inner) => {
+      const href = dHref !== undefined ? dHref : sHref;
+      if (
+        ABSOLUTE_URI_SCHEME_RE.test(href) ||
+        href.startsWith('//') ||
+        href.startsWith('#')
+      ) {
+        return full;
+      }
+      const rewritten = tryRewriteMdLink(href);
+      if (rewritten !== null) {
+        const q = dHref !== undefined ? '"' : "'";
+        return `<a ${pre}href=${q}${rewritten}${q}${post}>${inner}</a>`;
+      }
+      if (targetExists(href)) return full;
+      logOnce(decodeHtmlEntities(href).split('#')[0].split('?')[0]);
+      return inner;
+    },
+  );
 
   // Strip unresolved <img src="..."> — keep alt text if present.
-  html = html.replace(/<img\s+([^>]*?)src=(?:"([^"]*)"|'([^']*)')([^>]*?)\/?>/gi, (full, pre, dSrc, sSrc, post) => {
-    const src = dSrc !== undefined ? dSrc : sSrc;
-    if (ABSOLUTE_URI_SCHEME_RE.test(src) || src.startsWith('//') || src.startsWith('#')) {
-      return full;
-    }
-    if (targetExists(src)) return full;
-    logOnce(decodeHtmlEntities(src).split('#')[0].split('?')[0]);
-    const altMatch = full.match(/\balt=(?:"([^"]*)"|'([^']*)')/i);
-    const alt = altMatch ? (altMatch[1] !== undefined ? altMatch[1] : altMatch[2]) : '';
-    return alt ? escapeHtml(decodeHtmlEntities(alt)) : '';
-  });
+  html = html.replace(
+    /<img\s+([^>]*?)src=(?:"([^"]*)"|'([^']*)')([^>]*?)\/?>/gi,
+    (full, pre, dSrc, sSrc, post) => {
+      const src = dSrc !== undefined ? dSrc : sSrc;
+      if (
+        ABSOLUTE_URI_SCHEME_RE.test(src) ||
+        src.startsWith('//') ||
+        src.startsWith('#')
+      ) {
+        return full;
+      }
+      if (targetExists(src)) return full;
+      logOnce(decodeHtmlEntities(src).split('#')[0].split('?')[0]);
+      const altMatch = full.match(/\balt=(?:"([^"]*)"|'([^']*)')/i);
+      const alt = altMatch
+        ? altMatch[1] !== undefined
+          ? altMatch[1]
+          : altMatch[2]
+        : '';
+      return alt ? escapeHtml(decodeHtmlEntities(alt)) : '';
+    },
+  );
 
   return html;
 }
@@ -701,9 +775,14 @@ function collectStoreFields(localeAbs, localeRelPosix) {
       if (d.isDirectory()) {
         if (name.startsWith('.')) continue;
         if (name === 'images') continue;
-        walk(path.join(absDir, name), relDir ? path.posix.join(relDir, name) : name);
+        walk(
+          path.join(absDir, name),
+          relDir ? path.posix.join(relDir, name) : name,
+        );
       } else if (d.isFile() && name.toLowerCase().endsWith('.txt')) {
-        const fieldRel = relDir ? path.posix.join(relDir, name) : name;
+        const fieldRel = relDir
+          ? path.posix.join(relDir, name)
+          : name;
         const fieldName = fieldRel.replace(/\.txt$/i, '');
         const content = fs.readFileSync(path.join(absDir, name), 'utf8').trim();
         fields.push({
@@ -725,7 +804,9 @@ function main() {
   }
 
   const scriptDir = __dirname;
-  const repoRoot = process.env.HANDBOOK_REPO_ROOT ? path.resolve(process.env.HANDBOOK_REPO_ROOT) : path.resolve(scriptDir, '../..');
+  const repoRoot = process.env.HANDBOOK_REPO_ROOT
+    ? path.resolve(process.env.HANDBOOK_REPO_ROOT)
+    : path.resolve(scriptDir, '../..');
   const outDir = path.resolve(outArg);
   sanitizeDocHtml._outDir = outDir;
   const gitSha = process.env.GIT_SHA || process.env.HANDBOOK_GIT_SHA || 'unknown';
@@ -739,7 +820,10 @@ function main() {
   if (fs.existsSync(metadataPath)) {
     metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
   }
-  const screenshotsMeta = (metadata && metadata.screenshots && typeof metadata.screenshots === 'object' ? metadata.screenshots : {}) || {};
+  const screenshotsMeta =
+    (metadata && metadata.screenshots && typeof metadata.screenshots === 'object'
+      ? metadata.screenshots
+      : {}) || {};
   const docsMeta = (metadata && metadata.docs) || {};
 
   const artifacts = [];
@@ -797,10 +881,11 @@ function main() {
   // -------------------------------------------------------------------------
   const discoveredDocs = listMarkdownFiles(repoRoot);
   const discoveredMdToOut = new Map();
-  const docSpecs = discoveredDocs.map(relSrc => {
+  const docSpecs = discoveredDocs.map((relSrc) => {
     const out = docOutputPath(relSrc);
     discoveredMdToOut.set(relSrc, out);
-    const title = (docsMeta[relSrc] && docsMeta[relSrc].title) || defaultDocTitle(relSrc);
+    const title =
+      (docsMeta[relSrc] && docsMeta[relSrc].title) || defaultDocTitle(relSrc);
     return { src: relSrc, out, title };
   });
   if (docSpecs.length < MIN_DOCS) {
@@ -829,10 +914,16 @@ function main() {
   const androidMetaRoot = path.join(repoRoot, SOURCE_ANDROID_META_REL);
   const iosMetaRoot = path.join(repoRoot, SOURCE_IOS_META_REL);
   if (!fs.existsSync(androidMetaRoot)) {
-    fail(`handbook: missing Android store-metadata root ${androidMetaRoot} ` + '(broken checkout — both platform roots are required).');
+    fail(
+      `handbook: missing Android store-metadata root ${androidMetaRoot} ` +
+        '(broken checkout — both platform roots are required).',
+    );
   }
   if (!fs.existsSync(iosMetaRoot)) {
-    fail(`handbook: missing iOS store-metadata root ${iosMetaRoot} ` + '(broken checkout — both platform roots are required).');
+    fail(
+      `handbook: missing iOS store-metadata root ${iosMetaRoot} ` +
+        '(broken checkout — both platform roots are required).',
+    );
   }
 
   const storeEntries = []; // { platform, locale, field, content, sourcePath }
@@ -841,8 +932,8 @@ function main() {
   {
     const locales = fs
       .readdirSync(androidMetaRoot, { withFileTypes: true })
-      .filter(d => d.isDirectory() && !d.name.startsWith('.'))
-      .map(d => d.name)
+      .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
+      .map((d) => d.name)
       .sort(sortStrings);
     for (const locale of locales) {
       const localeAbs = path.join(androidMetaRoot, locale);
@@ -871,7 +962,9 @@ function main() {
     for (const d of entries) {
       if (d.isFile() && d.name.toLowerCase().endsWith('.txt')) {
         const fieldName = d.name.replace(/\.txt$/i, '');
-        const content = fs.readFileSync(path.join(iosMetaRoot, d.name), 'utf8').trim();
+        const content = fs
+          .readFileSync(path.join(iosMetaRoot, d.name), 'utf8')
+          .trim();
         globalFields.push({
           field: fieldName,
           content,
@@ -891,8 +984,8 @@ function main() {
     }
 
     const locales = entries
-      .filter(d => d.isDirectory() && !d.name.startsWith('.'))
-      .map(d => d.name)
+      .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
+      .map((d) => d.name)
       .sort(sortStrings);
     for (const locale of locales) {
       const localeAbs = path.join(iosMetaRoot, locale);
@@ -944,8 +1037,13 @@ function main() {
   if (fs.existsSync(imgDir)) {
     const iconNames = fs
       .readdirSync(imgDir, { withFileTypes: true })
-      .filter(d => d.isFile() && d.name.toLowerCase().endsWith('.png') && /^icon/i.test(d.name))
-      .map(d => d.name)
+      .filter(
+        (d) =>
+          d.isFile() &&
+          d.name.toLowerCase().endsWith('.png') &&
+          /^icon/i.test(d.name),
+      )
+      .map((d) => d.name)
       .sort(sortStrings);
     for (const name of iconNames) {
       const abs = path.join(imgDir, name);
@@ -1041,14 +1139,18 @@ function main() {
   // Orphan metadata: screenshots.* without a matching group → warning only
   for (const key of Object.keys(screenshotsMeta).sort(sortStrings)) {
     if (!groups.has(key)) {
-      console.error(`handbook warning: metadata.json screenshots entry "${key}" has no matching screenshots (orphan).`);
+      console.error(
+        `handbook warning: metadata.json screenshots entry "${key}" has no matching screenshots (orphan).`,
+      );
     }
   }
   // Symmetric orphan warning for docs title overrides without a discovered file.
   const discoveredDocSet = new Set(discoveredDocs);
   for (const key of Object.keys(docsMeta).sort(sortStrings)) {
     if (!discoveredDocSet.has(key)) {
-      console.error(`handbook warning: metadata.json docs entry "${key}" has no matching document (orphan).`);
+      console.error(
+        `handbook warning: metadata.json docs entry "${key}" has no matching document (orphan).`,
+      );
     }
   }
 
@@ -1456,6 +1558,11 @@ function main() {
         cursor: pointer;
         border-radius: 4px;
       }
+      /* Card heads are flex with a gap; the group heading is not, so the button
+         needs its own separation there. */
+      h3 .copy-link {
+        margin-left: 8px;
+      }
       .copy-link:hover {
         color: var(--brand);
         background: var(--surface);
@@ -1507,8 +1614,10 @@ function main() {
     "    ta.style.opacity = '0';\n" +
     '    document.body.appendChild(ta);\n' +
     '    ta.select();\n' +
-    "    try { document.execCommand('copy'); } catch (e) {}\n" +
+    '    var ok = false;\n' +
+    "    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }\n" +
     '    document.body.removeChild(ta);\n' +
+    '    return ok;\n' +
     '  }\n' +
     "  document.querySelectorAll('.copy-link').forEach(function (btn) {\n" +
     '    var origText = btn.textContent;\n' +
@@ -1517,25 +1626,26 @@ function main() {
     "      var target = btn.getAttribute('data-target');\n" +
     '      if (!target) return;\n' +
     "      var url = location.origin + location.pathname + '#' + target;\n" +
-    '      var done = function () {\n' +
-    "        btn.textContent = '\\u2713 Kopiert';\n" +
-    "        btn.setAttribute('data-copied', 'true');\n" +
+    '      var done = function (ok) {\n' +
+    "        btn.textContent = ok ? '\\u2713 Kopiert' : '\\u2717 Nicht kopiert';\n" +
+    "        if (ok) btn.setAttribute('data-copied', 'true');\n" +
     '        if (resetTimer) clearTimeout(resetTimer);\n' +
     '        resetTimer = setTimeout(function () {\n' +
     '          btn.textContent = origText;\n' +
     "          btn.removeAttribute('data-copied');\n" +
     '          resetTimer = null;\n' +
     '        }, 1200);\n' +
+    '        // Set the hash either way: the reader can then copy the URL from\n' +
+    '        // the address bar even when the clipboard is unavailable.\n' +
     "        if (location.hash !== '#' + target) location.hash = target;\n" +
     '      };\n' +
     '      if (navigator.clipboard && navigator.clipboard.writeText) {\n' +
-    '        navigator.clipboard.writeText(url).then(done, function () {\n' +
-    '          fallbackCopy(url);\n' +
-    '          done();\n' +
-    '        });\n' +
+    '        navigator.clipboard.writeText(url).then(\n' +
+    '          function () { done(true); },\n' +
+    '          function () { done(fallbackCopy(url)); }\n' +
+    '        );\n' +
     '      } else {\n' +
-    '        fallbackCopy(url);\n' +
-    '        done();\n' +
+    '        done(fallbackCopy(url));\n' +
     '      }\n' +
     '    });\n' +
     '  });\n' +
@@ -1582,7 +1692,9 @@ function main() {
       const meta = screenshotsMeta[gKey];
       const title = meta && meta.title ? meta.title : gKey;
       const desc =
-        meta && meta.description ? escapeHtml(meta.description) : `Screenshot-Gruppe <code>${escapeHtml(gKey)}</code> (Auto-Discovery).`;
+        meta && meta.description
+          ? escapeHtml(meta.description)
+          : `Screenshot-Gruppe <code>${escapeHtml(gKey)}</code> (Auto-Discovery).`;
       // Button inside the <h3>, not in a wrapper element: the heading keeps its
       // own margins, so adding the permalink changes no vertical spacing.
       const groupId = uniqueAnchorId(anchorIds, 'group-' + slugify(gKey));
@@ -1594,7 +1706,10 @@ function main() {
       cards += `<p class="spec-intro">${desc}</p>`;
       cards += '<div class="tests">';
       for (const e of list) {
-        const cardId = uniqueAnchorId(anchorIds, 'shot-' + slugify(e.group + '-' + e.title));
+        const cardId = uniqueAnchorId(
+          anchorIds,
+          'shot-' + slugify(e.group + '-' + e.title),
+        );
         const shotHref = escapeHtml(encodeHtmlPath(e.outputPath));
         cards +=
           `<div class="test" id="${escapeHtml(cardId)}">` +
@@ -1645,13 +1760,14 @@ function main() {
         platform === 'android' ? 'Android (Play Store)' : 'iOS (App Store)',
       )}</h3>`;
       for (const locale of localeKeys) {
-        const fields = byLocale
-          .get(locale)
-          .slice()
-          .sort((a, b) => sortStrings(a.field, b.field));
+        const fields = byLocale.get(locale).slice().sort((a, b) =>
+          sortStrings(a.field, b.field),
+        );
         storeBody += `<div class="store-locale"><h4>${escapeHtml(locale)}</h4><dl>`;
         for (const f of fields) {
-          storeBody += `<dt>${escapeHtml(f.field)}</dt>` + `<dd>${escapeHtml(f.content)}</dd>`;
+          storeBody +=
+            `<dt>${escapeHtml(f.field)}</dt>` +
+            `<dd>${escapeHtml(f.content)}</dd>`;
         }
         storeBody += '</dl></div>';
       }
@@ -1693,7 +1809,9 @@ function main() {
   // Documentation list
   {
     let docsBody = '<ul class="doc-list">';
-    const sortedDocs = renderedDocs.slice().sort((a, b) => sortStrings(a.title, b.title));
+    const sortedDocs = renderedDocs
+      .slice()
+      .sort((a, b) => sortStrings(a.title, b.title));
     for (const d of sortedDocs) {
       docsBody +=
         `<li><a href="${escapeHtml(encodeHtmlPath(d.out))}">` +
@@ -1804,7 +1922,10 @@ function main() {
   for (const a of artifacts) {
     const full = path.join(outDir, a.outputPath);
     if (!fs.existsSync(full)) {
-      fail(`handbook integrity check failed (manifest): missing ${a.outputPath}` + ` (sourcePath=${a.sourcePath}, title=${a.title})`);
+      fail(
+        `handbook integrity check failed (manifest): missing ${a.outputPath}` +
+          ` (sourcePath=${a.sourcePath}, title=${a.title})`,
+      );
     }
   }
 
@@ -1819,7 +1940,11 @@ function main() {
       // fragment/query split); only percent-decoding remains here.
       const ref = decodeHtmlPath(rawRef);
       const underOut = path.join(path.dirname(path.join(outDir, d.out)), ref);
-      if (!ref.startsWith('/') && !fs.existsSync(underOut) && !fs.existsSync(path.join(outDir, ref))) {
+      if (
+        !ref.startsWith('/') &&
+        !fs.existsSync(underOut) &&
+        !fs.existsSync(path.join(outDir, ref))
+      ) {
         fail(`handbook integrity check failed (${d.out}): missing ${ref}`);
       }
     }
