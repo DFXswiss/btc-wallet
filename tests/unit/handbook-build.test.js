@@ -642,13 +642,12 @@ describe('unit - handbook build guards', () => {
     assert.deepStrictEqual([...new Set(dupes)], []);
   });
 
-  it('suffixes colliding permalink anchor ids instead of emitting duplicates', function () {
+  it('fails the build when two sources claim the same permalink anchor', function () {
     const { fixture, out } = freshDirs();
     populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
     const shots = path.join(fixture, 'docs/handbook/screenshots');
     // slugify() collapses every non-alphanumeric run to '-', so each pair below
-    // lands on one id. getElementById returns the first match, so without
-    // suffixing a copied permalink would point at the wrong screen.
+    // lands on one id — one pair of screenshots, one pair of groups.
     writePng(path.join(shots, 'group', 'fee ok.png'), MIN_PNG_BYTES + 1);
     writePng(path.join(shots, 'group', 'fee-ok.png'), MIN_PNG_BYTES + 1);
     writePng(path.join(shots, 'karte/dfx', 'x.png'), MIN_PNG_BYTES + 1);
@@ -658,27 +657,16 @@ describe('unit - handbook build guards', () => {
       NODE_PATH: markedNodePath,
       GIT_SHA: 't',
     });
-    assert.strictEqual(r.status, 0, r.stderr);
-    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
-    const ids = [...index.matchAll(/id="((?:shot|group)-[^"]+)"/g)].map(m => m[1]);
-    const dupes = ids.filter((id, i) => ids.indexOf(id) !== i);
-    assert.deepStrictEqual([...new Set(dupes)], []);
-    // First occurrence keeps the bare id so existing links stay valid.
-    assert.ok(ids.includes('shot-group-fee-ok'), 'bare id missing');
-    assert.ok(ids.includes('shot-group-fee-ok-1'), 'suffixed id missing');
-    assert.ok(ids.includes('group-karte-dfx'), 'bare group id missing');
-    assert.ok(ids.includes('group-karte-dfx-1'), 'suffixed group id missing');
-
-    // The suffixed entry must link to ITSELF. If the href were derived from the
-    // raw slug a second time instead of from the deduped id, the second card's
-    // permalink would point back at the first — the very bug the suffixing
-    // exists to prevent, and it would not show up as a duplicate id.
-    for (const [, id, head] of index.matchAll(/<div class="test" id="([^"]+)">([\s\S]*?)<div class="img">/g)) {
-      assertSelfLinked(id, head, 'screenshot');
-    }
-    for (const [, block] of index.matchAll(/<div class="group-head">([\s\S]*?)<\/div>/g)) {
-      assertSelfLinked(block.match(/<h3 id="([^"]+)"/)[1], block, 'group');
-    }
+    // Suffixing the loser would be worse than failing: "first" is first in sort
+    // order, not oldest, and ' ' sorts before '-'. The newcomer would take the
+    // incumbent's bare id, so a permalink copied yesterday would open a
+    // different screenshot today — silently, with a green build.
+    assert.notStrictEqual(r.status, 0, r.stderr);
+    assert.match(r.stderr, /anchor collision/i);
+    assert.match(r.stderr, /#shot-group-fee-ok\b/);
+    assert.match(r.stderr, /fee ok\.png/);
+    assert.match(r.stderr, /fee-ok\.png/);
+    assert.match(r.stderr, /#group-karte-dfx\b/);
   });
 
   it('ships the copy-link handler in handbook.js, not inline', function () {

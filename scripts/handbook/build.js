@@ -450,22 +450,44 @@ function slugify(key) {
 }
 
 /**
- * Return `base`, or `base-1`, `base-2`, … if `base` is already taken. Mirrors
- * the counter in createHeadingRenderer: every emitted id is registered, so a
- * later collision never re-uses a suffix that is already in use. `seen` is a
- * Map shared across one render pass; the first occurrence keeps the bare id, so
- * ids of existing content do not change when a colliding name is added later.
+ * Register an anchor id and remember where it came from. `seen` maps id →
+ * source labels; assertNoAnchorCollisions() turns any id claimed twice into a
+ * build failure.
+ *
+ * Suffixing the loser instead (a-1, a-2, …) was the first attempt and is wrong
+ * here: "first" would mean first in sort order, not oldest, and ' ' and '_'
+ * sort before '-' under sortStrings. Adding `07_sprache.png` next to an
+ * existing `07-sprache.png` would hand the newcomer the incumbent's bare id and
+ * push the incumbent to `-1` — so a permalink copied from the page yesterday
+ * would open a different screenshot today, silently. A red build asking the
+ * author to rename the new file is the honest outcome; the handbook has ~50
+ * screens and can afford unique slugs. Same treatment as two sources claiming
+ * one output path.
  */
-function uniqueAnchorId(seen, base) {
-  let candidate = base;
-  while (seen.has(candidate)) {
-    const n = seen.get(base);
-    seen.set(base, n + 1);
-    candidate = base + '-' + n;
+function claimAnchorId(seen, id, source) {
+  if (!seen.has(id)) seen.set(id, []);
+  seen.get(id).push(source);
+  return id;
+}
+
+/** Fail the build if any anchor id was claimed by more than one source. */
+function assertNoAnchorCollisions(seen) {
+  const collisions = [];
+  for (const [id, sources] of seen.entries()) {
+    const unique = Array.from(new Set(sources)).sort(sortStrings);
+    if (unique.length > 1) collisions.push({ id, sources: unique });
   }
-  seen.set(candidate, 1);
-  if (!seen.has(base)) seen.set(base, 1);
-  return candidate;
+  if (collisions.length === 0) return;
+  collisions.sort((a, b) => sortStrings(a.id, b.id));
+  const lines = collisions.map(
+    (c) => `  #${c.id}\n` + c.sources.map((s) => `    - ${s}`).join('\n'),
+  );
+  fail(
+    'handbook anchor collision: several screenshots or groups claim the same ' +
+      'permalink target, so a copied link would open the wrong screen. ' +
+      'Resolve the naming conflict before rebuilding:\n' +
+      lines.join('\n'),
+  );
 }
 
 /**
@@ -1696,7 +1718,7 @@ function main() {
     // land on the same id (e.g. the group dirs `05-karte/dfx` and `05-karte-dfx`,
     // or `99-fee ok.png` next to `99-fee-ok.png`). getElementById always returns
     // the first match, so the copied link would silently point at the wrong
-    // screen. Suffix collisions the same way createHeadingRenderer does.
+    // screen. Collect every id with its source and fail the build on a clash.
     const anchorIds = new Map();
     let allShotsBody = '';
     for (const gKey of groupKeys) {
@@ -1707,7 +1729,11 @@ function main() {
         meta && meta.description
           ? escapeHtml(meta.description)
           : `Screenshot-Gruppe <code>${escapeHtml(gKey)}</code> (Auto-Discovery).`;
-      const groupId = uniqueAnchorId(anchorIds, 'group-' + slugify(gKey));
+      const groupId = claimAnchorId(
+        anchorIds,
+        'group-' + slugify(gKey),
+        'screenshot group ' + gKey,
+      );
       let cards =
         `<div class="group-head">` +
         `<h3 id="${escapeHtml(groupId)}">` +
@@ -1718,9 +1744,10 @@ function main() {
       cards += `<p class="spec-intro">${desc}</p>`;
       cards += '<div class="tests">';
       for (const e of list) {
-        const cardId = uniqueAnchorId(
+        const cardId = claimAnchorId(
           anchorIds,
           'shot-' + slugify(e.group + '-' + e.title),
+          e.sourcePath,
         );
         const shotHref = escapeHtml(encodeHtmlPath(e.outputPath));
         cards +=
@@ -1736,6 +1763,7 @@ function main() {
       cards += '</div>';
       allShotsBody += cards;
     }
+    assertNoAnchorCollisions(anchorIds);
     pushSection(
       'screenshots',
       null,
