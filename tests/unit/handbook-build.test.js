@@ -232,6 +232,19 @@ function ensureMarkedNodePath(repoRoot) {
   return path.join(prefix, 'node_modules');
 }
 
+/**
+ * A permalink and a copy button are only useful if they carry the id of the
+ * entry they sit in. `html` is the markup of that one entry.
+ */
+function assertSelfLinked(id, html, kind) {
+  const href = html.match(/<a class="name permalink" href="#([^"]+)"/);
+  const target = html.match(/data-target="([^"]+)"/);
+  assert.ok(href, `${kind} ${id}: no permalink`);
+  assert.ok(target, `${kind} ${id}: no copy button`);
+  assert.strictEqual(href[1], id, `${kind} ${id}: permalink points at ${href[1]}`);
+  assert.strictEqual(target[1], id, `${kind} ${id}: copy button targets ${target[1]}`);
+}
+
 describe('unit - handbook build guards', () => {
   // Fixture setup can install marked once into repo _handbook-deps/.
   jest.setTimeout(120000);
@@ -572,5 +585,131 @@ describe('unit - handbook build guards', () => {
     assert.match(index, /hash%23tag\.png/);
     assert.match(index, /q%3Fx\.png/);
     assert.ok(fs.existsSync(path.join(out, 'assets/dfx/hash#tag.png')));
+  });
+
+  it('gives every screenshot and every group a reachable permalink', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+
+    // Assert the pairing, not just membership: an entry's permalink and copy
+    // button must carry that entry's OWN id. Checking only that every id occurs
+    // somewhere as an href would still pass if the hrefs were rotated by one —
+    // every link would then point at the neighbouring screen.
+    const anchorIds = [...index.matchAll(/id="((?:shot|group)-[^"]+)"/g)].map(m => m[1]);
+    assert.ok(anchorIds.length > 0, 'fixture must produce shot/group anchors');
+
+    const paired = [];
+    for (const [, id, head] of index.matchAll(/<div class="test" id="([^"]+)">([\s\S]*?)<div class="img">/g)) {
+      assertSelfLinked(id, head, 'screenshot');
+      paired.push(id);
+    }
+    for (const [, block] of index.matchAll(/<div class="group-head">([\s\S]*?)<\/div>/g)) {
+      const gid = block.match(/<h3 id="([^"]+)"/);
+      assert.ok(gid, `group head without an id: ${block.slice(0, 80)}`);
+      assertSelfLinked(gid[1], block, 'group');
+      paired.push(gid[1]);
+    }
+    // Every anchor must have been reached by one of the two loops above, so a
+    // new kind of entry cannot slip past the pairing check unnoticed.
+    assert.deepStrictEqual(
+      anchorIds.filter(id => !paired.includes(id)),
+      [],
+      'anchors not covered by the pairing check',
+    );
+  });
+
+  it('keeps permalink anchor ids unique', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+    const ids = [...index.matchAll(/id="([^"]+)"/g)].map(m => m[1]);
+    const dupes = ids.filter((id, i) => ids.indexOf(id) !== i);
+    // A duplicate anchor yields a link that jumps to the wrong screen — with
+    // permalinks made visible that lands on the reader.
+    assert.deepStrictEqual([...new Set(dupes)], []);
+  });
+
+  it('fails the build when two sources claim the same permalink anchor', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const shots = path.join(fixture, 'docs/handbook/screenshots');
+    // slugify() collapses every non-alphanumeric run to '-', so each pair below
+    // lands on one id — one pair of screenshots, one pair of groups.
+    writePng(path.join(shots, 'group', 'fee ok.png'), MIN_PNG_BYTES + 1);
+    writePng(path.join(shots, 'group', 'fee-ok.png'), MIN_PNG_BYTES + 1);
+    writePng(path.join(shots, 'karte/dfx', 'x.png'), MIN_PNG_BYTES + 1);
+    writePng(path.join(shots, 'karte-dfx', 'x.png'), MIN_PNG_BYTES + 1);
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    // Suffixing the loser would be worse than failing: "first" is first in sort
+    // order, not oldest, and ' ' sorts before '-'. The newcomer would take the
+    // incumbent's bare id, so a permalink copied yesterday would open a
+    // different screenshot today — silently, with a green build.
+    assert.notStrictEqual(r.status, 0, r.stderr);
+    assert.match(r.stderr, /anchor collision/i);
+    assert.match(r.stderr, /#shot-group-fee-ok\b/);
+    assert.match(r.stderr, /fee ok\.png/);
+    assert.match(r.stderr, /fee-ok\.png/);
+    assert.match(r.stderr, /#group-karte-dfx\b/);
+  });
+
+  it('ships the copy-link handler in handbook.js, not inline', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const js = fs.readFileSync(path.join(out, 'handbook.js'), 'utf8');
+    assert.match(js, /copy-link/);
+    // Pin the calls, not the word: `clipboard` also occurs in a prose comment,
+    // so matching it would keep passing after the whole API use was removed.
+    assert.match(js, /navigator\.clipboard\.writeText\(/);
+    assert.match(js, /execCommand\('copy'\)/);
+    // CSP is script-src 'self': an inline <script> carrying logic would break
+    // the page silently. The HTML may only carry the external reference.
+    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+    const inlineScripts = [...index.matchAll(/<script(?![^>]*\ssrc=)[^>]*>/g)];
+    assert.deepStrictEqual(
+      inlineScripts.map(m => m[0]),
+      [],
+    );
+  });
+
+  it('keeps the copy button out of the heading element', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+    // A button inside <h3> becomes part of the heading's text and its
+    // accessible name — a screen reader then announces "Einstellungen
+    // Direkt-Link kopieren". The button belongs next to the heading.
+    const headings = [...index.matchAll(/<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1>/g)];
+    assert.ok(headings.length > 0, 'fixture must produce headings');
+    const polluted = headings.filter(m => m[2].includes('copy-link')).map(m => m[0]);
+    assert.deepStrictEqual(polluted, []);
   });
 });

@@ -450,6 +450,63 @@ function slugify(key) {
 }
 
 /**
+ * Register an anchor id and remember where it came from. `seen` maps id →
+ * source labels; assertNoAnchorCollisions() turns any id claimed twice into a
+ * build failure.
+ *
+ * Suffixing the loser instead (a-1, a-2, …) was the first attempt and is wrong
+ * here: "first" would mean first in sort order, not oldest, and ' ' and '_'
+ * sort before '-' under sortStrings. Adding `07_sprache.png` next to an
+ * existing `07-sprache.png` would hand the newcomer the incumbent's bare id and
+ * push the incumbent to `-1` — so a permalink copied from the page yesterday
+ * would open a different screenshot today, silently. A red build asking the
+ * author to rename the new file is the honest outcome; the handbook has ~50
+ * screens and can afford unique slugs. Same treatment as two sources claiming
+ * one output path.
+ */
+function claimAnchorId(seen, id, source) {
+  if (!seen.has(id)) seen.set(id, []);
+  seen.get(id).push(source);
+  return id;
+}
+
+/** Fail the build if any anchor id was claimed by more than one source. */
+function assertNoAnchorCollisions(seen) {
+  const collisions = [];
+  for (const [id, sources] of seen.entries()) {
+    const unique = Array.from(new Set(sources)).sort(sortStrings);
+    if (unique.length > 1) collisions.push({ id, sources: unique });
+  }
+  if (collisions.length === 0) return;
+  collisions.sort((a, b) => sortStrings(a.id, b.id));
+  const lines = collisions.map(
+    (c) => `  #${c.id}\n` + c.sources.map((s) => `    - ${s}`).join('\n'),
+  );
+  fail(
+    'handbook anchor collision: several screenshots or groups claim the same ' +
+      'permalink target, so a copied link would open the wrong screen. ' +
+      'Resolve the naming conflict before rebuilding:\n' +
+      lines.join('\n'),
+  );
+}
+
+/**
+ * Copy-link button for an anchor. The anchor alone is not enough: without a
+ * visible permalink a reader can only obtain the URL of a single screen by
+ * reading the page source. Behaviour (clipboard with execCommand fallback,
+ * confirmation, hash update) lives in handbook.js so the CSP stays at
+ * script-src 'self'. Button label is German — so is the handbook.
+ */
+function copyLinkButton(anchorId) {
+  return (
+    `<button class="copy-link" type="button" ` +
+    `data-target="${escapeHtml(anchorId)}" ` +
+    `title="Direkt-Link kopieren" aria-label="Direkt-Link kopieren">` +
+    `\u{1F517} Link</button>`
+  );
+}
+
+/**
  * Recursive PNG scan. Skips directories whose basename starts with '.'.
  * Non-PNG files are ignored (no error). Returns sorted list of
  * { abs, relPosix } where relPosix is relative to rootDir.
@@ -1503,6 +1560,53 @@ function main() {
         font-size: 12.5px;
         color: var(--ink-3);
       }
+      a.name.permalink {
+        text-decoration: none;
+        color: inherit;
+      }
+      a.name.permalink:hover {
+        text-decoration: underline;
+        color: var(--brand);
+      }
+      .copy-link {
+        appearance: none;
+        background: transparent;
+        border: 1px solid transparent;
+        padding: 2px 6px;
+        font: inherit;
+        font-size: 11.5px;
+        line-height: 1;
+        color: var(--ink-3);
+        cursor: pointer;
+        border-radius: 4px;
+      }
+      /* The copy button sits NEXT TO the group heading, never inside it: a
+         button placed within the heading element becomes part of its text and
+         of its accessible name ("Einstellungen Direkt-Link kopieren"). The
+         wrapper therefore carries the margins the heading gives up — h3 has no
+         font-size rule, so its UA margin is 1em of 1.17 * 14.5px; 1.17em on the
+         wrapper (font-size 14.5px inherited) reproduces exactly that. Same
+         arrangement as the RealUnit handbook, where .copy-link lives in the
+         head next to the name. */
+      .group-head {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        margin: 1.17em 0;
+      }
+      .group-head h3 {
+        margin: 0;
+      }
+      .copy-link:hover {
+        color: var(--brand);
+        background: var(--surface);
+        border-color: var(--line);
+      }
+      .copy-link[data-copied='true'] {
+        color: var(--brand);
+        background: var(--surface);
+        border-color: var(--brand);
+      }
   `;
 
   // TOC/hash helper as external file so CSP can use script-src 'self'
@@ -1534,6 +1638,51 @@ function main() {
     "      document.querySelectorAll('details.spec').forEach(function (d) { d.open = false; });\n" +
     '    }\n' +
     '  });\n' +
+    '  // Copy a direct link. Without the button the anchor exists but is only\n' +
+    '  // reachable via the page source — same interaction as the RealUnit handbook.\n' +
+    '  function fallbackCopy(text) {\n' +
+    "    var ta = document.createElement('textarea');\n" +
+    '    ta.value = text;\n' +
+    "    ta.setAttribute('readonly', '');\n" +
+    "    ta.style.position = 'fixed';\n" +
+    "    ta.style.opacity = '0';\n" +
+    '    document.body.appendChild(ta);\n' +
+    '    ta.select();\n' +
+    '    var ok = false;\n' +
+    "    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }\n" +
+    '    document.body.removeChild(ta);\n' +
+    '    return ok;\n' +
+    '  }\n' +
+    "  document.querySelectorAll('.copy-link').forEach(function (btn) {\n" +
+    '    var origText = btn.textContent;\n' +
+    '    var resetTimer = null;\n' +
+    "    btn.addEventListener('click', function () {\n" +
+    "      var target = btn.getAttribute('data-target');\n" +
+    '      if (!target) return;\n' +
+    "      var url = location.origin + location.pathname + '#' + target;\n" +
+    '      var done = function (ok) {\n' +
+    "        btn.textContent = ok ? '\\u2713 Kopiert' : '\\u2717 Nicht kopiert';\n" +
+    "        if (ok) btn.setAttribute('data-copied', 'true');\n" +
+    '        if (resetTimer) clearTimeout(resetTimer);\n' +
+    '        resetTimer = setTimeout(function () {\n' +
+    '          btn.textContent = origText;\n' +
+    "          btn.removeAttribute('data-copied');\n" +
+    '          resetTimer = null;\n' +
+    '        }, 1200);\n' +
+    '        // Set the hash either way: the reader can then copy the URL from\n' +
+    '        // the address bar even when the clipboard is unavailable.\n' +
+    "        if (location.hash !== '#' + target) location.hash = target;\n" +
+    '      };\n' +
+    '      if (navigator.clipboard && navigator.clipboard.writeText) {\n' +
+    '        navigator.clipboard.writeText(url).then(\n' +
+    '          function () { done(true); },\n' +
+    '          function () { done(fallbackCopy(url)); }\n' +
+    '        );\n' +
+    '      } else {\n' +
+    '        done(fallbackCopy(url));\n' +
+    '      }\n' +
+    '    });\n' +
+    '  });\n' +
     '})();\n';
 
   let tocItems = [];
@@ -1564,6 +1713,13 @@ function main() {
   // before we reach HTML generation when the set is empty, so a "no screenshots"
   // empty-state branch would be dead code — render groups only.
   {
+    // Anchor ids become user-facing with the permalink buttons: a reader can
+    // copy one and send it on. slugify() is lossy, so two different sources can
+    // land on the same id (e.g. the group dirs `05-karte/dfx` and `05-karte-dfx`,
+    // or `99-fee ok.png` next to `99-fee-ok.png`). getElementById always returns
+    // the first match, so the copied link would silently point at the wrong
+    // screen. Collect every id with its source and fail the build on a clash.
+    const anchorIds = new Map();
     let allShotsBody = '';
     for (const gKey of groupKeys) {
       const list = groups.get(gKey);
@@ -1573,15 +1729,33 @@ function main() {
         meta && meta.description
           ? escapeHtml(meta.description)
           : `Screenshot-Gruppe <code>${escapeHtml(gKey)}</code> (Auto-Discovery).`;
-      let cards = `<h3 id="group-${escapeHtml(slugify(gKey))}">${escapeHtml(title)}</h3>`;
+      const groupId = claimAnchorId(
+        anchorIds,
+        'group-' + slugify(gKey),
+        'screenshot group ' + gKey,
+      );
+      let cards =
+        `<div class="group-head">` +
+        `<h3 id="${escapeHtml(groupId)}">` +
+        `<a class="name permalink" href="#${escapeHtml(groupId)}">${escapeHtml(title)}</a>` +
+        `</h3>` +
+        copyLinkButton(groupId) +
+        `</div>`;
       cards += `<p class="spec-intro">${desc}</p>`;
       cards += '<div class="tests">';
       for (const e of list) {
-        const cardId = 'shot-' + slugify(e.group + '-' + e.title);
+        const cardId = claimAnchorId(
+          anchorIds,
+          'shot-' + slugify(e.group + '-' + e.title),
+          e.sourcePath,
+        );
         const shotHref = escapeHtml(encodeHtmlPath(e.outputPath));
         cards +=
           `<div class="test" id="${escapeHtml(cardId)}">` +
-          `<div class="head"><span class="name">${escapeHtml(e.title)}</span></div>` +
+          `<div class="head">` +
+          `<a class="name permalink" href="#${escapeHtml(cardId)}">${escapeHtml(e.title)}</a>` +
+          copyLinkButton(cardId) +
+          `</div>` +
           `<div class="img"><a href="${shotHref}">` +
           `<img src="${shotHref}" alt="${escapeHtml(e.title)}" loading="lazy"></a></div>` +
           `</div>`;
@@ -1589,6 +1763,7 @@ function main() {
       cards += '</div>';
       allShotsBody += cards;
     }
+    assertNoAnchorCollisions(anchorIds);
     pushSection(
       'screenshots',
       null,
