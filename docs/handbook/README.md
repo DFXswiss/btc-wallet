@@ -37,7 +37,7 @@ Ausgabe pro Build:
 
 Guards (Build bricht ab bei Verletzung):
 
-- **Floor:** mindestens `MIN_SCREENSHOTS` (35) PNGs (aktuell 41 committiert;
+- **Floor:** mindestens `MIN_SCREENSHOTS` (35) PNGs (aktuell 39 committiert;
   Boden bei Bestandszuwachs anheben)
 - **Floor:** mindestens `MIN_DOCS` (8) Markdown-Dokumente (nach Ausschlussregeln)
 - **Floor:** mindestens `MIN_STORE_FIELDS` (12) Store-Textfelder
@@ -203,11 +203,19 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home
 maestro test scripts/handbook/screenshots/01-onboarding.yaml
 ```
 
-Jedes committete PNG hat genau einen erzeugenden `takeScreenshot:`-Schritt, und
-kein Flow zielt auf einen Namen, den es im Satz nicht gibt — nachpruefbar, indem
-man alle `takeScreenshot: shots/<pfad>` gegen `docs/handbook/screenshots/**.png`
-abgleicht (Soll: 41 Treffer, 0 verwaist, 0 ohne Flow). Wer den Satz erweitert,
-haelt diese Zuordnung mit; sonst ist die Wiederholbarkeit nur behauptet.
+Jedes committete PNG hat genau einen erzeugenden `takeScreenshot:`-Schritt —
+nachpruefbar, indem man alle `takeScreenshot: shots/<pfad>` gegen
+`docs/handbook/screenshots/**.png` abgleicht (Soll: 39 Treffer, 0 verwaist). Wer
+den Satz erweitert, haelt diese Zuordnung mit; sonst ist die Wiederholbarkeit nur
+behauptet.
+
+**Zwei Flow-Schritte haben derzeit kein committetes Bild** (41 Schritte, 39
+PNGs): `06-wallet-hinzufuegen/03-lightning-benutzerdefiniert` und
+`06-wallet-hinzufuegen/04-lightning-dfx-swiss`. Die bisherigen Bilder zeigten
+diese beiden Varianten aus dem alten Onboarding (Fusszeile „Jetzt
+ueberspringen") und sind mit dem Opt-in-Umbau der Lightning-Wallet ungueltig
+geworden. Der Flow `06b-wallet-lightning.yaml` erzeugt sie im richtigen Zustand,
+sobald er das naechste Mal auf einem Mac mit iOS-Simulator laeuft.
 
 `_setup.yaml` ist der gemeinsame Vorlauf fuer die meisten Flows: frischer
 App-Start, Wallet anlegen und den Mitteilungs-Dialog einmal abraeumen. Die
@@ -275,7 +283,7 @@ Das Issue verlangt „jeden Screen, in jeder Variante, in jedem Szenario". Diese
 Stand erfuellt das **nicht**. Die Zahlen, damit die Luecke nachpruefbar ist statt
 ungefaehr: `navigation/` registriert **109** Routen, davon 17 reine
 Stack-Wrapper (Endung `Root`), bleiben **92 echte Screens**. Abgebildet sind
-**41**.
+**39**.
 
 Die Luecke ist nicht zufaellig, sondern hat drei benennbare Ursachen:
 

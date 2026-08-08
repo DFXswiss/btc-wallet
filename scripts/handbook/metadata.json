@@ -18,7 +18,7 @@
     },
     "06-wallet-hinzufuegen": {
       "title": "Weitere Wallet anlegen",
-      "description": "Einstiegsseiten für die Multi-Device-Wallet (3-Geräte-Setup) und für die Lightning-Wallet über einen LNDHub-Anbieter: Anbieterauswahl (lightning.space, DFX.swiss, benutzerdefiniert), die Eingabefelder des benutzerdefinierten Anbieters und der Hinweis, dass DFX.swiss noch nicht verfügbar ist."
+      "description": "Einstiegsseiten für die Multi-Device-Wallet (3-Geräte-Setup) und für die Lightning-Wallet über einen LNDHub-Anbieter mit der Auswahl zwischen lightning.space, DFX.swiss und einem benutzerdefinierten Anbieter."
     },
     "07-multi-device": {
       "title": "Multi-Device-Wallet einrichten",
