@@ -928,9 +928,17 @@ export class AbstractHDElectrumWallet extends AbstractHDWallet {
       // refreshed on its own independent timer (fetchTransactions(), not this call) and can lag
       // or under-cover real funds - a stale/incomplete "also empty" read there would silently let
       // this exact wipe back in, just gated on a different, harder-to-reason-about condition. This
-      // throws every time instead, for as long as this connection stays in this mode; it clears on
-      // reconnect/restart. A blocked send is recoverable; a silently wrong one is not.
-      throw new Error('fetchUtxo(): server does not support batched UTXO lookups; refusing to discard the previously known UTXO set');
+      // throws every time instead, for as long as the wallet talks to such a server - and since
+      // _utxo is persisted with the wallet, an app restart alone doesn't clear the condition;
+      // connecting to a batching-capable server does. A blocked send is recoverable; a silently
+      // wrong one is not.
+      const error = new Error(
+        'fetchUtxo(): server does not support batched UTXO lookups; refusing to discard the previously known UTXO set',
+      ) as Error & { code: string; nonRetryable: boolean };
+      error.code = 'ELECTRUM_BATCHING_UNSUPPORTED';
+      // a structural property of the connection, not a transient failure - retrying cannot help
+      error.nonRetryable = true;
+      throw error;
     }
 
     this._utxo = newUtxo;

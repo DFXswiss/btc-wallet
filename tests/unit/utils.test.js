@@ -60,6 +60,25 @@ describe('helpers/utils Utils.withRetry', () => {
     assert.strictEqual(calls, 3);
   });
 
+  // A structural failure (e.g. the connected server cannot serve the call at all) marks itself
+  // nonRetryable - retrying would only delay surfacing it to the caller.
+  it('throws immediately when the error is marked nonRetryable', async () => {
+    let calls = 0;
+    const error = Object.assign(new Error('structural'), { nonRetryable: true });
+    await assert.rejects(
+      Utils.withRetry(
+        async () => {
+          calls++;
+          throw error;
+        },
+        3,
+        1,
+      ),
+      err => err === error,
+    );
+    assert.strictEqual(calls, 1);
+  });
+
   it('does not retry at all when attempts is 1', async () => {
     let calls = 0;
     const error = new Error('boom');

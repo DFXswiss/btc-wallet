@@ -47,7 +47,7 @@ export class Utils {
       try {
         return await fn();
       } catch (error) {
-        if (attempt === attempts) throw error;
+        if ((error as { nonRetryable?: boolean } | null)?.nonRetryable || attempt === attempts) throw error;
         await new Promise(resolve => setTimeout(resolve, delayMs * attempt));
       }
     }

@@ -146,8 +146,16 @@ export class LegacyWallet extends AbstractWallet {
         // LEGACY address with >1000 historical transactions, fetchTransactions() refuses to load
         // history at all (see fetchTransactions()'s own guard below), so that view would read
         // "empty" forever regardless of the real balance, silently letting this exact wipe back
-        // in. Throwing every time is recoverable (reconnect/restart); a silently wrong send isn't.
-        throw new Error('fetchUtxo(): server does not support batched UTXO lookups; refusing to discard the previously known UTXO set');
+        // in. Throwing every time is recoverable - by connecting to a batching-capable server;
+        // this.utxo is persisted with the wallet, so a restart alone doesn't clear the condition.
+        // A silently wrong send isn't recoverable.
+        const error = new Error(
+          'fetchUtxo(): server does not support batched UTXO lookups; refusing to discard the previously known UTXO set',
+        ) as Error & { code: string; nonRetryable: boolean };
+        error.code = 'ELECTRUM_BATCHING_UNSUPPORTED';
+        // a structural property of the connection, not a transient failure - retrying cannot help
+        error.nonRetryable = true;
+        throw error;
       }
 
       this.utxo = newUtxo;

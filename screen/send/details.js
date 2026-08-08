@@ -441,7 +441,10 @@ const SendDetails = () => {
       }
     } catch (e) {
       setIsLoading(false);
-      Alert.alert(loc.errors.error, coinControlUtxoSpent ? loc.send.details_coin_control_utxo_spent : loc.send.details_utxo_refresh_failed);
+      let message = loc.send.details_utxo_refresh_failed;
+      if (coinControlUtxoSpent) message = loc.send.details_coin_control_utxo_spent;
+      else if (e?.code === 'ELECTRUM_BATCHING_UNSUPPORTED') message = loc.send.details_utxo_refresh_unsupported_server;
+      Alert.alert(loc.errors.error, message);
       ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
       return;
     }
