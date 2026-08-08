@@ -67,8 +67,7 @@ describe('_initConnection() server banner batching detection', () => {
     assert.strictEqual(
       BlueElectrum.isBatchingDisabled(),
       false,
-      'electrs >= 0.9 supports batched listunspent, but the split(" ") parse of its "electrs/x.y.z" banner ' +
-        'never matches the re-enable case, so it is wrongly treated as non-batching',
+      'electrs >= 0.9 supports batched listunspent - the slash-format banner must re-enable batching',
     );
   });
 

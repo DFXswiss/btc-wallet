@@ -179,7 +179,7 @@
     "details_adv_import_qr": "Transaktion scannen (QR)",
     "details_amount_field_is_not_valid": "Betragseingabe ist ungültig.",
     "details_amount_field_is_less_than_minimum_amount_sat": "Der angegebene Betrag ist zu klein. Bitte einen Betrag größer 500 sats eingeben.",
-    "details_coin_control_utxo_spent": "Einer der ausgewählten Coins ist nicht mehr verfügbar. Bitte überprüfe Deine Coin-Auswahl.",
+    "details_coin_control_utxo_spent": "Eine der ausgewählten Münzen ist nicht mehr verfügbar. Bitte überprüfe Deine Münzauswahl.",
     "details_create": "Erstellen",
     "details_error_decode": "Bitcoin-Adresse kann nicht dekodiert werden",
     "details_fee_field_is_not_valid": "Gebühreneingabe ist nicht korrekt",
