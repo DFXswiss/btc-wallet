@@ -500,8 +500,10 @@ const SendDetails = () => {
 
     const targets = [];
     for (const transaction of addresses) {
-      if (transaction.amountSats === wallet.getBalance()) {
-        // output with MAX, a target with no value signals to send all funds
+      if (Utils.shouldSendMax(transaction.amountSats, wallet.getBalance(), Utils.sumUtxoValue(lutxo))) {
+        // output with MAX, a target with no value signals to send all funds - but only when the
+        // freshly fetched UTXO total doesn't exceed the balance the user saw when tapping MAX
+        // (funds landing between tap and sign must not be swept silently)
         targets.push({ address: transaction.address });
         continue;
       }

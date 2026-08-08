@@ -13,6 +13,26 @@ describe('helpers/utils Utils.sumUtxoValue', () => {
   });
 });
 
+describe('helpers/utils Utils.shouldSendMax', () => {
+  it('sweeps when the fresh UTXO total matches the displayed balance the user confirmed', () => {
+    assert.strictEqual(Utils.shouldSendMax(100000, 100000, 100000), true);
+  });
+
+  it('sweeps when the fresh total is smaller than displayed (frozen coins are excluded by design)', () => {
+    assert.strictEqual(Utils.shouldSendMax(100000, 100000, 80000), true);
+  });
+
+  // The core guarantee: funds that land between the MAX tap and the pre-sign refresh must not
+  // be swept - the user confirmed a screen showing the smaller balance.
+  it('refuses to sweep when the fresh total exceeds the displayed balance', () => {
+    assert.strictEqual(Utils.shouldSendMax(100000, 100000, 150000), false);
+  });
+
+  it('is not a MAX send at all when the amount differs from the displayed balance', () => {
+    assert.strictEqual(Utils.shouldSendMax(50000, 100000, 100000), false);
+  });
+});
+
 describe('helpers/utils Utils.withRetry', () => {
   it('returns the result on the first try without retrying', async () => {
     let calls = 0;
