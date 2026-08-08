@@ -148,6 +148,16 @@ describe('AddLightning screen', () => {
     expect(mockCreateLightning).not.toHaveBeenCalled();
   });
 
+  it('renders with the default BTC asset when route params are undefined', async () => {
+    mockRouteParams = undefined;
+    const screen = renderScreen();
+    fireEvent.press(screen.getByText(loc._.continue));
+
+    await waitFor(() => expect(addAndSaveWallet).toHaveBeenCalledWith(mockLightningWallet));
+    expect(mockCreateLightning).toHaveBeenCalledWith('user@lightning.space', 'proof');
+    expect(mockCreateTaproot).not.toHaveBeenCalled();
+  });
+
   it('reports a missing wallet address instead of calling LDS', async () => {
     mockWalletContext = { address: undefined, signMessage: jest.fn() };
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
