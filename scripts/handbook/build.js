@@ -35,6 +35,10 @@ const MIN_DOCS = 8;
 // would have gone without a word.
 const MIN_STORE_FIELDS = 25;
 const MIN_ASSETS = 20;
+// Content locales: today de/en/fr/it. Exceeding the floor is never an error;
+// falling short always is — a missing language file is never a valid state.
+// No buffer: MIN_CONTENT_LOCALES is exact identity of the product languages.
+const MIN_CONTENT_LOCALES = 4;
 // Screenshots / LFS-scale PNGs: a truncated checkout or LFS pointer is far
 // below this. App icons under img/dfx/ can legitimately be smaller
 // (telegram.png 611 B, twitter.png 606 B at a5e2a9185) — those use
@@ -582,10 +586,14 @@ function loadPodAssets(scriptDir) {
   return { tokensCss, logoDark, logoWhite, fonts, fontDir };
 }
 
+/**
+ * Load scripts/handbook/content/*.json. Returns { contentDir, files, locales }.
+ * Broken files fail hard (named); empty/missing set is handled by the floor.
+ */
 function loadContentLocales(scriptDir) {
   const contentDir = path.join(scriptDir, 'content');
   if (!fs.existsSync(contentDir)) {
-    return null;
+    return { contentDir, files: [], locales: [] };
   }
   const files = fs
     .readdirSync(contentDir)
@@ -593,23 +601,33 @@ function loadContentLocales(scriptDir) {
     .sort(sortStrings);
   const locales = [];
   for (const file of files) {
-    const raw = fs.readFileSync(path.join(contentDir, file), 'utf8');
+    const abs = path.join(contentDir, file);
+    const raw = fs.readFileSync(abs, 'utf8');
     let data;
     try {
       data = JSON.parse(raw);
     } catch (err) {
       fail(`handbook: invalid JSON in content/${file}: ${err.message}`);
     }
-    if (!data || typeof data !== 'object') {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
       fail(`handbook: content/${file} must be a JSON object`);
     }
-    const locale = data.locale || file.replace(/\.json$/i, '');
+    if (typeof data.locale !== 'string' || !data.locale.trim()) {
+      fail(
+        `handbook: content/${file} missing required string field "locale"`,
+      );
+    }
+    if (!Array.isArray(data.chapters)) {
+      fail(
+        `handbook: content/${file} missing required array field "chapters"`,
+      );
+    }
     locales.push({
-      locale: String(locale),
-      label: data.label || String(locale),
+      locale: data.locale.trim(),
+      label: data.label || data.locale.trim(),
       meta: data.meta || {},
       ui: data.ui || {},
-      chapters: Array.isArray(data.chapters) ? data.chapters : [],
+      chapters: data.chapters,
       captions:
         data.captions && typeof data.captions === 'object' ? data.captions : {},
       groupTitles:
@@ -620,7 +638,7 @@ function loadContentLocales(scriptDir) {
     });
   }
   locales.sort((a, b) => sortStrings(a.locale, b.locale));
-  return locales;
+  return { contentDir, files, locales };
 }
 
 function buildFontFaceCss(prefix) {
@@ -2582,50 +2600,18 @@ function main() {
   const logoDark = prepareInlineLogo(pod.logoDark, 'logo-dark');
   const logoWhite = prepareInlineLogo(pod.logoWhite, 'logo-white');
 
-  let contentLocales = loadContentLocales(scriptDir);
-  if (!contentLocales || contentLocales.length === 0) {
-    // Fallback: single German shell without content chapters
-    contentLocales = [
-      {
-        locale: 'de',
-        label: 'Deutsch',
-        meta: {
-          title: 'DFX BTC Taro Wallet — Handbuch',
-          description: 'Handbuch der DFX BTC Taro Wallet.',
-          lede: '',
-        },
-        ui: {
-          breadcrumbHome: 'Handbuch',
-          contents: 'Inhalt',
-          developerSection: 'Für Entwickler',
-          developerIntro: '',
-          moreScreens: 'Weitere Screens',
-          search: 'Suchen…',
-          searchLabel: 'Suchen',
-          searchStatus: '{n} von {total} Bildern',
-          searchEmpty: 'Keine Treffer.',
-          expandAll: 'Alle öffnen',
-          collapseAll: 'Alle schliessen',
-          menu: 'Inhalt',
-          theme: 'Darstellung',
-          skipToContent: 'Zum Inhalt',
-          backToHandbook: '← Zum Handbuch',
-          images: 'Bilder',
-          copyLink: 'Link kopieren',
-          copied: 'Kopiert',
-          copyFailed: 'Nicht kopiert',
-          imageCounter: '{n} von {total}',
-          close: 'Schliessen',
-          previous: 'Zurück',
-          next: 'Weiter',
-          openImage: 'Bild',
-          generatedFrom: 'Stand:',
-        },
-        chapters: [],
-        captions: {},
-        sourcePath: null,
-      },
-    ];
+  const contentLoad = loadContentLocales(scriptDir);
+  const contentLocales = contentLoad.locales;
+  if (contentLocales.length < MIN_CONTENT_LOCALES) {
+    const fileList =
+      contentLoad.files.length === 0
+        ? '(none)'
+        : contentLoad.files.join(', ');
+    fail(
+      `handbook floor guard: found ${contentLocales.length} content locales, ` +
+        `need at least MIN_CONTENT_LOCALES=${MIN_CONTENT_LOCALES}. ` +
+        `path=${contentLoad.contentDir} files=[${fileList}]`,
+    );
   }
 
   const artifacts = [];

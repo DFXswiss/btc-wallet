@@ -49,6 +49,7 @@ const MIN_SCREENSHOTS = readBuildConst('MIN_SCREENSHOTS');
 const MIN_DOCS = readBuildConst('MIN_DOCS');
 const MIN_STORE_FIELDS = readBuildConst('MIN_STORE_FIELDS');
 const MIN_ASSETS = readBuildConst('MIN_ASSETS');
+const MIN_CONTENT_LOCALES = readBuildConst('MIN_CONTENT_LOCALES');
 const MIN_PNG_BYTES = readBuildConst('MIN_PNG_BYTES');
 const MIN_ASSET_PNG_BYTES = readBuildConst('MIN_ASSET_PNG_BYTES');
 // Mid-band: between the two floors (derived, not a third hardcoded threshold).
@@ -557,6 +558,45 @@ describe('unit - handbook build guards', () => {
     const r = runBuild(out, { HANDBOOK_REPO_ROOT: fixture });
     assert.notStrictEqual(r.status, 0, r.stderr);
     assert.match(r.stderr, /MIN_ASSETS/);
+  });
+
+  it('floor guard rejects when content locales are below MIN_CONTENT_LOCALES', function () {
+    // Content is loaded from scripts/handbook/content next to build.js (not fixture).
+    const contentDir = path.join(REPO_ROOT, 'scripts/handbook/content');
+    const parked = contentDir + '.parked-floor-' + Date.now();
+    assert.ok(fs.existsSync(contentDir), 'content dir present for test setup');
+    fs.renameSync(contentDir, parked);
+    try {
+      const { fixture, out } = freshDirs();
+      populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+      const r = runBuild(out, { HANDBOOK_REPO_ROOT: fixture });
+      assert.notStrictEqual(r.status, 0, r.stderr);
+      assert.match(r.stderr, /MIN_CONTENT_LOCALES/);
+      assert.match(r.stderr, /found 0/);
+      assert.match(r.stderr, new RegExp(String(MIN_CONTENT_LOCALES)));
+      assert.match(r.stderr, /path=/);
+    } finally {
+      if (fs.existsSync(parked) && !fs.existsSync(contentDir)) {
+        fs.renameSync(parked, contentDir);
+      }
+    }
+    assert.ok(fs.existsSync(contentDir), 'content dir restored');
+  });
+
+  it('fails the build when a content locale file is invalid JSON', function () {
+    const contentPath = path.join(REPO_ROOT, 'scripts/handbook/content', 'en.json');
+    const original = fs.readFileSync(contentPath, 'utf8');
+    try {
+      fs.writeFileSync(contentPath, '{ this is not valid json\n', 'utf8');
+      const { fixture, out } = freshDirs();
+      populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+      const r = runBuild(out, { HANDBOOK_REPO_ROOT: fixture });
+      assert.notStrictEqual(r.status, 0, r.stderr);
+      assert.match(r.stderr, /invalid JSON/);
+      assert.match(r.stderr, /content\/en\.json/);
+    } finally {
+      fs.writeFileSync(contentPath, original, 'utf8');
+    }
   });
 
   it('rejects screenshot PNG of exactly MIN_PNG_BYTES (strict upper-bound floor)', function () {
