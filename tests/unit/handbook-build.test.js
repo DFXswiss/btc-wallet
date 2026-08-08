@@ -1488,24 +1488,40 @@ describe('unit - handbook build guards', () => {
     });
     assert.strictEqual(r.status, 0, r.stderr);
 
-    const keys = ['statImages', 'statChapters', 'statDocs', 'statStore', 'statAssets', 'statRevision'];
-    function labelsFrom(html) {
-      const main = [...html.matchAll(/class="stat"(?![^>]*stat-sha)[^>]*>[\s\S]*?class="l">([^<]*)/g)].map(m => m[1]);
-      const sha = [...html.matchAll(/class="stat stat-sha"[\s\S]*?class="l">([^<]*)/g)].map(m => m[1]);
+    function heroMeta(html) {
+      const m = html.match(/<p class="hero-meta">([^<]*)<\/p>/);
+      assert.ok(m, 'hero-meta present');
+      return m[1];
+    }
+    function devStatLabels(html) {
+      const dev = html.match(/id="developer"[\s\S]*?<\/details>/);
+      assert.ok(dev, 'developer section present');
+      const main = [...dev[0].matchAll(/class="stat"(?![^>]*stat-sha)[^>]*>[\s\S]*?class="l">([^<]*)/g)].map(m => m[1]);
+      const sha = [...dev[0].matchAll(/class="stat stat-sha"[\s\S]*?class="l">([^<]*)/g)].map(m => m[1]);
       return main.concat(sha);
     }
 
     for (const loc of ['de', 'en', 'fr', 'it']) {
       const content = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'scripts/handbook/content', loc + '.json'), 'utf8'));
-      const expected = keys.map(k => content.ui[k]);
+      const keys = ['statImages', 'statChapters', 'statDocs', 'statStore', 'statAssets', 'statRevision'];
       assert.ok(
-        expected.every(v => typeof v === 'string' && v.trim()),
+        keys.every(k => typeof content.ui[k] === 'string' && content.ui[k].trim()),
         `${loc} content must define all six ui.stat* keys`,
       );
       const pagePath = loc === 'de' ? path.join(out, 'index.html') : path.join(out, loc, 'index.html');
       const html = fs.readFileSync(pagePath, 'utf8');
-      const got = labelsFrom(html);
-      assert.deepStrictEqual(got, expected, `${loc} stats labels: got ${JSON.stringify(got)} expected ${JSON.stringify(expected)}`);
+      const hero = heroMeta(html);
+      assert.ok(hero.includes(content.ui.statImages), `${loc} hero has images label`);
+      assert.ok(hero.includes(content.ui.statChapters), `${loc} hero has chapters label`);
+      assert.ok(!hero.includes(content.ui.statDocs), `${loc} hero must not list docs`);
+      assert.ok(!hero.includes(content.ui.statStore), `${loc} hero must not list store`);
+      assert.ok(!hero.includes(content.ui.statAssets), `${loc} hero must not list assets`);
+      assert.ok(!hero.includes(content.ui.statRevision), `${loc} hero must not list revision`);
+      assert.deepStrictEqual(
+        devStatLabels(html),
+        [content.ui.statDocs, content.ui.statStore, content.ui.statAssets, content.ui.statRevision],
+        `${loc} developer stats labels`,
+      );
     }
 
     // Missing key → English fallback + stderr warning (not silent).
@@ -1525,7 +1541,7 @@ describe('unit - handbook build guards', () => {
         assert.strictEqual(r2.status, 0, r2.stderr);
         assert.match(r2.stderr, /missing ui\.statChapters/i);
         const de = fs.readFileSync(path.join(o2, 'index.html'), 'utf8');
-        assert.match(de, /class="l">Chapters</);
+        assert.match(de, /class="hero-meta">[^<]*Chapters/);
       },
     );
   });
@@ -1725,5 +1741,184 @@ describe('unit - handbook build guards', () => {
         );
       },
     );
+  });
+
+  // --- Design polish B1 / B2 / B6 ---
+
+  it('marks active lang and toc with surface fill, not accent borders', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+    const style = index.match(/<style>([\s\S]*?)<\/style>/);
+    assert.ok(style, 'embedded CSS present');
+    const css = style[1];
+    // Own CSS only (tokens already embedded above). Slice after tokens is hard;
+    // assert active rules do not use accent borders/underlines.
+    function ruleBody(selector) {
+      const re = new RegExp(selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\{([^}]*)\\}');
+      const m = css.match(re);
+      assert.ok(m, `rule for ${selector}`);
+      return m[1];
+    }
+    const langActive = ruleBody('.lang-switch a[aria-current="true"]');
+    assert.match(langActive, /background\s*:\s*var\(--brand-navy\)/);
+    assert.ok(!/border(-left)?\s*:[^;]*var\(--(accent|primary|brand-accent)/.test(langActive));
+    assert.ok(!/box-shadow\s*:[^;]*var\(--(accent|primary|brand-accent)/.test(langActive));
+    assert.ok(!/text-decoration\s*:\s*underline/.test(langActive));
+
+    const tocActive = ruleBody('.toc a[aria-current="true"]');
+    assert.match(tocActive, /background\s*:\s*var\(--surface-2\)/);
+    assert.match(tocActive, /font-weight\s*:\s*var\(--fw-semibold\)/);
+    assert.ok(!/\bborder(-left)?\s*:/.test(tocActive), 'active toc must not set border');
+    assert.ok(!/border-left-color/.test(tocActive));
+    assert.ok(!/text-decoration\s*:\s*underline/.test(tocActive));
+
+    // Inactive base rules must not paint an accent edge either.
+    const tocBase = ruleBody('.toc a');
+    assert.ok(!/border-left\s*:\s*3px/.test(tocBase));
+
+    // Focus ring remains for keyboard use.
+    assert.match(css, /:focus-visible[^{]*\{[^}]*outline\s*:\s*2px\s+solid\s+var\(--primary\)[^}]*outline-offset\s*:\s*2px/);
+  });
+
+  it('shows only images and chapters in the customer hero; developer tiles hold the rest', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+
+    for (const loc of ['de', 'en', 'fr', 'it']) {
+      const content = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'scripts/handbook/content', loc + '.json'), 'utf8'));
+      const pagePath = loc === 'de' ? path.join(out, 'index.html') : path.join(out, loc, 'index.html');
+      const html = fs.readFileSync(pagePath, 'utf8');
+      const hero = html.match(/<header class="hero">([\s\S]*?)<\/header>/);
+      assert.ok(hero, `${loc} hero`);
+      const h = hero[1];
+      assert.match(h, /class="hero-meta"/);
+      assert.ok(!/class="stats"/.test(h), `${loc} hero must not contain stats tiles`);
+      assert.match(
+        h,
+        new RegExp(
+          `class="hero-meta">\\d+\\s+${content.ui.statImages.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*·\\s*\\d+\\s+${content.ui.statChapters.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
+        ),
+      );
+      // Customer main body before developer: no four developer labels as tiles.
+      const beforeDev = html.split(/id="developer"/)[0];
+      assert.ok(
+        !new RegExp(`class="l">${content.ui.statDocs.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}<`).test(beforeDev),
+        `${loc}: docs tile not before developer`,
+      );
+      assert.ok(
+        !new RegExp(`class="l">${content.ui.statStore.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}<`).test(beforeDev),
+        `${loc}: store tile not before developer`,
+      );
+      assert.ok(
+        !new RegExp(`class="l">${content.ui.statAssets.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}<`).test(beforeDev),
+        `${loc}: assets tile not before developer`,
+      );
+      assert.ok(
+        !new RegExp(`class="l">${content.ui.statRevision.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}<`).test(beforeDev),
+        `${loc}: revision tile not before developer`,
+      );
+      const dev = html.match(/id="developer"[\s\S]*?<\/details>/);
+      assert.ok(dev, `${loc} developer`);
+      assert.match(dev[0], /class="stats"/);
+      assert.match(dev[0], new RegExp(`class="l">${content.ui.statDocs}<`));
+      assert.match(dev[0], new RegExp(`class="l">${content.ui.statStore}<`));
+      assert.match(dev[0], new RegExp(`class="l">${content.ui.statAssets}<`));
+      assert.match(dev[0], new RegExp(`class="l">${content.ui.statRevision}<`));
+    }
+  });
+
+  it('defaults to theme-light when localStorage is empty even if system prefers dark', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+    assert.match(index, /<meta name="color-scheme" content="light">/);
+    assert.match(index, /<html[^>]*class="theme-light"/);
+
+    const js = fs.readFileSync(path.join(out, 'handbook.js'), 'utf8');
+    // Measurement: run applyThemeEarly with empty storage + dark prefers-color-scheme.
+    const vm = require('vm');
+    const m = js.match(/\(function applyThemeEarly\(\) \{([\s\S]*?)\}\)\(\);/);
+    assert.ok(m, 'applyThemeEarly present in handbook.js');
+
+    function runEarly(getItem) {
+      const classes = new Set();
+      const context = {
+        THEME_KEY: 'handbook-theme',
+        document: {
+          documentElement: {
+            classList: {
+              remove: function () {
+                for (let i = 0; i < arguments.length; i++) classes.delete(arguments[i]);
+              },
+              add: function (c) {
+                classes.add(c);
+              },
+            },
+          },
+        },
+        localStorage: { getItem },
+        window: {
+          matchMedia: function () {
+            return { matches: true };
+          },
+        },
+      };
+      vm.runInNewContext('(function applyThemeEarly() {\n' + m[1] + '\n})();', context);
+      return classes;
+    }
+
+    const noStore = runEarly(function () {
+      return null;
+    });
+    assert.ok(noStore.has('theme-light'), `expected theme-light, got ${[...noStore].join(',')}`);
+    assert.ok(!noStore.has('theme-dark'), 'must not follow prefers-color-scheme: dark');
+
+    const storedDark = runEarly(function () {
+      return 'dark';
+    });
+    assert.ok(storedDark.has('theme-dark'), 'stored dark must apply');
+  });
+
+  // --- B7: own CSS never paints with --text-tertiary (light theme is 2.74:1) ---
+
+  it('does not use color: var(--text-tertiary) in own CSS', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+    const style = index.match(/<style>([\s\S]*?)<\/style>/);
+    assert.ok(style, 'embedded CSS present');
+    const tokens = fs.readFileSync(path.join(REPO_ROOT, 'scripts/handbook/pod/tokens.css'), 'utf8');
+    assert.ok(style[1].includes(tokens), 'tokens embedded');
+    // Own CSS only — the pod may still *define* --text-tertiary; it must not be used as color.
+    const own = style[1].slice(style[1].indexOf(tokens) + tokens.length);
+    const hits = [...own.matchAll(/color\s*:\s*var\(\s*--text-tertiary\s*\)/g)];
+    assert.strictEqual(hits.length, 0, 'own CSS must not set color: var(--text-tertiary); found ' + hits.length);
+    // Pod definition of the role remains (byte-identical tokens already asserted above).
+    assert.match(tokens, /--text-tertiary\s*:/);
   });
 });

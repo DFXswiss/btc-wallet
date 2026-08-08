@@ -653,7 +653,9 @@ body {
 body.is-locked { overflow: hidden; }
 a { color: var(--primary); text-decoration: none; }
 a:hover { text-decoration: underline; }
-a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visible {
+/* Focus ring: keyboard navigation — not a selection marker. Keep on every control. */
+a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visible,
+.lang-switch a:focus-visible, .toc a:focus-visible, .shot-card a:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
@@ -730,7 +732,7 @@ code {
 .topbar-titles .submark {
   display: block;
   font-size: var(--fs-xs);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 .lang-switch {
@@ -745,23 +747,31 @@ code {
   justify-content: center;
   min-width: 36px;
   min-height: 36px;
-  padding: 0 8px;
-  border-radius: var(--r-sm);
+  padding: 0 10px;
+  border-radius: var(--r-pill);
   font-size: var(--fs-xs);
   font-weight: var(--fw-semibold);
   color: var(--text-secondary);
   text-decoration: none;
   text-transform: uppercase;
+  border: 0;
+  background: transparent;
 }
 .lang-switch a:hover {
   background: var(--surface-2);
   color: var(--text);
   text-decoration: none;
 }
+/* Active language: filled surface, not a red edge mark. */
 .lang-switch a[aria-current="true"] {
+  background: var(--brand-navy);
+  color: var(--primary-text);
+  text-decoration: none;
+  box-shadow: none;
+}
+.theme-dark .lang-switch a[aria-current="true"] {
   background: var(--surface-2);
   color: var(--text);
-  box-shadow: inset 0 -2px 0 var(--accent, var(--primary));
 }
 .topbar-actions {
   display: flex;
@@ -866,11 +876,11 @@ code {
 }
 .crumbs {
   font-size: var(--fs-sm);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   margin: 0 0 18px;
 }
 .crumbs a { color: var(--text-secondary); }
-.crumbs .sep { margin: 0 6px; color: var(--text-tertiary); }
+.crumbs .sep { margin: 0 6px; color: var(--text-secondary); }
 .wrap {
   display: grid;
   grid-template-columns: 260px 1fr;
@@ -898,7 +908,7 @@ code {
   font-weight: var(--fw-semibold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   margin: 0 0 10px;
 }
 .toc ol { list-style: none; padding: 0; margin: 0; }
@@ -910,34 +920,35 @@ code {
   padding: 7px 10px;
   border-radius: var(--r-sm);
   font-size: var(--fs-sm);
+  font-weight: var(--fw-regular);
   color: var(--text-secondary);
   text-decoration: none;
-  border-left: 3px solid transparent;
 }
 .toc a:hover {
   background: var(--surface-2);
   color: var(--text);
   text-decoration: none;
 }
+/* Active TOC entry: surface fill + heavier weight (not color alone). */
 .toc a[aria-current="true"] {
-  background: var(--primary-soft, var(--surface-2));
+  background: var(--surface-2);
   color: var(--text);
-  border-left-color: var(--accent, var(--primary));
   font-weight: var(--fw-semibold);
+  text-decoration: none;
 }
 .toc .spec-num {
   display: inline-block;
   min-width: 22px;
   font-variant-numeric: tabular-nums;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   font-size: var(--fs-xs);
 }
 .toc .sub { list-style: none; padding: 2px 0 6px 18px; margin: 0; }
-.toc .sub a { font-size: var(--fs-sm); padding: 5px 10px; color: var(--text-tertiary); }
+.toc .sub a { font-size: var(--fs-sm); padding: 5px 10px; color: var(--text-secondary); }
 .toc .sub a .count {
   margin-left: auto;
   font-size: var(--fs-xs);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
 }
 .toc-actions {
@@ -977,6 +988,14 @@ main { min-width: 0; }
   margin: 0 0 28px;
   max-width: 70ch;
 }
+/* Customer: one quiet line under the lede (not a six-tile developer strip). */
+.hero-meta {
+  margin: 0 0 28px;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+/* Developer area keeps the tiled stat strip. */
 .stats {
   display: flex;
   flex-wrap: wrap;
@@ -1007,7 +1026,7 @@ main { min-width: 0; }
   display: block;
   margin-top: 4px;
   font-size: var(--fs-xs);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
 }
 .stats .stat.stat-sha { flex: 1 1 140px; min-width: 0; }
 .stats .stat.stat-sha .n {
@@ -1064,7 +1083,7 @@ details.spec > summary::-webkit-details-marker { display: none; }
   padding: 0 8px;
   border-radius: var(--r-pill);
   background: var(--surface-2);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   font-size: var(--fs-xs);
   font-weight: var(--fw-semibold);
   font-variant-numeric: tabular-nums;
@@ -1072,20 +1091,33 @@ details.spec > summary::-webkit-details-marker { display: none; }
 .spec-head .chevron {
   width: 16px;
   height: 16px;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   flex: 0 0 auto;
+  transition: transform 0.15s ease;
 }
-details.spec[open] .spec-head .chevron { color: var(--accent, var(--primary)); }
+/* Chevron stays quiet; rotation marks open state, not a red accent. */
+details.spec[open] .spec-head .chevron {
+  color: var(--text-secondary);
+  transform: rotate(90deg);
+}
+.spec-head .lhs .sec-count {
+  display: block;
+  margin: 0 0 0 46px;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-regular);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
 .spec-head .file {
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   overflow-wrap: anywhere;
 }
 .spec-head .rhs {
   text-align: right;
   font-size: var(--fs-sm);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 .spec-head .rhs b { color: var(--text); font-weight: var(--fw-semibold); }
@@ -1132,7 +1164,7 @@ details.spec[hidden],
 .group-head h3 .gcount {
   font-size: var(--fs-sm);
   font-weight: var(--fw-medium);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
 }
 .group-desc {
   margin: 0 0 18px;
@@ -1156,7 +1188,7 @@ a.name.permalink:hover {
   font: inherit;
   font-size: var(--fs-xs);
   line-height: 1;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   cursor: pointer;
   border-radius: var(--r-sm);
   flex: 0 0 auto;
@@ -1175,10 +1207,12 @@ a.name.permalink:hover {
   display: grid;
   gap: 22px;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  align-items: start;
 }
 .shot-card {
   margin: 0;
   background: transparent;
+  border: 0;
   scroll-margin-top: 72px;
 }
 .shot-card > a.shot-img {
@@ -1189,25 +1223,25 @@ a.name.permalink:hover {
   border-radius: var(--r-lg);
 }
 .shot-card > a.shot-img:hover { text-decoration: none; }
+/* Image sits on the page surface: no tile chrome, soft shadow only. */
 .shot-card .frame {
   aspect-ratio: 9 / 19.5;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  background: transparent;
+  border: 0;
   border-radius: var(--r-lg);
-  box-shadow: var(--sh-sm);
+  box-shadow: var(--sh-md);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  padding: 10px;
+  padding: 0;
 }
 .shot-card > a.shot-img:hover .frame {
-  border-color: var(--border-strong, var(--border));
-  box-shadow: var(--sh-md);
+  box-shadow: var(--sh-md), var(--sh-sm);
 }
 .shot-card > a.shot-img:focus-visible {
   outline: 2px solid var(--primary);
-  outline-offset: 3px;
+  outline-offset: 2px;
 }
 .shot-card img {
   max-width: 100%;
@@ -1216,29 +1250,31 @@ a.name.permalink:hover {
   height: auto;
   object-fit: contain;
   display: block;
-  border-radius: var(--r-sm);
+  border-radius: var(--r-lg);
+  border: 0;
 }
 .shot-card figcaption { margin-top: 10px; padding: 0 2px; }
 .shot-card .cap-row {
   display: flex;
-  align-items: flex-start;
+  align-items: baseline;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 .shot-card .num-badge {
   flex: 0 0 auto;
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: center;
-  min-width: 28px;
-  height: 22px;
-  padding: 0 6px;
-  border-radius: var(--r-pill);
-  background: var(--surface-2);
+  min-width: 1.75em;
+  height: auto;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--text-secondary);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   font-weight: var(--fw-semibold);
   font-variant-numeric: tabular-nums;
+  line-height: 1.35;
 }
 .shot-card .cap-row a.name.permalink {
   font-size: var(--fs-sm);
@@ -1247,6 +1283,7 @@ a.name.permalink:hover {
   line-height: 1.35;
   flex: 1 1 auto;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 .shot-card .cap-text {
   margin: 6px 0 0;
@@ -1259,7 +1296,7 @@ a.name.permalink:hover {
   margin-top: 4px;
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   overflow-wrap: anywhere;
 }
 .asset-grid {
@@ -1322,7 +1359,7 @@ a.name.permalink:hover {
   align-items: start;
 }
 .store-row[hidden] { display: none !important; }
-.store-locale dt { font-size: var(--fs-sm); color: var(--text-tertiary); font-weight: var(--fw-semibold); }
+.store-locale dt { font-size: var(--fs-sm); color: var(--text-secondary); font-weight: var(--fw-semibold); }
 .store-locale dd {
   margin: 0;
   white-space: pre-wrap;
@@ -1330,7 +1367,7 @@ a.name.permalink:hover {
   color: var(--text);
   font-size: var(--fs-sm);
 }
-.store-locale dd.empty { color: var(--text-tertiary); }
+.store-locale dd.empty { color: var(--text-secondary); }
 .doc-list { list-style: none; padding: 0; margin: 0; }
 .doc-list li {
   background: var(--surface);
@@ -1353,9 +1390,9 @@ a.name.permalink:hover {
 .doc-list .doc-path {
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
 }
-.doc-list .chev { color: var(--text-tertiary); flex: 0 0 auto; }
+.doc-list .chev { color: var(--text-secondary); flex: 0 0 auto; }
 .search-empty {
   background: var(--surface);
   border: 1px dashed var(--border);
@@ -1370,7 +1407,7 @@ a.name.permalink:hover {
   padding-top: 24px;
   border-top: 1px solid var(--border);
   font-size: var(--fs-sm);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
 }
 .lightbox {
   position: fixed;
@@ -1411,10 +1448,10 @@ a.name.permalink:hover {
   margin: 4px 0 0;
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   overflow-wrap: anywhere;
 }
-.lightbox-count { margin: 6px 0 0; font-size: var(--fs-xs); color: var(--text-tertiary); }
+.lightbox-count { margin: 6px 0 0; font-size: var(--fs-xs); color: var(--text-secondary); }
 .lightbox-body {
   display: grid;
   grid-template-columns: 44px 1fr 44px;
@@ -1652,7 +1689,7 @@ function buildHead(opts) {
     `<!DOCTYPE html>\n<html lang="${lang}" class="${escapeHtml(themeClass)}">\n<head>\n` +
     `<meta charset="utf-8">\n` +
     `<meta name="viewport" content="width=device-width, initial-scale=1">\n` +
-    `<meta name="color-scheme" content="light dark">\n` +
+    `<meta name="color-scheme" content="light">\n` +
     `<meta name="description" content="${desc}">\n` +
     `<link rel="icon" type="image/png" href="${iconHref}">\n` +
     alt +
@@ -1776,8 +1813,8 @@ function buildHandbookJs() {
     "    if (stored === 'dark' || stored === 'light') {",
     "      root.classList.add('theme-' + stored);",
     '    } else {',
-    "      var systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;",
-    "      root.classList.add(systemDark ? 'theme-dark' : 'theme-light');",
+    '      // Default is light; ignore prefers-color-scheme until the user chooses.',
+    "      root.classList.add('theme-light');",
     '    }',
     '  })();',
     '',
@@ -1791,8 +1828,7 @@ function buildHandbookJs() {
     "    if (theme === 'dark') root.classList.add('theme-dark');",
     "    else if (theme === 'light') root.classList.add('theme-light');",
     '    else {',
-    "      var systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;",
-    "      root.classList.add(systemDark ? 'theme-dark' : 'theme-light');",
+    "      root.classList.add('theme-light');",
     '      theme = null;',
     '    }',
     "    var btn = $('theme-toggle');",
@@ -3421,9 +3457,10 @@ function main() {
         `<details class="spec" id="${escapeHtml(chapterAnchor)}" open>` +
         `<summary><div class="spec-head"><div class="lhs">` +
         `<h2><span class="badge">${escapeHtml(n)}</span>${escapeHtml(plan.title)}${svgChevron()}</h2>` +
-        `</div><div class="rhs">${singleGroupCopyHtml}<b class="sec-count" data-sec-count="chapter-${escapeHtml(
+        `<b class="sec-count" data-sec-count="chapter-${escapeHtml(
           plan.id,
-        )}">${escapeHtml(countLabel)}</b></div></div></summary>` +
+        )}">${escapeHtml(countLabel)}</b>` +
+        `</div><div class="rhs">${singleGroupCopyHtml}</div></div></summary>` +
         (plan.summary
           ? `<p class="chapter-summary">${escapeHtml(plan.summary)}</p>`
           : '') +
@@ -3432,10 +3469,27 @@ function main() {
         `</details>`;
     }
 
-    // Developer section
+    // Developer section (docs / store / assets / revision tiles live here, not in the hero)
     const dev = buildDeveloperBody(ui);
     // fix prefixes in developer body
     let devHtml = dev.sectionsHtml.split('__PREFIX__').join(prefix);
+    const devStatsHtml =
+      `<div class="stats" role="group">` +
+      `<div class="stat"><span class="n">${renderedDocs.length}</span><span class="l">${escapeHtml(
+        uiLabel(ui, 'statDocs', 'Docs'),
+      )}</span></div>` +
+      `<div class="stat"><span class="n">${storeEntries.length}</span><span class="l">${escapeHtml(
+        uiLabel(ui, 'statStore', 'Store'),
+      )}</span></div>` +
+      `<div class="stat"><span class="n">${assetSpecs.length}</span><span class="l">${escapeHtml(
+        uiLabel(ui, 'statAssets', 'Assets'),
+      )}</span></div>` +
+      `<div class="stat stat-sha"><span class="n">${escapeHtml(
+        shaShort,
+      )}</span><span class="l">${escapeHtml(
+        uiLabel(ui, 'statRevision', 'SHA'),
+      )}</span></div>` +
+      `</div>`;
     const devTocId = 'developer';
     const devSection =
       `<details class="spec" id="${escapeHtml(devTocId)}">` +
@@ -3446,6 +3500,7 @@ function main() {
       (ui.developerIntro
         ? `<p class="spec-intro">${escapeHtml(ui.developerIntro)}</p>`
         : '') +
+      devStatsHtml +
       devHtml +
       `</details>`;
     tocItems.push({
@@ -3538,28 +3593,11 @@ function main() {
       (content.meta.lede
         ? `<p class="lede">${escapeHtml(content.meta.lede)}</p>\n`
         : '') +
-      `<div class="stats" role="group">` +
-      `<div class="stat"><span class="n">${screenshotEntries.length}</span><span class="l">${escapeHtml(
-        uiLabel(ui, 'statImages', 'images'),
-      )}</span></div>` +
-      `<div class="stat"><span class="n">${chapterPlans.length}</span><span class="l">${escapeHtml(
-        uiLabel(ui, 'statChapters', 'Chapters'),
-      )}</span></div>` +
-      `<div class="stat"><span class="n">${renderedDocs.length}</span><span class="l">${escapeHtml(
-        uiLabel(ui, 'statDocs', 'Docs'),
-      )}</span></div>` +
-      `<div class="stat"><span class="n">${storeEntries.length}</span><span class="l">${escapeHtml(
-        uiLabel(ui, 'statStore', 'Store'),
-      )}</span></div>` +
-      `<div class="stat"><span class="n">${assetSpecs.length}</span><span class="l">${escapeHtml(
-        uiLabel(ui, 'statAssets', 'Assets'),
-      )}</span></div>` +
-      `<div class="stat stat-sha"><span class="n">${escapeHtml(
-        shaShort,
-      )}</span><span class="l">${escapeHtml(
-        uiLabel(ui, 'statRevision', 'SHA'),
-      )}</span></div>` +
-      `</div>\n` +
+      `<p class="hero-meta">${escapeHtml(
+        String(screenshotEntries.length),
+      )} ${escapeHtml(uiLabel(ui, 'statImages', 'images'))} · ${escapeHtml(
+        String(chapterPlans.length),
+      )} ${escapeHtml(uiLabel(ui, 'statChapters', 'Chapters'))}</p>\n` +
       `<div class="search-empty" id="search-empty" hidden>${escapeHtml(
         ui.searchEmpty || '',
       )}</div>\n` +
