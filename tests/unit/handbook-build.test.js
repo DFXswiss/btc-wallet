@@ -573,4 +573,67 @@ describe('unit - handbook build guards', () => {
     assert.match(index, /q%3Fx\.png/);
     assert.ok(fs.existsSync(path.join(out, 'assets/dfx/hash#tag.png')));
   });
+
+  it('gives every screenshot and every group a reachable permalink', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+
+    // The anchor alone is not enough — without an href a reader can only get a
+    // screen's URL from the page source. Every shot/group id must therefore also
+    // be the target of a link and of a copy button.
+    const anchorIds = [...index.matchAll(/id="((?:shot|group)-[^"]+)"/g)].map(m => m[1]);
+    assert.ok(anchorIds.length > 0, 'fixture must produce shot/group anchors');
+    const linked = new Set([...index.matchAll(/href="#([^"]+)"/g)].map(m => m[1]));
+    const copyTargets = new Set([...index.matchAll(/data-target="([^"]+)"/g)].map(m => m[1]));
+    const unlinked = anchorIds.filter(id => !linked.has(id));
+    const uncopyable = anchorIds.filter(id => !copyTargets.has(id));
+    assert.deepStrictEqual(unlinked, [], 'anchors without a permalink');
+    assert.deepStrictEqual(uncopyable, [], 'anchors without a copy button');
+  });
+
+  it('keeps permalink anchor ids unique', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+    const ids = [...index.matchAll(/id="([^"]+)"/g)].map(m => m[1]);
+    const dupes = ids.filter((id, i) => ids.indexOf(id) !== i);
+    // A duplicate anchor yields a link that jumps to the wrong screen — with
+    // permalinks made visible that lands on the reader.
+    assert.deepStrictEqual([...new Set(dupes)], []);
+  });
+
+  it('ships the copy-link handler in handbook.js, not inline', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const js = fs.readFileSync(path.join(out, 'handbook.js'), 'utf8');
+    assert.match(js, /copy-link/);
+    assert.match(js, /clipboard/);
+    // CSP is script-src 'self': an inline <script> carrying logic would break
+    // the page silently. The HTML may only carry the external reference.
+    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+    const inlineScripts = [...index.matchAll(/<script(?![^>]*\ssrc=)[^>]*>/g)];
+    assert.deepStrictEqual(
+      inlineScripts.map(m => m[0]),
+      [],
+    );
+  });
 });

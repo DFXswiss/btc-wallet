@@ -450,6 +450,22 @@ function slugify(key) {
 }
 
 /**
+ * Copy-link button for an anchor. The anchor alone is not enough: without a
+ * visible permalink a reader can only obtain the URL of a single screen by
+ * reading the page source. Behaviour (clipboard with execCommand fallback,
+ * confirmation, hash update) lives in handbook.js so the CSP stays at
+ * script-src 'self'. Button label is German — so is the handbook.
+ */
+function copyLinkButton(anchorId) {
+  return (
+    `<button class="copy-link" type="button" ` +
+    `data-target="${escapeHtml(anchorId)}" ` +
+    `title="Direkt-Link kopieren" aria-label="Direkt-Link kopieren">` +
+    `\u{1F517} Link</button>`
+  );
+}
+
+/**
  * Recursive PNG scan. Skips directories whose basename starts with '.'.
  * Non-PNG files are ignored (no error). Returns sorted list of
  * { abs, relPosix } where relPosix is relative to rootDir.
@@ -1503,6 +1519,42 @@ function main() {
         font-size: 12.5px;
         color: var(--ink-3);
       }
+      a.name.permalink {
+        text-decoration: none;
+        color: inherit;
+      }
+      a.name.permalink:hover {
+        text-decoration: underline;
+        color: var(--brand);
+      }
+      .group-head {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+      }
+      .group-head h3 { margin: 0; }
+      .copy-link {
+        appearance: none;
+        background: transparent;
+        border: 1px solid transparent;
+        padding: 2px 6px;
+        font: inherit;
+        font-size: 11.5px;
+        line-height: 1;
+        color: var(--ink-3);
+        cursor: pointer;
+        border-radius: 4px;
+      }
+      .copy-link:hover {
+        color: var(--brand);
+        background: var(--surface);
+        border-color: var(--line);
+      }
+      .copy-link[data-copied='true'] {
+        color: var(--brand);
+        background: var(--surface);
+        border-color: var(--brand);
+      }
   `;
 
   // TOC/hash helper as external file so CSP can use script-src 'self'
@@ -1533,6 +1585,48 @@ function main() {
     "    if (t.id === 'toc-collapse-all') {\n" +
     "      document.querySelectorAll('details.spec').forEach(function (d) { d.open = false; });\n" +
     '    }\n' +
+    '  });\n' +
+    '  // Copy a direct link. Without the button the anchor exists but is only\n' +
+    '  // reachable via the page source — same interaction as the RealUnit handbook.\n' +
+    '  function fallbackCopy(text) {\n' +
+    "    var ta = document.createElement('textarea');\n" +
+    '    ta.value = text;\n' +
+    "    ta.setAttribute('readonly', '');\n" +
+    "    ta.style.position = 'fixed';\n" +
+    "    ta.style.opacity = '0';\n" +
+    '    document.body.appendChild(ta);\n' +
+    '    ta.select();\n' +
+    "    try { document.execCommand('copy'); } catch (e) {}\n" +
+    '    document.body.removeChild(ta);\n' +
+    '  }\n' +
+    "  document.querySelectorAll('.copy-link').forEach(function (btn) {\n" +
+    '    var origText = btn.textContent;\n' +
+    '    var resetTimer = null;\n' +
+    "    btn.addEventListener('click', function () {\n" +
+    '      var target = btn.getAttribute(\'data-target\');\n' +
+    '      if (!target) return;\n' +
+    "      var url = location.origin + location.pathname + '#' + target;\n" +
+    '      var done = function () {\n' +
+    "        btn.textContent = '\\u2713 Kopiert';\n" +
+    "        btn.setAttribute('data-copied', 'true');\n" +
+    '        if (resetTimer) clearTimeout(resetTimer);\n' +
+    '        resetTimer = setTimeout(function () {\n' +
+    '          btn.textContent = origText;\n' +
+    "          btn.removeAttribute('data-copied');\n" +
+    '          resetTimer = null;\n' +
+    '        }, 1200);\n' +
+    "        if (location.hash !== '#' + target) location.hash = target;\n" +
+    '      };\n' +
+    '      if (navigator.clipboard && navigator.clipboard.writeText) {\n' +
+    '        navigator.clipboard.writeText(url).then(done, function () {\n' +
+    '          fallbackCopy(url);\n' +
+    '          done();\n' +
+    '        });\n' +
+    '      } else {\n' +
+    '        fallbackCopy(url);\n' +
+    '        done();\n' +
+    '      }\n' +
+    '    });\n' +
     '  });\n' +
     '})();\n';
 
@@ -1573,7 +1667,14 @@ function main() {
         meta && meta.description
           ? escapeHtml(meta.description)
           : `Screenshot-Gruppe <code>${escapeHtml(gKey)}</code> (Auto-Discovery).`;
-      let cards = `<h3 id="group-${escapeHtml(slugify(gKey))}">${escapeHtml(title)}</h3>`;
+      const groupId = 'group-' + slugify(gKey);
+      let cards =
+        `<div class="group-head">` +
+        `<h3 id="${escapeHtml(groupId)}">` +
+        `<a class="name permalink" href="#${escapeHtml(groupId)}">${escapeHtml(title)}</a>` +
+        `</h3>` +
+        copyLinkButton(groupId) +
+        `</div>`;
       cards += `<p class="spec-intro">${desc}</p>`;
       cards += '<div class="tests">';
       for (const e of list) {
@@ -1581,7 +1682,10 @@ function main() {
         const shotHref = escapeHtml(encodeHtmlPath(e.outputPath));
         cards +=
           `<div class="test" id="${escapeHtml(cardId)}">` +
-          `<div class="head"><span class="name">${escapeHtml(e.title)}</span></div>` +
+          `<div class="head">` +
+          `<a class="name permalink" href="#${escapeHtml(cardId)}">${escapeHtml(e.title)}</a>` +
+          copyLinkButton(cardId) +
+          `</div>` +
           `<div class="img"><a href="${shotHref}">` +
           `<img src="${shotHref}" alt="${escapeHtml(e.title)}" loading="lazy"></a></div>` +
           `</div>`;
