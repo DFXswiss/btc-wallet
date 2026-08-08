@@ -133,12 +133,60 @@ describe('unit - handbook content gate', () => {
       assert.match(problems[0], /consecutive BIP39 words read out of a\.png/);
     });
 
+    it('keeps the limit low enough to survive OCR misreads', function () {
+      // A misread word splits a run. For n words and limit L a leak needs the
+      // smallest k with n - k <= (k + 1)(L - 1) misreads. The comment justifies
+      // 5 by demanding more than one misread for a 12-word phrase; a range
+      // check alone would let a value through that breaks that reasoning.
+      const misreadsNeeded = (n, L) => {
+        for (let k = 0; k <= n; k++) if (n - k <= (k + 1) * (L - 1)) return k;
+        return n;
+      };
+      assert.ok(
+        misreadsNeeded(12, gate.SEED_RUN_LIMIT) >= 2,
+        `SEED_RUN_LIMIT=${gate.SEED_RUN_LIMIT} lets a 12-word phrase through on a single misread`,
+      );
+    });
+
     it('keeps the limit far below the shortest real phrase', function () {
       // 12 words is the shortest BIP39 mnemonic. A limit at or above it would
       // only catch a leak after it is already complete.
       assert.ok(gate.SEED_RUN_LIMIT < 12, `SEED_RUN_LIMIT=${gate.SEED_RUN_LIMIT} would not catch a 12-word phrase`);
       assert.ok(gate.SEED_RUN_LIMIT > 3, 'the handbook already contains runs of 3');
     });
+  });
+
+  it('wires every check into the aggregate', function () {
+    // Deleting one line in main() would disarm a check silently. One example
+    // input per category, each must produce exactly its own problem.
+    const declared = new Set(['screenshots/a.png']);
+    const clean = {
+      declared,
+      qrByPath: new Map(),
+      runs: [],
+      extendedKeys: [],
+      perFile: [{ rel: 'screenshots/a.png', tokens: 20 }],
+      ocrTokens: gate.MIN_OCR_TOKENS,
+    };
+    assert.deepStrictEqual(gate.allProblems({ ...clean, qrByPath: new Map(), declared: new Set() }).length > 0, true);
+
+    const cases = {
+      'too few OCR tokens': { ...clean, ocrTokens: 0 },
+      'a silent screenshot': { ...clean, perFile: [{ rel: 'screenshots/a.png', tokens: 0 }] },
+      'an extended key': { ...clean, extendedKeys: [{ rel: 'a.png', key: 'Zpub6rFR7y4Q2A' }] },
+      'a foreign QR': { ...clean, qrByPath: new Map([['screenshots/a.png', 'whatever']]) },
+      'a seed run': { ...clean, runs: [{ rel: 'a.png', run: new Array(gate.SEED_RUN_LIMIT).fill('abandon') }] },
+    };
+    for (const [label, input] of Object.entries(cases)) {
+      assert.ok(gate.allProblems(input).length >= 1, `${label} is not wired into the aggregate`);
+    }
+  });
+
+  it('validates the bip39 wordlist it depends on', function () {
+    // The gate refuses to run unless the list has 2048 entries. That guard is
+    // the only thing between a dependency drift and a vacuously clean seed
+    // check, so the expectation belongs in the suite too.
+    assert.strictEqual(require('bip39').wordlists.english.length, 2048);
   });
 
   it('keeps every allowlist entry pointed at a real screenshot path', function () {
@@ -230,6 +278,15 @@ describe('unit - handbook content gate', () => {
         { rel: 'assets/logo.png', tokens: 0 },
       ];
       assert.deepStrictEqual(gate.ocrCoverageProblems(perFile, gate.SCREENSHOTS_MUST_YIELD_OCR), []);
+    });
+
+    it('still matches when OCR breaks the key after a few characters', function () {
+      // The whole point of the pattern: tesseract never returns a 111-character
+      // key in one piece. A fixture of full length would leave the minimum
+      // length — the parameter that decides whether this finds anything at all
+      // — unpinned.
+      assert.ok(gate.EXTENDED_KEY_RE.test('Zpub6rFR7y4Q2A'), 'prefix plus ten characters must match');
+      assert.ok(!gate.EXTENDED_KEY_RE.test('Zpub6rFR7y'), 'prefix plus nine must not');
     });
 
     it('does not see an extended key in ordinary text', function () {

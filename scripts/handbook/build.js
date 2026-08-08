@@ -27,10 +27,13 @@ const path = require('path');
 // to what the repository actually contains; see FLOOR_MIN_RATIO there.
 const MIN_SCREENSHOTS = 35;
 const MIN_DOCS = 8;
-// 20, not 12: the 28 store fields come from two Android locales, two iOS
-// locales and two global iOS files. At 12 an entire locale could disappear
-// from the store listing without the build noticing.
-const MIN_STORE_FIELDS = 20;
+// 25, not 12: the 28 store fields come from two Android locales (4 each), two
+// iOS locales (9 each) and two global iOS files. The point of this floor is to
+// notice a locale disappearing, so it has to sit above 28 minus the smallest
+// locale — 24. At 20 both Android locales could vanish and the count would land
+// exactly on the floor, which is not below it: the whole Google Play listing
+// would have gone without a word.
+const MIN_STORE_FIELDS = 25;
 const MIN_ASSETS = 20;
 // Screenshots / LFS-scale PNGs: a truncated checkout or LFS pointer is far
 // below this. App icons under img/dfx/ can legitimately be smaller

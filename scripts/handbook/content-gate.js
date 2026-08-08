@@ -107,16 +107,22 @@ const SEED_RUN_LIMIT = 5;
  * same vacuous pass the scan-set comparison closes one level up.
  *
  * The 70 published PNGs yield 1264 tokens under tesseract 5.5.3 and 1263 under
- * the 5.3.4 the CI runner ships — a spread of one token, so the floor can sit
- * close to reality. 900 leaves room for the image set to shrink to the
- * MIN_SCREENSHOTS floor (~1050 tokens) and still catches a tool gone blind for
- * a third of the set. An earlier 300 was 24% of the yield: the four most
- * text-rich images clear that on their own.
+ * the 5.3.4 the CI runner ships — a spread of one token.
  *
- * A sum still only measures bulk, which is what SCREENSHOTS_MUST_YIELD_OCR is
- * for.
+ * 700, not higher: the headroom argument only works pro rata. Dropping to the
+ * MIN_SCREENSHOTS floor of 35 images leaves ~1055 tokens if the images that go
+ * are average, but the seven most text-rich alone carry ~500, so a legitimate
+ * edit could land near 750. A floor above that would report "broken tool" for a
+ * content change, which is the wrong diagnosis at the wrong moment.
+ *
+ * Not lower either: 300 was 24% of the yield, and the four most text-rich
+ * images clear that on their own.
+ *
+ * The sum only measures bulk. Partial blindness is caught by
+ * SCREENSHOTS_MUST_YIELD_OCR, which looks at every file individually — that is
+ * the real canary, this is the backstop.
  */
-const MIN_OCR_TOKENS = 900;
+const MIN_OCR_TOKENS = 700;
 
 /**
  * Every screenshot must return at least one word. A screen of a wallet UI
@@ -124,9 +130,12 @@ const MIN_OCR_TOKENS = 900;
  * failed on that file — and a phrase in the next one would go unread.
  *
  * Measured: all 42 images under `screenshots/` yield at least 5 tokens (the
- * thinnest are the network settings and the cosigner QR). The 21 that yield
- * nothing are all under `assets/` — icons, logos, splash art — which is why
- * this applies to screenshots only.
+ * thinnest are the network settings and the cosigner QR). The 28 images under
+ * `assets/` contribute 13 tokens in total — seven button graphics with one to
+ * four words each, the rest icons and logos with none — which is why the rule
+ * is scoped to screenshots. An explicit list of the silent assets would be
+ * maintenance for no detection: a tool blind over `assets/` loses 13 of 1264
+ * tokens, and the seed and key checks still read every one of those files.
  */
 const SCREENSHOTS_MUST_YIELD_OCR = 'screenshots/';
 
@@ -252,9 +261,10 @@ function ocrYieldProblems(tokens, floor) {
   if (tokens >= floor) return [];
   return [
     `OCR returned only ${tokens} alphabetic tokens across the whole image set ` +
-      `(floor ${floor}). That is a broken tool, not a clean set of screenshots — ` +
-      'the seed check cannot vouch for anything. Check the tesseract install and ' +
-      'its language data.',
+      `(floor ${floor}). Two things look like this: a broken tool — check the ` +
+      'tesseract install and its language data — or an image set that genuinely ' +
+      'lost most of its text. In the second case re-measure and move the floor ' +
+      'deliberately; do not move it to make this go away.',
   ];
 }
 
@@ -298,6 +308,21 @@ function extendedKeyProblems(found) {
       '    One of these exposes every address of that account. The screenshot ' +
       'must be redacted or replaced.',
   );
+}
+
+/**
+ * Every check that runs after the scan, in one place. Exported so a test can
+ * assert that all five are actually wired: without it, deleting one line in
+ * main() disarms a check and nothing turns red.
+ */
+function allProblems({ declared, qrByPath, runs, extendedKeys, perFile, ocrTokens }) {
+  return [
+    ...ocrYieldProblems(ocrTokens, MIN_OCR_TOKENS),
+    ...ocrCoverageProblems(perFile, SCREENSHOTS_MUST_YIELD_OCR),
+    ...extendedKeyProblems(extendedKeys),
+    ...qrProblems(qrByPath, declared, QR_ALLOWLIST),
+    ...seedProblems(runs, SEED_RUN_LIMIT),
+  ];
 }
 
 /** `runs`: [{ rel, run }], sorted longest first. */
@@ -465,13 +490,7 @@ function main() {
     console.log(`  ${String(run.length).padStart(2)} ${rel}: ${run.join(' ')}`);
   }
 
-  const problems = [
-    ...ocrYieldProblems(ocrTokens, MIN_OCR_TOKENS),
-    ...ocrCoverageProblems(perFile, SCREENSHOTS_MUST_YIELD_OCR),
-    ...extendedKeyProblems(extendedKeys),
-    ...qrProblems(qrByPath, declared, QR_ALLOWLIST),
-    ...seedProblems(runs, SEED_RUN_LIMIT),
-  ];
+  const problems = allProblems({ declared, qrByPath, runs, extendedKeys, perFile, ocrTokens });
   if (problems.length) {
     fail('handbook content gate failed:\n  ' + problems.join('\n  '));
   }
@@ -491,6 +510,7 @@ module.exports = {
   ocrYieldProblems,
   ocrCoverageProblems,
   extendedKeyProblems,
+  allProblems,
 };
 
 if (require.main === module) main();

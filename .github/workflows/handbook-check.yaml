@@ -121,9 +121,10 @@ jobs:
           fi
           echo "host/image payload identical: ${host_files} files"
 
-      # Gate: nothing published may carry an unexpected QR or a readable
-      # recovery phrase. Runs against the image payload — the bytes that ship —
-      # and fails if either tool is missing. Rules and thresholds live in
+      # Gate: no published PNG may carry an unexpected QR, a readable recovery
+      # phrase or an extended public key. Images only — text artifacts are not
+      # in scope. Runs against the image payload, the bytes that ship, and fails
+      # if either tool is missing. Rules and thresholds live in
       # scripts/handbook/content-gate.js and are unit-tested there.
       - name: Screenshot content gate (QR + seed phrase)
         run: |

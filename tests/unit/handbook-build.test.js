@@ -59,7 +59,16 @@ const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 // Store-listing field names the fixtures write per locale. Enough of them that
 // the pool stays above MIN_STORE_FIELDS.
 const ANDROID_LOCALE_FIELDS = ['title', 'short_description', 'full_description', 'changelogs/default'];
-const IOS_LOCALE_FIELDS = ['name', 'description', 'keywords', 'subtitle', 'release_notes', 'promotional_text'];
+const IOS_LOCALE_FIELDS = [
+  'name',
+  'description',
+  'keywords',
+  'subtitle',
+  'release_notes',
+  'promotional_text',
+  'support_url',
+  'marketing_url',
+];
 
 /**
  * How far a floor may sit below the repository it guards.
