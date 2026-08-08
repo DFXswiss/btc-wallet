@@ -115,8 +115,12 @@ Glob (`COPY *.md ./`, `COPY img/icon*.png ./img/`) — nicht als namentliche Lis
 Eine Namensliste im Dockerfile bricht das Discovery-Versprechen: `build.js` würde
 eine neue Datei lokal mitzählen, das Image sie aber still weglassen (ohne
 Build-Fehler; Floor-Guards greifen oft nicht). Der PR-Workflow
-`handbook-check` vergleicht deshalb die Artefaktzahlen je Kategorie aus einem
-Host-Build mit dem `manifest.json` im Image und macht den Job bei Abweichung rot.
+`handbook-check` vergleicht deshalb den gesamten Payload eines Host-Builds mit
+dem des Images per SHA-256 und macht den Job bei jeder Abweichung rot. Beide
+Builds bekommen dasselbe `GIT_SHA` — der einzige nicht-deterministische Input —,
+die Bäume müssen also byte-identisch sein. Ein Zähl-Vergleich reichte dafür
+nicht: eine Umbenennung oder ein Austausch innerhalb derselben Kategorie lässt
+jede Zahl gleich.
 
 ## Docker-Image lokal
 
@@ -175,9 +179,11 @@ fehlt oder leer ist eines davon, bricht er sofort ab und nennt die fehlenden
 gibt es nicht: die Seite ist öffentlich.
 
 Der PR-Check (`.github/workflows/handbook-check.yaml`) läuft auf jedem
-nicht-Draft-PR: Image-Build ohne Push, Container-Smoke (`/healthz` und `/`
-jeweils **200 unauthentifiziert**), Stichprobe aus `manifest.json` je
-Kategorie, Host-vs-Image-Artefaktzahlen.
+nicht-Draft-PR: Image-Build ohne Push, byte-identischer Payload-Vergleich
+Host gegen Image, Content-Gate über alle veröffentlichten PNGs (QR plus
+BIP39-OCR gegen Klartext-Seedphrasen), Container-Smoke (`/healthz` und `/`
+jeweils **200 unauthentifiziert**, `/50x.html` **404**) und eine Stichprobe aus
+`manifest.json` je Kategorie.
 
 ## Screenshots erzeugen
 
@@ -264,15 +270,11 @@ Signatur ueber eine **statische Nachricht ohne Nonce**, siehe
 `02-wallet/07-xpub.png`, der Cosigner-QR in `07-multi-device/01-erstellung-qr.png`
 und die Lightning-Adresse in `08-lightning/03-rechnung-erstellen.png`.
 
-Gegenprobe zusaetzlich per OCR:
-
-```bash
-# darf nichts finden
-grep -oiE "[zx]pub6[A-Za-z0-9]{20,}" <ocr-ausgabe>
-```
-
-Zusaetzlich laeuft ueber den ganzen Satz eine OCR-Probe: keine Folge von vier
-aufeinanderfolgenden BIP39-Woertern (die ungeschwaerzten Originale hatten zwoelf).
+Beides prueft `content-gate.js` inzwischen automatisch mit, es braucht dafuer
+keinen Handgriff mehr: erweiterte Public Keys (`xpub`/`zpub` und Verwandte)
+fuehren zum Abbruch, ebenso eine Folge von `SEED_RUN_LIMIT` (derzeit fuenf)
+aufeinanderfolgenden BIP39-Woertern. Der aktuelle Satz kommt auf hoechstens
+drei; die ungeschwaerzten Originale hatten zwoelf.
 
 ## Abdeckung — was fehlt und warum
 

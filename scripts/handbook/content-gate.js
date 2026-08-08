@@ -53,7 +53,14 @@ const { execFileSync } = require('child_process');
  * covers whatever moves into its path next.
  */
 const QR_ALLOWLIST = {
-  'screenshots/04-empfangen-senden/01-erhalten.png': 'receive screen — the QR is the subject of the screenshot',
+  'screenshots/04-empfangen-senden/01-erhalten.png': {
+    // The path alone is not enough. Replace that file with a different
+    // screenshot and a path-only allowlist would wave through whatever its QR
+    // encodes — including the worst case this gate exists for. The payload has
+    // to look like a receive address, or the exception does not apply.
+    payload: /^(bitcoin:)?(bc1|[13])[a-zA-HJ-NP-Z0-9]{20,}$/,
+    reason: 'receive screen — the QR is the subject of the screenshot',
+  },
 };
 
 /**
@@ -67,17 +74,41 @@ const QR_ALLOWLIST = {
  * one, so 5 has headroom today.
  *
  * The threshold is deliberately kept low rather than parked above English
- * prose. OCR is imperfect, and a misread word splits a run: at a limit of 5 a
- * 12-word phrase survives only if three well-spaced words are misread, at 9 a
- * single misread word near the middle is enough. A false red costs one look at
- * an image; a miss costs a published key. If English screenshots ever land
- * here, raise this — but record the measurement, do not guess.
+ * prose. OCR is imperfect, and a misread word splits a run. For a phrase of n
+ * words and limit L, a leak needs the smallest k with n - k <= (k + 1)(L - 1)
+ * misreads: for n = 12 that is 2 misreads at L = 5, but only 1 at L = 7 and
+ * above. A false red costs one look at an image; a miss costs a published key.
+ * If English screenshots ever land here, raise this — but record the
+ * measurement, do not guess.
  *
  * Digits and punctuation are transparent: a phrase rendered as a numbered grid
  * ("1 abandon 2 ability …") still reads as one run. Any non-BIP39 word breaks
  * it, which is what keeps ordinary prose below the threshold.
  */
 const SEED_RUN_LIMIT = 5;
+
+/**
+ * Fewest alphabetic tokens OCR must return across the whole image set before
+ * the seed check is believed.
+ *
+ * Without this the seed half has no counter-check. The QR half does: an
+ * allowlisted image that stops decoding fails the build, so a blind zbarimg is
+ * caught. A blind tesseract — missing language data, an update that writes to a
+ * file instead of stdout — returns empty text for every image, every run is
+ * empty, and the gate reports "longest BIP39 run 0" and exits 0. That is the
+ * same vacuous pass the scan-set comparison closes one level up.
+ *
+ * The 70 published PNGs currently yield 1264 tokens. 300 is far below that and
+ * far above the zero a broken tool produces.
+ */
+const MIN_OCR_TOKENS = 300;
+
+/**
+ * Extended public keys. One of them in a screenshot exposes every address of
+ * that account, and the handbook documents that an export screen once carried
+ * one. Base58 excludes 0, O, I and l, which also keeps this off ordinary prose.
+ */
+const EXTENDED_KEY_RE = /\b[xyztuv]pub[1-9A-HJ-NP-Za-km-z]{20,}/;
 
 /** Longest runs worth naming in the summary, for diagnosis. */
 const REPORT_TOP_N = 5;
@@ -122,8 +153,13 @@ function scanSetProblems(declared, onDisk) {
 function qrProblems(qrByPath, declared, allowlist) {
   const problems = [];
   for (const [rel, payload] of qrByPath) {
-    if (Object.prototype.hasOwnProperty.call(allowlist, rel)) continue;
-    problems.push(`QR decoded in a non-allowlisted image: ${rel}\n` + `    payload starts: ${String(payload).slice(0, 80)}`);
+    const entry = Object.prototype.hasOwnProperty.call(allowlist, rel) ? allowlist[rel] : null;
+    if (entry && entry.payload.test(String(payload))) continue;
+    problems.push(
+      (entry
+        ? `QR in ${rel} does not match what the allowlist permits (${entry.reason}):\n`
+        : `QR decoded in a non-allowlisted image: ${rel}\n`) + `    payload starts: ${String(payload).slice(0, 80)}`,
+    );
   }
   for (const rel of Object.keys(allowlist)) {
     if (!declared.has(rel)) {
@@ -164,6 +200,30 @@ function longestBip39Run(text, words) {
     }
   }
   return best;
+}
+
+/**
+ * The counter-check for the seed half: OCR that returns nothing for every image
+ * would leave every run empty and report success. See MIN_OCR_TOKENS.
+ */
+function ocrYieldProblems(tokens, floor) {
+  if (tokens >= floor) return [];
+  return [
+    `OCR returned only ${tokens} alphabetic tokens across the whole image set ` +
+      `(floor ${floor}). That is a broken tool, not a clean set of screenshots — ` +
+      'the seed check cannot vouch for anything. Check the tesseract install and ' +
+      'its language data.',
+  ];
+}
+
+/** `found`: [{ rel, key }] — extended public keys read out of the images. */
+function extendedKeyProblems(found) {
+  return found.map(
+    ({ rel, key }) =>
+      `extended public key read out of ${rel}: ${String(key).slice(0, 24)}…\n` +
+      '    One of these exposes every address of that account. The screenshot ' +
+      'must be redacted or replaced.',
+  );
 }
 
 /** `runs`: [{ rel, run }], sorted longest first. */
@@ -302,11 +362,17 @@ function main() {
 
   const qrByPath = new Map();
   const runs = [];
+  const extendedKeys = [];
+  let ocrTokens = 0;
   for (const rel of files) {
     const abs = path.join(root, rel);
     const payload = decodeQr(abs);
     if (payload) qrByPath.set(rel, payload);
-    const run = longestBip39Run(ocr(abs), words);
+    const text = ocr(abs);
+    ocrTokens += (text.match(/[A-Za-z]+/g) || []).length;
+    const key = text.match(EXTENDED_KEY_RE);
+    if (key) extendedKeys.push({ rel, key: key[0] });
+    const run = longestBip39Run(text, words);
     if (run.length) runs.push({ rel, run });
   }
   runs.sort((a, b) => b.run.length - a.run.length || a.rel.localeCompare(b.rel));
@@ -315,13 +381,19 @@ function main() {
   console.log(
     `handbook content gate: scanned ${files.length} published PNGs — ` +
       `${qrByPath.size} with a QR (${Object.keys(QR_ALLOWLIST).length} allowlisted), ` +
+      `${ocrTokens} OCR tokens (floor ${MIN_OCR_TOKENS}), ` +
       `longest BIP39 run ${longest} (limit ${SEED_RUN_LIMIT}).`,
   );
   for (const { rel, run } of runs.slice(0, REPORT_TOP_N)) {
     console.log(`  ${String(run.length).padStart(2)} ${rel}: ${run.join(' ')}`);
   }
 
-  const problems = [...qrProblems(qrByPath, declared, QR_ALLOWLIST), ...seedProblems(runs, SEED_RUN_LIMIT)];
+  const problems = [
+    ...ocrYieldProblems(ocrTokens, MIN_OCR_TOKENS),
+    ...extendedKeyProblems(extendedKeys),
+    ...qrProblems(qrByPath, declared, QR_ALLOWLIST),
+    ...seedProblems(runs, SEED_RUN_LIMIT),
+  ];
   if (problems.length) {
     fail('handbook content gate failed:\n  ' + problems.join('\n  '));
   }
@@ -330,11 +402,15 @@ function main() {
 module.exports = {
   QR_ALLOWLIST,
   SEED_RUN_LIMIT,
+  MIN_OCR_TOKENS,
+  EXTENDED_KEY_RE,
   collectDeclaredPngs,
   scanSetProblems,
   qrProblems,
   longestBip39Run,
   seedProblems,
+  ocrYieldProblems,
+  extendedKeyProblems,
 };
 
 if (require.main === module) main();

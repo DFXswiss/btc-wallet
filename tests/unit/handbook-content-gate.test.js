@@ -54,18 +54,29 @@ describe('unit - handbook content gate', () => {
   });
 
   describe('QR allowlist', () => {
-    const allowlist = { 'screenshots/receive.png': 'receive screen' };
+    const allowlist = {
+      'screenshots/receive.png': { payload: /^(bitcoin:)?bc1[a-z0-9]{20,}$/, reason: 'receive screen' },
+    };
     const declared = new Set(['screenshots/receive.png', 'screenshots/other.png']);
 
     it('accepts a QR only in the allowlisted image', function () {
-      const qr = new Map([['screenshots/receive.png', 'bitcoin:bc1qexample']]);
+      const qr = new Map([['screenshots/receive.png', 'bitcoin:bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4']]);
       assert.deepStrictEqual(gate.qrProblems(qr, declared, allowlist), []);
+    });
+
+    it('rejects a QR in the allowlisted image when the payload is not what was permitted', function () {
+      // A path-only allowlist would wave through whatever replaces that file —
+      // including the worst case this gate exists for.
+      const qr = new Map([['screenshots/receive.png', 'abandon ability able about above absent']]);
+      const problems = gate.qrProblems(qr, declared, allowlist);
+      assert.strictEqual(problems.length, 1);
+      assert.match(problems[0], /does not match what the allowlist permits/);
     });
 
     it('rejects a QR anywhere else and shows the payload', function () {
       const qr = new Map([
-        ['screenshots/receive.png', 'bitcoin:bc1qexample'],
-        ['screenshots/other.png', 'bitcoin:bc1qleaked'],
+        ['screenshots/receive.png', 'bitcoin:bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4'],
+        ['screenshots/other.png', 'bitcoin:bc1qleakedaddress0000000000000000000000000'],
       ]);
       const problems = gate.qrProblems(qr, declared, allowlist);
       assert.strictEqual(problems.length, 1);
@@ -134,8 +145,46 @@ describe('unit - handbook content gate', () => {
     // A typo here disables the QR rule for the intended file while silently
     // covering nothing, and the gate would fail on the real receive screen.
     for (const rel of Object.keys(gate.QR_ALLOWLIST)) {
+      const entry = gate.QR_ALLOWLIST[rel];
       assert.match(rel, /^screenshots\/.+\.png$/i, `allowlist key is not a built screenshot path: ${rel}`);
-      assert.ok(gate.QR_ALLOWLIST[rel].length > 10, `allowlist entry ${rel} has no reason`);
+      assert.ok(entry.payload instanceof RegExp, `allowlist entry ${rel} has no payload matcher`);
+      assert.ok(entry.reason && entry.reason.length > 10, `allowlist entry ${rel} has no reason`);
+      // The matcher must not be a blanket pass — that would be a path-only
+      // allowlist wearing a costume.
+      assert.ok(!entry.payload.test('abandon ability able'), `allowlist entry ${rel} accepts arbitrary text`);
     }
+  });
+
+  describe('counter-checks', () => {
+    it('fails when OCR returns almost nothing across the whole set', function () {
+      // A blind tesseract leaves every run empty, and an empty run set would
+      // otherwise report "longest BIP39 run 0" and exit 0.
+      const problems = gate.ocrYieldProblems(0, gate.MIN_OCR_TOKENS);
+      assert.strictEqual(problems.length, 1);
+      assert.match(problems[0], /broken tool/);
+    });
+
+    it('stays silent when OCR returns a plausible amount of text', function () {
+      assert.deepStrictEqual(gate.ocrYieldProblems(gate.MIN_OCR_TOKENS, gate.MIN_OCR_TOKENS), []);
+    });
+
+    it('keeps the OCR floor well below what the real image set yields', function () {
+      // Measured: the 70 published PNGs return 1264 alphabetic tokens.
+      assert.ok(gate.MIN_OCR_TOKENS > 0, 'a floor of 0 cannot detect a blind tool');
+      assert.ok(gate.MIN_OCR_TOKENS < 1264, `floor ${gate.MIN_OCR_TOKENS} is above the measured yield`);
+    });
+
+    it('reads an extended public key out of OCR text', function () {
+      const xpub = 'xpub6CUGRUonZSQ4TWtTMmzXdrXDtypWKiKrhko4egpiMZbpiaQL2jkwSB1icqYh2cfDfVxdx4df189oLKnC5fSwqPfgyP3hooxujYzAu3fDVmz';
+      assert.ok(gate.EXTENDED_KEY_RE.test(xpub));
+      const problems = gate.extendedKeyProblems([{ rel: 'a.png', key: xpub }]);
+      assert.strictEqual(problems.length, 1);
+      assert.match(problems[0], /extended public key read out of a\.png/);
+    });
+
+    it('does not see an extended key in ordinary text', function () {
+      assert.ok(!gate.EXTENDED_KEY_RE.test('Guthaben senden und empfangen, siehe Kapitel xpub'));
+      assert.deepStrictEqual(gate.extendedKeyProblems([]), []);
+    });
   });
 });

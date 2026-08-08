@@ -63,9 +63,6 @@ jobs:
           build-args: |
             GIT_SHA=${{ github.sha }}
 
-      # Both builds get the same GIT_SHA, the only non-deterministic input to
-      # build.js. Everything else is sorted and derived from the tree, so the
-      # host output and the image payload must be byte-identical.
       - name: Install handbook build dependencies
         run: |
           set -euo pipefail
@@ -78,7 +75,10 @@ jobs:
           test -d ./_handbook-deps/node_modules/marked
           test -d ./_handbook-deps/node_modules/bip39
 
-      # Gate: the image payload must be exactly the host build.
+      # Gate: the image payload must be exactly the host build. Both builds get
+      # the same GIT_SHA, the only non-deterministic input to build.js;
+      # everything else is sorted and derived from the tree, so the two payloads
+      # must be byte-identical.
       #
       # The predecessor compared four per-category artifact counts. That let a
       # whole class of drift through: renaming a screenshot, or a Dockerfile
