@@ -26,7 +26,7 @@ import Lnurl from '../../../class/lnurl';
 import { AssetDetails, TaprootLdsWallet, TaprootLdsWalletType } from '../../../class/wallets/taproot-lds-wallet';
 
 const AddLightning = () => {
-  const { asset = TaprootLdsWalletType.BTC } = useRoute().params as {
+  const { asset = TaprootLdsWalletType.BTC } = (useRoute().params ?? {}) as {
     asset: TaprootLdsWalletType;
   };
   const { navigate } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
