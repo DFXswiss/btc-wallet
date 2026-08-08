@@ -244,6 +244,10 @@ async function _initConnection() {
     console.log(`_initConnection: connected to ${peerLabel} in ${Date.now() - connectStartedAt}ms - ${ver[0]}`);
     serverName = ver[0];
 
+    // re-derive from the current server's banner on every connection - the flag would otherwise
+    // stay stuck from a previous connection to a differently-capable server (the reconnect logic
+    // rotates servers mid-session), and the fetchUtxo() non-batching guard builds a send block on it
+    disableBatching = false;
     if (ver[0].startsWith('ElectrumPersonalServer') || ver[0].startsWith('electrs') || ver[0].startsWith('Fulcrum')) {
       disableBatching = true;
 

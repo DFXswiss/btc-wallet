@@ -1,20 +1,14 @@
 /**
- * Evidence tests for the electrs banner mis-detection in _initConnection().
+ * Server-banner batching detection in _initConnection().
  *
- * electrs has reported its server.version banner as "electrs/x.y.z" (slash, no
- * space) for years, but the batching re-enable logic parses the banner with
- * split(' ') - so the `case 'electrs'` can never match, no version is ever
- * compared against 0.9.0, and disableBatching stays true for every modern
- * electrs (the implementation Umbrel and RaspiBlitz ship). electrs >= 0.9
- * answers batched blockchain.scripthash.listunspent calls just fine; treating
- * it as non-batching starves fetchUtxo() of data and - combined with the
- * non-batching guard - can lock a funded wallet out of on-chain sending.
- *
- * The electrs case below asserts the CORRECT behaviour and therefore FAILS on
- * the current code; it goes green with the detection fix. The
- * ElectrumPersonalServer and Fulcrum cases are controls documenting behaviour
- * that must not change: EPS genuinely cannot batch, and Fulcrum's space-format
- * banner proves the existing parse works for everything except the slash form.
+ * electrs reports its server.version banner as "electrs/x.y.z" (slash, no
+ * space), Fulcrum as "Fulcrum x.y.z" - the detection must parse both forms,
+ * because mis-classifying a batching-capable server as non-batching starves
+ * fetchUtxo() of data and - combined with the non-batching guard - can lock a
+ * funded wallet out of on-chain sending. ElectrumPersonalServer genuinely
+ * cannot batch and must stay disabled. The flag is re-derived on every
+ * connection, so a batching-capable server reached after a non-batching one
+ * (the reconnect logic rotates servers mid-session) is not stuck disabled.
  *
  * Only the network client is mocked - connectMain()/_initConnection() and the
  * detection logic under test run for real.
@@ -87,6 +81,21 @@ describe('_initConnection() server banner batching detection', () => {
   it('control: recognises Fulcrum >= 1.9 (space-format banner) as batching-capable', async () => {
     mockNextBanner = 'Fulcrum 1.9.1';
     await connectAndSettle();
-    assert.strictEqual(BlueElectrum.isBatchingDisabled(), false, 'the space-format parse works; only the slash form is broken');
+    assert.strictEqual(BlueElectrum.isBatchingDisabled(), false, 'the space-format parse must keep working');
+  });
+
+  it('re-derives the flag per connection - a batching-capable server after EPS is not stuck disabled', async () => {
+    mockNextBanner = 'ElectrumPersonalServer 0.2.4';
+    await connectAndSettle();
+    assert.strictEqual(BlueElectrum.isBatchingDisabled(), true);
+
+    BlueElectrum.forceDisconnect();
+    mockNextBanner = 'ElectrumX 1.16.0';
+    await connectAndSettle();
+    assert.strictEqual(
+      BlueElectrum.isBatchingDisabled(),
+      false,
+      'an in-session reconnect to a batching-capable server must clear the flag, or the fetchUtxo() guard blocks sending until app restart',
+    );
   });
 });
