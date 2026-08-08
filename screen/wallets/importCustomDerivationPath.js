@@ -89,11 +89,11 @@ const ImportCustomDerivationPath = () => {
     },
   });
 
-  const saveWallet = type => {
+  const saveWallet = async type => {
     if (importing.current) return;
     importing.current = true;
     const wallet = wallets[path][type];
-    addAndSaveWallet(wallet);
+    await addAndSaveWallet(wallet);
     navigation.dispatch(StackActions.replace(...walletCreatedRoute()));
   };
 

@@ -77,5 +77,7 @@ describe('ImportCustomDerivationPath', () => {
 
     await waitFor(() => expect(addAndSaveWallet).toHaveBeenCalled());
     expect(mockDispatch).toHaveBeenCalledWith(StackActions.replace('WalletsRoot', { screen: 'WalletTransactions' }));
+    // Save must complete before navigation unmounts this screen.
+    expect(addAndSaveWallet.mock.invocationCallOrder[0]).toBeLessThan(mockDispatch.mock.invocationCallOrder[0]);
   });
 });
