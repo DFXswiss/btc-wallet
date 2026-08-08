@@ -472,7 +472,8 @@ function listMarkdownFiles(rootDir) {
         if (name.startsWith('.')) continue;
         if (SKIP_MD_DIR_NAMES.has(name)) continue;
         // Exact path only — not every directory named "handbook".
-        if (relPath === 'docs/handbook') continue;
+        // scripts/handbook holds the build tooling and vendored pod README, not product docs.
+        if (relPath === 'docs/handbook' || relPath === 'scripts/handbook') continue;
         walk(path.join(absDir, name), relPath);
       } else if (d.isFile() && name.toLowerCase().endsWith('.md')) {
         results.push(relPath);
@@ -500,34 +501,41 @@ function titleFromFilename(filename) {
  * Order: metadata.captions[stem] wins; else strip leading NN- and humanize.
  * Filename stem always remains available for the monospace technical line.
  */
-function deriveScreenshotCaption(filename, groupMeta) {
+function deriveScreenshotCaption(filename, groupMeta, contentCaption) {
   const stem = filename.replace(/\.png$/i, '');
+  const mNum = /^(\d{2})-(.+)$/.exec(stem);
+  const badge = mNum ? mNum[1] : null;
+  // 1) content locale captions win
+  if (contentCaption && typeof contentCaption.title === 'string' && contentCaption.title.trim()) {
+    return {
+      badge,
+      caption: contentCaption.title.trim(),
+      text:
+        typeof contentCaption.text === 'string' ? contentCaption.text.trim() : '',
+      stem,
+    };
+  }
+  // 2) metadata.json captions
   const captions =
     groupMeta && groupMeta.captions && typeof groupMeta.captions === 'object'
       ? groupMeta.captions
       : null;
-  // Metadata caption wins over derivation when present and non-empty.
   if (captions && typeof captions[stem] === 'string' && captions[stem].trim()) {
-    const m = /^(\d{2})-(.+)$/.exec(stem);
-    return { badge: m ? m[1] : null, caption: captions[stem].trim(), stem };
+    return { badge, caption: captions[stem].trim(), text: '', stem };
   }
-  const m = /^(\d{2})-(.+)$/.exec(stem);
-  if (m) {
-    const rest = m[2].replace(/[-_]+/g, ' ').trim();
+  // 3) derive from filename
+  if (mNum) {
+    const rest = mNum[2].replace(/[-_]+/g, ' ').trim();
     const caption =
       rest.length === 0 ? stem : rest.charAt(0).toUpperCase() + rest.slice(1);
-    return { badge: m[1], caption, stem };
+    return { badge, caption, text: '', stem };
   }
   const rest = stem.replace(/[-_]+/g, ' ').trim();
   const caption =
     rest.length === 0 ? stem : rest.charAt(0).toUpperCase() + rest.slice(1);
-  return { badge: null, caption, stem };
+  return { badge: null, caption, text: '', stem };
 }
 
-/**
- * Relative prefix from an output path back to the handbook root
- * (docs/foo.html → '../', docs/infra/x.html → '../../', index.html → '').
- */
 function relativeToRoot(outputPath) {
   const dir = path.posix.dirname(outputPath);
   if (!dir || dir === '.') return '';
@@ -544,157 +552,141 @@ function slugify(key) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Shared design tokens + base rules (index AND doc pages — single source).
-// ---------------------------------------------------------------------------
-const SHARED_CSS = `
-:root {
-  --bg: #eef2f7;
-  --surface: #ffffff;
-  --surface-2: #f5f7fa;
-  --surface-3: #e6ecf4;
-  --line: #dce3ec;
-  --line-strong: #c2cddc;
-  --ink: #0a1f33;
-  --ink-2: #33465f;
-  --ink-3: #5a6c84;
-  --ink-4: #7d8ca1;
-  --brand: #f5516c;
-  --brand-ink: #c0294a;
-  --brand-soft: rgba(245, 81, 108, 0.10);
-  --navy: #0a355c;
-  --link: #0a4f8f;
-  --focus: #0a4f8f;
-  --shadow-1: 0 1px 2px rgba(10, 31, 51, 0.06), 0 4px 12px rgba(10, 31, 51, 0.04);
-  --shadow-2: 0 2px 6px rgba(10, 31, 51, 0.08), 0 12px 28px rgba(10, 31, 51, 0.08);
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --mono: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-  --topbar-h: 60px;
+function formatUi(template, vars) {
+  return String(template || '').replace(/\{(\w+)\}/g, (_, k) =>
+    vars[k] !== undefined && vars[k] !== null ? String(vars[k]) : '{' + k + '}',
+  );
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0a1420;
-    --surface: #101d2c;
-    --surface-2: #16273a;
-    --surface-3: #1d3149;
-    --line: #22384f;
-    --line-strong: #31506e;
-    --ink: #e9eff7;
-    --ink-2: #bccbdb;
-    --ink-3: #93a4b9;
-    --ink-4: #75879d;
-    --brand: #ff7089;
-    --brand-ink: #ff8fa2;
-    --brand-soft: rgba(255, 112, 137, 0.14);
-    --navy: #7fb0e6;
-    --link: #7fb0e6;
-    --focus: #7fb0e6;
-    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.25);
-    --shadow-2: 0 2px 8px rgba(0, 0, 0, 0.30);
+
+function loadPodAssets(scriptDir) {
+  const podDir = path.join(scriptDir, 'pod');
+  const tokensPath = path.join(podDir, 'tokens.css');
+  if (!fs.existsSync(tokensPath)) {
+    fail('handbook: missing Design Pod tokens at scripts/handbook/pod/tokens.css');
   }
+  const tokensCss = fs.readFileSync(tokensPath, 'utf8');
+  const logoDark = fs.readFileSync(path.join(podDir, 'logo-dark.svg'), 'utf8').trim();
+  const logoWhite = fs.readFileSync(path.join(podDir, 'logo-white.svg'), 'utf8').trim();
+  const fontDir = path.join(podDir, 'fonts');
+  const fonts = [
+    'Inter-Regular.woff2',
+    'Inter-SemiBold.woff2',
+    'Inter-Bold.woff2',
+    'SourceCodePro-Regular.woff2',
+  ];
+  for (const f of fonts) {
+    if (!fs.existsSync(path.join(fontDir, f))) {
+      fail(`handbook: missing Design Pod font scripts/handbook/pod/fonts/${f}`);
+    }
+  }
+  return { tokensCss, logoDark, logoWhite, fonts, fontDir };
 }
-:root[data-theme="dark"] {
-  --bg: #0a1420;
-  --surface: #101d2c;
-  --surface-2: #16273a;
-  --surface-3: #1d3149;
-  --line: #22384f;
-  --line-strong: #31506e;
-  --ink: #e9eff7;
-  --ink-2: #bccbdb;
-  --ink-3: #93a4b9;
-  --ink-4: #75879d;
-  --brand: #ff7089;
-  --brand-ink: #ff8fa2;
-  --brand-soft: rgba(255, 112, 137, 0.14);
-  --navy: #7fb0e6;
-  --link: #7fb0e6;
-  --focus: #7fb0e6;
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.25);
-  --shadow-2: 0 2px 8px rgba(0, 0, 0, 0.30);
+
+function loadContentLocales(scriptDir) {
+  const contentDir = path.join(scriptDir, 'content');
+  if (!fs.existsSync(contentDir)) {
+    return null;
+  }
+  const files = fs
+    .readdirSync(contentDir)
+    .filter((n) => n.toLowerCase().endsWith('.json'))
+    .sort(sortStrings);
+  const locales = [];
+  for (const file of files) {
+    const raw = fs.readFileSync(path.join(contentDir, file), 'utf8');
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (err) {
+      fail(`handbook: invalid JSON in content/${file}: ${err.message}`);
+    }
+    if (!data || typeof data !== 'object') {
+      fail(`handbook: content/${file} must be a JSON object`);
+    }
+    const locale = data.locale || file.replace(/\.json$/i, '');
+    locales.push({
+      locale: String(locale),
+      label: data.label || String(locale),
+      meta: data.meta || {},
+      ui: data.ui || {},
+      chapters: Array.isArray(data.chapters) ? data.chapters : [],
+      captions:
+        data.captions && typeof data.captions === 'object' ? data.captions : {},
+      sourcePath: path.posix.join('scripts/handbook/content', file),
+    });
+  }
+  locales.sort((a, b) => sortStrings(a.locale, b.locale));
+  return locales;
 }
-:root[data-theme="light"] {
-  --bg: #eef2f7;
-  --surface: #ffffff;
-  --surface-2: #f5f7fa;
-  --surface-3: #e6ecf4;
-  --line: #dce3ec;
-  --line-strong: #c2cddc;
-  --ink: #0a1f33;
-  --ink-2: #33465f;
-  --ink-3: #5a6c84;
-  --ink-4: #7d8ca1;
-  --brand: #f5516c;
-  --brand-ink: #c0294a;
-  --brand-soft: rgba(245, 81, 108, 0.10);
-  --navy: #0a355c;
-  --link: #0a4f8f;
-  --focus: #0a4f8f;
-  --shadow-1: 0 1px 2px rgba(10, 31, 51, 0.06), 0 4px 12px rgba(10, 31, 51, 0.04);
-  --shadow-2: 0 2px 6px rgba(10, 31, 51, 0.08), 0 12px 28px rgba(10, 31, 51, 0.08);
+
+function buildFontFaceCss(prefix) {
+  const p = (f) => escapeHtml(encodeHtmlPath(prefix + 'assets/fonts/' + f));
+  return (
+    '@font-face{font-family:Inter;font-style:normal;font-weight:400;font-display:swap;' +
+    `src:url('${p('Inter-Regular.woff2')}') format('woff2');}` +
+    '@font-face{font-family:Inter;font-style:normal;font-weight:600;font-display:swap;' +
+    `src:url('${p('Inter-SemiBold.woff2')}') format('woff2');}` +
+    '@font-face{font-family:Inter;font-style:normal;font-weight:700;font-display:swap;' +
+    `src:url('${p('Inter-Bold.woff2')}') format('woff2');}` +
+    '@font-face{font-family:"Source Code Pro";font-style:normal;font-weight:400;font-display:swap;' +
+    `src:url('${p('SourceCodePro-Regular.woff2')}') format('woff2');}`
+  );
 }
+
+/** Handbook layout CSS — only var(--…) colors from the pod; no hex literals. */
+const HANDBOOK_CSS = `
 *, *::before, *::after { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body {
   margin: 0;
   background: var(--bg);
-  color: var(--ink);
-  font-family: var(--font);
-  font-size: 16px;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 body.is-locked { overflow: hidden; }
-a { color: var(--link); text-decoration: none; }
+a { color: var(--primary); text-decoration: none; }
 a:hover { text-decoration: underline; }
 a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visible {
-  outline: 2px solid var(--focus);
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
-code, pre {
-  font-family: var(--mono);
-}
+code, pre { font-family: var(--font-mono); }
 code {
   font-size: 0.875em;
   background: var(--surface-2);
   padding: 0.1em 0.35em;
-  border-radius: 4px;
-  border: 1px solid var(--line);
-  color: var(--ink);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  color: var(--text);
 }
 .skip-link {
   position: absolute;
   left: -9999px;
   top: 0;
   z-index: 1000;
-  background: var(--navy);
-  color: #fff;
+  background: var(--primary);
+  color: var(--primary-text);
   padding: 10px 16px;
-  border-radius: 0 0 var(--radius-sm) 0;
-  font-weight: 600;
+  border-radius: 0 0 var(--r-sm) 0;
+  font-weight: var(--fw-semibold);
 }
-.skip-link:focus {
-  left: 0;
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
+.skip-link:focus { left: 0; }
 .site-chrome {
   position: sticky;
   top: 0;
   z-index: 100;
   background: var(--surface);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
 }
 .topbar {
-  height: var(--topbar-h);
+  height: 60px;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 0 20px;
-  background: var(--surface);
 }
 .topbar-brand {
   display: flex;
@@ -706,30 +698,65 @@ code {
   min-width: 0;
 }
 .topbar-brand:hover { text-decoration: none; }
-.topbar-brand img {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
+.topbar-brand .logo-wrap {
   display: block;
-  flex: 0 0 auto;
-  object-fit: cover;
-}
-.topbar-titles {
-  line-height: 1.25;
+  height: 28px;
+  width: auto;
   flex: 0 0 auto;
 }
+.topbar-brand .logo-wrap svg {
+  height: 28px;
+  width: auto;
+  display: block;
+}
+.logo-white { display: none; }
+.theme-dark .logo-dark { display: none; }
+.theme-dark .logo-white { display: block; }
+.theme-light .logo-dark { display: block; }
+.theme-light .logo-white { display: none; }
+.topbar-titles { line-height: 1.25; flex: 0 0 auto; }
 .topbar-titles .wordmark {
   display: block;
-  font-weight: 650;
-  font-size: 15px;
-  color: var(--ink);
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-sm);
+  color: var(--text);
   white-space: nowrap;
 }
 .topbar-titles .submark {
   display: block;
-  font-size: 12.5px;
-  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
   white-space: nowrap;
+}
+.lang-switch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.lang-switch a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0 8px;
+  border-radius: var(--r-sm);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+  text-decoration: none;
+  text-transform: uppercase;
+}
+.lang-switch a:hover {
+  background: var(--surface-2);
+  color: var(--text);
+  text-decoration: none;
+}
+.lang-switch a[aria-current="true"] {
+  background: var(--surface-2);
+  color: var(--text);
+  box-shadow: inset 0 -2px 0 var(--accent, var(--primary));
 }
 .topbar-actions {
   display: flex;
@@ -737,7 +764,6 @@ code {
   gap: 10px;
   flex: 0 0 auto;
 }
-/* Desktop (≥720): single topbar row — brand | search | actions */
 .search-wrap {
   position: relative;
   flex: 0 0 auto;
@@ -745,8 +771,17 @@ code {
   max-width: 32vw;
   margin-left: auto;
 }
-.search-wrap[hidden] {
-  display: none !important;
+.search-wrap[hidden] { display: none !important; }
+.search-wrap input[type="search"] {
+  width: 100%;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  padding: 0 12px;
 }
 .search-status {
   position: absolute;
@@ -755,14 +790,14 @@ code {
   top: 100%;
   margin: 0;
   padding: 6px 12px;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   line-height: 1.35;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-top: 0;
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-  box-shadow: var(--shadow-1);
+  border-radius: 0 0 var(--r-sm) var(--r-sm);
+  box-shadow: var(--sh-sm);
   z-index: 101;
   pointer-events: none;
 }
@@ -776,9 +811,9 @@ code {
 .icon-btn {
   appearance: none;
   background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  color: var(--ink-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-secondary);
   cursor: pointer;
   width: 44px;
   height: 44px;
@@ -788,137 +823,49 @@ code {
   align-items: center;
   justify-content: center;
   padding: 0;
-  transition: color 180ms, background 180ms, border-color 180ms;
 }
 .icon-btn:hover {
-  background: var(--surface-3);
-  border-color: var(--line-strong);
-  color: var(--ink);
+  background: var(--surface-2);
+  border-color: var(--border-strong, var(--border));
+  color: var(--text);
 }
 .icon-btn svg { width: 20px; height: 20px; display: block; }
 .icon-btn .icon-moon { display: none; }
-:root[data-theme="dark"] .icon-btn .icon-sun { display: none; }
-:root[data-theme="dark"] .icon-btn .icon-moon { display: block; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .icon-btn .icon-sun { display: none; }
-  :root:not([data-theme="light"]) .icon-btn .icon-moon { display: block; }
-}
-.search-wrap input[type="search"] {
-  width: 100%;
-  height: 40px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  color: var(--ink);
-  font: inherit;
-  font-size: 14px;
-  padding: 0 12px;
-  transition: border-color 180ms, background 180ms;
-}
-.search-wrap input[type="search"]:focus {
-  outline: 2px solid var(--focus);
-  outline-offset: 1px;
-  border-color: var(--focus);
-  background: var(--surface);
-}
-.search-wrap input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; }
+.theme-dark .icon-btn .icon-sun { display: none; }
+.theme-dark .icon-btn .icon-moon { display: block; }
 .topbar-nav-btn {
   appearance: none;
   background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  color: var(--ink-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-secondary);
   cursor: pointer;
   font: inherit;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
   height: 44px;
   min-height: 44px;
   min-width: 44px;
   padding: 0 14px;
-  transition: color 180ms, background 180ms, border-color 180ms;
-}
-.topbar-nav-btn:hover {
-  background: var(--surface-3);
-  color: var(--ink);
-}
-/* Narrow: brand + actions on row 1; search full-width second row */
-@media (max-width: 719px) {
-  .topbar {
-    flex-wrap: wrap;
-    height: auto;
-    min-height: var(--topbar-h);
-    padding-bottom: 10px;
-    row-gap: 0;
-  }
-  .topbar-brand {
-    order: 1;
-    flex: 1 1 auto;
-  }
-  .topbar-actions {
-    order: 2;
-    margin-left: 0;
-  }
-  .search-wrap {
-    order: 3;
-    flex: 1 1 100%;
-    width: 100%;
-    max-width: none;
-    margin-left: 0;
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid var(--line);
-  }
-  .topbar-nav-btn {
-    padding: 0;
-    width: 44px;
-    font-size: 0;
-  }
-  .topbar-nav-btn::before {
-    content: "≡";
-    font-size: 18px;
-    font-weight: 700;
-    line-height: 1;
-  }
 }
 .topbar-back {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--link);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--primary);
   white-space: nowrap;
   min-height: 44px;
   padding: 0 8px;
 }
-.topbar-back:hover { text-decoration: underline; }
 .crumbs {
-  font-size: 13px;
-  color: var(--ink-3);
+  font-size: var(--fs-sm);
+  color: var(--text-tertiary);
   margin: 0 0 18px;
 }
-.crumbs a { color: var(--ink-2); }
-.crumbs .sep { margin: 0 6px; color: var(--ink-4); }
-.footer {
-  margin-top: 56px;
-  padding-top: 24px;
-  border-top: 1px solid var(--line);
-  font-size: 13px;
-  color: var(--ink-3);
-}
-@media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-`;
-
-const INDEX_CSS = SHARED_CSS + `
+.crumbs a { color: var(--text-secondary); }
+.crumbs .sep { margin: 0 6px; color: var(--text-tertiary); }
 .wrap {
   display: grid;
   grid-template-columns: 260px 1fr;
@@ -929,27 +876,26 @@ const INDEX_CSS = SHARED_CSS + `
 }
 .sidebar {
   position: sticky;
-  top: calc(var(--topbar-h) + 16px);
+  top: 76px;
   align-self: start;
-  max-height: calc(100vh - var(--topbar-h) - 32px);
+  max-height: calc(100vh - 92px);
   overflow-y: auto;
   padding-right: 8px;
 }
 .sidebar-panel {
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
   padding: 16px 14px;
 }
 .toc-label {
-  font-size: 11px;
-  font-weight: 650;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ink-4);
+  color: var(--text-tertiary);
   margin: 0 0 10px;
 }
-.toc { margin: 0; }
 .toc ol { list-style: none; padding: 0; margin: 0; }
 .toc > ol > li { margin: 2px 0; }
 .toc a {
@@ -957,45 +903,36 @@ const INDEX_CSS = SHARED_CSS + `
   align-items: baseline;
   gap: 8px;
   padding: 7px 10px;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  color: var(--ink-2);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
   text-decoration: none;
   border-left: 3px solid transparent;
-  transition: background 160ms, color 160ms, border-color 160ms;
 }
 .toc a:hover {
   background: var(--surface-2);
-  color: var(--ink);
+  color: var(--text);
   text-decoration: none;
 }
 .toc a[aria-current="true"] {
-  background: var(--brand-soft);
-  color: var(--brand-ink);
-  border-left-color: var(--brand);
-  font-weight: 650;
+  background: var(--primary-soft, var(--surface-2));
+  color: var(--text);
+  border-left-color: var(--accent, var(--primary));
+  font-weight: var(--fw-semibold);
 }
 .toc .spec-num {
   display: inline-block;
   min-width: 22px;
   font-variant-numeric: tabular-nums;
-  color: var(--ink-4);
-  font-size: 12px;
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
 }
-.toc .sub {
-  list-style: none;
-  padding: 2px 0 6px 18px;
-  margin: 0;
-}
-.toc .sub a {
-  font-size: 13px;
-  padding: 5px 10px;
-  color: var(--ink-3);
-}
+.toc .sub { list-style: none; padding: 2px 0 6px 18px; margin: 0; }
+.toc .sub a { font-size: var(--fs-sm); padding: 5px 10px; color: var(--text-tertiary); }
 .toc .sub a .count {
   margin-left: auto;
-  font-size: 12px;
-  color: var(--ink-4);
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
 }
 .toc-actions {
@@ -1004,39 +941,34 @@ const INDEX_CSS = SHARED_CSS + `
   gap: 8px;
   margin: 12px 0 0;
   padding-top: 12px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border);
 }
 .toc-actions button {
   appearance: none;
   background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  color: var(--ink-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-secondary);
   cursor: pointer;
   font: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
   min-height: 36px;
   padding: 6px 12px;
-  transition: background 160ms, border-color 160ms, color 160ms;
 }
-.toc-actions button:hover {
-  background: var(--surface-3);
-  border-color: var(--line-strong);
-  color: var(--ink);
-}
+.toc li[hidden] { display: none !important; }
 main { min-width: 0; }
 .hero h1 {
   margin: 0 0 14px;
-  font-size: 34px;
-  font-weight: 700;
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-bold);
   letter-spacing: -0.02em;
   line-height: 1.2;
-  color: var(--ink);
+  color: var(--text);
 }
 .lede {
-  font-size: 18px;
-  color: var(--ink-2);
+  font-size: var(--fs-lg);
+  color: var(--text-secondary);
   margin: 0 0 28px;
   max-width: 70ch;
 }
@@ -1045,67 +977,53 @@ main { min-width: 0; }
   flex-wrap: wrap;
   gap: 0;
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
   overflow: hidden;
   margin: 0 0 24px;
 }
 .stats .stat {
   flex: 1 1 110px;
   padding: 16px 18px;
-  border-right: 1px solid var(--line);
+  border-right: 1px solid var(--border);
   min-width: 100px;
 }
 .stats .stat:last-child { border-right: 0; }
 .stats .stat .n {
   display: block;
-  font-size: 22px;
-  font-weight: 700;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
   font-variant-numeric: tabular-nums;
-  color: var(--ink);
+  color: var(--text);
   line-height: 1.2;
-  letter-spacing: -0.01em;
   overflow-wrap: anywhere;
 }
 .stats .stat .l {
   display: block;
   margin-top: 4px;
-  font-size: 12.5px;
-  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
 }
-.stats .stat.stat-sha {
-  flex: 1 1 140px;
-  min-width: 0;
-}
+.stats .stat.stat-sha { flex: 1 1 140px; min-width: 0; }
 .stats .stat.stat-sha .n {
-  font-size: 16px;
-  font-family: var(--mono);
-  font-weight: 650;
-  letter-spacing: 0;
+  font-size: var(--fs-base);
+  font-family: var(--font-mono);
+  font-weight: var(--fw-semibold);
 }
 .callout {
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--navy);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--primary);
   padding: 14px 18px;
   margin: 0 0 36px;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
   max-width: 70ch;
 }
-.callout p {
-  margin: 0;
-  color: var(--ink-2);
-  font-size: 14px;
-}
-.callout b { color: var(--ink); }
-hr.sep {
-  border: 0;
-  border-top: 1px solid var(--line);
-  margin: 40px 0;
-}
+.callout p { margin: 0; color: var(--text-secondary); font-size: var(--fs-sm); }
+.callout b { color: var(--text); }
 details.spec {
   margin: 0 0 56px;
-  scroll-margin-top: calc(var(--topbar-h) + 64px);
+  scroll-margin-top: 76px;
 }
 details.spec > summary {
   list-style: none;
@@ -1124,13 +1042,13 @@ details.spec > summary::-webkit-details-marker { display: none; }
 .spec-head .lhs { min-width: 0; }
 .spec-head h2 {
   margin: 0 0 6px;
-  font-size: 22px;
-  font-weight: 650;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
   letter-spacing: -0.01em;
   display: flex;
   align-items: center;
   gap: 12px;
-  color: var(--ink);
+  color: var(--text);
 }
 .spec-head .badge {
   display: inline-flex;
@@ -1139,65 +1057,48 @@ details.spec > summary::-webkit-details-marker { display: none; }
   min-width: 34px;
   height: 26px;
   padding: 0 8px;
-  border-radius: 999px;
-  background: var(--surface-3);
-  color: var(--ink-3);
-  font-size: 12.5px;
-  font-weight: 650;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
   font-variant-numeric: tabular-nums;
 }
 .spec-head .chevron {
   width: 16px;
   height: 16px;
-  color: var(--ink-4);
+  color: var(--text-tertiary);
   flex: 0 0 auto;
-  transition: transform 180ms, color 160ms;
 }
-details.spec[open] .spec-head .chevron {
-  transform: rotate(90deg);
-  color: var(--brand);
-}
+details.spec[open] .spec-head .chevron { color: var(--accent, var(--primary)); }
 .spec-head .file {
-  font-family: var(--mono);
-  font-size: 12.5px;
-  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
   overflow-wrap: anywhere;
 }
 .spec-head .rhs {
   text-align: right;
-  font-size: 13px;
-  color: var(--ink-3);
+  font-size: var(--fs-sm);
+  color: var(--text-tertiary);
   white-space: nowrap;
 }
-.spec-head .rhs b { color: var(--ink); font-weight: 650; }
-@media (max-width: 600px) {
-  .spec-head {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-  }
-  .spec-head .rhs {
-    text-align: left;
-    white-space: normal;
-  }
-  .stats .stat.stat-sha {
-    flex: 1 1 100%;
-    border-right: 0;
-    border-top: 1px solid var(--line);
-  }
-  .stats .stat.stat-sha .n {
-    font-size: 14px;
-  }
-}
+.spec-head .rhs b { color: var(--text); font-weight: var(--fw-semibold); }
 .spec-intro {
-  color: var(--ink-2);
+  color: var(--text-secondary);
   margin: 12px 0 22px;
   max-width: 70ch;
-  font-size: 16px;
+  font-size: var(--fs-base);
+}
+.chapter-summary {
+  margin: 0 0 10px;
+  color: var(--text-secondary);
+  font-size: var(--fs-base);
+  max-width: 70ch;
 }
 .group-block {
   margin: 0 0 36px;
-  scroll-margin-top: calc(var(--topbar-h) + 16px);
+  scroll-margin-top: 76px;
 }
 .group-block[hidden],
 .shot-card[hidden],
@@ -1205,7 +1106,6 @@ details.spec[hidden],
 .doc-list li[hidden] {
   display: none !important;
 }
-/* Copy button sits NEXT TO the group heading, never inside it (a11y name). */
 .group-head {
   display: flex;
   align-items: baseline;
@@ -1215,25 +1115,25 @@ details.spec[hidden],
 }
 .group-head h3 {
   margin: 0;
-  font-size: 18px;
-  font-weight: 650;
-  color: var(--ink);
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  color: var(--text);
   display: flex;
   align-items: baseline;
   gap: 10px;
   flex-wrap: wrap;
-  scroll-margin-top: calc(var(--topbar-h) + 16px);
+  scroll-margin-top: 76px;
 }
 .group-head h3 .gcount {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--ink-4);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--text-tertiary);
 }
 .group-desc {
   margin: 0 0 18px;
   max-width: 70ch;
-  color: var(--ink-2);
-  font-size: 15px;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
 }
 a.name.permalink {
   text-decoration: none;
@@ -1241,7 +1141,7 @@ a.name.permalink {
 }
 a.name.permalink:hover {
   text-decoration: underline;
-  color: var(--brand-ink);
+  color: var(--accent, var(--primary));
 }
 .copy-link {
   appearance: none;
@@ -1249,22 +1149,22 @@ a.name.permalink:hover {
   border: 1px solid transparent;
   padding: 2px 6px;
   font: inherit;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   line-height: 1;
-  color: var(--ink-3);
+  color: var(--text-tertiary);
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   flex: 0 0 auto;
 }
 .copy-link:hover {
-  color: var(--brand-ink);
+  color: var(--accent, var(--primary));
   background: var(--surface);
-  border-color: var(--line);
+  border-color: var(--border);
 }
 .copy-link[data-copied='true'] {
-  color: var(--brand-ink);
+  color: var(--accent, var(--primary));
   background: var(--surface);
-  border-color: var(--brand);
+  border-color: var(--accent, var(--primary));
 }
 .shot-grid {
   display: grid;
@@ -1274,36 +1174,34 @@ a.name.permalink:hover {
 .shot-card {
   margin: 0;
   background: transparent;
-  scroll-margin-top: calc(var(--topbar-h) + 12px);
+  scroll-margin-top: 72px;
 }
 .shot-card > a.shot-img {
   display: block;
   color: inherit;
   text-decoration: none;
   cursor: pointer;
-  border-radius: var(--radius-lg);
-  transition: opacity 160ms;
+  border-radius: var(--r-lg);
 }
 .shot-card > a.shot-img:hover { text-decoration: none; }
 .shot-card .frame {
   aspect-ratio: 9 / 19.5;
   background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-sm);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   padding: 10px;
-  transition: border-color 180ms, box-shadow 180ms;
 }
 .shot-card > a.shot-img:hover .frame {
-  border-color: var(--line-strong);
-  box-shadow: var(--shadow-2);
+  border-color: var(--border-strong, var(--border));
+  box-shadow: var(--sh-md);
 }
 .shot-card > a.shot-img:focus-visible {
-  outline: 2px solid var(--focus);
+  outline: 2px solid var(--primary);
   outline-offset: 3px;
 }
 .shot-card img {
@@ -1313,12 +1211,9 @@ a.name.permalink:hover {
   height: auto;
   object-fit: contain;
   display: block;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
 }
-.shot-card figcaption {
-  margin-top: 10px;
-  padding: 0 2px;
-}
+.shot-card figcaption { margin-top: 10px; padding: 0 2px; }
 .shot-card .cap-row {
   display: flex;
   align-items: flex-start;
@@ -1333,26 +1228,33 @@ a.name.permalink:hover {
   min-width: 28px;
   height: 22px;
   padding: 0 6px;
-  border-radius: 999px;
-  background: var(--surface-3);
-  color: var(--ink-2);
-  font-size: 11.5px;
-  font-weight: 650;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
   font-variant-numeric: tabular-nums;
 }
 .shot-card .cap-row a.name.permalink {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ink);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--text);
   line-height: 1.35;
   flex: 1 1 auto;
   min-width: 0;
 }
+.shot-card .cap-text {
+  margin: 6px 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: 1.45;
+  max-width: 70ch;
+}
 .shot-card .cap-file {
   margin-top: 4px;
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
   overflow-wrap: anywhere;
 }
 .asset-grid {
@@ -1362,94 +1264,52 @@ a.name.permalink:hover {
 }
 .asset-card {
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
   padding: 14px;
   text-align: center;
-  transition: border-color 160ms, box-shadow 160ms;
 }
-.asset-card:hover {
-  border-color: var(--line-strong);
-  box-shadow: var(--shadow-1);
-}
-.asset-card a {
-  display: block;
-  color: inherit;
-  text-decoration: none;
-}
-.asset-card a:hover { text-decoration: none; }
-.asset-card a:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
-}
+.asset-card a { display: block; color: inherit; text-decoration: none; }
 .asset-card .frame {
   aspect-ratio: 4 / 3;
-  background:
-    linear-gradient(45deg, var(--surface-3) 25%, transparent 25%),
-    linear-gradient(-45deg, var(--surface-3) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, var(--surface-3) 75%),
-    linear-gradient(-45deg, transparent 75%, var(--surface-3) 75%);
-  background-size: 16px 16px;
-  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
-  background-color: var(--surface-2);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--line);
+  background: var(--surface-2);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 12px;
 }
-.asset-card img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
+.asset-card img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .asset-card .an {
   margin-top: 10px;
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
   overflow-wrap: anywhere;
 }
 .store-platform { margin-bottom: 36px; }
-.store-platform h3 {
-  margin: 0 0 14px;
-  font-size: 18px;
-  color: var(--ink);
-}
+.store-platform h3 { margin: 0 0 14px; font-size: var(--fs-lg); color: var(--text); }
 .store-locale {
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
   padding: 18px 20px;
   margin-bottom: 14px;
 }
-.store-locale h4 {
-  margin: 0 0 14px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 650;
-}
+.store-locale h4 { margin: 0 0 14px; display: inline-flex; }
 .locale-chip {
   display: inline-flex;
   align-items: center;
   padding: 3px 10px;
-  border-radius: 999px;
-  background: var(--surface-3);
-  color: var(--ink-2);
-  font-family: var(--mono);
-  font-size: 12px;
-  font-weight: 600;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
 }
-.store-locale dl {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
+.store-locale dl { margin: 0; display: flex; flex-direction: column; gap: 10px; }
 .store-row {
   display: grid;
   grid-template-columns: minmax(120px, 200px) 1fr;
@@ -1457,34 +1317,21 @@ a.name.permalink:hover {
   align-items: start;
 }
 .store-row[hidden] { display: none !important; }
-.store-locale dt {
-  font-size: 13px;
-  color: var(--ink-3);
-  font-weight: 650;
-}
+.store-locale dt { font-size: var(--fs-sm); color: var(--text-tertiary); font-weight: var(--fw-semibold); }
 .store-locale dd {
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  color: var(--ink);
-  font-size: 15px;
+  color: var(--text);
+  font-size: var(--fs-sm);
 }
-.store-locale dd.empty { color: var(--ink-4); }
-.doc-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
+.store-locale dd.empty { color: var(--text-tertiary); }
+.doc-list { list-style: none; padding: 0; margin: 0; }
 .doc-list li {
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
   margin-bottom: 10px;
-  transition: border-color 160ms, box-shadow 160ms;
-}
-.doc-list li:hover {
-  border-color: var(--line-strong);
-  box-shadow: var(--shadow-1);
 }
 .doc-list a {
   display: flex;
@@ -1493,59 +1340,51 @@ a.name.permalink:hover {
   gap: 12px;
   padding: 14px 16px;
   min-height: 52px;
-  color: var(--ink);
+  color: var(--text);
   text-decoration: none;
 }
-.doc-list a:hover { text-decoration: none; }
-.doc-list a:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-  border-radius: var(--radius-md);
-}
-.doc-list .doc-title { font-weight: 650; font-size: 15px; }
+.doc-list a:hover { text-decoration: none; background: var(--surface-2); }
+.doc-list .doc-title { font-weight: var(--fw-semibold); font-size: var(--fs-sm); }
 .doc-list .doc-path {
-  font-family: var(--mono);
-  font-size: 12.5px;
-  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
 }
-.doc-list .chev {
-  color: var(--ink-4);
-  flex: 0 0 auto;
-}
+.doc-list .chev { color: var(--text-tertiary); flex: 0 0 auto; }
 .search-empty {
   background: var(--surface);
-  border: 1px dashed var(--line-strong);
-  border-radius: var(--radius-md);
+  border: 1px dashed var(--border);
+  border-radius: var(--r-md);
   padding: 28px 20px;
   text-align: center;
-  color: var(--ink-2);
+  color: var(--text-secondary);
   margin: 12px 0 28px;
+}
+.footer {
+  margin-top: 56px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-sm);
+  color: var(--text-tertiary);
 }
 .lightbox {
   position: fixed;
   inset: 0;
   z-index: 200;
-  background: rgba(7, 20, 32, 0.88);
+  background: var(--bg-deep, var(--bg));
+  opacity: 0.96;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 16px;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .lightbox {
-    background: rgba(2, 8, 14, 0.92);
-  }
-}
-:root[data-theme="dark"] .lightbox {
-  background: rgba(2, 8, 14, 0.92);
-}
 .lightbox[hidden] { display: none !important; }
 .lightbox-dialog {
   background: var(--surface);
-  color: var(--ink);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-2);
+  color: var(--text);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--sh-md);
   width: min(92vw, 380px);
   max-width: min(92vw, 380px);
   max-height: min(94vh, 100%);
@@ -1559,27 +1398,18 @@ a.name.permalink:hover {
   justify-content: space-between;
   gap: 12px;
   padding: 12px 14px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
 }
 .lightbox-meta { min-width: 0; }
-.lightbox-title {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 650;
-  color: var(--ink);
-}
+.lightbox-title { margin: 0; font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text); }
 .lightbox-file {
   margin: 4px 0 0;
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
   overflow-wrap: anywhere;
 }
-.lightbox-count {
-  margin: 6px 0 0;
-  font-size: 12.5px;
-  color: var(--ink-4);
-}
+.lightbox-count { margin: 6px 0 0; font-size: var(--fs-xs); color: var(--text-tertiary); }
 .lightbox-body {
   display: grid;
   grid-template-columns: 44px 1fr 44px;
@@ -1610,82 +1440,22 @@ a.name.permalink:hover {
 .lightbox-arrow {
   appearance: none;
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  color: var(--ink-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-secondary);
   cursor: pointer;
   font: inherit;
   font-size: 18px;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   min-height: 44px;
   min-width: 44px;
   padding: 0;
-  transition: background 160ms, border-color 160ms, color 160ms;
   grid-row: 1;
-}
-.lightbox-arrow:hover {
-  background: var(--surface-3);
-  color: var(--ink);
 }
 #lightbox-prev { grid-column: 1; }
 #lightbox-next { grid-column: 3; }
 .lightbox-arrow .label-full { display: none; }
 .lightbox-arrow .label-short { display: inline; }
-@media (max-width: 560px) {
-  .lightbox-dialog {
-    width: min(94vw, 360px);
-    max-width: min(94vw, 360px);
-  }
-  .lightbox-body {
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto auto;
-    padding: 10px;
-    gap: 8px;
-  }
-  .lightbox-stage {
-    grid-column: 1 / -1;
-    grid-row: 1;
-  }
-  #lightbox-prev { grid-column: 1; grid-row: 2; }
-  #lightbox-next { grid-column: 2; grid-row: 2; }
-  .lightbox-arrow {
-    width: 100%;
-    font-size: 14px;
-    font-weight: 600;
-    padding: 0 10px;
-  }
-  .lightbox-arrow .label-full { display: inline; }
-  .lightbox-arrow .label-short { display: none; }
-}
-@media (max-width: 1023px) {
-  .wrap {
-    grid-template-columns: 1fr;
-    padding: 18px 16px 48px;
-    gap: 20px;
-  }
-  .sidebar {
-    position: static;
-    max-height: none;
-    order: 2;
-    display: none;
-  }
-  body.sidebar-open .sidebar { display: block; }
-  main { order: 1; }
-  .hero h1 { font-size: 28px; }
-  .stats .stat { border-right: 0; border-bottom: 1px solid var(--line); }
-  .store-row { grid-template-columns: 1fr; gap: 2px; }
-}
-@media (min-width: 1024px) {
-  .topbar-nav-btn { display: none; }
-}
-@media (max-width: 480px) {
-  .topbar { padding: 0 12px 10px; gap: 8px; }
-  .topbar-titles .wordmark { font-size: 13.5px; }
-}
-.toc li[hidden] { display: none !important; }
-`;
-
-const DOC_CSS = SHARED_CSS + `
 .doc-wrap {
   max-width: 72ch;
   margin: 0 auto;
@@ -1693,72 +1463,35 @@ const DOC_CSS = SHARED_CSS + `
 }
 .doc-body {
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
   padding: 28px 28px 36px;
-  box-shadow: var(--shadow-1);
+  box-shadow: var(--sh-sm);
 }
 .doc-body > :first-child { margin-top: 0; }
 .doc-body h1 {
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.015em;
-  line-height: 1.25;
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-bold);
   margin: 0 0 18px;
-  color: var(--ink);
+  color: var(--text);
 }
 .doc-body h2 {
-  font-size: 22px;
-  font-weight: 650;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
   margin: 36px 0 12px;
   padding-top: 18px;
-  border-top: 1px solid var(--line);
-  color: var(--ink);
-  scroll-margin-top: calc(var(--topbar-h) + 12px);
+  border-top: 1px solid var(--border);
+  color: var(--text);
+  scroll-margin-top: 76px;
 }
 .doc-body h3 {
-  font-size: 18px;
-  font-weight: 650;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
   margin: 28px 0 10px;
-  color: var(--ink);
-  scroll-margin-top: calc(var(--topbar-h) + 12px);
+  color: var(--text);
 }
-.doc-body h4, .doc-body h5, .doc-body h6 {
-  font-size: 16px;
-  font-weight: 650;
-  margin: 22px 0 8px;
-  color: var(--ink);
-}
-.doc-body p, .doc-body li {
-  color: var(--ink-2);
-  max-width: 70ch;
-}
-.doc-body a { color: var(--link); }
-.doc-body a:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-.doc-body ul, .doc-body ol { padding-left: 1.35em; }
-.doc-body li { margin: 0.35em 0; }
-.doc-body blockquote {
-  margin: 18px 0;
-  padding: 10px 16px;
-  border-left: 3px solid var(--brand);
-  background: var(--brand-soft);
-  color: var(--ink-2);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-}
-.doc-body hr {
-  border: 0;
-  border-top: 1px solid var(--line);
-  margin: 28px 0;
-}
-.doc-body img {
-  max-width: 100%;
-  height: auto;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--line);
-}
+.doc-body p, .doc-body li { color: var(--text-secondary); max-width: 70ch; }
+.doc-body a { color: var(--primary); }
 .doc-body pre {
   margin: 16px 0;
   padding: 0;
@@ -1766,47 +1499,98 @@ const DOC_CSS = SHARED_CSS + `
   border: 0;
   overflow: visible;
 }
-.doc-body pre code,
-.doc-body .code-scroll {
+.doc-body pre code {
   display: block;
   overflow-x: auto;
   background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
   padding: 14px 16px;
-  font-size: 13.5px;
+  font-size: var(--fs-sm);
   line-height: 1.5;
-  color: var(--ink);
-}
-.doc-body table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14.5px;
-  margin: 0;
+  color: var(--text);
 }
 .doc-body .table-scroll {
   overflow-x: auto;
   margin: 16px 0;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
   background: var(--surface);
 }
+.doc-body table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); margin: 0; }
 .doc-body th, .doc-body td {
   padding: 10px 12px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
   text-align: left;
   vertical-align: top;
 }
-.doc-body th {
-  background: var(--surface-2);
-  color: var(--ink);
-  font-weight: 650;
-}
+.doc-body th { background: var(--surface-2); color: var(--text); font-weight: var(--fw-semibold); }
 .doc-body tr:nth-child(even) td { background: var(--surface-2); }
-.doc-body tr:last-child td { border-bottom: 0; }
-@media (max-width: 640px) {
-  .doc-wrap { padding: 16px 12px 48px; }
-  .doc-body { padding: 18px 16px 28px; }
+.doc-body img { max-width: 100%; height: auto; border-radius: var(--r-sm); border: 1px solid var(--border); }
+.doc-body blockquote {
+  margin: 18px 0;
+  padding: 10px 16px;
+  border-left: 3px solid var(--accent, var(--primary));
+  background: var(--primary-soft, var(--surface-2));
+  color: var(--text-secondary);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+@media (max-width: 719px) {
+  .topbar { flex-wrap: wrap; height: auto; min-height: 60px; padding-bottom: 10px; }
+  .topbar-brand { order: 1; flex: 1 1 auto; }
+  .lang-switch { order: 2; }
+  .topbar-actions { order: 3; margin-left: 0; }
+  .search-wrap {
+    order: 4;
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+  .topbar-nav-btn { padding: 0; width: 44px; font-size: 0; }
+  .topbar-nav-btn::before { content: "≡"; font-size: 18px; font-weight: 700; line-height: 1; }
+}
+@media (max-width: 1023px) {
+  .wrap { grid-template-columns: 1fr; padding: 18px 16px 48px; gap: 20px; }
+  .sidebar { position: static; max-height: none; order: 2; display: none; }
+  body.sidebar-open .sidebar { display: block; }
+  main { order: 1; }
+  .stats .stat { border-right: 0; border-bottom: 1px solid var(--border); }
+  .store-row { grid-template-columns: 1fr; gap: 2px; }
+}
+@media (min-width: 1024px) {
+  .topbar-nav-btn { display: none; }
+}
+@media (max-width: 600px) {
+  .spec-head { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .spec-head .rhs { text-align: left; white-space: normal; }
+  .stats .stat.stat-sha { flex: 1 1 100%; border-right: 0; border-top: 1px solid var(--border); }
+}
+@media (max-width: 560px) {
+  .lightbox-body {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    padding: 10px;
+    gap: 8px;
+  }
+  .lightbox-stage { grid-column: 1 / -1; grid-row: 1; }
+  #lightbox-prev { grid-column: 1; grid-row: 2; }
+  #lightbox-next { grid-column: 2; grid-row: 2; }
+  .lightbox-arrow { width: 100%; font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+  .lightbox-arrow .label-full { display: inline; }
+  .lightbox-arrow .label-short { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 `;
 
@@ -1829,49 +1613,139 @@ function svgSunMoon() {
   );
 }
 
+function prepareInlineLogo(svg, className) {
+  let s = String(svg).trim();
+  // Ensure root svg has class and aria-hidden for decorative use beside wordmark.
+  s = s.replace(
+    /^<svg\b([^>]*)>/i,
+    '<svg class="' + className + '" aria-hidden="true" focusable="false"$1>',
+  );
+  return s;
+}
+
+function buildPageCss(tokensCss, prefix) {
+  return tokensCss + '\n' + buildFontFaceCss(prefix) + '\n' + HANDBOOK_CSS;
+}
+
+function buildHead(opts) {
+  const prefix = opts.prefix || '';
+  const iconHref = escapeHtml(encodeHtmlPath(prefix + 'assets/icon.png'));
+  const desc = escapeHtml(opts.description || '');
+  const title = escapeHtml(opts.title || '');
+  const lang = escapeHtml(opts.lang || 'de');
+  const themeClass = opts.themeClass || 'theme-light';
+  const hreflangs = opts.hreflangs || [];
+  let alt = '';
+  for (const h of hreflangs) {
+    alt +=
+      `<link rel="alternate" hreflang="${escapeHtml(h.lang)}" href="${escapeHtml(h.href)}">\n`;
+  }
+  return (
+    `<!DOCTYPE html>\n<html lang="${lang}" class="${escapeHtml(themeClass)}">\n<head>\n` +
+    `<meta charset="utf-8">\n` +
+    `<meta name="viewport" content="width=device-width, initial-scale=1">\n` +
+    `<meta name="color-scheme" content="light dark">\n` +
+    `<meta name="description" content="${desc}">\n` +
+    `<link rel="icon" type="image/png" href="${iconHref}">\n` +
+    alt +
+    `<title>${title}</title>\n` +
+    `<style>\n${opts.css}\n</style>\n` +
+    `</head>\n`
+  );
+}
+
+function buildLangSwitch(locales, currentLocale, prefix, pageName) {
+  // pageName: '' for home, or '' with locale path — links to sibling locale homes
+  let html = `<nav class="lang-switch" aria-label="Language">`;
+  for (const loc of locales) {
+    let href;
+    if (loc.locale === 'de') {
+      href = prefix + 'index.html';
+    } else {
+      // from root: en/index.html; from en/: ../fr/index.html; from docs: ../../en/index.html
+      if (currentLocale === 'de') {
+        href = prefix + loc.locale + '/index.html';
+      } else if (prefix === '../') {
+        // on en/index.html, prefix is ../
+        href = prefix + loc.locale + '/index.html';
+      } else {
+        href = prefix + loc.locale + '/index.html';
+      }
+    }
+    // normalize: when on en/ (prefix ../), de is ../index.html, fr is ../fr/index.html
+    if (currentLocale !== 'de' && loc.locale === 'de') {
+      href = prefix + 'index.html';
+    } else if (currentLocale !== 'de' && loc.locale !== 'de') {
+      href = prefix + loc.locale + '/index.html';
+    } else if (currentLocale === 'de' && loc.locale !== 'de') {
+      href = prefix + loc.locale + '/index.html';
+    } else {
+      href = prefix + 'index.html';
+    }
+    const cur = loc.locale === currentLocale ? ' aria-current="true"' : '';
+    html +=
+      `<a href="${escapeHtml(encodeHtmlPath(href))}"${cur}>` +
+      `${escapeHtml(loc.locale)}</a>`;
+  }
+  html += '</nav>';
+  return html;
+}
+
 function buildTopbar(opts) {
   const prefix = opts.prefix || '';
-  const logoHref = escapeHtml(encodeHtmlPath(prefix + 'assets/icon.png'));
-  const homeHref = escapeHtml(encodeHtmlPath(prefix + 'index.html'));
+  const homeHref = escapeHtml(encodeHtmlPath(prefix + (opts.homePath || 'index.html')));
+  const logoDark = opts.logoDark || '';
+  const logoWhite = opts.logoWhite || '';
+  const ui = opts.ui || {};
   const showSearch = !!opts.showSearch;
   const showSidebarToggle = !!opts.showSidebarToggle;
   const showBack = !!opts.showBack;
+  const locales = opts.locales || [];
+  const currentLocale = opts.currentLocale || 'de';
+
   let actions = '';
   if (showSidebarToggle) {
     actions +=
-      '<button type="button" class="topbar-nav-btn" id="sidebar-toggle" hidden ' +
-      'aria-expanded="false" aria-controls="handbook-sidebar">Inhalt</button>';
+      `<button type="button" class="topbar-nav-btn" id="sidebar-toggle" hidden ` +
+      `aria-expanded="false" aria-controls="handbook-sidebar">${escapeHtml(ui.menu || 'Menu')}</button>`;
   }
   if (showBack) {
     actions +=
-      `<a class="topbar-back" href="${homeHref}">← Zum Handbuch</a>`;
+      `<a class="topbar-back" href="${homeHref}">${escapeHtml(ui.backToHandbook || '←')}</a>`;
   }
   actions +=
-    '<button type="button" class="icon-btn" id="theme-toggle" hidden ' +
-    'aria-label="Darstellung umschalten" aria-pressed="false">' +
+    `<button type="button" class="icon-btn" id="theme-toggle" hidden ` +
+    `aria-label="${escapeHtml(ui.theme || 'Theme')}" aria-pressed="false">` +
     svgSunMoon() +
     '</button>';
-  // Search lives in the topbar row on ≥720px; CSS wraps it to a second row under 720px.
+
   let searchHtml = '';
   let statusHtml = '';
   if (showSearch) {
     searchHtml =
-      '<div class="search-wrap" id="search-wrap" hidden>' +
-      '<input type="search" id="handbook-search" placeholder="Suchen…" ' +
-      'aria-label="Handbuch durchsuchen" autocomplete="off" spellcheck="false">' +
-      '</div>';
+      `<div class="search-wrap" id="search-wrap" hidden>` +
+      `<input type="search" id="handbook-search" placeholder="${escapeHtml(ui.search || '')}" ` +
+      `aria-label="${escapeHtml(ui.searchLabel || ui.search || 'Search')}" autocomplete="off" spellcheck="false">` +
+      `</div>`;
     statusHtml =
-      '<p class="search-status" id="search-status" role="status" aria-live="polite" hidden></p>';
+      `<p class="search-status" id="search-status" role="status" aria-live="polite" hidden></p>`;
   }
+
+  const lang =
+    locales.length > 1
+      ? buildLangSwitch(locales, currentLocale, prefix, opts.homePath)
+      : '';
+
   return (
     `<div class="site-chrome">` +
     `<header class="topbar">` +
     `<a class="topbar-brand" href="${homeHref}">` +
-    `<img src="${logoHref}" alt="DFX BTC Taro Wallet" width="30" height="30">` +
+    `<span class="logo-wrap">${logoDark}${logoWhite}</span>` +
     `<span class="topbar-titles">` +
-    `<span class="wordmark">DFX BTC Taro Wallet</span>` +
-    `<span class="submark">Handbuch</span>` +
+    `<span class="wordmark">BTC Taro Wallet</span>` +
+    `<span class="submark">${escapeHtml(ui.breadcrumbHome || 'Handbook')}</span>` +
     `</span></a>` +
+    lang +
     searchHtml +
     `<div class="topbar-actions">${actions}</div>` +
     `</header>` +
@@ -1880,35 +1754,7 @@ function buildTopbar(opts) {
   );
 }
 
-function buildHead(opts) {
-  const prefix = opts.prefix || '';
-  const iconHref = escapeHtml(encodeHtmlPath(prefix + 'assets/icon.png'));
-  const desc = escapeHtml(
-    opts.description ||
-      'Handbuch der DFX BTC Taro Wallet: Screenshots, Store-Listing, Assets und Dokumentation.',
-  );
-  const title = escapeHtml(opts.title);
-  const css = opts.css;
-  const colorScheme =
-    '<meta name="color-scheme" content="light dark">\n' +
-    '<meta name="theme-color" content="#eef2f7" media="(prefers-color-scheme: light)">\n' +
-    '<meta name="theme-color" content="#0a1420" media="(prefers-color-scheme: dark)">\n';
-  return (
-    `<!DOCTYPE html>\n<html lang="de">\n<head>\n` +
-    `<meta charset="utf-8">\n` +
-    `<meta name="viewport" content="width=device-width, initial-scale=1">\n` +
-    colorScheme +
-    `<meta name="description" content="${desc}">\n` +
-    `<link rel="icon" type="image/png" href="${iconHref}">\n` +
-    `<title>${title}</title>\n` +
-    `<style>${css}\n</style>\n` +
-    `</head>\n`
-  );
-}
-
 function buildHandbookJs() {
-  // Deterministic external script (no timestamps). Tolerates missing index-only
-  // elements so the same file can load on doc pages for the theme toggle.
   return [
     '(function () {',
     "  var THEME_KEY = 'handbook-theme';",
@@ -1918,17 +1764,18 @@ function buildHandbookJs() {
     '',
     '  function applyTheme(theme) {',
     '    var root = document.documentElement;',
-    "    if (theme === 'dark' || theme === 'light') {",
-    "      root.setAttribute('data-theme', theme);",
-    '    } else {',
-    "      root.removeAttribute('data-theme');",
+    "    root.classList.remove('theme-light', 'theme-dark');",
+    "    if (theme === 'dark') root.classList.add('theme-dark');",
+    "    else if (theme === 'light') root.classList.add('theme-light');",
+    '    else {',
+    "      var systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;",
+    "      root.classList.add(systemDark ? 'theme-dark' : 'theme-light');",
     '      theme = null;',
     '    }',
     "    var btn = $('theme-toggle');",
     '    if (btn) {',
-    "      var pressed = theme === 'dark' || (!theme && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);",
+    "      var pressed = root.classList.contains('theme-dark');",
     "      btn.setAttribute('aria-pressed', pressed ? 'true' : 'false');",
-    "      btn.setAttribute('aria-label', pressed ? 'Helles Design aktivieren' : 'Dunkles Design aktivieren');",
     '    }',
     '  }',
     '',
@@ -1941,12 +1788,8 @@ function buildHandbookJs() {
     "    if (stored === 'dark' || stored === 'light') applyTheme(stored);",
     '    else applyTheme(null);',
     "    btn.addEventListener('click', function () {",
-    "      var cur = document.documentElement.getAttribute('data-theme');",
-    "      var systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;",
-    '      var next;',
-    "      if (cur === 'dark') next = 'light';",
-    "      else if (cur === 'light') next = 'dark';",
-    "      else next = systemDark ? 'light' : 'dark';",
+    "      var isDark = document.documentElement.classList.contains('theme-dark');",
+    "      var next = isDark ? 'light' : 'dark';",
     '      applyTheme(next);',
     '      try { localStorage.setItem(THEME_KEY, next); } catch (e) {}',
     '    });',
@@ -1960,9 +1803,7 @@ function buildHandbookJs() {
     "    var details = el.closest ? el.closest('details.spec') : null;",
     "    if (!details && el.tagName === 'DETAILS') details = el;",
     '    if (details) details.open = true;',
-    "    if (typeof el.scrollIntoView === 'function') {",
-    "      el.scrollIntoView({ block: 'start' });",
-    '    }',
+    "    if (typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'start' });",
     '  }',
     '',
     '  function initTocActions() {',
@@ -1970,16 +1811,8 @@ function buildHandbookJs() {
     "    var collapse = $('toc-collapse-all');",
     "    var actions = $('toc-actions');",
     '    if (actions && (expand || collapse)) actions.hidden = false;',
-    '    if (expand) {',
-    "      expand.addEventListener('click', function () {",
-    "        qsa('details.spec').forEach(function (d) { d.open = true; });",
-    '      });',
-    '    }',
-    '    if (collapse) {',
-    "      collapse.addEventListener('click', function () {",
-    "        qsa('details.spec').forEach(function (d) { d.open = false; });",
-    '      });',
-    '    }',
+    '    if (expand) expand.addEventListener("click", function () { qsa("details.spec").forEach(function (d) { d.open = true; }); });',
+    '    if (collapse) collapse.addEventListener("click", function () { qsa("details.spec").forEach(function (d) { d.open = false; }); });',
     '  }',
     '',
     '  function initSidebarToggle() {',
@@ -2007,11 +1840,8 @@ function buildHandbookJs() {
     '    var visible = {};',
     '    function setCurrent(id) {',
     '      links.forEach(function (a) {',
-    "        if (a.getAttribute('href') === '#' + id) {",
-    "          a.setAttribute('aria-current', 'true');",
-    '        } else {',
-    "          a.removeAttribute('aria-current');",
-    '        }',
+    "        if (a.getAttribute('href') === '#' + id) a.setAttribute('aria-current', 'true');",
+    "        else a.removeAttribute('aria-current');",
     '      });',
     '    }',
     '    var io = new IntersectionObserver(function (entries) {',
@@ -2020,15 +1850,10 @@ function buildHandbookJs() {
     '        else delete visible[en.target.id];',
     '      });',
     '      var active = null;',
-    '      for (var i = 0; i < ids.length; i++) {',
-    '        if (visible[ids[i]]) { active = ids[i]; break; }',
-    '      }',
+    '      for (var i = 0; i < ids.length; i++) { if (visible[ids[i]]) { active = ids[i]; break; } }',
     '      if (active) setCurrent(active);',
     '    }, { rootMargin: "-20% 0px -60% 0px", threshold: [0, 0.1, 0.5] });',
-    '    ids.forEach(function (id) {',
-    '      var el = document.getElementById(id);',
-    '      if (el) io.observe(el);',
-    '    });',
+    '    ids.forEach(function (id) { var el = document.getElementById(id); if (el) io.observe(el); });',
     '  }',
     '',
     '  function normalize(s) {',
@@ -2054,44 +1879,33 @@ function buildHandbookJs() {
     '    var openState = {};',
     '    sections.forEach(function (s) { openState[s.id] = s.open; });',
     '    var baseSec = {};',
-    '    secCounts.forEach(function (el) {',
-    "      baseSec[el.getAttribute('data-sec-count')] = el.textContent;",
-    '    });',
+    "    secCounts.forEach(function (el) { baseSec[el.getAttribute('data-sec-count')] = el.textContent; });",
     '    var baseToc = {};',
     '    tocGroups.forEach(function (a) {',
     "      var c = qs('.count', a);",
     "      if (c) baseToc[a.getAttribute('data-toc-group')] = c.textContent;",
     '    });',
+    "    var statusTpl = status && status.getAttribute('data-template') || '{n} / {total}';",
     '',
     '    function setHidden(el, hide) {',
     '      if (hide) el.setAttribute("hidden", "");',
     '      else el.removeAttribute("hidden");',
     '    }',
-    '',
     '    function setStatus(text) {',
     '      if (!status) return;',
-    '      if (!text) {',
-    '        status.textContent = "";',
-    '        status.hidden = true;',
-    '      } else {',
-    '        status.hidden = false;',
-    '        status.textContent = text;',
-    '      }',
+    '      if (!text) { status.textContent = ""; status.hidden = true; }',
+    '      else { status.hidden = false; status.textContent = text; }',
     '    }',
-    '',
     '    function updateCounts(active, hitShots, hitGroups, hitDocs, hitStore) {',
     '      secCounts.forEach(function (el) {',
     "        var kind = el.getAttribute('data-sec-count');",
-    '        if (!active) {',
-    '          el.textContent = baseSec[kind] || el.textContent;',
-    '          return;',
-    '        }',
-    "        if (kind === 'screenshots') {",
-    "          el.textContent = hitShots + ' / ' + totalShots + ' Screenshots · ' + hitGroups + ' / ' + totalGroups + ' Gruppen';",
+    '        if (!active) { el.textContent = baseSec[kind] || el.textContent; return; }',
+    "        if (kind === 'screenshots' || kind.indexOf('chapter-') === 0) {",
+    "          el.textContent = hitShots + ' / ' + totalShots;",
     "        } else if (kind === 'documentation') {",
-    "          el.textContent = hitDocs + ' / ' + docs.length + ' Dokumente';",
+    "          el.textContent = hitDocs + ' / ' + docs.length;",
     "        } else if (kind === 'store-listing') {",
-    "          el.textContent = hitStore + ' / ' + store.length + ' Felder';",
+    "          el.textContent = hitStore + ' / ' + store.length;",
     '        }',
     '      });',
     '      tocGroups.forEach(function (a) {',
@@ -2105,12 +1919,29 @@ function buildHandbookJs() {
     '          return;',
     '        }',
     '        var n = 0;',
-    "        if (g) n = qsa('[data-search=\"shot\"]', g).filter(function (s) { return !s.hasAttribute('hidden'); }).length;",
+    "        if (g) n = qsa('[data-search=\"shot\"]', g.closest ? (g.closest('[data-search=\"group\"]') || g.parentElement) : g).filter(function (s) { return !s.hasAttribute('hidden'); }).length;",
+    "        if (g && g.hasAttribute && g.getAttribute('data-search') === 'group') {",
+    "          n = qsa('[data-search=\"shot\"]', g).filter(function (s) { return !s.hasAttribute('hidden'); }).length;",
+    '        } else if (g) {',
+    "          var gb = g.closest('[data-search=\"group\"]');",
+    "          if (gb) n = qsa('[data-search=\"shot\"]', gb).filter(function (s) { return !s.hasAttribute('hidden'); }).length;",
+    '        }',
+    // fix group count: find group-block by h3 id
+    "        var groupBlock = null;",
+    "        qsa('[data-search=\"group\"]').forEach(function (gb) {",
+    "          if (qs('#' + gid, gb) || (gb.querySelector && gb.querySelector('#' + CSS.escape(gid)))) groupBlock = gb;",
+    '        });',
+    // simpler approach without CSS.escape:
+    '        groupBlock = null;',
+    "        qsa('[data-search=\"group\"]').forEach(function (gb) {",
+    "          var h = qs('h3', gb);",
+    '          if (h && h.id === gid) groupBlock = gb;',
+    '        });',
+    "        if (groupBlock) n = qsa('[data-search=\"shot\"]', groupBlock).filter(function (s) { return !s.hasAttribute('hidden'); }).length;",
     '        if (c) c.textContent = n + " / " + (baseToc[gid] || n);',
     '        if (li) setHidden(li, n === 0);',
     '      });',
     '    }',
-    '',
     '    function reset() {',
     '      shots.forEach(function (el) { setHidden(el, false); });',
     '      docs.forEach(function (el) { setHidden(el, false); });',
@@ -2124,7 +1955,6 @@ function buildHandbookJs() {
     '      if (empty) empty.hidden = true;',
     '      updateCounts(false, 0, 0, 0, 0);',
     '    }',
-    '',
     '    function run() {',
     '      var q = normalize(input.value);',
     '      if (!q) { reset(); return; }',
@@ -2164,20 +1994,14 @@ function buildHandbookJs() {
     '        setHidden(sec, !any);',
     '        if (any) sec.open = true;',
     '      });',
-    "      setStatus(hitShots + ' von ' + totalShots + ' Screenshots');",
+    "      var msg = statusTpl.replace('{n}', String(hitShots)).replace('{total}', String(totalShots));",
+    '      setStatus(msg);',
     '      updateCounts(true, hitShots, hitGroups, hitDocs, hitStore);',
-    '      var anyDoc = hitDocs > 0;',
-    '      var anyStore = hitStore > 0;',
-    '      if (empty) empty.hidden = !(hitShots === 0 && !anyDoc && !anyStore);',
+    '      if (empty) empty.hidden = !(hitShots === 0 && hitDocs === 0 && hitStore === 0);',
     '    }',
-    '',
     "    input.addEventListener('input', run);",
     "    input.addEventListener('keydown', function (ev) {",
-    "      if (ev.key === 'Escape') {",
-    "        input.value = '';",
-    '        reset();',
-    '        input.blur();',
-    '      }',
+    "      if (ev.key === 'Escape') { input.value = ''; reset(); input.blur(); }",
     '    });',
     '  }',
     '',
@@ -2194,11 +2018,7 @@ function buildHandbookJs() {
     '    var index = 0;',
     '    var lastFocus = null;',
     '    var groupCards = [];',
-    '',
-    '    function groupOf(card) {',
-    "      return card.getAttribute('data-group') || '';",
-    '    }',
-    '',
+    "    function groupOf(card) { return card.getAttribute('data-group') || ''; }",
     '    function collectGroup(card) {',
     '      var g = groupOf(card);',
     '      if (!g) return [];',
@@ -2206,7 +2026,6 @@ function buildHandbookJs() {
     "        return el.getAttribute('data-group') === g && !el.hasAttribute('hidden');",
     '      });',
     '    }',
-    '',
     '    function show(i) {',
     '      if (!groupCards.length) return;',
     '      index = (i + groupCards.length) % groupCards.length;',
@@ -2215,30 +2034,23 @@ function buildHandbookJs() {
     "      var cap = card.getAttribute('data-caption') || '';",
     "      var file = card.getAttribute('data-file') || '';",
     "      var href = a ? a.getAttribute('href') : '';",
-    '      if (img) {',
-    '        img.src = href;',
-    '        img.alt = cap;',
-    '      }',
+    '      if (img) { img.src = href; img.alt = cap; }',
     '      if (titleEl) titleEl.textContent = cap;',
     '      if (fileEl) fileEl.textContent = file;',
-    '      if (countEl) countEl.textContent = (index + 1) + " von " + groupCards.length;',
+    '      if (countEl) {',
+    "        var tpl = countEl.getAttribute('data-template') || '{n} / {total}';",
+    "        countEl.textContent = tpl.replace('{n}', String(index + 1)).replace('{total}', String(groupCards.length));",
+    '      }',
     '    }',
-    '',
     '    function trapFocus(ev) {',
     "      if (ev.key !== 'Tab' || root.hidden) return;",
     "      var focusables = qsa('button, [href], input, [tabindex]:not([tabindex=\"-1\"])', root).filter(function (el) { return !el.disabled && el.offsetParent !== null; });",
     '      if (!focusables.length) return;',
     '      var first = focusables[0];',
     '      var last = focusables[focusables.length - 1];',
-    '      if (ev.shiftKey && document.activeElement === first) {',
-    '        ev.preventDefault();',
-    '        last.focus();',
-    '      } else if (!ev.shiftKey && document.activeElement === last) {',
-    '        ev.preventDefault();',
-    '        first.focus();',
-    '      }',
+    '      if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }',
+    '      else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }',
     '    }',
-    '',
     '    function open(card) {',
     "      lastFocus = card.querySelector('a.shot-img') || card.querySelector('a') || card;",
     '      groupCards = collectGroup(card);',
@@ -2249,14 +2061,12 @@ function buildHandbookJs() {
     '      show(index);',
     '      if (btnClose) btnClose.focus();',
     '    }',
-    '',
     '    function close() {',
     '      root.hidden = true;',
     "      document.body.classList.remove('is-locked');",
     '      if (img) img.removeAttribute("src");',
     '      if (lastFocus && typeof lastFocus.focus === "function") lastFocus.focus();',
     '    }',
-    '',
     "    document.addEventListener('click', function (ev) {",
     '      var t = ev.target;',
     '      if (!t || !t.closest) return;',
@@ -2268,7 +2078,6 @@ function buildHandbookJs() {
     '      ev.preventDefault();',
     '      open(card);',
     '    });',
-    '',
     '    if (btnClose) btnClose.addEventListener("click", close);',
     '    if (btnPrev) btnPrev.addEventListener("click", function () { show(index - 1); });',
     '    if (btnNext) btnNext.addEventListener("click", function () { show(index + 1); });',
@@ -2304,7 +2113,9 @@ function buildHandbookJs() {
     '        if (!target) return;',
     "        var url = location.origin + location.pathname + '#' + target;",
     '        var done = function (ok) {',
-    "          btn.textContent = ok ? '\\u2713 Kopiert' : '\\u2717 Nicht kopiert';",
+    "          var okT = btn.getAttribute('data-copied-label') || '\\u2713';",
+    "          var badT = btn.getAttribute('data-failed-label') || '\\u2717';",
+    '          btn.textContent = ok ? okT : badT;',
     "          if (ok) btn.setAttribute('data-copied', 'true');",
     '          if (resetTimer) clearTimeout(resetTimer);',
     '          resetTimer = setTimeout(function () {',
@@ -2342,7 +2153,6 @@ function buildHandbookJs() {
   ].join('\n');
 }
 
-/** Wrap tables for horizontal scroll; keep pre scrollable inside itself. */
 function enhanceDocBodyHtml(html) {
   let out = String(html);
   out = out.replace(
@@ -2351,7 +2161,6 @@ function enhanceDocBodyHtml(html) {
   );
   return out;
 }
-
 
 /**
  * Register an anchor id and remember where it came from. `seen` maps id →
@@ -2394,27 +2203,7 @@ function assertNoAnchorCollisions(seen) {
   );
 }
 
-/**
- * Copy-link button for an anchor. The anchor alone is not enough: without a
- * visible permalink a reader can only obtain the URL of a single screen by
- * reading the page source. Behaviour (clipboard with execCommand fallback,
- * confirmation, hash update) lives in handbook.js so the CSP stays at
- * script-src 'self'. Button label is German — so is the handbook.
- */
-function copyLinkButton(anchorId) {
-  return (
-    `<button class="copy-link" type="button" ` +
-    `data-target="${escapeHtml(anchorId)}" ` +
-    `title="Direkt-Link kopieren" aria-label="Direkt-Link kopieren">` +
-    `\u{1F517} Link</button>`
-  );
-}
 
-/**
- * Recursive PNG scan. Skips directories whose basename starts with '.'.
- * Non-PNG files are ignored (no error). Returns sorted list of
- * { abs, relPosix } where relPosix is relative to rootDir.
- */
 function listPngRecursive(rootDir) {
   if (!fs.existsSync(rootDir)) return [];
   const results = [];
@@ -2750,8 +2539,6 @@ function main() {
   sanitizeDocHtml._outDir = outDir;
   const gitSha = process.env.GIT_SHA || process.env.HANDBOOK_GIT_SHA || 'unknown';
 
-  // Clear previous output first (stale HTML / foreign files must not survive).
-  // Guards refuse dangerous targets; see prepareOutputDir.
   prepareOutputDir(outDir, repoRoot);
 
   const metadataPath = path.join(scriptDir, 'metadata.json');
@@ -2765,15 +2552,60 @@ function main() {
       : {}) || {};
   const docsMeta = (metadata && metadata.docs) || {};
 
+  const pod = loadPodAssets(scriptDir);
+  const logoDark = prepareInlineLogo(pod.logoDark, 'logo-dark');
+  const logoWhite = prepareInlineLogo(pod.logoWhite, 'logo-white');
+
+  let contentLocales = loadContentLocales(scriptDir);
+  if (!contentLocales || contentLocales.length === 0) {
+    // Fallback: single German shell without content chapters
+    contentLocales = [
+      {
+        locale: 'de',
+        label: 'Deutsch',
+        meta: {
+          title: 'DFX BTC Taro Wallet — Handbuch',
+          description: 'Handbuch der DFX BTC Taro Wallet.',
+          lede: '',
+        },
+        ui: {
+          breadcrumbHome: 'Handbuch',
+          contents: 'Inhalt',
+          developerSection: 'Für Entwickler',
+          developerIntro: '',
+          moreScreens: 'Weitere Screens',
+          search: 'Suchen…',
+          searchLabel: 'Suchen',
+          searchStatus: '{n} von {total} Bildern',
+          searchEmpty: 'Keine Treffer.',
+          expandAll: 'Alle öffnen',
+          collapseAll: 'Alle schliessen',
+          menu: 'Inhalt',
+          theme: 'Darstellung',
+          skipToContent: 'Zum Inhalt',
+          backToHandbook: '← Zum Handbuch',
+          images: 'Bilder',
+          copyLink: 'Link kopieren',
+          copied: 'Kopiert',
+          copyFailed: 'Nicht kopiert',
+          imageCounter: '{n} von {total}',
+          close: 'Schliessen',
+          previous: 'Zurück',
+          next: 'Weiter',
+          openImage: 'Bild',
+          generatedFrom: 'Stand:',
+        },
+        chapters: [],
+        captions: {},
+        sourcePath: null,
+      },
+    ];
+  }
+
   const artifacts = [];
   const screenshotEntries = [];
 
-  // -------------------------------------------------------------------------
-  // Source A — Screenshots under SOURCE_SCREENSHOTS_REL/**/*.png
-  // Group key = POSIX-relative directory under screenshots root; files
-  // directly in the root get group "allgemein". Nested dirs keep full path
-  // (e.g. settings/dfx). Discovery only — copy after collision check.
-  // -------------------------------------------------------------------------
+  // Source A — Screenshots
   const screenshotsRoot = path.join(repoRoot, SOURCE_SCREENSHOTS_REL);
   const screenshotPngs = listPngRecursive(screenshotsRoot);
   for (const { abs, relPosix } of screenshotPngs) {
@@ -2782,12 +2614,15 @@ function main() {
     const group = !dirPart || dirPart === '.' ? 'allgemein' : dirPart;
     const filename = path.posix.basename(relPosix);
     const relOut = path.posix.join('screenshots', relPosix);
+    const stem = titleFromFilename(filename);
     const entry = {
       category: 'screenshot',
       outputPath: relOut,
       sourcePath: path.posix.join(SOURCE_SCREENSHOTS_REL, relPosix),
-      title: titleFromFilename(filename),
+      title: stem,
+      stem,
       group,
+      key: group + '/' + stem,
       _abs: abs,
     };
     screenshotEntries.push(entry);
@@ -2815,9 +2650,20 @@ function main() {
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Source B — Markdown docs (recursive discovery)
-  // -------------------------------------------------------------------------
+  const shotByKey = new Map();
+  for (const e of screenshotEntries) {
+    shotByKey.set(e.key, e);
+  }
+  const shotsByGroup = new Map();
+  for (const e of screenshotEntries) {
+    if (!shotsByGroup.has(e.group)) shotsByGroup.set(e.group, []);
+    shotsByGroup.get(e.group).push(e);
+  }
+  for (const list of shotsByGroup.values()) {
+    list.sort((a, b) => sortStrings(a.title, b.title));
+  }
+
+  // Source B — Markdown docs
   const discoveredDocs = listMarkdownFiles(repoRoot);
   const discoveredMdToOut = new Map();
   const docSpecs = discoveredDocs.map((relSrc) => {
@@ -2830,11 +2676,7 @@ function main() {
   if (docSpecs.length < MIN_DOCS) {
     fail(
       `handbook floor guard: found ${docSpecs.length} docs, ` +
-        `need at least MIN_DOCS=${MIN_DOCS}. ` +
-        'Check recursive *.md discovery from repo root (excludes node_modules, ' +
-        '.git, _handbook-deps, build, dist, coverage, blue_modules, ios, android, ' +
-        'windows, macos, vendor, docs/handbook, dot-dirs). ' +
-        `Scanned: ${repoRoot}`,
+        `need at least MIN_DOCS=${MIN_DOCS}.`,
     );
   }
   for (const d of docSpecs) {
@@ -2847,34 +2689,23 @@ function main() {
     });
   }
 
-  // -------------------------------------------------------------------------
-  // Source C — Store listing (Android + iOS fastlane metadata)
-  // -------------------------------------------------------------------------
+  // Source C — Store
   const androidMetaRoot = path.join(repoRoot, SOURCE_ANDROID_META_REL);
   const iosMetaRoot = path.join(repoRoot, SOURCE_IOS_META_REL);
   if (!fs.existsSync(androidMetaRoot)) {
-    fail(
-      `handbook: missing Android store-metadata root ${androidMetaRoot} ` +
-        '(broken checkout — both platform roots are required).',
-    );
+    fail(`handbook: missing Android store-metadata root ${androidMetaRoot}`);
   }
   if (!fs.existsSync(iosMetaRoot)) {
-    fail(
-      `handbook: missing iOS store-metadata root ${iosMetaRoot} ` +
-        '(broken checkout — both platform roots are required).',
-    );
+    fail(`handbook: missing iOS store-metadata root ${iosMetaRoot}`);
   }
 
-  const storeEntries = []; // { platform, locale, field, content, sourcePath }
-
-  // Android: one locale dir per subdirectory
+  const storeEntries = [];
   {
     const locales = localeDirsUnder(androidMetaRoot, SOURCE_ANDROID_META_REL);
     for (const locale of locales) {
       const localeAbs = path.join(androidMetaRoot, locale);
       const localeRel = path.posix.join(SOURCE_ANDROID_META_REL, locale);
-      const fields = collectStoreFields(localeAbs, localeRel);
-      for (const f of fields) {
+      for (const f of collectStoreFields(localeAbs, localeRel)) {
         storeEntries.push({
           platform: 'android',
           locale,
@@ -2885,15 +2716,13 @@ function main() {
       }
     }
   }
-
-  // iOS: global *.txt directly under metadata/, then locale subdirs
   {
     const iosRootRel = SOURCE_IOS_META_REL;
-    const globalFields = [];
     const entries = fs
       .readdirSync(iosMetaRoot, { withFileTypes: true })
       .slice()
       .sort((a, b) => sortStrings(a.name, b.name));
+    const globalFields = [];
     for (const d of entries) {
       if (d.isFile() && d.name.toLowerCase().endsWith('.txt')) {
         const fieldName = d.name.replace(/\.txt$/i, '');
@@ -2922,8 +2751,7 @@ function main() {
     for (const locale of locales) {
       const localeAbs = path.join(iosMetaRoot, locale);
       const localeRel = path.posix.join(iosRootRel, locale);
-      const fields = collectStoreFields(localeAbs, localeRel);
-      for (const f of fields) {
+      for (const f of collectStoreFields(localeAbs, localeRel)) {
         storeEntries.push({
           platform: 'ios',
           locale,
@@ -2938,11 +2766,9 @@ function main() {
   if (storeEntries.length < MIN_STORE_FIELDS) {
     fail(
       `handbook floor guard: found ${storeEntries.length} store fields, ` +
-        `need at least MIN_STORE_FIELDS=${MIN_STORE_FIELDS}. ` +
-        `Check ${SOURCE_ANDROID_META_REL}/ and ${SOURCE_IOS_META_REL}/.`,
+        `need at least MIN_STORE_FIELDS=${MIN_STORE_FIELDS}.`,
     );
   }
-
   for (const s of storeEntries) {
     artifacts.push({
       category: 'store',
@@ -2953,18 +2779,18 @@ function main() {
     });
   }
 
-  // -------------------------------------------------------------------------
-  // Source D — App assets: SOURCE_DFX_ASSETS_REL/**/*.png + img/icon*.png
-  // -------------------------------------------------------------------------
+  // Source D — Assets
   const assetSpecs = [];
   const dfxDir = path.join(repoRoot, SOURCE_DFX_ASSETS_REL);
   for (const { abs, relPosix } of listPngRecursive(dfxDir)) {
     assertValidPng(abs, MIN_ASSET_PNG_BYTES);
-    const src = path.posix.join(SOURCE_DFX_ASSETS_REL, relPosix);
-    const out = path.posix.join('assets/dfx', relPosix);
-    assetSpecs.push({ abs, src, out, title: path.posix.basename(relPosix) });
+    assetSpecs.push({
+      abs,
+      src: path.posix.join(SOURCE_DFX_ASSETS_REL, relPosix),
+      out: path.posix.join('assets/dfx', relPosix),
+      title: path.posix.basename(relPosix),
+    });
   }
-  // Icon files: directory scan of img/ with icon*.png filter (not a hard-coded list)
   const imgDir = path.join(repoRoot, SOURCE_IMG_REL);
   if (fs.existsSync(imgDir)) {
     const iconNames = fs
@@ -2989,15 +2815,12 @@ function main() {
     }
   }
   assetSpecs.sort((a, b) => sortStrings(a.out, b.out));
-
   if (assetSpecs.length < MIN_ASSETS) {
     fail(
       `handbook floor guard: found ${assetSpecs.length} assets, ` +
-        `need at least MIN_ASSETS=${MIN_ASSETS}. ` +
-        `Check ${SOURCE_DFX_ASSETS_REL}/**/*.png and ${SOURCE_IMG_REL}/icon*.png.`,
+        `need at least MIN_ASSETS=${MIN_ASSETS}.`,
     );
   }
-
   for (const a of assetSpecs) {
     artifacts.push({
       category: 'asset',
@@ -3008,94 +2831,41 @@ function main() {
     });
   }
 
-  // Collision check over the full artifact list before any write: two
-  // sources must never map to the same exclusive output file (docs path
-  // collapse, accidental screenshot/asset path overlap, …). index.html is
-  // skipped inside assertNoOutputCollisions (shared store overview).
   assertNoOutputCollisions(artifacts);
 
-  // -------------------------------------------------------------------------
-  // Write discovered files (output dir is empty at this point).
-  // -------------------------------------------------------------------------
+  // Write binary assets
   for (const entry of screenshotEntries) {
-    const dest = path.join(outDir, ...entry.outputPath.split('/'));
-    copyFile(entry._abs, dest);
+    copyFile(entry._abs, path.join(outDir, ...entry.outputPath.split('/')));
     delete entry._abs;
   }
-
   for (const a of assetSpecs) {
     copyFile(a.abs, path.join(outDir, a.out));
   }
-
-  // Render markdown docs (after assets/screenshots are on disk so relative
-  // image links that target handbook output can resolve during sanitize).
-  const renderedDocs = [];
-  for (const d of docSpecs) {
-    const src = path.join(repoRoot, d.src);
-    if (!fs.existsSync(src)) {
-      fail(`handbook: missing markdown source ${d.src}`);
-    }
-    const md = fs.readFileSync(src, 'utf8');
-    let body = markedParse(md);
-    body = sanitizeDocHtml(body, d.out, discoveredMdToOut);
-    body = enhanceDocBodyHtml(body);
-    const prefix = relativeToRoot(d.out);
-    const jsHref = escapeHtml(encodeHtmlPath(prefix + 'handbook.js'));
-    const page =
-      buildHead({
-        title: d.title + ' — DFX BTC Taro Wallet Handbuch',
-        description:
-          d.title +
-          ' — Dokumentation der DFX BTC Taro Wallet.',
-        prefix,
-        css: DOC_CSS,
-      }) +
-      '<body>\n' +
-      '<a class="skip-link" href="#doc-content">Zum Inhalt</a>\n' +
-      buildTopbar({ prefix, showBack: true }) +
-      '<div class="doc-wrap">\n' +
-      '<nav class="crumbs" aria-label="Brotkrume">' +
-      `<a href="${escapeHtml(encodeHtmlPath(prefix + 'index.html'))}">Handbuch</a>` +
-      '<span class="sep">/</span>Dokumentation<span class="sep">/</span>' +
-      `<span>${escapeHtml(d.title)}</span></nav>\n` +
-      `<article class="doc-body" id="doc-content">\n${body}\n</article>\n` +
-      `<footer class="footer">Quelle: <code>${escapeHtml(d.src)}</code>` +
-      ` · Stand: <code>${escapeHtml(gitSha)}</code></footer>\n` +
-      '</div>\n' +
-      `<script src="${jsHref}"></script>\n` +
-      '</body>\n</html>\n';
-    const dest = path.join(outDir, d.out);
-    ensureDir(path.dirname(dest));
-    fs.writeFileSync(dest, page, 'utf8');
-    renderedDocs.push({ ...d, body });
+  // Fonts
+  for (const f of pod.fonts) {
+    const dest = path.join(outDir, 'assets', 'fonts', f);
+    copyFile(path.join(pod.fontDir, f), dest);
+    artifacts.push({
+      category: 'asset',
+      outputPath: path.posix.join('assets/fonts', f),
+      sourcePath: path.posix.join('scripts/handbook/pod/fonts', f),
+      title: f,
+      group: null,
+    });
   }
 
-  // -------------------------------------------------------------------------
-  // Group screenshots for index.html
-  // -------------------------------------------------------------------------
-  const groups = new Map();
-  for (const e of screenshotEntries) {
-    if (!groups.has(e.group)) groups.set(e.group, []);
-    groups.get(e.group).push(e);
-  }
-  for (const list of groups.values()) {
-    list.sort((a, b) => sortStrings(a.title, b.title));
-  }
-  const groupKeys = Array.from(groups.keys()).sort(sortStrings);
-
-  // Orphan metadata: screenshots.* without a matching group → warning only
+  // Orphan metadata warnings
   for (const key of Object.keys(screenshotsMeta).sort(sortStrings)) {
-    if (!groups.has(key)) {
+    if (!shotsByGroup.has(key)) {
       console.error(
         `handbook warning: metadata.json screenshots entry "${key}" has no matching screenshots (orphan).`,
       );
     }
   }
-  // Orphan captions: screenshots.<group>.captions.<stem> without a matching file.
   for (const key of Object.keys(screenshotsMeta).sort(sortStrings)) {
     const meta = screenshotsMeta[key];
     if (!meta || !meta.captions || typeof meta.captions !== 'object') continue;
-    const fileStems = new Set((groups.get(key) || []).map((e) => e.title));
+    const fileStems = new Set((shotsByGroup.get(key) || []).map((e) => e.stem));
     for (const stem of Object.keys(meta.captions).sort(sortStrings)) {
       if (!fileStems.has(stem)) {
         console.error(
@@ -3104,7 +2874,6 @@ function main() {
       }
     }
   }
-  // Symmetric orphan warning for docs title overrides without a discovered file.
   const discoveredDocSet = new Set(discoveredDocs);
   for (const key of Object.keys(docsMeta).sort(sortStrings)) {
     if (!discoveredDocSet.has(key)) {
@@ -3114,329 +2883,275 @@ function main() {
     }
   }
 
-  // Enrich screenshot entries with caption/badge for HTML + search.
-  for (const e of screenshotEntries) {
-    const meta = screenshotsMeta[e.group];
-    // titleFromFilename already stripped .png; re-add for deriveScreenshotCaption.
-    const derived = deriveScreenshotCaption(e.title + '.png', meta);
-    e.caption = derived.caption;
-    e.badge = derived.badge;
-    e.stem = derived.stem;
-  }
-
-  // -------------------------------------------------------------------------
-  // Build index.html
-  // -------------------------------------------------------------------------
-  let tocItems = [];
-  let sectionsHtml = '';
-  let sectionNum = 0;
-
-  function pushSection(id, numLabel, title, fileHint, countLabel, intro, bodyHtml) {
-    sectionNum += 1;
-    const n = String(sectionNum).padStart(2, '0');
-    tocItems.push({ id, n, title, children: [] });
-    const num = numLabel || n;
-    const countHtml = countLabel
-      ? `<b class="sec-count" data-sec-count="${escapeHtml(id)}">${escapeHtml(countLabel)}</b>`
-      : '';
-    sectionsHtml +=
-      `<details class="spec" id="${escapeHtml(id)}" open>` +
-      `<summary><div class="spec-head"><div class="lhs">` +
-      `<h2><span class="badge">${escapeHtml(num)}</span>${escapeHtml(title)}${svgChevron()}</h2>` +
-      (fileHint ? `<div class="file">${escapeHtml(fileHint)}</div>` : '') +
-      `</div><div class="rhs">${countHtml}</div></div></summary>` +
-      (intro ? `<p class="spec-intro">${intro}</p>` : '') +
-      bodyHtml +
-      `</details>`;
-  }
-
-  // Screenshots (by group)
-  {
-    // Anchor ids become user-facing with the permalink buttons: a reader can
-    // copy one and send it on. slugify() is lossy, so two different sources can
-    // land on the same id (e.g. the group dirs `05-karte/dfx` and `05-karte-dfx`,
-    // or `99-fee ok.png` next to `99-fee-ok.png`). getElementById always returns
-    // the first match, so the copied link would silently point at the wrong
-    // screen. Collect every id with its source and fail the build on a clash.
-    const anchorIds = new Map();
-    let allShotsBody = '';
-    for (const gKey of groupKeys) {
-      const list = groups.get(gKey);
-      const meta = screenshotsMeta[gKey];
-      const title = meta && meta.title ? meta.title : gKey;
-      const desc =
-        meta && meta.description
-          ? escapeHtml(meta.description)
-          : `Screenshot-Gruppe <code>${escapeHtml(gKey)}</code> (Auto-Discovery).`;
-      const groupId = claimAnchorId(
-        anchorIds,
-        'group-' + slugify(gKey),
-        'screenshot group ' + gKey,
-      );
-      // group-block has no id — the permalink id lives on the h3 only so ids stay unique.
-      let cards = `<div class="group-block" data-search="group">`;
-      cards +=
-        `<div class="group-head">` +
-        `<h3 id="${escapeHtml(groupId)}">` +
-        `<a class="name permalink" href="#${escapeHtml(groupId)}">${escapeHtml(title)}</a>` +
-        ` <span class="gcount">${list.length} Bilder</span>` +
-        `</h3>` +
-        copyLinkButton(groupId) +
-        `</div>`;
-      cards += `<p class="group-desc">${desc}</p>`;
-      cards += '<div class="shot-grid">';
-      for (const e of list) {
-        // Use e.title (stem) for slug stability with collision fixtures and #217.
-        const cardId = claimAnchorId(
-          anchorIds,
-          'shot-' + slugify(e.group + '-' + e.title),
-          e.sourcePath,
-        );
-        const shotHref = escapeHtml(encodeHtmlPath(e.outputPath));
-        const searchText = escapeHtml(
-          [e.caption, e.stem, title, e.group].join(' '),
-        );
-        const badgeHtml = e.badge
-          ? `<span class="num-badge">${escapeHtml(e.badge)}</span>`
-          : '';
-        // Image link separate from caption so the permalink is not nested in <a href=png>.
-        // Copy button sits next to the title, never inside a heading.
-        cards +=
-          `<figure class="shot-card" id="${escapeHtml(cardId)}" data-search="shot" ` +
-          `data-search-text="${searchText}" data-group="${escapeHtml(e.group)}" ` +
-          `data-caption="${escapeHtml(e.caption)}" data-file="${escapeHtml(e.stem)}">` +
-          `<a class="shot-img" href="${shotHref}">` +
-          `<div class="frame"><img src="${shotHref}" alt="${escapeHtml(e.caption)}" loading="lazy"></div>` +
-          `</a>` +
-          `<figcaption><div class="cap-row">${badgeHtml}` +
-          `<a class="name permalink" href="#${escapeHtml(cardId)}">${escapeHtml(e.caption)}</a>` +
-          copyLinkButton(cardId) +
-          `</div>` +
-          `<div class="cap-file">${escapeHtml(e.stem)}</div></figcaption></figure>`;
-      }
-      cards += '</div></div>';
-      allShotsBody += cards;
-    }
-    assertNoAnchorCollisions(anchorIds);
-    pushSection(
-      'screenshots',
-      null,
-      'Screenshots',
-      'docs/handbook/screenshots/',
-      `${screenshotEntries.length} Screenshots · ${groupKeys.length} Gruppen`,
-      'PNG-Screenshots, gruppiert nach Unterverzeichnis. Lesbare Bildunterschriften stammen aus <code>metadata.json</code> (<code>captions</code>) oder werden aus dem Dateinamen abgeleitet.',
-      allShotsBody,
-    );
-    const shotToc = tocItems.find((t) => t.id === 'screenshots');
-    if (shotToc) {
-      for (const gKey of groupKeys) {
-        const list = groups.get(gKey);
-        const meta = screenshotsMeta[gKey];
-        const title = meta && meta.title ? meta.title : gKey;
-        shotToc.children.push({
-          id: 'group-' + slugify(gKey),
-          title,
-          count: list.length,
-        });
-      }
-    }
-  }
-
-  // Store listing
-  {
-    const byPlatform = new Map();
-    for (const s of storeEntries) {
-      if (!byPlatform.has(s.platform)) byPlatform.set(s.platform, new Map());
-      const byLocale = byPlatform.get(s.platform);
-      if (!byLocale.has(s.locale)) byLocale.set(s.locale, []);
-      byLocale.get(s.locale).push(s);
-    }
-    const platformOrder = ['android', 'ios'];
-    let storeBody = '';
-    for (const platform of platformOrder) {
-      if (!byPlatform.has(platform)) continue;
-      const byLocale = byPlatform.get(platform);
-      const localeKeys = Array.from(byLocale.keys()).sort(sortStrings);
-      localeKeys.sort((a, b) => {
-        if (a === 'global') return -1;
-        if (b === 'global') return 1;
-        return sortStrings(a, b);
-      });
-      storeBody += `<div class="store-platform"><h3>${escapeHtml(
-        platform === 'android' ? 'Android (Play Store)' : 'iOS (App Store)',
-      )}</h3>`;
-      for (const locale of localeKeys) {
-        const fields = byLocale.get(locale).slice().sort((a, b) =>
-          sortStrings(a.field, b.field),
-        );
-        storeBody +=
-          `<div class="store-locale"><h4><span class="locale-chip">${escapeHtml(locale)}</span></h4><dl>`;
-        for (const f of fields) {
-          const empty = !f.content;
-          const searchText = escapeHtml([f.field, f.content, locale, platform].join(' '));
-          storeBody +=
-            `<div class="store-row" data-search="store-field" data-search-text="${searchText}">` +
-            `<dt>${escapeHtml(f.field)}</dt>` +
-            `<dd class="${empty ? 'empty' : ''}">${empty ? '—' : escapeHtml(f.content)}</dd></div>`;
+  // Resolve chapter assignment (same structure all locales — check once on de or first)
+  function resolveChapters(content) {
+    const assignment = new Map(); // key -> chapterId
+    const chapterPlans = [];
+    for (const ch of content.chapters) {
+      const id = ch.id || slugify(ch.title || 'chapter');
+      const keys = [];
+      const missing = [];
+      for (const g of ch.groups || []) {
+        const list = shotsByGroup.get(g) || [];
+        if (list.length === 0) {
+          missing.push('group:' + g);
+          console.error(
+            `handbook warning: chapter "${id}" references missing group "${g}"`,
+          );
         }
-        storeBody += '</dl></div>';
+        for (const e of list) keys.push(e.key);
       }
-      storeBody += '</div>';
-    }
-    pushSection(
-      'store-listing',
-      null,
-      'Store-Listing',
-      'android/fastlane/metadata · ios/fastlane/metadata',
-      `${storeEntries.length} Felder`,
-      'Klartext-Metadaten der Store-Listings (Android und iOS). Neue Locales und Felder erscheinen automatisch.',
-      storeBody,
-    );
-  }
-
-  // App assets
-  {
-    let ag = '<div class="asset-grid">';
-    for (const a of assetSpecs) {
-      const assetHref = escapeHtml(encodeHtmlPath(a.out));
-      ag +=
-        `<div class="asset-card"><a href="${assetHref}">` +
-        `<div class="frame"><img src="${assetHref}" alt="${escapeHtml(a.title)}" loading="lazy"></div>` +
-        `<div class="an">${escapeHtml(a.title)}</div></a></div>`;
-    }
-    ag += '</div>';
-    pushSection(
-      'assets',
-      null,
-      'App-Assets',
-      'img/dfx/** · img/icon*.png',
-      `${assetSpecs.length} Dateien`,
-      'Committete DFX-Marken- und Icon-Assets der BTC-Taro-Wallet.',
-      ag,
-    );
-  }
-
-  // Documentation list
-  {
-    let docsBody = '<ul class="doc-list">';
-    const sortedDocs = renderedDocs
-      .slice()
-      .sort((a, b) => sortStrings(a.title, b.title));
-    for (const d of sortedDocs) {
-      const searchText = escapeHtml([d.title, d.src].join(' '));
-      docsBody +=
-        `<li data-search="doc" data-search-text="${searchText}">` +
-        `<a href="${escapeHtml(encodeHtmlPath(d.out))}">` +
-        `<span><span class="doc-title">${escapeHtml(d.title)}</span> ` +
-        `<span class="doc-path">${escapeHtml(d.src)}</span></span>` +
-        `<span class="chev" aria-hidden="true">›</span></a></li>`;
-    }
-    docsBody += '</ul>';
-    pushSection(
-      'documentation',
-      null,
-      'Dokumentation',
-      'README · CONTRIBUTING · docs/*',
-      `${renderedDocs.length} Dokumente`,
-      'Gerenderte Markdown-Dokumentation aus dem Repository (via <code>marked</code>).',
-      docsBody,
-    );
-  }
-
-  let tocHtml = '<ol>';
-  for (const t of tocItems) {
-    tocHtml +=
-      `<li><a href="#${escapeHtml(t.id)}"><span class="spec-num">${escapeHtml(t.n)}</span>` +
-      `${escapeHtml(t.title)}</a>`;
-    if (t.children && t.children.length) {
-      tocHtml += '<ol class="sub">';
-      for (const c of t.children) {
-        tocHtml +=
-          `<li><a href="#${escapeHtml(c.id)}" data-toc-group="${escapeHtml(c.id)}">` +
-          `${escapeHtml(c.title)}` +
-          `<span class="count">${c.count}</span></a></li>`;
+      for (const img of ch.images || []) {
+        if (!shotByKey.has(img)) {
+          missing.push('image:' + img);
+          console.error(
+            `handbook warning: chapter "${id}" references missing image "${img}"`,
+          );
+          continue;
+        }
+        keys.push(img);
       }
-      tocHtml += '</ol>';
+      // preserve order: groups expand sorted by title, images in listed order after their groups
+      // rebuild ordered unique keys preserving chapter declaration order
+      const ordered = [];
+      const seen = new Set();
+      for (const g of ch.groups || []) {
+        const list = (shotsByGroup.get(g) || []).slice();
+        for (const e of list) {
+          if (!seen.has(e.key)) {
+            seen.add(e.key);
+            ordered.push(e.key);
+          }
+        }
+      }
+      for (const img of ch.images || []) {
+        if (shotByKey.has(img) && !seen.has(img)) {
+          seen.add(img);
+          ordered.push(img);
+        }
+      }
+      for (const k of ordered) {
+        if (assignment.has(k)) {
+          fail(
+            `handbook chapter collision: screenshot "${k}" is assigned to both ` +
+              `chapter "${assignment.get(k)}" and chapter "${id}"`,
+          );
+        }
+        assignment.set(k, id);
+      }
+      chapterPlans.push({
+        id,
+        title: ch.title || id,
+        summary: ch.summary || '',
+        intro: ch.intro || '',
+        keys: ordered,
+      });
     }
-    tocHtml += '</li>';
+    // Unassigned → more screens
+    const unassigned = screenshotEntries
+      .map((e) => e.key)
+      .filter((k) => !assignment.has(k))
+      .sort(sortStrings);
+    if (unassigned.length) {
+      for (const k of unassigned) {
+        console.error(
+          `handbook warning: screenshot "${k}" is not assigned to any chapter; ` +
+            `placing under moreScreens`,
+        );
+        assignment.set(k, '__more__');
+      }
+      chapterPlans.push({
+        id: 'more-screens',
+        title: content.ui.moreScreens || 'More screens',
+        summary: '',
+        intro: '',
+        keys: unassigned,
+        isMore: true,
+      });
+    }
+    return { chapterPlans, assignment };
   }
-  tocHtml += '</ol>';
 
-  const shaShort =
-    gitSha === 'unknown' ? 'unknown' : gitSha.length > 12 ? gitSha.slice(0, 12) : gitSha;
+  // Developer sections HTML (locale-independent content; labels localized)
+  function buildDeveloperBody(ui) {
+    let sectionsHtml = '';
+    let sectionNum = 0;
+    const tocItems = [];
 
-  const indexHtml =
-    buildHead({
-      title: 'DFX BTC Taro Wallet — Handbuch',
-      description:
-        'Handbuch der DFX BTC Taro Wallet: Screenshots, Store-Listing, Assets und Dokumentation.',
-      prefix: '',
-      css: INDEX_CSS,
-    }) +
-    '<body>\n' +
-    '<a class="skip-link" href="#main-content">Zum Inhalt</a>\n' +
-    buildTopbar({ prefix: '', showSearch: true, showSidebarToggle: true }) +
-    '\n<div class="wrap">\n' +
-    '<aside class="sidebar" id="handbook-sidebar">\n' +
-    '<div class="sidebar-panel">\n' +
-    '<div class="toc-label">Inhalt</div>\n' +
-    `<nav class="toc" aria-label="Inhaltsverzeichnis">${tocHtml}</nav>\n` +
-    '<div class="toc-actions" id="toc-actions" hidden>' +
-    '<button type="button" id="toc-expand-all">Alle öffnen</button>' +
-    '<button type="button" id="toc-collapse-all">Alle schliessen</button>' +
-    '</div>\n' +
-    '</div></aside>\n' +
-    '<main id="main-content">\n' +
-    '<header class="hero">\n' +
-    '<h1>DFX BTC Taro Wallet — Handbuch</h1>\n' +
-    '<p class="lede">Screenshots, Store-Listing-Texte, App-Assets und Markdown-Dokumentation der BTC-Taro-Wallet an einem Ort. Die Seite wird bei jedem Build aus dem Repository erzeugt — neue Dateien erscheinen automatisch.</p>\n' +
-    '<div class="stats" role="group" aria-label="Kennzahlen">' +
-    `<div class="stat"><span class="n">${screenshotEntries.length}</span><span class="l">Screenshots</span></div>` +
-    `<div class="stat"><span class="n">${groupKeys.length}</span><span class="l">Gruppen</span></div>` +
-    `<div class="stat"><span class="n">${renderedDocs.length}</span><span class="l">Dokumente</span></div>` +
-    `<div class="stat"><span class="n">${storeEntries.length}</span><span class="l">Store-Felder</span></div>` +
-    `<div class="stat"><span class="n">${assetSpecs.length}</span><span class="l">Assets</span></div>` +
-    `<div class="stat stat-sha"><span class="n">${escapeHtml(shaShort)}</span><span class="l">Stand</span></div>` +
-    '</div>\n' +
-    '<div class="callout"><p><b>Auto-Discovery.</b> Es gibt keine handgepflegte Mapping-Tabelle. Das Build-Script scannt <code>docs/handbook/screenshots/</code>, Store-Metadaten, <code>img/dfx/</code> und Docs und erzeugt diese Seite deterministisch.</p></div>\n' +
-    '<div class="search-empty" id="search-empty" hidden>Keine Treffer für diese Suche.</div>\n' +
-    '</header>\n' +
-    sectionsHtml +
-    '<footer class="footer">' +
-    'Diese Seite ist generiert und spiegelt den Repository-Stand ' +
-    `<code>${escapeHtml(gitSha)}</code> wider. Quelle: ` +
-    '<code>scripts/handbook/build.js</code>.' +
-    '</footer>\n' +
-    '</main>\n</div>\n' +
-    '<div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="Screenshot-Ansicht">' +
-    '<div class="lightbox-dialog">' +
-    '<div class="lightbox-bar">' +
-    '<div class="lightbox-meta">' +
-    '<p class="lightbox-title" id="lightbox-title"></p>' +
-    '<p class="lightbox-file" id="lightbox-file"></p>' +
-    '<p class="lightbox-count" id="lightbox-count"></p>' +
-    '</div>' +
-    '<button type="button" class="icon-btn" id="lightbox-close" aria-label="Schliessen">' +
-    '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M6.4 5.3a.75.75 0 0 0-1.1 1.1L10.9 12l-5.6 5.6a.75.75 0 1 0 1.1 1.1L12 13.1l5.6 5.6a.75.75 0 1 0 1.1-1.1L13.1 12l5.6-5.6a.75.75 0 1 0-1.1-1.1L12 10.9 6.4 5.3z"/></svg>' +
-    '</button></div>' +
-    '<div class="lightbox-body">' +
-    '<button type="button" class="lightbox-arrow" id="lightbox-prev" aria-label="Vorheriges Bild">' +
-    '<span class="label-short" aria-hidden="true">‹</span>' +
-    '<span class="label-full">← Zurück</span></button>' +
-    '<div class="lightbox-stage"><img id="lightbox-img" alt=""></div>' +
-    '<button type="button" class="lightbox-arrow" id="lightbox-next" aria-label="Nächstes Bild">' +
-    '<span class="label-short" aria-hidden="true">›</span>' +
-    '<span class="label-full">Weiter →</span></button>' +
-    '</div></div></div>\n' +
-    '<script src="handbook.js"></script>\n' +
-    '</body>\n</html>\n';
+    function pushSection(id, title, countLabel, intro, bodyHtml) {
+      sectionNum += 1;
+      const n = String(sectionNum).padStart(2, '0');
+      tocItems.push({ id, n, title });
+      const countHtml = countLabel
+        ? `<b class="sec-count" data-sec-count="${escapeHtml(id)}">${escapeHtml(countLabel)}</b>`
+        : '';
+      sectionsHtml +=
+        `<details class="spec" id="${escapeHtml(id)}">` +
+        `<summary><div class="spec-head"><div class="lhs">` +
+        `<h2><span class="badge">${escapeHtml(n)}</span>${escapeHtml(title)}${svgChevron()}</h2>` +
+        `</div><div class="rhs">${countHtml}</div></div></summary>` +
+        (intro ? `<p class="spec-intro">${intro}</p>` : '') +
+        bodyHtml +
+        `</details>`;
+    }
 
-  ensureDir(outDir);
-  const indexPath = path.join(outDir, 'index.html');
-  fs.writeFileSync(indexPath, indexHtml, 'utf8');
+    // Store
+    {
+      const byPlatform = new Map();
+      for (const s of storeEntries) {
+        if (!byPlatform.has(s.platform)) byPlatform.set(s.platform, new Map());
+        const byLocale = byPlatform.get(s.platform);
+        if (!byLocale.has(s.locale)) byLocale.set(s.locale, []);
+        byLocale.get(s.locale).push(s);
+      }
+      let storeBody = '';
+      for (const platform of ['android', 'ios']) {
+        if (!byPlatform.has(platform)) continue;
+        const byLocale = byPlatform.get(platform);
+        const localeKeys = Array.from(byLocale.keys()).sort(sortStrings);
+        localeKeys.sort((a, b) => {
+          if (a === 'global') return -1;
+          if (b === 'global') return 1;
+          return sortStrings(a, b);
+        });
+        storeBody += `<div class="store-platform"><h3>${escapeHtml(
+          platform === 'android' ? 'Android (Play Store)' : 'iOS (App Store)',
+        )}</h3>`;
+        for (const locale of localeKeys) {
+          const fields = byLocale
+            .get(locale)
+            .slice()
+            .sort((a, b) => sortStrings(a.field, b.field));
+          storeBody +=
+            `<div class="store-locale"><h4><span class="locale-chip">${escapeHtml(locale)}</span></h4><dl>`;
+          for (const f of fields) {
+            const empty = !f.content;
+            const searchText = escapeHtml(
+              [f.field, f.content, locale, platform].join(' '),
+            );
+            storeBody +=
+              `<div class="store-row" data-search="store-field" data-search-text="${searchText}">` +
+              `<dt>${escapeHtml(f.field)}</dt>` +
+              `<dd class="${empty ? 'empty' : ''}">${
+                empty ? '—' : escapeHtml(f.content)
+              }</dd></div>`;
+          }
+          storeBody += '</dl></div>';
+        }
+        storeBody += '</div>';
+      }
+      pushSection(
+        'store-listing',
+        'Store-Listing',
+        `${storeEntries.length}`,
+        '',
+        storeBody,
+      );
+    }
+
+    // Assets
+    {
+      let ag = '<div class="asset-grid">';
+      for (const a of assetSpecs) {
+        const assetHref = escapeHtml(encodeHtmlPath(a.out));
+        // depth-adjusted later? developer section is only on locale pages at known depth
+        ag +=
+          `<div class="asset-card"><a href="__PREFIX__${assetHref}">` +
+          `<div class="frame"><img src="__PREFIX__${assetHref}" alt="${escapeHtml(a.title)}" loading="lazy"></div>` +
+          `<div class="an">${escapeHtml(a.title)}</div></a></div>`;
+      }
+      ag += '</div>';
+      pushSection('assets', 'App-Assets', `${assetSpecs.length}`, '', ag);
+    }
+
+    // Docs
+    {
+      let docsBody = '<ul class="doc-list">';
+      const sortedDocs = renderedDocs
+        .slice()
+        .sort((a, b) => sortStrings(a.title, b.title));
+      for (const d of sortedDocs) {
+        const searchText = escapeHtml([d.title, d.src].join(' '));
+        docsBody +=
+          `<li data-search="doc" data-search-text="${searchText}">` +
+          `<a href="__PREFIX__${escapeHtml(encodeHtmlPath(d.out))}">` +
+          `<span><span class="doc-title">${escapeHtml(d.title)}</span> ` +
+          `<span class="doc-path">${escapeHtml(d.src)}</span></span>` +
+          `<span class="chev" aria-hidden="true">›</span></a></li>`;
+      }
+      docsBody += '</ul>';
+      pushSection(
+        'documentation',
+        'Dokumentation',
+        `${renderedDocs.length}`,
+        '',
+        docsBody,
+      );
+    }
+
+    return { sectionsHtml, tocItems };
+  }
+
+  // Docs render first so relative paths exist for integrity during sanitize
+  const renderedDocs = [];
+  for (const d of docSpecs) {
+    const src = path.join(repoRoot, d.src);
+    if (!fs.existsSync(src)) fail(`handbook: missing markdown source ${d.src}`);
+    const md = fs.readFileSync(src, 'utf8');
+    let body = markedParse(md);
+    body = sanitizeDocHtml(body, d.out, discoveredMdToOut);
+    body = enhanceDocBodyHtml(body);
+    const prefix = relativeToRoot(d.out);
+    const css = buildPageCss(pod.tokensCss, prefix);
+    const jsHref = escapeHtml(encodeHtmlPath(prefix + 'handbook.js'));
+    // de content for doc chrome labels if available
+    const deContent =
+      contentLocales.find((c) => c.locale === 'de') || contentLocales[0];
+    const page =
+      buildHead({
+        title: d.title + ' — DFX BTC Taro Wallet',
+        description: d.title + ' — DFX BTC Taro Wallet',
+        prefix,
+        css,
+        lang: 'de',
+        themeClass: 'theme-light',
+      }) +
+      '<body>\n' +
+      `<a class="skip-link" href="#doc-content">${escapeHtml(
+        deContent.ui.skipToContent || 'Skip',
+      )}</a>\n` +
+      buildTopbar({
+        prefix,
+        showBack: true,
+        logoDark,
+        logoWhite,
+        ui: deContent.ui,
+        locales: contentLocales,
+        currentLocale: 'de',
+        homePath: 'index.html',
+      }) +
+      '<div class="doc-wrap">\n' +
+      `<nav class="crumbs" aria-label="breadcrumb">` +
+      `<a href="${escapeHtml(encodeHtmlPath(prefix + 'index.html'))}">${escapeHtml(
+        deContent.ui.breadcrumbHome || 'Handbook',
+      )}</a>` +
+      `<span class="sep">/</span>${escapeHtml(d.title)}</nav>\n` +
+      `<article class="doc-body" id="doc-content">\n${body}\n</article>\n` +
+      `<footer class="footer"><code>${escapeHtml(d.src)}</code> · <code>${escapeHtml(
+        gitSha,
+      )}</code></footer>\n` +
+      '</div>\n' +
+      `<script src="${jsHref}"></script>\n` +
+      '</body>\n</html>\n';
+    const dest = path.join(outDir, d.out);
+    ensureDir(path.dirname(dest));
+    fs.writeFileSync(dest, page, 'utf8');
+    renderedDocs.push({ ...d, body });
+  }
+
+  // handbook.js once
   const handbookJs = buildHandbookJs();
-  const handbookJsPath = path.join(outDir, 'handbook.js');
-  fs.writeFileSync(handbookJsPath, handbookJs, 'utf8');
+  fs.writeFileSync(path.join(outDir, 'handbook.js'), handbookJs, 'utf8');
   artifacts.push({
     category: 'asset',
     outputPath: 'handbook.js',
@@ -3445,7 +3160,343 @@ function main() {
     group: null,
   });
 
-  // Stable artifact order for deterministic manifest
+  // Hreflang map
+  function pagePathForLocale(locale) {
+    return locale === 'de' ? 'index.html' : locale + '/index.html';
+  }
+
+  const shaShort =
+    gitSha === 'unknown' ? 'unknown' : gitSha.length > 12 ? gitSha.slice(0, 12) : gitSha;
+
+  // Chapter assignment is identical across locales (same groups/images ids);
+  // resolve once so orphan warnings fire once, then overlay locale titles.
+  const structureContent =
+    contentLocales.find((c) => c.locale === 'de') || contentLocales[0];
+  const { chapterPlans: baseChapterPlans } = resolveChapters(structureContent);
+
+  // Generate each locale page
+  for (const content of contentLocales) {
+    // Rebuild chapter plans with this locale's titles/intros by id.
+    const byId = new Map(
+      (content.chapters || []).map((ch) => [ch.id || slugify(ch.title || ''), ch]),
+    );
+    const chapterPlans = baseChapterPlans.map((plan) => {
+      if (plan.isMore) {
+        return {
+          ...plan,
+          title: content.ui.moreScreens || plan.title,
+        };
+      }
+      const src = byId.get(plan.id);
+      if (!src) return plan;
+      return {
+        ...plan,
+        title: src.title || plan.title,
+        summary: src.summary || '',
+        intro: src.intro || '',
+      };
+    });
+    const prefix = content.locale === 'de' ? '' : '../';
+    const outPath = pagePathForLocale(content.locale);
+    const ui = content.ui;
+    const anchorIds = new Map();
+
+    // captions for this locale
+    function captionFor(entry) {
+      const cc = content.captions[entry.key];
+      return deriveScreenshotCaption(
+        entry.stem + '.png',
+        screenshotsMeta[entry.group],
+        cc,
+      );
+    }
+
+    let chaptersHtml = '';
+    const tocItems = [];
+    let chapterNum = 0;
+
+    for (const plan of chapterPlans) {
+      chapterNum += 1;
+      const n = String(chapterNum).padStart(2, '0');
+      const chapterAnchor = claimAnchorId(
+        anchorIds,
+        'chapter-' + slugify(plan.id),
+        'chapter ' + plan.id,
+      );
+      const children = [];
+
+      // group blocks: cluster consecutive keys by group for structure
+      let body = '';
+      let i = 0;
+      while (i < plan.keys.length) {
+        const first = shotByKey.get(plan.keys[i]);
+        if (!first) {
+          i += 1;
+          continue;
+        }
+        const g = first.group;
+        const groupKeysList = [];
+        while (i < plan.keys.length) {
+          const e = shotByKey.get(plan.keys[i]);
+          if (!e || e.group !== g) break;
+          groupKeysList.push(e);
+          i += 1;
+        }
+        const groupId = claimAnchorId(
+          anchorIds,
+          'group-' + slugify(g),
+          'screenshot group ' + g,
+        );
+        const gMeta = screenshotsMeta[g];
+        const gTitle = (gMeta && gMeta.title) || g;
+        children.push({ id: groupId, title: gTitle, count: groupKeysList.length });
+
+        body += `<div class="group-block" data-search="group">`;
+        body +=
+          `<div class="group-head">` +
+          `<h3 id="${escapeHtml(groupId)}">` +
+          `<a class="name permalink" href="#${escapeHtml(groupId)}">${escapeHtml(gTitle)}</a>` +
+          ` <span class="gcount">${groupKeysList.length}</span>` +
+          `</h3>` +
+          copyLinkButton(groupId, ui) +
+          `</div>`;
+        if (gMeta && gMeta.description) {
+          body += `<p class="group-desc">${escapeHtml(gMeta.description)}</p>`;
+        }
+        body += '<div class="shot-grid">';
+        for (const e of groupKeysList) {
+          const cap = captionFor(e);
+          const cardId = claimAnchorId(
+            anchorIds,
+            'shot-' + slugify(e.group + '-' + e.title),
+            e.sourcePath,
+          );
+          const shotHref = escapeHtml(encodeHtmlPath(prefix + e.outputPath));
+          const searchText = escapeHtml(
+            [cap.caption, cap.text, e.stem, gTitle, e.group].join(' '),
+          );
+          const badgeHtml = cap.badge
+            ? `<span class="num-badge">${escapeHtml(cap.badge)}</span>`
+            : '';
+          const textHtml = cap.text
+            ? `<p class="cap-text">${escapeHtml(cap.text)}</p>`
+            : '';
+          body +=
+            `<figure class="shot-card" id="${escapeHtml(cardId)}" data-search="shot" ` +
+            `data-search-text="${searchText}" data-group="${escapeHtml(e.group)}" ` +
+            `data-caption="${escapeHtml(cap.caption)}" data-file="${escapeHtml(e.stem)}">` +
+            `<a class="shot-img" href="${shotHref}">` +
+            `<div class="frame"><img src="${shotHref}" alt="${escapeHtml(cap.caption)}" loading="lazy"></div>` +
+            `</a>` +
+            `<figcaption><div class="cap-row">${badgeHtml}` +
+            `<a class="name permalink" href="#${escapeHtml(cardId)}">${escapeHtml(cap.caption)}</a>` +
+            copyLinkButton(cardId, ui) +
+            `</div>${textHtml}` +
+            `<div class="cap-file">${escapeHtml(e.stem)}</div></figcaption></figure>`;
+        }
+        body += '</div></div>';
+      }
+
+      tocItems.push({
+        id: chapterAnchor,
+        n,
+        title: plan.title,
+        children,
+      });
+
+      chaptersHtml +=
+        `<details class="spec" id="${escapeHtml(chapterAnchor)}" open>` +
+        `<summary><div class="spec-head"><div class="lhs">` +
+        `<h2><span class="badge">${escapeHtml(n)}</span>${escapeHtml(plan.title)}${svgChevron()}</h2>` +
+        `</div><div class="rhs"><b class="sec-count" data-sec-count="chapter-${escapeHtml(
+          plan.id,
+        )}">${plan.keys.length}</b></div></div></summary>` +
+        (plan.summary
+          ? `<p class="chapter-summary">${escapeHtml(plan.summary)}</p>`
+          : '') +
+        (plan.intro ? `<p class="spec-intro">${escapeHtml(plan.intro)}</p>` : '') +
+        body +
+        `</details>`;
+    }
+
+    // Developer section
+    const dev = buildDeveloperBody(ui);
+    // fix prefixes in developer body
+    let devHtml = dev.sectionsHtml.split('__PREFIX__').join(prefix);
+    const devTocId = 'developer';
+    const devSection =
+      `<details class="spec" id="${escapeHtml(devTocId)}">` +
+      `<summary><div class="spec-head"><div class="lhs">` +
+      `<h2><span class="badge">${escapeHtml(String(chapterNum + 1).padStart(2, '0'))}</span>` +
+      `${escapeHtml(ui.developerSection || 'Developer')}${svgChevron()}</h2>` +
+      `</div></div></summary>` +
+      (ui.developerIntro
+        ? `<p class="spec-intro">${escapeHtml(ui.developerIntro)}</p>`
+        : '') +
+      devHtml +
+      `</details>`;
+    tocItems.push({
+      id: devTocId,
+      n: String(chapterNum + 1).padStart(2, '0'),
+      title: ui.developerSection || 'Developer',
+      children: [],
+    });
+
+    assertNoAnchorCollisions(anchorIds);
+
+    let tocHtml = '<ol>';
+    for (const t of tocItems) {
+      tocHtml +=
+        `<li><a href="#${escapeHtml(t.id)}"><span class="spec-num">${escapeHtml(t.n)}</span>` +
+        `${escapeHtml(t.title)}</a>`;
+      if (t.children && t.children.length) {
+        tocHtml += '<ol class="sub">';
+        for (const c of t.children) {
+          tocHtml +=
+            `<li><a href="#${escapeHtml(c.id)}" data-toc-group="${escapeHtml(c.id)}">` +
+            `${escapeHtml(c.title)}` +
+            `<span class="count">${c.count}</span></a></li>`;
+        }
+        tocHtml += '</ol>';
+      }
+      tocHtml += '</li>';
+    }
+    tocHtml += '</ol>';
+
+    const hreflangs = contentLocales.map((loc) => ({
+      lang: loc.locale,
+      href: encodeHtmlPath(
+        (content.locale === 'de' ? '' : '../') + pagePathForLocale(loc.locale),
+      ),
+    }));
+    hreflangs.push({
+      lang: 'x-default',
+      href: encodeHtmlPath(
+        (content.locale === 'de' ? '' : '../') + 'index.html',
+      ),
+    });
+
+    const css = buildPageCss(pod.tokensCss, prefix);
+    const homePath =
+      content.locale === 'de' ? 'index.html' : 'index.html'; // with prefix ../
+
+    const page =
+      buildHead({
+        title: content.meta.title || 'BTC Taro Wallet',
+        description: content.meta.description || '',
+        prefix,
+        css,
+        lang: content.locale,
+        themeClass: 'theme-light',
+        hreflangs,
+      }) +
+      '<body>\n' +
+      `<a class="skip-link" href="#main-content">${escapeHtml(
+        ui.skipToContent || 'Skip',
+      )}</a>\n` +
+      buildTopbar({
+        prefix,
+        showSearch: true,
+        showSidebarToggle: true,
+        logoDark,
+        logoWhite,
+        ui,
+        locales: contentLocales,
+        currentLocale: content.locale,
+        homePath,
+      }) +
+      '\n<div class="wrap">\n' +
+      `<aside class="sidebar" id="handbook-sidebar">\n` +
+      `<div class="sidebar-panel">\n` +
+      `<div class="toc-label">${escapeHtml(ui.contents || 'Contents')}</div>\n` +
+      `<nav class="toc" aria-label="${escapeHtml(ui.contents || 'Contents')}">${tocHtml}</nav>\n` +
+      `<div class="toc-actions" id="toc-actions" hidden>` +
+      `<button type="button" id="toc-expand-all">${escapeHtml(
+        ui.expandAll || 'Expand',
+      )}</button>` +
+      `<button type="button" id="toc-collapse-all">${escapeHtml(
+        ui.collapseAll || 'Collapse',
+      )}</button>` +
+      `</div>\n</div></aside>\n` +
+      `<main id="main-content">\n` +
+      `<header class="hero">\n` +
+      `<h1>${escapeHtml(content.meta.title || 'BTC Taro Wallet')}</h1>\n` +
+      (content.meta.lede
+        ? `<p class="lede">${escapeHtml(content.meta.lede)}</p>\n`
+        : '') +
+      `<div class="stats" role="group">` +
+      `<div class="stat"><span class="n">${screenshotEntries.length}</span><span class="l">${escapeHtml(
+        ui.images || 'images',
+      )}</span></div>` +
+      `<div class="stat"><span class="n">${chapterPlans.length}</span><span class="l">Chapters</span></div>` +
+      `<div class="stat"><span class="n">${renderedDocs.length}</span><span class="l">Docs</span></div>` +
+      `<div class="stat"><span class="n">${storeEntries.length}</span><span class="l">Store</span></div>` +
+      `<div class="stat"><span class="n">${assetSpecs.length}</span><span class="l">Assets</span></div>` +
+      `<div class="stat stat-sha"><span class="n">${escapeHtml(
+        shaShort,
+      )}</span><span class="l">SHA</span></div>` +
+      `</div>\n` +
+      `<div class="search-empty" id="search-empty" hidden>${escapeHtml(
+        ui.searchEmpty || '',
+      )}</div>\n` +
+      `</header>\n` +
+      chaptersHtml +
+      devSection +
+      `<footer class="footer">${escapeHtml(ui.generatedFrom || '')} ` +
+      `<code>${escapeHtml(gitSha)}</code></footer>\n` +
+      `</main>\n</div>\n` +
+      `<div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="${escapeHtml(
+        ui.openImage || 'Image',
+      )}">` +
+      `<div class="lightbox-dialog"><div class="lightbox-bar"><div class="lightbox-meta">` +
+      `<p class="lightbox-title" id="lightbox-title"></p>` +
+      `<p class="lightbox-file" id="lightbox-file"></p>` +
+      `<p class="lightbox-count" id="lightbox-count" data-template="${escapeHtml(
+        ui.imageCounter || '{n} / {total}',
+      )}"></p>` +
+      `</div>` +
+      `<button type="button" class="icon-btn" id="lightbox-close" aria-label="${escapeHtml(
+        ui.close || 'Close',
+      )}"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M6.4 5.3a.75.75 0 0 0-1.1 1.1L10.9 12l-5.6 5.6a.75.75 0 1 0 1.1 1.1L12 13.1l5.6 5.6a.75.75 0 1 0 1.1-1.1L13.1 12l5.6-5.6a.75.75 0 1 0-1.1-1.1L12 10.9 6.4 5.3z"/></svg></button></div>` +
+      `<div class="lightbox-body">` +
+      `<button type="button" class="lightbox-arrow" id="lightbox-prev" aria-label="${escapeHtml(
+        ui.previous || 'Prev',
+      )}"><span class="label-short" aria-hidden="true">‹</span><span class="label-full">${escapeHtml(
+        ui.previous || 'Prev',
+      )}</span></button>` +
+      `<div class="lightbox-stage"><img id="lightbox-img" alt=""></div>` +
+      `<button type="button" class="lightbox-arrow" id="lightbox-next" aria-label="${escapeHtml(
+        ui.next || 'Next',
+      )}"><span class="label-short" aria-hidden="true">›</span><span class="label-full">${escapeHtml(
+        ui.next || 'Next',
+      )}</span></button>` +
+      `</div></div></div>\n` +
+      `<script src="${escapeHtml(encodeHtmlPath(prefix + 'handbook.js'))}"></script>\n` +
+      `</body>\n</html>\n`;
+
+    // inject search status template into status element - already has data? fix via replace
+    const pageFinal = page.replace(
+      'id="search-status" role="status" aria-live="polite" hidden>',
+      `id="search-status" role="status" aria-live="polite" hidden data-template="${escapeHtml(
+        ui.searchStatus || '{n} / {total}',
+      )}">`,
+    );
+
+    const dest = path.join(outDir, outPath);
+    ensureDir(path.dirname(dest));
+    fs.writeFileSync(dest, pageFinal, 'utf8');
+    artifacts.push({
+      category: 'page',
+      outputPath: outPath,
+      sourcePath: content.sourcePath || 'scripts/handbook/content',
+      title: content.meta.title || content.locale,
+      group: content.locale,
+    });
+  }
+
+  // Override copyLinkButton to accept ui - patch: we used copyLinkButton(id, ui)
+  // but original only takes id. Define wrapper below... already need to fix function.
+
   artifacts.sort((a, b) => {
     const c = sortStrings(a.category, b.category);
     if (c !== 0) return c;
@@ -3462,14 +3513,15 @@ function main() {
       docs: renderedDocs.length,
       store: storeEntries.length,
       assets: assetSpecs.length,
+      pages: contentLocales.length,
     },
   };
-  const manifestPath = path.join(outDir, 'manifest.json');
-  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+  fs.writeFileSync(
+    path.join(outDir, 'manifest.json'),
+    JSON.stringify(manifest, null, 2) + '\n',
+    'utf8',
+  );
 
-  // Integrity: every artifact outputPath must exist on disk
-  // (paths from the artifacts list — unescaped originals, not re-parsed HTML).
-  // index.html is a real file for store entries that only live in the overview.
   for (const a of artifacts) {
     const full = path.join(outDir, a.outputPath);
     if (!fs.existsSync(full)) {
@@ -3480,15 +3532,10 @@ function main() {
     }
   }
 
-  // Integrity: local src/href in rendered markdown docs must resolve.
-  // Unresolvable links were already stripped by sanitizeDocHtml; anything
-  // remaining that does not exist is a hard failure.
   for (const d of renderedDocs) {
     const html = fs.readFileSync(path.join(outDir, d.out), 'utf8');
     const refs = collectRelativeRefs(html);
     for (const rawRef of refs) {
-      // Entity decoding already happened in collectRelativeRefs (before the
-      // fragment/query split); only percent-decoding remains here.
       const ref = decodeHtmlPath(rawRef);
       const underOut = path.join(path.dirname(path.join(outDir, d.out)), ref);
       if (
@@ -3501,10 +3548,42 @@ function main() {
     }
   }
 
+  // Integrity for locale pages
+  for (const content of contentLocales) {
+    const outPath = pagePathForLocale(content.locale);
+    const html = fs.readFileSync(path.join(outDir, outPath), 'utf8');
+    const refs = collectRelativeRefs(html);
+    for (const rawRef of refs) {
+      const ref = decodeHtmlPath(rawRef);
+      const underOut = path.join(path.dirname(path.join(outDir, outPath)), ref);
+      if (
+        !ref.startsWith('/') &&
+        !fs.existsSync(underOut) &&
+        !fs.existsSync(path.join(outDir, ref))
+      ) {
+        fail(`handbook integrity check failed (${outPath}): missing ${ref}`);
+      }
+    }
+  }
+
   console.error(
     `handbook: wrote ${screenshotEntries.length} screenshots, ` +
       `${renderedDocs.length} docs, ${storeEntries.length} store fields, ` +
-      `${assetSpecs.length} assets → ${outDir}`,
+      `${assetSpecs.length} assets, ${contentLocales.length} pages → ${outDir}`,
+  );
+}
+
+// Extend copyLinkButton for UI labels
+function copyLinkButton(anchorId, ui) {
+  ui = ui || {};
+  return (
+    `<button class="copy-link" type="button" ` +
+    `data-target="${escapeHtml(anchorId)}" ` +
+    `data-copied-label="${escapeHtml(ui.copied || 'OK')}" ` +
+    `data-failed-label="${escapeHtml(ui.copyFailed || 'X')}" ` +
+    `title="${escapeHtml(ui.copyLink || 'Copy link')}" ` +
+    `aria-label="${escapeHtml(ui.copyLink || 'Copy link')}">` +
+    `\u{1F517}</button>`
   );
 }
 

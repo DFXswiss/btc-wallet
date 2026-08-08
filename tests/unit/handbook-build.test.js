@@ -305,6 +305,20 @@ function withPatchedMetadata(patchFn, body) {
   }
 }
 
+/** Patch one content locale file temporarily (restored in finally). */
+function withPatchedContent(locale, patchFn, body) {
+  const contentPath = path.join(REPO_ROOT, 'scripts/handbook/content', locale + '.json');
+  const original = fs.readFileSync(contentPath, 'utf8');
+  try {
+    const data = JSON.parse(original);
+    patchFn(data);
+    fs.writeFileSync(contentPath, JSON.stringify(data, null, 2) + '\n', 'utf8');
+    return body();
+  } finally {
+    fs.writeFileSync(contentPath, original, 'utf8');
+  }
+}
+
 describe('unit - handbook build guards', () => {
   // Fixture setup can install marked once into repo _handbook-deps/.
   jest.setTimeout(120000);
@@ -1148,5 +1162,166 @@ describe('unit - handbook build guards', () => {
       `MIN_STORE_FIELDS=${MIN_STORE_FIELDS} still passes with the smallest locale ` +
         `(${smallest} fields) deleted — ${survives} fields would remain. It has to be above ${survives}.`,
     );
+  });
+  // --- Kundenfassung: locales, chapters, pod ---
+
+  it('writes a page per content locale with hreflang alternates and all screenshot links', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    assert.ok(fs.existsSync(path.join(out, 'index.html')));
+    assert.ok(fs.existsSync(path.join(out, 'en/index.html')));
+    assert.ok(fs.existsSync(path.join(out, 'fr/index.html')));
+    assert.ok(fs.existsSync(path.join(out, 'it/index.html')));
+    const de = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+    const en = fs.readFileSync(path.join(out, 'en/index.html'), 'utf8');
+    assert.match(de, /<html lang="de"/);
+    assert.match(en, /<html lang="en"/);
+    assert.match(de, /rel="alternate" hreflang="en"/);
+    assert.match(de, /rel="alternate" hreflang="x-default"/);
+    assert.match(en, /rel="alternate" hreflang="de"/);
+    const deShots = de.match(/href="[^"]*screenshots\/[^"]+\.png"/g) || [];
+    const enShots = en.match(/href="[^"]*screenshots\/[^"]+\.png"/g) || [];
+    assert.ok(deShots.length >= MIN_SCREENSHOTS, `de shot links ${deShots.length}`);
+    assert.strictEqual(enShots.length, deShots.length);
+    // en page uses depth-prefixed paths
+    assert.ok(
+      enShots.some(h => h.includes('../screenshots/')),
+      'en uses ../screenshots',
+    );
+  });
+
+  it('fails the build when one screenshot is assigned to two chapters', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    // Fixture screenshots live under group/; dual-assign shot-00 via group + image.
+    withPatchedContent(
+      'de',
+      data => {
+        data.chapters = [
+          {
+            id: 'a',
+            title: 'A',
+            summary: '',
+            intro: '',
+            groups: ['group'],
+          },
+          {
+            id: 'b',
+            title: 'B',
+            summary: '',
+            intro: '',
+            images: ['group/shot-00'],
+          },
+        ];
+      },
+      () => {
+        const r = runBuild(out, {
+          HANDBOOK_REPO_ROOT: fixture,
+          NODE_PATH: markedNodePath,
+          GIT_SHA: 't',
+        });
+        assert.notStrictEqual(r.status, 0, r.stderr);
+        assert.match(r.stderr, /chapter collision/i);
+        assert.match(r.stderr, /group\/shot-00/);
+        assert.match(r.stderr, /"a"/);
+        assert.match(r.stderr, /"b"/);
+      },
+    );
+  });
+
+  it('places unassigned screenshots under moreScreens and warns once each', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    // Extra screenshot not covered by any chapter groups
+    writePng(path.join(fixture, 'docs/handbook/screenshots/orphan-group/99-extra.png'), MIN_PNG_BYTES + 1);
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const warns = (r.stderr || '').split('\n').filter(l => /orphan-group\/99-extra/.test(l) && /moreScreens|not assigned/i.test(l));
+    assert.strictEqual(warns.length, 1, `expected one moreScreens warning, got:\n${r.stderr}`);
+    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+    assert.match(index, /99-extra/);
+    assert.match(index, /more-screens|Weitere Screens|More screens/);
+  });
+
+  it('prefers content captions over metadata then filename derivation', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    writePng(path.join(fixture, 'docs/handbook/screenshots/01-onboarding/01-start.png'), MIN_PNG_BYTES + 1);
+    writePng(path.join(fixture, 'docs/handbook/screenshots/group/03-my-feature.png'), MIN_PNG_BYTES + 1);
+    withPatchedContent(
+      'de',
+      data => {
+        data.captions['01-onboarding/01-start'] = {
+          title: 'CONTENT-CAPTION-WINS',
+          text: 'from content',
+        };
+      },
+      () => {
+        const r = runBuild(out, {
+          HANDBOOK_REPO_ROOT: fixture,
+          NODE_PATH: markedNodePath,
+          GIT_SHA: 't',
+        });
+        assert.strictEqual(r.status, 0, r.stderr);
+        const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+        assert.match(index, /CONTENT-CAPTION-WINS/);
+        assert.match(index, /from content/);
+        // derived still works for unknown stem
+        assert.match(index, /My feature|data-caption="My feature"/);
+      },
+    );
+  });
+
+  it('embeds the logo as inline SVG and does not type DFX in the topbar', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+    const topbar = index.match(/<header class="topbar">([\s\S]*?)<\/header>/);
+    assert.ok(topbar, 'topbar present');
+    const tb = topbar[1];
+    assert.match(tb, /<svg[\s\S]*class="logo-dark"/);
+    assert.match(tb, /<svg[\s\S]*class="logo-white"/);
+    const withoutSvg = tb.replace(/<svg[\s\S]*?<\/svg>/g, '');
+    assert.ok(!withoutSvg.includes('DFX'), 'no typed DFX in topbar outside SVG');
+    assert.match(tb, /BTC Taro Wallet/);
+  });
+
+  it('ships local @font-face rules for the Design Pod woff2 files', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    assert.ok(fs.existsSync(path.join(out, 'assets/fonts/Inter-Regular.woff2')));
+    assert.ok(fs.existsSync(path.join(out, 'assets/fonts/Inter-SemiBold.woff2')));
+    assert.ok(fs.existsSync(path.join(out, 'assets/fonts/Inter-Bold.woff2')));
+    assert.ok(fs.existsSync(path.join(out, 'assets/fonts/SourceCodePro-Regular.woff2')));
+    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+    assert.match(index, /@font-face\{font-family:Inter;[^}]*Inter-Regular\.woff2/);
+    assert.match(index, /@font-face\{font-family:Inter;[^}]*Inter-Bold\.woff2/);
+    assert.match(index, /Source Code Pro[^}]*SourceCodePro-Regular\.woff2/);
+    assert.ok(!/@font-face[^}]*https:\/\//.test(index), 'no remote fonts');
+    // tokens.css is embedded verbatim
+    const tokens = fs.readFileSync(path.join(REPO_ROOT, 'scripts/handbook/pod/tokens.css'), 'utf8');
+    assert.ok(index.includes(tokens), 'tokens.css embedded byte-identical');
   });
 });

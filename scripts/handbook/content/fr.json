@@ -1,0 +1,278 @@
+{
+  "locale": "fr",
+  "label": "Français",
+  "meta": {
+    "title": "DFX BTC Taro Wallet — Manuel",
+    "tagline": "Bitcoin et Lightning sur votre propre appareil",
+    "description": "Guide illustré du DFX BTC Taro Wallet : créer un portefeuille, recevoir et envoyer des bitcoins, sécuriser la sauvegarde, utiliser Lightning.",
+    "lede": "Ce guide parcourt l'application image par image, dans l'ordre où les étapes apparaissent dans le portefeuille. Chaque image est une capture réelle de l'application."
+  },
+  "ui": {
+    "contents": "Sommaire",
+    "search": "Rechercher dans le manuel…",
+    "searchLabel": "Rechercher dans le manuel",
+    "searchStatus": "{n} images sur {total}",
+    "searchEmpty": "Aucun résultat. Essayez une autre orthographe ou effacez la recherche.",
+    "searchReset": "Effacer la recherche",
+    "expandAll": "Tout ouvrir",
+    "collapseAll": "Tout fermer",
+    "menu": "Afficher le sommaire",
+    "theme": "Basculer entre l'apparence claire et sombre",
+    "language": "Langue",
+    "skipToContent": "Aller au contenu",
+    "backToHandbook": "Retour au manuel",
+    "breadcrumbHome": "Manuel",
+    "step": "Étape",
+    "images": "images",
+    "image": "image",
+    "close": "Fermer",
+    "previous": "Image précédente",
+    "next": "Image suivante",
+    "copyLink": "Copier le lien",
+    "copied": "Copié",
+    "copyFailed": "Copie impossible — l'adresse se trouve maintenant dans la barre d'adresse",
+    "imageCounter": "{n} sur {total}",
+    "developerSection": "Pour les développeurs",
+    "developerIntro": "À partir d'ici, la page présente du matériel issu du dépôt : les textes des fiches de magasin, les fichiers image de l'application et la documentation technique. Rien de tout cela n'est nécessaire pour utiliser le portefeuille.",
+    "generatedFrom": "Cette page est générée depuis le dépôt à chaque build. Révision :",
+    "openImage": "Agrandir l'image",
+    "moreScreens": "Autres écrans"
+  },
+  "chapters": [
+    {
+      "id": "erste-schritte",
+      "title": "Premiers pas",
+      "summary": "Ouvrir l'application pour la première fois et créer un portefeuille.",
+      "intro": "Au premier lancement, l'application crée un portefeuille sur votre appareil. Les clés restent sur le téléphone — DFX n'y a pas accès et ne peut pas restaurer un portefeuille perdu. C'est pourquoi la clause de non-responsabilité vient en premier, et pourquoi l'étape qui suit la création est toujours la sauvegarde.",
+      "groups": [
+        "01-onboarding"
+      ]
+    },
+    {
+      "id": "empfangen",
+      "title": "Recevoir des bitcoins",
+      "summary": "Afficher une adresse de réception et accepter un paiement.",
+      "intro": "Pour recevoir, le portefeuille affiche une adresse sous forme de QR code. La personne qui paie scanne ce code. Le montant et la description sont facultatifs et servent uniquement à reconnaître le paiement plus tard. Le portefeuille crée une nouvelle adresse pour chaque paiement — c'est voulu et bon pour votre vie privée.",
+      "images": [
+        "04-empfangen-senden/01-erhalten"
+      ]
+    },
+    {
+      "id": "senden",
+      "title": "Envoyer des bitcoins",
+      "summary": "Effectuer un paiement, généralement via le scanner de QR code.",
+      "intro": "L'envoi nécessite l'adresse du destinataire. Le scanner est le plus simple : il lit le QR code de l'autre partie et remplit l'adresse et le montant tout seul. Un paiement bitcoin envoyé ne peut pas être rappelé — vérifiez donc l'adresse et le montant une fois de plus avant de confirmer.",
+      "images": [
+        "04-empfangen-senden/02-senden"
+      ]
+    },
+    {
+      "id": "backup",
+      "title": "Sauvegarde et sécurité",
+      "summary": "Sécuriser la phrase de récupération et exporter le portefeuille.",
+      "intro": "La phrase de récupération de douze mots est le portefeuille. Qui la détient détient l'argent ; qui la perd et perd l'appareil a perdu l'argent. Elle doit être écrite sur papier et rangée en lieu sûr — pas dans une photo, pas dans une messagerie, pas dans le cloud. Dans ce chapitre, la phrase et le QR d'export sont masqués, sans quoi ils figureraient publiquement dans le dépôt.",
+      "groups": [
+        "02-wallet"
+      ]
+    },
+    {
+      "id": "lightning",
+      "title": "Lightning",
+      "summary": "De petits montants, instantanément et à très faible coût.",
+      "intro": "Lightning est une seconde couche au-dessus de Bitcoin pour les petits paiements rapides. Le portefeuille Lightning de cette application passe par un fournisseur (LNDHub) — lightning.space est présélectionné, DFX.swiss est également disponible. Contrairement au portefeuille on-chain, le solde est détenu chez ce fournisseur ; pour des montants plus importants, le portefeuille on-chain est le bon endroit.",
+      "groups": [
+        "08-lightning"
+      ]
+    },
+    {
+      "id": "weitere-wallets",
+      "title": "Autres portefeuilles : ajouter et importer",
+      "summary": "Portefeuille multi-appareils, portefeuille Lightning supplémentaire, import d'un portefeuille existant.",
+      "intro": "Outre le portefeuille créé au premier lancement, vous pouvez en ajouter d'autres : un portefeuille multi-appareils réparti sur trois appareils, dont deux doivent approuver chaque paiement, ou un autre portefeuille Lightning. Un portefeuille créé ailleurs peut être importé depuis une phrase de récupération, une clé privée ou un QR code.",
+      "groups": [
+        "06-wallet-hinzufuegen",
+        "07-multi-device",
+        "09-import"
+      ]
+    },
+    {
+      "id": "einstellungen",
+      "title": "Réglages",
+      "summary": "Devise, langue, sécurité, réseau et outils.",
+      "intro": "Les réglages permettent de changer la devise d'affichage et la langue, de verrouiller l'application et de modifier le serveur Electrum utilisé. Les outils sont prévus pour des cas rares — par exemple pour vérifier si une adresse appartient à votre propre portefeuille.",
+      "groups": [
+        "03-einstellungen"
+      ]
+    }
+  ],
+  "captions": {
+    "01-onboarding/01-start": {
+      "title": "Clause de non-responsabilité au premier lancement",
+      "text": "Avant le premier portefeuille, l'application signale qu'elle est auto-conservatrice : les clés se trouvent sur l'appareil, pas chez DFX."
+    },
+    "01-onboarding/02-lndhub-verbindung": {
+      "title": "Choisir une connexion LNDHub",
+      "text": "Le portefeuille Lightning a besoin d'un fournisseur. lightning.space est présélectionné."
+    },
+    "01-onboarding/03-lndhub-benutzerdefiniert": {
+      "title": "Votre propre serveur LNDHub",
+      "text": "Si vous exploitez votre propre LNDHub, saisissez son adresse ici."
+    },
+    "01-onboarding/04-lndhub-dfx-swiss": {
+      "title": "LNDHub de DFX.swiss",
+      "text": "Le service exploité par DFX.swiss peut être sélectionné à la place."
+    },
+    "01-onboarding/05-wallet-uebersicht": {
+      "title": "L'aperçu après la création",
+      "text": "Une fois créé, l'aperçu affiche votre solde et vos portefeuilles. Tous les autres chemins partent d'ici."
+    },
+    "01-onboarding/06-mitteilungen-berechtigung": {
+      "title": "Autorisation pour les notifications",
+      "text": "À la première ouverture de « Recevoir », le téléphone demande l'autorisation de notification — c'est ainsi que l'application signale les paiements entrants."
+    },
+    "02-wallet/01-uebersicht": {
+      "title": "Aperçu du portefeuille",
+      "text": "La page détaillée d'un portefeuille avec le solde, les transactions et les boutons pour recevoir et envoyer."
+    },
+    "02-wallet/02-backup-erklaerung": {
+      "title": "À quoi sert la phrase de récupération",
+      "text": "Avant de les afficher, l'application explique ce que signifient les douze mots et pourquoi personne d'autre ne doit les voir."
+    },
+    "02-wallet/03-signieren-verifizieren": {
+      "title": "Signer et vérifier un message",
+      "text": "La clé privée peut signer un message — prouvant qu'une adresse appartient à votre portefeuille."
+    },
+    "02-wallet/04-onchain-transaktionen": {
+      "title": "Transactions de ce portefeuille",
+      "text": "La liste de tous les paiements entrants et sortants de ce portefeuille."
+    },
+    "02-wallet/05-adressen": {
+      "title": "Liste des adresses",
+      "text": "Toutes les adresses du portefeuille, avec solde et utilisation. Les nouvelles adresses de réception sont créées automatiquement."
+    },
+    "02-wallet/06-export-backup": {
+      "title": "Export et sauvegarde",
+      "text": "Le portefeuille peut être exporté sous forme de QR code pour le transférer sur un autre appareil. Ce code contient la clé — ne le montrez jamais à la caméra de quelqu'un d'autre."
+    },
+    "02-wallet/07-xpub": {
+      "title": "Clé publique (xPub)",
+      "text": "La clé publique permet de suivre les paiements entrants sans pouvoir dépenser. Elle révèle toutefois toutes les adresses du portefeuille."
+    },
+    "02-wallet/08-wiederherstellungsphrase": {
+      "title": "Les douze mots",
+      "text": "La phrase de récupération. À noter sur papier, en respectant l'ordre, et à ranger en lieu sûr — masquée ici pour le manuel."
+    },
+    "03-einstellungen/01-menue": {
+      "title": "Menu des réglages",
+      "text": "Le point d'entrée vers tous les réglages."
+    },
+    "03-einstellungen/02-allgemein": {
+      "title": "Général",
+      "text": "Réglages de base de l'application."
+    },
+    "03-einstellungen/03-wallet-einstellungen": {
+      "title": "Réglages du portefeuille",
+      "text": "Réglages qui ne concernent que le portefeuille sélectionné."
+    },
+    "03-einstellungen/06-waehrung": {
+      "title": "Devise d'affichage",
+      "text": "La devise affichée à côté des montants en bitcoin."
+    },
+    "03-einstellungen/07-sprache": {
+      "title": "Langue",
+      "text": "La langue de l'interface de l'application."
+    },
+    "03-einstellungen/08-sicherheit": {
+      "title": "Sécurité",
+      "text": "Un verrou pour l'application — recommandé dès qu'elle contient plus que de l'argent de poche."
+    },
+    "03-einstellungen/09-netzwerk": {
+      "title": "Réseau",
+      "text": "Réglages de connexion, dont le serveur Electrum utilisé."
+    },
+    "03-einstellungen/10-werkzeuge": {
+      "title": "Outils",
+      "text": "Utilitaires pour des cas rares."
+    },
+    "03-einstellungen/11-feature-flags": {
+      "title": "Feature flags",
+      "text": "Interrupteurs pour des fonctions encore en test."
+    },
+    "03-einstellungen/12-ueber": {
+      "title": "À propos de l'application",
+      "text": "Version, licence et origine de l'application."
+    },
+    "03-einstellungen/13-privatsphaere": {
+      "title": "Vie privée",
+      "text": "Réglages sur ce que l'application révèle d'elle-même."
+    },
+    "03-einstellungen/14-electrum-server": {
+      "title": "Serveur Electrum",
+      "text": "Le portefeuille interroge l'état de la blockchain via ce serveur. Exploiter le sien est l'option la plus privée."
+    },
+    "03-einstellungen/15-benachrichtigungen": {
+      "title": "Notifications",
+      "text": "Quels messages l'application est autorisée à envoyer."
+    },
+    "03-einstellungen/16-werkzeuge-uebersicht": {
+      "title": "Aperçu des outils",
+      "text": "Tous les outils en un coup d'œil."
+    },
+    "03-einstellungen/17-ist-dies-meine-adresse": {
+      "title": "Cette adresse est-elle la mienne ?",
+      "text": "Vérifie si une adresse appartient à votre propre portefeuille — utile avant un paiement important à vous-même."
+    },
+    "03-einstellungen/18-transaktion-publizieren": {
+      "title": "Diffuser une transaction",
+      "text": "Envoyer dans le réseau une transaction signée ailleurs."
+    },
+    "03-einstellungen/19-lightning-wallet": {
+      "title": "Réglages du portefeuille Lightning",
+      "text": "Réglages du portefeuille Lightning, dont le fournisseur connecté."
+    },
+    "04-empfangen-senden/01-erhalten": {
+      "title": "Recevoir",
+      "text": "Le QR code contient l'adresse de réception. Le montant et la description sont facultatifs."
+    },
+    "04-empfangen-senden/02-senden": {
+      "title": "Envoyer via le scanner",
+      "text": "Le scanner lit le QR code du destinataire et reprend l'adresse et le montant."
+    },
+    "06-wallet-hinzufuegen/01-multi-device": {
+      "title": "Créer un portefeuille multi-appareils",
+      "text": "Un portefeuille réparti sur trois appareils : deux d'entre eux doivent approuver chaque paiement. Protège contre la perte d'un seul appareil."
+    },
+    "06-wallet-hinzufuegen/02-lightning": {
+      "title": "Créer un portefeuille Lightning",
+      "text": "Un portefeuille Lightning supplémentaire via un fournisseur LNDHub."
+    },
+    "07-multi-device/01-erstellung-qr": {
+      "title": "Première étape de la configuration",
+      "text": "Chacun des trois appareils affiche son propre QR code et scanne les deux autres. L'indicateur en haut suit la progression."
+    },
+    "08-lightning/01-uebersicht-mit-lightning": {
+      "title": "Aperçu avec un portefeuille Lightning",
+      "text": "L'écran d'accueil lorsqu'un portefeuille Lightning existe à côté du portefeuille on-chain."
+    },
+    "08-lightning/02-lightning-wallet": {
+      "title": "Le portefeuille Lightning",
+      "text": "Solde, paiements et accès à la carte de paiement."
+    },
+    "08-lightning/03-rechnung-erstellen": {
+      "title": "Créer une facture",
+      "text": "Recevoir via Lightning suppose de créer une facture — généralement avec un montant fixe et une validité limitée."
+    },
+    "09-import/01-scanner": {
+      "title": "Importer via le scanner",
+      "text": "Un portefeuille existant peut être lu depuis un QR code."
+    },
+    "09-import/02-manuelle-eingabe": {
+      "title": "Saisie manuelle",
+      "text": "Sinon, saisissez à la main une phrase de récupération, une clé privée ou un WIF."
+    },
+    "09-import/03-trefferliste": {
+      "title": "Types de portefeuilles détectés",
+      "text": "L'application détecte quels types de portefeuilles correspondent à la saisie (BIP44, BIP49, BIP84) et affiche le chemin de dérivation correspondant."
+    }
+  }
+}
