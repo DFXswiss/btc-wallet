@@ -40,7 +40,7 @@ FROM nginx:1.27-alpine
 # error_page directive pointing at it. Clearing the directory first makes the
 # payload exactly the build output — which is what the host/image comparison in
 # .github/workflows/handbook-check.yaml asserts byte for byte.
-RUN rm -f /usr/share/nginx/html/index.html /usr/share/nginx/html/50x.html
+RUN rm -rf /usr/share/nginx/html/*
 
 COPY handbook.nginx.conf /etc/nginx/conf.d/default.conf
 

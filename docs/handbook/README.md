@@ -241,9 +241,16 @@ jeder Aenderung an diesen Bildern:
 
 ```bash
 # ueber den GANZEN Satz, nicht ueber eine Datei — genau diese Verkuerzung hat
-# beim ersten Anlauf zwei Signaturen und zwei erweiterte Public Keys durchgelassen
-for f in docs/handbook/screenshots/**/*.png; do zbarimg -q --raw "$f"; done
+# beim ersten Anlauf zwei Signaturen und zwei erweiterte Public Keys durchgelassen.
+# Das Gate leitet den Satz aus dem gebauten Handbook ab, deckt also auch die
+# Bilder aus img/dfx/ ab und prueft zusaetzlich per OCR auf Klartext-Seedphrasen.
+NODE_PATH=./_handbook-deps/node_modules node scripts/handbook/build.js /tmp/handbook-out
+NODE_PATH=./_handbook-deps/node_modules node scripts/handbook/content-gate.js /tmp/handbook-out
 ```
+
+Voraussetzung: `zbarimg` (zbar-tools) und `tesseract` auf dem PATH sowie
+`marked` und `bip39` unter `_handbook-deps/` — beide in EINEM `npm install`,
+sonst raeumt der zweite Aufruf den ersten weg.
 
 Erlaubt ist genau ein Treffer: die On-Chain-Empfangsadresse in
 `04-empfangen-senden/01-erhalten.png` — sie ist der Inhalt dieses Screens und eine

@@ -5,7 +5,9 @@
  *   node scripts/handbook/content-gate.js <builtDir>
  *
  * The handbook is published without authentication, so every pixel in it is
- * public. This gate is the last check between a screenshot and the open web.
+ * public. This gate is the last check in the PR path — `handbook-deploy.yaml`
+ * builds and publishes from `develop` without running it, so the coverage rests
+ * on `develop` being protected and requiring a reviewed pull request.
  * It runs against the BUILT output, not against a source directory: the build
  * is what ships, and deriving the scan set from it closes three ways an image
  * could reach the public unscanned.
@@ -57,14 +59,23 @@ const QR_ALLOWLIST = {
 /**
  * Fail when this many consecutive BIP39 words are read out of one image.
  *
- * The shortest real phrase is 12 words, so anything at or above this threshold
- * is far below a leak and far above prose. Measured over the 70 PNGs the
- * handbook currently publishes, the longest run is 3 ("open source push", from
- * the notification-settings screen), so 5 keeps headroom on both sides.
+ * Measured over the 70 PNGs the handbook currently publishes — all of them
+ * German UI — the longest run is 3 ("open source push", from the
+ * notification-settings screen). English prose sits higher: over this repo's
+ * own English markdown the longest run is 6 ("can you make sure you follow"),
+ * at roughly 2 hits of 5 or more per 1000 words. The handbook is the German
+ * one, so 5 has headroom today.
+ *
+ * The threshold is deliberately kept low rather than parked above English
+ * prose. OCR is imperfect, and a misread word splits a run: at a limit of 5 a
+ * 12-word phrase survives only if three well-spaced words are misread, at 9 a
+ * single misread word near the middle is enough. A false red costs one look at
+ * an image; a miss costs a published key. If English screenshots ever land
+ * here, raise this — but record the measurement, do not guess.
  *
  * Digits and punctuation are transparent: a phrase rendered as a numbered grid
  * ("1 abandon 2 ability …") still reads as one run. Any non-BIP39 word breaks
- * it, which is what keeps ordinary prose far below the threshold.
+ * it, which is what keeps ordinary prose below the threshold.
  */
 const SEED_RUN_LIMIT = 5;
 
@@ -163,9 +174,11 @@ function seedProblems(runs, limit) {
       ({ rel, run }) =>
         `${run.length} consecutive BIP39 words read out of ${rel} (limit ${limit}): ` +
         `${run.slice(0, 24).join(' ')}\n` +
-        '    If this is a recovery phrase, the screenshot must not be published at ' +
-        'all. If it is a false positive, redact or replace the image — the ' +
-        'threshold is not the place to fix it.',
+        '    Look at the image before doing anything else. If this is a recovery ' +
+        'phrase, it must not be published at all — no redaction, a new ' +
+        'screenshot. If it is ordinary English text, redact or replace the ' +
+        'image, or raise SEED_RUN_LIMIT and record the measurement that ' +
+        'justifies the new value in its comment.',
     );
 }
 

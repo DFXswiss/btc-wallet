@@ -59,7 +59,11 @@ const DISCOVERY_SOURCE_RELS = [
   SOURCE_IMG_REL,
 ];
 
-// Shape of a fastlane locale directory: `de`, `de-DE`, `pt-BR`, `zh-Hans`.
+// Shape of a fastlane locale directory: `de`, `de-DE`, `pt-BR`, `zh-Hans`,
+// `es-419`. The numeric alternative is not decoration: Google Play's
+// Latin-American Spanish listing is the UN M.49 region `es-419`, and fastlane
+// reads these directory names verbatim off the filesystem. Without it the
+// build would abort the day someone runs `supply init` for that locale.
 // Discovery treats every directory under the two metadata roots as a locale and
 // publishes every .txt inside it. fastlane keeps more than locales there —
 // `review_information/` holds the review contact's name, phone number, e-mail
@@ -67,7 +71,7 @@ const DISCOVERY_SOURCE_RELS = [
 // rather than a hand-maintained list keeps the "new locales appear by
 // themselves" property; anything that is not locale-shaped is a hard failure,
 // so the decision to publish a new kind of directory is always a deliberate one.
-const LOCALE_DIR_RE = /^[a-z]{2,3}(-[A-Za-z]{2,4})?$/;
+const LOCALE_DIR_RE = /^[a-z]{2,3}(-([A-Za-z]{2,4}|[0-9]{3}))?$/;
 
 const SORT_LOCALE = 'en';
 

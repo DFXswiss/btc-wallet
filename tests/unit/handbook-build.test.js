@@ -775,6 +775,10 @@ describe('unit - handbook build guards', () => {
     // locale shapes have to keep appearing by themselves.
     writeText(path.join(fixture, 'android/fastlane/metadata/android/pt-BR/title.txt'), 'Carteira');
     writeText(path.join(fixture, 'ios/fastlane/metadata/zh-Hans/name.txt'), '钱包');
+    // es-419 is Google Play's Latin-American Spanish: a UN M.49 numeric region.
+    // The first version of the guard rejected it and would have broken the
+    // build the day that listing is created.
+    writeText(path.join(fixture, 'android/fastlane/metadata/android/es-419/title.txt'), 'Billetera');
 
     const r = runBuild(out, { HANDBOOK_REPO_ROOT: fixture, NODE_PATH: markedNodePath, GIT_SHA: 't' });
     assert.strictEqual(r.status, 0, r.stderr);
@@ -782,6 +786,7 @@ describe('unit - handbook build guards', () => {
     const sources = manifest.artifacts.map(a => a.sourcePath);
     assert.ok(sources.includes('android/fastlane/metadata/android/pt-BR/title.txt'), 'pt-BR was not discovered');
     assert.ok(sources.includes('ios/fastlane/metadata/zh-Hans/name.txt'), 'zh-Hans was not discovered');
+    assert.ok(sources.includes('android/fastlane/metadata/android/es-419/title.txt'), 'es-419 was not discovered');
   });
 
   it('keeps the content floors meaningful against the real repository', function () {
