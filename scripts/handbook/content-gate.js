@@ -25,14 +25,21 @@
  *     states which PNGs must exist, the disk states which do, and the two sets
  *     must match exactly — scanning nothing is a failure, not a pass.
  *
- * Two checks run over that set:
+ * Three checks run over that set, plus one check on the checking:
  *
  *   QR — a decodable QR in a screenshot is an address, a payment request or,
- *   worst case, an encoded seed. Only the receive-address screen may carry one.
+ *   worst case, an encoded seed. Only the receive-address screen may carry one,
+ *   and only with a payload shaped like a receive address.
  *
  *   Seed phrase — a QR gate is blind to the higher risk: a recovery phrase
  *   printed as plain text on a backup screen. OCR every image and look for a
  *   run of consecutive BIP39 words. See SEED_RUN_LIMIT for the threshold.
+ *
+ *   Extended public key — an xpub/zpub exposes every address of an account.
+ *   Read out of the same OCR text. See EXTENDED_KEY_RE.
+ *
+ *   OCR yield — a tesseract that returns nothing would make the two OCR checks
+ *   above vacuously green. See MIN_OCR_TOKENS.
  *
  * Requires `zbarimg` (zbar-tools) and `tesseract` on PATH, and the repository's
  * own `bip39` dependency resolvable. A missing tool fails the gate — a gate
