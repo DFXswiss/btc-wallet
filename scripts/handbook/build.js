@@ -985,15 +985,8 @@ main { min-width: 0; }
 .lede {
   font-size: var(--fs-lg);
   color: var(--text-secondary);
-  margin: 0 0 28px;
+  margin: 0 0 32px;
   max-width: 70ch;
-}
-/* Customer: one quiet line under the lede (not a six-tile developer strip). */
-.hero-meta {
-  margin: 0 0 28px;
-  font-size: var(--fs-sm);
-  color: var(--text-secondary);
-  font-variant-numeric: tabular-nums;
 }
 /* Developer area keeps the tiled stat strip. */
 .stats {
@@ -3560,11 +3553,6 @@ function main() {
       (content.meta.lede
         ? `<p class="lede">${escapeHtml(content.meta.lede)}</p>\n`
         : '') +
-      `<p class="hero-meta">${escapeHtml(
-        String(screenshotEntries.length),
-      )} ${escapeHtml(uiLabel(ui, 'statImages', 'images'))} · ${escapeHtml(
-        String(chapterPlans.length),
-      )} ${escapeHtml(uiLabel(ui, 'statChapters', 'Chapters'))}</p>\n` +
       `<div class="search-empty" id="search-empty" hidden>${escapeHtml(
         ui.searchEmpty || '',
       )}</div>\n` +

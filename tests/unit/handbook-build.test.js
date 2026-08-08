@@ -1505,7 +1505,7 @@ describe('unit - handbook build guards', () => {
 
   // --- B4: stats bar labels come from ui.* of each locale ---
 
-  it('reads all six stats labels from ui.* with fallback warning when missing', function () {
+  it('reads developer stats labels from ui.* with fallback warning when missing', function () {
     const { fixture, out } = freshDirs();
     populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
     const r = runBuild(out, {
@@ -1515,11 +1515,6 @@ describe('unit - handbook build guards', () => {
     });
     assert.strictEqual(r.status, 0, r.stderr);
 
-    function heroMeta(html) {
-      const m = html.match(/<p class="hero-meta">([^<]*)<\/p>/);
-      assert.ok(m, 'hero-meta present');
-      return m[1];
-    }
     function devStatLabels(html) {
       const dev = html.match(/id="developer"[\s\S]*?<\/details>/);
       assert.ok(dev, 'developer section present');
@@ -1530,32 +1525,26 @@ describe('unit - handbook build guards', () => {
 
     for (const loc of ['de', 'en', 'fr', 'it']) {
       const content = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'scripts/handbook/content', loc + '.json'), 'utf8'));
-      const keys = ['statImages', 'statChapters', 'statDocs', 'statStore', 'statAssets', 'statRevision'];
+      const devKeys = ['statDocs', 'statStore', 'statAssets', 'statRevision'];
       assert.ok(
-        keys.every(k => typeof content.ui[k] === 'string' && content.ui[k].trim()),
-        `${loc} content must define all six ui.stat* keys`,
+        devKeys.every(k => typeof content.ui[k] === 'string' && content.ui[k].trim()),
+        `${loc} content must define developer ui.stat* keys`,
       );
       const pagePath = loc === 'de' ? path.join(out, 'index.html') : path.join(out, loc, 'index.html');
       const html = fs.readFileSync(pagePath, 'utf8');
-      const hero = heroMeta(html);
-      assert.ok(hero.includes(content.ui.statImages), `${loc} hero has images label`);
-      assert.ok(hero.includes(content.ui.statChapters), `${loc} hero has chapters label`);
-      assert.ok(!hero.includes(content.ui.statDocs), `${loc} hero must not list docs`);
-      assert.ok(!hero.includes(content.ui.statStore), `${loc} hero must not list store`);
-      assert.ok(!hero.includes(content.ui.statAssets), `${loc} hero must not list assets`);
-      assert.ok(!hero.includes(content.ui.statRevision), `${loc} hero must not list revision`);
+      assert.ok(!/class="hero-meta"/.test(html), `${loc}: no customer hero-meta line`);
       assert.deepStrictEqual(
         devStatLabels(html),
-        [content.ui.statDocs, content.ui.statStore, content.ui.statAssets, content.ui.statRevision],
+        devKeys.map(k => content.ui[k]),
         `${loc} developer stats labels`,
       );
     }
 
-    // Missing key → English fallback + stderr warning (not silent).
+    // Missing developer key → English fallback + stderr warning (not silent).
     withPatchedContent(
       'de',
       data => {
-        delete data.ui.statChapters;
+        delete data.ui.statDocs;
       },
       () => {
         const { fixture: f2, out: o2 } = freshDirs();
@@ -1566,9 +1555,11 @@ describe('unit - handbook build guards', () => {
           GIT_SHA: 't',
         });
         assert.strictEqual(r2.status, 0, r2.stderr);
-        assert.match(r2.stderr, /missing ui\.statChapters/i);
+        assert.match(r2.stderr, /missing ui\.statDocs/i);
         const de = fs.readFileSync(path.join(o2, 'index.html'), 'utf8');
-        assert.match(de, /class="hero-meta">[^<]*Chapters/);
+        const dev = de.match(/id="developer"[\s\S]*?<\/details>/);
+        assert.ok(dev);
+        assert.match(dev[0], /class="l">Docs</);
       },
     );
   });
@@ -1838,7 +1829,7 @@ describe('unit - handbook build guards', () => {
     assert.match(css, /:focus-visible[^{]*\{[^}]*outline\s*:\s*2px\s+solid\s+var\(--primary\)[^}]*outline-offset\s*:\s*2px/);
   });
 
-  it('shows only images and chapters in the customer hero; developer tiles hold the rest', function () {
+  it('has no customer kennzahlen line; developer section keeps four stat tiles', function () {
     const { fixture, out } = freshDirs();
     populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
     const r = runBuild(out, {
@@ -1855,16 +1846,11 @@ describe('unit - handbook build guards', () => {
       const hero = html.match(/<header class="hero">([\s\S]*?)<\/header>/);
       assert.ok(hero, `${loc} hero`);
       const h = hero[1];
-      assert.match(h, /class="hero-meta"/);
+      assert.ok(!/class="hero-meta"/.test(h), `${loc}: no hero-meta`);
       assert.ok(!/class="stats"/.test(h), `${loc} hero must not contain stats tiles`);
-      assert.match(
-        h,
-        new RegExp(
-          `class="hero-meta">\\d+\\s+${content.ui.statImages.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*·\\s*\\d+\\s+${content.ui.statChapters.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
-        ),
-      );
       // Customer main body before developer: no four developer labels as tiles.
       const beforeDev = html.split(/id="developer"/)[0];
+      assert.ok(!/class="hero-meta"/.test(beforeDev), `${loc}: no hero-meta in customer`);
       assert.ok(
         !new RegExp(`class="l">${content.ui.statDocs.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}<`).test(beforeDev),
         `${loc}: docs tile not before developer`,
@@ -1884,6 +1870,9 @@ describe('unit - handbook build guards', () => {
       const dev = html.match(/id="developer"[\s\S]*?<\/details>/);
       assert.ok(dev, `${loc} developer`);
       assert.match(dev[0], /class="stats"/);
+      // class="stat" or class="stat stat-sha" — not class="stats"
+      const tiles = (dev[0].match(/class="stat(?:\s|")/g) || []).length;
+      assert.strictEqual(tiles, 4, `${loc}: developer must keep 4 stat tiles, got ${tiles}`);
       assert.match(dev[0], new RegExp(`class="l">${content.ui.statDocs}<`));
       assert.match(dev[0], new RegExp(`class="l">${content.ui.statStore}<`));
       assert.match(dev[0], new RegExp(`class="l">${content.ui.statAssets}<`));
