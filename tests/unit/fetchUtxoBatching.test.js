@@ -46,6 +46,29 @@ describe('AbstractHDElectrumWallet.fetchUtxo() on servers that do not support ba
     assert.strictEqual(w._utxo.length, 1, 'the previously known UTXO set must survive the failed refresh');
   });
 
+  // The guard triggers off _utxo, which saveToDisk() serializes and fromJson() restores - so an
+  // app restart alone does NOT clear the condition while the same non-batching server stays
+  // pinned. Recovery requires connecting to a batching-capable server (or a genuinely fresh
+  // wallet with no prior UTXO data).
+  it('still refuses after a saveToDisk()/fromJson() round-trip - an app restart does not clear the lockout', async () => {
+    const w = makeWalletWithKnownBalance();
+    w._utxo = [{ value: 100000, address: w._getExternalAddressByIndex(0), txId: 'a'.repeat(64), vout: 0 }];
+
+    // exactly what BlueApp.saveToDisk() persists for this wallet class
+    w.prepareForSerialization();
+    const keyCloned = Object.assign({}, w);
+    keyCloned._txs_by_external_index = {};
+    keyCloned._txs_by_internal_index = {};
+    const restored = HDSegwitBech32Wallet.fromJson(JSON.stringify({ ...keyCloned, type: keyCloned.type }));
+
+    assert.strictEqual(restored._utxo.length, 1, '_utxo is part of what gets persisted and restored on boot');
+
+    BlueElectrum.isBatchingDisabled.mockReturnValue(true);
+    BlueElectrum.multiGetUtxoByAddress.mockResolvedValue({});
+    await assert.rejects(restored.fetchUtxo(), /does not support batched UTXO lookups/);
+    assert.strictEqual(restored._utxo.length, 1, 'the restored UTXO set survives, but the refresh keeps failing');
+  });
+
   it('does not throw for a wallet with no prior UTXO data, even when batching is disabled', async () => {
     const w = makeWalletWithKnownBalance();
     BlueElectrum.isBatchingDisabled.mockReturnValue(true);
