@@ -51,10 +51,50 @@ const DISCOVERY_SOURCE_RELS = [
   SOURCE_IMG_REL,
 ];
 
+// Shape of a fastlane locale directory: `de`, `de-DE`, `pt-BR`, `zh-Hans`.
+// Discovery treats every directory under the two metadata roots as a locale and
+// publishes every .txt inside it. fastlane keeps more than locales there —
+// `review_information/` holds the review contact's name, phone number, e-mail
+// and the demo account's credentials, and the handbook is public. A shape check
+// rather than a hand-maintained list keeps the "new locales appear by
+// themselves" property; anything that is not locale-shaped is a hard failure,
+// so the decision to publish a new kind of directory is always a deliberate one.
+const LOCALE_DIR_RE = /^[a-z]{2,3}(-[A-Za-z]{2,4})?$/;
+
 const SORT_LOCALE = 'en';
 
 function sortStrings(a, b) {
   return a.localeCompare(b, SORT_LOCALE);
+}
+
+/**
+ * Locale directory names directly under a fastlane metadata root, sorted.
+ * Dot-directories are skipped as everywhere else; a non-locale directory
+ * aborts the build instead of being published.
+ */
+function localeDirsUnder(metaRootAbs, metaRootRel) {
+  const dirs = fs
+    .readdirSync(metaRootAbs, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
+    .map((d) => d.name)
+    .sort(sortStrings);
+  const foreign = dirs.filter((name) => !LOCALE_DIR_RE.test(name));
+  if (foreign.length > 0) {
+    fail(
+      `handbook: ${metaRootRel}/ contains ${foreign.length} ` +
+        `director${foreign.length === 1 ? 'y' : 'ies'} that ${
+          foreign.length === 1 ? 'is' : 'are'
+        } not a locale:\n` +
+        foreign.map((n) => `  ${metaRootRel}/${n}`).join('\n') +
+        '\nEverything under a locale directory is published to the public ' +
+        'handbook, so this is refused rather than guessed. fastlane stores ' +
+        'reviewer contact details and demo credentials next to the locales ' +
+        '(review_information/); move the directory out of the metadata root, ' +
+        'or widen LOCALE_DIR_RE in scripts/handbook/build.js if it really is ' +
+        'a locale.',
+    );
+  }
+  return dirs;
 }
 
 function fail(message) {
@@ -952,11 +992,7 @@ function main() {
 
   // Android: one locale dir per subdirectory
   {
-    const locales = fs
-      .readdirSync(androidMetaRoot, { withFileTypes: true })
-      .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
-      .map((d) => d.name)
-      .sort(sortStrings);
+    const locales = localeDirsUnder(androidMetaRoot, SOURCE_ANDROID_META_REL);
     for (const locale of locales) {
       const localeAbs = path.join(androidMetaRoot, locale);
       const localeRel = path.posix.join(SOURCE_ANDROID_META_REL, locale);
@@ -1005,10 +1041,7 @@ function main() {
       });
     }
 
-    const locales = entries
-      .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
-      .map((d) => d.name)
-      .sort(sortStrings);
+    const locales = localeDirsUnder(iosMetaRoot, iosRootRel);
     for (const locale of locales) {
       const localeAbs = path.join(iosMetaRoot, locale);
       const localeRel = path.posix.join(iosRootRel, locale);

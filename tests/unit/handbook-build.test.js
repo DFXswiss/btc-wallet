@@ -712,4 +712,48 @@ describe('unit - handbook build guards', () => {
     const polluted = headings.filter(m => m[2].includes('copy-link')).map(m => m[0]);
     assert.deepStrictEqual(polluted, []);
   });
+
+  it('refuses a non-locale directory under the Android store metadata root', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture);
+    // fastlane keeps the reviewer's contact details and the demo account's
+    // credentials right next to the locales. Discovery published every .txt
+    // under every subdirectory, so this would have gone straight onto a page
+    // that is served without authentication.
+    writeText(path.join(fixture, 'android/fastlane/metadata/android/review_information/phone_number.txt'), '+41 00 000 00 00');
+
+    const r = runBuild(out, { HANDBOOK_REPO_ROOT: fixture, NODE_PATH: markedNodePath, GIT_SHA: 't' });
+    assert.notStrictEqual(r.status, 0, r.stdout);
+    assert.match(r.stderr, /not a locale/i);
+    assert.match(r.stderr, /review_information/);
+    assert.ok(!fs.existsSync(path.join(out, 'index.html')), 'no page may be written');
+  });
+
+  it('refuses a non-locale directory under the iOS store metadata root', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture);
+    writeText(path.join(fixture, 'ios/fastlane/metadata/review_information/demo_password.txt'), 'hunter2');
+
+    const r = runBuild(out, { HANDBOOK_REPO_ROOT: fixture, NODE_PATH: markedNodePath, GIT_SHA: 't' });
+    assert.notStrictEqual(r.status, 0, r.stdout);
+    assert.match(r.stderr, /not a locale/i);
+    assert.match(r.stderr, /review_information/);
+    assert.ok(!fs.existsSync(path.join(out, 'index.html')), 'no page may be written');
+  });
+
+  it('still picks up a new locale without an edit to build.js', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture);
+    // The guard must not turn discovery into a hand-maintained list: real
+    // locale shapes have to keep appearing by themselves.
+    writeText(path.join(fixture, 'android/fastlane/metadata/android/pt-BR/title.txt'), 'Carteira');
+    writeText(path.join(fixture, 'ios/fastlane/metadata/zh-Hans/name.txt'), '钱包');
+
+    const r = runBuild(out, { HANDBOOK_REPO_ROOT: fixture, NODE_PATH: markedNodePath, GIT_SHA: 't' });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const manifest = JSON.parse(fs.readFileSync(path.join(out, 'manifest.json'), 'utf8'));
+    const sources = manifest.artifacts.map(a => a.sourcePath);
+    assert.ok(sources.includes('android/fastlane/metadata/android/pt-BR/title.txt'), 'pt-BR was not discovered');
+    assert.ok(sources.includes('ios/fastlane/metadata/zh-Hans/name.txt'), 'zh-Hans was not discovered');
+  });
 });
