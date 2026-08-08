@@ -47,6 +47,7 @@ class AppStorage {
   static DFX_SWAP = 'dfx_swap';
   static CAMERA_PERMISSION_LAST_ASKED_TIME = 'camera_permission_last_asked_time';
   static HIDE_BALANCE = 'hide_balance';
+  static PRIVACY_BLUR_ENABLED = 'privacy_blur_enabled';
 
   static keys2migrate = [AppStorage.HANDOFF_STORAGE_KEY, AppStorage.DO_NOT_TRACK, AppStorage.ADVANCED_MODE_ENABLED];
 
@@ -865,6 +866,19 @@ class AppStorage {
 
   setIsHideBalanceEnabled = async value => {
     await AsyncStorage.setItem(AppStorage.HIDE_BALANCE, value ? '1' : '');
+  };
+
+  isPrivacyBlurEnabled = async () => {
+    try {
+      return !!(await AsyncStorage.getItem(AppStorage.PRIVACY_BLUR_ENABLED));
+    } catch (_) {}
+    // Unlike the sibling flags below, false is the unsafe direction for screen-capture
+    // protection - fail toward protected rather than assume the read reflects "never enabled".
+    return true;
+  };
+
+  setIsPrivacyBlurEnabled = async value => {
+    await AsyncStorage.setItem(AppStorage.PRIVACY_BLUR_ENABLED, value ? '1' : '');
   };
 
   isDfxPOSEnabled = async () => {

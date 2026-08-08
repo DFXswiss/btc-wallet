@@ -244,11 +244,16 @@ async function _initConnection() {
     console.log(`_initConnection: connected to ${peerLabel} in ${Date.now() - connectStartedAt}ms - ${ver[0]}`);
     serverName = ver[0];
 
+    // re-derive from the current server's banner on every connection - the flag would otherwise
+    // stay stuck from a previous connection to a differently-capable server (the reconnect logic
+    // rotates servers mid-session), and the fetchUtxo() non-batching guard builds a send block on it
+    disableBatching = false;
     if (ver[0].startsWith('ElectrumPersonalServer') || ver[0].startsWith('electrs') || ver[0].startsWith('Fulcrum')) {
       disableBatching = true;
 
       // exeptions for versions:
-      const [electrumImplementation, electrumVersion] = ver[0].split(' ');
+      // electrs reports "electrs/x.y.z" (slash), Fulcrum "Fulcrum x.y.z" (space) - accept both
+      const [electrumImplementation, electrumVersion] = ver[0].split(/[ /]/);
       switch (electrumImplementation) {
         case 'electrs':
           if (semVerToInt(electrumVersion) >= semVerToInt('0.9.0')) {
@@ -1002,6 +1007,8 @@ module.exports.setBatchingDisabled = () => {
 module.exports.setBatchingEnabled = () => {
   disableBatching = false;
 };
+
+module.exports.isBatchingDisabled = () => disableBatching;
 module.exports.connectMain = connectMain;
 module.exports.isDisabled = isDisabled;
 module.exports.setDisabled = setDisabled;

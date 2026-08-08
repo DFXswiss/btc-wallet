@@ -33,4 +33,18 @@ describe('currency', () => {
       'Unexpected: ' + currency.satoshiToLocalCurrency(1),
     );
   });
+
+  it('btcToSatoshi always returns a whole number of satoshis', () => {
+    const currency = require('../../blue_modules/currency');
+
+    // Exact 8-decimal inputs are unaffected.
+    assert.strictEqual(currency.btcToSatoshi('1.23456789'), 123456789);
+
+    // More than 8 decimal places multiplies out to a fractional satoshi if not floored.
+    assert.strictEqual(currency.btcToSatoshi('0.000012345'), 1234);
+    assert.ok(Number.isInteger(currency.btcToSatoshi('0.000012345')));
+
+    // Floors rather than rounds up, so a spend amount never exceeds what was confirmed.
+    assert.strictEqual(currency.btcToSatoshi('0.00001234999'), 1234);
+  });
 });

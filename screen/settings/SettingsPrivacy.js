@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { ScrollView, TouchableWithoutFeedback, StyleSheet, Linking, Platform, Pressable } from 'react-native';
+import { ScrollView, TouchableWithoutFeedback, StyleSheet, Linking, Platform } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 
 import navigationStyle from '../../components/navigationStyle';
@@ -14,8 +14,9 @@ const A = require('../../blue_modules/analytics');
 
 const SettingsPrivacy = () => {
   const { colors } = useTheme();
-  const { isStorageEncrypted, setDoNotTrack, isDoNotTrackEnabled, setIsPrivacyBlurEnabled } = useContext(BlueStorageContext);
-  const sections = Object.freeze({ ALL: 0, CLIPBOARDREAD: 1, QUICKACTION: 2, WIDGETS: 3 });
+  const { isStorageEncrypted, setDoNotTrack, isDoNotTrackEnabled, isPrivacyBlurEnabled, setIsPrivacyBlurEnabledAsyncStorage } =
+    useContext(BlueStorageContext);
+  const sections = Object.freeze({ ALL: 0, CLIPBOARDREAD: 1, QUICKACTION: 2, WIDGETS: 3, PRIVACYBLUR: 4 });
   const [isLoading, setIsLoading] = useState(sections.ALL);
   const [isReadClipboardAllowed, setIsReadClipboardAllowed] = useState(false);
   const [doNotTrackSwitchValue, setDoNotTrackSwitchValue] = useState(false);
@@ -23,7 +24,6 @@ const SettingsPrivacy = () => {
   const [isDisplayWidgetBalanceAllowed, setIsDisplayWidgetBalanceAllowed] = useState(false);
   const [isQuickActionsEnabled, setIsQuickActionsEnabled] = useState(false);
   const [storageIsEncrypted, setStorageIsEncrypted] = useState(true);
-  const [isPrivacyBlurEnabledTapped, setIsPrivacyBlurEnabledTapped] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -96,16 +96,34 @@ const SettingsPrivacy = () => {
     Linking.openSettings();
   };
 
-  const onDisablePrivacyTapped = () => {
-    setIsPrivacyBlurEnabled(!(isPrivacyBlurEnabledTapped >= 10));
-    setIsPrivacyBlurEnabledTapped(prev => prev + 1);
+  const onPrivacyBlurValueChange = async value => {
+    setIsLoading(sections.PRIVACYBLUR);
+    try {
+      await setIsPrivacyBlurEnabledAsyncStorage(value);
+    } catch (e) {
+      console.error('SettingsPrivacy: failed to persist screenshot-protection setting, switch reverted', e);
+    }
+    setIsLoading(false);
   };
 
   return (
     <ScrollView style={[styles.root, stylesWithThemeHook.root]}>
-      <Pressable accessibilityRole="button" onPress={onDisablePrivacyTapped}>
-        <BlueHeaderDefaultSub leftText={loc.settings.general} rightComponent={null} />
-      </Pressable>
+      <BlueHeaderDefaultSub leftText={loc.settings.general} rightComponent={null} />
+      <BlueListItem
+        hideChevron
+        title={loc.settings.privacy_prevent_screenshots}
+        Component={TouchableWithoutFeedback}
+        switch={{
+          onValueChange: onPrivacyBlurValueChange,
+          value: isPrivacyBlurEnabled,
+          disabled: isLoading === sections.ALL,
+          testID: 'PrivacyBlurSwitch',
+        }}
+      />
+      <BlueCard>
+        <BlueText>{loc.settings.privacy_prevent_screenshots_explanation}</BlueText>
+      </BlueCard>
+      <BlueSpacing20 />
       <BlueListItem
         hideChevron
         title={loc.settings.privacy_read_clipboard}
