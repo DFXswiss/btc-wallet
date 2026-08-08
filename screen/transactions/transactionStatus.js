@@ -17,7 +17,6 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import * as BlueElectrum from '../../blue_modules/BlueElectrum';
 import NetworkTransactionFees from '../../models/networkTransactionFees';
 import { PrivateText } from '../../components/PrivateText';
-const currency = require('../../blue_modules/currency');
 
 const buttonStatus = Object.freeze({
   possible: 1,
