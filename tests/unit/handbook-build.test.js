@@ -56,6 +56,23 @@ const ASSET_MID_BYTES = Math.floor((MIN_ASSET_PNG_BYTES + MIN_PNG_BYTES) / 2);
 
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
+// Store-listing field names the fixtures write per locale. Enough of them that
+// the pool stays above MIN_STORE_FIELDS.
+const ANDROID_LOCALE_FIELDS = ['title', 'short_description', 'full_description', 'changelogs/default'];
+const IOS_LOCALE_FIELDS = ['name', 'description', 'keywords', 'subtitle', 'release_notes', 'promotional_text'];
+
+/**
+ * How far a floor may sit below the repository it guards.
+ *
+ * The floors live in build.js and every test here reads them from there, which
+ * is the right single source — but it also means lowering one keeps the whole
+ * suite green while the guard stops guarding: MIN_SCREENSHOTS = 1 would still
+ * satisfy every case below and no longer notice 41 deleted screenshots. This
+ * ratio is what makes such an edit visible. Lowering it is a deliberate,
+ * reviewable act; lowering a floor alone is not.
+ */
+const FLOOR_MIN_RATIO = 0.5;
+
 function writePng(filePath, sizeBytes) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   const buf = Buffer.alloc(sizeBytes, 0);
@@ -142,32 +159,42 @@ function populateValidFixture(root, opts = {}) {
   fs.mkdirSync(path.join(root, 'android/fastlane/metadata/android'), { recursive: true });
   fs.mkdirSync(path.join(root, 'ios/fastlane/metadata'), { recursive: true });
   if (storeFieldCount === null) {
-    const androidFields = ['title', 'short_description', 'full_description', 'changelogs/default'];
     for (const locale of ['de-DE', 'en-US']) {
-      for (const f of androidFields) {
+      for (const f of ANDROID_LOCALE_FIELDS) {
         writeText(path.join(root, 'android/fastlane/metadata/android', locale, `${f}.txt`), `${locale} ${f}`);
       }
     }
     writeText(path.join(root, 'ios/fastlane/metadata/copyright.txt'), '2026');
     writeText(path.join(root, 'ios/fastlane/metadata/primary_category.txt'), 'FINANCE');
     for (const locale of ['de-DE', 'en-US']) {
-      for (const f of ['name', 'description', 'keywords', 'subtitle']) {
+      for (const f of IOS_LOCALE_FIELDS) {
         writeText(path.join(root, 'ios/fastlane/metadata', locale, `${f}.txt`), `${locale} ${f}`);
       }
     }
     assert.ok(countStoreFields(root) >= MIN_STORE_FIELDS, `fixture store fields ${countStoreFields(root)}`);
   } else {
-    // Exactly N fields: fill android/en-US first, then ios/global, then ios/en-US.
+    // Exactly N fields: fill android locales first, then ios/global, then the
+    // ios locales. The pool must stay above MIN_STORE_FIELDS so the floor-guard
+    // case (MIN - 1) can still be built exactly.
     let n = 0;
     const candidates = [];
-    for (const f of ['title', 'short_description', 'full_description', 'changelogs/default']) {
-      candidates.push(['android/fastlane/metadata/android/en-US', f]);
+    for (const locale of ['en-US', 'de-DE']) {
+      for (const f of ANDROID_LOCALE_FIELDS) {
+        candidates.push([`android/fastlane/metadata/android/${locale}`, f]);
+      }
     }
     candidates.push(['ios/fastlane/metadata', 'copyright']);
     candidates.push(['ios/fastlane/metadata', 'primary_category']);
-    for (const f of ['name', 'description', 'keywords', 'subtitle', 'release_notes', 'promotional_text']) {
-      candidates.push(['ios/fastlane/metadata/en-US', f]);
+    for (const locale of ['en-US', 'de-DE']) {
+      for (const f of IOS_LOCALE_FIELDS) {
+        candidates.push([`ios/fastlane/metadata/${locale}`, f]);
+      }
     }
+    assert.ok(
+      candidates.length >= storeFieldCount,
+      `fixture store pool (${candidates.length}) is smaller than the requested ` +
+        `${storeFieldCount} fields — extend ANDROID_LOCALE_FIELDS/IOS_LOCALE_FIELDS`,
+    );
     for (const [dir, f] of candidates) {
       if (n >= storeFieldCount) break;
       writeText(path.join(root, dir, `${f}.txt`), `field ${n}`);
@@ -755,5 +782,35 @@ describe('unit - handbook build guards', () => {
     const sources = manifest.artifacts.map(a => a.sourcePath);
     assert.ok(sources.includes('android/fastlane/metadata/android/pt-BR/title.txt'), 'pt-BR was not discovered');
     assert.ok(sources.includes('ios/fastlane/metadata/zh-Hans/name.txt'), 'zh-Hans was not discovered');
+  });
+
+  it('keeps the content floors meaningful against the real repository', function () {
+    // Every other case here builds a fixture, so a floor lowered to 1 would
+    // never be noticed. This one measures the repository the floors exist to
+    // protect. It fails in both directions: a floor above reality breaks the
+    // build, a floor far below it stops detecting deletions.
+    const out = fs.mkdtempSync(path.join(tmpRoot, 'real-'));
+    const r = runBuild(out, { NODE_PATH: markedNodePath, GIT_SHA: 'floor-check' });
+    assert.strictEqual(r.status, 0, `real repository build failed: ${r.stderr}`);
+
+    const manifest = JSON.parse(fs.readFileSync(path.join(out, 'manifest.json'), 'utf8'));
+    const floors = {
+      screenshots: ['MIN_SCREENSHOTS', MIN_SCREENSHOTS],
+      docs: ['MIN_DOCS', MIN_DOCS],
+      store: ['MIN_STORE_FIELDS', MIN_STORE_FIELDS],
+      assets: ['MIN_ASSETS', MIN_ASSETS],
+    };
+    for (const [category, [name, floor]] of Object.entries(floors)) {
+      const actual = manifest.counts[category];
+      assert.ok(Number.isInteger(actual) && actual > 0, `manifest.counts.${category} is ${JSON.stringify(actual)}`);
+      assert.ok(floor <= actual, `${name}=${floor} is above the ${actual} ${category} in the repository`);
+      const weakest = Math.ceil(actual * FLOOR_MIN_RATIO);
+      assert.ok(
+        floor >= weakest,
+        `${name}=${floor} while the repository has ${actual} ${category}. Below ` +
+          `${weakest} the floor no longer detects a mass deletion: raise it, or ` +
+          'change FLOOR_MIN_RATIO deliberately if the content really shrank.',
+      );
+    }
   });
 });

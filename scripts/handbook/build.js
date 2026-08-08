@@ -20,9 +20,17 @@ const fs = require('fs');
 const path = require('path');
 
 // --- Floor guards (today's counts minus a small buffer; never exact) ---
+// A floor only detects content loss while it stays close to reality, and these
+// constants are the single source the unit tests read — lowering one here would
+// otherwise weaken every guard at once without turning a test red. The test
+// "keeps the content floors meaningful against the real repository" ties them
+// to what the repository actually contains; see FLOOR_MIN_RATIO there.
 const MIN_SCREENSHOTS = 35;
 const MIN_DOCS = 8;
-const MIN_STORE_FIELDS = 12;
+// 20, not 12: the 28 store fields come from two Android locales, two iOS
+// locales and two global iOS files. At 12 an entire locale could disappear
+// from the store listing without the build noticing.
+const MIN_STORE_FIELDS = 20;
 const MIN_ASSETS = 20;
 // Screenshots / LFS-scale PNGs: a truncated checkout or LFS pointer is far
 // below this. App icons under img/dfx/ can legitimately be smaller
