@@ -654,7 +654,10 @@ describe('unit - handbook build guards', () => {
     assert.strictEqual(r.status, 0, r.stderr);
     const js = fs.readFileSync(path.join(out, 'handbook.js'), 'utf8');
     assert.match(js, /copy-link/);
-    assert.match(js, /clipboard/);
+    // Pin the calls, not the word: `clipboard` also occurs in a prose comment,
+    // so matching it would keep passing after the whole API use was removed.
+    assert.match(js, /navigator\.clipboard\.writeText\(/);
+    assert.match(js, /execCommand\('copy'\)/);
     // CSP is script-src 'self': an inline <script> carrying logic would break
     // the page silently. The HTML may only carry the external reference.
     const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
@@ -663,5 +666,24 @@ describe('unit - handbook build guards', () => {
       inlineScripts.map(m => m[0]),
       [],
     );
+  });
+
+  it('keeps the copy button out of the heading element', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+    // A button inside <h3> becomes part of the heading's text and its
+    // accessible name — a screen reader then announces "Einstellungen
+    // Direkt-Link kopieren". The button belongs next to the heading.
+    const headings = [...index.matchAll(/<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1>/g)];
+    assert.ok(headings.length > 0, 'fixture must produce headings');
+    const polluted = headings.filter(m => m[2].includes('copy-link')).map(m => m[0]);
+    assert.deepStrictEqual(polluted, []);
   });
 });

@@ -1558,10 +1558,22 @@ function main() {
         cursor: pointer;
         border-radius: 4px;
       }
-      /* Card heads are flex with a gap; the group heading is not, so the button
-         needs its own separation there. */
-      h3 .copy-link {
-        margin-left: 8px;
+      /* The copy button sits NEXT TO the group heading, never inside it: a
+         button placed within the heading element becomes part of its text and
+         of its accessible name ("Einstellungen Direkt-Link kopieren"). The
+         wrapper therefore carries the margins the heading gives up — h3 has no
+         font-size rule, so its UA margin is 1em of 1.17 * 14.5px; 1.17em on the
+         wrapper (font-size 14.5px inherited) reproduces exactly that. Same
+         arrangement as the RealUnit handbook, where .copy-link lives in the
+         head next to the name. */
+      .group-head {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        margin: 1.17em 0;
+      }
+      .group-head h3 {
+        margin: 0;
       }
       .copy-link:hover {
         color: var(--brand);
@@ -1695,14 +1707,14 @@ function main() {
         meta && meta.description
           ? escapeHtml(meta.description)
           : `Screenshot-Gruppe <code>${escapeHtml(gKey)}</code> (Auto-Discovery).`;
-      // Button inside the <h3>, not in a wrapper element: the heading keeps its
-      // own margins, so adding the permalink changes no vertical spacing.
       const groupId = uniqueAnchorId(anchorIds, 'group-' + slugify(gKey));
       let cards =
+        `<div class="group-head">` +
         `<h3 id="${escapeHtml(groupId)}">` +
         `<a class="name permalink" href="#${escapeHtml(groupId)}">${escapeHtml(title)}</a>` +
+        `</h3>` +
         copyLinkButton(groupId) +
-        `</h3>`;
+        `</div>`;
       cards += `<p class="spec-intro">${desc}</p>`;
       cards += '<div class="tests">';
       for (const e of list) {
