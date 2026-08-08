@@ -75,10 +75,12 @@ describe('helpers/dfxMaxAmount DfxMaxAmount', () => {
     assert.strictEqual(second, true);
   });
 
-  // Pins the current behaviour: a corrupt stored value makes wasConfirmed() reject, which blocks
-  // the whole confirm flow, instead of degrading to the safe fixed-value path ("not max").
-  it('currently rejects on a corrupt stored value instead of treating it as "not max"', async () => {
+  // A corrupt stored value must degrade to the safe fixed-value path ("not max"), not block the
+  // whole confirm flow. Currently wasConfirmed() lets the JSON.parse error escape, which aborts
+  // handleConfirm() entirely - this test fails until that is fixed.
+  it('treats a corrupt stored value as "not max" instead of rejecting', async () => {
     await AsyncStorage.setItem('DfxMaxAmountSats:wallet-1:sell', '{not json');
-    await assert.rejects(DfxMaxAmount.wasConfirmed('wallet-1', DfxService.SELL, '0.5', 50000000));
+    const confirmed = await DfxMaxAmount.wasConfirmed('wallet-1', DfxService.SELL, '0.5', 50000000);
+    assert.strictEqual(confirmed, false);
   });
 });
