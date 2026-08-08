@@ -215,6 +215,14 @@ describe('AddLightning screen', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
+  it('disables the continue button while custom credentials are incomplete', () => {
+    const screen = renderScreen();
+    fireEvent.press(screen.getByText(loc.wallets.add_lndhub_custom));
+    fireEvent.changeText(screen.getByPlaceholderText('user@provider.domain'), 'not-an-address');
+
+    expect(screen.getByRole('button', { name: loc._.continue })).toBeDisabled();
+  });
+
   it('opens the custom-LNDHub instructions', () => {
     const { Linking } = require('react-native');
     const openURL = jest.spyOn(Linking, 'openURL').mockImplementation(() => Promise.resolve());
