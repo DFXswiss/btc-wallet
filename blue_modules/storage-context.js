@@ -64,9 +64,16 @@ export const BlueStorageProvider = ({ children }) => {
     return BlueApp.setIsDfxPOSEnabled(value);
   };
 
-  const setIsPrivacyBlurEnabledAsyncStorage = value => {
+  const setIsPrivacyBlurEnabledAsyncStorage = async value => {
     setIsPrivacyBlurEnabled(value);
-    return BlueApp.setIsPrivacyBlurEnabled(value);
+    try {
+      await BlueApp.setIsPrivacyBlurEnabled(value);
+    } catch (e) {
+      // revert instead of leaving the UI claiming a state that won't survive a restart -
+      // the switch visibly snapping back is the failure signal
+      setIsPrivacyBlurEnabled(!value);
+      throw e;
+    }
   };
 
   const setIsDfxSwapAsyncStorage = value => {

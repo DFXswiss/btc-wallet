@@ -101,7 +101,7 @@ const SettingsPrivacy = () => {
     try {
       await setIsPrivacyBlurEnabledAsyncStorage(value);
     } catch (e) {
-      console.error('SettingsPrivacy: failed to persist screenshot-protection setting, UI now out of sync', e);
+      console.error('SettingsPrivacy: failed to persist screenshot-protection setting, switch reverted', e);
     }
     setIsLoading(false);
   };
