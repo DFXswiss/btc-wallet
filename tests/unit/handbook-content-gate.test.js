@@ -182,6 +182,39 @@ describe('unit - handbook content gate', () => {
       assert.match(problems[0], /extended public key read out of a\.png/);
     });
 
+    it('sees the upper-case SLIP-132 prefixes this wallet produces for multisig', function () {
+      // class/wallets/multisig-hd-wallet.js emits Ypub and Zpub itself, and the
+      // handbook already has a multi-device chapter. A lower-case-only pattern
+      // would have missed exactly those.
+      for (const prefix of ['Ypub', 'Zpub', 'Upub', 'Vpub', 'ypub', 'zpub', 'tpub']) {
+        const key = `${prefix}6CUGRUonZSQ4TWtTMmzXdrXDtypWKiKrhko4egpiMZbpiaQL2jkwSB1icqYh2`;
+        assert.ok(gate.EXTENDED_KEY_RE.test(key), `${prefix} not detected`);
+      }
+    });
+
+    it('names every screenshot OCR could not read', function () {
+      // The token sum alone only catches total blindness: the four most
+      // text-rich images clear the floor on their own while 66 stay unread.
+      const perFile = [
+        { rel: 'screenshots/a.png', tokens: 12 },
+        { rel: 'screenshots/b.png', tokens: 0 },
+        { rel: 'assets/logo.png', tokens: 0 },
+      ];
+      const problems = gate.ocrCoverageProblems(perFile, gate.SCREENSHOTS_MUST_YIELD_OCR);
+      assert.strictEqual(problems.length, 1);
+      assert.match(problems[0], /screenshots\/b\.png/);
+      // Icons and logos legitimately carry no text.
+      assert.ok(!problems[0].includes('assets/logo.png'), 'assets must not be required to yield text');
+    });
+
+    it('stays silent when every screenshot yields text', function () {
+      const perFile = [
+        { rel: 'screenshots/a.png', tokens: 5 },
+        { rel: 'assets/logo.png', tokens: 0 },
+      ];
+      assert.deepStrictEqual(gate.ocrCoverageProblems(perFile, gate.SCREENSHOTS_MUST_YIELD_OCR), []);
+    });
+
     it('does not see an extended key in ordinary text', function () {
       assert.ok(!gate.EXTENDED_KEY_RE.test('Guthaben senden und empfangen, siehe Kapitel xpub'));
       assert.deepStrictEqual(gate.extendedKeyProblems([]), []);

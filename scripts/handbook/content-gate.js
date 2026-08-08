@@ -38,8 +38,9 @@
  *   Extended public key — an xpub/zpub exposes every address of an account.
  *   Read out of the same OCR text. See EXTENDED_KEY_RE.
  *
- *   OCR yield — a tesseract that returns nothing would make the two OCR checks
- *   above vacuously green. See MIN_OCR_TOKENS.
+ *   OCR yield — a tesseract that returns nothing, for the whole set or for
+ *   part of it, would make the two OCR checks above vacuously green. See
+ *   MIN_OCR_TOKENS and SCREENSHOTS_MUST_YIELD_OCR.
  *
  * Requires `zbarimg` (zbar-tools) and `tesseract` on PATH, and the repository's
  * own `bip39` dependency resolvable. A missing tool fails the gate — a gate
@@ -107,15 +108,38 @@ const SEED_RUN_LIMIT = 5;
  *
  * The 70 published PNGs currently yield 1264 tokens. 300 is far below that and
  * far above the zero a broken tool produces.
+ *
+ * A sum alone only catches total blindness, though: the four most text-rich
+ * images add up to 352 on their own, so a tool blind for the other 66 would
+ * still clear this floor while a phrase sits unread in one of them. That is
+ * what SCREENSHOTS_MUST_YIELD_OCR is for.
  */
 const MIN_OCR_TOKENS = 300;
+
+/**
+ * Every screenshot must return at least one word. A screen of a wallet UI
+ * without a single readable character is not a screenshot, it is a tool that
+ * failed on that file — and a phrase in the next one would go unread.
+ *
+ * Measured: all 42 images under `screenshots/` yield at least 5 tokens (the
+ * thinnest are the network settings and the cosigner QR). The 21 that yield
+ * nothing are all under `assets/` — icons, logos, splash art — which is why
+ * this applies to screenshots only.
+ */
+const SCREENSHOTS_MUST_YIELD_OCR = 'screenshots/';
 
 /**
  * Extended public keys. One of them in a screenshot exposes every address of
  * that account, and the handbook documents that an export screen once carried
  * one. Base58 excludes 0, O, I and l, which also keeps this off ordinary prose.
+ *
+ * The upper-case SLIP-132 prefixes are not decoration: this wallet produces
+ * `Ypub` and `Zpub` for multisig accounts itself
+ * (class/wallets/multisig-hd-wallet.js), shows them on the cosigner and export
+ * screens, and the handbook already has a multi-device chapter. No word
+ * boundary either — OCR happily glues the key to the label in front of it.
  */
-const EXTENDED_KEY_RE = /\b[xyztuv]pub[1-9A-HJ-NP-Za-km-z]{20,}/;
+const EXTENDED_KEY_RE = /[xyztuvXYZTUV]pub[1-9A-HJ-NP-Za-km-z]{20,}/;
 
 /** Longest runs worth naming in the summary, for diagnosis. */
 const REPORT_TOP_N = 5;
@@ -220,6 +244,26 @@ function ocrYieldProblems(tokens, floor) {
       `(floor ${floor}). That is a broken tool, not a clean set of screenshots — ` +
       'the seed check cannot vouch for anything. Check the tesseract install and ' +
       'its language data.',
+  ];
+}
+
+/**
+ * `perFile`: [{ rel, tokens }] for every scanned image. Catches a tool that is
+ * blind for part of the set — the sum floor above cannot see that.
+ */
+function ocrCoverageProblems(perFile, prefix) {
+  const silent = perFile
+    .filter(f => f.rel.startsWith(prefix) && f.tokens === 0)
+    .map(f => f.rel)
+    .sort();
+  if (!silent.length) return [];
+  return [
+    `OCR returned nothing for ${silent.length} screenshot(s), so they were not ` +
+      'checked for a recovery phrase at all:\n' +
+      silent.map(r => `      ${r}`).join('\n') +
+      '\n    A wallet screen without a single readable word means the tool ' +
+      'failed on that file. If an image genuinely carries no text, it does not ' +
+      'belong under screenshots/.',
   ];
 }
 
@@ -370,13 +414,16 @@ function main() {
   const qrByPath = new Map();
   const runs = [];
   const extendedKeys = [];
+  const perFile = [];
   let ocrTokens = 0;
   for (const rel of files) {
     const abs = path.join(root, rel);
     const payload = decodeQr(abs);
     if (payload) qrByPath.set(rel, payload);
     const text = ocr(abs);
-    ocrTokens += (text.match(/[A-Za-z]+/g) || []).length;
+    const tokens = (text.match(/[A-Za-z]+/g) || []).length;
+    perFile.push({ rel, tokens });
+    ocrTokens += tokens;
     const key = text.match(EXTENDED_KEY_RE);
     if (key) extendedKeys.push({ rel, key: key[0] });
     const run = longestBip39Run(text, words);
@@ -397,6 +444,7 @@ function main() {
 
   const problems = [
     ...ocrYieldProblems(ocrTokens, MIN_OCR_TOKENS),
+    ...ocrCoverageProblems(perFile, SCREENSHOTS_MUST_YIELD_OCR),
     ...extendedKeyProblems(extendedKeys),
     ...qrProblems(qrByPath, declared, QR_ALLOWLIST),
     ...seedProblems(runs, SEED_RUN_LIMIT),
@@ -410,6 +458,7 @@ module.exports = {
   QR_ALLOWLIST,
   SEED_RUN_LIMIT,
   MIN_OCR_TOKENS,
+  SCREENSHOTS_MUST_YIELD_OCR,
   EXTENDED_KEY_RE,
   collectDeclaredPngs,
   scanSetProblems,
@@ -417,6 +466,7 @@ module.exports = {
   longestBip39Run,
   seedProblems,
   ocrYieldProblems,
+  ocrCoverageProblems,
   extendedKeyProblems,
 };
 
