@@ -30,18 +30,18 @@
     "next": "Next image",
     "copyLink": "Copy link",
     "copied": "Copied",
-    "copyFailed": "Could not copy — the address is now in the address bar",
+    "copyFailed": "Could not copy. The address is now in the address bar.",
     "imageCounter": "{n} of {total}",
     "developerSection": "For developers",
-    "developerIntro": "From here on the page shows material from the repository: the store listing texts, the app's image files and the technical documentation. None of it is needed to use the wallet.",
+    "developerIntro": "From here on the page shows material from the repository: the store texts, the app's image files and the technical documentation. None of it is needed to use the wallet.",
     "generatedFrom": "This page is generated from the repository on every build. Revision:",
     "openImage": "Enlarge image",
     "moreScreens": "More screens",
     "statImages": "images",
     "statChapters": "chapters",
     "statDocs": "documents",
-    "statStore": "store fields",
-    "statAssets": "assets",
+    "statStore": "store texts",
+    "statAssets": "image files",
     "statRevision": "revision"
   },
   "chapters": [
@@ -49,7 +49,7 @@
       "id": "erste-schritte",
       "title": "Getting started",
       "summary": "Open the app for the first time and create a wallet.",
-      "intro": "On first launch the app creates a wallet on your device. The keys stay on the phone — DFX has no access to them and cannot restore a lost wallet. That is why the disclaimer comes first, and why the next step after creating a wallet is always the backup.",
+      "intro": "On first launch the app creates a wallet on your device. The keys stay on the phone. DFX has no access to them and cannot restore a lost wallet. That is why the disclaimer comes first, and why the step after creating a wallet is always the backup.",
       "groups": [
         "01-onboarding"
       ]
@@ -57,8 +57,8 @@
     {
       "id": "empfangen",
       "title": "Receiving bitcoin",
-      "summary": "Show a receiving address and accept a payment.",
-      "intro": "To receive, the wallet shows an address as a QR code. Whoever pays scans that code. Amount and description are optional and only help you recognise the payment later. The wallet creates a new address for every payment — that is intended and good for your privacy.",
+      "summary": "Show an address and accept a payment.",
+      "intro": "To receive, the wallet shows an address as a code. Whoever pays scans that code. Amount and description are optional and only help you recognise the payment later. The wallet creates a new address for every payment. That is intended, and it is good for your privacy.",
       "images": [
         "04-empfangen-senden/01-erhalten"
       ]
@@ -66,8 +66,8 @@
     {
       "id": "senden",
       "title": "Sending bitcoin",
-      "summary": "Make a payment, usually via the QR scanner.",
-      "intro": "Sending requires the recipient's address. The scanner is the easiest way: it reads the other party's QR code and fills in address and amount by itself. A sent bitcoin payment cannot be recalled — so check address and amount once more before confirming.",
+      "summary": "Make a payment, usually with the scanner.",
+      "intro": "Sending needs the address of the recipient. The scanner is the easiest way: it reads the code of the other party and fills in address and amount by itself. A payment in bitcoin cannot be recalled once sent. So check the address and the amount once more before you confirm.",
       "images": [
         "04-empfangen-senden/02-senden"
       ]
@@ -76,7 +76,7 @@
       "id": "backup",
       "title": "Backup and security",
       "summary": "Secure the recovery phrase and export the wallet.",
-      "intro": "The twelve-word recovery phrase is the wallet. Whoever holds it holds the money; whoever loses it and loses the device has lost the money. It belongs on paper in a safe place — not in a photo, not in a chat, not in the cloud. In this chapter the phrase and the export QR are redacted, because otherwise they would sit publicly in the repository.",
+      "intro": "The recovery phrase of twelve words is the wallet. Whoever holds it holds the money. Whoever loses it and loses the device has lost the money. It belongs on paper in a safe place, not in a photo, not in a chat, not in the cloud. In this chapter the phrase and the code for the export are blacked out, because otherwise they would sit in a public repository.",
       "groups": [
         "02-wallet"
       ]
@@ -85,7 +85,7 @@
       "id": "lightning",
       "title": "Lightning",
       "summary": "Small amounts, instantly and at very low cost.",
-      "intro": "Lightning is a second layer on top of Bitcoin for small, fast payments. The Lightning wallet in this app runs through a provider (LNDHub) — lightning.space is preselected, DFX.swiss can be chosen as well. Unlike the on-chain wallet, the balance is held by that provider; for larger amounts the on-chain wallet is the right place.",
+      "intro": "Lightning is a second layer on top of bitcoin for small, fast payments. In this app the wallet for Lightning runs through a provider, called an LNDHub. lightning.space is preselected, and DFX.swiss can be chosen as well. Unlike the wallet on the blockchain, the balance is held by that provider. For larger amounts the wallet on the blockchain is the right place.",
       "groups": [
         "08-lightning"
       ]
@@ -93,8 +93,8 @@
     {
       "id": "weitere-wallets",
       "title": "More wallets: adding and importing",
-      "summary": "Multi-device wallet, an extra Lightning wallet, importing an existing wallet.",
-      "intro": "Besides the wallet from first launch you can add more: a multi-device wallet spread across three devices, where two of them must approve every payment, or another Lightning wallet. A wallet created elsewhere can be imported from a recovery phrase, a private key or a QR code.",
+      "summary": "A wallet across three devices, another wallet for Lightning, reading in an existing wallet.",
+      "intro": "Besides the wallet from the first launch you can create more: a wallet spread across three devices, where two of them approve every payment, or another wallet for Lightning. A wallet created elsewhere can be read in from the recovery phrase, a private key or a code.",
       "groups": [
         "06-wallet-hinzufuegen",
         "07-multi-device",
@@ -105,7 +105,7 @@
       "id": "einstellungen",
       "title": "Settings",
       "summary": "Currency, language, security, network and tools.",
-      "intro": "The settings let you change the display currency and the language, lock the app, and switch the Electrum server in use. The tools are meant for rare occasions — for instance to check whether an address belongs to your own wallet.",
+      "intro": "The settings let you change the displayed currency and the language, put a lock on the app and change the server of Electrum in use. The tools are meant for rare occasions, for instance to check whether an address belongs to your own wallet.",
       "groups": [
         "03-einstellungen"
       ]
@@ -114,19 +114,19 @@
   "captions": {
     "01-onboarding/01-start": {
       "title": "Disclaimer on first launch",
-      "text": "Before the first wallet, the app points out that it is self-custodial: the keys live on the device, not with DFX."
+      "text": "Before the first wallet the app points out that it keeps the keys itself: they live on the device, not with DFX."
     },
     "01-onboarding/02-lndhub-verbindung": {
-      "title": "Choosing an LNDHub connection",
-      "text": "The Lightning wallet needs a provider. lightning.space is preselected."
+      "title": "Choosing a provider for Lightning",
+      "text": "The wallet for Lightning needs a provider. lightning.space is preselected."
     },
     "01-onboarding/03-lndhub-benutzerdefiniert": {
-      "title": "Your own LNDHub server",
+      "title": "Your own provider",
       "text": "If you run your own LNDHub, enter its address here."
     },
     "01-onboarding/04-lndhub-dfx-swiss": {
-      "title": "LNDHub by DFX.swiss",
-      "text": "The service operated by DFX.swiss can be selected instead."
+      "title": "The provider DFX.swiss",
+      "text": "The service run by DFX.swiss can be selected instead."
     },
     "01-onboarding/05-wallet-uebersicht": {
       "title": "The overview after setup",
@@ -134,75 +134,75 @@
     },
     "01-onboarding/06-mitteilungen-berechtigung": {
       "title": "Permission for notifications",
-      "text": "The first time you open “Receive”, the phone asks for notification permission — that is how the app reports incoming payments."
+      "text": "The first time you open “Receive”, the phone asks for permission to send notifications. That is how the app reports incoming payments."
     },
     "02-wallet/01-uebersicht": {
-      "title": "Wallet overview",
-      "text": "A wallet's detail page with balance, transactions and the buttons for receiving and sending."
+      "title": "Overview of the wallet",
+      "text": "The detail page of a wallet with balance, transactions and the buttons for receiving and sending."
     },
     "02-wallet/02-backup-erklaerung": {
       "title": "What the recovery phrase is for",
       "text": "Before showing them, the app explains what the twelve words mean and why nobody else may see them."
     },
     "02-wallet/03-signieren-verifizieren": {
-      "title": "Signing and verifying a message",
-      "text": "The private key can sign a message — proving that an address belongs to your wallet."
+      "title": "Signing and checking a message",
+      "text": "The private key can sign a message. That proves an address belongs to your own wallet."
     },
     "02-wallet/04-onchain-transaktionen": {
-      "title": "Transactions of this wallet",
-      "text": "The list of all incoming and outgoing payments for this wallet."
+      "title": "Transactions of the wallet",
+      "text": "The list of all incoming and outgoing payments of this wallet."
     },
     "02-wallet/05-adressen": {
-      "title": "Address list",
-      "text": "All addresses of the wallet, with balance and usage. New receiving addresses are created automatically."
+      "title": "List of addresses",
+      "text": "All addresses of the wallet, with balance and usage. New addresses for receiving appear automatically."
     },
     "02-wallet/06-export-backup": {
       "title": "Export and backup",
-      "text": "The wallet can be exported as a QR code to move it to another device. That code contains the key — never let anyone else's camera see it."
+      "text": "The wallet can be exported as a code to move it to another device. The code contains the key and belongs in front of nobody else's camera."
     },
     "02-wallet/07-xpub": {
-      "title": "Public key (xPub)",
-      "text": "The public key allows watching incoming payments without being able to spend. It does reveal every address of the wallet."
+      "title": "Public key",
+      "text": "The public key lets you follow incoming payments without being able to spend. It does reveal every address of the wallet."
     },
     "02-wallet/08-wiederherstellungsphrase": {
       "title": "The twelve words",
-      "text": "The recovery phrase. Write it on paper, keep the order, store it safely — redacted here for the handbook."
+      "text": "The recovery phrase. Write it on paper, keep the order, store it safely. Blacked out here for the handbook."
     },
     "03-einstellungen/01-menue": {
-      "title": "Settings menu",
-      "text": "The entry point to all settings."
+      "title": "Menu of the settings",
+      "text": "The way into every setting."
     },
     "03-einstellungen/02-allgemein": {
       "title": "General",
       "text": "Basic settings of the app."
     },
     "03-einstellungen/03-wallet-einstellungen": {
-      "title": "Wallet settings",
-      "text": "Settings that apply only to the selected wallet."
+      "title": "Settings of the wallet",
+      "text": "Settings that apply to the selected wallet only."
     },
     "03-einstellungen/06-waehrung": {
-      "title": "Display currency",
-      "text": "The currency shown alongside bitcoin amounts."
+      "title": "Displayed currency",
+      "text": "The currency shown next to amounts in bitcoin."
     },
     "03-einstellungen/07-sprache": {
       "title": "Language",
-      "text": "The language of the app interface."
+      "text": "The language of the interface."
     },
     "03-einstellungen/08-sicherheit": {
       "title": "Security",
-      "text": "A lock for the app — recommended as soon as it holds more than pocket money."
+      "text": "A lock for the app. Recommended as soon as it holds more than pocket money."
     },
     "03-einstellungen/09-netzwerk": {
       "title": "Network",
-      "text": "Connection settings, including the Electrum server in use."
+      "text": "Settings for the connection, among them the server of Electrum in use."
     },
     "03-einstellungen/10-werkzeuge": {
       "title": "Tools",
       "text": "Utilities for rare occasions."
     },
     "03-einstellungen/11-feature-flags": {
-      "title": "Feature flags",
-      "text": "Switches for functions that are still being trialled."
+      "title": "Switches for new functions",
+      "text": "Switches for functions that are still being tried out."
     },
     "03-einstellungen/12-ueber": {
       "title": "About the app",
@@ -213,8 +213,8 @@
       "text": "Settings for what the app reveals about itself."
     },
     "03-einstellungen/14-electrum-server": {
-      "title": "Electrum server",
-      "text": "The wallet queries the state of the blockchain through this server. Running your own is the most private option."
+      "title": "Server of Electrum",
+      "text": "The wallet asks this server for the state of the blockchain. Running your own is the most private way."
     },
     "03-einstellungen/15-benachrichtigungen": {
       "title": "Notifications",
@@ -225,70 +225,70 @@
       "text": "All tools at a glance."
     },
     "03-einstellungen/17-ist-dies-meine-adresse": {
-      "title": "Is this address mine?",
-      "text": "Checks whether an address belongs to your own wallet — useful before a larger payment to yourself."
+      "title": "Does this address belong to me?",
+      "text": "Checks whether an address belongs to your own wallet. Useful before a larger payment to yourself."
     },
     "03-einstellungen/18-transaktion-publizieren": {
       "title": "Broadcast a transaction",
       "text": "Push a transaction that was signed elsewhere into the network."
     },
     "03-einstellungen/19-lightning-wallet": {
-      "title": "Lightning wallet settings",
-      "text": "Settings of the Lightning wallet, including the connected provider."
+      "title": "Settings for Lightning",
+      "text": "Settings of the wallet for Lightning, among them the connected provider."
     },
     "04-empfangen-senden/01-erhalten": {
       "title": "Receiving",
-      "text": "The QR code carries the receiving address. Amount and description are optional."
+      "text": "The code holds the address for receiving. Amount and description are optional."
     },
     "04-empfangen-senden/02-senden": {
-      "title": "Sending via the scanner",
-      "text": "The scanner reads the recipient's QR code and takes over address and amount."
+      "title": "Sending with the scanner",
+      "text": "The scanner reads the code of the recipient and takes over address and amount."
     },
     "06-wallet-hinzufuegen/01-multi-device": {
-      "title": "Creating a multi-device wallet",
-      "text": "One wallet spread across three devices: two of them must approve every payment. Protects against a single lost device costing you the money."
+      "title": "Creating a wallet across three devices",
+      "text": "One wallet spread across three devices: two of them approve every payment. That protects you from a single lost device costing you the money."
     },
     "06-wallet-hinzufuegen/02-lightning": {
-      "title": "Creating a Lightning wallet",
-      "text": "An additional Lightning wallet through an LNDHub provider."
+      "title": "Creating a wallet for Lightning",
+      "text": "An additional wallet for Lightning through a provider."
     },
     "07-multi-device/01-erstellung-qr": {
       "title": "First step of the setup",
-      "text": "Each of the three devices shows its own QR code and scans the other two. The indicator at the top tracks the progress."
+      "text": "Each of the three devices shows its own code and scans the other two. The indicator at the top follows the progress."
     },
     "08-lightning/01-uebersicht-mit-lightning": {
-      "title": "Overview with a Lightning wallet",
-      "text": "The home screen once a Lightning wallet exists alongside the on-chain one."
+      "title": "Overview with Lightning",
+      "text": "The home screen once a wallet for Lightning sits next to the wallet on the blockchain."
     },
     "08-lightning/02-lightning-wallet": {
-      "title": "The Lightning wallet",
-      "text": "Balance, payments and access to the payment card."
+      "title": "The wallet for Lightning",
+      "text": "Balance, payments and the way to the payment card."
     },
     "08-lightning/03-rechnung-erstellen": {
       "title": "Creating an invoice",
-      "text": "Receiving over Lightning means creating an invoice — usually with a fixed amount and limited validity."
+      "text": "Receiving over Lightning means creating an invoice, usually with a fixed amount and limited validity."
     },
     "09-import/01-scanner": {
-      "title": "Importing via the scanner",
-      "text": "An existing wallet can be read in from a QR code."
+      "title": "Import with the scanner",
+      "text": "An existing wallet can be read in from a code."
     },
     "09-import/02-manuelle-eingabe": {
-      "title": "Manual entry",
-      "text": "Alternatively, enter a recovery phrase, a private key or a WIF by hand."
+      "title": "Entering by hand",
+      "text": "You can also type the recovery phrase, a private key or a WIF by hand."
     },
     "09-import/03-trefferliste": {
-      "title": "Detected wallet types",
-      "text": "The app detects which wallet types match the input (BIP44, BIP49, BIP84) and shows the corresponding derivation path."
+      "title": "Kinds of wallet found",
+      "text": "The app detects which kinds of wallet match the input and shows the matching derivation path."
     }
   },
   "groupTitles": {
-    "01-onboarding": "First launch and wallet creation",
+    "01-onboarding": "First launch and creating the wallet",
     "02-wallet": "Wallet, backup and export",
     "03-einstellungen": "Settings",
     "04-empfangen-senden": "Receiving and sending",
     "06-wallet-hinzufuegen": "Adding another wallet",
-    "07-multi-device": "Setting up a multi-device wallet",
-    "08-lightning": "Lightning wallet",
+    "07-multi-device": "Setting up a wallet across three devices",
+    "08-lightning": "Wallet for Lightning",
     "09-import": "Importing a wallet"
   }
 }

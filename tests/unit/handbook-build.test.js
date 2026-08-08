@@ -1470,8 +1470,10 @@ describe('unit - handbook build guards', () => {
         assert.match(multi, /class="group-head"/);
         assert.match(multi, /Alpha Gruppe DE/);
         assert.match(multi, /Beta Gruppe DE/);
-        // Chapter count unit uses ui.image / ui.images (not a bare number).
-        assert.match(solo, /class="sec-count"[^>]*>1\s+\S+/);
+        // Customer chapters: no image-count line under the title.
+        assert.ok(!/class="sec-count"/.test(solo), 'solo chapter must not show sec-count');
+        assert.ok(!/class="sec-count"/.test(single), 'single-group chapter must not show sec-count');
+        assert.ok(!/class="sec-count"/.test(multi), 'multi-group chapter must not show sec-count');
       },
     );
   });
@@ -1743,6 +1745,30 @@ describe('unit - handbook build guards', () => {
     );
   });
 
+  it('omits sec-count in customer chapters but keeps them in the developer section', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+
+    for (const loc of ['de', 'en', 'fr', 'it']) {
+      const pagePath = loc === 'de' ? path.join(out, 'index.html') : path.join(out, loc, 'index.html');
+      const html = fs.readFileSync(pagePath, 'utf8');
+      const parts = html.split(/id="developer"/);
+      assert.ok(parts.length >= 2, `${loc}: developer section present`);
+      const customer = parts[0];
+      const developer = parts.slice(1).join('id="developer"');
+      const custCounts = (customer.match(/class="sec-count"/g) || []).length;
+      const devCounts = (developer.match(/class="sec-count"/g) || []).length;
+      assert.strictEqual(custCounts, 0, `${loc}: customer sec-count must be 0, got ${custCounts}`);
+      assert.strictEqual(devCounts, 3, `${loc}: developer sec-count must be 3, got ${devCounts}`);
+    }
+  });
+
   // --- Design polish B1 / B2 / B6 ---
 
   it('marks active lang and toc with surface fill, not accent borders', function () {
@@ -1920,5 +1946,31 @@ describe('unit - handbook build guards', () => {
     assert.strictEqual(hits.length, 0, 'own CSS must not set color: var(--text-tertiary); found ' + hits.length);
     // Pod definition of the role remains (byte-identical tokens already asserted above).
     assert.match(tokens, /--text-tertiary\s*:/);
+  });
+
+  // --- Customer tiles: no visible filename line; data-file stays for search ---
+
+  it('omits .cap-file in customer chapters while keeping data-file on shot cards', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+
+    for (const loc of ['de', 'en', 'fr', 'it']) {
+      const pagePath = loc === 'de' ? path.join(out, 'index.html') : path.join(out, loc, 'index.html');
+      const html = fs.readFileSync(pagePath, 'utf8');
+      const customer = html.split(/id="developer"/)[0];
+      assert.ok(!/class="cap-file"/.test(customer), `${loc}: no .cap-file in customer section`);
+      assert.ok(!/class="lightbox-file"/.test(html), `${loc}: no lightbox-file element`);
+      const dataFiles = customer.match(/\bdata-file="/g) || [];
+      assert.ok(dataFiles.length >= MIN_SCREENSHOTS, `${loc}: data-file attrs ${dataFiles.length} (need ≥ ${MIN_SCREENSHOTS})`);
+      // Visible text before developer must not expose fixture stems as a caption line.
+      const textOnly = customer.replace(/<[^>]+>/g, ' ');
+      assert.ok(!/\bshot-\d{2}\b/.test(textOnly), `${loc}: raw screenshot stems must not appear as visible text`);
+    }
   });
 });

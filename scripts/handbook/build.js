@@ -1100,14 +1100,7 @@ details.spec[open] .spec-head .chevron {
   color: var(--text-secondary);
   transform: rotate(90deg);
 }
-.spec-head .lhs .sec-count {
-  display: block;
-  margin: 0 0 0 46px;
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-regular);
-  color: var(--text-secondary);
-  font-variant-numeric: tabular-nums;
-}
+/* Developer sections still place .sec-count in .rhs (count labels). */
 .spec-head .file {
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
@@ -1292,13 +1285,6 @@ a.name.permalink:hover {
   line-height: 1.45;
   max-width: 70ch;
 }
-.shot-card .cap-file {
-  margin-top: 4px;
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  color: var(--text-secondary);
-  overflow-wrap: anywhere;
-}
 .asset-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -1444,13 +1430,6 @@ a.name.permalink:hover {
 }
 .lightbox-meta { min-width: 0; }
 .lightbox-title { margin: 0; font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text); }
-.lightbox-file {
-  margin: 4px 0 0;
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  color: var(--text-secondary);
-  overflow-wrap: anywhere;
-}
 .lightbox-count { margin: 6px 0 0; font-size: var(--fs-xs); color: var(--text-secondary); }
 .lightbox-body {
   display: grid;
@@ -2067,7 +2046,6 @@ function buildHandbookJs() {
     '    if (!root) return;',
     "    var img = $('lightbox-img');",
     "    var titleEl = $('lightbox-title');",
-    "    var fileEl = $('lightbox-file');",
     "    var countEl = $('lightbox-count');",
     "    var btnClose = $('lightbox-close');",
     "    var btnPrev = $('lightbox-prev');",
@@ -2089,11 +2067,9 @@ function buildHandbookJs() {
     '      var card = groupCards[index];',
     "      var a = qs('a.shot-img', card) || qs('a', card);",
     "      var cap = card.getAttribute('data-caption') || '';",
-    "      var file = card.getAttribute('data-file') || '';",
     "      var href = a ? a.getAttribute('href') : '';",
     '      if (img) { img.src = href; img.alt = cap; }',
     '      if (titleEl) titleEl.textContent = cap;',
-    '      if (fileEl) fileEl.textContent = file;',
     '      if (countEl) {',
     "        var tpl = countEl.getAttribute('data-template') || '{n} / {total}';",
     "        countEl.textContent = tpl.replace('{n}', String(index + 1)).replace('{total}', String(groupCards.length));",
@@ -3351,8 +3327,7 @@ function main() {
         `<figcaption><div class="cap-row">${badgeHtml}` +
         `<a class="name permalink" href="#${escapeHtml(cardId)}">${escapeHtml(cap.caption)}</a>` +
         copyLinkButton(cardId, ui) +
-        `</div>${textHtml}` +
-        `<div class="cap-file">${escapeHtml(e.stem)}</div></figcaption></figure>`
+        `</div>${textHtml}</figcaption></figure>`
       );
     }
 
@@ -3440,12 +3415,6 @@ function main() {
         }
       }
 
-      const countUnit =
-        plan.keys.length === 1
-          ? uiLabel(ui, 'image', 'image')
-          : uiLabel(ui, 'images', 'images');
-      const countLabel = `${plan.keys.length} ${countUnit}`;
-
       tocItems.push({
         id: chapterAnchor,
         n,
@@ -3453,13 +3422,11 @@ function main() {
         children,
       });
 
+      // Customer chapters: no image-count line under the title (owner: redundant).
       chaptersHtml +=
         `<details class="spec" id="${escapeHtml(chapterAnchor)}" open>` +
         `<summary><div class="spec-head"><div class="lhs">` +
         `<h2><span class="badge">${escapeHtml(n)}</span>${escapeHtml(plan.title)}${svgChevron()}</h2>` +
-        `<b class="sec-count" data-sec-count="chapter-${escapeHtml(
-          plan.id,
-        )}">${escapeHtml(countLabel)}</b>` +
         `</div><div class="rhs">${singleGroupCopyHtml}</div></div></summary>` +
         (plan.summary
           ? `<p class="chapter-summary">${escapeHtml(plan.summary)}</p>`
@@ -3612,9 +3579,7 @@ function main() {
       )}">` +
       `<div class="lightbox-dialog"><div class="lightbox-bar"><div class="lightbox-meta">` +
       `<p class="lightbox-title" id="lightbox-title"></p>` +
-      `<p class="lightbox-file" id="lightbox-file"></p>` +
-      `<p class="lightbox-count" id="lightbox-count" data-template="${escapeHtml(
-        ui.imageCounter || '{n} / {total}',
+      `<p class="lightbox-count" id="lightbox-count" data-template="${escapeHtml(        ui.imageCounter || '{n} / {total}',
       )}"></p>` +
       `</div>` +
       `<button type="button" class="icon-btn" id="lightbox-close" aria-label="${escapeHtml(
