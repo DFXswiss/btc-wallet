@@ -120,6 +120,7 @@ describe('DFX sell flow: Max amount handling', () => {
       depositOut.value + fee >= SPENDABLE_WHEN_FROZEN - 1000,
       `must still be a genuine max sell, not a token amount: ${depositOut.value} + ${fee} vs ${SPENDABLE_WHEN_FROZEN}`,
     );
+    assert.ok(fee >= tx.virtualSize() * 3, `fee must satisfy the confirm-time rate: ${fee} < ${tx.virtualSize()} * 3`);
   });
 
   it('sell confirm survives a fee-rate increase between launch and confirm', async () => {
@@ -138,6 +139,20 @@ describe('DFX sell flow: Max amount handling', () => {
       depositOut.value + fee >= TOTAL_BALANCE - 1000,
       `must still move essentially the whole balance: ${depositOut.value} + ${fee} vs ${TOTAL_BALANCE}`,
     );
+    // The sweep must be re-sized against the fee rate current at confirm time (4), not the
+    // launch-time estimate (3) - an underpaying sweep would sit unconfirmed.
+    assert.ok(fee >= tx.virtualSize() * 4, `fee must satisfy the confirm-time rate: ${fee} < ${tx.virtualSize()} * 4`);
+  });
+
+  it('sell confirm builds a rate-compliant transaction at the 1 sat/vB fee floor', async () => {
+    const w = makeWallet();
+    const { maxSats, sweepable } = launchMax(w, 1);
+    await DfxMaxAmount.remember(WALLET_ID, DfxService.SELL, maxSats, sweepable);
+
+    const { tx, fee } = await sellConfirm(w, widgetEchoedAmountString(maxSats), 1);
+
+    assert.ok(tx, 'expected a transaction');
+    assert.ok(fee >= tx.virtualSize(), `even at the floor the fee must cover >= 1 sat/vB: ${fee} < ${tx.virtualSize()}`);
   });
 
   it('sell confirm handles amounts with more than 8 decimal places without crashing', async () => {
