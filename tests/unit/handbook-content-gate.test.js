@@ -81,7 +81,9 @@ describe('unit - handbook content gate', () => {
       const problems = gate.qrProblems(qr, declared, allowlist);
       assert.strictEqual(problems.length, 1);
       assert.match(problems[0], /non-allowlisted image: screenshots\/other\.png/);
-      assert.match(problems[0], /bc1qleaked/);
+      // The payload is described, never quoted: this log is public.
+      assert.ok(!problems[0].includes('bc1qleaked'), 'the payload must not be echoed');
+      assert.match(problems[0], /characters starting/);
     });
 
     it('rejects an allowlist entry whose image is no longer published', function () {
@@ -156,30 +158,78 @@ describe('unit - handbook content gate', () => {
     });
   });
 
-  it('wires every check into the aggregate', function () {
-    // Deleting one line in main() would disarm a check silently. One example
-    // input per category, each must produce exactly its own problem.
-    const declared = new Set(['screenshots/a.png']);
-    const clean = {
-      declared,
-      qrByPath: new Map(),
-      runs: [],
-      extendedKeys: [],
-      perFile: [{ rel: 'screenshots/a.png', tokens: 20 }],
-      ocrTokens: gate.MIN_OCR_TOKENS,
+  describe('the whole path, with the tools stubbed', () => {
+    // Neither zbarimg nor tesseract is needed here, which is the point: the
+    // wiring from the tools through the checks to the problem list was covered
+    // by nothing, and deleting one line in it disarms a check silently.
+    const FILES = ['screenshots/recv.png', 'screenshots/a.png'];
+    const DECLARED = new Set(FILES);
+    const WORDS = new Set(['abandon', 'ability', 'able', 'about', 'above']);
+    const ALLOWLIST = {
+      'screenshots/recv.png': { payload: /^bitcoin:bc1[02-9ac-hj-np-z]{39}$/, reason: 'receive screen fixture' },
     };
-    assert.deepStrictEqual(gate.allProblems({ ...clean, qrByPath: new Map(), declared: new Set() }).length > 0, true);
+    const ADDRESS = 'bitcoin:bc1qp7vhlleagzs3ju0yj50sjujug20enrqp9r6adc';
+    const PROSE = 'Guthaben senden und empfangen '.repeat(400);
 
-    const cases = {
-      'too few OCR tokens': { ...clean, ocrTokens: 0 },
-      'a silent screenshot': { ...clean, perFile: [{ rel: 'screenshots/a.png', tokens: 0 }] },
-      'an extended key': { ...clean, extendedKeys: [{ rel: 'a.png', key: 'Zpub6rFR7y4Q2A' }] },
-      'a foreign QR': { ...clean, qrByPath: new Map([['screenshots/a.png', 'whatever']]) },
-      'a seed run': { ...clean, runs: [{ rel: 'a.png', run: new Array(gate.SEED_RUN_LIMIT).fill('abandon') }] },
-    };
-    for (const [label, input] of Object.entries(cases)) {
-      assert.ok(gate.allProblems(input).length >= 1, `${label} is not wired into the aggregate`);
+    function run(over = {}) {
+      return gate.runGate({
+        files: FILES,
+        declared: DECLARED,
+        words: WORDS,
+        allowlist: ALLOWLIST,
+        silentAllowed: new Set(),
+        decodeQr: rel => (rel === 'screenshots/recv.png' ? ADDRESS : ''),
+        ocr: () => PROSE,
+        ...over,
+      });
     }
+
+    it('reports nothing on a clean set', function () {
+      const { problems, summary } = run();
+      assert.deepStrictEqual(problems, []);
+      assert.match(summary, /scanned 2 published PNGs/);
+    });
+
+    it('catches a recovery phrase read out of one image', function () {
+      const { problems } = run({
+        ocr: rel => (rel === 'screenshots/a.png' ? '1 abandon 2 ability 3 able 4 about 5 above' : PROSE),
+      });
+      assert.strictEqual(problems.length, 1);
+      assert.match(problems[0], /consecutive BIP39 words read out of screenshots\/a\.png/);
+    });
+
+    it('catches an extended key read out of one image', function () {
+      const { problems } = run({
+        ocr: rel => (rel === 'screenshots/a.png' ? `Export Zpub6rFR7y4Q2AijBEqT ${PROSE}` : PROSE),
+      });
+      assert.strictEqual(problems.length, 1);
+      assert.match(problems[0], /extended key read out of screenshots\/a\.png/);
+    });
+
+    it('catches a QR that is not the allowlisted address', function () {
+      const { problems } = run({ decodeQr: () => ADDRESS });
+      assert.strictEqual(problems.length, 1);
+      assert.match(problems[0], /non-allowlisted image: screenshots\/a\.png/);
+    });
+
+    it('catches an image OCR could not read', function () {
+      const { problems } = run({ ocr: rel => (rel === 'screenshots/a.png' ? '' : PROSE) });
+      assert.strictEqual(problems.length, 1);
+      assert.match(problems[0], /OCR returned nothing for 1 image/);
+    });
+
+    it('never prints the words or the payload it found', function () {
+      const { detail, problems } = run({
+        ocr: rel => (rel === 'screenshots/a.png' ? '1 abandon 2 ability 3 able 4 about 5 above' : PROSE),
+      });
+      // This log is public. A gate that echoes the phrase publishes it in the
+      // cheaper, searchable format.
+      const printed = [...detail, ...problems].join('\n');
+      for (const word of ['abandon', 'ability', 'able', 'about', 'above']) {
+        assert.ok(!printed.includes(word), `${word} appears in the output`);
+      }
+      assert.match(printed, /ab…/);
+    });
   });
 
   it('validates the bip39 wordlist it depends on', function () {
@@ -232,7 +282,7 @@ describe('unit - handbook content gate', () => {
     it('refuses to report clean when nothing is in scope', function () {
       // Same vacuous pass one level down: with no screenshots in the set, "no
       // silent screenshot" is true and worthless.
-      const problems = gate.ocrCoverageProblems([{ rel: 'assets/logo.png', tokens: 0 }], gate.SCREENSHOTS_MUST_YIELD_OCR);
+      const problems = gate.ocrCoverageProblems([], new Set());
       assert.strictEqual(problems.length, 1);
       assert.match(problems[0], /nothing to look at/);
     });
@@ -244,14 +294,15 @@ describe('unit - handbook content gate', () => {
       assert.ok(gate.EXTENDED_KEY_RE.test(xpub));
       const problems = gate.extendedKeyProblems([{ rel: 'a.png', key: xpub }]);
       assert.strictEqual(problems.length, 1);
-      assert.match(problems[0], /extended public key read out of a\.png/);
+      assert.match(problems[0], /extended key read out of a\.png/);
+      assert.ok(!problems[0].includes(xpub), 'the key must not be echoed in full');
     });
 
-    it('sees the upper-case SLIP-132 prefixes this wallet produces for multisig', function () {
+    it('sees every prefix this wallet produces, public and private', function () {
       // class/wallets/multisig-hd-wallet.js emits Ypub and Zpub itself, and the
       // handbook already has a multi-device chapter. A lower-case-only pattern
       // would have missed exactly those.
-      for (const prefix of ['Ypub', 'Zpub', 'Upub', 'Vpub', 'ypub', 'zpub', 'tpub']) {
+      for (const prefix of ['Ypub', 'Zpub', 'Upub', 'Vpub', 'ypub', 'zpub', 'tpub', 'zprv', 'Zprv', 'xprv', 'Yprv']) {
         const key = `${prefix}6CUGRUonZSQ4TWtTMmzXdrXDtypWKiKrhko4egpiMZbpiaQL2jkwSB1icqYh2`;
         assert.ok(gate.EXTENDED_KEY_RE.test(key), `${prefix} not detected`);
       }
@@ -265,11 +316,11 @@ describe('unit - handbook content gate', () => {
         { rel: 'screenshots/b.png', tokens: 0 },
         { rel: 'assets/logo.png', tokens: 0 },
       ];
-      const problems = gate.ocrCoverageProblems(perFile, gate.SCREENSHOTS_MUST_YIELD_OCR);
+      const problems = gate.ocrCoverageProblems(perFile, new Set(['assets/logo.png']));
       assert.strictEqual(problems.length, 1);
       assert.match(problems[0], /screenshots\/b\.png/);
-      // Icons and logos legitimately carry no text.
-      assert.ok(!problems[0].includes('assets/logo.png'), 'assets must not be required to yield text');
+      // A listed image is allowed to stay silent; an unlisted one is not.
+      assert.ok(!problems[0].includes('assets/logo.png'), 'a listed silent image must not be reported');
     });
 
     it('stays silent when every screenshot yields text', function () {
@@ -277,7 +328,28 @@ describe('unit - handbook content gate', () => {
         { rel: 'screenshots/a.png', tokens: 5 },
         { rel: 'assets/logo.png', tokens: 0 },
       ];
-      assert.deepStrictEqual(gate.ocrCoverageProblems(perFile, gate.SCREENSHOTS_MUST_YIELD_OCR), []);
+      assert.deepStrictEqual(gate.ocrCoverageProblems(perFile, new Set(['assets/logo.png'])), []);
+    });
+
+    it('reports a listed image that starts producing text', function () {
+      // The list is only useful while it is true — checked in both directions,
+      // like the QR allowlist.
+      const problems = gate.ocrCoverageProblems([{ rel: 'assets/logo.png', tokens: 3 }], new Set(['assets/logo.png']));
+      assert.strictEqual(problems.length, 1);
+      assert.match(problems[0], /now return text/);
+    });
+
+    it('reports a listed image that is no longer published', function () {
+      const problems = gate.ocrCoverageProblems([{ rel: 'screenshots/a.png', tokens: 5 }], new Set(['assets/gone.png']));
+      assert.strictEqual(problems.length, 1);
+      assert.match(problems[0], /not published any more/);
+    });
+
+    it('keeps the silent list matched to what the build actually ships', function () {
+      // Every entry is an output path of the handbook build, not a source path.
+      for (const rel of gate.SILENT_IMAGES) {
+        assert.match(rel, /^assets\/.+\.png$/i, `SILENT_IMAGES entry is not a built asset path: ${rel}`);
+      }
     });
 
     it('still matches when OCR breaks the key after a few characters', function () {

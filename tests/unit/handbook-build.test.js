@@ -826,5 +826,30 @@ describe('unit - handbook build guards', () => {
           'change FLOOR_MIN_RATIO deliberately if the content really shrank.',
       );
     }
+
+    // The ratio alone does not pin what MIN_STORE_FIELDS was raised for. At 20
+    // — comfortably inside the ratio — deleting both Android locales landed on
+    // exactly 20, and `20 < 20` is false: the whole Google Play listing could
+    // go without a word. The floor has to sit above "everything minus the
+    // smallest locale".
+    const perLocale = {};
+    for (const a of manifest.artifacts) {
+      if (a.category !== 'store') continue;
+      const group = a.group || 'unknown';
+      // `<platform>/global` is the iOS metadata that belongs to no locale
+      // (copyright, primary_category). Counting it as one would make the
+      // smallest "locale" two fields and the assertion meaningless.
+      if (group.endsWith('/global')) continue;
+      perLocale[group] = (perLocale[group] || 0) + 1;
+    }
+    const sizes = Object.values(perLocale);
+    assert.ok(sizes.length >= 2, `expected several store locales, saw ${JSON.stringify(perLocale)}`);
+    const smallest = Math.min(...sizes);
+    const survives = manifest.counts.store - smallest;
+    assert.ok(
+      MIN_STORE_FIELDS > survives,
+      `MIN_STORE_FIELDS=${MIN_STORE_FIELDS} still passes with the smallest locale ` +
+        `(${smallest} fields) deleted — ${survives} fields would remain. It has to be above ${survives}.`,
+    );
   });
 });
