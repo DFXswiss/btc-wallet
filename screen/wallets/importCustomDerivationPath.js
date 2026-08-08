@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState, useRef, useMemo } from 'react';
-import { FlatList, StatusBar, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, FlatList, StatusBar, StyleSheet, TextInput, View } from 'react-native';
 import { StackActions, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 
 import { BlueButton, BlueFormLabel, BlueSpacing20, BlueTextCentered, SafeBlueArea } from '../../BlueComponents';
@@ -92,9 +92,14 @@ const ImportCustomDerivationPath = () => {
   const saveWallet = async type => {
     if (importing.current) return;
     importing.current = true;
-    const wallet = wallets[path][type];
-    await addAndSaveWallet(wallet);
-    navigation.dispatch(StackActions.replace(...walletCreatedRoute()));
+    try {
+      const wallet = wallets[path][type];
+      await addAndSaveWallet(wallet);
+      navigation.dispatch(StackActions.replace(...walletCreatedRoute()));
+    } catch (e) {
+      Alert.alert(e.message);
+      importing.current = false;
+    }
   };
 
   const renderItem = ({ item }) => {

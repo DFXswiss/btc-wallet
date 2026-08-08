@@ -1,4 +1,5 @@
 import React from 'react';
+import { Alert } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 // Importing via a custom derivation path used to pop the AddWallet stack. That
@@ -79,5 +80,28 @@ describe('ImportCustomDerivationPath', () => {
     expect(mockDispatch).toHaveBeenCalledWith(StackActions.replace('WalletsRoot', { screen: 'WalletTransactions' }));
     // Save must complete before navigation unmounts this screen.
     expect(addAndSaveWallet.mock.invocationCallOrder[0]).toBeLessThan(mockDispatch.mock.invocationCallOrder[0]);
+  });
+
+  it('surfaces a save failure, does not navigate, and allows a retry', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    addAndSaveWallet.mockRejectedValueOnce(new Error('disk full'));
+
+    const screen = renderScreen();
+
+    await waitFor(() => expect(screen.getByText('HD SegWit (BIP84 Bech32 Native)')).toBeTruthy());
+    fireEvent.press(screen.getByText('HD SegWit (BIP84 Bech32 Native)'));
+    fireEvent.press(screen.getByTestId('ImportButton'));
+
+    await waitFor(() => expect(alert).toHaveBeenCalledWith('disk full'));
+    expect(mockDispatch).not.toHaveBeenCalled();
+    expect(addAndSaveWallet).toHaveBeenCalledTimes(1);
+
+    // importing.current was reset — a second press must start a new attempt.
+    addAndSaveWallet.mockResolvedValueOnce(undefined);
+    fireEvent.press(screen.getByTestId('ImportButton'));
+
+    await waitFor(() => expect(addAndSaveWallet).toHaveBeenCalledTimes(2));
+    expect(mockDispatch).toHaveBeenCalledWith(StackActions.replace('WalletsRoot', { screen: 'WalletTransactions' }));
+    alert.mockRestore();
   });
 });
