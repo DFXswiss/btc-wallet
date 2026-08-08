@@ -281,6 +281,30 @@ function assertSelfLinked(id, html, kind) {
   assert.strictEqual(target[1], id, `${kind} ${id}: copy button targets ${target[1]}`);
 }
 
+/** Markdown body of a rendered doc page (excludes chrome: topbar, skip-link, script). */
+function extractDocArticle(html) {
+  const m = String(html).match(/<article\b[^>]*\bid="doc-content"[^>]*>([\s\S]*?)<\/article>/i);
+  assert.ok(m, 'doc page must contain <article id="doc-content">');
+  return m[1];
+}
+
+/**
+ * Temporarily extend scripts/handbook/metadata.json for caption tests, then
+ * restore. Suite runs with -i (runInBand); still always restore in finally.
+ */
+function withPatchedMetadata(patchFn, body) {
+  const metaPath = path.join(REPO_ROOT, 'scripts/handbook/metadata.json');
+  const original = fs.readFileSync(metaPath, 'utf8');
+  try {
+    const meta = JSON.parse(original);
+    patchFn(meta);
+    fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2) + '\n', 'utf8');
+    return body();
+  } finally {
+    fs.writeFileSync(metaPath, original, 'utf8');
+  }
+}
+
 describe('unit - handbook build guards', () => {
   // Fixture setup can install marked once into repo _handbook-deps/.
   jest.setTimeout(120000);
@@ -560,13 +584,25 @@ describe('unit - handbook build guards', () => {
     });
     assert.strictEqual(r.status, 0, r.stderr);
     const html = fs.readFileSync(path.join(out, 'docs/DOC-0.html'), 'utf8');
-    assert.ok(!/<script/i.test(html), 'script tags stripped');
-    assert.ok(!/onerror/i.test(html), 'on* handlers stripped');
-    assert.ok(!new RegExp('java' + 'script:', 'i').test(html), 'dangerous URL scheme neutralized');
+    // Sanitizer properties apply to the rendered markdown body, not chrome.
+    const article = extractDocArticle(html);
+    assert.ok(!/<script/i.test(article), 'script tags stripped from article');
+    assert.ok(!/onerror/i.test(article), 'on* handlers stripped');
+    assert.ok(!new RegExp('java' + 'script:', 'i').test(article), 'dangerous URL scheme neutralized');
     // Link becomes plain label text; no remaining href to the missing path.
-    assert.ok(!/href="[^"]*missing-file/i.test(html), 'unresolved local href stripped');
-    assert.match(html, /href="DOC-1\.html"/);
+    assert.ok(!/href="[^"]*missing-file/i.test(article), 'unresolved local href stripped');
+    assert.match(article, /href="DOC-1\.html"/);
     assert.match(r.stderr, /stripped unresolved local link/);
+    // Whole page: exactly one legitimate external script (handbook.js).
+    const scriptTags = html.match(/<script\b[^>]*>/gi) || [];
+    assert.strictEqual(
+      scriptTags.length,
+      1,
+      `expected exactly one <script> on doc page, got ${scriptTags.length}: ${scriptTags.join(' | ')}`,
+    );
+    assert.match(scriptTags[0], /\bsrc\s*=/i, 'the only script must have src=');
+    assert.match(scriptTags[0], /handbook\.js/i, 'script src must be handbook.js');
+    assert.ok(!/<script\b(?![^>]*\bsrc\s*=)[^>]*>/i.test(html), 'no inline <script>');
   });
 
   it('escapes HTML special characters in store field content on index', function () {
@@ -602,7 +638,8 @@ describe('unit - handbook build guards', () => {
     });
     assert.strictEqual(r.status, 0, r.stderr);
     const html = fs.readFileSync(path.join(out, 'docs/DOC-0.html'), 'utf8');
-    const ids = [...html.matchAll(/id="([^"]+)"/g)].map(m => m[1]);
+    const article = extractDocArticle(html);
+    const ids = [...article.matchAll(/id="([^"]+)"/g)].map(m => m[1]);
     assert.deepStrictEqual(ids, ['a', 'a-1', 'a-1-1', 'a-2']);
   });
 
@@ -623,6 +660,235 @@ describe('unit - handbook build guards', () => {
     assert.ok(fs.existsSync(path.join(out, 'assets/dfx/hash#tag.png')));
   });
 
+  // --- Design-Runde: captions, remote imgs, doc chrome, no-JS chrome ---
+
+  it('uses metadata caption when present and derives title plus badge from filename otherwise', function () {
+    const { fixture, out } = freshDirs();
+    // Floor screenshots under group/ plus two specials:
+    // - 01-onboarding/01-start.png → real metadata captions entry
+    // - group/03-my-feature.png → no metadata caption → derive
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    writePng(path.join(fixture, 'docs/handbook/screenshots/01-onboarding/01-start.png'), MIN_PNG_BYTES + 1);
+    writePng(path.join(fixture, 'docs/handbook/screenshots/group/03-my-feature.png'), MIN_PNG_BYTES + 1);
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+    // Metadata caption wins for 01-start
+    assert.match(
+      index,
+      /data-file="01-start"[^>]*data-caption="Haftungsausschluss beim Erststart"|data-caption="Haftungsausschluss beim Erststart"[^>]*data-file="01-start"/,
+    );
+    assert.match(index, /alt="Haftungsausschluss beim Erststart"/);
+    assert.match(index, /class="name permalink"[^>]*>Haftungsausschluss beim Erststart</);
+    // Derived: 03-my-feature → badge 03 + "My feature" (not the raw stem as title)
+    const featureCard = index.match(/<figure class="shot-card"[^>]*data-file="03-my-feature"[\s\S]*?<\/figure>/);
+    assert.ok(featureCard, 'derived screenshot card present');
+    const card = featureCard[0];
+    assert.match(card, /data-caption="My feature"/);
+    assert.match(card, /num-badge">03</);
+    assert.match(card, /class="name permalink"[^>]*>My feature</);
+    assert.ok(!/class="name permalink"[^>]*>03-my-feature</.test(card), 'raw stem must not be the title');
+  });
+
+  it('HTML-escapes caption text in title, alt, and data-caption attributes', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    writePng(path.join(fixture, 'docs/handbook/screenshots/group/01-evil.png'), MIN_PNG_BYTES + 1);
+    const evilCaption = 'A <b> & "q"';
+    withPatchedMetadata(
+      meta => {
+        meta.screenshots = meta.screenshots || {};
+        meta.screenshots.group = {
+          title: 'Fixture group',
+          description: 'test',
+          captions: { '01-evil': evilCaption },
+        };
+      },
+      () => {
+        const r = runBuild(out, {
+          HANDBOOK_REPO_ROOT: fixture,
+          NODE_PATH: markedNodePath,
+          GIT_SHA: 't',
+        });
+        assert.strictEqual(r.status, 0, r.stderr);
+        const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+        const card = index.match(/<figure class="shot-card"[^>]*data-file="01-evil"[\s\S]*?<\/figure>/);
+        assert.ok(card, 'evil caption card present');
+        const c = card[0];
+        assert.ok(c.includes('&lt;b&gt;'), 'angle brackets escaped in card');
+        assert.ok(c.includes('&amp;'), 'ampersand escaped in card');
+        assert.ok(c.includes('&quot;q&quot;'), 'quotes escaped in card');
+        assert.ok(!c.includes(evilCaption), 'raw caption must not appear');
+        assert.match(c, /data-caption="A &lt;b&gt; &amp; &quot;q&quot;"/);
+        assert.match(c, /alt="A &lt;b&gt; &amp; &quot;q&quot;"/);
+        assert.match(c, /class="name permalink"[^>]*>A &lt;b&gt; &amp; &quot;q&quot;</);
+      },
+    );
+  });
+
+  it('warns on orphan caption metadata without failing the build', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    withPatchedMetadata(
+      meta => {
+        meta.screenshots = meta.screenshots || {};
+        meta.screenshots.group = {
+          title: 'Fixture group',
+          description: 'test',
+          captions: { '99-does-not-exist': 'Orphan caption' },
+        };
+      },
+      () => {
+        const r = runBuild(out, {
+          HANDBOOK_REPO_ROOT: fixture,
+          NODE_PATH: markedNodePath,
+          GIT_SHA: 't',
+        });
+        assert.strictEqual(r.status, 0, r.stderr);
+        const orphanLines = (r.stderr || '').split('\n').filter(l => /orphan/i.test(l) && /99-does-not-exist/.test(l));
+        assert.strictEqual(orphanLines.length, 1, `expected exactly one orphan caption warning, got:\n${r.stderr}`);
+        assert.match(orphanLines[0], /captions/);
+        // Other screenshots still present
+        const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+        assert.match(index, /shot-00/);
+        assert.ok(fs.existsSync(path.join(out, 'index.html')));
+      },
+    );
+  });
+
+  it('replaces remote markdown images with alt text but keeps remote links', function () {
+    const { fixture, out } = freshDirs();
+    const md = '# Remote\n\n' + '![Alt-Text](https://example.com/x.png)\n\n' + '[keep me](https://example.com)\n';
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docContents: { 'DOC-0.md': md },
+    });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const html = fs.readFileSync(path.join(out, 'docs/DOC-0.html'), 'utf8');
+    const article = extractDocArticle(html);
+    assert.ok(!/<img\b[^>]*src=["']https:\/\/example\.com\/x\.png/i.test(article), 'remote img must not remain');
+    assert.ok(!/<img\b[^>]*src=["']https:\/\/example\.com/i.test(article), 'no img pointing at example.com');
+    assert.match(article, /Alt-Text/);
+    assert.match(article, /href="https:\/\/example\.com"/);
+    assert.match(article, />keep me</);
+    const remoteImgLines = (r.stderr || '').split('\n').filter(l => /replaced remote image/i.test(l) && /example\.com\/x\.png/.test(l));
+    assert.strictEqual(remoteImgLines.length, 1, `expected one remote-image log line, got:\n${r.stderr}`);
+  });
+
+  it('keeps data:image imgs while replacing remote and unresolved local imgs with alt text', function () {
+    const { fixture, out } = freshDirs();
+    // Minimal 1×1 PNG (valid magic + IHDR); CSP allows data:image/* on handbook.
+    const dataUri =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    const md =
+      '# Images\n\n' +
+      '![inline-dot](' +
+      dataUri +
+      ')\n\n' +
+      '![remote-alt](https://example.com/y.png)\n\n' +
+      '![missing-alt](./no-such-file.png)\n';
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docContents: { 'DOC-0.md': md },
+    });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const html = fs.readFileSync(path.join(out, 'docs/DOC-0.html'), 'utf8');
+    const article = extractDocArticle(html);
+    // data:image stays as <img src="data:image/png;base64,…">
+    assert.match(article, /<img\b[^>]*src="data:image\/png;base64,[A-Za-z0-9+/=]+"/i, 'data:image img must remain');
+    assert.match(article, /alt="inline-dot"/);
+    // https remote replaced by alt text
+    assert.ok(!/<img\b[^>]*src=["']https:\/\/example\.com\/y\.png/i.test(article), 'https img must not remain');
+    assert.match(article, /remote-alt/);
+    // unresolved relative replaced by alt text
+    assert.ok(!/<img\b[^>]*src=["'][^"']*no-such-file/i.test(article), 'unresolved local img must not remain');
+    assert.match(article, /missing-alt/);
+  });
+
+  it('computes relative paths to chrome assets from nested and top-level docs', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docCount: MIN_DOCS,
+    });
+    writeText(path.join(fixture, 'docs/nested/Deep.md'), '# Nested deep\n\nBody.\n');
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    // Top-level DOC-0.md → docs/DOC-0.html → one level up
+    const top = fs.readFileSync(path.join(out, 'docs/DOC-0.html'), 'utf8');
+    assert.match(top, /href="\.\.\/index\.html"/);
+    assert.match(top, /href="\.\.\/assets\/icon\.png"/);
+    assert.match(top, /src="\.\.\/handbook\.js"/);
+    assert.ok(!/href="\.\.\/\.\.\/index\.html"/.test(top), 'top-level doc must not use ../../ for index');
+    // Nested docs/nested/Deep.md → docs/nested/Deep.html → two levels up
+    const nested = fs.readFileSync(path.join(out, 'docs/nested/Deep.html'), 'utf8');
+    assert.match(nested, /href="\.\.\/\.\.\/index\.html"/);
+    assert.match(nested, /href="\.\.\/\.\.\/assets\/icon\.png"/);
+    assert.match(nested, /src="\.\.\/\.\.\/handbook\.js"/);
+    assert.ok(
+      !/href="\.\.\/index\.html"/.test(nested) || nested.includes('href="../../index.html"'),
+      'nested doc must use ../../index.html',
+    );
+    // Count ../ segments on the icon link specifically
+    const iconHref = nested.match(/href="((?:\.\.\/)+)assets\/icon\.png"/);
+    assert.ok(iconHref, 'nested icon href present');
+    assert.strictEqual((iconHref[1].match(/\.\.\//g) || []).length, 2, `expected two ../ segments, got ${iconHref[1]}`);
+  });
+
+  it('hides JS-only chrome controls with the hidden attribute while keeping screenshot links', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+    // Controls that are inert without handbook.js ship hidden.
+    assert.match(index, /id="search-wrap"[^>]*\bhidden\b|id="search-wrap"\s+hidden\b/);
+    // Theme / sidebar / status / lightbox: hidden in opening tag
+    function assertHiddenId(id) {
+      const m = index.match(new RegExp(`<[^>]+\\bid="${id}"[^>]*>`));
+      assert.ok(m, `element #${id} present`);
+      assert.match(m[0], /\bhidden\b/, `#${id} must have hidden attribute`);
+    }
+    assertHiddenId('theme-toggle');
+    assertHiddenId('sidebar-toggle');
+    assertHiddenId('search-status');
+    assertHiddenId('lightbox');
+    // Screenshot links remain usable without JS
+    const shotHrefs = index.match(/href="screenshots\/[^"]+\.png"/g) || [];
+    const shotFiles = [];
+    function walk(d) {
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        const p = path.join(d, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (e.name.endsWith('.png')) shotFiles.push(p);
+      }
+    }
+    walk(path.join(fixture, 'docs/handbook/screenshots'));
+    assert.strictEqual(shotHrefs.length, shotFiles.length, `href count ${shotHrefs.length} vs fixture pngs ${shotFiles.length}`);
+    assert.ok(shotHrefs.length >= MIN_SCREENSHOTS);
+  });
   it('gives every screenshot and every group a reachable permalink', function () {
     const { fixture, out } = freshDirs();
     populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
@@ -642,8 +908,8 @@ describe('unit - handbook build guards', () => {
     assert.ok(anchorIds.length > 0, 'fixture must produce shot/group anchors');
 
     const paired = [];
-    for (const [, id, head] of index.matchAll(/<div class="test" id="([^"]+)">([\s\S]*?)<div class="img">/g)) {
-      assertSelfLinked(id, head, 'screenshot');
+    for (const [, id, body] of index.matchAll(/<figure class="shot-card" id="([^"]+)"[^>]*>([\s\S]*?)<\/figure>/g)) {
+      assertSelfLinked(id, body, 'screenshot');
       paired.push(id);
     }
     for (const [, block] of index.matchAll(/<div class="group-head">([\s\S]*?)<\/div>/g)) {
