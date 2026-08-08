@@ -932,7 +932,16 @@ describe('unit - handbook build guards', () => {
       assertSelfLinked(gid[1], block, 'group');
       paired.push(gid[1]);
     }
-    // Every anchor must have been reached by one of the two loops above, so a
+    // Single-group chapters hang the group anchor on the chapter chrome
+    // (span.group-anchor + copy button) without a visible heading.
+    for (const [, id] of index.matchAll(/<span id="((?:group)-[^"]+)" class="group-anchor"/g)) {
+      const copy =
+        index.match(new RegExp(`class="copy-link"[^>]*data-target="${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`)) ||
+        index.match(new RegExp(`data-target="${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[^>]*class="copy-link"`));
+      assert.ok(copy, `single-group anchor ${id}: no copy button`);
+      paired.push(id);
+    }
+    // Every anchor must have been reached by one of the loops above, so a
     // new kind of entry cannot slip past the pairing check unnoticed.
     assert.deepStrictEqual(
       anchorIds.filter(id => !paired.includes(id)),
@@ -1323,5 +1332,302 @@ describe('unit - handbook build guards', () => {
     // tokens.css is embedded verbatim
     const tokens = fs.readFileSync(path.join(REPO_ROOT, 'scripts/handbook/pod/tokens.css'), 'utf8');
     assert.ok(index.includes(tokens), 'tokens.css embedded byte-identical');
+  });
+
+  // --- B1: logo theme show/hide must not lose to size rule display ---
+
+  it('keeps logo size rule free of display so theme rules alone control visibility', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+    const sizeMatch = index.match(/\.topbar-brand\s+\.logo-wrap\s+svg\s*\{([^}]*)\}/);
+    assert.ok(sizeMatch, 'logo size rule present');
+    assert.ok(!/\bdisplay\s*:/i.test(sizeMatch[1]), `size rule must not set display (got: ${sizeMatch[1].trim()})`);
+    assert.match(sizeMatch[1], /height\s*:/);
+
+    function ruleBody(selector) {
+      const re = new RegExp(selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\{([^}]*)\\}');
+      const m = index.match(re);
+      assert.ok(m, `CSS rule for ${selector}`);
+      return m[1];
+    }
+    // Each theme: exactly one logo display:block and one display:none.
+    const lightDark = ruleBody('.theme-light .logo-dark');
+    const lightWhite = ruleBody('.theme-light .logo-white');
+    const darkDark = ruleBody('.theme-dark .logo-dark');
+    const darkWhite = ruleBody('.theme-dark .logo-white');
+    assert.match(lightDark, /display\s*:\s*block\b/);
+    assert.match(lightWhite, /display\s*:\s*none\b/);
+    assert.match(darkDark, /display\s*:\s*none\b/);
+    assert.match(darkWhite, /display\s*:\s*block\b/);
+    // No equal-or-higher specificity rule re-asserts display on the size selector.
+    const competing = [...index.matchAll(/([^{}]+)\.logo-wrap\s+svg\s*\{([^}]*)\}/g)];
+    for (const m of competing) {
+      assert.ok(!/\bdisplay\s*:/i.test(m[2]), `selector "${m[1].trim()}.logo-wrap svg" must not set display`);
+    }
+  });
+
+  // --- B2: handbook.js loads from <head> without defer (theme FOUC) ---
+
+  it('loads handbook.js from head without defer or async', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+    const head = index.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i);
+    assert.ok(head, '<head> present');
+    const headScripts = head[1].match(/<script\b[^>]*>/gi) || [];
+    assert.strictEqual(headScripts.length, 1, `expected one script in head, got ${headScripts.length}: ${headScripts.join(' | ')}`);
+    assert.match(headScripts[0], /handbook\.js/i);
+    assert.ok(!/\bdefer\b/i.test(headScripts[0]), 'no defer');
+    assert.ok(!/\basync\b/i.test(headScripts[0]), 'no async');
+    const body = index.match(/<body\b[^>]*>([\s\S]*)/i);
+    assert.ok(body, '<body> present');
+    assert.ok(!/<script\b[^>]*handbook\.js/i.test(body[1]), 'handbook.js must not also appear after <body>');
+    const js = fs.readFileSync(path.join(out, 'handbook.js'), 'utf8');
+    assert.match(js, /applyThemeEarly/);
+    // Early theme runs before DOMContentLoaded; rest waits for the event.
+    const earlyIdx = js.indexOf('applyThemeEarly');
+    const domIdx = js.indexOf("addEventListener('DOMContentLoaded'");
+    assert.ok(earlyIdx >= 0 && domIdx > earlyIdx, 'applyThemeEarly before DOMContentLoaded');
+  });
+
+  // --- B3 + B5: images[] never get a group h3; single groups[] neither ---
+
+  it('renders images[] and single groups[] without group h3; multi-group has one h3 each', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    // Extra groups so multi-group and single-group chapters can coexist.
+    writePng(path.join(fixture, 'docs/handbook/screenshots/solo/01-solo.png'), MIN_PNG_BYTES + 1);
+    writePng(path.join(fixture, 'docs/handbook/screenshots/alpha/01-a.png'), MIN_PNG_BYTES + 1);
+    writePng(path.join(fixture, 'docs/handbook/screenshots/beta/01-b.png'), MIN_PNG_BYTES + 1);
+    withPatchedContent(
+      'de',
+      data => {
+        data.chapters = [
+          {
+            id: 'solo-image',
+            title: 'Solo image chapter',
+            summary: '',
+            intro: 'one image only',
+            images: ['solo/01-solo'],
+          },
+          {
+            id: 'single-group',
+            title: 'Single group chapter',
+            summary: '',
+            intro: 'one whole group, no subheading',
+            groups: ['group'],
+          },
+          {
+            id: 'multi-group',
+            title: 'Multi group chapter',
+            summary: '',
+            intro: 'two groups keep headings',
+            groups: ['alpha', 'beta'],
+          },
+        ];
+        data.groupTitles = Object.assign({}, data.groupTitles, {
+          alpha: 'Alpha Gruppe DE',
+          beta: 'Beta Gruppe DE',
+          group: 'Fixture Group DE',
+        });
+      },
+      () => {
+        const r = runBuild(out, {
+          HANDBOOK_REPO_ROOT: fixture,
+          NODE_PATH: markedNodePath,
+          GIT_SHA: 't',
+        });
+        assert.strictEqual(r.status, 0, r.stderr);
+        const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+
+        function chapterHtml(id) {
+          const m = index.match(new RegExp(`id="chapter-${id}"[\\s\\S]*?</details>`));
+          assert.ok(m, `chapter ${id} present`);
+          return m[0];
+        }
+        const solo = chapterHtml('solo-image');
+        const single = chapterHtml('single-group');
+        const multi = chapterHtml('multi-group');
+        assert.strictEqual((solo.match(/<h3\b/g) || []).length, 0, 'images[] chapter must have 0 group h3');
+        assert.strictEqual((single.match(/<h3\b/g) || []).length, 0, 'single groups[] chapter must have 0 group h3 (B5)');
+        assert.strictEqual((multi.match(/<h3\b/g) || []).length, 2, 'multi groups[] chapter must have one h3 per group');
+        assert.match(solo, /solo\/01-solo|01-solo\.png/);
+        assert.ok(!/class="group-head"/.test(single), 'single group: no group-head');
+        assert.match(single, /class="group-anchor"/);
+        assert.match(multi, /class="group-head"/);
+        assert.match(multi, /Alpha Gruppe DE/);
+        assert.match(multi, /Beta Gruppe DE/);
+        // Chapter count unit uses ui.image / ui.images (not a bare number).
+        assert.match(solo, /class="sec-count"[^>]*>1\s+\S+/);
+      },
+    );
+  });
+
+  // --- B4: stats bar labels come from ui.* of each locale ---
+
+  it('reads all six stats labels from ui.* with fallback warning when missing', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+
+    const keys = ['statImages', 'statChapters', 'statDocs', 'statStore', 'statAssets', 'statRevision'];
+    function labelsFrom(html) {
+      const main = [...html.matchAll(/class="stat"(?![^>]*stat-sha)[^>]*>[\s\S]*?class="l">([^<]*)/g)].map(m => m[1]);
+      const sha = [...html.matchAll(/class="stat stat-sha"[\s\S]*?class="l">([^<]*)/g)].map(m => m[1]);
+      return main.concat(sha);
+    }
+
+    for (const loc of ['de', 'en', 'fr', 'it']) {
+      const content = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'scripts/handbook/content', loc + '.json'), 'utf8'));
+      const expected = keys.map(k => content.ui[k]);
+      assert.ok(
+        expected.every(v => typeof v === 'string' && v.trim()),
+        `${loc} content must define all six ui.stat* keys`,
+      );
+      const pagePath = loc === 'de' ? path.join(out, 'index.html') : path.join(out, loc, 'index.html');
+      const html = fs.readFileSync(pagePath, 'utf8');
+      const got = labelsFrom(html);
+      assert.deepStrictEqual(got, expected, `${loc} stats labels: got ${JSON.stringify(got)} expected ${JSON.stringify(expected)}`);
+    }
+
+    // Missing key → English fallback + stderr warning (not silent).
+    withPatchedContent(
+      'de',
+      data => {
+        delete data.ui.statChapters;
+      },
+      () => {
+        const { fixture: f2, out: o2 } = freshDirs();
+        populateValidFixture(f2, { shotSize: MIN_PNG_BYTES + 1 });
+        const r2 = runBuild(o2, {
+          HANDBOOK_REPO_ROOT: f2,
+          NODE_PATH: markedNodePath,
+          GIT_SHA: 't',
+        });
+        assert.strictEqual(r2.status, 0, r2.stderr);
+        assert.match(r2.stderr, /missing ui\.statChapters/i);
+        const de = fs.readFileSync(path.join(o2, 'index.html'), 'utf8');
+        assert.match(de, /class="l">Chapters</);
+      },
+    );
+  });
+
+  // --- B5: groupTitles from locale beat metadata.json on foreign pages ---
+
+  it('uses groupTitles from the locale file instead of German metadata titles', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    writePng(path.join(fixture, 'docs/handbook/screenshots/alpha/01-a.png'), MIN_PNG_BYTES + 1);
+    writePng(path.join(fixture, 'docs/handbook/screenshots/beta/01-b.png'), MIN_PNG_BYTES + 1);
+    // Plant a German-looking metadata title that must not appear on /fr/ when
+    // groupTitles provides a French string.
+    withPatchedMetadata(
+      meta => {
+        meta.screenshots = meta.screenshots || {};
+        meta.screenshots.alpha = {
+          title: 'Deutscher Alpha-Titel aus Metadata',
+          description: 'Deutsche Beschreibung die nicht auf Kundenseiten darf',
+        };
+        meta.screenshots.beta = {
+          title: 'Deutscher Beta-Titel aus Metadata',
+          description: 'Auch diese Beschreibung bleibt weg',
+        };
+      },
+      () => {
+        withPatchedContent(
+          'fr',
+          data => {
+            data.chapters = [
+              {
+                id: 'deux-groupes',
+                title: 'Deux groupes',
+                summary: '',
+                intro: 'intro fr',
+                groups: ['alpha', 'beta'],
+              },
+            ];
+            data.groupTitles = Object.assign({}, data.groupTitles, {
+              alpha: 'Titre Alpha FR',
+              beta: 'Titre Beta FR',
+            });
+          },
+          () => {
+            // de chapters still need something that does not claim alpha/beta
+            // exclusively — structure is resolved from de. Point de at group only.
+            withPatchedContent(
+              'de',
+              data => {
+                data.chapters = [
+                  {
+                    id: 'deux-groupes',
+                    title: 'Zwei Gruppen',
+                    summary: '',
+                    intro: 'intro de',
+                    groups: ['alpha', 'beta'],
+                  },
+                  {
+                    id: 'rest',
+                    title: 'Rest',
+                    summary: '',
+                    intro: '',
+                    groups: ['group'],
+                  },
+                ];
+                data.groupTitles = Object.assign({}, data.groupTitles, {
+                  alpha: 'Alpha DE',
+                  beta: 'Beta DE',
+                  group: 'Group DE',
+                });
+              },
+              () => {
+                const r = runBuild(out, {
+                  HANDBOOK_REPO_ROOT: fixture,
+                  NODE_PATH: markedNodePath,
+                  GIT_SHA: 't',
+                });
+                assert.strictEqual(r.status, 0, r.stderr);
+                const fr = fs.readFileSync(path.join(out, 'fr/index.html'), 'utf8');
+                assert.match(fr, /Titre Alpha FR/);
+                assert.match(fr, /Titre Beta FR/);
+                assert.ok(!fr.includes('Deutscher Alpha-Titel aus Metadata'), 'metadata German title must not appear on /fr/');
+                assert.ok(!fr.includes('Deutscher Beta-Titel aus Metadata'), 'metadata German title must not appear on /fr/');
+                assert.ok(!fr.includes('Deutsche Beschreibung'), 'metadata group description must not appear on customer pages');
+                // Customer chapter h3 texts are the locale titles only.
+                const chapterH3 = [...fr.matchAll(/<h3\b[^>]*>([\s\S]*?)<\/h3>/g)]
+                  .map(m =>
+                    m[1]
+                      .replace(/<[^>]+>/g, ' ')
+                      .replace(/\s+/g, ' ')
+                      .trim(),
+                  )
+                  .filter(t => /Titre|Deutscher|Alpha|Beta/.test(t));
+                assert.ok(
+                  chapterH3.some(t => t.includes('Titre Alpha FR')),
+                  `expected FR alpha h3, got ${JSON.stringify(chapterH3)}`,
+                );
+              },
+            );
+          },
+        );
+      },
+    );
   });
 });

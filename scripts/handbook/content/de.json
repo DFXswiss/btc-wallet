@@ -36,7 +36,13 @@
     "developerIntro": "Ab hier folgt Material aus dem Repository: die Texte der Store-Einträge, die Bild-Dateien der App und die technische Dokumentation. Für die Bedienung der Wallet wird nichts davon gebraucht.",
     "generatedFrom": "Diese Seite wird bei jedem Build aus dem Repository erzeugt. Stand:",
     "openImage": "Bild vergrössern",
-    "moreScreens": "Weitere Screens"
+    "moreScreens": "Weitere Screens",
+    "statImages": "Bilder",
+    "statChapters": "Kapitel",
+    "statDocs": "Dokumente",
+    "statStore": "Store-Felder",
+    "statAssets": "Assets",
+    "statRevision": "Stand"
   },
   "chapters": [
     {
@@ -274,5 +280,15 @@
       "title": "Gefundene Wallet-Typen",
       "text": "Die App erkennt, welche Wallet-Arten zu der Eingabe passen (BIP44, BIP49, BIP84), und zeigt den jeweiligen Ableitungspfad."
     }
+  },
+  "groupTitles": {
+    "01-onboarding": "Erststart und Wallet-Anlage",
+    "02-wallet": "Wallet, Backup und Export",
+    "03-einstellungen": "Einstellungen",
+    "04-empfangen-senden": "Empfangen und Senden",
+    "06-wallet-hinzufuegen": "Weitere Wallet anlegen",
+    "07-multi-device": "Multi-Device-Wallet einrichten",
+    "08-lightning": "Lightning-Wallet",
+    "09-import": "Wallet importieren"
   }
 }

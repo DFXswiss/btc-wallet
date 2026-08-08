@@ -36,7 +36,13 @@
     "developerIntro": "À partir d'ici, la page présente du matériel issu du dépôt : les textes des fiches de magasin, les fichiers image de l'application et la documentation technique. Rien de tout cela n'est nécessaire pour utiliser le portefeuille.",
     "generatedFrom": "Cette page est générée depuis le dépôt à chaque build. Révision :",
     "openImage": "Agrandir l'image",
-    "moreScreens": "Autres écrans"
+    "moreScreens": "Autres écrans",
+    "statImages": "images",
+    "statChapters": "chapitres",
+    "statDocs": "documents",
+    "statStore": "champs de magasin",
+    "statAssets": "ressources",
+    "statRevision": "révision"
   },
   "chapters": [
     {
@@ -274,5 +280,15 @@
       "title": "Types de portefeuilles détectés",
       "text": "L'application détecte quels types de portefeuilles correspondent à la saisie (BIP44, BIP49, BIP84) et affiche le chemin de dérivation correspondant."
     }
+  },
+  "groupTitles": {
+    "01-onboarding": "Premier lancement et création du portefeuille",
+    "02-wallet": "Portefeuille, sauvegarde et export",
+    "03-einstellungen": "Réglages",
+    "04-empfangen-senden": "Réception et envoi",
+    "06-wallet-hinzufuegen": "Ajouter un autre portefeuille",
+    "07-multi-device": "Configurer un portefeuille multi-appareils",
+    "08-lightning": "Portefeuille Lightning",
+    "09-import": "Importer un portefeuille"
   }
 }

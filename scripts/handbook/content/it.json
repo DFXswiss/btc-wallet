@@ -36,7 +36,13 @@
     "developerIntro": "Da qui in poi la pagina mostra materiale del repository: i testi delle schede degli store, i file immagine dell'app e la documentazione tecnica. Niente di tutto ciò serve per usare il portafoglio.",
     "generatedFrom": "Questa pagina viene generata dal repository a ogni build. Revisione:",
     "openImage": "Ingrandisci l'immagine",
-    "moreScreens": "Altre schermate"
+    "moreScreens": "Altre schermate",
+    "statImages": "immagini",
+    "statChapters": "capitoli",
+    "statDocs": "documenti",
+    "statStore": "campi store",
+    "statAssets": "risorse",
+    "statRevision": "revisione"
   },
   "chapters": [
     {
@@ -274,5 +280,15 @@
       "title": "Tipi di portafoglio riconosciuti",
       "text": "L'app riconosce quali tipi di portafoglio corrispondono all'inserimento (BIP44, BIP49, BIP84) e mostra il relativo percorso di derivazione."
     }
+  },
+  "groupTitles": {
+    "01-onboarding": "Primo avvio e creazione del portafoglio",
+    "02-wallet": "Portafoglio, backup ed esportazione",
+    "03-einstellungen": "Impostazioni",
+    "04-empfangen-senden": "Ricezione e invio",
+    "06-wallet-hinzufuegen": "Aggiungere un altro portafoglio",
+    "07-multi-device": "Configurare un portafoglio multi-dispositivo",
+    "08-lightning": "Portafoglio Lightning",
+    "09-import": "Importare un portafoglio"
   }
 }

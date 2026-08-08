@@ -612,6 +612,10 @@ function loadContentLocales(scriptDir) {
       chapters: Array.isArray(data.chapters) ? data.chapters : [],
       captions:
         data.captions && typeof data.captions === 'object' ? data.captions : {},
+      groupTitles:
+        data.groupTitles && typeof data.groupTitles === 'object'
+          ? data.groupTitles
+          : {},
       sourcePath: path.posix.join('scripts/handbook/content', file),
     });
   }
@@ -699,21 +703,22 @@ code {
 }
 .topbar-brand:hover { text-decoration: none; }
 .topbar-brand .logo-wrap {
-  display: block;
   height: 28px;
   width: auto;
   flex: 0 0 auto;
+  line-height: 0;
 }
+/* Sizing only — never set display here (would override theme show/hide). */
 .topbar-brand .logo-wrap svg {
   height: 28px;
   width: auto;
-  display: block;
 }
+/* Exactly one logo visible per theme; default (no class yet) shows dark mark. */
 .logo-white { display: none; }
-.theme-dark .logo-dark { display: none; }
-.theme-dark .logo-white { display: block; }
 .theme-light .logo-dark { display: block; }
 .theme-light .logo-white { display: none; }
+.theme-dark .logo-dark { display: none; }
+.theme-dark .logo-white { display: block; }
 .topbar-titles { line-height: 1.25; flex: 0 0 auto; }
 .topbar-titles .wordmark {
   display: block;
@@ -1640,6 +1645,9 @@ function buildHead(opts) {
     alt +=
       `<link rel="alternate" hreflang="${escapeHtml(h.lang)}" href="${escapeHtml(h.href)}">\n`;
   }
+  const scriptTag = opts.scriptSrc
+    ? `<script src="${escapeHtml(encodeHtmlPath(opts.scriptSrc))}"></script>\n`
+    : '';
   return (
     `<!DOCTYPE html>\n<html lang="${lang}" class="${escapeHtml(themeClass)}">\n<head>\n` +
     `<meta charset="utf-8">\n` +
@@ -1650,6 +1658,7 @@ function buildHead(opts) {
     alt +
     `<title>${title}</title>\n` +
     `<style>\n${opts.css}\n</style>\n` +
+    scriptTag +
     `</head>\n`
   );
 }
@@ -1758,6 +1767,20 @@ function buildHandbookJs() {
   return [
     '(function () {',
     "  var THEME_KEY = 'handbook-theme';",
+    '  // Apply theme immediately (script loads from <head>, before paint of body).',
+    '  (function applyThemeEarly() {',
+    '    var root = document.documentElement;',
+    "    root.classList.remove('theme-light', 'theme-dark');",
+    '    var stored = null;',
+    '    try { stored = localStorage.getItem(THEME_KEY); } catch (e) {}',
+    "    if (stored === 'dark' || stored === 'light') {",
+    "      root.classList.add('theme-' + stored);",
+    '    } else {',
+    "      var systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;",
+    "      root.classList.add(systemDark ? 'theme-dark' : 'theme-light');",
+    '    }',
+    '  })();',
+    '',
     '  function $(id) { return document.getElementById(id); }',
     '  function qs(sel, root) { return (root || document).querySelector(sel); }',
     '  function qsa(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }',
@@ -1783,10 +1806,8 @@ function buildHandbookJs() {
     "    var btn = $('theme-toggle');",
     '    if (!btn) return;',
     '    btn.hidden = false;',
-    '    var stored = null;',
-    '    try { stored = localStorage.getItem(THEME_KEY); } catch (e) {}',
-    "    if (stored === 'dark' || stored === 'light') applyTheme(stored);",
-    '    else applyTheme(null);',
+    "    var pressed = document.documentElement.classList.contains('theme-dark');",
+    "    btn.setAttribute('aria-pressed', pressed ? 'true' : 'false');",
     "    btn.addEventListener('click', function () {",
     "      var isDark = document.documentElement.classList.contains('theme-dark');",
     "      var next = isDark ? 'light' : 'dark';",
@@ -2887,67 +2908,66 @@ function main() {
   function resolveChapters(content) {
     const assignment = new Map(); // key -> chapterId
     const chapterPlans = [];
+    function claimKey(k, id) {
+      if (assignment.has(k)) {
+        fail(
+          `handbook chapter collision: screenshot "${k}" is assigned to both ` +
+            `chapter "${assignment.get(k)}" and chapter "${id}"`,
+        );
+      }
+      assignment.set(k, id);
+    }
     for (const ch of content.chapters) {
       const id = ch.id || slugify(ch.title || 'chapter');
-      const keys = [];
-      const missing = [];
-      for (const g of ch.groups || []) {
-        const list = shotsByGroup.get(g) || [];
-        if (list.length === 0) {
-          missing.push('group:' + g);
-          console.error(
-            `handbook warning: chapter "${id}" references missing group "${g}"`,
-          );
-        }
-        for (const e of list) keys.push(e.key);
-      }
+      const seen = new Set();
+      // Single images first (no group heading); then full groups (with heading).
+      const imageKeys = [];
       for (const img of ch.images || []) {
         if (!shotByKey.has(img)) {
-          missing.push('image:' + img);
           console.error(
             `handbook warning: chapter "${id}" references missing image "${img}"`,
           );
           continue;
         }
-        keys.push(img);
+        if (seen.has(img)) continue;
+        seen.add(img);
+        imageKeys.push(img);
+        claimKey(img, id);
       }
-      // preserve order: groups expand sorted by title, images in listed order after their groups
-      // rebuild ordered unique keys preserving chapter declaration order
-      const ordered = [];
-      const seen = new Set();
+      const groupBlocks = [];
       for (const g of ch.groups || []) {
         const list = (shotsByGroup.get(g) || []).slice();
-        for (const e of list) {
-          if (!seen.has(e.key)) {
-            seen.add(e.key);
-            ordered.push(e.key);
-          }
-        }
-      }
-      for (const img of ch.images || []) {
-        if (shotByKey.has(img) && !seen.has(img)) {
-          seen.add(img);
-          ordered.push(img);
-        }
-      }
-      for (const k of ordered) {
-        if (assignment.has(k)) {
-          fail(
-            `handbook chapter collision: screenshot "${k}" is assigned to both ` +
-              `chapter "${assignment.get(k)}" and chapter "${id}"`,
+        if (list.length === 0) {
+          console.error(
+            `handbook warning: chapter "${id}" references missing group "${g}"`,
           );
+          continue;
         }
-        assignment.set(k, id);
+        const keys = [];
+        for (const e of list) {
+          if (seen.has(e.key)) continue;
+          seen.add(e.key);
+          keys.push(e.key);
+          claimKey(e.key, id);
+        }
+        if (keys.length > 0) {
+          groupBlocks.push({ group: g, keys });
+        }
       }
+      const ordered = imageKeys.concat(
+        groupBlocks.reduce((acc, b) => acc.concat(b.keys), []),
+      );
       chapterPlans.push({
         id,
         title: ch.title || id,
         summary: ch.summary || '',
         intro: ch.intro || '',
         keys: ordered,
+        imageKeys,
+        groupBlocks,
       });
     }
-    // Unassigned → more screens
+    // Unassigned → more screens (cluster by directory; show group headings)
     const unassigned = screenshotEntries
       .map((e) => e.key)
       .filter((k) => !assignment.has(k))
@@ -2960,16 +2980,42 @@ function main() {
         );
         assignment.set(k, '__more__');
       }
+      const groupBlocks = [];
+      let i = 0;
+      while (i < unassigned.length) {
+        const e0 = shotByKey.get(unassigned[i]);
+        const g = e0 ? e0.group : 'allgemein';
+        const keys = [];
+        while (i < unassigned.length) {
+          const e = shotByKey.get(unassigned[i]);
+          if (!e || e.group !== g) break;
+          keys.push(e.key);
+          i += 1;
+        }
+        groupBlocks.push({ group: g, keys });
+      }
       chapterPlans.push({
         id: 'more-screens',
         title: content.ui.moreScreens || 'More screens',
         summary: '',
         intro: '',
         keys: unassigned,
+        imageKeys: [],
+        groupBlocks,
         isMore: true,
       });
     }
     return { chapterPlans, assignment };
+  }
+
+  function uiLabel(ui, key, fallback) {
+    if (ui && typeof ui[key] === 'string' && ui[key].trim()) {
+      return ui[key].trim();
+    }
+    console.error(
+      `handbook warning: missing ui.${key} in content locale, using fallback "${fallback}"`,
+    );
+    return fallback;
   }
 
   // Developer sections HTML (locale-independent content; labels localized)
@@ -3103,7 +3149,6 @@ function main() {
     body = enhanceDocBodyHtml(body);
     const prefix = relativeToRoot(d.out);
     const css = buildPageCss(pod.tokensCss, prefix);
-    const jsHref = escapeHtml(encodeHtmlPath(prefix + 'handbook.js'));
     // de content for doc chrome labels if available
     const deContent =
       contentLocales.find((c) => c.locale === 'de') || contentLocales[0];
@@ -3115,6 +3160,7 @@ function main() {
         css,
         lang: 'de',
         themeClass: 'theme-light',
+        scriptSrc: prefix + 'handbook.js',
       }) +
       '<body>\n' +
       `<a class="skip-link" href="#doc-content">${escapeHtml(
@@ -3141,7 +3187,6 @@ function main() {
         gitSha,
       )}</code></footer>\n` +
       '</div>\n' +
-      `<script src="${jsHref}"></script>\n` +
       '</body>\n</html>\n';
     const dest = path.join(outDir, d.out);
     ensureDir(path.dirname(dest));
@@ -3182,19 +3227,17 @@ function main() {
     );
     const chapterPlans = baseChapterPlans.map((plan) => {
       if (plan.isMore) {
-        return {
-          ...plan,
+        return Object.assign({}, plan, {
           title: content.ui.moreScreens || plan.title,
-        };
+        });
       }
       const src = byId.get(plan.id);
       if (!src) return plan;
-      return {
-        ...plan,
+      return Object.assign({}, plan, {
         title: src.title || plan.title,
         summary: src.summary || '',
         intro: src.intro || '',
-      };
+      });
     });
     const prefix = content.locale === 'de' ? '' : '../';
     const outPath = pagePathForLocale(content.locale);
@@ -3211,9 +3254,71 @@ function main() {
       );
     }
 
+    /**
+     * Group title: content.groupTitles[g] → metadata.json → directory name.
+     * When the title is shown (showHeading), warn once per group+locale if the
+     * locale file did not provide groupTitles[g].
+     */
+    function resolveGroupTitle(groupKey, locContent, showHeading) {
+      const titles = locContent.groupTitles || {};
+      const fromLocale = titles[groupKey];
+      if (typeof fromLocale === 'string' && fromLocale.trim()) {
+        return fromLocale.trim();
+      }
+      const gMeta = screenshotsMeta[groupKey];
+      if (gMeta && typeof gMeta.title === 'string' && gMeta.title.trim()) {
+        if (showHeading) {
+          console.error(
+            `handbook warning: missing groupTitles["${groupKey}"] in locale ` +
+              `"${locContent.locale}", using metadata.json title`,
+          );
+        }
+        return gMeta.title.trim();
+      }
+      if (showHeading) {
+        console.error(
+          `handbook warning: missing groupTitles["${groupKey}"] in locale ` +
+            `"${locContent.locale}", using directory name`,
+        );
+      }
+      return groupKey;
+    }
+
     let chaptersHtml = '';
     const tocItems = [];
     let chapterNum = 0;
+
+    function renderShotCard(e, gTitle) {
+      const cap = captionFor(e);
+      const cardId = claimAnchorId(
+        anchorIds,
+        'shot-' + slugify(e.group + '-' + e.title),
+        e.sourcePath,
+      );
+      const shotHref = escapeHtml(encodeHtmlPath(prefix + e.outputPath));
+      const searchText = escapeHtml(
+        [cap.caption, cap.text, e.stem, gTitle, e.group].join(' '),
+      );
+      const badgeHtml = cap.badge
+        ? `<span class="num-badge">${escapeHtml(cap.badge)}</span>`
+        : '';
+      const textHtml = cap.text
+        ? `<p class="cap-text">${escapeHtml(cap.text)}</p>`
+        : '';
+      return (
+        `<figure class="shot-card" id="${escapeHtml(cardId)}" data-search="shot" ` +
+        `data-search-text="${searchText}" data-group="${escapeHtml(e.group)}" ` +
+        `data-caption="${escapeHtml(cap.caption)}" data-file="${escapeHtml(e.stem)}">` +
+        `<a class="shot-img" href="${shotHref}">` +
+        `<div class="frame"><img src="${shotHref}" alt="${escapeHtml(cap.caption)}" loading="lazy"></div>` +
+        `</a>` +
+        `<figcaption><div class="cap-row">${badgeHtml}` +
+        `<a class="name permalink" href="#${escapeHtml(cardId)}">${escapeHtml(cap.caption)}</a>` +
+        copyLinkButton(cardId, ui) +
+        `</div>${textHtml}` +
+        `<div class="cap-file">${escapeHtml(e.stem)}</div></figcaption></figure>`
+      );
+    }
 
     for (const plan of chapterPlans) {
       chapterNum += 1;
@@ -3224,78 +3329,86 @@ function main() {
         'chapter ' + plan.id,
       );
       const children = [];
-
-      // group blocks: cluster consecutive keys by group for structure
       let body = '';
-      let i = 0;
-      while (i < plan.keys.length) {
-        const first = shotByKey.get(plan.keys[i]);
-        if (!first) {
-          i += 1;
-          continue;
+
+      // Single-image assignments: no group heading (B3).
+      const imageKeys = plan.imageKeys || [];
+      if (imageKeys.length > 0) {
+        body += `<div class="group-block" data-search="group">`;
+        body += '<div class="shot-grid">';
+        for (const k of imageKeys) {
+          const e = shotByKey.get(k);
+          if (!e) continue;
+          body += renderShotCard(e, e.group);
         }
-        const g = first.group;
-        const groupKeysList = [];
-        while (i < plan.keys.length) {
-          const e = shotByKey.get(plan.keys[i]);
-          if (!e || e.group !== g) break;
-          groupKeysList.push(e);
-          i += 1;
-        }
+        body += '</div></div>';
+      }
+
+      // Full groups via chapters[].groups.
+      // Heading only when the chapter has more than one group (or moreScreens).
+      // Single-group chapters: no heading/description; keep group anchor + copy.
+      const groupBlocks = plan.groupBlocks || [];
+      const showGroupHeadings = groupBlocks.length > 1 || !!plan.isMore;
+      // Single-group: hang group copy on the chapter chrome (not a second title).
+      let singleGroupCopyHtml = '';
+
+      for (const block of groupBlocks) {
+        const g = block.group;
+        const groupKeysList = block.keys
+          .map((k) => shotByKey.get(k))
+          .filter(Boolean);
+        if (groupKeysList.length === 0) continue;
         const groupId = claimAnchorId(
           anchorIds,
           'group-' + slugify(g),
           'screenshot group ' + g,
         );
-        const gMeta = screenshotsMeta[g];
-        const gTitle = (gMeta && gMeta.title) || g;
-        children.push({ id: groupId, title: gTitle, count: groupKeysList.length });
+        const gTitle = resolveGroupTitle(g, content, showGroupHeadings);
 
-        body += `<div class="group-block" data-search="group">`;
-        body +=
-          `<div class="group-head">` +
-          `<h3 id="${escapeHtml(groupId)}">` +
-          `<a class="name permalink" href="#${escapeHtml(groupId)}">${escapeHtml(gTitle)}</a>` +
-          ` <span class="gcount">${groupKeysList.length}</span>` +
-          `</h3>` +
-          copyLinkButton(groupId, ui) +
-          `</div>`;
-        if (gMeta && gMeta.description) {
-          body += `<p class="group-desc">${escapeHtml(gMeta.description)}</p>`;
-        }
-        body += '<div class="shot-grid">';
-        for (const e of groupKeysList) {
-          const cap = captionFor(e);
-          const cardId = claimAnchorId(
-            anchorIds,
-            'shot-' + slugify(e.group + '-' + e.title),
-            e.sourcePath,
-          );
-          const shotHref = escapeHtml(encodeHtmlPath(prefix + e.outputPath));
-          const searchText = escapeHtml(
-            [cap.caption, cap.text, e.stem, gTitle, e.group].join(' '),
-          );
-          const badgeHtml = cap.badge
-            ? `<span class="num-badge">${escapeHtml(cap.badge)}</span>`
-            : '';
-          const textHtml = cap.text
-            ? `<p class="cap-text">${escapeHtml(cap.text)}</p>`
-            : '';
+        if (showGroupHeadings) {
+          children.push({
+            id: groupId,
+            title: gTitle,
+            count: groupKeysList.length,
+          });
+          body += `<div class="group-block" data-search="group">`;
           body +=
-            `<figure class="shot-card" id="${escapeHtml(cardId)}" data-search="shot" ` +
-            `data-search-text="${searchText}" data-group="${escapeHtml(e.group)}" ` +
-            `data-caption="${escapeHtml(cap.caption)}" data-file="${escapeHtml(e.stem)}">` +
-            `<a class="shot-img" href="${shotHref}">` +
-            `<div class="frame"><img src="${shotHref}" alt="${escapeHtml(cap.caption)}" loading="lazy"></div>` +
-            `</a>` +
-            `<figcaption><div class="cap-row">${badgeHtml}` +
-            `<a class="name permalink" href="#${escapeHtml(cardId)}">${escapeHtml(cap.caption)}</a>` +
-            copyLinkButton(cardId, ui) +
-            `</div>${textHtml}` +
-            `<div class="cap-file">${escapeHtml(e.stem)}</div></figcaption></figure>`;
+            `<div class="group-head">` +
+            `<h3 id="${escapeHtml(groupId)}">` +
+            `<a class="name permalink" href="#${escapeHtml(groupId)}">${escapeHtml(gTitle)}</a>` +
+            ` <span class="gcount">${groupKeysList.length} ${escapeHtml(
+              groupKeysList.length === 1
+                ? uiLabel(ui, 'image', 'image')
+                : uiLabel(ui, 'images', 'images'),
+            )}</span>` +
+            `</h3>` +
+            copyLinkButton(groupId, ui) +
+            `</div>`;
+          // Customer pages: never show metadata group descriptions (one language).
+          body += '<div class="shot-grid">';
+          for (const e of groupKeysList) {
+            body += renderShotCard(e, gTitle);
+          }
+          body += '</div></div>';
+        } else {
+          // One group only: attach anchor to the chapter (span + copy in chapter rhs).
+          // No visible group title, no group description, no TOC child.
+          singleGroupCopyHtml =
+            `<span id="${escapeHtml(groupId)}" class="group-anchor"></span>` +
+            copyLinkButton(groupId, ui);
+          body += `<div class="group-block" data-search="group">`;
+          body += '<div class="shot-grid">';          for (const e of groupKeysList) {
+            body += renderShotCard(e, gTitle);
+          }
+          body += '</div></div>';
         }
-        body += '</div></div>';
       }
+
+      const countUnit =
+        plan.keys.length === 1
+          ? uiLabel(ui, 'image', 'image')
+          : uiLabel(ui, 'images', 'images');
+      const countLabel = `${plan.keys.length} ${countUnit}`;
 
       tocItems.push({
         id: chapterAnchor,
@@ -3308,9 +3421,9 @@ function main() {
         `<details class="spec" id="${escapeHtml(chapterAnchor)}" open>` +
         `<summary><div class="spec-head"><div class="lhs">` +
         `<h2><span class="badge">${escapeHtml(n)}</span>${escapeHtml(plan.title)}${svgChevron()}</h2>` +
-        `</div><div class="rhs"><b class="sec-count" data-sec-count="chapter-${escapeHtml(
+        `</div><div class="rhs">${singleGroupCopyHtml}<b class="sec-count" data-sec-count="chapter-${escapeHtml(
           plan.id,
-        )}">${plan.keys.length}</b></div></div></summary>` +
+        )}">${escapeHtml(countLabel)}</b></div></div></summary>` +
         (plan.summary
           ? `<p class="chapter-summary">${escapeHtml(plan.summary)}</p>`
           : '') +
@@ -3389,6 +3502,7 @@ function main() {
         lang: content.locale,
         themeClass: 'theme-light',
         hreflangs,
+        scriptSrc: prefix + 'handbook.js',
       }) +
       '<body>\n' +
       `<a class="skip-link" href="#main-content">${escapeHtml(
@@ -3426,15 +3540,25 @@ function main() {
         : '') +
       `<div class="stats" role="group">` +
       `<div class="stat"><span class="n">${screenshotEntries.length}</span><span class="l">${escapeHtml(
-        ui.images || 'images',
+        uiLabel(ui, 'statImages', 'images'),
       )}</span></div>` +
-      `<div class="stat"><span class="n">${chapterPlans.length}</span><span class="l">Chapters</span></div>` +
-      `<div class="stat"><span class="n">${renderedDocs.length}</span><span class="l">Docs</span></div>` +
-      `<div class="stat"><span class="n">${storeEntries.length}</span><span class="l">Store</span></div>` +
-      `<div class="stat"><span class="n">${assetSpecs.length}</span><span class="l">Assets</span></div>` +
+      `<div class="stat"><span class="n">${chapterPlans.length}</span><span class="l">${escapeHtml(
+        uiLabel(ui, 'statChapters', 'Chapters'),
+      )}</span></div>` +
+      `<div class="stat"><span class="n">${renderedDocs.length}</span><span class="l">${escapeHtml(
+        uiLabel(ui, 'statDocs', 'Docs'),
+      )}</span></div>` +
+      `<div class="stat"><span class="n">${storeEntries.length}</span><span class="l">${escapeHtml(
+        uiLabel(ui, 'statStore', 'Store'),
+      )}</span></div>` +
+      `<div class="stat"><span class="n">${assetSpecs.length}</span><span class="l">${escapeHtml(
+        uiLabel(ui, 'statAssets', 'Assets'),
+      )}</span></div>` +
       `<div class="stat stat-sha"><span class="n">${escapeHtml(
         shaShort,
-      )}</span><span class="l">SHA</span></div>` +
+      )}</span><span class="l">${escapeHtml(
+        uiLabel(ui, 'statRevision', 'SHA'),
+      )}</span></div>` +
       `</div>\n` +
       `<div class="search-empty" id="search-empty" hidden>${escapeHtml(
         ui.searchEmpty || '',
@@ -3471,7 +3595,6 @@ function main() {
         ui.next || 'Next',
       )}</span></button>` +
       `</div></div></div>\n` +
-      `<script src="${escapeHtml(encodeHtmlPath(prefix + 'handbook.js'))}"></script>\n` +
       `</body>\n</html>\n`;
 
     // inject search status template into status element - already has data? fix via replace

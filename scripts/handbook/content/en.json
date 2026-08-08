@@ -36,7 +36,13 @@
     "developerIntro": "From here on the page shows material from the repository: the store listing texts, the app's image files and the technical documentation. None of it is needed to use the wallet.",
     "generatedFrom": "This page is generated from the repository on every build. Revision:",
     "openImage": "Enlarge image",
-    "moreScreens": "More screens"
+    "moreScreens": "More screens",
+    "statImages": "images",
+    "statChapters": "chapters",
+    "statDocs": "documents",
+    "statStore": "store fields",
+    "statAssets": "assets",
+    "statRevision": "revision"
   },
   "chapters": [
     {
@@ -274,5 +280,15 @@
       "title": "Detected wallet types",
       "text": "The app detects which wallet types match the input (BIP44, BIP49, BIP84) and shows the corresponding derivation path."
     }
+  },
+  "groupTitles": {
+    "01-onboarding": "First launch and wallet creation",
+    "02-wallet": "Wallet, backup and export",
+    "03-einstellungen": "Settings",
+    "04-empfangen-senden": "Receiving and sending",
+    "06-wallet-hinzufuegen": "Adding another wallet",
+    "07-multi-device": "Setting up a multi-device wallet",
+    "08-lightning": "Lightning wallet",
+    "09-import": "Importing a wallet"
   }
 }
