@@ -40,7 +40,7 @@
  *
  *   OCR yield — a tesseract that returns nothing, for the whole set or for
  *   part of it, would make the two OCR checks above vacuously green. See
- *   MIN_OCR_TOKENS and SILENT_IMAGES.
+ *   MIN_OCR_TOKENS and SCREENSHOTS_MUST_YIELD_OCR.
  *
  * Requires `zbarimg` (zbar-tools) and `tesseract` on PATH, and the repository's
  * own `bip39` dependency resolvable. A missing tool fails the gate — a gate
@@ -122,50 +122,35 @@ const SEED_RUN_LIMIT = 5;
  * images clear that on their own.
  *
  * The sum only measures bulk. Partial blindness is caught by
- * SILENT_IMAGES, which looks at every file individually — that is
+ * SCREENSHOTS_MUST_YIELD_OCR, which looks at every screenshot individually — that is
  * the real canary, this is the backstop.
  */
 const MIN_OCR_TOKENS = 700;
 
 /**
- * Every published image must return at least one word, unless it is listed
- * here as genuinely wordless.
+ * Every image under this prefix must return at least one word.
  *
- * A prefix rule ("screenshots must, assets need not") was the first attempt and
- * left the sharpest case open: for `assets/dfx/backup-phrase.png` — the file
- * this gate widened its scan set to reach — "no phrase found" and "OCR read
- * nothing" were indistinguishable. Naming the silent files instead makes that
- * impossible, and the list is checked in both directions like the QR
- * allowlist: a new silent image fails, and an entry that starts producing text
- * fails too, because then it is no longer what the list claims.
+ * This went a round trip. The first version was this prefix rule; review then
+ * argued for naming the silent files explicitly and checking the list in both
+ * directions, so that for `assets/dfx/backup-phrase.png` — the file this gate
+ * widened its scan set to reach — "no phrase found" and "OCR read nothing"
+ * would stop being indistinguishable. That version failed CI, and the failure
+ * is the argument against it: `assets/dfx/telegram.png` returns one token under
+ * tesseract 5.5.3 and none under the 5.3.4 the runner ships. No list can be
+ * true on both, and a list checked in both directions is then self-
+ * contradictory: listing the file fails on one version, omitting it on the
+ * other.
  *
- * Measured 2026-08-08 over the 70 published PNGs: these 21 return nothing, all
- * 42 screenshots return at least 5 tokens, and the remaining 7 assets are
- * button graphics with one to four words.
+ * Screenshots do not have that problem — the thinnest returns 5 tokens on both
+ * versions, and all 42 clear it. Assets are borderline by nature: 21 of 28
+ * return nothing at all and the rest one to four words.
+ *
+ * What is left uncovered is narrow: a tool that goes blind for one asset and
+ * nothing else. Real blindness shows up across all 42 screenshots at once, and
+ * the token floor catches the bulk case — so the residue is a failure mode
+ * nobody has seen, traded against a check that provably cannot hold.
  */
-const SILENT_IMAGES = new Set([
-  'assets/dfx/backup-phrase.png',
-  'assets/dfx/backup-phrase@2x.png',
-  'assets/dfx/backup-phrase@3x.png',
-  'assets/dfx/buttons/sell_en.png',
-  'assets/dfx/buttons/sell_fr.png',
-  'assets/dfx/buttons/sell_it.png',
-  'assets/dfx/buttons/swap.png',
-  'assets/dfx/logo.png',
-  'assets/dfx/splash.png',
-  'assets/dfx/splash@2x.png',
-  'assets/dfx/splash@3x.png',
-  'assets/dfx/telegram@3x.png',
-  'assets/dfx/twitter.png',
-  'assets/dfx/twitter@2x.png',
-  'assets/dfx/twitter@3x.png',
-  'assets/dfx/wallet-card.png',
-  'assets/dfx/wallet-card@2x.png',
-  'assets/dfx/wallet-card@3x.png',
-  'assets/icon.png',
-  'assets/icon@2x.png',
-  'assets/icon@3x.png',
-]);
+const SCREENSHOTS_MUST_YIELD_OCR = 'screenshots/';
 
 /**
  * Extended public keys. One of them in a screenshot exposes every address of
@@ -321,48 +306,31 @@ function ocrYieldProblems(tokens, floor) {
  * `perFile`: [{ rel, tokens }] for every scanned image. Catches a tool that is
  * blind for part of the set — the sum floor above cannot see that.
  */
-function ocrCoverageProblems(perFile, silentAllowed) {
-  if (perFile.length === 0) {
+function ocrCoverageProblems(perFile, prefix) {
+  const inScope = perFile.filter(f => f.rel.startsWith(prefix));
+  if (inScope.length === 0) {
     // The same vacuous pass the scan-set comparison closes one level up: with
-    // nothing to look at, "no silent image" is true and meaningless.
-    return ['no image was scanned at all, so the OCR coverage check had nothing to look at'];
+    // nothing to look at, "no silent screenshot" is true and meaningless. The
+    // prefix mirrors the output layout of build.js; if that ever moves, this
+    // says so instead of quietly checking nothing.
+    return [
+      `no published image sits under "${prefix}", so the per-screenshot OCR check ` +
+        'had nothing to look at. Either the build output moved or the screenshots ' +
+        'are gone — both are failures, not a clean run.',
+    ];
   }
-  const problems = [];
-  const seen = new Set(perFile.map(f => f.rel));
-  const spoke = perFile.filter(f => silentAllowed.has(f.rel) && f.tokens > 0).map(f => f.rel);
-  if (spoke.length) {
-    problems.push(
-      `${spoke.length} image(s) listed as wordless now return text:\n` +
-        spoke
-          .sort()
-          .map(r => `      ${r}`)
-          .join('\n') +
-        '\n    Remove them from SILENT_IMAGES — the list is only useful while it ' +
-        'is true.',
-    );
-  }
-  const gone = [...silentAllowed].filter(r => !seen.has(r)).sort();
-  if (gone.length) {
-    problems.push(
-      `${gone.length} entr(y|ies) in SILENT_IMAGES are not published any more:\n` +
-        gone.map(r => `      ${r}`).join('\n') +
-        '\n    Remove them, or they silently cover whatever takes those paths next.',
-    );
-  }
-  const silent = perFile
-    .filter(f => f.tokens === 0 && !silentAllowed.has(f.rel))
+  const silent = inScope
+    .filter(f => f.tokens === 0)
     .map(f => f.rel)
     .sort();
-  if (!silent.length) return problems;
-  problems.push(
-    `OCR returned nothing for ${silent.length} image(s), so they were not ` +
+  if (!silent.length) return [];
+  return [
+    `OCR returned nothing for ${silent.length} screenshot(s), so they were not ` +
       'checked for a recovery phrase or a key at all:\n' +
       silent.map(r => `      ${r}`).join('\n') +
-      '\n    Either the tool failed on those files, or they genuinely carry no ' +
-      'text — in which case add them to SILENT_IMAGES so the distinction stays ' +
-      'visible.',
-  );
-  return problems;
+      '\n    A wallet screen without a single readable word means the tool failed ' +
+      'on that file.',
+  ];
 }
 
 /** `found`: [{ rel, key }] — extended keys read out of the images. */
@@ -386,7 +354,7 @@ function extendedKeyProblems(found) {
  * covered by nothing: deleting one line here disarms a check while every unit
  * test stays green, which is the failure mode this whole file exists to close.
  */
-function runGate({ files, declared, words, decodeQr, ocr, allowlist = QR_ALLOWLIST, silentAllowed = SILENT_IMAGES }) {
+function runGate({ files, declared, words, decodeQr, ocr, allowlist = QR_ALLOWLIST, silentAllowed = SCREENSHOTS_MUST_YIELD_OCR }) {
   const qrByPath = new Map();
   const runs = [];
   const extendedKeys = [];
@@ -433,7 +401,7 @@ function allProblems({
   // fixture instead of contorting it to match production. The thresholds are
   // not: a test that moved them would stop saying anything about the gate.
   allowlist = QR_ALLOWLIST,
-  silentAllowed = SILENT_IMAGES,
+  silentAllowed = SCREENSHOTS_MUST_YIELD_OCR,
 }) {
   return [
     ...ocrYieldProblems(ocrTokens, MIN_OCR_TOKENS),
@@ -623,7 +591,7 @@ module.exports = {
   QR_ALLOWLIST,
   SEED_RUN_LIMIT,
   MIN_OCR_TOKENS,
-  SILENT_IMAGES,
+  SCREENSHOTS_MUST_YIELD_OCR,
   EXTENDED_KEY_RE,
   BIP39_LATIN_WORDLISTS,
   foldAccents,

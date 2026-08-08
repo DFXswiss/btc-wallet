@@ -177,7 +177,7 @@ describe('unit - handbook content gate', () => {
         declared: DECLARED,
         words: WORDS,
         allowlist: ALLOWLIST,
-        silentAllowed: new Set(),
+        silentAllowed: gate.SCREENSHOTS_MUST_YIELD_OCR,
         decodeQr: rel => (rel === 'screenshots/recv.png' ? ADDRESS : ''),
         ocr: () => PROSE,
         ...over,
@@ -215,7 +215,7 @@ describe('unit - handbook content gate', () => {
     it('catches an image OCR could not read', function () {
       const { problems } = run({ ocr: rel => (rel === 'screenshots/a.png' ? '' : PROSE) });
       assert.strictEqual(problems.length, 1);
-      assert.match(problems[0], /OCR returned nothing for 1 image/);
+      assert.match(problems[0], /OCR returned nothing for 1 screenshot/);
     });
 
     it('never prints the words or the payload it found', function () {
@@ -282,7 +282,7 @@ describe('unit - handbook content gate', () => {
     it('refuses to report clean when nothing is in scope', function () {
       // Same vacuous pass one level down: with no screenshots in the set, "no
       // silent screenshot" is true and worthless.
-      const problems = gate.ocrCoverageProblems([], new Set());
+      const problems = gate.ocrCoverageProblems([{ rel: 'assets/logo.png', tokens: 0 }], gate.SCREENSHOTS_MUST_YIELD_OCR);
       assert.strictEqual(problems.length, 1);
       assert.match(problems[0], /nothing to look at/);
     });
@@ -316,11 +316,11 @@ describe('unit - handbook content gate', () => {
         { rel: 'screenshots/b.png', tokens: 0 },
         { rel: 'assets/logo.png', tokens: 0 },
       ];
-      const problems = gate.ocrCoverageProblems(perFile, new Set(['assets/logo.png']));
+      const problems = gate.ocrCoverageProblems(perFile, gate.SCREENSHOTS_MUST_YIELD_OCR);
       assert.strictEqual(problems.length, 1);
       assert.match(problems[0], /screenshots\/b\.png/);
-      // A listed image is allowed to stay silent; an unlisted one is not.
-      assert.ok(!problems[0].includes('assets/logo.png'), 'a listed silent image must not be reported');
+      // Assets are borderline across tesseract versions and stay out of scope.
+      assert.ok(!problems[0].includes('assets/logo.png'), 'assets must not be required to yield text');
     });
 
     it('stays silent when every screenshot yields text', function () {
@@ -328,29 +328,9 @@ describe('unit - handbook content gate', () => {
         { rel: 'screenshots/a.png', tokens: 5 },
         { rel: 'assets/logo.png', tokens: 0 },
       ];
-      assert.deepStrictEqual(gate.ocrCoverageProblems(perFile, new Set(['assets/logo.png'])), []);
+      assert.deepStrictEqual(gate.ocrCoverageProblems(perFile, gate.SCREENSHOTS_MUST_YIELD_OCR), []);
     });
 
-    it('reports a listed image that starts producing text', function () {
-      // The list is only useful while it is true — checked in both directions,
-      // like the QR allowlist.
-      const problems = gate.ocrCoverageProblems([{ rel: 'assets/logo.png', tokens: 3 }], new Set(['assets/logo.png']));
-      assert.strictEqual(problems.length, 1);
-      assert.match(problems[0], /now return text/);
-    });
-
-    it('reports a listed image that is no longer published', function () {
-      const problems = gate.ocrCoverageProblems([{ rel: 'screenshots/a.png', tokens: 5 }], new Set(['assets/gone.png']));
-      assert.strictEqual(problems.length, 1);
-      assert.match(problems[0], /not published any more/);
-    });
-
-    it('keeps the silent list matched to what the build actually ships', function () {
-      // Every entry is an output path of the handbook build, not a source path.
-      for (const rel of gate.SILENT_IMAGES) {
-        assert.match(rel, /^assets\/.+\.png$/i, `SILENT_IMAGES entry is not a built asset path: ${rel}`);
-      }
-    });
 
     it('still matches when OCR breaks the key after a few characters', function () {
       // The whole point of the pattern: tesseract never returns a 111-character
