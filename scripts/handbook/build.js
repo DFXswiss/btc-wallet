@@ -495,6 +495,46 @@ function titleFromFilename(filename) {
   return filename.replace(/\.png$/i, '');
 }
 
+/**
+ * Human-readable caption + optional step badge for a screenshot file.
+ * Order: metadata.captions[stem] wins; else strip leading NN- and humanize.
+ * Filename stem always remains available for the monospace technical line.
+ */
+function deriveScreenshotCaption(filename, groupMeta) {
+  const stem = filename.replace(/\.png$/i, '');
+  const captions =
+    groupMeta && groupMeta.captions && typeof groupMeta.captions === 'object'
+      ? groupMeta.captions
+      : null;
+  // Metadata caption wins over derivation when present and non-empty.
+  if (captions && typeof captions[stem] === 'string' && captions[stem].trim()) {
+    const m = /^(\d{2})-(.+)$/.exec(stem);
+    return { badge: m ? m[1] : null, caption: captions[stem].trim(), stem };
+  }
+  const m = /^(\d{2})-(.+)$/.exec(stem);
+  if (m) {
+    const rest = m[2].replace(/[-_]+/g, ' ').trim();
+    const caption =
+      rest.length === 0 ? stem : rest.charAt(0).toUpperCase() + rest.slice(1);
+    return { badge: m[1], caption, stem };
+  }
+  const rest = stem.replace(/[-_]+/g, ' ').trim();
+  const caption =
+    rest.length === 0 ? stem : rest.charAt(0).toUpperCase() + rest.slice(1);
+  return { badge: null, caption, stem };
+}
+
+/**
+ * Relative prefix from an output path back to the handbook root
+ * (docs/foo.html → '../', docs/infra/x.html → '../../', index.html → '').
+ */
+function relativeToRoot(outputPath) {
+  const dir = path.posix.dirname(outputPath);
+  if (!dir || dir === '.') return '';
+  const depth = dir.split('/').filter(Boolean).length;
+  return '../'.repeat(depth);
+}
+
 function slugify(key) {
   return (
     String(key)
@@ -503,6 +543,1815 @@ function slugify(key) {
       .replace(/^-+|-+$/g, '') || 'item'
   );
 }
+
+// ---------------------------------------------------------------------------
+// Shared design tokens + base rules (index AND doc pages — single source).
+// ---------------------------------------------------------------------------
+const SHARED_CSS = `
+:root {
+  --bg: #eef2f7;
+  --surface: #ffffff;
+  --surface-2: #f5f7fa;
+  --surface-3: #e6ecf4;
+  --line: #dce3ec;
+  --line-strong: #c2cddc;
+  --ink: #0a1f33;
+  --ink-2: #33465f;
+  --ink-3: #5a6c84;
+  --ink-4: #7d8ca1;
+  --brand: #f5516c;
+  --brand-ink: #c0294a;
+  --brand-soft: rgba(245, 81, 108, 0.10);
+  --navy: #0a355c;
+  --link: #0a4f8f;
+  --focus: #0a4f8f;
+  --shadow-1: 0 1px 2px rgba(10, 31, 51, 0.06), 0 4px 12px rgba(10, 31, 51, 0.04);
+  --shadow-2: 0 2px 6px rgba(10, 31, 51, 0.08), 0 12px 28px rgba(10, 31, 51, 0.08);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --topbar-h: 60px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a1420;
+    --surface: #101d2c;
+    --surface-2: #16273a;
+    --surface-3: #1d3149;
+    --line: #22384f;
+    --line-strong: #31506e;
+    --ink: #e9eff7;
+    --ink-2: #bccbdb;
+    --ink-3: #93a4b9;
+    --ink-4: #75879d;
+    --brand: #ff7089;
+    --brand-ink: #ff8fa2;
+    --brand-soft: rgba(255, 112, 137, 0.14);
+    --navy: #7fb0e6;
+    --link: #7fb0e6;
+    --focus: #7fb0e6;
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.25);
+    --shadow-2: 0 2px 8px rgba(0, 0, 0, 0.30);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0a1420;
+  --surface: #101d2c;
+  --surface-2: #16273a;
+  --surface-3: #1d3149;
+  --line: #22384f;
+  --line-strong: #31506e;
+  --ink: #e9eff7;
+  --ink-2: #bccbdb;
+  --ink-3: #93a4b9;
+  --ink-4: #75879d;
+  --brand: #ff7089;
+  --brand-ink: #ff8fa2;
+  --brand-soft: rgba(255, 112, 137, 0.14);
+  --navy: #7fb0e6;
+  --link: #7fb0e6;
+  --focus: #7fb0e6;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-2: 0 2px 8px rgba(0, 0, 0, 0.30);
+}
+:root[data-theme="light"] {
+  --bg: #eef2f7;
+  --surface: #ffffff;
+  --surface-2: #f5f7fa;
+  --surface-3: #e6ecf4;
+  --line: #dce3ec;
+  --line-strong: #c2cddc;
+  --ink: #0a1f33;
+  --ink-2: #33465f;
+  --ink-3: #5a6c84;
+  --ink-4: #7d8ca1;
+  --brand: #f5516c;
+  --brand-ink: #c0294a;
+  --brand-soft: rgba(245, 81, 108, 0.10);
+  --navy: #0a355c;
+  --link: #0a4f8f;
+  --focus: #0a4f8f;
+  --shadow-1: 0 1px 2px rgba(10, 31, 51, 0.06), 0 4px 12px rgba(10, 31, 51, 0.04);
+  --shadow-2: 0 2px 6px rgba(10, 31, 51, 0.08), 0 12px 28px rgba(10, 31, 51, 0.08);
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+body.is-locked { overflow: hidden; }
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+code, pre {
+  font-family: var(--mono);
+}
+code {
+  font-size: 0.875em;
+  background: var(--surface-2);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 1000;
+  background: var(--navy);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 0 0 var(--radius-sm) 0;
+  font-weight: 600;
+}
+.skip-link:focus {
+  left: 0;
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.site-chrome {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.topbar {
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 20px;
+  background: var(--surface);
+}
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.topbar-brand:hover { text-decoration: none; }
+.topbar-brand img {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: block;
+  flex: 0 0 auto;
+  object-fit: cover;
+}
+.topbar-titles {
+  line-height: 1.25;
+  flex: 0 0 auto;
+}
+.topbar-titles .wordmark {
+  display: block;
+  font-weight: 650;
+  font-size: 15px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.topbar-titles .submark {
+  display: block;
+  font-size: 12.5px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+/* Desktop (≥720): single topbar row — brand | search | actions */
+.search-wrap {
+  position: relative;
+  flex: 0 0 auto;
+  width: 300px;
+  max-width: 32vw;
+  margin-left: auto;
+}
+.search-wrap[hidden] {
+  display: none !important;
+}
+.search-status {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 100%;
+  margin: 0;
+  padding: 6px 12px;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--ink-2);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  box-shadow: var(--shadow-1);
+  z-index: 101;
+  pointer-events: none;
+}
+.search-status:empty,
+.search-status[hidden] {
+  display: none !important;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+}
+.icon-btn {
+  appearance: none;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  cursor: pointer;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: color 180ms, background 180ms, border-color 180ms;
+}
+.icon-btn:hover {
+  background: var(--surface-3);
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+.icon-btn svg { width: 20px; height: 20px; display: block; }
+.icon-btn .icon-moon { display: none; }
+:root[data-theme="dark"] .icon-btn .icon-sun { display: none; }
+:root[data-theme="dark"] .icon-btn .icon-moon { display: block; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .icon-btn .icon-sun { display: none; }
+  :root:not([data-theme="light"]) .icon-btn .icon-moon { display: block; }
+}
+.search-wrap input[type="search"] {
+  width: 100%;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  padding: 0 12px;
+  transition: border-color 180ms, background 180ms;
+}
+.search-wrap input[type="search"]:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+  border-color: var(--focus);
+  background: var(--surface);
+}
+.search-wrap input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; }
+.topbar-nav-btn {
+  appearance: none;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  height: 44px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 14px;
+  transition: color 180ms, background 180ms, border-color 180ms;
+}
+.topbar-nav-btn:hover {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+/* Narrow: brand + actions on row 1; search full-width second row */
+@media (max-width: 719px) {
+  .topbar {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: var(--topbar-h);
+    padding-bottom: 10px;
+    row-gap: 0;
+  }
+  .topbar-brand {
+    order: 1;
+    flex: 1 1 auto;
+  }
+  .topbar-actions {
+    order: 2;
+    margin-left: 0;
+  }
+  .search-wrap {
+    order: 3;
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+  }
+  .topbar-nav-btn {
+    padding: 0;
+    width: 44px;
+    font-size: 0;
+  }
+  .topbar-nav-btn::before {
+    content: "≡";
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1;
+  }
+}
+.topbar-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--link);
+  white-space: nowrap;
+  min-height: 44px;
+  padding: 0 8px;
+}
+.topbar-back:hover { text-decoration: underline; }
+.crumbs {
+  font-size: 13px;
+  color: var(--ink-3);
+  margin: 0 0 18px;
+}
+.crumbs a { color: var(--ink-2); }
+.crumbs .sep { margin: 0 6px; color: var(--ink-4); }
+.footer {
+  margin-top: 56px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--ink-3);
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+`;
+
+const INDEX_CSS = SHARED_CSS + `
+.wrap {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 40px;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 28px 28px 64px;
+}
+.sidebar {
+  position: sticky;
+  top: calc(var(--topbar-h) + 16px);
+  align-self: start;
+  max-height: calc(100vh - var(--topbar-h) - 32px);
+  overflow-y: auto;
+  padding-right: 8px;
+}
+.sidebar-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 16px 14px;
+}
+.toc-label {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  margin: 0 0 10px;
+}
+.toc { margin: 0; }
+.toc ol { list-style: none; padding: 0; margin: 0; }
+.toc > ol > li { margin: 2px 0; }
+.toc a {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: var(--ink-2);
+  text-decoration: none;
+  border-left: 3px solid transparent;
+  transition: background 160ms, color 160ms, border-color 160ms;
+}
+.toc a:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+  text-decoration: none;
+}
+.toc a[aria-current="true"] {
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+  border-left-color: var(--brand);
+  font-weight: 650;
+}
+.toc .spec-num {
+  display: inline-block;
+  min-width: 22px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-4);
+  font-size: 12px;
+}
+.toc .sub {
+  list-style: none;
+  padding: 2px 0 6px 18px;
+  margin: 0;
+}
+.toc .sub a {
+  font-size: 13px;
+  padding: 5px 10px;
+  color: var(--ink-3);
+}
+.toc .sub a .count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+.toc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.toc-actions button {
+  appearance: none;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  min-height: 36px;
+  padding: 6px 12px;
+  transition: background 160ms, border-color 160ms, color 160ms;
+}
+.toc-actions button:hover {
+  background: var(--surface-3);
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+main { min-width: 0; }
+.hero h1 {
+  margin: 0 0 14px;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--ink);
+}
+.lede {
+  font-size: 18px;
+  color: var(--ink-2);
+  margin: 0 0 28px;
+  max-width: 70ch;
+}
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin: 0 0 24px;
+}
+.stats .stat {
+  flex: 1 1 110px;
+  padding: 16px 18px;
+  border-right: 1px solid var(--line);
+  min-width: 100px;
+}
+.stats .stat:last-child { border-right: 0; }
+.stats .stat .n {
+  display: block;
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.stats .stat .l {
+  display: block;
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.stats .stat.stat-sha {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+.stats .stat.stat-sha .n {
+  font-size: 16px;
+  font-family: var(--mono);
+  font-weight: 650;
+  letter-spacing: 0;
+}
+.callout {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--navy);
+  padding: 14px 18px;
+  margin: 0 0 36px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  max-width: 70ch;
+}
+.callout p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 14px;
+}
+.callout b { color: var(--ink); }
+hr.sep {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 40px 0;
+}
+details.spec {
+  margin: 0 0 56px;
+  scroll-margin-top: calc(var(--topbar-h) + 64px);
+}
+details.spec > summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+}
+details.spec > summary::-webkit-details-marker { display: none; }
+.spec-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px;
+  margin-bottom: 8px;
+}
+.spec-head .lhs { min-width: 0; }
+.spec-head h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--ink);
+}
+.spec-head .badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--ink-3);
+  font-size: 12.5px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.spec-head .chevron {
+  width: 16px;
+  height: 16px;
+  color: var(--ink-4);
+  flex: 0 0 auto;
+  transition: transform 180ms, color 160ms;
+}
+details.spec[open] .spec-head .chevron {
+  transform: rotate(90deg);
+  color: var(--brand);
+}
+.spec-head .file {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--ink-3);
+  overflow-wrap: anywhere;
+}
+.spec-head .rhs {
+  text-align: right;
+  font-size: 13px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.spec-head .rhs b { color: var(--ink); font-weight: 650; }
+@media (max-width: 600px) {
+  .spec-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .spec-head .rhs {
+    text-align: left;
+    white-space: normal;
+  }
+  .stats .stat.stat-sha {
+    flex: 1 1 100%;
+    border-right: 0;
+    border-top: 1px solid var(--line);
+  }
+  .stats .stat.stat-sha .n {
+    font-size: 14px;
+  }
+}
+.spec-intro {
+  color: var(--ink-2);
+  margin: 12px 0 22px;
+  max-width: 70ch;
+  font-size: 16px;
+}
+.group-block {
+  margin: 0 0 36px;
+  scroll-margin-top: calc(var(--topbar-h) + 16px);
+}
+.group-block[hidden],
+.shot-card[hidden],
+details.spec[hidden],
+.doc-list li[hidden] {
+  display: none !important;
+}
+/* Copy button sits NEXT TO the group heading, never inside it (a11y name). */
+.group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 8px;
+  flex-wrap: wrap;
+}
+.group-head h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 650;
+  color: var(--ink);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  scroll-margin-top: calc(var(--topbar-h) + 16px);
+}
+.group-head h3 .gcount {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-4);
+}
+.group-desc {
+  margin: 0 0 18px;
+  max-width: 70ch;
+  color: var(--ink-2);
+  font-size: 15px;
+}
+a.name.permalink {
+  text-decoration: none;
+  color: inherit;
+}
+a.name.permalink:hover {
+  text-decoration: underline;
+  color: var(--brand-ink);
+}
+.copy-link {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 2px 6px;
+  font: inherit;
+  font-size: 11.5px;
+  line-height: 1;
+  color: var(--ink-3);
+  cursor: pointer;
+  border-radius: 4px;
+  flex: 0 0 auto;
+}
+.copy-link:hover {
+  color: var(--brand-ink);
+  background: var(--surface);
+  border-color: var(--line);
+}
+.copy-link[data-copied='true'] {
+  color: var(--brand-ink);
+  background: var(--surface);
+  border-color: var(--brand);
+}
+.shot-grid {
+  display: grid;
+  gap: 22px;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+}
+.shot-card {
+  margin: 0;
+  background: transparent;
+  scroll-margin-top: calc(var(--topbar-h) + 12px);
+}
+.shot-card > a.shot-img {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: var(--radius-lg);
+  transition: opacity 160ms;
+}
+.shot-card > a.shot-img:hover { text-decoration: none; }
+.shot-card .frame {
+  aspect-ratio: 9 / 19.5;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 10px;
+  transition: border-color 180ms, box-shadow 180ms;
+}
+.shot-card > a.shot-img:hover .frame {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-2);
+}
+.shot-card > a.shot-img:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+.shot-card img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  border-radius: 8px;
+}
+.shot-card figcaption {
+  margin-top: 10px;
+  padding: 0 2px;
+}
+.shot-card .cap-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.shot-card .num-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--ink-2);
+  font-size: 11.5px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.shot-card .cap-row a.name.permalink {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.35;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.shot-card .cap-file {
+  margin-top: 4px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-3);
+  overflow-wrap: anywhere;
+}
+.asset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+.asset-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  text-align: center;
+  transition: border-color 160ms, box-shadow 160ms;
+}
+.asset-card:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-1);
+}
+.asset-card a {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+.asset-card a:hover { text-decoration: none; }
+.asset-card a:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+.asset-card .frame {
+  aspect-ratio: 4 / 3;
+  background:
+    linear-gradient(45deg, var(--surface-3) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--surface-3) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--surface-3) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--surface-3) 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  background-color: var(--surface-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+}
+.asset-card img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.asset-card .an {
+  margin-top: 10px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.store-platform { margin-bottom: 36px; }
+.store-platform h3 {
+  margin: 0 0 14px;
+  font-size: 18px;
+  color: var(--ink);
+}
+.store-locale {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  margin-bottom: 14px;
+}
+.store-locale h4 {
+  margin: 0 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 650;
+}
+.locale-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+.store-locale dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.store-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 200px) 1fr;
+  gap: 8px 18px;
+  align-items: start;
+}
+.store-row[hidden] { display: none !important; }
+.store-locale dt {
+  font-size: 13px;
+  color: var(--ink-3);
+  font-weight: 650;
+}
+.store-locale dd {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 15px;
+}
+.store-locale dd.empty { color: var(--ink-4); }
+.doc-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.doc-list li {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  margin-bottom: 10px;
+  transition: border-color 160ms, box-shadow 160ms;
+}
+.doc-list li:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-1);
+}
+.doc-list a {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  min-height: 52px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.doc-list a:hover { text-decoration: none; }
+.doc-list a:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-md);
+}
+.doc-list .doc-title { font-weight: 650; font-size: 15px; }
+.doc-list .doc-path {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.doc-list .chev {
+  color: var(--ink-4);
+  flex: 0 0 auto;
+}
+.search-empty {
+  background: var(--surface);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-md);
+  padding: 28px 20px;
+  text-align: center;
+  color: var(--ink-2);
+  margin: 12px 0 28px;
+}
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(7, 20, 32, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .lightbox {
+    background: rgba(2, 8, 14, 0.92);
+  }
+}
+:root[data-theme="dark"] .lightbox {
+  background: rgba(2, 8, 14, 0.92);
+}
+.lightbox[hidden] { display: none !important; }
+.lightbox-dialog {
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-2);
+  width: min(92vw, 380px);
+  max-width: min(92vw, 380px);
+  max-height: min(94vh, 100%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.lightbox-bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.lightbox-meta { min-width: 0; }
+.lightbox-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--ink);
+}
+.lightbox-file {
+  margin: 4px 0 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-3);
+  overflow-wrap: anywhere;
+}
+.lightbox-count {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: var(--ink-4);
+}
+.lightbox-body {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px;
+  background: var(--surface-2);
+  min-height: 0;
+}
+.lightbox-stage {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  overflow: auto;
+}
+.lightbox-stage img {
+  max-width: 100%;
+  max-height: min(68vh, 720px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+}
+.lightbox-arrow {
+  appearance: none;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  cursor: pointer;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0;
+  transition: background 160ms, border-color 160ms, color 160ms;
+  grid-row: 1;
+}
+.lightbox-arrow:hover {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+#lightbox-prev { grid-column: 1; }
+#lightbox-next { grid-column: 3; }
+.lightbox-arrow .label-full { display: none; }
+.lightbox-arrow .label-short { display: inline; }
+@media (max-width: 560px) {
+  .lightbox-dialog {
+    width: min(94vw, 360px);
+    max-width: min(94vw, 360px);
+  }
+  .lightbox-body {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    padding: 10px;
+    gap: 8px;
+  }
+  .lightbox-stage {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  #lightbox-prev { grid-column: 1; grid-row: 2; }
+  #lightbox-next { grid-column: 2; grid-row: 2; }
+  .lightbox-arrow {
+    width: 100%;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 0 10px;
+  }
+  .lightbox-arrow .label-full { display: inline; }
+  .lightbox-arrow .label-short { display: none; }
+}
+@media (max-width: 1023px) {
+  .wrap {
+    grid-template-columns: 1fr;
+    padding: 18px 16px 48px;
+    gap: 20px;
+  }
+  .sidebar {
+    position: static;
+    max-height: none;
+    order: 2;
+    display: none;
+  }
+  body.sidebar-open .sidebar { display: block; }
+  main { order: 1; }
+  .hero h1 { font-size: 28px; }
+  .stats .stat { border-right: 0; border-bottom: 1px solid var(--line); }
+  .store-row { grid-template-columns: 1fr; gap: 2px; }
+}
+@media (min-width: 1024px) {
+  .topbar-nav-btn { display: none; }
+}
+@media (max-width: 480px) {
+  .topbar { padding: 0 12px 10px; gap: 8px; }
+  .topbar-titles .wordmark { font-size: 13.5px; }
+}
+.toc li[hidden] { display: none !important; }
+`;
+
+const DOC_CSS = SHARED_CSS + `
+.doc-wrap {
+  max-width: 72ch;
+  margin: 0 auto;
+  padding: 28px 22px 64px;
+}
+.doc-body {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 28px 28px 36px;
+  box-shadow: var(--shadow-1);
+}
+.doc-body > :first-child { margin-top: 0; }
+.doc-body h1 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  margin: 0 0 18px;
+  color: var(--ink);
+}
+.doc-body h2 {
+  font-size: 22px;
+  font-weight: 650;
+  margin: 36px 0 12px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  scroll-margin-top: calc(var(--topbar-h) + 12px);
+}
+.doc-body h3 {
+  font-size: 18px;
+  font-weight: 650;
+  margin: 28px 0 10px;
+  color: var(--ink);
+  scroll-margin-top: calc(var(--topbar-h) + 12px);
+}
+.doc-body h4, .doc-body h5, .doc-body h6 {
+  font-size: 16px;
+  font-weight: 650;
+  margin: 22px 0 8px;
+  color: var(--ink);
+}
+.doc-body p, .doc-body li {
+  color: var(--ink-2);
+  max-width: 70ch;
+}
+.doc-body a { color: var(--link); }
+.doc-body a:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.doc-body ul, .doc-body ol { padding-left: 1.35em; }
+.doc-body li { margin: 0.35em 0; }
+.doc-body blockquote {
+  margin: 18px 0;
+  padding: 10px 16px;
+  border-left: 3px solid var(--brand);
+  background: var(--brand-soft);
+  color: var(--ink-2);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.doc-body hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 28px 0;
+}
+.doc-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+}
+.doc-body pre {
+  margin: 16px 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  overflow: visible;
+}
+.doc-body pre code,
+.doc-body .code-scroll {
+  display: block;
+  overflow-x: auto;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+.doc-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14.5px;
+  margin: 0;
+}
+.doc-body .table-scroll {
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.doc-body th, .doc-body td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.doc-body th {
+  background: var(--surface-2);
+  color: var(--ink);
+  font-weight: 650;
+}
+.doc-body tr:nth-child(even) td { background: var(--surface-2); }
+.doc-body tr:last-child td { border-bottom: 0; }
+@media (max-width: 640px) {
+  .doc-wrap { padding: 16px 12px 48px; }
+  .doc-body { padding: 18px 16px 28px; }
+}
+`;
+
+function svgChevron() {
+  return (
+    '<svg class="chevron" viewBox="0 0 16 16" aria-hidden="true" focusable="false">' +
+    '<path fill="currentColor" d="M6.2 3.2a.75.75 0 0 1 1.06 0l4 4a.75.75 0 0 1 0 1.06l-4 4A.75.75 0 1 1 6.2 11.2L9.44 8 6.2 4.76a.75.75 0 0 1 0-1.06z"/>' +
+    '</svg>'
+  );
+}
+
+function svgSunMoon() {
+  return (
+    '<svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+    '<path fill="currentColor" d="M12 18a6 6 0 1 1 0-12 6 6 0 0 1 0 12zm0 3.25a.75.75 0 0 0 .75-.75v-1a.75.75 0 0 0-1.5 0v1c0 .41.34.75.75.75zm0-16.5a.75.75 0 0 0 .75-.75v-1a.75.75 0 0 0-1.5 0v1c0 .41.34.75.75.75zm9 7.5a.75.75 0 0 0-.75-.75h-1a.75.75 0 0 0 0 1.5h1c.41 0 .75-.34.75-.75zm-16.5 0a.75.75 0 0 0-.75-.75h-1a.75.75 0 0 0 0 1.5h1c.41 0 .75-.34.75-.75zm12.78 5.78a.75.75 0 0 0 0-1.06l-.7-.7a.75.75 0 1 0-1.06 1.06l.7.7c.3.3.77.3 1.06 0zm-10.6-10.6a.75.75 0 0 0 0-1.06l-.7-.7A.75.75 0 1 0 5.3 6.48l.7.7c.3.3.77.3 1.06 0zm10.6 0c.3-.3.3-.77 0-1.06l-.7-.7a.75.75 0 1 0-1.06 1.06l.7.7c.3.3.77.3 1.06 0zM7.18 18.28a.75.75 0 0 0 0-1.06l-.7-.7a.75.75 0 1 0-1.06 1.06l.7.7c.3.3.77.3 1.06 0z"/>' +
+    '</svg>' +
+    '<svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+    '<path fill="currentColor" d="M16.5 2.25a.75.75 0 0 1 .68.44 8.25 8.25 0 1 1-11.4 11.4.75.75 0 0 1 .98-.98 6.5 6.5 0 0 0 8.54-8.54.75.75 0 0 1 .44-.68 8.2 8.2 0 0 1 .76-.16z"/>' +
+    '</svg>'
+  );
+}
+
+function buildTopbar(opts) {
+  const prefix = opts.prefix || '';
+  const logoHref = escapeHtml(encodeHtmlPath(prefix + 'assets/icon.png'));
+  const homeHref = escapeHtml(encodeHtmlPath(prefix + 'index.html'));
+  const showSearch = !!opts.showSearch;
+  const showSidebarToggle = !!opts.showSidebarToggle;
+  const showBack = !!opts.showBack;
+  let actions = '';
+  if (showSidebarToggle) {
+    actions +=
+      '<button type="button" class="topbar-nav-btn" id="sidebar-toggle" hidden ' +
+      'aria-expanded="false" aria-controls="handbook-sidebar">Inhalt</button>';
+  }
+  if (showBack) {
+    actions +=
+      `<a class="topbar-back" href="${homeHref}">← Zum Handbuch</a>`;
+  }
+  actions +=
+    '<button type="button" class="icon-btn" id="theme-toggle" hidden ' +
+    'aria-label="Darstellung umschalten" aria-pressed="false">' +
+    svgSunMoon() +
+    '</button>';
+  // Search lives in the topbar row on ≥720px; CSS wraps it to a second row under 720px.
+  let searchHtml = '';
+  let statusHtml = '';
+  if (showSearch) {
+    searchHtml =
+      '<div class="search-wrap" id="search-wrap" hidden>' +
+      '<input type="search" id="handbook-search" placeholder="Suchen…" ' +
+      'aria-label="Handbuch durchsuchen" autocomplete="off" spellcheck="false">' +
+      '</div>';
+    statusHtml =
+      '<p class="search-status" id="search-status" role="status" aria-live="polite" hidden></p>';
+  }
+  return (
+    `<div class="site-chrome">` +
+    `<header class="topbar">` +
+    `<a class="topbar-brand" href="${homeHref}">` +
+    `<img src="${logoHref}" alt="DFX BTC Taro Wallet" width="30" height="30">` +
+    `<span class="topbar-titles">` +
+    `<span class="wordmark">DFX BTC Taro Wallet</span>` +
+    `<span class="submark">Handbuch</span>` +
+    `</span></a>` +
+    searchHtml +
+    `<div class="topbar-actions">${actions}</div>` +
+    `</header>` +
+    statusHtml +
+    `</div>`
+  );
+}
+
+function buildHead(opts) {
+  const prefix = opts.prefix || '';
+  const iconHref = escapeHtml(encodeHtmlPath(prefix + 'assets/icon.png'));
+  const desc = escapeHtml(
+    opts.description ||
+      'Handbuch der DFX BTC Taro Wallet: Screenshots, Store-Listing, Assets und Dokumentation.',
+  );
+  const title = escapeHtml(opts.title);
+  const css = opts.css;
+  const colorScheme =
+    '<meta name="color-scheme" content="light dark">\n' +
+    '<meta name="theme-color" content="#eef2f7" media="(prefers-color-scheme: light)">\n' +
+    '<meta name="theme-color" content="#0a1420" media="(prefers-color-scheme: dark)">\n';
+  return (
+    `<!DOCTYPE html>\n<html lang="de">\n<head>\n` +
+    `<meta charset="utf-8">\n` +
+    `<meta name="viewport" content="width=device-width, initial-scale=1">\n` +
+    colorScheme +
+    `<meta name="description" content="${desc}">\n` +
+    `<link rel="icon" type="image/png" href="${iconHref}">\n` +
+    `<title>${title}</title>\n` +
+    `<style>${css}\n</style>\n` +
+    `</head>\n`
+  );
+}
+
+function buildHandbookJs() {
+  // Deterministic external script (no timestamps). Tolerates missing index-only
+  // elements so the same file can load on doc pages for the theme toggle.
+  return [
+    '(function () {',
+    "  var THEME_KEY = 'handbook-theme';",
+    '  function $(id) { return document.getElementById(id); }',
+    '  function qs(sel, root) { return (root || document).querySelector(sel); }',
+    '  function qsa(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }',
+    '',
+    '  function applyTheme(theme) {',
+    '    var root = document.documentElement;',
+    "    if (theme === 'dark' || theme === 'light') {",
+    "      root.setAttribute('data-theme', theme);",
+    '    } else {',
+    "      root.removeAttribute('data-theme');",
+    '      theme = null;',
+    '    }',
+    "    var btn = $('theme-toggle');",
+    '    if (btn) {',
+    "      var pressed = theme === 'dark' || (!theme && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);",
+    "      btn.setAttribute('aria-pressed', pressed ? 'true' : 'false');",
+    "      btn.setAttribute('aria-label', pressed ? 'Helles Design aktivieren' : 'Dunkles Design aktivieren');",
+    '    }',
+    '  }',
+    '',
+    '  function initTheme() {',
+    "    var btn = $('theme-toggle');",
+    '    if (!btn) return;',
+    '    btn.hidden = false;',
+    '    var stored = null;',
+    '    try { stored = localStorage.getItem(THEME_KEY); } catch (e) {}',
+    "    if (stored === 'dark' || stored === 'light') applyTheme(stored);",
+    '    else applyTheme(null);',
+    "    btn.addEventListener('click', function () {",
+    "      var cur = document.documentElement.getAttribute('data-theme');",
+    "      var systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;",
+    '      var next;',
+    "      if (cur === 'dark') next = 'light';",
+    "      else if (cur === 'light') next = 'dark';",
+    "      else next = systemDark ? 'light' : 'dark';",
+    '      applyTheme(next);',
+    '      try { localStorage.setItem(THEME_KEY, next); } catch (e) {}',
+    '    });',
+    '  }',
+    '',
+    '  function openTargetFromHash() {',
+    "    var hash = location.hash ? location.hash.slice(1) : '';",
+    '    if (!hash) return;',
+    '    var el = document.getElementById(hash);',
+    '    if (!el) return;',
+    "    var details = el.closest ? el.closest('details.spec') : null;",
+    "    if (!details && el.tagName === 'DETAILS') details = el;",
+    '    if (details) details.open = true;',
+    "    if (typeof el.scrollIntoView === 'function') {",
+    "      el.scrollIntoView({ block: 'start' });",
+    '    }',
+    '  }',
+    '',
+    '  function initTocActions() {',
+    "    var expand = $('toc-expand-all');",
+    "    var collapse = $('toc-collapse-all');",
+    "    var actions = $('toc-actions');",
+    '    if (actions && (expand || collapse)) actions.hidden = false;',
+    '    if (expand) {',
+    "      expand.addEventListener('click', function () {",
+    "        qsa('details.spec').forEach(function (d) { d.open = true; });",
+    '      });',
+    '    }',
+    '    if (collapse) {',
+    "      collapse.addEventListener('click', function () {",
+    "        qsa('details.spec').forEach(function (d) { d.open = false; });",
+    '      });',
+    '    }',
+    '  }',
+    '',
+    '  function initSidebarToggle() {',
+    "    var btn = $('sidebar-toggle');",
+    "    var side = $('handbook-sidebar');",
+    '    if (!btn || !side) return;',
+    '    btn.hidden = false;',
+    "    btn.addEventListener('click', function () {",
+    "      var open = document.body.classList.toggle('sidebar-open');",
+    "      btn.setAttribute('aria-expanded', open ? 'true' : 'false');",
+    '    });',
+    '  }',
+    '',
+    '  function initScrollspy() {',
+    '    if (!window.IntersectionObserver) return;',
+    "    var links = qsa('nav.toc a[href^=\"#\"]');",
+    '    if (!links.length) return;',
+    '    var map = {};',
+    '    links.forEach(function (a) {',
+    "      var id = a.getAttribute('href').slice(1);",
+    '      if (id) map[id] = a;',
+    '    });',
+    '    var ids = Object.keys(map);',
+    '    if (!ids.length) return;',
+    '    var visible = {};',
+    '    function setCurrent(id) {',
+    '      links.forEach(function (a) {',
+    "        if (a.getAttribute('href') === '#' + id) {",
+    "          a.setAttribute('aria-current', 'true');",
+    '        } else {',
+    "          a.removeAttribute('aria-current');",
+    '        }',
+    '      });',
+    '    }',
+    '    var io = new IntersectionObserver(function (entries) {',
+    '      entries.forEach(function (en) {',
+    '        if (en.isIntersecting) visible[en.target.id] = true;',
+    '        else delete visible[en.target.id];',
+    '      });',
+    '      var active = null;',
+    '      for (var i = 0; i < ids.length; i++) {',
+    '        if (visible[ids[i]]) { active = ids[i]; break; }',
+    '      }',
+    '      if (active) setCurrent(active);',
+    '    }, { rootMargin: "-20% 0px -60% 0px", threshold: [0, 0.1, 0.5] });',
+    '    ids.forEach(function (id) {',
+    '      var el = document.getElementById(id);',
+    '      if (el) io.observe(el);',
+    '    });',
+    '  }',
+    '',
+    '  function normalize(s) {',
+    "    return String(s || '').toLowerCase().replace(/\\s+/g, ' ').trim();",
+    '  }',
+    '',
+    '  function initSearch() {',
+    "    var wrap = $('search-wrap');",
+    "    var input = $('handbook-search');",
+    '    if (!wrap || !input) return;',
+    '    wrap.hidden = false;',
+    "    var status = $('search-status');",
+    "    var empty = $('search-empty');",
+    "    var shots = qsa('[data-search=\"shot\"]');",
+    "    var docs = qsa('[data-search=\"doc\"]');",
+    "    var store = qsa('[data-search=\"store-field\"]');",
+    "    var groups = qsa('[data-search=\"group\"]');",
+    "    var sections = qsa('details.spec');",
+    "    var secCounts = qsa('[data-sec-count]');",
+    "    var tocGroups = qsa('nav.toc a[data-toc-group]');",
+    '    var totalShots = shots.length;',
+    '    var totalGroups = groups.length;',
+    '    var openState = {};',
+    '    sections.forEach(function (s) { openState[s.id] = s.open; });',
+    '    var baseSec = {};',
+    '    secCounts.forEach(function (el) {',
+    "      baseSec[el.getAttribute('data-sec-count')] = el.textContent;",
+    '    });',
+    '    var baseToc = {};',
+    '    tocGroups.forEach(function (a) {',
+    "      var c = qs('.count', a);",
+    "      if (c) baseToc[a.getAttribute('data-toc-group')] = c.textContent;",
+    '    });',
+    '',
+    '    function setHidden(el, hide) {',
+    '      if (hide) el.setAttribute("hidden", "");',
+    '      else el.removeAttribute("hidden");',
+    '    }',
+    '',
+    '    function setStatus(text) {',
+    '      if (!status) return;',
+    '      if (!text) {',
+    '        status.textContent = "";',
+    '        status.hidden = true;',
+    '      } else {',
+    '        status.hidden = false;',
+    '        status.textContent = text;',
+    '      }',
+    '    }',
+    '',
+    '    function updateCounts(active, hitShots, hitGroups, hitDocs, hitStore) {',
+    '      secCounts.forEach(function (el) {',
+    "        var kind = el.getAttribute('data-sec-count');",
+    '        if (!active) {',
+    '          el.textContent = baseSec[kind] || el.textContent;',
+    '          return;',
+    '        }',
+    "        if (kind === 'screenshots') {",
+    "          el.textContent = hitShots + ' / ' + totalShots + ' Screenshots · ' + hitGroups + ' / ' + totalGroups + ' Gruppen';",
+    "        } else if (kind === 'documentation') {",
+    "          el.textContent = hitDocs + ' / ' + docs.length + ' Dokumente';",
+    "        } else if (kind === 'store-listing') {",
+    "          el.textContent = hitStore + ' / ' + store.length + ' Felder';",
+    '        }',
+    '      });',
+    '      tocGroups.forEach(function (a) {',
+    "        var gid = a.getAttribute('data-toc-group');",
+    "        var g = document.getElementById(gid);",
+    "        var c = qs('.count', a);",
+    '        var li = a.closest ? a.closest("li") : null;',
+    '        if (!active) {',
+    '          if (c) c.textContent = baseToc[gid] || c.textContent;',
+    '          if (li) setHidden(li, false);',
+    '          return;',
+    '        }',
+    '        var n = 0;',
+    "        if (g) n = qsa('[data-search=\"shot\"]', g).filter(function (s) { return !s.hasAttribute('hidden'); }).length;",
+    '        if (c) c.textContent = n + " / " + (baseToc[gid] || n);',
+    '        if (li) setHidden(li, n === 0);',
+    '      });',
+    '    }',
+    '',
+    '    function reset() {',
+    '      shots.forEach(function (el) { setHidden(el, false); });',
+    '      docs.forEach(function (el) { setHidden(el, false); });',
+    '      store.forEach(function (el) { setHidden(el, false); });',
+    '      groups.forEach(function (el) { setHidden(el, false); });',
+    '      sections.forEach(function (s) {',
+    '        setHidden(s, false);',
+    '        if (openState.hasOwnProperty(s.id)) s.open = openState[s.id];',
+    '      });',
+    '      setStatus("");',
+    '      if (empty) empty.hidden = true;',
+    '      updateCounts(false, 0, 0, 0, 0);',
+    '    }',
+    '',
+    '    function run() {',
+    '      var q = normalize(input.value);',
+    '      if (!q) { reset(); return; }',
+    '      var hitShots = 0;',
+    '      shots.forEach(function (el) {',
+    "        var hay = normalize(el.getAttribute('data-search-text'));",
+    '        var ok = hay.indexOf(q) !== -1;',
+    '        setHidden(el, !ok);',
+    '        if (ok) hitShots++;',
+    '      });',
+    '      var hitDocs = 0;',
+    '      docs.forEach(function (el) {',
+    "        var hay = normalize(el.getAttribute('data-search-text'));",
+    '        var ok = hay.indexOf(q) !== -1;',
+    '        setHidden(el, !ok);',
+    '        if (ok) hitDocs++;',
+    '      });',
+    '      var hitStore = 0;',
+    '      store.forEach(function (el) {',
+    "        var hay = normalize(el.getAttribute('data-search-text'));",
+    '        var ok = hay.indexOf(q) !== -1;',
+    '        setHidden(el, !ok);',
+    '        if (ok) hitStore++;',
+    '      });',
+    '      var hitGroups = 0;',
+    '      groups.forEach(function (g) {',
+    "        var visible = qsa('[data-search=\"shot\"]', g).some(function (s) { return !s.hasAttribute('hidden'); });",
+    '        setHidden(g, !visible);',
+    '        if (visible) hitGroups++;',
+    '      });',
+    '      sections.forEach(function (sec) {',
+    "        var any = qsa('[data-search]', sec).some(function (el) {",
+    "          if (el.getAttribute('data-search') === 'group') return false;",
+    '          return !el.hasAttribute("hidden");',
+    '        });',
+    "        if (!any) any = qsa('[data-search=\"group\"]', sec).some(function (el) { return !el.hasAttribute('hidden'); });",
+    '        setHidden(sec, !any);',
+    '        if (any) sec.open = true;',
+    '      });',
+    "      setStatus(hitShots + ' von ' + totalShots + ' Screenshots');",
+    '      updateCounts(true, hitShots, hitGroups, hitDocs, hitStore);',
+    '      var anyDoc = hitDocs > 0;',
+    '      var anyStore = hitStore > 0;',
+    '      if (empty) empty.hidden = !(hitShots === 0 && !anyDoc && !anyStore);',
+    '    }',
+    '',
+    "    input.addEventListener('input', run);",
+    "    input.addEventListener('keydown', function (ev) {",
+    "      if (ev.key === 'Escape') {",
+    "        input.value = '';",
+    '        reset();',
+    '        input.blur();',
+    '      }',
+    '    });',
+    '  }',
+    '',
+    '  function initLightbox() {',
+    "    var root = $('lightbox');",
+    '    if (!root) return;',
+    "    var img = $('lightbox-img');",
+    "    var titleEl = $('lightbox-title');",
+    "    var fileEl = $('lightbox-file');",
+    "    var countEl = $('lightbox-count');",
+    "    var btnClose = $('lightbox-close');",
+    "    var btnPrev = $('lightbox-prev');",
+    "    var btnNext = $('lightbox-next');",
+    '    var index = 0;',
+    '    var lastFocus = null;',
+    '    var groupCards = [];',
+    '',
+    '    function groupOf(card) {',
+    "      return card.getAttribute('data-group') || '';",
+    '    }',
+    '',
+    '    function collectGroup(card) {',
+    '      var g = groupOf(card);',
+    '      if (!g) return [];',
+    "      return qsa('.shot-card').filter(function (el) {",
+    "        return el.getAttribute('data-group') === g && !el.hasAttribute('hidden');",
+    '      });',
+    '    }',
+    '',
+    '    function show(i) {',
+    '      if (!groupCards.length) return;',
+    '      index = (i + groupCards.length) % groupCards.length;',
+    '      var card = groupCards[index];',
+    "      var a = qs('a.shot-img', card) || qs('a', card);",
+    "      var cap = card.getAttribute('data-caption') || '';",
+    "      var file = card.getAttribute('data-file') || '';",
+    "      var href = a ? a.getAttribute('href') : '';",
+    '      if (img) {',
+    '        img.src = href;',
+    '        img.alt = cap;',
+    '      }',
+    '      if (titleEl) titleEl.textContent = cap;',
+    '      if (fileEl) fileEl.textContent = file;',
+    '      if (countEl) countEl.textContent = (index + 1) + " von " + groupCards.length;',
+    '    }',
+    '',
+    '    function trapFocus(ev) {',
+    "      if (ev.key !== 'Tab' || root.hidden) return;",
+    "      var focusables = qsa('button, [href], input, [tabindex]:not([tabindex=\"-1\"])', root).filter(function (el) { return !el.disabled && el.offsetParent !== null; });",
+    '      if (!focusables.length) return;',
+    '      var first = focusables[0];',
+    '      var last = focusables[focusables.length - 1];',
+    '      if (ev.shiftKey && document.activeElement === first) {',
+    '        ev.preventDefault();',
+    '        last.focus();',
+    '      } else if (!ev.shiftKey && document.activeElement === last) {',
+    '        ev.preventDefault();',
+    '        first.focus();',
+    '      }',
+    '    }',
+    '',
+    '    function open(card) {',
+    "      lastFocus = card.querySelector('a.shot-img') || card.querySelector('a') || card;",
+    '      groupCards = collectGroup(card);',
+    '      index = groupCards.indexOf(card);',
+    '      if (index < 0) index = 0;',
+    '      root.hidden = false;',
+    "      document.body.classList.add('is-locked');",
+    '      show(index);',
+    '      if (btnClose) btnClose.focus();',
+    '    }',
+    '',
+    '    function close() {',
+    '      root.hidden = true;',
+    "      document.body.classList.remove('is-locked');",
+    '      if (img) img.removeAttribute("src");',
+    '      if (lastFocus && typeof lastFocus.focus === "function") lastFocus.focus();',
+    '    }',
+    '',
+    "    document.addEventListener('click', function (ev) {",
+    '      var t = ev.target;',
+    '      if (!t || !t.closest) return;',
+    "      if (t.closest('.copy-link') || t.closest('a.name.permalink')) return;",
+    "      var a = t.closest('.shot-card a.shot-img');",
+    '      if (!a) return;',
+    "      var card = a.closest('.shot-card');",
+    '      if (!card) return;',
+    '      ev.preventDefault();',
+    '      open(card);',
+    '    });',
+    '',
+    '    if (btnClose) btnClose.addEventListener("click", close);',
+    '    if (btnPrev) btnPrev.addEventListener("click", function () { show(index - 1); });',
+    '    if (btnNext) btnNext.addEventListener("click", function () { show(index + 1); });',
+    "    root.addEventListener('click', function (ev) { if (ev.target === root) close(); });",
+    "    document.addEventListener('keydown', function (ev) {",
+    '      if (root.hidden) return;',
+    "      if (ev.key === 'Escape') { ev.preventDefault(); close(); }",
+    "      else if (ev.key === 'ArrowLeft') { ev.preventDefault(); show(index - 1); }",
+    "      else if (ev.key === 'ArrowRight') { ev.preventDefault(); show(index + 1); }",
+    '      else trapFocus(ev);',
+    '    });',
+    '  }',
+    '',
+    '  function initCopyLinks() {',
+    '    function fallbackCopy(text) {',
+    "      var ta = document.createElement('textarea');",
+    '      ta.value = text;',
+    "      ta.setAttribute('readonly', '');",
+    "      ta.style.position = 'fixed';",
+    "      ta.style.opacity = '0';",
+    '      document.body.appendChild(ta);',
+    '      ta.select();',
+    '      var ok = false;',
+    "      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }",
+    '      document.body.removeChild(ta);',
+    '      return ok;',
+    '    }',
+    "    qsa('.copy-link').forEach(function (btn) {",
+    '      var origText = btn.textContent;',
+    '      var resetTimer = null;',
+    "      btn.addEventListener('click', function () {",
+    "        var target = btn.getAttribute('data-target');",
+    '        if (!target) return;',
+    "        var url = location.origin + location.pathname + '#' + target;",
+    '        var done = function (ok) {',
+    "          btn.textContent = ok ? '\\u2713 Kopiert' : '\\u2717 Nicht kopiert';",
+    "          if (ok) btn.setAttribute('data-copied', 'true');",
+    '          if (resetTimer) clearTimeout(resetTimer);',
+    '          resetTimer = setTimeout(function () {',
+    '            btn.textContent = origText;',
+    "            btn.removeAttribute('data-copied');",
+    '            resetTimer = null;',
+    '          }, 1200);',
+    "          if (location.hash !== '#' + target) location.hash = target;",
+    '        };',
+    '        if (navigator.clipboard && navigator.clipboard.writeText) {',
+    '          navigator.clipboard.writeText(url).then(',
+    '            function () { done(true); },',
+    '            function () { done(fallbackCopy(url)); }',
+    '          );',
+    '        } else {',
+    '          done(fallbackCopy(url));',
+    '        }',
+    '      });',
+    '    });',
+    '  }',
+    '',
+    "  document.addEventListener('DOMContentLoaded', function () {",
+    '    initTheme();',
+    '    initTocActions();',
+    '    initSidebarToggle();',
+    '    initScrollspy();',
+    '    initSearch();',
+    '    initLightbox();',
+    '    initCopyLinks();',
+    '    openTargetFromHash();',
+    '  });',
+    "  window.addEventListener('hashchange', openTargetFromHash);",
+    '})();',
+    '',
+  ].join('\n');
+}
+
+/** Wrap tables for horizontal scroll; keep pre scrollable inside itself. */
+function enhanceDocBodyHtml(html) {
+  let out = String(html);
+  out = out.replace(
+    /<table\b[\s\S]*?<\/table>/gi,
+    (m) => '<div class="table-scroll">' + m + '</div>',
+  );
+  return out;
+}
+
 
 /**
  * Register an anchor id and remember where it came from. `seen` maps id →
@@ -802,27 +2651,40 @@ function sanitizeDocHtml(html, docOutRel, discoveredMdToOut) {
     },
   );
 
-  // Strip unresolved <img src="..."> — keep alt text if present.
+  // Replace remote absolute <img> (http/https/protocol-relative) with alt text —
+  // CSP img-src is 'self' data: only. Keep data:image/* and fragment-only.
+  // Strip unresolved relative <img> the same way (label kept, src removed).
   html = html.replace(
     /<img\s+([^>]*?)src=(?:"([^"]*)"|'([^']*)')([^>]*?)\/?>/gi,
     (full, pre, dSrc, sSrc, post) => {
       const src = dSrc !== undefined ? dSrc : sSrc;
-      if (
-        ABSOLUTE_URI_SCHEME_RE.test(src) ||
-        src.startsWith('//') ||
-        src.startsWith('#')
-      ) {
-        return full;
-      }
-      if (targetExists(src)) return full;
-      logOnce(decodeHtmlEntities(src).split('#')[0].split('?')[0]);
+      const decodedSrc = decodeHtmlEntities(src).split('#')[0].split('?')[0];
       const altMatch = full.match(/\balt=(?:"([^"]*)"|'([^']*)')/i);
       const alt = altMatch
         ? altMatch[1] !== undefined
           ? altMatch[1]
           : altMatch[2]
         : '';
-      return alt ? escapeHtml(decodeHtmlEntities(alt)) : '';
+      const altOut = alt ? escapeHtml(decodeHtmlEntities(alt)) : '';
+      // data:image is CSP-legal and may be intentional; leave alone.
+      if (/^data:image\//i.test(String(src).trim())) {
+        return full;
+      }
+      if (
+        ABSOLUTE_URI_SCHEME_RE.test(src) ||
+        src.startsWith('//')
+      ) {
+        console.error(
+          `handbook: replaced remote image in ${docOutRel}: ${decodedSrc || src}`,
+        );
+        return altOut;
+      }
+      if (src.startsWith('#')) {
+        return full;
+      }
+      if (targetExists(src)) return full;
+      logOnce(decodedSrc);
+      return altOut;
     },
   );
 
@@ -1176,17 +3038,32 @@ function main() {
     const md = fs.readFileSync(src, 'utf8');
     let body = markedParse(md);
     body = sanitizeDocHtml(body, d.out, discoveredMdToOut);
+    body = enhanceDocBodyHtml(body);
+    const prefix = relativeToRoot(d.out);
+    const jsHref = escapeHtml(encodeHtmlPath(prefix + 'handbook.js'));
     const page =
-      '<!DOCTYPE html>\n<html lang="de">\n<head>\n<meta charset="utf-8">\n' +
-      `<meta name="viewport" content="width=device-width, initial-scale=1">\n` +
-      `<title>${escapeHtml(d.title)} — DFX BTC Taro Wallet Handbuch</title>\n` +
-      '<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;' +
-      'max-width:860px;margin:32px auto;padding:0 20px;line-height:1.55;color:#0a1f33;}' +
-      'pre{overflow:auto;background:#f3f4f7;padding:12px;border-radius:6px;}' +
-      'code{font-family:SF Mono,Menlo,Consolas,monospace;font-size:0.9em;}' +
-      'img{max-width:100%;height:auto;}a{color:#0A355C;}</style>\n</head>\n<body>\n' +
-      body +
-      '\n</body>\n</html>\n';
+      buildHead({
+        title: d.title + ' — DFX BTC Taro Wallet Handbuch',
+        description:
+          d.title +
+          ' — Dokumentation der DFX BTC Taro Wallet.',
+        prefix,
+        css: DOC_CSS,
+      }) +
+      '<body>\n' +
+      '<a class="skip-link" href="#doc-content">Zum Inhalt</a>\n' +
+      buildTopbar({ prefix, showBack: true }) +
+      '<div class="doc-wrap">\n' +
+      '<nav class="crumbs" aria-label="Brotkrume">' +
+      `<a href="${escapeHtml(encodeHtmlPath(prefix + 'index.html'))}">Handbuch</a>` +
+      '<span class="sep">/</span>Dokumentation<span class="sep">/</span>' +
+      `<span>${escapeHtml(d.title)}</span></nav>\n` +
+      `<article class="doc-body" id="doc-content">\n${body}\n</article>\n` +
+      `<footer class="footer">Quelle: <code>${escapeHtml(d.src)}</code>` +
+      ` · Stand: <code>${escapeHtml(gitSha)}</code></footer>\n` +
+      '</div>\n' +
+      `<script src="${jsHref}"></script>\n` +
+      '</body>\n</html>\n';
     const dest = path.join(outDir, d.out);
     ensureDir(path.dirname(dest));
     fs.writeFileSync(dest, page, 'utf8');
@@ -1214,6 +3091,19 @@ function main() {
       );
     }
   }
+  // Orphan captions: screenshots.<group>.captions.<stem> without a matching file.
+  for (const key of Object.keys(screenshotsMeta).sort(sortStrings)) {
+    const meta = screenshotsMeta[key];
+    if (!meta || !meta.captions || typeof meta.captions !== 'object') continue;
+    const fileStems = new Set((groups.get(key) || []).map((e) => e.title));
+    for (const stem of Object.keys(meta.captions).sort(sortStrings)) {
+      if (!fileStems.has(stem)) {
+        console.error(
+          `handbook warning: metadata.json screenshots.${key}.captions entry "${stem}" has no matching screenshot (orphan).`,
+        );
+      }
+    }
+  }
   // Symmetric orphan warning for docs title overrides without a discovered file.
   const discoveredDocSet = new Set(discoveredDocs);
   for (const key of Object.keys(docsMeta).sort(sortStrings)) {
@@ -1224,515 +3114,19 @@ function main() {
     }
   }
 
+  // Enrich screenshot entries with caption/badge for HTML + search.
+  for (const e of screenshotEntries) {
+    const meta = screenshotsMeta[e.group];
+    // titleFromFilename already stripped .png; re-add for deriveScreenshotCaption.
+    const derived = deriveScreenshotCaption(e.title + '.png', meta);
+    e.caption = derived.caption;
+    e.badge = derived.badge;
+    e.stem = derived.stem;
+  }
+
   // -------------------------------------------------------------------------
   // Build index.html
   // -------------------------------------------------------------------------
-  const css = `
-      :root {
-        --bg: #e8eef5;
-        --surface: #ffffff;
-        --surface-2: #f3f4f7;
-        --line: #d6dbe2;
-        --line-2: #b8c4d8;
-        --ink: #072440;
-        --ink-2: #0A355C;
-        --ink-3: #65728A;
-        --ink-4: #9AA5B8;
-        --brand: #F5516C;
-        --brand-blue: #5A81BB;
-        --content-width: 960px;
-      }
-      * { box-sizing: border-box; }
-      html { scroll-behavior: smooth; }
-      body {
-        margin: 0;
-        background: var(--bg);
-        color: var(--ink);
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        font-size: 14.5px;
-        line-height: 1.55;
-        -webkit-font-smoothing: antialiased;
-      }
-      a { color: var(--brand-blue); text-decoration: none; }
-      a:hover { text-decoration: underline; }
-      code {
-        font-family: 'SF Mono', Menlo, Consolas, monospace;
-        font-size: 0.88em;
-        background: var(--surface-2);
-        padding: 1.5px 5px;
-        border-radius: 3px;
-        border: 1px solid var(--line);
-        color: var(--ink);
-      }
-      .wrap {
-        display: grid;
-        grid-template-columns: 240px 1fr;
-        gap: 32px;
-        max-width: 1280px;
-        margin: 0 auto;
-        padding: 32px;
-      }
-      @media (max-width: 900px) {
-        .wrap { grid-template-columns: 1fr; }
-        aside { position: static !important; height: auto !important; }
-      }
-      aside {
-        position: sticky;
-        top: 32px;
-        align-self: start;
-        height: calc(100vh - 64px);
-        overflow-y: auto;
-        padding-right: 12px;
-      }
-      .brand {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-weight: 600;
-        font-size: 15px;
-        color: var(--ink);
-        margin-bottom: 4px;
-      }
-      .brand .dot {
-        display: inline-block;
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        background: var(--brand);
-      }
-      .brand-sub {
-        font-size: 12.5px;
-        color: var(--ink-3);
-        margin: 0 0 20px 0;
-      }
-      .toc-label {
-        font-size: 10.5px;
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--ink-4);
-        margin: 18px 0 8px;
-      }
-      .toc ol { list-style: none; padding: 0; margin: 0; }
-      .toc li { margin: 2px 0; }
-      .toc a {
-        display: block;
-        padding: 4px 6px;
-        border-radius: 3px;
-        font-size: 13px;
-        color: var(--ink-2);
-      }
-      .toc a:hover {
-        background: var(--surface-2);
-        text-decoration: none;
-        color: var(--ink);
-      }
-      .toc .spec-num {
-        display: inline-block;
-        min-width: 22px;
-        font-variant-numeric: tabular-nums;
-        color: var(--ink-4);
-        font-size: 11.5px;
-        margin-right: 8px;
-      }
-      main { max-width: var(--content-width); }
-      .hero h1 {
-        margin: 0 0 14px 0;
-        font-size: 30px;
-        font-weight: 700;
-        letter-spacing: -0.01em;
-      }
-      .lede {
-        font-size: 16px;
-        color: var(--ink-2);
-        margin: 0 0 18px 0;
-      }
-      .meta {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px 18px;
-        font-size: 13px;
-        color: var(--ink-3);
-      }
-      .meta b { color: var(--ink); font-weight: 600; }
-      hr.sep {
-        border: 0;
-        border-top: 1px solid var(--line);
-        margin: 48px 0;
-      }
-      details.spec {
-        margin: 0 0 72px;
-        scroll-margin-top: 24px;
-      }
-      details.spec > summary {
-        list-style: none;
-        cursor: pointer;
-        user-select: none;
-        padding: 6px 0 4px;
-      }
-      details.spec > summary::-webkit-details-marker { display: none; }
-      details.spec > summary:focus-visible {
-        outline: 2px solid var(--brand);
-        outline-offset: 4px;
-        border-radius: 4px;
-      }
-      details.spec > summary:hover .spec-head .lhs h2 { color: var(--brand); }
-      .spec-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-end;
-        gap: 24px;
-        margin-bottom: 14px;
-      }
-      .spec-head .lhs h2 {
-        margin: 0 0 4px 0;
-        font-size: 22px;
-        font-weight: 600;
-        letter-spacing: -0.005em;
-        display: inline-flex;
-        align-items: baseline;
-        gap: 10px;
-        transition: color 0.15s;
-      }
-      .spec-head .lhs h2::before {
-        content: '▸';
-        display: inline-block;
-        width: 12px;
-        font-size: 14px;
-        color: var(--ink-4);
-        transition: transform 0.18s ease-out, color 0.15s;
-        transform: translateY(-1px);
-      }
-      details.spec[open] .spec-head .lhs h2::before {
-        transform: translateY(-1px) rotate(90deg);
-        color: var(--brand);
-      }
-      .spec-head .lhs h2 .num {
-        display: inline-block;
-        min-width: 38px;
-        color: var(--ink-4);
-        font-variant-numeric: tabular-nums;
-        font-weight: 500;
-      }
-      .spec-head .file {
-        font-family: 'SF Mono', Menlo, Consolas, monospace;
-        font-size: 12.5px;
-        color: var(--ink-3);
-      }
-      .spec-head .rhs {
-        text-align: right;
-        font-size: 12.5px;
-        color: var(--ink-3);
-      }
-      .spec-head .rhs b { color: var(--ink); font-weight: 600; }
-      .spec-intro {
-        color: var(--ink-2);
-        margin: 14px 0 24px;
-      }
-      .tests {
-        display: grid;
-        gap: 22px;
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-      }
-      .test {
-        background: var(--surface);
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        overflow: hidden;
-        scroll-margin-top: 20px;
-      }
-      .test:target {
-        outline: 2px solid var(--brand);
-        outline-offset: -1px;
-      }
-      .test .head {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 8px;
-        padding: 10px 14px;
-        border-bottom: 1px solid var(--line);
-        background: var(--surface-2);
-      }
-      .test .name {
-        font-family: 'SF Mono', Menlo, Consolas, monospace;
-        font-size: 12px;
-        font-weight: 600;
-        color: var(--ink);
-        word-break: break-all;
-      }
-      .test .img {
-        background: var(--surface-2);
-        display: flex;
-        justify-content: center;
-        padding: 14px;
-      }
-      .test .img img {
-        max-width: 100%;
-        height: auto;
-        border-radius: 6px;
-        box-shadow: 0 2px 8px rgba(7, 36, 64, 0.12);
-      }
-      .callout {
-        border-left: 3px solid var(--brand);
-        background: rgba(245, 81, 108, 0.06);
-        padding: 14px 18px;
-        margin: 24px 0;
-        border-radius: 0 4px 4px 0;
-      }
-      .callout.info {
-        border-color: var(--brand-blue);
-        background: rgba(90, 129, 187, 0.08);
-      }
-      .callout p {
-        margin: 0;
-        color: var(--ink-2);
-        font-size: 13.5px;
-      }
-      .callout b { color: var(--ink); }
-      .toc-actions { margin: 6px 0 16px; }
-      .toc-actions button {
-        appearance: none;
-        background: var(--surface);
-        border: 1px solid var(--line);
-        border-radius: 4px;
-        color: var(--ink-2);
-        cursor: pointer;
-        font: inherit;
-        font-size: 12px;
-        padding: 5px 10px;
-        margin-right: 6px;
-        transition: background 0.15s, border-color 0.15s, color 0.15s;
-      }
-      .toc-actions button:hover {
-        background: var(--surface-2);
-        border-color: var(--line-2);
-        color: var(--ink);
-      }
-      .asset-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-        gap: 16px;
-      }
-      .asset-card {
-        background: var(--surface);
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        padding: 16px;
-        text-align: center;
-      }
-      .asset-card img {
-        max-width: 120px;
-        max-height: 80px;
-        height: auto;
-      }
-      .asset-card .an {
-        margin-top: 10px;
-        font-family: 'SF Mono', Menlo, Consolas, monospace;
-        font-size: 12px;
-        color: var(--ink-2);
-        word-break: break-all;
-      }
-      .store-platform { margin-bottom: 36px; }
-      .store-platform h3 {
-        margin: 0 0 12px 0;
-        font-size: 18px;
-        color: var(--ink);
-      }
-      .store-locale {
-        background: var(--surface);
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        padding: 16px 18px;
-        margin-bottom: 16px;
-      }
-      .store-locale h4 {
-        margin: 0 0 12px 0;
-        font-size: 14px;
-        font-family: 'SF Mono', Menlo, Consolas, monospace;
-        color: var(--ink-2);
-      }
-      .store-locale dl {
-        margin: 0;
-        display: grid;
-        grid-template-columns: minmax(120px, 200px) 1fr;
-        gap: 8px 16px;
-      }
-      .store-locale dt {
-        font-family: 'SF Mono', Menlo, Consolas, monospace;
-        font-size: 12px;
-        color: var(--ink-3);
-        font-weight: 600;
-      }
-      .store-locale dd {
-        margin: 0;
-        white-space: pre-wrap;
-        word-break: break-word;
-        color: var(--ink);
-        font-size: 13.5px;
-      }
-      .doc-list {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-      }
-      .doc-list li {
-        background: var(--surface);
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        margin-bottom: 10px;
-      }
-      .doc-list a {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-        padding: 12px 16px;
-        color: var(--ink);
-        text-decoration: none;
-      }
-      .doc-list a:hover {
-        background: var(--surface-2);
-        text-decoration: none;
-      }
-      .doc-list .doc-title { font-weight: 600; }
-      .doc-list .doc-path {
-        font-family: 'SF Mono', Menlo, Consolas, monospace;
-        font-size: 12px;
-        color: var(--ink-3);
-      }
-      .footer {
-        margin-top: 48px;
-        padding-top: 24px;
-        border-top: 1px solid var(--line);
-        font-size: 12.5px;
-        color: var(--ink-3);
-      }
-      a.name.permalink {
-        text-decoration: none;
-        color: inherit;
-      }
-      a.name.permalink:hover {
-        text-decoration: underline;
-        color: var(--brand);
-      }
-      .copy-link {
-        appearance: none;
-        background: transparent;
-        border: 1px solid transparent;
-        padding: 2px 6px;
-        font: inherit;
-        font-size: 11.5px;
-        line-height: 1;
-        color: var(--ink-3);
-        cursor: pointer;
-        border-radius: 4px;
-      }
-      /* The copy button sits NEXT TO the group heading, never inside it: a
-         button placed within the heading element becomes part of its text and
-         of its accessible name ("Einstellungen Direkt-Link kopieren"). The
-         wrapper therefore carries the margins the heading gives up — h3 has no
-         font-size rule, so its UA margin is 1em of 1.17 * 14.5px; 1.17em on the
-         wrapper (font-size 14.5px inherited) reproduces exactly that. Same
-         arrangement as the RealUnit handbook, where .copy-link lives in the
-         head next to the name. */
-      .group-head {
-        display: flex;
-        align-items: baseline;
-        gap: 8px;
-        margin: 1.17em 0;
-      }
-      .group-head h3 {
-        margin: 0;
-      }
-      .copy-link:hover {
-        color: var(--brand);
-        background: var(--surface);
-        border-color: var(--line);
-      }
-      .copy-link[data-copied='true'] {
-        color: var(--brand);
-        background: var(--surface);
-        border-color: var(--brand);
-      }
-  `;
-
-  // TOC/hash helper as external file so CSP can use script-src 'self'
-  // without 'unsafe-inline'. Deterministic contents (no timestamps).
-  const handbookJs =
-    '(function () {\n' +
-    '  function openTargetFromHash() {\n' +
-    "    var hash = location.hash ? location.hash.slice(1) : '';\n" +
-    '    if (!hash) return;\n' +
-    '    // IDs may start with a digit — use getElementById, not querySelector.\n' +
-    '    var el = document.getElementById(hash);\n' +
-    '    if (!el) return;\n' +
-    "    var details = el.closest ? el.closest('details.spec') : null;\n" +
-    "    if (!details && el.tagName === 'DETAILS') details = el;\n" +
-    '    if (details) details.open = true;\n' +
-    "    if (typeof el.scrollIntoView === 'function') {\n" +
-    "      el.scrollIntoView({ block: 'start' });\n" +
-    '    }\n' +
-    '  }\n' +
-    "  document.addEventListener('DOMContentLoaded', openTargetFromHash);\n" +
-    "  window.addEventListener('hashchange', openTargetFromHash);\n" +
-    "  document.addEventListener('click', function (ev) {\n" +
-    '    var t = ev.target;\n' +
-    '    if (!t || !t.getAttribute) return;\n' +
-    "    if (t.id === 'toc-expand-all') {\n" +
-    "      document.querySelectorAll('details.spec').forEach(function (d) { d.open = true; });\n" +
-    '    }\n' +
-    "    if (t.id === 'toc-collapse-all') {\n" +
-    "      document.querySelectorAll('details.spec').forEach(function (d) { d.open = false; });\n" +
-    '    }\n' +
-    '  });\n' +
-    '  // Copy a direct link. Without the button the anchor exists but is only\n' +
-    '  // reachable via the page source — same interaction as the RealUnit handbook.\n' +
-    '  function fallbackCopy(text) {\n' +
-    "    var ta = document.createElement('textarea');\n" +
-    '    ta.value = text;\n' +
-    "    ta.setAttribute('readonly', '');\n" +
-    "    ta.style.position = 'fixed';\n" +
-    "    ta.style.opacity = '0';\n" +
-    '    document.body.appendChild(ta);\n' +
-    '    ta.select();\n' +
-    '    var ok = false;\n' +
-    "    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }\n" +
-    '    document.body.removeChild(ta);\n' +
-    '    return ok;\n' +
-    '  }\n' +
-    "  document.querySelectorAll('.copy-link').forEach(function (btn) {\n" +
-    '    var origText = btn.textContent;\n' +
-    '    var resetTimer = null;\n' +
-    "    btn.addEventListener('click', function () {\n" +
-    "      var target = btn.getAttribute('data-target');\n" +
-    '      if (!target) return;\n' +
-    "      var url = location.origin + location.pathname + '#' + target;\n" +
-    '      var done = function (ok) {\n' +
-    "        btn.textContent = ok ? '\\u2713 Kopiert' : '\\u2717 Nicht kopiert';\n" +
-    "        if (ok) btn.setAttribute('data-copied', 'true');\n" +
-    '        if (resetTimer) clearTimeout(resetTimer);\n' +
-    '        resetTimer = setTimeout(function () {\n' +
-    '          btn.textContent = origText;\n' +
-    "          btn.removeAttribute('data-copied');\n" +
-    '          resetTimer = null;\n' +
-    '        }, 1200);\n' +
-    '        // Set the hash either way: the reader can then copy the URL from\n' +
-    '        // the address bar even when the clipboard is unavailable.\n' +
-    "        if (location.hash !== '#' + target) location.hash = target;\n" +
-    '      };\n' +
-    '      if (navigator.clipboard && navigator.clipboard.writeText) {\n' +
-    '        navigator.clipboard.writeText(url).then(\n' +
-    '          function () { done(true); },\n' +
-    '          function () { done(fallbackCopy(url)); }\n' +
-    '        );\n' +
-    '      } else {\n' +
-    '        done(fallbackCopy(url));\n' +
-    '      }\n' +
-    '    });\n' +
-    '  });\n' +
-    '})();\n';
-
   let tocItems = [];
   let sectionsHtml = '';
   let sectionNum = 0;
@@ -1740,26 +3134,23 @@ function main() {
   function pushSection(id, numLabel, title, fileHint, countLabel, intro, bodyHtml) {
     sectionNum += 1;
     const n = String(sectionNum).padStart(2, '0');
-    tocItems.push({ id, n, title });
-    sectionsHtml += `
-      <details class="spec" id="${escapeHtml(id)}" open>
-        <summary>
-          <div class="spec-head">
-            <div class="lhs">
-              <h2><span class="num">${escapeHtml(numLabel || n)}</span>${escapeHtml(title)}</h2>
-              ${fileHint ? `<div class="file">${escapeHtml(fileHint)}</div>` : ''}
-            </div>
-            <div class="rhs">${countLabel ? `<b>${escapeHtml(countLabel)}</b>` : ''}</div>
-          </div>
-        </summary>
-        ${intro ? `<p class="spec-intro">${intro}</p>` : ''}
-        ${bodyHtml}
-      </details>`;
+    tocItems.push({ id, n, title, children: [] });
+    const num = numLabel || n;
+    const countHtml = countLabel
+      ? `<b class="sec-count" data-sec-count="${escapeHtml(id)}">${escapeHtml(countLabel)}</b>`
+      : '';
+    sectionsHtml +=
+      `<details class="spec" id="${escapeHtml(id)}" open>` +
+      `<summary><div class="spec-head"><div class="lhs">` +
+      `<h2><span class="badge">${escapeHtml(num)}</span>${escapeHtml(title)}${svgChevron()}</h2>` +
+      (fileHint ? `<div class="file">${escapeHtml(fileHint)}</div>` : '') +
+      `</div><div class="rhs">${countHtml}</div></div></summary>` +
+      (intro ? `<p class="spec-intro">${intro}</p>` : '') +
+      bodyHtml +
+      `</details>`;
   }
 
-  // Screenshots (by group). With MIN_SCREENSHOTS ≥ 1 the floor guard aborts
-  // before we reach HTML generation when the set is empty, so a "no screenshots"
-  // empty-state branch would be dead code — render groups only.
+  // Screenshots (by group)
   {
     // Anchor ids become user-facing with the permalink buttons: a reader can
     // copy one and send it on. slugify() is lossy, so two different sources can
@@ -1782,33 +3173,48 @@ function main() {
         'group-' + slugify(gKey),
         'screenshot group ' + gKey,
       );
-      let cards =
+      // group-block has no id — the permalink id lives on the h3 only so ids stay unique.
+      let cards = `<div class="group-block" data-search="group">`;
+      cards +=
         `<div class="group-head">` +
         `<h3 id="${escapeHtml(groupId)}">` +
         `<a class="name permalink" href="#${escapeHtml(groupId)}">${escapeHtml(title)}</a>` +
+        ` <span class="gcount">${list.length} Bilder</span>` +
         `</h3>` +
         copyLinkButton(groupId) +
         `</div>`;
-      cards += `<p class="spec-intro">${desc}</p>`;
-      cards += '<div class="tests">';
+      cards += `<p class="group-desc">${desc}</p>`;
+      cards += '<div class="shot-grid">';
       for (const e of list) {
+        // Use e.title (stem) for slug stability with collision fixtures and #217.
         const cardId = claimAnchorId(
           anchorIds,
           'shot-' + slugify(e.group + '-' + e.title),
           e.sourcePath,
         );
         const shotHref = escapeHtml(encodeHtmlPath(e.outputPath));
+        const searchText = escapeHtml(
+          [e.caption, e.stem, title, e.group].join(' '),
+        );
+        const badgeHtml = e.badge
+          ? `<span class="num-badge">${escapeHtml(e.badge)}</span>`
+          : '';
+        // Image link separate from caption so the permalink is not nested in <a href=png>.
+        // Copy button sits next to the title, never inside a heading.
         cards +=
-          `<div class="test" id="${escapeHtml(cardId)}">` +
-          `<div class="head">` +
-          `<a class="name permalink" href="#${escapeHtml(cardId)}">${escapeHtml(e.title)}</a>` +
+          `<figure class="shot-card" id="${escapeHtml(cardId)}" data-search="shot" ` +
+          `data-search-text="${searchText}" data-group="${escapeHtml(e.group)}" ` +
+          `data-caption="${escapeHtml(e.caption)}" data-file="${escapeHtml(e.stem)}">` +
+          `<a class="shot-img" href="${shotHref}">` +
+          `<div class="frame"><img src="${shotHref}" alt="${escapeHtml(e.caption)}" loading="lazy"></div>` +
+          `</a>` +
+          `<figcaption><div class="cap-row">${badgeHtml}` +
+          `<a class="name permalink" href="#${escapeHtml(cardId)}">${escapeHtml(e.caption)}</a>` +
           copyLinkButton(cardId) +
           `</div>` +
-          `<div class="img"><a href="${shotHref}">` +
-          `<img src="${shotHref}" alt="${escapeHtml(e.title)}" loading="lazy"></a></div>` +
-          `</div>`;
+          `<div class="cap-file">${escapeHtml(e.stem)}</div></figcaption></figure>`;
       }
-      cards += '</div>';
+      cards += '</div></div>';
       allShotsBody += cards;
     }
     assertNoAnchorCollisions(anchorIds);
@@ -1818,9 +3224,22 @@ function main() {
       'Screenshots',
       'docs/handbook/screenshots/',
       `${screenshotEntries.length} Screenshots · ${groupKeys.length} Gruppen`,
-      'PNG-Screenshots, gruppiert nach Unterverzeichnis. Dateiname = Bildunterschrift und Sortierschlüssel (Konvention <code>NN-kurzname.png</code> empfohlen, nicht erzwungen).',
+      'PNG-Screenshots, gruppiert nach Unterverzeichnis. Lesbare Bildunterschriften stammen aus <code>metadata.json</code> (<code>captions</code>) oder werden aus dem Dateinamen abgeleitet.',
       allShotsBody,
     );
+    const shotToc = tocItems.find((t) => t.id === 'screenshots');
+    if (shotToc) {
+      for (const gKey of groupKeys) {
+        const list = groups.get(gKey);
+        const meta = screenshotsMeta[gKey];
+        const title = meta && meta.title ? meta.title : gKey;
+        shotToc.children.push({
+          id: 'group-' + slugify(gKey),
+          title,
+          count: list.length,
+        });
+      }
+    }
   }
 
   // Store listing
@@ -1838,7 +3257,6 @@ function main() {
       if (!byPlatform.has(platform)) continue;
       const byLocale = byPlatform.get(platform);
       const localeKeys = Array.from(byLocale.keys()).sort(sortStrings);
-      // Keep "global" first for iOS if present
       localeKeys.sort((a, b) => {
         if (a === 'global') return -1;
         if (b === 'global') return 1;
@@ -1851,11 +3269,15 @@ function main() {
         const fields = byLocale.get(locale).slice().sort((a, b) =>
           sortStrings(a.field, b.field),
         );
-        storeBody += `<div class="store-locale"><h4>${escapeHtml(locale)}</h4><dl>`;
+        storeBody +=
+          `<div class="store-locale"><h4><span class="locale-chip">${escapeHtml(locale)}</span></h4><dl>`;
         for (const f of fields) {
+          const empty = !f.content;
+          const searchText = escapeHtml([f.field, f.content, locale, platform].join(' '));
           storeBody +=
+            `<div class="store-row" data-search="store-field" data-search-text="${searchText}">` +
             `<dt>${escapeHtml(f.field)}</dt>` +
-            `<dd>${escapeHtml(f.content)}</dd>`;
+            `<dd class="${empty ? 'empty' : ''}">${empty ? '—' : escapeHtml(f.content)}</dd></div>`;
         }
         storeBody += '</dl></div>';
       }
@@ -1879,8 +3301,8 @@ function main() {
       const assetHref = escapeHtml(encodeHtmlPath(a.out));
       ag +=
         `<div class="asset-card"><a href="${assetHref}">` +
-        `<img src="${assetHref}" alt="${escapeHtml(a.title)}" loading="lazy"></a>` +
-        `<div class="an">${escapeHtml(a.title)}</div></div>`;
+        `<div class="frame"><img src="${assetHref}" alt="${escapeHtml(a.title)}" loading="lazy"></div>` +
+        `<div class="an">${escapeHtml(a.title)}</div></a></div>`;
     }
     ag += '</div>';
     pushSection(
@@ -1901,10 +3323,13 @@ function main() {
       .slice()
       .sort((a, b) => sortStrings(a.title, b.title));
     for (const d of sortedDocs) {
+      const searchText = escapeHtml([d.title, d.src].join(' '));
       docsBody +=
-        `<li><a href="${escapeHtml(encodeHtmlPath(d.out))}">` +
-        `<span class="doc-title">${escapeHtml(d.title)}</span>` +
-        `<span class="doc-path">${escapeHtml(d.src)}</span></a></li>`;
+        `<li data-search="doc" data-search-text="${searchText}">` +
+        `<a href="${escapeHtml(encodeHtmlPath(d.out))}">` +
+        `<span><span class="doc-title">${escapeHtml(d.title)}</span> ` +
+        `<span class="doc-path">${escapeHtml(d.src)}</span></span>` +
+        `<span class="chev" aria-hidden="true">›</span></a></li>`;
     }
     docsBody += '</ul>';
     pushSection(
@@ -1922,56 +3347,94 @@ function main() {
   for (const t of tocItems) {
     tocHtml +=
       `<li><a href="#${escapeHtml(t.id)}"><span class="spec-num">${escapeHtml(t.n)}</span>` +
-      `${escapeHtml(t.title.replace(/&amp;/g, '&'))}</a></li>`;
+      `${escapeHtml(t.title)}</a>`;
+    if (t.children && t.children.length) {
+      tocHtml += '<ol class="sub">';
+      for (const c of t.children) {
+        tocHtml +=
+          `<li><a href="#${escapeHtml(c.id)}" data-toc-group="${escapeHtml(c.id)}">` +
+          `${escapeHtml(c.title)}` +
+          `<span class="count">${c.count}</span></a></li>`;
+      }
+      tocHtml += '</ol>';
+    }
+    tocHtml += '</li>';
   }
   tocHtml += '</ol>';
 
+  const shaShort =
+    gitSha === 'unknown' ? 'unknown' : gitSha.length > 12 ? gitSha.slice(0, 12) : gitSha;
+
   const indexHtml =
-    `<!DOCTYPE html>\n<html lang="de">\n<head>\n` +
-    `<meta charset="utf-8">\n` +
-    `<meta name="viewport" content="width=device-width, initial-scale=1">\n` +
-    `<title>DFX BTC Taro Wallet — Handbuch</title>\n` +
-    `<style>${css}\n</style>\n` +
-    `</head>\n<body>\n` +
-    `<div class="wrap">\n` +
-    `<aside>\n` +
-    `<div class="brand"><span class="dot"></span> DFX BTC Taro</div>\n` +
-    `<p class="brand-sub">Wallet-Handbuch</p>\n` +
-    `<div class="toc-label">Inhalt</div>\n` +
-    `<div class="toc-actions">` +
-    `<button type="button" id="toc-expand-all">Alle öffnen</button>` +
-    `<button type="button" id="toc-collapse-all">Alle schliessen</button>` +
-    `</div>\n` +
-    `<nav class="toc">${tocHtml}</nav>\n` +
-    `</aside>\n` +
-    `<main>\n` +
-    `<header class="hero">\n` +
-    `<h1>DFX BTC Taro Wallet — Handbuch</h1>\n` +
-    `<p class="lede">Screenshots, Store-Listing-Texte, App-Assets und Markdown-Dokumentation der BTC-Taro-Wallet an einem Ort. Die Seite wird bei jedem Build aus dem Repository erzeugt — neue Dateien erscheinen automatisch.</p>\n` +
-    `<div class="callout info"><p><b>Auto-Discovery.</b> Es gibt keine handgepflegte Mapping-Tabelle. Das Build-Script scannt <code>docs/handbook/screenshots/</code>, Store-Metadaten, <code>img/dfx/</code> und Docs und erzeugt diese Seite deterministisch.</p></div>\n` +
-    `<div class="meta">` +
-    `<span>Repo: <b>DFXswiss/btc-wallet</b></span>` +
-    `<span>Stand: <b>${escapeHtml(gitSha)}</b></span>` +
-    `<span>Screenshots: <b>${screenshotEntries.length}</b></span>` +
-    `<span>Store-Felder: <b>${storeEntries.length}</b></span>` +
-    `<span>Assets: <b>${assetSpecs.length}</b></span>` +
-    `<span>Dokumente: <b>${renderedDocs.length}</b></span>` +
-    `</div>\n` +
-    `</header>\n` +
-    `<hr class="sep">\n` +
+    buildHead({
+      title: 'DFX BTC Taro Wallet — Handbuch',
+      description:
+        'Handbuch der DFX BTC Taro Wallet: Screenshots, Store-Listing, Assets und Dokumentation.',
+      prefix: '',
+      css: INDEX_CSS,
+    }) +
+    '<body>\n' +
+    '<a class="skip-link" href="#main-content">Zum Inhalt</a>\n' +
+    buildTopbar({ prefix: '', showSearch: true, showSidebarToggle: true }) +
+    '\n<div class="wrap">\n' +
+    '<aside class="sidebar" id="handbook-sidebar">\n' +
+    '<div class="sidebar-panel">\n' +
+    '<div class="toc-label">Inhalt</div>\n' +
+    `<nav class="toc" aria-label="Inhaltsverzeichnis">${tocHtml}</nav>\n` +
+    '<div class="toc-actions" id="toc-actions" hidden>' +
+    '<button type="button" id="toc-expand-all">Alle öffnen</button>' +
+    '<button type="button" id="toc-collapse-all">Alle schliessen</button>' +
+    '</div>\n' +
+    '</div></aside>\n' +
+    '<main id="main-content">\n' +
+    '<header class="hero">\n' +
+    '<h1>DFX BTC Taro Wallet — Handbuch</h1>\n' +
+    '<p class="lede">Screenshots, Store-Listing-Texte, App-Assets und Markdown-Dokumentation der BTC-Taro-Wallet an einem Ort. Die Seite wird bei jedem Build aus dem Repository erzeugt — neue Dateien erscheinen automatisch.</p>\n' +
+    '<div class="stats" role="group" aria-label="Kennzahlen">' +
+    `<div class="stat"><span class="n">${screenshotEntries.length}</span><span class="l">Screenshots</span></div>` +
+    `<div class="stat"><span class="n">${groupKeys.length}</span><span class="l">Gruppen</span></div>` +
+    `<div class="stat"><span class="n">${renderedDocs.length}</span><span class="l">Dokumente</span></div>` +
+    `<div class="stat"><span class="n">${storeEntries.length}</span><span class="l">Store-Felder</span></div>` +
+    `<div class="stat"><span class="n">${assetSpecs.length}</span><span class="l">Assets</span></div>` +
+    `<div class="stat stat-sha"><span class="n">${escapeHtml(shaShort)}</span><span class="l">Stand</span></div>` +
+    '</div>\n' +
+    '<div class="callout"><p><b>Auto-Discovery.</b> Es gibt keine handgepflegte Mapping-Tabelle. Das Build-Script scannt <code>docs/handbook/screenshots/</code>, Store-Metadaten, <code>img/dfx/</code> und Docs und erzeugt diese Seite deterministisch.</p></div>\n' +
+    '<div class="search-empty" id="search-empty" hidden>Keine Treffer für diese Suche.</div>\n' +
+    '</header>\n' +
     sectionsHtml +
-    `<footer class="footer">` +
-    `Diese Seite ist generiert und spiegelt den Repository-Stand ` +
+    '<footer class="footer">' +
+    'Diese Seite ist generiert und spiegelt den Repository-Stand ' +
     `<code>${escapeHtml(gitSha)}</code> wider. Quelle: ` +
-    `<code>scripts/handbook/build.js</code>.` +
-    `</footer>\n` +
-    `</main>\n</div>\n` +
-    `<script src="handbook.js"></script>\n` +
-    `</body>\n</html>\n`;
+    '<code>scripts/handbook/build.js</code>.' +
+    '</footer>\n' +
+    '</main>\n</div>\n' +
+    '<div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="Screenshot-Ansicht">' +
+    '<div class="lightbox-dialog">' +
+    '<div class="lightbox-bar">' +
+    '<div class="lightbox-meta">' +
+    '<p class="lightbox-title" id="lightbox-title"></p>' +
+    '<p class="lightbox-file" id="lightbox-file"></p>' +
+    '<p class="lightbox-count" id="lightbox-count"></p>' +
+    '</div>' +
+    '<button type="button" class="icon-btn" id="lightbox-close" aria-label="Schliessen">' +
+    '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M6.4 5.3a.75.75 0 0 0-1.1 1.1L10.9 12l-5.6 5.6a.75.75 0 1 0 1.1 1.1L12 13.1l5.6 5.6a.75.75 0 1 0 1.1-1.1L13.1 12l5.6-5.6a.75.75 0 1 0-1.1-1.1L12 10.9 6.4 5.3z"/></svg>' +
+    '</button></div>' +
+    '<div class="lightbox-body">' +
+    '<button type="button" class="lightbox-arrow" id="lightbox-prev" aria-label="Vorheriges Bild">' +
+    '<span class="label-short" aria-hidden="true">‹</span>' +
+    '<span class="label-full">← Zurück</span></button>' +
+    '<div class="lightbox-stage"><img id="lightbox-img" alt=""></div>' +
+    '<button type="button" class="lightbox-arrow" id="lightbox-next" aria-label="Nächstes Bild">' +
+    '<span class="label-short" aria-hidden="true">›</span>' +
+    '<span class="label-full">Weiter →</span></button>' +
+    '</div></div></div>\n' +
+    '<script src="handbook.js"></script>\n' +
+    '</body>\n</html>\n';
 
   ensureDir(outDir);
   const indexPath = path.join(outDir, 'index.html');
   fs.writeFileSync(indexPath, indexHtml, 'utf8');
+  const handbookJs = buildHandbookJs();
   const handbookJsPath = path.join(outDir, 'handbook.js');
   fs.writeFileSync(handbookJsPath, handbookJs, 'utf8');
   artifacts.push({

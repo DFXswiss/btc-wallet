@@ -36,6 +36,7 @@ Ausgabe pro Build:
 ```
 <out>/
   index.html
+  handbook.js
   manifest.json
   screenshots/…
   docs/…
@@ -68,7 +69,7 @@ Guards (Build bricht ab bei Verletzung):
 Überschreitung der Mindestzahl ist **kein** Fehler — neue Dateien landen
 automatisch.
 
-### Nicht auflösende Markdown-Links
+### Nicht auflösende Markdown-Links und Remote-Bilder
 
 Die Repo-Markdown-Dateien verlinken teilweise auf Pfade, die nicht ins Handbook
 kopiert werden (z. B. `scripts/…`, Plattformcode, GitHub-Relative). Solche
@@ -78,19 +79,56 @@ wird **nicht** abgeschaltet: der Link wird in reinen Text umgewandelt
 protokolliert. Relative Links auf andere entdeckte `*.md`-Dokumente werden auf
 die gerenderte HTML-Seite umgeschrieben.
 
+Externe **Bilder** (`<img src="https://…">` bzw. protokollrelativ `//…`)
+werden ebenfalls nicht ausgeliefert: Die CSP erlaubt nur `img-src 'self' data:`.
+Beim Rendern ersetzt das Build-Script solche Tags durch ihren `alt`-Text
+(escaped; ohne `alt` entfällt das Bild ohne Ersatz) und protokolliert einmal
+je Vorkommen auf stderr (`handbook: replaced remote image in <seite>: <url>`).
+**Links** auf fremde Seiten (`<a href="https://…">`) bleiben unangetastet.
+
 Metadaten in `scripts/handbook/metadata.json` sind **nur Anreicherung**:
 
 ```json
 {
-  "screenshots": { "<gruppenschlüssel>": { "title": "…", "description": "…" } },
+  "screenshots": {
+    "<gruppenschlüssel>": {
+      "title": "…",
+      "description": "…",
+      "captions": { "<dateiname-ohne-.png>": "Lesbare Bildunterschrift" }
+    }
+  },
   "docs": { "<repo-relativer-md-pfad>": { "title": "…" } }
 }
 ```
 
-Fehlende Einträge sind kein Fehler; verwaiste Einträge erzeugen nur eine
+Fehlende Einträge sind kein Fehler; verwaiste Einträge (Gruppe, Doc-Titel
+oder einzelner `captions`-Schlüssel ohne passende Datei) erzeugen nur eine
 Warnung auf stderr. Unter `screenshots` sind derzeit acht Gruppen mit
-Titel und Beschreibung gepflegt; neue Gruppen ohne Eintrag nutzen den
-Verzeichnisnamen als Titel.
+Titel, Beschreibung und Captions gepflegt; neue Gruppen ohne Eintrag nutzen
+den Verzeichnisnamen als Titel. Fehlt eine Caption, wird der Dateiname
+humanisiert (führendes `NN-` wird zum Nummern-Badge, `-`/`_` zu Leerzeichen).
+
+### Layout und Bedienelemente
+
+Startseite und gerenderte Doc-Seiten teilen dieselben Design-Tokens
+(inkl. Dark Mode über `prefers-color-scheme` und manuellem Umschalter mit
+`localStorage`). Die Startseite hat sticky Chrome (App-Icon 30×30 als Marke,
+Wortmarke „DFX BTC Taro Wallet“, Theme; auf schmalen Viewports „Inhalt“ für
+die Sidebar). Das Suchfeld sitzt ab 720 px rechts in der Topbar-Zeile; unter
+720 px bricht es in eine zweite volle Zeile um. Bei aktiver Suche zeigt eine
+überlagerte Statuszeile unter dem Chrome die Trefferzahl; Sektions-/Sidebar-
+Zähler aktualisieren sich auf die Form `n / gesamt`. Zweistufiges TOC
+(Sektionen + Screenshot-Gruppen), feste Screenshot-Kacheln mit lesbaren
+Unterschriften, Lightbox, Scrollspy.
+
+Doc-Seiten haben dieselbe Topbar mit Logo/Rückweg „← Zum Handbuch“,
+Brotkrume und Favicon; relative Pfade werden aus der Verzeichnistiefe
+berechnet (auch für verschachtelte Docs).
+
+Ohne JavaScript bleibt die Seite vollständig lesbar: Suche, Theme-Knopf
+und Sidebar-Umschalter werden im HTML mit `hidden` ausgeliefert und erst
+von `handbook.js` sichtbar gemacht. Alle Screenshot- und Asset-Links
+funktionieren als normale Links.
 
 ## Lokal bauen
 
@@ -157,7 +195,8 @@ docker run --rm -p 8080:8080 dfx-taro-handbook:local
 3. Nächster Handbook-Build nimmt die Datei automatisch auf — **keine**
    Mapping-Tabelle und **keinen** Count anpassen.
 4. Optional: in `scripts/handbook/metadata.json` unter `screenshots` einen
-   deutschen Titel/Beschreibung für den Gruppenschlüssel ergänzen.
+   deutschen Titel/Beschreibung für den Gruppenschlüssel und unter
+   `captions` lesbare Bildunterschriften pro Dateiname (ohne `.png`) ergänzen.
 5. Optional: Maestro-Flow unter `scripts/handbook/screenshots/` mit passendem
    `takeScreenshot: shots/<pfad>` ergänzen (genau ein Erzeuger pro PNG).
 
