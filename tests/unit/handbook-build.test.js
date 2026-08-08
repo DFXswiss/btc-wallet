@@ -232,6 +232,19 @@ function ensureMarkedNodePath(repoRoot) {
   return path.join(prefix, 'node_modules');
 }
 
+/**
+ * A permalink and a copy button are only useful if they carry the id of the
+ * entry they sit in. `html` is the markup of that one entry.
+ */
+function assertSelfLinked(id, html, kind) {
+  const href = html.match(/<a class="name permalink" href="#([^"]+)"/);
+  const target = html.match(/data-target="([^"]+)"/);
+  assert.ok(href, `${kind} ${id}: no permalink`);
+  assert.ok(target, `${kind} ${id}: no copy button`);
+  assert.strictEqual(href[1], id, `${kind} ${id}: permalink points at ${href[1]}`);
+  assert.strictEqual(target[1], id, `${kind} ${id}: copy button targets ${target[1]}`);
+}
+
 describe('unit - handbook build guards', () => {
   // Fixture setup can install marked once into repo _handbook-deps/.
   jest.setTimeout(120000);
@@ -585,17 +598,31 @@ describe('unit - handbook build guards', () => {
     assert.strictEqual(r.status, 0, r.stderr);
     const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
 
-    // The anchor alone is not enough — without an href a reader can only get a
-    // screen's URL from the page source. Every shot/group id must therefore also
-    // be the target of a link and of a copy button.
+    // Assert the pairing, not just membership: an entry's permalink and copy
+    // button must carry that entry's OWN id. Checking only that every id occurs
+    // somewhere as an href would still pass if the hrefs were rotated by one —
+    // every link would then point at the neighbouring screen.
     const anchorIds = [...index.matchAll(/id="((?:shot|group)-[^"]+)"/g)].map(m => m[1]);
     assert.ok(anchorIds.length > 0, 'fixture must produce shot/group anchors');
-    const linked = new Set([...index.matchAll(/href="#([^"]+)"/g)].map(m => m[1]));
-    const copyTargets = new Set([...index.matchAll(/data-target="([^"]+)"/g)].map(m => m[1]));
-    const unlinked = anchorIds.filter(id => !linked.has(id));
-    const uncopyable = anchorIds.filter(id => !copyTargets.has(id));
-    assert.deepStrictEqual(unlinked, [], 'anchors without a permalink');
-    assert.deepStrictEqual(uncopyable, [], 'anchors without a copy button');
+
+    const paired = [];
+    for (const [, id, head] of index.matchAll(/<div class="test" id="([^"]+)">([\s\S]*?)<div class="img">/g)) {
+      assertSelfLinked(id, head, 'screenshot');
+      paired.push(id);
+    }
+    for (const [, block] of index.matchAll(/<div class="group-head">([\s\S]*?)<\/div>/g)) {
+      const gid = block.match(/<h3 id="([^"]+)"/);
+      assert.ok(gid, `group head without an id: ${block.slice(0, 80)}`);
+      assertSelfLinked(gid[1], block, 'group');
+      paired.push(gid[1]);
+    }
+    // Every anchor must have been reached by one of the two loops above, so a
+    // new kind of entry cannot slip past the pairing check unnoticed.
+    assert.deepStrictEqual(
+      anchorIds.filter(id => !paired.includes(id)),
+      [],
+      'anchors not covered by the pairing check',
+    );
   });
 
   it('keeps permalink anchor ids unique', function () {
@@ -641,6 +668,17 @@ describe('unit - handbook build guards', () => {
     assert.ok(ids.includes('shot-group-fee-ok-1'), 'suffixed id missing');
     assert.ok(ids.includes('group-karte-dfx'), 'bare group id missing');
     assert.ok(ids.includes('group-karte-dfx-1'), 'suffixed group id missing');
+
+    // The suffixed entry must link to ITSELF. If the href were derived from the
+    // raw slug a second time instead of from the deduped id, the second card's
+    // permalink would point back at the first — the very bug the suffixing
+    // exists to prevent, and it would not show up as a duplicate id.
+    for (const [, id, head] of index.matchAll(/<div class="test" id="([^"]+)">([\s\S]*?)<div class="img">/g)) {
+      assertSelfLinked(id, head, 'screenshot');
+    }
+    for (const [, block] of index.matchAll(/<div class="group-head">([\s\S]*?)<\/div>/g)) {
+      assertSelfLinked(block.match(/<h3 id="([^"]+)"/)[1], block, 'group');
+    }
   });
 
   it('ships the copy-link handler in handbook.js, not inline', function () {
