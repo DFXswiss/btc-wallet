@@ -615,6 +615,34 @@ describe('unit - handbook build guards', () => {
     assert.deepStrictEqual([...new Set(dupes)], []);
   });
 
+  it('suffixes colliding permalink anchor ids instead of emitting duplicates', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const shots = path.join(fixture, 'docs/handbook/screenshots');
+    // slugify() collapses every non-alphanumeric run to '-', so each pair below
+    // lands on one id. getElementById returns the first match, so without
+    // suffixing a copied permalink would point at the wrong screen.
+    writePng(path.join(shots, 'group', 'fee ok.png'), MIN_PNG_BYTES + 1);
+    writePng(path.join(shots, 'group', 'fee-ok.png'), MIN_PNG_BYTES + 1);
+    writePng(path.join(shots, 'karte/dfx', 'x.png'), MIN_PNG_BYTES + 1);
+    writePng(path.join(shots, 'karte-dfx', 'x.png'), MIN_PNG_BYTES + 1);
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+    const ids = [...index.matchAll(/id="((?:shot|group)-[^"]+)"/g)].map(m => m[1]);
+    const dupes = ids.filter((id, i) => ids.indexOf(id) !== i);
+    assert.deepStrictEqual([...new Set(dupes)], []);
+    // First occurrence keeps the bare id so existing links stay valid.
+    assert.ok(ids.includes('shot-group-fee-ok'), 'bare id missing');
+    assert.ok(ids.includes('shot-group-fee-ok-1'), 'suffixed id missing');
+    assert.ok(ids.includes('group-karte-dfx'), 'bare group id missing');
+    assert.ok(ids.includes('group-karte-dfx-1'), 'suffixed group id missing');
+  });
+
   it('ships the copy-link handler in handbook.js, not inline', function () {
     const { fixture, out } = freshDirs();
     populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
