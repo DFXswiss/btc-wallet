@@ -175,7 +175,9 @@ describe('unit - handbook content gate', () => {
     });
 
     it('reads an extended public key out of OCR text', function () {
-      const xpub = 'xpub6CUGRUonZSQ4TWtTMmzXdrXDtypWKiKrhko4egpiMZbpiaQL2jkwSB1icqYh2cfDfVxdx4df189oLKnC5fSwqPfgyP3hooxujYzAu3fDVmz';
+      // Deliberately checksum-broken: the check is a shape match, so the
+      // fixture has no business being a usable key in a public repository.
+      const xpub = 'xpub6CUGRUonZSQ4TWtTMmzXdrXDtypWKiKrhko4egpiMZbpiaQL2jkwSB1icqYh2cfDfVxdx4df189oLKnC5fSwqPfgyP3hooxujYzAu3fDVzm';
       assert.ok(gate.EXTENDED_KEY_RE.test(xpub));
       const problems = gate.extendedKeyProblems([{ rel: 'a.png', key: xpub }]);
       assert.strictEqual(problems.length, 1);
