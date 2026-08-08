@@ -90,7 +90,7 @@ beforeEach(() => {
 });
 
 describe('AddLightning screen', () => {
-  it('offers "cancel", not the onboarding "skip"', () => {
+  it('offers "cancel" as the secondary button', () => {
     mockRouteParams = { isOnboarding: true };
     const screen = renderScreen();
     expect(screen.getByText(loc._.cancel)).toBeTruthy();
@@ -214,16 +214,6 @@ describe('AddLightning screen', () => {
     expect(mockCreateLightning).toHaveBeenCalledWith('me@my.node', 'my-signature');
     expect(mockLightningWallet.setSecret).toHaveBeenCalledWith('lndhub://admin:my-secret');
     expect(mockNavigate).toHaveBeenCalledWith('WalletTransactions');
-  });
-
-  it('keeps the continue button inert while the custom credentials are incomplete', () => {
-    const screen = renderScreen();
-    fireEvent.press(screen.getByText(loc.wallets.add_lndhub_custom));
-    fireEvent.changeText(screen.getByPlaceholderText('user@provider.domain'), 'not-an-address');
-    fireEvent.press(screen.getByText(loc._.continue));
-
-    expect(mockCreateLightning).not.toHaveBeenCalled();
-    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('disables the continue button while custom credentials are incomplete', () => {

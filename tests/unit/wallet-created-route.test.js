@@ -29,7 +29,12 @@ describe('walletCreatedRoute', () => {
 });
 
 describe('onboarding does not open the LNDHub screen', () => {
-  for (const file of ['screen/wallets/add.js', 'screen/wallets/importDiscovery.js']) {
+  for (const file of [
+    'screen/wallets/add.js',
+    'screen/wallets/importDiscovery.js',
+    'screen/wallets/importSpeed.js',
+    'screen/wallets/importCustomDerivationPath.js',
+  ]) {
     it(`${file} sends the user to the home screen after the wallet is stored`, () => {
       const source = readSource(file);
       assert.ok(source.includes('StackActions.replace(...walletCreatedRoute())'), 'expected the shared post-creation route');
