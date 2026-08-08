@@ -170,8 +170,8 @@ describe('DFX swap flow: Max amount handling', () => {
       `output value (${depositOut.value}) + fee (${fee}) must not exceed spendable ${SPENDABLE_WHEN_FROZEN}`,
     );
     assert.ok(
-      depositOut.value + fee >= SPENDABLE_WHEN_FROZEN - 5000,
-      `output value (${depositOut.value}) + fee (${fee}) must stay within 5000 sats of spendable ${SPENDABLE_WHEN_FROZEN} — ` +
+      depositOut.value + fee >= SPENDABLE_WHEN_FROZEN - 1000,
+      `output value (${depositOut.value}) + fee (${fee}) must stay within 1000 sats of spendable ${SPENDABLE_WHEN_FROZEN} — ` +
         'a Max swap must move essentially the whole spendable balance',
     );
   });
@@ -198,9 +198,13 @@ describe('DFX swap flow: Max amount handling', () => {
     );
     // Lower bound: the fix must still move essentially the whole balance (no token output)
     assert.ok(
-      depositOut.value + fee >= TOTAL_BALANCE - 5000,
-      `output value (${depositOut.value}) + fee (${fee}) must stay within 5000 sats of spendable ${TOTAL_BALANCE}`,
+      depositOut.value + fee >= TOTAL_BALANCE - 1000,
+      `output value (${depositOut.value}) + fee (${fee}) must stay within 1000 sats of spendable ${TOTAL_BALANCE}`,
     );
+    // The freshly fetched confirm-time rate must actually be honored: a "fix" that
+    // falls back to the stale launch rate 3 would also build — catch it via the
+    // effective fee rate.
+    assert.ok(fee >= tx.virtualSize() * 4, `fee (${fee}) must cover the confirm-time rate of 4 sat/vB over ${tx.virtualSize()} vB`);
   });
 
   // FAILS until the sell/swap-Max defect is fixed; this is the regression gate
@@ -224,8 +228,8 @@ describe('DFX swap flow: Max amount handling', () => {
     assert.ok(tx, 'expected a transaction');
     const depositOut = outputs.find(o => o.address === DEPOSIT_ADDR);
     assert.ok(depositOut, 'expected deposit address in outputs');
-    // 1234 or 1235 both acceptable (floor or round of 1234.5)
+    // Exactly the floor: rounding 1234.5 UP would send more than the user confirmed
     assert.ok(Number.isInteger(depositOut.value), `output value must be an integer number of satoshis, got ${depositOut.value}`);
-    assert.ok(depositOut.value >= 1234 && depositOut.value <= 1235, `output value must be 1234 or 1235, got ${depositOut.value}`);
+    assert.strictEqual(depositOut.value, 1234, `output value must be the floored 1234 sats, got ${depositOut.value}`);
   });
 });
