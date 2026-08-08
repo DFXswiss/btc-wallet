@@ -678,34 +678,59 @@ describe('unit - handbook build guards', () => {
 
   it('uses metadata caption when present and derives title plus badge from filename otherwise', function () {
     const { fixture, out } = freshDirs();
-    // Floor screenshots under group/ plus two specials:
-    // - 01-onboarding/01-start.png → real metadata captions entry
-    // - group/03-my-feature.png → no metadata caption → derive
+    // Invented stems under group/ — never depend on scripts/handbook/content text.
+    // - 01-meta-win: metadata.captions entry wins
+    // - 03-my-feature: no metadata caption → derive from filename
     populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
-    writePng(path.join(fixture, 'docs/handbook/screenshots/01-onboarding/01-start.png'), MIN_PNG_BYTES + 1);
+    const metaTitle = 'META-CAPTION-FIXTURE-XYZ';
+    writePng(path.join(fixture, 'docs/handbook/screenshots/group/01-meta-win.png'), MIN_PNG_BYTES + 1);
     writePng(path.join(fixture, 'docs/handbook/screenshots/group/03-my-feature.png'), MIN_PNG_BYTES + 1);
-    const r = runBuild(out, {
-      HANDBOOK_REPO_ROOT: fixture,
-      NODE_PATH: markedNodePath,
-      GIT_SHA: 't',
-    });
-    assert.strictEqual(r.status, 0, r.stderr);
-    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
-    // Metadata caption wins for 01-start
-    assert.match(
-      index,
-      /data-file="01-start"[^>]*data-caption="Haftungsausschluss beim Erststart"|data-caption="Haftungsausschluss beim Erststart"[^>]*data-file="01-start"/,
+    withPatchedMetadata(
+      meta => {
+        meta.screenshots = meta.screenshots || {};
+        meta.screenshots.group = {
+          title: 'Fixture group for caption probe',
+          description: 'fixture only',
+          captions: { '01-meta-win': metaTitle },
+        };
+      },
+      () => {
+        // Strip any content caption for these keys so metadata (not content) is under test.
+        withPatchedContent(
+          'de',
+          data => {
+            data.captions = data.captions || {};
+            delete data.captions['group/01-meta-win'];
+            delete data.captions['group/03-my-feature'];
+          },
+          () => {
+            const r = runBuild(out, {
+              HANDBOOK_REPO_ROOT: fixture,
+              NODE_PATH: markedNodePath,
+              GIT_SHA: 't',
+            });
+            assert.strictEqual(r.status, 0, r.stderr);
+            const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+            const metaCard = index.match(/<figure class="shot-card"[^>]*data-file="01-meta-win"[\s\S]*?<\/figure>/);
+            assert.ok(metaCard, 'metadata-caption screenshot card present');
+            const mc = metaCard[0];
+            assert.match(mc, /data-caption="META-CAPTION-FIXTURE-XYZ"/);
+            assert.match(mc, /alt="META-CAPTION-FIXTURE-XYZ"/);
+            assert.match(mc, /class="name permalink"[^>]*>META-CAPTION-FIXTURE-XYZ</);
+            assert.match(mc, /num-badge">01</);
+
+            // Derived: 03-my-feature → badge 03 + "My feature" (not the raw stem as title)
+            const featureCard = index.match(/<figure class="shot-card"[^>]*data-file="03-my-feature"[\s\S]*?<\/figure>/);
+            assert.ok(featureCard, 'derived screenshot card present');
+            const card = featureCard[0];
+            assert.match(card, /data-caption="My feature"/);
+            assert.match(card, /num-badge">03</);
+            assert.match(card, /class="name permalink"[^>]*>My feature</);
+            assert.ok(!/class="name permalink"[^>]*>03-my-feature</.test(card), 'raw stem must not be the title');
+          },
+        );
+      },
     );
-    assert.match(index, /alt="Haftungsausschluss beim Erststart"/);
-    assert.match(index, /class="name permalink"[^>]*>Haftungsausschluss beim Erststart</);
-    // Derived: 03-my-feature → badge 03 + "My feature" (not the raw stem as title)
-    const featureCard = index.match(/<figure class="shot-card"[^>]*data-file="03-my-feature"[\s\S]*?<\/figure>/);
-    assert.ok(featureCard, 'derived screenshot card present');
-    const card = featureCard[0];
-    assert.match(card, /data-caption="My feature"/);
-    assert.match(card, /num-badge">03</);
-    assert.match(card, /class="name permalink"[^>]*>My feature</);
-    assert.ok(!/class="name permalink"[^>]*>03-my-feature</.test(card), 'raw stem must not be the title');
   });
 
   it('HTML-escapes caption text in title, alt, and data-caption attributes', function () {
