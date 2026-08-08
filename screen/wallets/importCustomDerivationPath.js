@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState, useRef, useMemo } from 'react';
 import { FlatList, StatusBar, StyleSheet, TextInput, View } from 'react-native';
-import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { StackActions, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 
 import { BlueButton, BlueFormLabel, BlueSpacing20, BlueTextCentered, SafeBlueArea } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
@@ -10,6 +10,7 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { HDLegacyP2PKHWallet, HDSegwitP2SHWallet, HDSegwitBech32Wallet } from '../../class';
 import { validateBip32 } from '../../class/wallet-import';
 import debounce from '../../blue_modules/debounce';
+import { walletCreatedRoute } from '../../helpers/wallet-created-route';
 
 const WRONG_PATH = 'WRONG_PATH';
 const WALLET_FOUND = 'WALLET_FOUND';
@@ -93,7 +94,7 @@ const ImportCustomDerivationPath = () => {
     importing.current = true;
     const wallet = wallets[path][type];
     addAndSaveWallet(wallet);
-    navigation.getParent().pop();
+    navigation.dispatch(StackActions.replace(...walletCreatedRoute()));
   };
 
   const renderItem = ({ item }) => {
