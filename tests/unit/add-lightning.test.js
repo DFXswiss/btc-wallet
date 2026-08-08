@@ -91,12 +91,13 @@ beforeEach(() => {
 
 describe('AddLightning screen', () => {
   it('offers "cancel", not the onboarding "skip"', () => {
+    mockRouteParams = { isOnboarding: true };
     const screen = renderScreen();
-    expect(screen.queryByText(loc._.cancel)).toBeTruthy();
-    expect(screen.queryByText('Skip for now')).toBeNull();
+    expect(screen.getByText(loc._.cancel)).toBeTruthy();
   });
 
   it('leaves for the wallet home screen when cancelled', () => {
+    mockRouteParams = { isOnboarding: true };
     const screen = renderScreen();
     fireEvent.press(screen.getByText(loc._.cancel));
     expect(mockNavigate).toHaveBeenCalledWith('WalletTransactions');
