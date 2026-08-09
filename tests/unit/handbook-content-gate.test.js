@@ -450,6 +450,16 @@ describe('unit - handbook content gate', () => {
         !entry.payload.test(`${address} xpub6CUGRUonZSQ4TWtTMmzXdrXDtypWKiKrhko4eg`),
         `allowlist entry ${rel} accepts an address with text after it`,
       );
+      // The three cases above all contain a space, so any whitespace-free
+      // matcher satisfies them — including a blanket one. These two do not:
+      // the first is a bare extended key, which no OCR check would ever see
+      // because it sits inside a QR; the second is the BIP21 form with a free
+      // text label.
+      assert.ok(!entry.payload.test('xpub6CUGRUonZSQ4TWtTMmzXdrXDtypWKiKrhko4eg'), `allowlist entry ${rel} accepts a bare extended key`);
+      assert.ok(
+        !entry.payload.test(`${address}?amount=0.1&label=anything`),
+        `allowlist entry ${rel} accepts BIP21 parameters, which carry free text`,
+      );
     }
   });
 

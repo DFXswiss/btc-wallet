@@ -167,13 +167,17 @@ const SCREENSHOTS_MUST_YIELD_OCR = 'screenshots/';
  *
  * Written for OCR output, not for a key on the wire. A rendered 111-character
  * key never comes back in one piece: tesseract breaks it at glyph boundaries
- * and confuses Q/0, 1/l, f/£. Requiring 20 contiguous base58 characters
- * therefore caught 1 of 18 rendered variants of a real zpub; 10 contiguous
- * alphanumerics catch 17 of 18. Insisting on base58 (no 0, O, I, l) buys no
- * precision here and costs detections, because a misread of exactly those
- * characters ends the run. False positives measured at 0 over the OCR text of
- * all 70 published PNGs, every .md and loc/*.json in this repository, and
- * /usr/share/dict/words.
+ * and confuses Q/0, 1/l, f/£, and base58 leaves out exactly those characters,
+ * so every misread ends the run.
+ *
+ * Measured over 18 renderings of a real zpub (Arial and Courier New, 24/32/44
+ * px, wrapped at 24/36/60 characters, tesseract 5.5.3): this pattern matches
+ * 18, the earlier 20-contiguous-base58 one matches 2. The exact ratio moves
+ * with the render set — a second measurement on a different set put them at 17
+ * and 1 — but the gap is the point, and it is an order of magnitude either way.
+ *
+ * False positives measured at 0 over the OCR text of all 70 published PNGs,
+ * every .md and loc/*.json in this repository, and /usr/share/dict/words.
  *
  * Upper case matters for two reasons: this wallet emits `Ypub` and `Zpub` for
  * multisig itself (class/wallets/multisig-hd-wallet.js), and OCR read the
