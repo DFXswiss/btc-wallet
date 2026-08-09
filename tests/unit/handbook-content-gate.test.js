@@ -117,6 +117,12 @@ describe('unit - handbook content gate', () => {
       assert.deepStrictEqual(gate.longestBip39Run(ocr, WORDS), ['able', 'about', 'above']);
     });
 
+    it('reads short words too — BIP39 has three-letter entries', function () {
+      // Narrowing the tokenizer to /[a-z]{4,}/ would drop 'zoo' and its kin
+      // and quietly shorten every run that contains one.
+      assert.deepStrictEqual(gate.longestBip39Run('able zoo about', WORDS), ['able', 'zoo', 'about']);
+    });
+
     it('matches case-insensitively', function () {
       assert.deepStrictEqual(gate.longestBip39Run('ABANDON Ability', WORDS), ['abandon', 'ability']);
     });
@@ -460,6 +466,14 @@ describe('unit - handbook content gate', () => {
         !entry.payload.test(`${address}?amount=0.1&label=anything`),
         `allowlist entry ${rel} accepts BIP21 parameters, which carry free text`,
       );
+      // Length and alphabet are the other half of "exact shapes": without them
+      // the matcher takes a bech32-looking blob of any length.
+      assert.ok(!entry.payload.test(`bc1${'q'.repeat(80)}`), `allowlist entry ${rel} accepts a bech32 blob of arbitrary length`);
+      assert.ok(
+        !entry.payload.test('bc1qb7vhlleagzs3ju0yj50sjujug20enrqp9r6adc'),
+        `allowlist entry ${rel} accepts characters outside the bech32 data alphabet`,
+      );
+      assert.ok(!entry.payload.test(`1${'A'.repeat(60)}`), `allowlist entry ${rel} accepts a base58 blob past the address length`);
     }
   });
 
@@ -552,6 +566,9 @@ describe('unit - handbook content gate', () => {
       // that "corrects" this to base58 has to turn a test red.
       assert.ok(gate.EXTENDED_KEY_RE.test('Zpub6rFR7y0Q2Ai'), 'an O misread as 0 must still match');
       assert.ok(gate.EXTENDED_KEY_RE.test('zpub6rFR7ylQ2Ai'), 'an l misread must still match');
+      // No word boundary, on purpose: OCR glues the key to the label in front
+      // of it often enough that requiring one costs detections.
+      assert.ok(gate.EXTENDED_KEY_RE.test('WalletxPubZpub6rFR7y4Q2Ai'), 'a key glued to its label must match');
     });
 
     it('does not see an extended key in ordinary text', function () {

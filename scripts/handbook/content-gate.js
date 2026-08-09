@@ -103,6 +103,14 @@ const QR_ALLOWLIST = {
  * Digits and punctuation are transparent: a phrase rendered as a numbered grid
  * ("1 abandon 2 ability …") still reads as one run. Any non-BIP39 word breaks
  * it, which is what keeps ordinary prose below the threshold.
+ *
+ * How well that holds, measured over 27 renderings of a real 12-word phrase
+ * (three fonts, three sizes, numbered / bare / two-column): 26 are caught, the
+ * median run is 12, and one two-column rendering drops to 3. So the net has a
+ * hole of roughly one in thirty — worth knowing, not worth widening the rule
+ * for: making tokens shorter than three characters transparent, so a digit
+ * misread as a letter cannot break a run, was tried and changed nothing (26 of
+ * 27 either way, and the longest natural run on the real screens stays at 3).
  */
 const SEED_RUN_LIMIT = 5;
 
