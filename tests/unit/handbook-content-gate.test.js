@@ -314,7 +314,7 @@ describe('unit - handbook content gate', () => {
       fs.chmodSync(p, 0o755);
     }
 
-    function fixture({ extraOnDisk = [], text = 'Guthaben senden und empfangen ' } = {}) {
+    function fixture({ extraOnDisk = [], text = 'Guthaben senden und empfangen ', qrBody, ocrBody } = {}) {
       const root = fs.mkdtempSync(path.join(tmp, 'gate-'));
       const bin = fs.mkdtempSync(path.join(tmp, 'bin-'));
       const declared = [ALLOWED, 'screenshots/plain.png'];
@@ -324,11 +324,15 @@ describe('unit - handbook content gate', () => {
       }
       fs.writeFileSync(path.join(root, 'manifest.json'), JSON.stringify({ artifacts: declared.map(p => ({ outputPath: p })) }));
       // Only the allowlisted screen carries a QR; everything else exits 4.
-      stub(bin, 'zbarimg', `case "$*" in *--version*) echo "zbarimg 0.23";; *01-erhalten.png*) echo '${ADDRESS}';; *) exit 4;; esac`);
+      stub(
+        bin,
+        'zbarimg',
+        qrBody || `case "$*" in *--version*) echo "zbarimg 0.23";; *01-erhalten.png*) echo '${ADDRESS}';; *) exit 4;; esac`,
+      );
       stub(
         bin,
         'tesseract',
-        `case "$*" in *--version*) echo "tesseract 5";; *) for i in $(seq 1 200); do printf '%s' '${text}'; done; echo;; esac`,
+        ocrBody || `case "$*" in *--version*) echo "tesseract 5";; *) for i in $(seq 1 200); do printf '%s' '${text}'; done; echo;; esac`,
       );
       return { root, bin };
     }
@@ -363,6 +367,28 @@ describe('unit - handbook content gate', () => {
       const r = runScript(fixture({ extraOnDisk: ['screenshots/97-undeclared.PNG'] }));
       assert.notStrictEqual(r.status, 0, r.stdout);
       assert.match(r.stderr, /shipped but not declared/);
+    });
+
+    it('exits non-zero when zbarimg fails on an image', function () {
+      // Exit 1 is a read error, not "no QR". The predecessor's `|| true`
+      // passed those as clean, and nothing but this catch holds the difference.
+      const r = runScript(
+        fixture({
+          qrBody: `case "$*" in *--version*) echo "zbarimg 0.23";; *plain.png*) exit 1;; *01-erhalten.png*) echo '${ADDRESS}';; *) exit 4;; esac`,
+        }),
+      );
+      assert.notStrictEqual(r.status, 0, r.stdout);
+      assert.match(r.stderr, /Cannot certify the image as QR-free/);
+    });
+
+    it('exits non-zero when tesseract fails on an image', function () {
+      const r = runScript(
+        fixture({
+          ocrBody: 'case "$*" in *--version*) echo "tesseract 5";; *plain.png*) exit 1;; *) echo "Guthaben senden";; esac',
+        }),
+      );
+      assert.notStrictEqual(r.status, 0, r.stdout);
+      assert.match(r.stderr, /Cannot certify the image as seed-free/);
     });
 
     it('exits non-zero on a recovery phrase', function () {

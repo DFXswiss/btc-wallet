@@ -73,6 +73,12 @@ const QR_ALLOWLIST = {
     // P2WPKH, 62 for P2WSH/P2TR), base58 without 0/O/I/l for legacy.
     payload: /^(bitcoin:)?(bc1[02-9ac-hj-np-z]{39}|bc1[02-9ac-hj-np-z]{59}|[13][1-9A-HJ-NP-Za-km-z]{25,34})$/,
     reason: 'receive screen — the QR is the subject of the screenshot',
+    // Deliberately the bare address only. The receive screen produces a BIP21
+    // URI with parameters as soon as an amount is entered, and such a
+    // screenshot will fail here — on purpose: `?label=` carries free text, and
+    // allowing it would make this a path-only allowlist again. Re-take the
+    // screenshot without an amount, or widen this with a shape for the
+    // parameters, not with `.*`.
   },
 };
 
