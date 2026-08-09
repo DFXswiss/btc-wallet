@@ -24,6 +24,13 @@ mit `.`, die Basenamen `node_modules`, `.git`, `_handbook-deps`, `build`, `dist`
 `coverage`, `blue_modules`, `ios`, `android`, `windows`, `macos`, `vendor`, sowie
 der exakte Pfad `docs/handbook` (Selbstdoku und lokales Build-Output).
 
+Bei Store-Discovery sind unter den beiden Metadata-Roots nur Locale-foermige
+Verzeichnisse erlaubt (`de`, `de-DE`, `pt-BR`, `zh-Hans`, `es-419`); alles
+andere bricht den Build ab. Grund: fastlane legt dort auch
+`review_information/` an — Name, Telefonnummer und Demo-Zugang des
+App-Review-Kontakts —, und Discovery veroeffentlicht jede `.txt` unter einem
+akzeptierten Verzeichnis woertlich auf eine Seite ohne Anmeldewand.
+
 Ausgabe pro Build:
 
 ```
@@ -40,7 +47,9 @@ Guards (Build bricht ab bei Verletzung):
 - **Floor:** mindestens `MIN_SCREENSHOTS` (35) PNGs (aktuell 42 committiert;
   Boden bei Bestandszuwachs anheben)
 - **Floor:** mindestens `MIN_DOCS` (8) Markdown-Dokumente (nach Ausschlussregeln)
-- **Floor:** mindestens `MIN_STORE_FIELDS` (12) Store-Textfelder
+- **Floor:** mindestens `MIN_STORE_FIELDS` (25) Store-Textfelder — der Boden
+  liegt bewusst ueber "alles minus die kleinste Locale", sonst koennte ein
+  ganzes Store-Listing verschwinden, ohne dass der Build es merkt
 - **Floor:** mindestens `MIN_ASSETS` (20) PNGs unter Assets
 - **PNG-Integrität:** Magic-Bytes `\x89PNG…`; Screenshots > 1000 Bytes,
   App-Assets > 100 Bytes (kleine 1×-Icons wie `telegram.png`/`twitter.png`
@@ -270,11 +279,16 @@ Signatur ueber eine **statische Nachricht ohne Nonce**, siehe
 `02-wallet/07-xpub.png`, der Cosigner-QR in `07-multi-device/01-erstellung-qr.png`
 und die Lightning-Adresse in `08-lightning/03-rechnung-erstellen.png`.
 
-Beides prueft `content-gate.js` inzwischen automatisch mit, es braucht dafuer
-keinen Handgriff mehr: erweiterte Public Keys (`xpub`/`zpub` und Verwandte)
-fuehren zum Abbruch, ebenso eine Folge von `SEED_RUN_LIMIT` (derzeit fuenf)
-aufeinanderfolgenden BIP39-Woertern. Der aktuelle Satz kommt auf hoechstens
-drei; die ungeschwaerzten Originale hatten zwoelf.
+Zwei der vier Klassen prueft `content-gate.js` inzwischen automatisch mit:
+erweiterte Schluessel (`xpub`/`zpub`/`xprv` und Verwandte) fuehren zum Abbruch,
+ebenso eine Folge von `SEED_RUN_LIMIT` (derzeit fuenf) aufeinanderfolgenden
+BIP39-Woertern. Der aktuelle Satz kommt auf hoechstens drei; die
+ungeschwaerzten Originale hatten zwoelf.
+
+**Signatur und Lightning-Adresse bleiben Handarbeit** — dafuer hat das Gate
+keine Regel, und es kann auch keine haben: beide sind fuer sich genommen
+unauffaelliger Text. Beim Neuaufnehmen dieser zwei Screens also weiter selbst
+schwaerzen.
 
 ## Abdeckung — was fehlt und warum
 

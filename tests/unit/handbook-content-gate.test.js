@@ -168,7 +168,7 @@ describe('unit - handbook content gate', () => {
     const ALLOWLIST = {
       'screenshots/recv.png': { payload: /^bitcoin:bc1[02-9ac-hj-np-z]{39}$/, reason: 'receive screen fixture' },
     };
-    const ADDRESS = 'bitcoin:bc1qp7vhlleagzs3ju0yj50sjujug20enrqp9r6adc';
+    const ADDRESS = 'bitcoin:bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4';
     const PROSE = 'Guthaben senden und empfangen '.repeat(400);
 
     function run(over = {}) {
@@ -304,7 +304,7 @@ describe('unit - handbook content gate', () => {
     const { spawnSync } = require('child_process');
     const SCRIPT = path.resolve(__dirname, '../../scripts/handbook/content-gate.js');
     const ALLOWED = Object.keys(gate.QR_ALLOWLIST)[0];
-    const ADDRESS = 'bitcoin:bc1qp7vhlleagzs3ju0yj50sjujug20enrqp9r6adc';
+    const ADDRESS = 'bitcoin:bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4';
 
     let tmp;
 
@@ -415,7 +415,7 @@ describe('unit - handbook content gate', () => {
       // The anchors are the whole mechanism: without them a payload that
       // merely CONTAINS the address passes, and a seed phrase or an xpub can
       // ride along in the same QR.
-      const address = 'bitcoin:bc1qp7vhlleagzs3ju0yj50sjujug20enrqp9r6adc';
+      const address = 'bitcoin:bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4';
       assert.ok(
         !entry.payload.test(`abandon ability able ${address}`),
         `allowlist entry ${rel} accepts an address with text in front of it`,

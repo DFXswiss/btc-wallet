@@ -334,8 +334,11 @@ function ocrCoverageProblems(perFile, prefix) {
     `OCR returned nothing for ${silent.length} screenshot(s), so they were not ` +
       'checked for a recovery phrase or a key at all:\n' +
       silent.map(r => `      ${r}`).join('\n') +
-      '\n    A wallet screen without a single readable word means the tool failed ' +
-      'on that file.',
+      '\n    Two things look like this: the tool failed on those files, or a ' +
+      'screen genuinely carries no readable text. Look at the image. If it is ' +
+      'the second, the image does not belong under screenshots/ — moving it to ' +
+      'assets/ is the documented way out, because a per-file exception list ' +
+      'cannot hold across tesseract versions (see SCREENSHOTS_MUST_YIELD_OCR).',
   ];
 }
 
