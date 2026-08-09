@@ -3,7 +3,6 @@
   "label": "English",
   "meta": {
     "title": "DFX BTC Taro Wallet — Handbook",
-    "tagline": "Bitcoin and Lightning on your own device",
     "description": "Illustrated guide to the DFX BTC Taro Wallet: create a wallet, receive and send bitcoin, secure your backup, use Lightning.",
     "lede": "This guide walks through the app picture by picture, in the order the steps appear in the wallet. Every image is a real capture from the app."
   },
@@ -13,7 +12,6 @@
     "searchLabel": "Search the handbook",
     "searchStatus": "{n} of {total} images",
     "searchEmpty": "No matches. Try a different spelling or clear the search.",
-    "searchReset": "Clear search",
     "expandAll": "Expand all",
     "collapseAll": "Collapse all",
     "menu": "Show contents",
@@ -22,7 +20,6 @@
     "skipToContent": "Skip to content",
     "backToHandbook": "Back to the handbook",
     "breadcrumbHome": "Handbook",
-    "step": "Step",
     "images": "images",
     "image": "image",
     "close": "Close",
@@ -40,7 +37,10 @@
     "statDocs": "documents",
     "statStore": "store texts",
     "statAssets": "image files",
-    "statRevision": "revision"
+    "statRevision": "revision",
+    "devStore": "Store texts",
+    "devAssets": "App image files",
+    "devDocs": "Technical documentation"
   },
   "chapters": [
     {

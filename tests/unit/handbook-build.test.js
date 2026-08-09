@@ -290,33 +290,58 @@ function extractDocArticle(html) {
 }
 
 /**
- * Temporarily extend scripts/handbook/metadata.json for caption tests, then
- * restore. Suite runs with -i (runInBand); still always restore in finally.
+ * Handbook content + metadata for a test live under a temp HANDBOOK_DATA_DIR
+ * (copied from the repo). Patches never write tracked files; nested calls reuse
+ * the same temp tree.
  */
+function ensureHandbookDataDir() {
+  if (process.env.HANDBOOK_DATA_DIR) {
+    return { dir: process.env.HANDBOOK_DATA_DIR, created: false };
+  }
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hb-data-'));
+  const srcContent = path.join(REPO_ROOT, 'scripts/handbook/content');
+  const dstContent = path.join(dir, 'content');
+  fs.mkdirSync(dstContent, { recursive: true });
+  for (const name of fs.readdirSync(srcContent)) {
+    if (!name.endsWith('.json')) continue;
+    fs.copyFileSync(path.join(srcContent, name), path.join(dstContent, name));
+  }
+  fs.copyFileSync(path.join(REPO_ROOT, 'scripts/handbook/metadata.json'), path.join(dir, 'metadata.json'));
+  process.env.HANDBOOK_DATA_DIR = dir;
+  return { dir, created: true };
+}
+
+function releaseHandbookDataDir(handle) {
+  if (!handle || !handle.created) return;
+  delete process.env.HANDBOOK_DATA_DIR;
+  fs.rmSync(handle.dir, { recursive: true, force: true });
+}
+
+/** Patch metadata.json in a temp handbook data dir (never the tracked file). */
 function withPatchedMetadata(patchFn, body) {
-  const metaPath = path.join(REPO_ROOT, 'scripts/handbook/metadata.json');
-  const original = fs.readFileSync(metaPath, 'utf8');
+  const handle = ensureHandbookDataDir();
   try {
-    const meta = JSON.parse(original);
+    const metaPath = path.join(handle.dir, 'metadata.json');
+    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
     patchFn(meta);
     fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2) + '\n', 'utf8');
     return body();
   } finally {
-    fs.writeFileSync(metaPath, original, 'utf8');
+    releaseHandbookDataDir(handle);
   }
 }
 
-/** Patch one content locale file temporarily (restored in finally). */
+/** Patch one content locale file in a temp handbook data dir. */
 function withPatchedContent(locale, patchFn, body) {
-  const contentPath = path.join(REPO_ROOT, 'scripts/handbook/content', locale + '.json');
-  const original = fs.readFileSync(contentPath, 'utf8');
+  const handle = ensureHandbookDataDir();
   try {
-    const data = JSON.parse(original);
+    const contentPath = path.join(handle.dir, 'content', locale + '.json');
+    const data = JSON.parse(fs.readFileSync(contentPath, 'utf8'));
     patchFn(data);
     fs.writeFileSync(contentPath, JSON.stringify(data, null, 2) + '\n', 'utf8');
     return body();
   } finally {
-    fs.writeFileSync(contentPath, original, 'utf8');
+    releaseHandbookDataDir(handle);
   }
 }
 
@@ -584,10 +609,9 @@ describe('unit - handbook build guards', () => {
   });
 
   it('fails the build when a content locale file is invalid JSON', function () {
-    const contentPath = path.join(REPO_ROOT, 'scripts/handbook/content', 'en.json');
-    const original = fs.readFileSync(contentPath, 'utf8');
+    const handle = ensureHandbookDataDir();
     try {
-      fs.writeFileSync(contentPath, '{ this is not valid json\n', 'utf8');
+      fs.writeFileSync(path.join(handle.dir, 'content', 'en.json'), '{ this is not valid json\n', 'utf8');
       const { fixture, out } = freshDirs();
       populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
       const r = runBuild(out, { HANDBOOK_REPO_ROOT: fixture });
@@ -595,7 +619,7 @@ describe('unit - handbook build guards', () => {
       assert.match(r.stderr, /invalid JSON/);
       assert.match(r.stderr, /content\/en\.json/);
     } finally {
-      fs.writeFileSync(contentPath, original, 'utf8');
+      releaseHandbookDataDir(handle);
     }
   });
 
@@ -2025,6 +2049,163 @@ describe('unit - handbook build guards', () => {
       // Visible text before developer must not expose fixture stems as a caption line.
       const textOnly = customer.replace(/<[^>]+>/g, ' ');
       assert.ok(!/\bshot-\d{2}\b/.test(textOnly), `${loc}: raw screenshot stems must not appear as visible text`);
+    }
+  });
+
+  // --- PR #218 review fixes ---
+
+  it('localizes developer section titles from ui.dev* keys', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    for (const loc of ['de', 'en', 'fr', 'it']) {
+      const content = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'scripts/handbook/content', loc + '.json'), 'utf8'));
+      const pagePath = loc === 'de' ? path.join(out, 'index.html') : path.join(out, loc, 'index.html');
+      const html = fs.readFileSync(pagePath, 'utf8');
+      const dev = html.match(/id="developer"[\s\S]*?<\/details>\s*<footer/);
+      assert.ok(dev, `${loc} developer block`);
+      assert.ok(dev[0].includes(content.ui.devStore), `${loc} devStore`);
+      assert.ok(dev[0].includes(content.ui.devAssets), `${loc} devAssets`);
+      assert.ok(dev[0].includes(content.ui.devDocs), `${loc} devDocs`);
+      assert.ok(!dev[0].includes('Store-Listing'), `${loc}: no hardcoded Store-Listing`);
+      assert.ok(!/App-Assets/.test(dev[0]), `${loc}: no hardcoded App-Assets`);
+      // German word only allowed on de
+      if (loc !== 'de') {
+        assert.ok(!dev[0].includes('Dokumentation'), `${loc}: no German Dokumentation title`);
+      }
+    }
+  });
+
+  it('uses ui.language for the language switch aria-label', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    for (const loc of ['de', 'en', 'fr', 'it']) {
+      const content = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'scripts/handbook/content', loc + '.json'), 'utf8'));
+      const pagePath = loc === 'de' ? path.join(out, 'index.html') : path.join(out, loc, 'index.html');
+      const html = fs.readFileSync(pagePath, 'utf8');
+      assert.match(html, new RegExp(`class="lang-switch" aria-label="${content.ui.language.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
+    }
+  });
+
+  it('gives .group-anchor the same scroll-margin as other jump targets', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    // One chapter, one group → no group h3; anchor hangs on .group-anchor.
+    withPatchedContent(
+      'de',
+      data => {
+        data.chapters = [
+          {
+            id: 'one-group',
+            title: 'One group chapter',
+            summary: '',
+            intro: '',
+            groups: ['group'],
+          },
+        ];
+      },
+      () => {
+        const r = runBuild(out, {
+          HANDBOOK_REPO_ROOT: fixture,
+          NODE_PATH: markedNodePath,
+          GIT_SHA: 't',
+        });
+        assert.strictEqual(r.status, 0, r.stderr);
+        const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+        const style = index.match(/<style>([\s\S]*?)<\/style>/)[1];
+        const tokens = fs.readFileSync(path.join(REPO_ROOT, 'scripts/handbook/pod/tokens.css'), 'utf8');
+        const own = style.slice(style.indexOf(tokens) + tokens.length);
+        assert.match(own, /\.group-anchor\s*\{[^}]*scroll-margin-top\s*:\s*76px/);
+        assert.match(index, /class="group-anchor"/);
+      },
+    );
+  });
+
+  it('injects searchStatus without treating $ as replace patterns', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    withPatchedContent(
+      'de',
+      data => {
+        data.ui.searchStatus = "$' of {total} — {n}";
+      },
+      () => {
+        const r = runBuild(out, {
+          HANDBOOK_REPO_ROOT: fixture,
+          NODE_PATH: markedNodePath,
+          GIT_SHA: 't',
+        });
+        assert.strictEqual(r.status, 0, r.stderr);
+        const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+        const m = index.match(/id="search-status"[^>]*>/);
+        assert.ok(m, 'search-status opening tag');
+        assert.match(m[0], /data-template="/);
+        // Attribute must not break: tag still ends with >
+        assert.ok(m[0].endsWith('>'), 'tag closed');
+        assert.ok(!/data-template="id="/.test(m[0]), "no $' expansion into id=");
+        // Escaped apostrophe form from escapeHtml
+        assert.ok(m[0].includes('&#39;') || m[0].includes("$'"), 'template retains the dollar-quote payload safely');
+      },
+    );
+  });
+
+  it('warns when a locale is missing a chapter id from the plan', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    withPatchedContent(
+      'fr',
+      data => {
+        // Rename first chapter id so it no longer matches the DE plan.
+        if (data.chapters && data.chapters[0]) {
+          data.chapters[0].id = 'premiers-pas-not-in-plan';
+        }
+      },
+      () => {
+        const r = runBuild(out, {
+          HANDBOOK_REPO_ROOT: fixture,
+          NODE_PATH: markedNodePath,
+          GIT_SHA: 't',
+        });
+        assert.strictEqual(r.status, 0, r.stderr);
+        assert.match(r.stderr, /chapter id ".*".*missing in content locale "fr"/i);
+        assert.match(r.stderr, /premiers-pas-not-in-plan.*not in the chapter plan/i);
+      },
+    );
+  });
+
+  it('fails when two content locales claim the same page output path', function () {
+    const handle = ensureHandbookDataDir();
+    try {
+      // Force fr.json to declare locale "en" → both write en/index.html.
+      // (index.html is excluded from collision checks by design for store fields;
+      // en/index.html is not.)
+      const frPath = path.join(handle.dir, 'content', 'fr.json');
+      const fr = JSON.parse(fs.readFileSync(frPath, 'utf8'));
+      fr.locale = 'en';
+      fs.writeFileSync(frPath, JSON.stringify(fr, null, 2) + '\n', 'utf8');
+      const { fixture, out } = freshDirs();
+      populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+      const r = runBuild(out, {
+        HANDBOOK_REPO_ROOT: fixture,
+        NODE_PATH: markedNodePath,
+        GIT_SHA: 't',
+      });
+      assert.notStrictEqual(r.status, 0, r.stderr);
+      assert.match(r.stderr, /output collision/i);
+      assert.match(r.stderr, /en\/index\.html/);
+    } finally {
+      releaseHandbookDataDir(handle);
     }
   });
 });

@@ -57,6 +57,9 @@ Guards (Build bricht ab bei Verletzung):
   liegt bewusst ueber "alles minus die kleinste Locale", sonst koennte ein
   ganzes Store-Listing verschwinden, ohne dass der Build es merkt
 - **Floor:** mindestens `MIN_ASSETS` (20) PNGs unter Assets
+- **Floor:** mindestens `MIN_CONTENT_LOCALES` (4) Sprachdateien unter
+  `scripts/handbook/content/` (de/en/fr/it; Unterschreiten ist immer ein Fehler,
+  Überschreiten nie)
 - **PNG-Integrität:** Magic-Bytes `\x89PNG…`; Screenshots > 1000 Bytes,
   App-Assets > 100 Bytes (kleine 1×-Icons wie `telegram.png`/`twitter.png`
   sind im Repo unter 1000 Bytes und trotzdem gültige PNGs)
@@ -82,8 +85,9 @@ automatisch.
 
 `scripts/handbook/content/<locale>.json` steuert pro Sprache Titel, Lede,
 UI-Strings und die **Kapitel** (Aufgaben). Jede `*.json` im Ordner ist eine
-Sprache (Discovery). Fehlt der Ordner, baut der Build einsprachig mit Fallback-
-UI weiter.
+Sprache (Discovery). Fehlt der Ordner, eine Datei ist ungültig, oder es fehlen
+Pflichtfelder (`locale`, `chapters`), bricht der Build ab — es gibt keinen
+stillen Fallback mehr.
 
 Ein Kapitel listet `groups` (Verzeichnisnamen unter Screenshots) und/oder
 `images` (`<gruppe>/<stem>`). Reihenfolge der Kapitel und der Bilder darin

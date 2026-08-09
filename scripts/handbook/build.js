@@ -556,12 +556,6 @@ function slugify(key) {
   );
 }
 
-function formatUi(template, vars) {
-  return String(template || '').replace(/\{(\w+)\}/g, (_, k) =>
-    vars[k] !== undefined && vars[k] !== null ? String(vars[k]) : '{' + k + '}',
-  );
-}
-
 function loadPodAssets(scriptDir) {
   const podDir = path.join(scriptDir, 'pod');
   const tokensPath = path.join(podDir, 'tokens.css');
@@ -1219,6 +1213,10 @@ a.name.permalink:hover {
   border: 0;
   scroll-margin-top: 72px;
 }
+/* Single-group chapters hang the group id here (no visible heading). */
+.group-anchor {
+  scroll-margin-top: 76px;
+}
 .shot-card > a.shot-img {
   display: block;
   color: inherit;
@@ -1690,34 +1688,15 @@ function buildHead(opts) {
   );
 }
 
-function buildLangSwitch(locales, currentLocale, prefix, pageName) {
-  // pageName: '' for home, or '' with locale path — links to sibling locale homes
-  let html = `<nav class="lang-switch" aria-label="Language">`;
+function buildLangSwitch(locales, currentLocale, prefix, ariaLabel) {
+  // prefix is '' on de home and '../' on en|fr|it homes — enough for sibling links.
+  let html =
+    `<nav class="lang-switch" aria-label="${escapeHtml(ariaLabel || 'Language')}">`;
   for (const loc of locales) {
-    let href;
-    if (loc.locale === 'de') {
-      href = prefix + 'index.html';
-    } else {
-      // from root: en/index.html; from en/: ../fr/index.html; from docs: ../../en/index.html
-      if (currentLocale === 'de') {
-        href = prefix + loc.locale + '/index.html';
-      } else if (prefix === '../') {
-        // on en/index.html, prefix is ../
-        href = prefix + loc.locale + '/index.html';
-      } else {
-        href = prefix + loc.locale + '/index.html';
-      }
-    }
-    // normalize: when on en/ (prefix ../), de is ../index.html, fr is ../fr/index.html
-    if (currentLocale !== 'de' && loc.locale === 'de') {
-      href = prefix + 'index.html';
-    } else if (currentLocale !== 'de' && loc.locale !== 'de') {
-      href = prefix + loc.locale + '/index.html';
-    } else if (currentLocale === 'de' && loc.locale !== 'de') {
-      href = prefix + loc.locale + '/index.html';
-    } else {
-      href = prefix + 'index.html';
-    }
+    const href =
+      loc.locale === 'de'
+        ? prefix + 'index.html'
+        : prefix + loc.locale + '/index.html';
     const cur = loc.locale === currentLocale ? ' aria-current="true"' : '';
     html +=
       `<a href="${escapeHtml(encodeHtmlPath(href))}"${cur}>` +
@@ -1769,7 +1748,12 @@ function buildTopbar(opts) {
 
   const lang =
     locales.length > 1
-      ? buildLangSwitch(locales, currentLocale, prefix, opts.homePath)
+      ? buildLangSwitch(
+          locales,
+          currentLocale,
+          prefix,
+          ui.language || 'Language',
+        )
       : '';
 
   return (
@@ -1957,7 +1941,6 @@ function buildHandbookJs() {
     '      });',
     '      tocGroups.forEach(function (a) {',
     "        var gid = a.getAttribute('data-toc-group');",
-    "        var g = document.getElementById(gid);",
     "        var c = qs('.count', a);",
     '        var li = a.closest ? a.closest("li") : null;',
     '        if (!active) {',
@@ -1966,20 +1949,7 @@ function buildHandbookJs() {
     '          return;',
     '        }',
     '        var n = 0;',
-    "        if (g) n = qsa('[data-search=\"shot\"]', g.closest ? (g.closest('[data-search=\"group\"]') || g.parentElement) : g).filter(function (s) { return !s.hasAttribute('hidden'); }).length;",
-    "        if (g && g.hasAttribute && g.getAttribute('data-search') === 'group') {",
-    "          n = qsa('[data-search=\"shot\"]', g).filter(function (s) { return !s.hasAttribute('hidden'); }).length;",
-    '        } else if (g) {',
-    "          var gb = g.closest('[data-search=\"group\"]');",
-    "          if (gb) n = qsa('[data-search=\"shot\"]', gb).filter(function (s) { return !s.hasAttribute('hidden'); }).length;",
-    '        }',
-    // fix group count: find group-block by h3 id
-    "        var groupBlock = null;",
-    "        qsa('[data-search=\"group\"]').forEach(function (gb) {",
-    "          if (qs('#' + gid, gb) || (gb.querySelector && gb.querySelector('#' + CSS.escape(gid)))) groupBlock = gb;",
-    '        });',
-    // simpler approach without CSS.escape:
-    '        groupBlock = null;',
+    '        var groupBlock = null;',
     "        qsa('[data-search=\"group\"]').forEach(function (gb) {",
     "          var h = qs('h3', gb);",
     '          if (h && h.id === gid) groupBlock = gb;',
@@ -2576,6 +2546,11 @@ function main() {
   }
 
   const scriptDir = __dirname;
+  // Content + metadata: optional HANDBOOK_DATA_DIR (tests) else next to this script.
+  // Pod assets always stay next to build.js (vendored fonts/tokens).
+  const handbookDir = process.env.HANDBOOK_DATA_DIR
+    ? path.resolve(process.env.HANDBOOK_DATA_DIR)
+    : scriptDir;
   const repoRoot = process.env.HANDBOOK_REPO_ROOT
     ? path.resolve(process.env.HANDBOOK_REPO_ROOT)
     : path.resolve(scriptDir, '../..');
@@ -2585,7 +2560,7 @@ function main() {
 
   prepareOutputDir(outDir, repoRoot);
 
-  const metadataPath = path.join(scriptDir, 'metadata.json');
+  const metadataPath = path.join(handbookDir, 'metadata.json');
   let metadata = {};
   if (fs.existsSync(metadataPath)) {
     metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
@@ -2600,7 +2575,7 @@ function main() {
   const logoDark = prepareInlineLogo(pod.logoDark, 'logo-dark');
   const logoWhite = prepareInlineLogo(pod.logoWhite, 'logo-white');
 
-  const contentLoad = loadContentLocales(scriptDir);
+  const contentLoad = loadContentLocales(handbookDir);
   const contentLocales = contentLoad.locales;
   if (contentLocales.length < MIN_CONTENT_LOCALES) {
     const fileList =
@@ -2843,6 +2818,8 @@ function main() {
     });
   }
 
+  // Early collision check (screenshots/docs/store/assets) — before marked render
+  // so floor/collision tests need no markdown dependency.
   assertNoOutputCollisions(artifacts);
 
   // Write binary assets
@@ -3079,7 +3056,7 @@ function main() {
       }
       pushSection(
         'store-listing',
-        'Store-Listing',
+        uiLabel(ui, 'devStore', 'Store texts'),
         `${storeEntries.length}`,
         '',
         storeBody,
@@ -3091,14 +3068,19 @@ function main() {
       let ag = '<div class="asset-grid">';
       for (const a of assetSpecs) {
         const assetHref = escapeHtml(encodeHtmlPath(a.out));
-        // depth-adjusted later? developer section is only on locale pages at known depth
         ag +=
           `<div class="asset-card"><a href="__PREFIX__${assetHref}">` +
           `<div class="frame"><img src="__PREFIX__${assetHref}" alt="${escapeHtml(a.title)}" loading="lazy"></div>` +
           `<div class="an">${escapeHtml(a.title)}</div></a></div>`;
       }
       ag += '</div>';
-      pushSection('assets', 'App-Assets', `${assetSpecs.length}`, '', ag);
+      pushSection(
+        'assets',
+        uiLabel(ui, 'devAssets', 'App image files'),
+        `${assetSpecs.length}`,
+        '',
+        ag,
+      );
     }
 
     // Docs
@@ -3119,7 +3101,7 @@ function main() {
       docsBody += '</ul>';
       pushSection(
         'documentation',
-        'Dokumentation',
+        uiLabel(ui, 'devDocs', 'Technical documentation'),
         `${renderedDocs.length}`,
         '',
         docsBody,
@@ -3216,6 +3198,24 @@ function main() {
     const byId = new Map(
       (content.chapters || []).map((ch) => [ch.id || slugify(ch.title || ''), ch]),
     );
+    // Warn when plan chapter ids and locale chapter ids diverge (both directions).
+    for (const plan of baseChapterPlans) {
+      if (plan.isMore) continue;
+      if (!byId.has(plan.id)) {
+        console.error(
+          `handbook warning: chapter id "${plan.id}" missing in content ` +
+            `locale "${content.locale}"; using structure-language title`,
+        );
+      }
+    }
+    for (const id of byId.keys()) {
+      if (!baseChapterPlans.some((p) => p.id === id)) {
+        console.error(
+          `handbook warning: content locale "${content.locale}" defines ` +
+            `chapter id "${id}" which is not in the chapter plan; it is ignored`,
+        );
+      }
+    }
     const chapterPlans = baseChapterPlans.map((plan) => {
       if (plan.isMore) {
         return Object.assign({}, plan, {
@@ -3387,7 +3387,8 @@ function main() {
             `<span id="${escapeHtml(groupId)}" class="group-anchor"></span>` +
             copyLinkButton(groupId, ui);
           body += `<div class="group-block" data-search="group">`;
-          body += '<div class="shot-grid">';          for (const e of groupKeysList) {
+          body += '<div class="shot-grid">';
+          for (const e of groupKeysList) {
             body += renderShotCard(e, gTitle);
           }
           body += '</div></div>';
@@ -3417,7 +3418,6 @@ function main() {
 
     // Developer section (docs / store / assets / revision tiles live here, not in the hero)
     const dev = buildDeveloperBody(ui);
-    // fix prefixes in developer body
     let devHtml = dev.sectionsHtml.split('__PREFIX__').join(prefix);
     const devStatsHtml =
       `<div class="stats" role="group">` +
@@ -3491,8 +3491,7 @@ function main() {
     });
 
     const css = buildPageCss(pod.tokensCss, prefix);
-    const homePath =
-      content.locale === 'de' ? 'index.html' : 'index.html'; // with prefix ../
+    const homePath = 'index.html';
 
     const page =
       buildHead({
@@ -3574,13 +3573,15 @@ function main() {
       `</div></div></div>\n` +
       `</body>\n</html>\n`;
 
-    // inject search status template into status element - already has data? fix via replace
-    const pageFinal = page.replace(
-      'id="search-status" role="status" aria-live="polite" hidden>',
+    // Function form: escapeHtml may yield $' / $& which String.replace would treat
+    // as replacement patterns when the second argument is a string.
+    const searchStatusNeedle =
+      'id="search-status" role="status" aria-live="polite" hidden>';
+    const searchStatusReplacement =
       `id="search-status" role="status" aria-live="polite" hidden data-template="${escapeHtml(
         ui.searchStatus || '{n} / {total}',
-      )}">`,
-    );
+      )}">`;
+    const pageFinal = page.replace(searchStatusNeedle, () => searchStatusReplacement);
 
     const dest = path.join(outDir, outPath);
     ensureDir(path.dirname(dest));
@@ -3594,8 +3595,8 @@ function main() {
     });
   }
 
-  // Override copyLinkButton to accept ui - patch: we used copyLinkButton(id, ui)
-  // but original only takes id. Define wrapper below... already need to fix function.
+  // Collision check after fonts, handbook.js and locale pages are on the list.
+  assertNoOutputCollisions(artifacts);
 
   artifacts.sort((a, b) => {
     const c = sortStrings(a.category, b.category);

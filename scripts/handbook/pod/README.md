@@ -10,6 +10,12 @@ These files are **copies**, not originals. The source of truth is the DFX Design
 | `logo-white.svg` | `brand/logo-white.svg` | logo of record, for dark surfaces |
 | `fonts/Inter-*.woff2` | `brand/Inter-*.woff2` | brand sans, self-hosted |
 | `fonts/SourceCodePro-Regular.woff2` | `brand/SourceCodePro-Regular.woff2` | brand mono, self-hosted |
+| `fonts/Inter-LICENSE.txt` | Inter project (SIL OFL 1.1) | license text shipped with the font |
+| `fonts/SourceCodePro-LICENSE.md` | Source Code Pro project (SIL OFL 1.1) | license text shipped with the font |
+
+Inter and Source Code Pro are licensed under the **SIL Open Font License 1.1**.
+Their license files must travel with every copy of the fonts; do not redistribute
+the `.woff2` files without the matching license documents.
 
 ## Why a copy exists at all
 
