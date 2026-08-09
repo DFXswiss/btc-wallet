@@ -565,6 +565,41 @@ function ocr(absPath) {
   }
 }
 
+/**
+ * The orchestration: read the manifest, compare it against the tree, run the
+ * gate, report. Returns 0 or 1 and never exits, so a test can drive it — the
+ * scan-set enforcement and the only exit code live here, and until this was
+ * exported, deleting either line left the whole suite green while the gate went
+ * quiet. That is the failure mode this file exists to close; it does not stop
+ * being one at the main() boundary.
+ */
+function runMain({ readManifest, listPngs, decodeQr, ocr, words, log, error, allowlist, silentAllowed }) {
+  const declared = collectDeclaredPngs(readManifest());
+  const scanProblems = scanSetProblems(declared, new Set(listPngs()));
+  if (scanProblems.length) {
+    error('handbook content gate: ' + scanProblems.join('\n  '));
+    return 1;
+  }
+
+  const { summary, detail, problems } = runGate({
+    files: [...declared].sort(),
+    declared,
+    words,
+    decodeQr,
+    ocr,
+    ...(allowlist ? { allowlist } : {}),
+    ...(silentAllowed ? { silentAllowed } : {}),
+  });
+  log(summary);
+  for (const line of detail) log(line);
+
+  if (problems.length) {
+    error('handbook content gate failed:\n  ' + problems.join('\n  '));
+    return 1;
+  }
+  return 0;
+}
+
 function main() {
   const builtDir = process.argv[2];
   if (!builtDir) {
@@ -583,36 +618,25 @@ function main() {
   if (!fs.existsSync(manifestPath)) {
     fail(`handbook content gate: no manifest.json in ${root} (build first).`);
   }
-  let declared;
+
+  requireTool('zbarimg', ['--version'], 'Install zbar-tools.');
+  requireTool('tesseract', ['--version'], 'Install tesseract-ocr.');
+
+  let code;
   try {
-    declared = collectDeclaredPngs(JSON.parse(fs.readFileSync(manifestPath, 'utf8')));
+    code = runMain({
+      readManifest: () => JSON.parse(fs.readFileSync(manifestPath, 'utf8')),
+      listPngs: () => listPngRecursive(root),
+      decodeQr: rel => decodeQr(path.join(root, rel)),
+      ocr: rel => ocr(path.join(root, rel)),
+      words: loadBip39Words(),
+      log: line => console.log(line),
+      error: msg => console.error(msg),
+    });
   } catch (e) {
     fail(`handbook content gate: unusable manifest.json (${e.message}).`);
   }
-
-  const scanProblems = scanSetProblems(declared, new Set(listPngRecursive(root)));
-  if (scanProblems.length) {
-    fail('handbook content gate: ' + scanProblems.join('\n  '));
-  }
-
-  const files = [...declared].sort();
-  requireTool('zbarimg', ['--version'], 'Install zbar-tools.');
-  requireTool('tesseract', ['--version'], 'Install tesseract-ocr.');
-  const words = loadBip39Words();
-
-  const { summary, detail, problems } = runGate({
-    files,
-    declared,
-    words,
-    decodeQr: rel => decodeQr(path.join(root, rel)),
-    ocr: rel => ocr(path.join(root, rel)),
-  });
-  console.log(summary);
-  for (const line of detail) console.log(line);
-
-  if (problems.length) {
-    fail('handbook content gate failed:\n  ' + problems.join('\n  '));
-  }
+  if (code !== 0) process.exit(code);
 }
 
 module.exports = {
@@ -633,6 +657,7 @@ module.exports = {
   maskPayload,
   qrExitIsClean,
   runGate,
+  runMain,
   ocrYieldProblems,
   ocrCoverageProblems,
   extendedKeyProblems,

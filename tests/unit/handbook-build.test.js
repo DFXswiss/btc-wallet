@@ -769,6 +769,9 @@ describe('unit - handbook build guards', () => {
     const { fixture, out } = freshDirs();
     populateValidFixture(fixture);
     writeText(path.join(fixture, 'ios/fastlane/metadata/review_information/demo_password.txt'), 'hunter2');
+    // Second shape, without an underscore: otherwise the guard is only pinned
+    // against the character, not against the length of the letter class.
+    writeText(path.join(fixture, 'ios/fastlane/metadata/default/copyright.txt'), '2026');
 
     const r = runBuild(out, { HANDBOOK_REPO_ROOT: fixture, NODE_PATH: markedNodePath, GIT_SHA: 't' });
     assert.notStrictEqual(r.status, 0, r.stdout);

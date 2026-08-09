@@ -226,6 +226,30 @@ describe('unit - handbook content gate', () => {
       assert.match(problems[0], /OCR returned nothing for 1 screenshot/);
     });
 
+    it('reports 0 on a clean set and 1 on anything it objects to', function () {
+      // The scan-set enforcement and the only exit code live in the
+      // orchestration, not in runGate. Until this was driven by a test, both
+      // could be deleted with the whole suite staying green.
+      const manifest = { artifacts: FILES.map(p => ({ outputPath: p })) };
+      const base = {
+        readManifest: () => manifest,
+        listPngs: () => FILES,
+        allowlist: ALLOWLIST,
+        silentAllowed: gate.SCREENSHOTS_MUST_YIELD_OCR,
+        words: STUB_WORDS,
+        decodeQr: rel => (rel === 'screenshots/recv.png' ? ADDRESS : ''),
+        ocr: () => PROSE,
+        log: () => {},
+        error: () => {},
+      };
+      assert.strictEqual(gate.runMain(base), 0);
+      // An image that ships without being declared is never looked at, so the
+      // scan-set comparison is the only thing between it and the public web.
+      assert.strictEqual(gate.runMain({ ...base, listPngs: () => [...FILES, 'screenshots/97-undeclared.PNG'] }), 1);
+      // And a problem from any check has to reach the exit code.
+      assert.strictEqual(gate.runMain({ ...base, decodeQr: () => ADDRESS }), 1);
+    });
+
     it('never prints the words or the payload it found', function () {
       const { detail, problems } = run({
         ocr: rel => (rel === 'screenshots/a.png' ? '1 abandon 2 ability 3 able 4 about 5 above' : PROSE),
@@ -354,6 +378,7 @@ describe('unit - handbook content gate', () => {
       assert.strictEqual(problems.length, 1);
       assert.match(problems[0], /extended key read out of a\.png/);
       assert.ok(!problems[0].includes(xpub), 'the key must not be echoed in full');
+      assert.ok(!problems[0].includes(xpub.slice(0, 16)), 'more than a stub of the key is echoed');
     });
 
     it('sees every prefix this wallet produces, public and private', function () {
@@ -395,7 +420,7 @@ describe('unit - handbook content gate', () => {
       // length — the parameter that decides whether this finds anything at all
       // — unpinned.
       assert.ok(gate.EXTENDED_KEY_RE.test('Zpub6rFR7y4Q2A'), 'prefix plus ten characters must match');
-      assert.ok(!gate.EXTENDED_KEY_RE.test('Zpub6rFR7y'), 'prefix plus nine must not');
+      assert.ok(!gate.EXTENDED_KEY_RE.test('Zpub6rFR7y4Q2'), 'prefix plus nine must not');
       // The body is alphanumeric, not base58, and that is the difference
       // between 1 and 17 of 18 rendered variants: OCR turns O into 0 and l
       // into 1, exactly the characters base58 leaves out. A tidy-up commit
