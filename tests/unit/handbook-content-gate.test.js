@@ -295,6 +295,83 @@ describe('unit - handbook content gate', () => {
     assert.throws(() => gate.bip39WordSet({}), /not the expected 2048-word list/);
   });
 
+  describe('the executable, driven as a child process', () => {
+    // main() is the only place that turns a finding into a red CI step, and no
+    // in-process test can reach it. The tools are stubbed on PATH so this runs
+    // without zbarimg or tesseract installed.
+    const fs = require('fs');
+    const os = require('os');
+    const { spawnSync } = require('child_process');
+    const SCRIPT = path.resolve(__dirname, '../../scripts/handbook/content-gate.js');
+    const ALLOWED = Object.keys(gate.QR_ALLOWLIST)[0];
+    const ADDRESS = 'bitcoin:bc1qp7vhlleagzs3ju0yj50sjujug20enrqp9r6adc';
+
+    let tmp;
+
+    function stub(dir, name, body) {
+      const p = path.join(dir, name);
+      fs.writeFileSync(p, `#!/bin/sh\n${body}\n`);
+      fs.chmodSync(p, 0o755);
+    }
+
+    function fixture({ extraOnDisk = [], text = 'Guthaben senden und empfangen ' } = {}) {
+      const root = fs.mkdtempSync(path.join(tmp, 'gate-'));
+      const bin = fs.mkdtempSync(path.join(tmp, 'bin-'));
+      const declared = [ALLOWED, 'screenshots/plain.png'];
+      for (const rel of [...declared, ...extraOnDisk]) {
+        fs.mkdirSync(path.join(root, path.dirname(rel)), { recursive: true });
+        fs.writeFileSync(path.join(root, rel), '');
+      }
+      fs.writeFileSync(path.join(root, 'manifest.json'), JSON.stringify({ artifacts: declared.map(p => ({ outputPath: p })) }));
+      // Only the allowlisted screen carries a QR; everything else exits 4.
+      stub(bin, 'zbarimg', `case "$*" in *--version*) echo "zbarimg 0.23";; *01-erhalten.png*) echo '${ADDRESS}';; *) exit 4;; esac`);
+      stub(
+        bin,
+        'tesseract',
+        `case "$*" in *--version*) echo "tesseract 5";; *) for i in $(seq 1 200); do printf '%s' '${text}'; done; echo;; esac`,
+      );
+      return { root, bin };
+    }
+
+    function runScript({ root, bin }) {
+      return spawnSync(process.execPath, [SCRIPT, root], {
+        encoding: 'utf8',
+        env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, NODE_PATH: markedNodePath() },
+        timeout: 60000,
+      });
+    }
+
+    function markedNodePath() {
+      return path.resolve(__dirname, '../../_handbook-deps/node_modules');
+    }
+
+    beforeAll(() => {
+      tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-exec-'));
+    });
+
+    afterAll(() => {
+      if (tmp && fs.existsSync(tmp)) fs.rmSync(tmp, { recursive: true, force: true });
+    });
+
+    it('exits 0 on a clean payload', function () {
+      const r = runScript(fixture());
+      assert.strictEqual(r.status, 0, `${r.stdout}\n${r.stderr}`);
+      assert.match(r.stdout, /scanned 2 published PNGs/);
+    });
+
+    it('exits non-zero when an image ships without being declared', function () {
+      const r = runScript(fixture({ extraOnDisk: ['screenshots/97-undeclared.PNG'] }));
+      assert.notStrictEqual(r.status, 0, r.stdout);
+      assert.match(r.stderr, /shipped but not declared/);
+    });
+
+    it('exits non-zero on a recovery phrase', function () {
+      const r = runScript(fixture({ text: '1 abandon 2 ability 3 able 4 about 5 above 6 absent ' }));
+      assert.notStrictEqual(r.status, 0, r.stdout);
+      assert.match(r.stderr, /consecutive BIP39 words/);
+    });
+  });
+
   it('validates the wordlists it depends on', function () {
     // The gate refuses to run unless each list has 2048 entries. That guard is
     // the only thing between a dependency drift and a vacuously clean seed
@@ -335,6 +412,18 @@ describe('unit - handbook content gate', () => {
       // The matcher must not be a blanket pass — that would be a path-only
       // allowlist wearing a costume.
       assert.ok(!entry.payload.test('abandon ability able'), `allowlist entry ${rel} accepts arbitrary text`);
+      // The anchors are the whole mechanism: without them a payload that
+      // merely CONTAINS the address passes, and a seed phrase or an xpub can
+      // ride along in the same QR.
+      const address = 'bitcoin:bc1qp7vhlleagzs3ju0yj50sjujug20enrqp9r6adc';
+      assert.ok(
+        !entry.payload.test(`abandon ability able ${address}`),
+        `allowlist entry ${rel} accepts an address with text in front of it`,
+      );
+      assert.ok(
+        !entry.payload.test(`${address} xpub6CUGRUonZSQ4TWtTMmzXdrXDtypWKiKrhko4eg`),
+        `allowlist entry ${rel} accepts an address with text after it`,
+      );
     }
   });
 

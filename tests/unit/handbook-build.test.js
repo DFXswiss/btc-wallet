@@ -777,6 +777,10 @@ describe('unit - handbook build guards', () => {
     assert.notStrictEqual(r.status, 0, r.stdout);
     assert.match(r.stderr, /not a locale/i);
     assert.match(r.stderr, /review_information/);
+    // Also name the underscore-free directory: without this the length bound
+    // in LOCALE_DIR_RE is unpinned, because review_information already fails on
+    // the underscore alone.
+    assert.match(r.stderr, /metadata\/default\b/);
     assert.ok(!fs.existsSync(path.join(out, 'index.html')), 'no page may be written');
   });
 

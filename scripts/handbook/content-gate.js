@@ -360,16 +360,24 @@ function extendedKeyProblems(found) {
  * covered by nothing: deleting one line here disarms a check while every unit
  * test stays green, which is the failure mode this whole file exists to close.
  */
-function runGate({ files, declared, words, decodeQr, ocr, allowlist = QR_ALLOWLIST, silentAllowed = SCREENSHOTS_MUST_YIELD_OCR }) {
+function runGate({
+  files,
+  declared,
+  words,
+  decodeQr: readQr,
+  ocr: readText,
+  allowlist = QR_ALLOWLIST,
+  silentAllowed = SCREENSHOTS_MUST_YIELD_OCR,
+}) {
   const qrByPath = new Map();
   const runs = [];
   const extendedKeys = [];
   const perFile = [];
   let ocrTokens = 0;
   for (const rel of files) {
-    const payload = decodeQr(rel);
+    const payload = readQr(rel);
     if (payload) qrByPath.set(rel, payload);
-    const text = ocr(rel);
+    const text = readText(rel);
     const tokens = (text.match(/[A-Za-z]+/g) || []).length;
     perFile.push({ rel, tokens });
     ocrTokens += tokens;
@@ -573,7 +581,7 @@ function ocr(absPath) {
  * quiet. That is the failure mode this file exists to close; it does not stop
  * being one at the main() boundary.
  */
-function runMain({ readManifest, listPngs, decodeQr, ocr, words, log, error, allowlist, silentAllowed }) {
+function runMain({ readManifest, listPngs, decodeQr: readQr, ocr: readText, words, log, error, allowlist, silentAllowed }) {
   const declared = collectDeclaredPngs(readManifest());
   const scanProblems = scanSetProblems(declared, new Set(listPngs()));
   if (scanProblems.length) {
@@ -585,8 +593,8 @@ function runMain({ readManifest, listPngs, decodeQr, ocr, words, log, error, all
     files: [...declared].sort(),
     declared,
     words,
-    decodeQr,
-    ocr,
+    decodeQr: readQr,
+    ocr: readText,
     ...(allowlist ? { allowlist } : {}),
     ...(silentAllowed ? { silentAllowed } : {}),
   });
@@ -622,10 +630,17 @@ function main() {
   requireTool('zbarimg', ['--version'], 'Install zbar-tools.');
   requireTool('tesseract', ['--version'], 'Install tesseract-ocr.');
 
+  let manifest;
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  } catch (e) {
+    fail(`handbook content gate: unusable manifest.json (${e.message}).`);
+  }
+
   let code;
   try {
     code = runMain({
-      readManifest: () => JSON.parse(fs.readFileSync(manifestPath, 'utf8')),
+      readManifest: () => manifest,
       listPngs: () => listPngRecursive(root),
       decodeQr: rel => decodeQr(path.join(root, rel)),
       ocr: rel => ocr(path.join(root, rel)),
@@ -634,7 +649,10 @@ function main() {
       error: msg => console.error(msg),
     });
   } catch (e) {
-    fail(`handbook content gate: unusable manifest.json (${e.message}).`);
+    // Not necessarily the manifest: listPngRecursive runs in here too, and
+    // labelling every failure "unusable manifest.json" sent the last reader
+    // looking in the wrong file.
+    fail(`handbook content gate: ${e.message}.`);
   }
   if (code !== 0) process.exit(code);
 }
