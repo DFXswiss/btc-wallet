@@ -260,6 +260,17 @@ describe('unit - handbook content gate', () => {
     assert.match(described, /characters/);
   });
 
+  it('refuses a wordlist that is not 2048 words', function () {
+    // The only thing between a dependency drift and a vacuously clean seed
+    // check. It throws rather than exiting so this can be asserted at all.
+    const bip39 = require('bip39');
+    assert.throws(
+      () => gate.bip39WordSet({ wordlists: { ...bip39.wordlists, french: ['abandon'] } }),
+      /french is not the expected 2048-word list/,
+    );
+    assert.throws(() => gate.bip39WordSet({}), /not the expected 2048-word list/);
+  });
+
   it('validates the wordlists it depends on', function () {
     // The gate refuses to run unless each list has 2048 entries. That guard is
     // the only thing between a dependency drift and a vacuously clean seed
@@ -276,10 +287,10 @@ describe('unit - handbook content gate', () => {
     // would have read a French backup screen as ordinary text, and folding the
     // accents is what makes OCR's `academie` the same word as `académie`.
     const bip39 = require('bip39');
-    const words = new Set();
-    for (const name of gate.BIP39_LATIN_WORDLISTS) {
-      for (const w of bip39.wordlists[name]) words.add(gate.foldAccents(w));
-    }
+    // The set comes from the loader, not rebuilt here: rebuilding it would let
+    // the loader drop the accent folding or fall back to English alone without
+    // a single test noticing.
+    const words = gate.bip39WordSet(bip39);
     const french = bip39.wordlists.french.filter(w => w !== gate.foldAccents(w)).slice(0, 6);
     assert.strictEqual(french.length, 6, 'expected accented words in the French list');
     assert.strictEqual(gate.longestBip39Run(french.join(' '), words).length, french.length);
@@ -378,7 +389,6 @@ describe('unit - handbook content gate', () => {
       assert.deepStrictEqual(gate.ocrCoverageProblems(perFile, gate.SCREENSHOTS_MUST_YIELD_OCR), []);
     });
 
-
     it('still matches when OCR breaks the key after a few characters', function () {
       // The whole point of the pattern: tesseract never returns a 111-character
       // key in one piece. A fixture of full length would leave the minimum
@@ -386,6 +396,12 @@ describe('unit - handbook content gate', () => {
       // — unpinned.
       assert.ok(gate.EXTENDED_KEY_RE.test('Zpub6rFR7y4Q2A'), 'prefix plus ten characters must match');
       assert.ok(!gate.EXTENDED_KEY_RE.test('Zpub6rFR7y'), 'prefix plus nine must not');
+      // The body is alphanumeric, not base58, and that is the difference
+      // between 1 and 17 of 18 rendered variants: OCR turns O into 0 and l
+      // into 1, exactly the characters base58 leaves out. A tidy-up commit
+      // that "corrects" this to base58 has to turn a test red.
+      assert.ok(gate.EXTENDED_KEY_RE.test('Zpub6rFR7y0Q2Ai'), 'an O misread as 0 must still match');
+      assert.ok(gate.EXTENDED_KEY_RE.test('zpub6rFR7ylQ2Ai'), 'an l misread must still match');
     });
 
     it('does not see an extended key in ordinary text', function () {

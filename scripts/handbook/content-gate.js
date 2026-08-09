@@ -489,6 +489,28 @@ function foldAccents(text) {
     .toLowerCase();
 }
 
+/**
+ * The folded union of the Latin wordlists, from an already-required bip39.
+ *
+ * Pure and exported on purpose: this is where the multilingual detection and
+ * the accent folding actually take effect, and a test that rebuilds the set
+ * from the exported constants would not notice either being turned off here.
+ * Throws rather than exiting so a test can drive it.
+ */
+function bip39WordSet(bip39) {
+  const all = new Set();
+  for (const name of BIP39_LATIN_WORDLISTS) {
+    const words = bip39 && bip39.wordlists && bip39.wordlists[name];
+    if (!Array.isArray(words) || words.length !== 2048) {
+      throw new Error(
+        `bip39.wordlists.${name} is not the expected 2048-word list ` + `(got ${Array.isArray(words) ? words.length : typeof words})`,
+      );
+    }
+    for (const w of words) all.add(foldAccents(w));
+  }
+  return all;
+}
+
 function loadBip39Words() {
   let bip39;
   try {
@@ -500,18 +522,11 @@ function loadBip39Words() {
         'at a prefix that has it.',
     );
   }
-  const all = new Set();
-  for (const name of BIP39_LATIN_WORDLISTS) {
-    const words = bip39.wordlists && bip39.wordlists[name];
-    if (!Array.isArray(words) || words.length !== 2048) {
-      fail(
-        `handbook content gate: bip39.wordlists.${name} is not the expected ` +
-          `2048-word list (got ${Array.isArray(words) ? words.length : typeof words}).`,
-      );
-    }
-    for (const w of words) all.add(foldAccents(w));
+  try {
+    return bip39WordSet(bip39);
+  } catch (e) {
+    fail(`handbook content gate: ${e.message}.`);
   }
-  return all;
 }
 
 /**
@@ -608,6 +623,7 @@ module.exports = {
   EXTENDED_KEY_RE,
   BIP39_LATIN_WORDLISTS,
   foldAccents,
+  bip39WordSet,
   collectDeclaredPngs,
   scanSetProblems,
   qrProblems,
