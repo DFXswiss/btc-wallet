@@ -6,8 +6,10 @@
  *
  * The handbook is published without authentication, so every pixel in it is
  * public. This gate is the last check in the PR path — `handbook-deploy.yaml`
- * builds and publishes from `develop` without running it, so the coverage rests
- * on `develop` being protected and requiring a reviewed pull request.
+ * builds and publishes from `develop` without running it. `develop` requires a
+ * pull request with one approving review, so nothing reaches it unseen; this
+ * job is not a required status check, though, so a red gate does not by itself
+ * block the merge. The coverage rests on the review, not on an enforced check.
  * It runs against the BUILT output, not against a source directory: the build
  * is what ships, and deriving the scan set from it closes three ways an image
  * could reach the public unscanned.
@@ -182,23 +184,27 @@ const EXTENDED_KEY_RE = /[xyztuvXYZTUV](pub|prv)[A-Za-z0-9]{10,}/;
 const REPORT_TOP_N = 5;
 
 /**
- * Nothing this gate finds may be echoed in full.
+ * Nothing this gate finds is echoed, in any form.
  *
  * The job runs on a public repository, so its log is world-readable, indexed
- * and outlives the branch. Printing the words it just recognised would turn a
+ * and outlives the branch. Printing the words it recognised would turn a
  * picture into machine-searchable plain text — the gate would publish the very
- * thing it exists to stop, in the cheaper format. Two characters per word are
- * enough to tell a recovery phrase from prose at a glance; anyone who needs the
- * words runs the gate locally against the same image.
+ * thing it exists to stop, in the cheaper format.
+ *
+ * Two-character prefixes were the first attempt and are not enough either: for
+ * a 12-word phrase they leave far too little to guess, in a log that never
+ * expires. Nothing operational is lost by dropping them — every message says to
+ * look at the image, and anyone who needs the words runs the gate locally
+ * against the same file.
  */
-function maskWords(words) {
-  return words.map(w => String(w).slice(0, 2) + '…').join(' ');
+function describeRun(run) {
+  return `${run.length} word(s), not shown`;
 }
 
-/** Same rule for a decoded QR: shape and length, never the content. */
+/** Same rule for a decoded QR: shape only, never the content. */
 function maskPayload(payload) {
   const p = String(payload);
-  return `${p.length} characters starting "${p.slice(0, 8)}…"`;
+  return `${p.length} characters, ${p.startsWith('bitcoin:') ? 'bitcoin: prefix' : 'no bitcoin: prefix'}, content not shown`;
 }
 
 /** PNG output paths the manifest claims are published. */
@@ -381,7 +387,7 @@ function runGate({ files, declared, words, decodeQr, ocr, allowlist = QR_ALLOWLI
       `${qrByPath.size} with a QR (${Object.keys(allowlist).length} allowlisted), ` +
       `${ocrTokens} OCR tokens (floor ${MIN_OCR_TOKENS}), ` +
       `longest BIP39 run ${longest} (limit ${SEED_RUN_LIMIT}).`,
-    detail: runs.slice(0, REPORT_TOP_N).map(({ rel, run }) => `  ${String(run.length).padStart(2)} ${rel}: ${maskWords(run)}`),
+    detail: runs.slice(0, REPORT_TOP_N).map(({ rel, run }) => `  ${String(run.length).padStart(2)} ${rel}`),
     problems: allProblems({ declared, qrByPath, runs, extendedKeys, perFile, ocrTokens, allowlist, silentAllowed }),
   };
 }
@@ -419,9 +425,9 @@ function seedProblems(runs, limit) {
     .map(
       ({ rel, run }) =>
         `${run.length} consecutive BIP39 words read out of ${rel} (limit ${limit}): ` +
-        `${maskWords(run.slice(0, 24))}\n` +
-        '    Words are masked on purpose: this log is public. Look at the image ' +
-        'before doing anything else. If this is a recovery ' +
+        `${describeRun(run)}\n` +
+        '    The words are withheld on purpose: this log is public. Look at the ' +
+        'image before doing anything else. If this is a recovery ' +
         'phrase, it must not be published at all — no redaction, a new ' +
         'screenshot. If it is ordinary English text, redact or replace the ' +
         'image, or raise SEED_RUN_LIMIT and record the measurement that ' +
@@ -508,6 +514,16 @@ function loadBip39Words() {
   return all;
 }
 
+/**
+ * zbarimg exits 4 when it found no symbol — the normal case here — and 1 for a
+ * read error. Treating both as "clean" is the mistake the predecessor made with
+ * `|| true`: an unreadable file passed as safe. Pure and exported so the rule is
+ * pinned by a test rather than by a comment.
+ */
+function qrExitIsClean(status) {
+  return status === 4;
+}
+
 /** Decoded QR payload of one image, or '' when it carries none. */
 function decodeQr(absPath) {
   try {
@@ -516,10 +532,7 @@ function decodeQr(absPath) {
       stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
   } catch (e) {
-    // 4 is zbarimg's "no symbol found" — the normal case here. Every other
-    // exit code means the image was not scanned, which is not the same as
-    // clean: a `|| true` there would pass an unreadable file as safe.
-    if (e.status === 4) return '';
+    if (qrExitIsClean(e.status)) return '';
     fail(`handbook content gate: zbarimg failed on ${absPath} (exit ${e.status}). ` + 'Cannot certify the image as QR-free.');
   }
 }
@@ -600,6 +613,9 @@ module.exports = {
   qrProblems,
   longestBip39Run,
   seedProblems,
+  describeRun,
+  maskPayload,
+  qrExitIsClean,
   runGate,
   ocrYieldProblems,
   ocrCoverageProblems,

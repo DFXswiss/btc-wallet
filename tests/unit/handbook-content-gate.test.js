@@ -83,7 +83,7 @@ describe('unit - handbook content gate', () => {
       assert.match(problems[0], /non-allowlisted image: screenshots\/other\.png/);
       // The payload is described, never quoted: this log is public.
       assert.ok(!problems[0].includes('bc1qleaked'), 'the payload must not be echoed');
-      assert.match(problems[0], /characters starting/);
+      assert.match(problems[0], /content not shown/);
     });
 
     it('rejects an allowlist entry whose image is no longer published', function () {
@@ -164,7 +164,7 @@ describe('unit - handbook content gate', () => {
     // by nothing, and deleting one line in it disarms a check silently.
     const FILES = ['screenshots/recv.png', 'screenshots/a.png'];
     const DECLARED = new Set(FILES);
-    const WORDS = new Set(['abandon', 'ability', 'able', 'about', 'above']);
+    const STUB_WORDS = new Set(['abandon', 'ability', 'able', 'about', 'above']);
     const ALLOWLIST = {
       'screenshots/recv.png': { payload: /^bitcoin:bc1[02-9ac-hj-np-z]{39}$/, reason: 'receive screen fixture' },
     };
@@ -175,7 +175,7 @@ describe('unit - handbook content gate', () => {
       return gate.runGate({
         files: FILES,
         declared: DECLARED,
-        words: WORDS,
+        words: STUB_WORDS,
         allowlist: ALLOWLIST,
         silentAllowed: gate.SCREENSHOTS_MUST_YIELD_OCR,
         decodeQr: rel => (rel === 'screenshots/recv.png' ? ADDRESS : ''),
@@ -212,6 +212,14 @@ describe('unit - handbook content gate', () => {
       assert.match(problems[0], /non-allowlisted image: screenshots\/a\.png/);
     });
 
+    it('catches a tool that returns almost nothing across the set', function () {
+      // Without this the token floor could be unwired from the aggregate and
+      // nothing would turn red: every other case here feeds text-rich prose.
+      const { problems } = run({ ocr: () => 'ok' });
+      assert.strictEqual(problems.length, 1);
+      assert.match(problems[0], /alphabetic tokens across the whole image set/);
+    });
+
     it('catches an image OCR could not read', function () {
       const { problems } = run({ ocr: rel => (rel === 'screenshots/a.png' ? '' : PROSE) });
       assert.strictEqual(problems.length, 1);
@@ -228,15 +236,54 @@ describe('unit - handbook content gate', () => {
       for (const word of ['abandon', 'ability', 'able', 'about', 'above']) {
         assert.ok(!printed.includes(word), `${word} appears in the output`);
       }
-      assert.match(printed, /ab…/);
+      // Not even a prefix: two characters per word leave a 12-word phrase far
+      // too easy to guess, in a log that never expires.
+      for (const prefix of ['ab', 'ac']) {
+        assert.ok(!printed.includes(`${prefix}…`), `a ${prefix}… prefix appears in the output`);
+      }
+      assert.match(printed, /word\(s\), not shown/);
     });
   });
 
-  it('validates the bip39 wordlist it depends on', function () {
-    // The gate refuses to run unless the list has 2048 entries. That guard is
+  it('treats only zbarimg exit 4 as "no QR"', function () {
+    // Exit 1 is a read error. The predecessor's `|| true` passed those as
+    // clean, which is the difference between "no QR here" and "not looked at".
+    assert.strictEqual(gate.qrExitIsClean(4), true);
+    for (const status of [0, 1, 2, 127, undefined, null]) {
+      assert.strictEqual(gate.qrExitIsClean(status), false, `exit ${status} must not count as clean`);
+    }
+  });
+
+  it('never puts QR content in the output', function () {
+    const described = gate.maskPayload('bitcoin:bc1qsecretaddress0000000000');
+    assert.ok(!described.includes('bc1qsecret'), 'the payload must not be echoed');
+    assert.match(described, /characters/);
+  });
+
+  it('validates the wordlists it depends on', function () {
+    // The gate refuses to run unless each list has 2048 entries. That guard is
     // the only thing between a dependency drift and a vacuously clean seed
     // check, so the expectation belongs in the suite too.
-    assert.strictEqual(require('bip39').wordlists.english.length, 2048);
+    const bip39 = require('bip39');
+    assert.ok(gate.BIP39_LATIN_WORDLISTS.length >= 6, 'English alone is not enough — the wallet accepts ten');
+    for (const name of gate.BIP39_LATIN_WORDLISTS) {
+      assert.strictEqual(bip39.wordlists[name].length, 2048, `${name} is not a 2048-word list`);
+    }
+  });
+
+  it('finds a French phrase, with or without the accents OCR drops', function () {
+    // blue_modules/bip39.js validates against ten wordlists. English alone
+    // would have read a French backup screen as ordinary text, and folding the
+    // accents is what makes OCR's `academie` the same word as `académie`.
+    const bip39 = require('bip39');
+    const words = new Set();
+    for (const name of gate.BIP39_LATIN_WORDLISTS) {
+      for (const w of bip39.wordlists[name]) words.add(gate.foldAccents(w));
+    }
+    const french = bip39.wordlists.french.filter(w => w !== gate.foldAccents(w)).slice(0, 6);
+    assert.strictEqual(french.length, 6, 'expected accented words in the French list');
+    assert.strictEqual(gate.longestBip39Run(french.join(' '), words).length, french.length);
+    assert.strictEqual(gate.longestBip39Run(french.map(gate.foldAccents).join(' '), words).length, french.length);
   });
 
   it('keeps every allowlist entry pointed at a real screenshot path', function () {
