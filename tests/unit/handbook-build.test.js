@@ -772,6 +772,10 @@ describe('unit - handbook build guards', () => {
     // Second shape, without an underscore: otherwise the guard is only pinned
     // against the character, not against the length of the letter class.
     writeText(path.join(fixture, 'ios/fastlane/metadata/default/copyright.txt'), '2026');
+    // Four letters, one past the longest language subtag either store defines.
+    // Without it, widening the class to `{2,4}` keeps every test green while
+    // turning a whole shape of directory into a published locale.
+    writeText(path.join(fixture, 'ios/fastlane/metadata/beta/name.txt'), 'Beta');
 
     const r = runBuild(out, { HANDBOOK_REPO_ROOT: fixture, NODE_PATH: markedNodePath, GIT_SHA: 't' });
     assert.notStrictEqual(r.status, 0, r.stdout);
@@ -781,6 +785,7 @@ describe('unit - handbook build guards', () => {
     // in LOCALE_DIR_RE is unpinned, because review_information already fails on
     // the underscore alone.
     assert.match(r.stderr, /metadata\/default\b/);
+    assert.match(r.stderr, /metadata\/beta\b/);
     assert.ok(!fs.existsSync(path.join(out, 'index.html')), 'no page may be written');
   });
 
@@ -795,6 +800,11 @@ describe('unit - handbook build guards', () => {
     // The first version of the guard rejected it and would have broken the
     // build the day that listing is created.
     writeText(path.join(fixture, 'android/fastlane/metadata/android/es-419/title.txt'), 'Billetera');
+    // Filipino is the one code in fastlane's list of 79 Play languages whose
+    // language subtag is three letters. Narrowing the class to `{2}` keeps
+    // every other fixture green and aborts the build the day `supply init`
+    // creates this directory — the es-419 mistake one position further left.
+    writeText(path.join(fixture, 'android/fastlane/metadata/android/fil/title.txt'), 'Pitaka');
 
     const r = runBuild(out, { HANDBOOK_REPO_ROOT: fixture, NODE_PATH: markedNodePath, GIT_SHA: 't' });
     assert.strictEqual(r.status, 0, r.stderr);
@@ -803,6 +813,7 @@ describe('unit - handbook build guards', () => {
     assert.ok(sources.includes('android/fastlane/metadata/android/pt-BR/title.txt'), 'pt-BR was not discovered');
     assert.ok(sources.includes('ios/fastlane/metadata/zh-Hans/name.txt'), 'zh-Hans was not discovered');
     assert.ok(sources.includes('android/fastlane/metadata/android/es-419/title.txt'), 'es-419 was not discovered');
+    assert.ok(sources.includes('android/fastlane/metadata/android/fil/title.txt'), 'fil was not discovered');
   });
 
   it('keeps the content floors meaningful against the real repository', function () {

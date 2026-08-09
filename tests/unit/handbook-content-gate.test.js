@@ -428,6 +428,18 @@ describe('unit - handbook content gate', () => {
     assert.strictEqual(french.length, 6, 'expected accented words in the French list');
     assert.strictEqual(gate.longestBip39Run(french.join(' '), words).length, french.length);
     assert.strictEqual(gate.longestBip39Run(french.map(gate.foldAccents).join(' '), words).length, french.length);
+    // Neither assertion above reaches the shape OCR actually produces. The
+    // wordlist ships decomposed — 366 French and 334 Spanish words carry
+    // combining marks — so both pass with the NFD pass dropped from
+    // foldAccents. Tesseract's `eng` alphabet holds no combining mark at all:
+    // a rendered `académie` comes back precomposed, and that form is what the
+    // gate sees. Measured on tesseract 5.5.3, six accented words rendered and
+    // read back: zero combining marks, this run 6 as shipped and 0 with the
+    // normalize dropped. All 700 accented words would stop matching, and
+    // nothing here would have gone red.
+    const precomposed = french.map(w => w.normalize('NFC'));
+    assert.notDeepStrictEqual(precomposed, french, 'the French list is expected to ship decomposed');
+    assert.strictEqual(gate.longestBip39Run(precomposed.join(' '), words).length, french.length);
   });
 
   it('keeps every allowlist entry pointed at a real screenshot path', function () {
