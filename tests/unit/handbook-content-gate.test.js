@@ -486,6 +486,24 @@ describe('unit - handbook content gate', () => {
         `allowlist entry ${rel} accepts characters outside the bech32 data alphabet`,
       );
       assert.ok(!entry.payload.test(`1${'A'.repeat(60)}`), `allowlist entry ${rel} accepts a base58 blob past the address length`);
+      // Every fixture above is a single line, so none of them can tell a
+      // string-anchored matcher from a line-anchored one — adding the `m` flag
+      // keeps them all green. That flag is exactly what a second QR needs:
+      // zbarimg prints one payload per line, and `decodeQr` only trims the
+      // ends. Measured on an image carrying a receive QR and a seed-phrase QR:
+      // the payload came back as the twelve words, a newline, then the address.
+      // Anchored to the string it is rejected and the gate fails, which is the
+      // point; anchored per line the image is waved through and the phrase is
+      // in a QR, where neither OCR check can see it. Both orders, because
+      // zbarimg's is not guaranteed.
+      assert.ok(
+        !entry.payload.test(`${address}\nabandon ability able`),
+        `allowlist entry ${rel} accepts a second QR payload on the next line`,
+      );
+      assert.ok(
+        !entry.payload.test(`abandon ability able\n${address}`),
+        `allowlist entry ${rel} accepts a second QR payload on the line before`,
+      );
     }
   });
 
