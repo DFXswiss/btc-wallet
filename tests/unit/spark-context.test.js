@@ -210,6 +210,32 @@ describe('SparkContextProvider', () => {
     alert.mockRestore();
   });
 
+  it('does not put SDK error messages (seed markers) into console.error for Sentry', async () => {
+    // connectSparkSdk sees the mnemonic; if the SDK echoed it into Error.message we must not
+    // ship that via captureConsoleIntegration({ levels: ['error'] }) in App.js.
+    const seedMarker = 'abandon abandon abandon';
+    mockConnect.mockRejectedValue(new Error(`invalid mnemonic: ${seedMarker}`));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const existing = stubSparkMethods(SparkWallet.create('stored-pk'));
+    renderWith([hdWallet, existing]);
+
+    await waitFor(() => expect(errorSpy).toHaveBeenCalled());
+    for (const args of errorSpy.mock.calls) {
+      for (const arg of args) {
+        assert.ok(!String(arg).includes(seedMarker), `console.error must not contain seed material: ${arg}`);
+      }
+    }
+    // User-facing Alert may still show the message; that never reaches Sentry.
+    expect(alert).toHaveBeenCalled();
+    expect(String(alert.mock.calls[0][1])).toContain(seedMarker);
+    // Fixed tag + Error name only.
+    expect(errorSpy.mock.calls.some(c => c[0] === 'SparkContext: failed to connect' && c[1] === 'Error')).toBe(true);
+
+    alert.mockRestore();
+    errorSpy.mockRestore();
+  });
+
   it('does not connect when wallets are not initialized', async () => {
     const existing = stubSparkMethods(SparkWallet.create('stored-pk'));
     renderWith([hdWallet, existing], false);

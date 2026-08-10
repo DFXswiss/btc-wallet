@@ -102,8 +102,9 @@ export async function disconnectSparkSdk(): Promise<void> {
     }
   } catch (e) {
     // Best-effort: the SDK may already have dropped the listener during disconnect.
-    // Follow-up is impossible without a live instance; surface the failure for diagnostics.
-    console.warn('disconnectSparkSdk: removeEventListener failed', e);
+    // Follow-up is impossible without a live instance. Log class only — this SDK instance
+    // was built with seed + API key; Sentry breadcrumbs ride along with later issues.
+    console.warn('disconnectSparkSdk: removeEventListener failed', e instanceof Error ? e.name : typeof e);
   }
 
   try {
@@ -111,7 +112,8 @@ export async function disconnectSparkSdk(): Promise<void> {
   } catch (e) {
     // Best-effort session teardown: the process is exiting or the native side is already gone.
     // Leaving a zombie listener is preferable to crashing the app on cleanup.
-    console.warn('disconnectSparkSdk: disconnect failed', e);
+    // Class only (seed/key may live in SDK error text); see App.js captureConsoleIntegration.
+    console.warn('disconnectSparkSdk: disconnect failed', e instanceof Error ? e.name : typeof e);
   }
 }
 

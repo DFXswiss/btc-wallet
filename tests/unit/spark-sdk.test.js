@@ -92,6 +92,14 @@ describe('spark-sdk', () => {
     await disconnectSparkSdk();
     assert.strictEqual(isSparkSdkConnected(), false);
     expect(warn).toHaveBeenCalled();
+    // Class/name only — not full Error.message (seed/key may appear there).
+    for (const args of warn.mock.calls) {
+      assert.ok(!String(args[1] || '').includes('listener gone'));
+      assert.ok(!String(args[1] || '').includes('native down'));
+      if (args[0] && String(args[0]).includes('disconnectSparkSdk')) {
+        assert.strictEqual(args[1], 'Error');
+      }
+    }
     warn.mockRestore();
   });
 

@@ -28,6 +28,11 @@ function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
+/** Class/kind only — safe for Sentry breadcrumbs and console.error issues. */
+function errorClass(e: unknown): string {
+  return e instanceof Error ? e.name : typeof e;
+}
+
 function getOnChainMnemonic(wallets: { type: string; getSecret: () => string }[]): string {
   const hd = wallets.find(w => w.type === HDSegwitBech32Wallet.type) || wallets[0];
   if (!hd) {
@@ -129,7 +134,11 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
         }
       } catch (e: unknown) {
         const message = errorMessage(e);
-        console.error('SparkContext: failed to connect', message);
+        // App.js wires captureConsoleIntegration({ levels: ['error'] }): every console.error
+        // becomes a Sentry issue. Connect receives the recovery phrase and BREEZ_API_KEY;
+        // SDK Error.message can echo those inputs (see PR #208 console cleanup). Log only a
+        // fixed tag + error class — never the raw message. The Alert below is UI-only.
+        console.error('SparkContext: failed to connect', errorClass(e));
         // Missing API key must fail loudly — never leave a silent broken Lightning tab.
         Alert.alert(loc.wallets.lightning_spark_wallet_label, message);
       }
