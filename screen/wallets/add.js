@@ -114,16 +114,25 @@ const WalletsAdd = () => {
         goBack();
         return;
       }
-    } else {
-      await w.generate();
     }
-    const mainAddress = w._getExternalAddressByIndex(0);
-    const message = getSignMessage(mainAddress);
-    w.addressOwnershipProof = await w.signMessage(message, mainAddress);
-    addWallet(w);
-    await saveToDisk();
-    ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
-    dispatch(StackActions.replace(...walletCreatedRoute()));
+
+    try {
+      if (!entropy) {
+        await w.generate();
+      }
+      const mainAddress = w._getExternalAddressByIndex(0);
+      const message = getSignMessage(mainAddress);
+      w.addressOwnershipProof = await w.signMessage(message, mainAddress);
+      addWallet(w);
+      await saveToDisk();
+      ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
+      dispatch(StackActions.replace(...walletCreatedRoute()));
+    } catch (e) {
+      console.log(e.toString());
+      alert(e.toString());
+      // First-run AddWalletRoot has nowhere to goBack to; unlock the screen instead.
+      setIsLoading(false);
+    }
   };
 
   const navigateToEntropy = () => {

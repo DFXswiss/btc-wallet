@@ -111,10 +111,27 @@ describe('WalletsAdd', () => {
     expect(JSON.stringify(mockDispatch.mock.calls)).not.toMatch(/AddLightning|isOnboarding/);
   });
 
-  it('survives a failing LNDHub lookup in storage', async () => {
-    mockStoredLndhub = Promise.reject(new Error('no storage'));
+  it('surfaces a create failure without navigating', async () => {
+    mockWallet.signMessage.mockRejectedValueOnce(new Error('signing failed'));
     const screen = await renderReadyScreen();
-    expect(screen.queryByText(loc.wallets.add_create)).toBeTruthy();
+    fireEvent.press(screen.getByTestId('Create'));
+
+    await waitFor(() => expect(mockAlert).toHaveBeenCalledWith('Error: signing failed'));
+    expect(mockDispatch).not.toHaveBeenCalled();
+    expect(addWallet).not.toHaveBeenCalled();
+    expect(mockGoBack).not.toHaveBeenCalled();
+  });
+
+  it('unlocks create and import after a create failure', async () => {
+    mockWallet.signMessage.mockRejectedValueOnce(new Error('signing failed'));
+    const screen = await renderReadyScreen();
+    fireEvent.press(screen.getByTestId('Create'));
+
+    await waitFor(() => expect(mockAlert).toHaveBeenCalledWith('Error: signing failed'));
+    // isLoading must be cleared: ImportWallet is only mounted when !isLoading,
+    // and BlueButton disables itself while isLoading is true.
+    await waitFor(() => expect(screen.getByTestId('ImportWallet')).toBeTruthy());
+    expect(screen.getByRole('button', { name: loc.wallets.add_create })).not.toBeDisabled();
   });
 
   it('opens the disclaimer only when a URL is configured', async () => {
