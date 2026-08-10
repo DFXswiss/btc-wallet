@@ -136,7 +136,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
         const message = errorMessage(e);
         // App.js wires captureConsoleIntegration({ levels: ['error'] }): every console.error
         // becomes a Sentry issue. Connect receives the recovery phrase and BREEZ_API_KEY;
-        // SDK Error.message can echo those inputs (see PR #208 console cleanup). Log only a
+        // SDK Error.message can echo those inputs. Log only a
         // fixed tag + error class — never the raw message. The Alert below is UI-only.
         console.error('SparkContext: failed to connect', errorClass(e));
         // Missing API key must fail loudly — never leave a silent broken Lightning tab.
