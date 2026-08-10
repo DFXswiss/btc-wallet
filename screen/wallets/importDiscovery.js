@@ -43,14 +43,16 @@ const ImportWalletDiscovery = () => {
   const saveWallet = async (mainWallet, multisigWallet) => {
     if (importing.current) return;
     importing.current = true;
-
-    await addAndSaveWallet(mainWallet);
-
-    if (multisigWallet) {
-      await addAndSaveWallet(multisigWallet);
+    try {
+      await addAndSaveWallet(mainWallet);
+      if (multisigWallet) {
+        await addAndSaveWallet(multisigWallet);
+      }
+      navigation.dispatch(StackActions.replace(...walletCreatedRoute()));
+    } catch (e) {
+      Alert.alert(e.message);
+      importing.current = false;
     }
-
-    navigation.dispatch(StackActions.replace(...walletCreatedRoute()));
   };
 
   const tryMultisigBackup = backupText => {

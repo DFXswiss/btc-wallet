@@ -268,4 +268,56 @@ describe('ImportWalletDiscovery', () => {
     const options = ImportWalletDiscovery.navigationOptions(theme)({ navigation: { goBack: jest.fn() }, route: { params: {} } });
     expect(options.title).toBe(loc.wallets.import_discovery_title);
   });
+
+  it('surfaces a save failure, does not navigate, and allows a retry', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    addAndSaveWallet.mockRejectedValueOnce(new Error('disk full'));
+
+    let resolveImport;
+    mockImportPromise = new Promise(resolve => {
+      resolveImport = resolve;
+    });
+    const screen = renderScreen();
+    const wallet = foundWallet('found-1');
+    await waitFor(() => expect(mockCallbacks).toBeTruthy());
+    mockCallbacks.onWallet(wallet);
+    resolveImport({ cancelled: false, wallets: [] });
+
+    await waitFor(() => expect(screen.queryByTestId('Loading')).toBeNull());
+    fireEvent.press(screen.getByText(loc.wallets.import_do_import));
+
+    await waitFor(() => expect(alert).toHaveBeenCalledWith('disk full'));
+    expect(mockDispatch).not.toHaveBeenCalled();
+    expect(addAndSaveWallet).toHaveBeenCalledTimes(1);
+
+    // importing.current was reset — a second press must start a new attempt.
+    // Save must complete before navigation unmounts this screen.
+    let resolveSave;
+    addAndSaveWallet.mockReturnValueOnce(
+      new Promise(resolve => {
+        resolveSave = resolve;
+      }),
+    );
+    fireEvent.press(screen.getByText(loc.wallets.import_do_import));
+
+    await waitFor(() => expect(addAndSaveWallet).toHaveBeenCalledTimes(2));
+    expect(mockDispatch).not.toHaveBeenCalled();
+    resolveSave();
+    await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith(StackActions.replace('WalletsRoot', { screen: 'WalletTransactions' })));
+    alert.mockRestore();
+  });
+
+  it('surfaces a save failure on the auto-import path without navigating', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    addAndSaveWallet.mockRejectedValueOnce(new Error('keystore locked'));
+    const wallet = foundWallet('found-1');
+    mockImportPromise = Promise.resolve({ cancelled: false, wallets: [wallet] });
+    renderScreen();
+
+    await waitFor(() => expect(alert).toHaveBeenCalledWith('keystore locked'));
+    expect(mockDispatch).not.toHaveBeenCalled();
+    // Rejection stays inside saveWallet — outer discovery catch must not fire.
+    expect(alert).not.toHaveBeenCalledWith('import error', expect.anything());
+    alert.mockRestore();
+  });
 });
