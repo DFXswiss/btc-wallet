@@ -269,9 +269,12 @@ describe('ImportWalletDiscovery', () => {
     expect(options.title).toBe(loc.wallets.import_discovery_title);
   });
 
-  it('surfaces a save failure, does not navigate, and allows a retry', async () => {
+  // addAndSaveWallet cannot reject on a storage failure: BlueApp.saveToDisk
+  // swallows those. A rejection comes from a corrupt wallet object during
+  // majorTomToGroundControl (e.g. a malformed cosigner).
+  it('surfaces a rejected save, does not navigate, and allows a retry', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    addAndSaveWallet.mockRejectedValueOnce(new Error('disk full'));
+    addAndSaveWallet.mockRejectedValueOnce(new Error('wallet is corrupt'));
 
     let resolveImport;
     mockImportPromise = new Promise(resolve => {
@@ -286,7 +289,7 @@ describe('ImportWalletDiscovery', () => {
     await waitFor(() => expect(screen.queryByTestId('Loading')).toBeNull());
     fireEvent.press(screen.getByText(loc.wallets.import_do_import));
 
-    await waitFor(() => expect(alert).toHaveBeenCalledWith('disk full'));
+    await waitFor(() => expect(alert).toHaveBeenCalledWith('wallet is corrupt'));
     expect(mockDispatch).not.toHaveBeenCalled();
     expect(addAndSaveWallet).toHaveBeenCalledTimes(1);
 
@@ -307,14 +310,14 @@ describe('ImportWalletDiscovery', () => {
     alert.mockRestore();
   });
 
-  it('surfaces a save failure on the auto-import path without navigating', async () => {
+  it('surfaces a rejected save on the auto-import path without navigating', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    addAndSaveWallet.mockRejectedValueOnce(new Error('keystore locked'));
+    addAndSaveWallet.mockRejectedValueOnce(new Error('cosigner is malformed'));
     const wallet = foundWallet('found-1');
     mockImportPromise = Promise.resolve({ cancelled: false, wallets: [wallet] });
     renderScreen();
 
-    await waitFor(() => expect(alert).toHaveBeenCalledWith('keystore locked'));
+    await waitFor(() => expect(alert).toHaveBeenCalledWith('cosigner is malformed'));
     expect(mockDispatch).not.toHaveBeenCalled();
     // Rejection stays inside saveWallet — outer discovery catch must not fire.
     expect(alert).not.toHaveBeenCalledWith('import error', expect.anything());

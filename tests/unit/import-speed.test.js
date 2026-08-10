@@ -62,6 +62,14 @@ beforeEach(() => {
 
 describe('WalletsImportSpeed', () => {
   it('replaces the stack with the wallet home screen once the wallet is stored', async () => {
+    // Save must complete before navigation unmounts this screen.
+    let resolveSave;
+    addAndSaveWallet.mockReturnValueOnce(
+      new Promise(resolve => {
+        resolveSave = resolve;
+      }),
+    );
+
     const screen = renderScreen();
 
     fireEvent.changeText(screen.getByTestId('SpeedMnemonicInput'), 'abandon abandon about');
@@ -71,8 +79,8 @@ describe('WalletsImportSpeed', () => {
     await waitFor(() => expect(addAndSaveWallet).toHaveBeenCalledWith(mockWallet));
     expect(mockWallet.setSecret).toHaveBeenCalledWith('abandon abandon about');
     expect(mockWallet.fetchBalance).toHaveBeenCalled();
-    expect(mockDispatch).toHaveBeenCalledWith(StackActions.replace('WalletsRoot', { screen: 'WalletTransactions' }));
-    // Save must complete before navigation unmounts this screen.
-    expect(addAndSaveWallet.mock.invocationCallOrder[0]).toBeLessThan(mockDispatch.mock.invocationCallOrder[0]);
+    expect(mockDispatch).not.toHaveBeenCalled();
+    resolveSave();
+    await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith(StackActions.replace('WalletsRoot', { screen: 'WalletTransactions' })));
   });
 });

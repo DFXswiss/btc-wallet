@@ -70,6 +70,14 @@ beforeEach(() => {
 
 describe('ImportCustomDerivationPath', () => {
   it('replaces the stack with the wallet home screen once the wallet is stored', async () => {
+    // Save must complete before navigation unmounts this screen.
+    let resolveSave;
+    addAndSaveWallet.mockReturnValueOnce(
+      new Promise(resolve => {
+        resolveSave = resolve;
+      }),
+    );
+
     const screen = renderScreen();
 
     await waitFor(() => expect(screen.getByText('HD SegWit (BIP84 Bech32 Native)')).toBeTruthy());
@@ -77,14 +85,17 @@ describe('ImportCustomDerivationPath', () => {
     fireEvent.press(screen.getByTestId('ImportButton'));
 
     await waitFor(() => expect(addAndSaveWallet).toHaveBeenCalled());
-    expect(mockDispatch).toHaveBeenCalledWith(StackActions.replace('WalletsRoot', { screen: 'WalletTransactions' }));
-    // Save must complete before navigation unmounts this screen.
-    expect(addAndSaveWallet.mock.invocationCallOrder[0]).toBeLessThan(mockDispatch.mock.invocationCallOrder[0]);
+    expect(mockDispatch).not.toHaveBeenCalled();
+    resolveSave();
+    await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith(StackActions.replace('WalletsRoot', { screen: 'WalletTransactions' })));
   });
 
-  it('surfaces a save failure, does not navigate, and allows a retry', async () => {
+  // addAndSaveWallet cannot reject on a storage failure: BlueApp.saveToDisk
+  // swallows those. A rejection comes from a corrupt wallet object during
+  // majorTomToGroundControl (e.g. a malformed cosigner).
+  it('surfaces a rejected save, does not navigate, and allows a retry', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    addAndSaveWallet.mockRejectedValueOnce(new Error('disk full'));
+    addAndSaveWallet.mockRejectedValueOnce(new Error('wallet is corrupt'));
 
     const screen = renderScreen();
 
@@ -92,7 +103,7 @@ describe('ImportCustomDerivationPath', () => {
     fireEvent.press(screen.getByText('HD SegWit (BIP84 Bech32 Native)'));
     fireEvent.press(screen.getByTestId('ImportButton'));
 
-    await waitFor(() => expect(alert).toHaveBeenCalledWith('disk full'));
+    await waitFor(() => expect(alert).toHaveBeenCalledWith('wallet is corrupt'));
     expect(mockDispatch).not.toHaveBeenCalled();
     expect(addAndSaveWallet).toHaveBeenCalledTimes(1);
 
