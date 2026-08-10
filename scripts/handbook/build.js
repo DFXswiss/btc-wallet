@@ -20,9 +20,20 @@ const fs = require('fs');
 const path = require('path');
 
 // --- Floor guards (today's counts minus a small buffer; never exact) ---
+// A floor only detects content loss while it stays close to reality, and these
+// constants are the single source the unit tests read — lowering one here would
+// otherwise weaken every guard at once without turning a test red. The test
+// "keeps the content floors meaningful against the real repository" ties them
+// to what the repository actually contains; see FLOOR_MIN_RATIO there.
 const MIN_SCREENSHOTS = 35;
 const MIN_DOCS = 8;
-const MIN_STORE_FIELDS = 12;
+// 25, not 12: the 28 store fields come from two Android locales (4 each), two
+// iOS locales (9 each) and two global iOS files. The point of this floor is to
+// notice a locale disappearing, so it has to sit above 28 minus the smallest
+// locale — 24. At 20 both Android locales could vanish and the count would land
+// exactly on the floor, which is not below it: the whole Google Play listing
+// would have gone without a word.
+const MIN_STORE_FIELDS = 25;
 const MIN_ASSETS = 20;
 // Screenshots / LFS-scale PNGs: a truncated checkout or LFS pointer is far
 // below this. App icons under img/dfx/ can legitimately be smaller
@@ -51,10 +62,54 @@ const DISCOVERY_SOURCE_RELS = [
   SOURCE_IMG_REL,
 ];
 
+// Shape of a fastlane locale directory: `de`, `de-DE`, `pt-BR`, `zh-Hans`,
+// `es-419`. The numeric alternative is not decoration: Google Play's
+// Latin-American Spanish listing is the UN M.49 region `es-419`, and fastlane
+// reads these directory names verbatim off the filesystem. Without it the
+// build would abort the day someone runs `supply init` for that locale.
+// Discovery treats every directory under the two metadata roots as a locale and
+// publishes every .txt inside it. fastlane keeps more than locales there —
+// `review_information/` holds the review contact's name, phone number, e-mail
+// and the demo account's credentials, and the handbook is public. A shape check
+// rather than a hand-maintained list keeps the "new locales appear by
+// themselves" property; anything that is not locale-shaped is a hard failure,
+// so the decision to publish a new kind of directory is always a deliberate one.
+const LOCALE_DIR_RE = /^[a-z]{2,3}(-([A-Za-z]{2,4}|[0-9]{3}))?$/;
+
 const SORT_LOCALE = 'en';
 
 function sortStrings(a, b) {
   return a.localeCompare(b, SORT_LOCALE);
+}
+
+/**
+ * Locale directory names directly under a fastlane metadata root, sorted.
+ * Dot-directories are skipped as everywhere else; a non-locale directory
+ * aborts the build instead of being published.
+ */
+function localeDirsUnder(metaRootAbs, metaRootRel) {
+  const dirs = fs
+    .readdirSync(metaRootAbs, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
+    .map((d) => d.name)
+    .sort(sortStrings);
+  const foreign = dirs.filter((name) => !LOCALE_DIR_RE.test(name));
+  if (foreign.length > 0) {
+    fail(
+      `handbook: ${metaRootRel}/ contains ${foreign.length} ` +
+        `director${foreign.length === 1 ? 'y' : 'ies'} that ${
+          foreign.length === 1 ? 'is' : 'are'
+        } not a locale:\n` +
+        foreign.map((n) => `  ${metaRootRel}/${n}`).join('\n') +
+        '\nEverything under a locale directory is published to the public ' +
+        'handbook, so this is refused rather than guessed. fastlane stores ' +
+        'reviewer contact details and demo credentials next to the locales ' +
+        '(review_information/); move the directory out of the metadata root, ' +
+        'or widen LOCALE_DIR_RE in scripts/handbook/build.js if it really is ' +
+        'a locale.',
+    );
+  }
+  return dirs;
 }
 
 function fail(message) {
@@ -952,11 +1007,7 @@ function main() {
 
   // Android: one locale dir per subdirectory
   {
-    const locales = fs
-      .readdirSync(androidMetaRoot, { withFileTypes: true })
-      .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
-      .map((d) => d.name)
-      .sort(sortStrings);
+    const locales = localeDirsUnder(androidMetaRoot, SOURCE_ANDROID_META_REL);
     for (const locale of locales) {
       const localeAbs = path.join(androidMetaRoot, locale);
       const localeRel = path.posix.join(SOURCE_ANDROID_META_REL, locale);
@@ -1005,10 +1056,7 @@ function main() {
       });
     }
 
-    const locales = entries
-      .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
-      .map((d) => d.name)
-      .sort(sortStrings);
+    const locales = localeDirsUnder(iosMetaRoot, iosRootRel);
     for (const locale of locales) {
       const localeAbs = path.join(iosMetaRoot, locale);
       const localeRel = path.posix.join(iosRootRel, locale);

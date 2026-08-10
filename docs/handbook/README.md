@@ -24,6 +24,13 @@ mit `.`, die Basenamen `node_modules`, `.git`, `_handbook-deps`, `build`, `dist`
 `coverage`, `blue_modules`, `ios`, `android`, `windows`, `macos`, `vendor`, sowie
 der exakte Pfad `docs/handbook` (Selbstdoku und lokales Build-Output).
 
+Bei Store-Discovery sind unter den beiden Metadata-Roots nur Locale-foermige
+Verzeichnisse erlaubt (`de`, `de-DE`, `pt-BR`, `zh-Hans`, `es-419`); alles
+andere bricht den Build ab. Grund: fastlane legt dort auch
+`review_information/` an — Name, Telefonnummer und Demo-Zugang des
+App-Review-Kontakts —, und Discovery veroeffentlicht jede `.txt` unter einem
+akzeptierten Verzeichnis woertlich auf eine Seite ohne Anmeldewand.
+
 Ausgabe pro Build:
 
 ```
@@ -40,7 +47,9 @@ Guards (Build bricht ab bei Verletzung):
 - **Floor:** mindestens `MIN_SCREENSHOTS` (35) PNGs (aktuell 42 committiert;
   Boden bei Bestandszuwachs anheben)
 - **Floor:** mindestens `MIN_DOCS` (8) Markdown-Dokumente (nach Ausschlussregeln)
-- **Floor:** mindestens `MIN_STORE_FIELDS` (12) Store-Textfelder
+- **Floor:** mindestens `MIN_STORE_FIELDS` (25) Store-Textfelder — der Boden
+  liegt bewusst ueber "alles minus die kleinste Locale", sonst koennte ein
+  ganzes Store-Listing verschwinden, ohne dass der Build es merkt
 - **Floor:** mindestens `MIN_ASSETS` (20) PNGs unter Assets
 - **PNG-Integrität:** Magic-Bytes `\x89PNG…`; Screenshots > 1000 Bytes,
   App-Assets > 100 Bytes (kleine 1×-Icons wie `telegram.png`/`twitter.png`
@@ -115,8 +124,12 @@ Glob (`COPY *.md ./`, `COPY img/icon*.png ./img/`) — nicht als namentliche Lis
 Eine Namensliste im Dockerfile bricht das Discovery-Versprechen: `build.js` würde
 eine neue Datei lokal mitzählen, das Image sie aber still weglassen (ohne
 Build-Fehler; Floor-Guards greifen oft nicht). Der PR-Workflow
-`handbook-check` vergleicht deshalb die Artefaktzahlen je Kategorie aus einem
-Host-Build mit dem `manifest.json` im Image und macht den Job bei Abweichung rot.
+`handbook-check` vergleicht deshalb den gesamten Payload eines Host-Builds mit
+dem des Images per SHA-256 und macht den Job bei jeder Abweichung rot. Beide
+Builds bekommen dasselbe `GIT_SHA` — der einzige nicht-deterministische Input —,
+die Bäume müssen also byte-identisch sein. Ein Zähl-Vergleich reichte dafür
+nicht: eine Umbenennung oder ein Austausch innerhalb derselben Kategorie lässt
+jede Zahl gleich.
 
 ## Docker-Image lokal
 
@@ -175,9 +188,11 @@ fehlt oder leer ist eines davon, bricht er sofort ab und nennt die fehlenden
 gibt es nicht: die Seite ist öffentlich.
 
 Der PR-Check (`.github/workflows/handbook-check.yaml`) läuft auf jedem
-nicht-Draft-PR: Image-Build ohne Push, Container-Smoke (`/healthz` und `/`
-jeweils **200 unauthentifiziert**), Stichprobe aus `manifest.json` je
-Kategorie, Host-vs-Image-Artefaktzahlen.
+nicht-Draft-PR: Image-Build ohne Push, byte-identischer Payload-Vergleich
+Host gegen Image, Content-Gate über alle veröffentlichten PNGs (QR plus
+BIP39-OCR gegen Klartext-Seedphrasen), Container-Smoke (`/healthz` und `/`
+jeweils **200 unauthentifiziert**, `/50x.html` **404**) und eine Stichprobe aus
+`manifest.json` je Kategorie.
 
 ## Screenshots erzeugen
 
@@ -241,9 +256,16 @@ jeder Aenderung an diesen Bildern:
 
 ```bash
 # ueber den GANZEN Satz, nicht ueber eine Datei — genau diese Verkuerzung hat
-# beim ersten Anlauf zwei Signaturen und zwei erweiterte Public Keys durchgelassen
-for f in docs/handbook/screenshots/**/*.png; do zbarimg -q --raw "$f"; done
+# beim ersten Anlauf zwei Signaturen und zwei erweiterte Public Keys durchgelassen.
+# Das Gate leitet den Satz aus dem gebauten Handbook ab, deckt also auch die
+# Bilder aus img/dfx/ ab und prueft zusaetzlich per OCR auf Klartext-Seedphrasen.
+NODE_PATH=./_handbook-deps/node_modules node scripts/handbook/build.js /tmp/handbook-out
+NODE_PATH=./_handbook-deps/node_modules node scripts/handbook/content-gate.js /tmp/handbook-out
 ```
+
+Voraussetzung: `zbarimg` (zbar-tools) und `tesseract` auf dem PATH sowie
+`marked` und `bip39` unter `_handbook-deps/` — beide in EINEM `npm install`,
+sonst raeumt der zweite Aufruf den ersten weg.
 
 Erlaubt ist genau ein Treffer: die On-Chain-Empfangsadresse in
 `04-empfangen-senden/01-erhalten.png` — sie ist der Inhalt dieses Screens und eine
@@ -257,15 +279,16 @@ Signatur ueber eine **statische Nachricht ohne Nonce**, siehe
 `02-wallet/07-xpub.png`, der Cosigner-QR in `07-multi-device/01-erstellung-qr.png`
 und die Lightning-Adresse in `08-lightning/03-rechnung-erstellen.png`.
 
-Gegenprobe zusaetzlich per OCR:
+Zwei der vier Klassen prueft `content-gate.js` inzwischen automatisch mit:
+erweiterte Schluessel (`xpub`/`zpub`/`xprv` und Verwandte) fuehren zum Abbruch,
+ebenso eine Folge von `SEED_RUN_LIMIT` (derzeit fuenf) aufeinanderfolgenden
+BIP39-Woertern. Der aktuelle Satz kommt auf hoechstens drei; die
+ungeschwaerzten Originale hatten zwoelf.
 
-```bash
-# darf nichts finden
-grep -oiE "[zx]pub6[A-Za-z0-9]{20,}" <ocr-ausgabe>
-```
-
-Zusaetzlich laeuft ueber den ganzen Satz eine OCR-Probe: keine Folge von vier
-aufeinanderfolgenden BIP39-Woertern (die ungeschwaerzten Originale hatten zwoelf).
+**Signatur und Lightning-Adresse bleiben Handarbeit** — dafuer hat das Gate
+keine Regel, und es kann auch keine haben: beide sind fuer sich genommen
+unauffaelliger Text. Beim Neuaufnehmen dieser zwei Screens also weiter selbst
+schwaerzen.
 
 ## Abdeckung — was fehlt und warum
 

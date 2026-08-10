@@ -56,6 +56,32 @@ const ASSET_MID_BYTES = Math.floor((MIN_ASSET_PNG_BYTES + MIN_PNG_BYTES) / 2);
 
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
+// Store-listing field names the fixtures write per locale. Enough of them that
+// the pool stays above MIN_STORE_FIELDS.
+const ANDROID_LOCALE_FIELDS = ['title', 'short_description', 'full_description', 'changelogs/default'];
+const IOS_LOCALE_FIELDS = [
+  'name',
+  'description',
+  'keywords',
+  'subtitle',
+  'release_notes',
+  'promotional_text',
+  'support_url',
+  'marketing_url',
+];
+
+/**
+ * How far a floor may sit below the repository it guards.
+ *
+ * The floors live in build.js and every test here reads them from there, which
+ * is the right single source — but it also means lowering one keeps the whole
+ * suite green while the guard stops guarding: MIN_SCREENSHOTS = 1 would still
+ * satisfy every case below and no longer notice 41 deleted screenshots. This
+ * ratio is what makes such an edit visible. Lowering it is a deliberate,
+ * reviewable act; lowering a floor alone is not.
+ */
+const FLOOR_MIN_RATIO = 0.5;
+
 function writePng(filePath, sizeBytes) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   const buf = Buffer.alloc(sizeBytes, 0);
@@ -142,32 +168,42 @@ function populateValidFixture(root, opts = {}) {
   fs.mkdirSync(path.join(root, 'android/fastlane/metadata/android'), { recursive: true });
   fs.mkdirSync(path.join(root, 'ios/fastlane/metadata'), { recursive: true });
   if (storeFieldCount === null) {
-    const androidFields = ['title', 'short_description', 'full_description', 'changelogs/default'];
     for (const locale of ['de-DE', 'en-US']) {
-      for (const f of androidFields) {
+      for (const f of ANDROID_LOCALE_FIELDS) {
         writeText(path.join(root, 'android/fastlane/metadata/android', locale, `${f}.txt`), `${locale} ${f}`);
       }
     }
     writeText(path.join(root, 'ios/fastlane/metadata/copyright.txt'), '2026');
     writeText(path.join(root, 'ios/fastlane/metadata/primary_category.txt'), 'FINANCE');
     for (const locale of ['de-DE', 'en-US']) {
-      for (const f of ['name', 'description', 'keywords', 'subtitle']) {
+      for (const f of IOS_LOCALE_FIELDS) {
         writeText(path.join(root, 'ios/fastlane/metadata', locale, `${f}.txt`), `${locale} ${f}`);
       }
     }
     assert.ok(countStoreFields(root) >= MIN_STORE_FIELDS, `fixture store fields ${countStoreFields(root)}`);
   } else {
-    // Exactly N fields: fill android/en-US first, then ios/global, then ios/en-US.
+    // Exactly N fields: fill android locales first, then ios/global, then the
+    // ios locales. The pool must stay above MIN_STORE_FIELDS so the floor-guard
+    // case (MIN - 1) can still be built exactly.
     let n = 0;
     const candidates = [];
-    for (const f of ['title', 'short_description', 'full_description', 'changelogs/default']) {
-      candidates.push(['android/fastlane/metadata/android/en-US', f]);
+    for (const locale of ['en-US', 'de-DE']) {
+      for (const f of ANDROID_LOCALE_FIELDS) {
+        candidates.push([`android/fastlane/metadata/android/${locale}`, f]);
+      }
     }
     candidates.push(['ios/fastlane/metadata', 'copyright']);
     candidates.push(['ios/fastlane/metadata', 'primary_category']);
-    for (const f of ['name', 'description', 'keywords', 'subtitle', 'release_notes', 'promotional_text']) {
-      candidates.push(['ios/fastlane/metadata/en-US', f]);
+    for (const locale of ['en-US', 'de-DE']) {
+      for (const f of IOS_LOCALE_FIELDS) {
+        candidates.push([`ios/fastlane/metadata/${locale}`, f]);
+      }
     }
+    assert.ok(
+      candidates.length >= storeFieldCount,
+      `fixture store pool (${candidates.length}) is smaller than the requested ` +
+        `${storeFieldCount} fields — extend ANDROID_LOCALE_FIELDS/IOS_LOCALE_FIELDS`,
+    );
     for (const [dir, f] of candidates) {
       if (n >= storeFieldCount) break;
       writeText(path.join(root, dir, `${f}.txt`), `field ${n}`);
@@ -711,5 +747,140 @@ describe('unit - handbook build guards', () => {
     assert.ok(headings.length > 0, 'fixture must produce headings');
     const polluted = headings.filter(m => m[2].includes('copy-link')).map(m => m[0]);
     assert.deepStrictEqual(polluted, []);
+  });
+
+  it('refuses a non-locale directory under the Android store metadata root', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture);
+    // fastlane keeps the reviewer's contact details and the demo account's
+    // credentials right next to the locales. Discovery published every .txt
+    // under every subdirectory, so this would have gone straight onto a page
+    // that is served without authentication.
+    writeText(path.join(fixture, 'android/fastlane/metadata/android/review_information/phone_number.txt'), '+41 00 000 00 00');
+
+    const r = runBuild(out, { HANDBOOK_REPO_ROOT: fixture, NODE_PATH: markedNodePath, GIT_SHA: 't' });
+    assert.notStrictEqual(r.status, 0, r.stdout);
+    assert.match(r.stderr, /not a locale/i);
+    assert.match(r.stderr, /review_information/);
+    assert.ok(!fs.existsSync(path.join(out, 'index.html')), 'no page may be written');
+  });
+
+  it('refuses a non-locale directory under the iOS store metadata root', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture);
+    writeText(path.join(fixture, 'ios/fastlane/metadata/review_information/demo_password.txt'), 'hunter2');
+    // Second shape, without an underscore: otherwise the guard is only pinned
+    // against the character, not against the length of the letter class.
+    writeText(path.join(fixture, 'ios/fastlane/metadata/default/copyright.txt'), '2026');
+    // Four letters, one past the longest language subtag either store defines.
+    // Without it, widening the class to `{2,4}` keeps every test green while
+    // turning a whole shape of directory into a published locale.
+    writeText(path.join(fixture, 'ios/fastlane/metadata/beta/name.txt'), 'Beta');
+    // A valid language with an invalid region. The three cases above all fail
+    // on the language part, so none of them reaches the region alternation:
+    // widening it to `(-.*)?` keeps every test green and turns exactly this
+    // directory into a published locale. The guard's own error message tells
+    // maintainers to widen the pattern when a real locale is refused, so that
+    // edit is expected to happen — this is the net under it. Widenings that
+    // stay inside [A-Za-z0-9] are deliberately not pinned: measured, `{2,8}`
+    // and `[A-Za-z0-9]+` both survive, and neither can admit anything fastlane
+    // puts in these roots. Every non-locale there either carries an underscore
+    // or fails the language part outright, and `.*` is the one form that lets
+    // an underscore through.
+    writeText(path.join(fixture, 'ios/fastlane/metadata/de-review_information/demo_password.txt'), 'hunter2');
+
+    const r = runBuild(out, { HANDBOOK_REPO_ROOT: fixture, NODE_PATH: markedNodePath, GIT_SHA: 't' });
+    assert.notStrictEqual(r.status, 0, r.stdout);
+    assert.match(r.stderr, /not a locale/i);
+    assert.match(r.stderr, /review_information/);
+    // Also name the underscore-free directory: without this the length bound
+    // in LOCALE_DIR_RE is unpinned, because review_information already fails on
+    // the underscore alone.
+    assert.match(r.stderr, /metadata\/default\b/);
+    assert.match(r.stderr, /metadata\/beta\b/);
+    assert.match(r.stderr, /metadata\/de-review_information\b/);
+    assert.ok(!fs.existsSync(path.join(out, 'index.html')), 'no page may be written');
+  });
+
+  it('still picks up a new locale without an edit to build.js', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture);
+    // The guard must not turn discovery into a hand-maintained list: real
+    // locale shapes have to keep appearing by themselves.
+    writeText(path.join(fixture, 'android/fastlane/metadata/android/pt-BR/title.txt'), 'Carteira');
+    writeText(path.join(fixture, 'ios/fastlane/metadata/zh-Hans/name.txt'), '钱包');
+    // es-419 is Google Play's Latin-American Spanish: a UN M.49 numeric region.
+    // The first version of the guard rejected it and would have broken the
+    // build the day that listing is created.
+    writeText(path.join(fixture, 'android/fastlane/metadata/android/es-419/title.txt'), 'Billetera');
+    // Filipino is the one code in fastlane's list of 79 Play languages whose
+    // language subtag is three letters. Narrowing the class to `{2}` keeps
+    // every other fixture green and aborts the build the day `supply init`
+    // creates this directory — the es-419 mistake one position further left.
+    writeText(path.join(fixture, 'android/fastlane/metadata/android/fil/title.txt'), 'Pitaka');
+
+    const r = runBuild(out, { HANDBOOK_REPO_ROOT: fixture, NODE_PATH: markedNodePath, GIT_SHA: 't' });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const manifest = JSON.parse(fs.readFileSync(path.join(out, 'manifest.json'), 'utf8'));
+    const sources = manifest.artifacts.map(a => a.sourcePath);
+    assert.ok(sources.includes('android/fastlane/metadata/android/pt-BR/title.txt'), 'pt-BR was not discovered');
+    assert.ok(sources.includes('ios/fastlane/metadata/zh-Hans/name.txt'), 'zh-Hans was not discovered');
+    assert.ok(sources.includes('android/fastlane/metadata/android/es-419/title.txt'), 'es-419 was not discovered');
+    assert.ok(sources.includes('android/fastlane/metadata/android/fil/title.txt'), 'fil was not discovered');
+  });
+
+  it('keeps the content floors meaningful against the real repository', function () {
+    // Every other case here builds a fixture, so a floor lowered to 1 would
+    // never be noticed. This one measures the repository the floors exist to
+    // protect. It fails in both directions: a floor above reality breaks the
+    // build, a floor far below it stops detecting deletions.
+    const out = fs.mkdtempSync(path.join(tmpRoot, 'real-'));
+    const r = runBuild(out, { NODE_PATH: markedNodePath, GIT_SHA: 'floor-check' });
+    assert.strictEqual(r.status, 0, `real repository build failed: ${r.stderr}`);
+
+    const manifest = JSON.parse(fs.readFileSync(path.join(out, 'manifest.json'), 'utf8'));
+    const floors = {
+      screenshots: ['MIN_SCREENSHOTS', MIN_SCREENSHOTS],
+      docs: ['MIN_DOCS', MIN_DOCS],
+      store: ['MIN_STORE_FIELDS', MIN_STORE_FIELDS],
+      assets: ['MIN_ASSETS', MIN_ASSETS],
+    };
+    for (const [category, [name, floor]] of Object.entries(floors)) {
+      const actual = manifest.counts[category];
+      assert.ok(Number.isInteger(actual) && actual > 0, `manifest.counts.${category} is ${JSON.stringify(actual)}`);
+      assert.ok(floor <= actual, `${name}=${floor} is above the ${actual} ${category} in the repository`);
+      const weakest = Math.ceil(actual * FLOOR_MIN_RATIO);
+      assert.ok(
+        floor >= weakest,
+        `${name}=${floor} while the repository has ${actual} ${category}. Below ` +
+          `${weakest} the floor no longer detects a mass deletion: raise it, or ` +
+          'change FLOOR_MIN_RATIO deliberately if the content really shrank.',
+      );
+    }
+
+    // The ratio alone does not pin what MIN_STORE_FIELDS was raised for. At 20
+    // — comfortably inside the ratio — deleting both Android locales landed on
+    // exactly 20, and `20 < 20` is false: the whole Google Play listing could
+    // go without a word. The floor has to sit above "everything minus the
+    // smallest locale".
+    const perLocale = {};
+    for (const a of manifest.artifacts) {
+      if (a.category !== 'store') continue;
+      const group = a.group || 'unknown';
+      // `<platform>/global` is the iOS metadata that belongs to no locale
+      // (copyright, primary_category). Counting it as one would make the
+      // smallest "locale" two fields and the assertion meaningless.
+      if (group.endsWith('/global')) continue;
+      perLocale[group] = (perLocale[group] || 0) + 1;
+    }
+    const sizes = Object.values(perLocale);
+    assert.ok(sizes.length >= 2, `expected several store locales, saw ${JSON.stringify(perLocale)}`);
+    const smallest = Math.min(...sizes);
+    const survives = manifest.counts.store - smallest;
+    assert.ok(
+      MIN_STORE_FIELDS > survives,
+      `MIN_STORE_FIELDS=${MIN_STORE_FIELDS} still passes with the smallest locale ` +
+        `(${smallest} fields) deleted — ${survives} fields would remain. It has to be above ${survives}.`,
+    );
   });
 });
