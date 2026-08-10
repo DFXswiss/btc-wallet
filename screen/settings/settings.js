@@ -63,9 +63,13 @@ const Settings = () => {
         {ldsDEV && (
           <BlueListItem
             title={loc.wallets.chf_taproot_wallet_label}
-            disabled={!chfTaprootWallet}
-            onPress={() => navigateToWalletDetails(chfTaprootWallet?.getID())}
-            testID="WalletDetailsLnd"
+            onPress={() =>
+              chfTaprootWallet
+                ? navigateToWalletDetails(chfTaprootWallet.getID())
+                : // Nested form matches the former home.js entry and the AddLightning screen in WalletsStack.
+                  navigate('WalletsRoot', { screen: 'AddLightning', params: { asset: TaprootLdsWalletType.CHF } })
+            }
+            testID="WalletDetailsChfTaproot"
             chevron
           />
         )}

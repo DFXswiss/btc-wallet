@@ -42,4 +42,11 @@ describe('onboarding does not open the LNDHub screen', () => {
     assert.ok(!source.includes("screen: 'AddLightning'"), 'Lightning add must not open the LNDHub screen');
     assert.ok(source.includes('onDummyPress: onAddLightningPress'), 'expected the Lightning row to create Spark');
   });
+
+  it('AddLightning remains reachable from settings for non-BTC Taproot assets', () => {
+    const source = readSource('screen/settings/settings.js');
+    assert.ok(source.includes("screen: 'AddLightning'"), 'expected Settings to open AddLightning when no CHF wallet exists');
+    assert.ok(source.includes('TaprootLdsWalletType.CHF'), 'expected the CHF asset param for the provider screen');
+    assert.ok(source.includes('WalletsRoot'), 'expected nested navigation into WalletsStack');
+  });
 });
