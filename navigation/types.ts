@@ -96,7 +96,8 @@ export type PaymentCodeStackParamList = {
 
 export type WalletsStackParamList = {
   // `| undefined` so NavigatorScreenParams accepts `{ screen: 'WalletTransactions' }` without params.
-  WalletTransactions: { walletID?: string; walletType?: string; isLoading?: boolean } | undefined;
+  // Callers that do pass params must still supply walletID.
+  WalletTransactions: { walletID: string; walletType?: string; isLoading?: boolean } | undefined;
   WalletAsset: { walletID: string };
   AddLightning: object;
   WalletsAddMultisig: object;

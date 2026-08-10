@@ -13,9 +13,8 @@ jest.mock('react-native-haptic-feedback', () => ({ trigger: jest.fn() }));
 
 const mockAlert = require('../../components/Alert');
 
-let mockStoredLndhub = Promise.resolve('https://lndhub.example');
 jest.mock('@react-native-async-storage/async-storage', () => ({
-  getItem: () => mockStoredLndhub,
+  getItem: () => Promise.resolve('https://lndhub.example'),
   setItem: jest.fn().mockResolvedValue(undefined),
   removeItem: jest.fn().mockResolvedValue(undefined),
 }));
@@ -86,7 +85,6 @@ const renderReadyScreen = async () => {
 beforeEach(() => {
   jest.clearAllMocks();
   mockConfig = {};
-  mockStoredLndhub = Promise.resolve('https://lndhub.example');
   isAdvancedModeEnabled = jest.fn().mockResolvedValue(false);
 });
 
@@ -220,6 +218,11 @@ describe('WalletsAdd', () => {
       expect(mockAlert).toHaveBeenCalledWith('Error: bad entropy');
       expect(addWallet).not.toHaveBeenCalled();
       expect(mockDispatch).not.toHaveBeenCalled();
+      // isLoading must be cleared: ImportWallet is only mounted when !isLoading,
+      // and BlueButton disables itself while isLoading is true. goBack is a no-op
+      // on first-run AddWalletRoot, so the screen must unlock itself.
+      await waitFor(() => expect(screen.getByTestId('ImportWallet')).toBeTruthy());
+      expect(screen.getByRole('button', { name: loc.wallets.add_create })).not.toBeDisabled();
     });
   });
 });

@@ -115,6 +115,14 @@ describe('AddLightning screen', () => {
     expect(screen.getByRole('button', { name: loc.wallets.add_lndhub_custom })).toHaveProp('accessibilityState', {
       selected: false,
     });
+
+    // Selection announcement must track the pressed provider, not just the default.
+    fireEvent.press(screen.getByText(loc.wallets.add_lndhub_custom));
+    expect(screen.getByRole('button', { name: 'lightning.space' })).toHaveProp('accessibilityState', { selected: false });
+    expect(screen.getByRole('button', { name: 'DFX.swiss' })).toHaveProp('accessibilityState', { selected: false });
+    expect(screen.getByRole('button', { name: loc.wallets.add_lndhub_custom })).toHaveProp('accessibilityState', {
+      selected: true,
+    });
   });
 
   it('creates the lightning.space wallet from the LDS user and returns home', async () => {

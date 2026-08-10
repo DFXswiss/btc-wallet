@@ -112,6 +112,9 @@ const WalletsAdd = () => {
       } catch (e) {
         reportError('wallets/add: generateFromEntropy failed', e);
         alert(e.toString());
+        // goBack() is a no-op while AddWalletRoot is the only root route, so the screen
+        // stays and has to be usable again.
+        setIsLoading(false);
         goBack();
         return;
       }
