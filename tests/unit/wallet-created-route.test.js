@@ -36,25 +36,10 @@ describe('onboarding does not open the LNDHub screen', () => {
     assert.ok(source.includes('loc._.cancel'), 'expected the cancel button to remain');
   });
 
-  it('the home screen still reaches it through the Lightning "add" button', () => {
+  it('the home screen creates Spark in place and no longer opens LNDHub from the Lightning row', () => {
     const source = readSource('screen/wallets/home.js');
-
-    // Exactly one match required — unanchored includes() would also match a
-    // comment or a second navigation site and hide a regression either way.
-    const addLightningNav = source.match(/screen:\s*'AddLightning'/g);
-    if (!addLightningNav || addLightningNav.length === 0) {
-      throw new Error("home.js: screen: 'AddLightning' not found (need exactly 1)");
-    }
-    if (addLightningNav.length !== 1) {
-      throw new Error(`home.js: screen: 'AddLightning' matches ${addLightningNav.length} times (need exactly 1)`);
-    }
-
-    const lightningRow = source.match(/onDummyPress:\s*navigateToAddLightning/g);
-    if (!lightningRow || lightningRow.length === 0) {
-      throw new Error('home.js: onDummyPress: navigateToAddLightning not found (need exactly 1)');
-    }
-    if (lightningRow.length !== 1) {
-      throw new Error(`home.js: onDummyPress: navigateToAddLightning matches ${lightningRow.length} times (need exactly 1)`);
-    }
+    assert.ok(source.includes('createSparkWallet'), 'expected in-place Spark creation');
+    assert.ok(!source.includes("screen: 'AddLightning'"), 'Lightning add must not open the LNDHub screen');
+    assert.ok(source.includes('onDummyPress: onAddLightningPress'), 'expected the Lightning row to create Spark');
   });
 });

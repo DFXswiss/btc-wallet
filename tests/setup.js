@@ -182,6 +182,9 @@ jest.mock('react-native-biometrics', () => {
   };
 });
 
+// Native TurboModule — use the manual mock under __mocks__/@breeztech/
+jest.mock('@breeztech/breez-sdk-spark-react-native');
+
 jest.mock('react-native-haptic-feedback', () => {
   return {
     trigger: jest.fn(),

@@ -381,6 +381,7 @@
   "wallets": {
     "main_wallet_label": "On-Chain Wallet",
     "lightning_wallet_label": "Lightning Wallet",
+    "lightning_spark_wallet_label": "Lightning (Spark)",
     "multi_sig_wallet_label": "Multi-Device Wallet",
     "chf_taproot_wallet_label": "CHF Taproot Wallet",
     "add_bitcoin": "Bitcoin",

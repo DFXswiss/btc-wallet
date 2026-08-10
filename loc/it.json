@@ -517,6 +517,7 @@
     "coming_soon": "Disponibile a breve",
     "main_wallet_label": "Portafoglio on-chain",
     "lightning_wallet_label": "Portafoglio Lightning",
+    "lightning_spark_wallet_label": "Lightning (Spark)",
     "multi_sig_wallet_label": "Portafoglio multi-dispositivo",
     "chf_taproot_wallet_label": "Portafoglio Taproot CHF",
     "add_lndhub_DFXswiss_not_available": "Questo servizio sarà presto disponibile",

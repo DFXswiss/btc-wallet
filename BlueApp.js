@@ -25,6 +25,7 @@ import {
 import { randomBytes } from './class/rng';
 import { LightningLdsWallet } from './class/wallets/lightning-lds-wallet';
 import { TaprootLdsWallet } from './class/wallets/taproot-lds-wallet';
+import { SparkWallet } from './class/wallets/spark-wallet';
 
 const encryption = require('./blue_modules/encryption');
 const Realm = require('realm');
@@ -420,6 +421,10 @@ class AppStorage {
             unserializedWallet.init();
             break;
           }
+          case SparkWallet.type:
+            // Own case: Spark has no LNDHub base URI or init lifecycle.
+            unserializedWallet = SparkWallet.fromJson(key);
+            break;
           case LegacyWallet.type:
           default:
             unserializedWallet = LegacyWallet.fromJson(key);

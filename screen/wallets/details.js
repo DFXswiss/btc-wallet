@@ -39,6 +39,7 @@ import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import { writeFileAndExport } from '../../blue_modules/fs';
 import { useDfxSessionContext } from '../../api/dfx/contexts/session.context';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
+import { SparkWallet } from '../../class/wallets/spark-wallet';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useWalletContext } from '../../contexts/wallet.context';
 
@@ -418,7 +419,7 @@ const WalletDetails = () => {
                 </>
               )}
 
-              {[LightningCustodianWallet.type, LightningLdsWallet.type].includes(wallet.type) && (
+              {[LightningCustodianWallet.type, LightningLdsWallet.type, SparkWallet.type].includes(wallet.type) && (
                 <>
                   <Text style={[styles.textLabel1, stylesHook.textLabel1]}>{loc.wallets.details_connected_to}</Text>
                   <BlueText>{wallet.getBaseURI()}</BlueText>

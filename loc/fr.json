@@ -517,6 +517,7 @@
     "import_success_watchonly": "Votre portefeuille a été importé avec succès. AVERTISSEMENT : Il s'agit d'un portefeuille de montre uniquement, vous ne pouvez PAS dépenser à partir de celui-ci.",
     "main_wallet_label": "Portefeuille On-Chain",
     "lightning_wallet_label": "Portefeuille Lightning",
+    "lightning_spark_wallet_label": "Lightning (Spark)",
     "multi_sig_wallet_label": "Portefeuille multi-appareils",
     "chf_taproot_wallet_label": "Portefeuille Taproot en CHF",
     "add_lndhub_DFXswiss_not_available": "Ce service sera bientôt disponible",
