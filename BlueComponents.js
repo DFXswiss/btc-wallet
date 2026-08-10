@@ -138,7 +138,12 @@ export const SecondButton = forwardRef((/** @type {SecondButtonProps} */ props, 
 export const SelectButton = props => {
   const { colors } = useTheme();
   return (
-    <TouchableOpacity accessibilityRole="button" testID={props.testID} onPress={props.onPress}>
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityState={{ selected: Boolean(props.active) }}
+      testID={props.testID}
+      onPress={props.onPress}
+    >
       <View
         style={{
           borderColor: (props.active && colors.newBlue) || colors.buttonDisabledBackgroundColor,

@@ -105,9 +105,16 @@ describe('AddLightning screen', () => {
 
   it('lists the three LNDHub providers', () => {
     const screen = renderScreen();
+    // RNTL 13 has no toHaveAccessibilityState; toHaveProp checks the prop is
+    // present (toBeSelected alone treats a missing state as selected: false).
     expect(screen.queryByText('lightning.space')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'lightning.space' })).toHaveProp('accessibilityState', { selected: true });
     expect(screen.queryByText('DFX.swiss')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'DFX.swiss' })).toHaveProp('accessibilityState', { selected: false });
     expect(screen.queryByText(loc.wallets.add_lndhub_custom)).toBeTruthy();
+    expect(screen.getByRole('button', { name: loc.wallets.add_lndhub_custom })).toHaveProp('accessibilityState', {
+      selected: false,
+    });
   });
 
   it('creates the lightning.space wallet from the LDS user and returns home', async () => {
