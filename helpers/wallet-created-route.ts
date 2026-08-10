@@ -1,3 +1,6 @@
+import type { NavigatorScreenParams } from '@react-navigation/native';
+import type { WalletsStackParamList } from '../navigation/types';
+
 /**
  * Route the app lands on once the first wallet has been created or imported.
  *
@@ -8,4 +11,7 @@
  *
  * Returned as [routeName, params] so it can be spread into StackActions.replace().
  */
-export const walletCreatedRoute = (): [string, { screen: string }] => ['WalletsRoot', { screen: 'WalletTransactions' }];
+export const walletCreatedRoute = (): ['WalletsRoot', NavigatorScreenParams<WalletsStackParamList>] => [
+  'WalletsRoot',
+  { screen: 'WalletTransactions' },
+];
