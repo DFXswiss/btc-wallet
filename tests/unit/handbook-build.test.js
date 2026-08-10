@@ -776,6 +776,18 @@ describe('unit - handbook build guards', () => {
     // Without it, widening the class to `{2,4}` keeps every test green while
     // turning a whole shape of directory into a published locale.
     writeText(path.join(fixture, 'ios/fastlane/metadata/beta/name.txt'), 'Beta');
+    // A valid language with an invalid region. The three cases above all fail
+    // on the language part, so none of them reaches the region alternation:
+    // widening it to `(-.*)?` keeps every test green and turns exactly this
+    // directory into a published locale. The guard's own error message tells
+    // maintainers to widen the pattern when a real locale is refused, so that
+    // edit is expected to happen — this is the net under it. Widenings that
+    // stay inside [A-Za-z0-9] are deliberately not pinned: measured, `{2,8}`
+    // and `[A-Za-z0-9]+` both survive, and neither can admit anything fastlane
+    // puts in these roots. Every non-locale there either carries an underscore
+    // or fails the language part outright, and `.*` is the one form that lets
+    // an underscore through.
+    writeText(path.join(fixture, 'ios/fastlane/metadata/de-review_information/demo_password.txt'), 'hunter2');
 
     const r = runBuild(out, { HANDBOOK_REPO_ROOT: fixture, NODE_PATH: markedNodePath, GIT_SHA: 't' });
     assert.notStrictEqual(r.status, 0, r.stdout);
@@ -786,6 +798,7 @@ describe('unit - handbook build guards', () => {
     // the underscore alone.
     assert.match(r.stderr, /metadata\/default\b/);
     assert.match(r.stderr, /metadata\/beta\b/);
+    assert.match(r.stderr, /metadata\/de-review_information\b/);
     assert.ok(!fs.existsSync(path.join(out, 'index.html')), 'no page may be written');
   });
 
