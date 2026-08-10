@@ -58,6 +58,16 @@ describe('SparkWallet', () => {
     assert.notStrictEqual(a.getID(), c.getID());
   });
 
+  it('getID fails closed when identityPubkey is missing', () => {
+    const wallet = new SparkWallet();
+    assert.strictEqual(wallet.identityPubkey, undefined);
+    assert.throws(() => wallet.getID(), /identityPubkey is required/);
+  });
+
+  it('create rejects an empty identityPubkey', () => {
+    assert.throws(() => SparkWallet.create(''), /requires identityPubkey/);
+  });
+
   it('getBaseURI identifies Breez Spark', () => {
     assert.strictEqual(new SparkWallet().getBaseURI(), 'Breez Spark');
   });
@@ -161,7 +171,7 @@ describe('SparkWallet', () => {
   });
 
   it('getTransactions merges lists and sorts newest first', async () => {
-    const wallet = new SparkWallet();
+    const wallet = SparkWallet.create('list-pk');
     wallet.transactions_raw = [
       { payment_request: 'a', timestamp: 10, type: 'paid_invoice', amt: 1, fee: 0, ispaid: true, expire_time: 3600 },
     ];
@@ -191,7 +201,7 @@ describe('SparkWallet', () => {
   });
 
   it('weOwnTransaction matches payment_hash', () => {
-    const wallet = new SparkWallet();
+    const wallet = SparkWallet.create('own-pk');
     wallet.transactions_raw = [
       {
         payment_request: 'x',

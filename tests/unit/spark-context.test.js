@@ -88,6 +88,18 @@ beforeEach(() => {
   mockDisconnect.mockResolvedValue(undefined);
 });
 
+describe('useSparkContext', () => {
+  it('throws when used outside SparkContextProvider', () => {
+    const Outside = () => {
+      useSparkContext();
+      return null;
+    };
+    assert.throws(() => {
+      render(<Outside />);
+    }, /must be used within SparkContextProvider/);
+  });
+});
+
 describe('SparkContextProvider', () => {
   it('creates a Spark wallet from the on-chain seed without storing the phrase', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});

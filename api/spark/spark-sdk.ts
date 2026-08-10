@@ -100,14 +100,18 @@ export async function disconnectSparkSdk(): Promise<void> {
     if (id) {
       await instance.removeEventListener(id);
     }
-  } catch (_) {
-    // Listener may already be gone after disconnect.
+  } catch (e) {
+    // Best-effort: the SDK may already have dropped the listener during disconnect.
+    // Follow-up is impossible without a live instance; surface the failure for diagnostics.
+    console.warn('disconnectSparkSdk: removeEventListener failed', e);
   }
 
   try {
     await instance.disconnect();
-  } catch (_) {
-    // Best-effort teardown.
+  } catch (e) {
+    // Best-effort session teardown: the process is exiting or the native side is already gone.
+    // Leaving a zombie listener is preferable to crashing the app on cleanup.
+    console.warn('disconnectSparkSdk: disconnect failed', e);
   }
 }
 

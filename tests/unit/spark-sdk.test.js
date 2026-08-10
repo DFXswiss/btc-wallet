@@ -84,6 +84,17 @@ describe('spark-sdk', () => {
     expect(mockInstance.removeEventListener).toHaveBeenCalledWith('listener-1');
   });
 
+  it('logs and swallows teardown failures instead of throwing', async () => {
+    mockInstance.removeEventListener.mockRejectedValueOnce(new Error('listener gone'));
+    mockInstance.disconnect.mockRejectedValueOnce(new Error('native down'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    await connectSparkSdk('one two three four five six seven eight nine ten eleven about', async () => {});
+    await disconnectSparkSdk();
+    assert.strictEqual(isSparkSdkConnected(), false);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   it('syncSparkWallet is a no-op when disconnected and calls sync when connected', async () => {
     await syncSparkWallet();
     expect(mockInstance.syncWallet).not.toHaveBeenCalled();

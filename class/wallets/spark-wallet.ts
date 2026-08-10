@@ -25,6 +25,8 @@ export type SparkInvoiceRecord = {
   ispaid: boolean;
   type: string;
   fee?: number;
+  walletID?: string;
+  received?: string;
 };
 
 export class SparkWallet extends AbstractWallet {
@@ -45,7 +47,10 @@ export class SparkWallet extends AbstractWallet {
     this.secret = '';
   }
 
-  static create(identityPubkey?: string, lnAddress?: string): SparkWallet {
+  static create(identityPubkey: string, lnAddress?: string): SparkWallet {
+    if (!identityPubkey) {
+      throw new Error('SparkWallet.create requires identityPubkey');
+    }
     const wallet = new SparkWallet();
     wallet.identityPubkey = identityPubkey;
     wallet.lnAddress = lnAddress;
@@ -55,9 +60,14 @@ export class SparkWallet extends AbstractWallet {
   /**
    * Stable id from type + public identity key. Empty secret is intentional —
    * the recovery phrase must never be stored on this record.
+   * identityPubkey is mandatory: without it every Spark wallet would hash to
+   * the same id (type + empty secret).
    */
   getID(): string {
-    const string2hash = this.type + (this.identityPubkey || '') + this.getSecret();
+    if (!this.identityPubkey) {
+      throw new Error('SparkWallet identityPubkey is required for getID');
+    }
+    const string2hash = this.type + this.identityPubkey + this.getSecret();
     return createHash('sha256').update(string2hash).digest().toString('hex');
   }
 
@@ -85,8 +95,12 @@ export class SparkWallet extends AbstractWallet {
     this._lastBalanceFetch = +new Date();
   }
 
-  // LND screens expect lightning invoice records, not on-chain Transaction shapes.
-  getTransactions(): any[] {
+  /**
+   * LND screens expect lightning invoice records, not on-chain Transaction shapes.
+   * AbstractWallet types this as Transaction[]; the override is intentional.
+   */
+  // @ts-expect-error -- off-chain list uses SparkInvoiceRecord, not on-chain Transaction
+  getTransactions(): SparkInvoiceRecord[] {
     this.pending_transactions_raw = this.pending_transactions_raw || [];
     this.user_invoices_raw = this.user_invoices_raw || [];
     this.transactions_raw = this.transactions_raw || [];
@@ -98,7 +112,7 @@ export class SparkWallet extends AbstractWallet {
       .concat(invoicesWithoutSignInTx);
 
     for (const tx of txs) {
-      (tx as SparkInvoiceRecord & { walletID?: string }).walletID = this.getID();
+      tx.walletID = this.getID();
       if (typeof tx.value === 'undefined' && typeof tx.amt !== 'undefined') {
         if (tx.type === 'paid_invoice') {
           tx.value = -Math.abs(tx.amt + (tx.fee || 0));
@@ -106,7 +120,7 @@ export class SparkWallet extends AbstractWallet {
           tx.value = tx.amt;
         }
       }
-      (tx as SparkInvoiceRecord & { received?: string }).received = new Date(tx.timestamp * 1000).toString();
+      tx.received = new Date(tx.timestamp * 1000).toString();
     }
 
     return txs.sort((a, b) => b.timestamp - a.timestamp);

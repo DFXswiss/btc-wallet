@@ -14,10 +14,18 @@ export interface SparkContextInterface {
   createSparkWallet: () => Promise<SparkWallet | null>;
 }
 
-const SparkContext = createContext<SparkContextInterface>(undefined as any);
+const SparkContext = createContext<SparkContextInterface | undefined>(undefined);
 
 export function useSparkContext(): SparkContextInterface {
-  return useContext(SparkContext);
+  const ctx = useContext(SparkContext);
+  if (!ctx) {
+    throw new Error('useSparkContext must be used within SparkContextProvider');
+  }
+  return ctx;
+}
+
+function errorMessage(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
 }
 
 function getOnChainMnemonic(wallets: { type: string; getSecret: () => string }[]): string {
@@ -119,8 +127,8 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
         if (!cancelled) {
           await refreshSparkWallet(spark);
         }
-      } catch (e: any) {
-        const message = e?.message || String(e);
+      } catch (e: unknown) {
+        const message = errorMessage(e);
         console.error('SparkContext: failed to connect', message);
         // Missing API key must fail loudly — never leave a silent broken Lightning tab.
         Alert.alert(loc.wallets.lightning_spark_wallet_label, message);
@@ -192,8 +200,8 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
       await addAndSaveWallet(created);
       await refreshSparkWallet(created);
       return created;
-    } catch (e: any) {
-      const message = e?.message || String(e);
+    } catch (e: unknown) {
+      const message = errorMessage(e);
       // Nothing half-created: wallet is only persisted via addAndSaveWallet on success.
       if (!getSparkWallet(wallets)) {
         await Promise.resolve(disconnectSparkSdk()).catch(() => {});
