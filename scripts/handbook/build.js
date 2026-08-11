@@ -571,6 +571,8 @@ function loadPodAssets(scriptDir) {
     'Inter-SemiBold.woff2',
     'Inter-Bold.woff2',
     'SourceCodePro-Regular.woff2',
+    'Inter-LICENSE.txt',
+    'SourceCodePro-LICENSE.md',
   ];
   for (const f of fonts) {
     if (!fs.existsSync(path.join(fontDir, f))) {
