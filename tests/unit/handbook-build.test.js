@@ -384,6 +384,24 @@ describe('unit - handbook build guards', () => {
     assert.strictEqual(fs.readFileSync(canary, 'utf8'), 'keep-me\n');
   });
 
+  // Linux default filesystems are case-sensitive: fixture.toUpperCase() names a
+  // different directory there, so this case-folding hole cannot be observed.
+  (process.platform === 'linux' ? it.skip : it)(
+    'refuses output dir that differs from the repo root only in letter case without deleting it',
+    function () {
+      const { fixture } = freshDirs();
+      populateValidFixture(fixture);
+      const canary = path.join(fixture, 'CANARY.md');
+      writeText(canary, 'keep-me\n');
+      assert.notStrictEqual(fixture.toUpperCase(), fixture);
+
+      const r = runBuild(fixture.toUpperCase(), { HANDBOOK_REPO_ROOT: fixture });
+      assert.notStrictEqual(r.status, 0, r.stderr);
+      assert.ok(fs.existsSync(canary), 'repo root must not be emptied via case-folded path');
+      assert.strictEqual(fs.readFileSync(canary, 'utf8'), 'keep-me\n');
+    },
+  );
+
   it('refuses output path containing a .git segment', function () {
     const { fixture } = freshDirs();
     populateValidFixture(fixture);

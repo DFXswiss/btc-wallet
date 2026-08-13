@@ -302,7 +302,19 @@ function resolveHomeDir() {
 
 /** True if `a` is the same path as `b` or a strict ancestor of `b`. */
 function isSameOrAncestor(a, b) {
-  return a === b || b.startsWith(a + path.sep);
+  if (a === b || b.startsWith(a + path.sep)) {
+    return true;
+  }
+  // macOS APFS and Windows NTFS default to case-insensitive, case-preserving
+  // paths. A spelling that differs only in letter case is the same directory.
+  // Linux is case-sensitive by default; folding there would treat distinct
+  // paths as identical and block legitimate output dirs.
+  if (process.platform !== 'linux') {
+    const aFolded = a.toLowerCase();
+    const bFolded = b.toLowerCase();
+    return aFolded === bFolded || bFolded.startsWith(aFolded + path.sep);
+  }
+  return false;
 }
 
 /**
