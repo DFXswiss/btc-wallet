@@ -37,4 +37,30 @@ export class Utils {
   // static formatIban(iban?: string): string | null {
   //   return IbanTools.friendlyFormatIBAN(iban);
   // }
+
+  static sumUtxoValue(utxos: Array<{ value: number }>): number {
+    return utxos.reduce((sum, u) => sum + u.value, 0);
+  }
+
+  // A value-less send-max target sweeps whatever UTXO set the transaction is built from. Since
+  // that set is now refreshed right before signing, it can contain funds that arrived after the
+  // user tapped MAX - sweeping those would send more than the balance the confirm screen showed.
+  // Only sweep when the fresh total doesn't exceed what was displayed; a smaller fresh total is
+  // fine (e.g. frozen coins are excluded from the sweep by design), and anything else falls back
+  // to a fixed-value target, which never sends more than the user confirmed.
+  static shouldSendMax(amountSats: number, displayedBalanceSats: number, freshUtxoTotalSats: number): boolean {
+    return amountSats === displayedBalanceSats && freshUtxoTotalSats <= amountSats;
+  }
+
+  static async withRetry<T>(fn: () => Promise<T>, attempts = 3, delayMs = 500): Promise<T> {
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        if ((error as { nonRetryable?: boolean } | null)?.nonRetryable || attempt === attempts) throw error;
+        await new Promise(resolve => setTimeout(resolve, delayMs * attempt));
+      }
+    }
+    throw new Error('unreachable');
+  }
 }

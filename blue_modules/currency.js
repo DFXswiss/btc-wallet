@@ -198,7 +198,9 @@ function satoshiToBTC(satoshi) {
 }
 
 function btcToSatoshi(btc) {
-  return new BigNumber(btc).multipliedBy(100000000).toNumber();
+  // A satoshi is always a whole number. `btc` can carry more than 8 decimal places, which would
+  // otherwise produce a fractional value here that coinselect's integer checks reject downstream.
+  return new BigNumber(btc).multipliedBy(100000000).integerValue(BigNumber.ROUND_FLOOR).toNumber();
 }
 
 function fiatToBTC(fiatFloat) {

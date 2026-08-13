@@ -15,6 +15,7 @@ import BigNumber from 'bignumber.js';
 import { AbstractHDElectrumWallet } from '../../class/wallets/abstract-hd-electrum-wallet';
 import { isInternalDomain } from '../../helpers/freeLightningDomains';
 import { reportError } from '../../helpers/errors';
+import { Utils } from '../../helpers/utils';
 
 type RouteParams = {
   lnurl: string;
@@ -151,7 +152,7 @@ const LnurlNavigationForwarder = () => {
         if (isMainWalletSuitable(paymentLink)) {
           setIsOnchainPayment(true);
           if (mainWallet instanceof LegacyWallet) {
-            await mainWallet.fetchUtxo();
+            await Utils.withRetry(() => mainWallet.fetchUtxo());
           }
           const navigationParams = await getOnChainPaymentNavigation(paymentLink);
           return navigation.replace('SendDetailsRoot', {

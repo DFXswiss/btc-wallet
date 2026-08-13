@@ -17,7 +17,6 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import * as BlueElectrum from '../../blue_modules/BlueElectrum';
 import NetworkTransactionFees from '../../models/networkTransactionFees';
 import { PrivateText } from '../../components/PrivateText';
-const currency = require('../../blue_modules/currency');
 
 const buttonStatus = Object.freeze({
   possible: 1,
@@ -44,7 +43,10 @@ const TransactionsStatus = () => {
     if (!tx) return 0;
     const inAmount = tx.inputs.reduce((acc, { value }) => acc + value, 0);
     const outAmount = tx.outputs.reduce((acc, { value }) => acc + value, 0);
-    return currency.btcToSatoshi(inAmount - outAmount);
+    // btcToSatoshi() floors (a spend amount must never round up), but this is a display value
+    // derived from float sums whose binary noise can land just below the true integer - round
+    // to the nearest satoshi instead of showing the fee 1 sat low.
+    return Math.round((inAmount - outAmount) * 100000000);
   }, [tx]);
 
   const stylesHook = StyleSheet.create({

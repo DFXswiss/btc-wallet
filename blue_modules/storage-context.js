@@ -31,6 +31,9 @@ export const BlueStorageProvider = ({ children }) => {
   const [isDfxPos, setIsDfxPos] = useState(false);
   const [isDfxSwap, setIsDfxSwap] = useState(false);
   const [isElectrumDisabled, setIsElectrumDisabled] = useState(true);
+  // Fail-safe until the boot effect below loads the real persisted value: Privacy.tsx mirrors
+  // this into a module-level ref read by every sensitive screen, so starting `false` would
+  // leave those screens briefly unprotected on cold start even for a user who opted in.
   const [isPrivacyBlurEnabled, setIsPrivacyBlurEnabled] = useState(true);
   const [lastSuccessfulBalanceRefresh, setLastSuccessfulBalanceRefresh] = useState(Date.now());
   const balanceRefreshInterval = useRef(null);
@@ -59,6 +62,18 @@ export const BlueStorageProvider = ({ children }) => {
   const setIsDfxPosAsyncStorage = value => {
     setIsDfxPos(value);
     return BlueApp.setIsDfxPOSEnabled(value);
+  };
+
+  const setIsPrivacyBlurEnabledAsyncStorage = async value => {
+    setIsPrivacyBlurEnabled(value);
+    try {
+      await BlueApp.setIsPrivacyBlurEnabled(value);
+    } catch (e) {
+      // revert instead of leaving the UI claiming a state that won't survive a restart -
+      // the switch visibly snapping back is the failure signal
+      setIsPrivacyBlurEnabled(!value);
+      throw e;
+    }
   };
 
   const setIsDfxSwapAsyncStorage = value => {
@@ -105,6 +120,8 @@ export const BlueStorageProvider = ({ children }) => {
         setCameraPermissionLastAskedTime(cameraPermissionLastAskedTime);
         const isHideBalance = await BlueApp.isHideBalanceEnabled();
         setHideBalance(!!isHideBalance);
+        const enabledPrivacyBlur = await BlueApp.isPrivacyBlurEnabled();
+        setIsPrivacyBlurEnabled(!!enabledPrivacyBlur);
       } catch (_e) {
         setIsHandOffUseEnabledAsyncStorage(false);
         setIsHandOffUseEnabled(false);
@@ -116,6 +133,10 @@ export const BlueStorageProvider = ({ children }) => {
         setIsDfxPos(false);
         setIsDfxSwapAsyncStorage(false);
         setIsDfxSwap(false);
+        // Fail-safe in-memory only, not persisted: unlike the flags above, "off" isn't the
+        // safe direction for screen-capture protection, and an unrelated read failure
+        // shouldn't overwrite a user's real (unread) persisted preference.
+        setIsPrivacyBlurEnabled(true);
       }
     })();
   }, []);
@@ -368,7 +389,7 @@ export const BlueStorageProvider = ({ children }) => {
         isElectrumDisabled,
         setIsElectrumDisabled,
         isPrivacyBlurEnabled,
-        setIsPrivacyBlurEnabled,
+        setIsPrivacyBlurEnabledAsyncStorage,
         lastSuccessfulBalanceRefresh,
         setBalanceRefreshInterval,
         clearBalanceRefreshInterval,

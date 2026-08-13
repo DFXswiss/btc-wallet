@@ -34,6 +34,14 @@ RUN NODE_PATH=./_handbook-deps/node_modules node scripts/handbook/build.js /out
 
 FROM nginx:1.27-alpine
 
+# The stock image seeds /usr/share/nginx/html with its own index.html and
+# 50x.html. The build overwrites index.html, but 50x.html used to survive and
+# was served publicly (200 at /50x.html) although handbook.nginx.conf has no
+# error_page directive pointing at it. Clearing the directory first makes the
+# payload exactly the build output — which is what the host/image comparison in
+# .github/workflows/handbook-check.yaml asserts byte for byte.
+RUN rm -rf /usr/share/nginx/html/*
+
 COPY handbook.nginx.conf /etc/nginx/conf.d/default.conf
 
 COPY --from=builder /out/ /usr/share/nginx/html/

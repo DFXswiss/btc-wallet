@@ -140,6 +140,9 @@ const WalletAddresses = () => {
 
       getAddresses();
 
+      return () => {
+        Privacy.disableBlur();
+      };
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []),
   );

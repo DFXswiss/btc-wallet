@@ -2,35 +2,92 @@
   "screenshots": {
     "01-onboarding": {
       "title": "Erststart und Wallet-Anlage",
-      "description": "Haftungsausschluss mit „Erstellen\" und „Wallet importieren\", Wallet-Übersicht direkt nach der Anlage und die Mitteilungs-Berechtigung beim ersten Öffnen von „Erhalten\". Die Lightning-Wallet ist nicht Teil des Erststarts — sie wird über „Hinzufügen\" auf der Wallet-Übersicht angelegt (siehe „Weitere Wallet anlegen\")."
+      "description": "Haftungsausschluss mit „Erstellen\" und „Wallet importieren\", Wallet-Übersicht direkt nach der Anlage und die Mitteilungs-Berechtigung beim ersten Öffnen von „Erhalten\". Die Lightning-Wallet ist nicht Teil des Erststarts — sie wird über „Hinzufügen\" auf der Wallet-Übersicht angelegt (siehe „Weitere Wallet anlegen\").",
+      "captions": {
+        "01-start": "Haftungsausschluss beim Erststart",
+        "02-wallet-uebersicht": "Wallet-Übersicht nach der Anlage",
+        "03-mitteilungen-berechtigung": "Berechtigung für Mitteilungen"
+      }
     },
     "02-wallet": {
       "title": "Wallet, Backup und Export",
-      "description": "Wallet-Übersicht, Erklärseite zur Wiederherstellungsphrase, Meldung signieren/verifizieren, Transaktionsliste, Adressliste, Export/Backup, xPub und die Wiederherstellungsphrase. Auf den beiden letzten Seiten sind Phrase und Export-QR nachträglich geschwärzt — sie gehören nicht in ein öffentliches Repository."
+      "description": "Wallet-Übersicht, Erklärseite zur Wiederherstellungsphrase, Meldung signieren/verifizieren, Transaktionsliste, Adressliste, Export/Backup, xPub und die Wiederherstellungsphrase. Auf den beiden letzten Seiten sind Phrase und Export-QR nachträglich geschwärzt — sie gehören nicht in ein öffentliches Repository.",
+      "captions": {
+        "01-uebersicht": "Wallet-Übersicht",
+        "02-backup-erklaerung": "Wiederherstellungsphrase erklärt",
+        "03-signieren-verifizieren": "Nachricht signieren und verifizieren",
+        "04-onchain-transaktionen": "On-Chain-Transaktionen",
+        "05-adressen": "Adressliste",
+        "06-export-backup": "Export und Backup",
+        "07-xpub": "Öffentlicher Schlüssel (xPub)",
+        "08-wiederherstellungsphrase": "Wiederherstellungsphrase (geschwärzt)"
+      }
     },
     "03-einstellungen": {
       "title": "Einstellungen",
-      "description": "Einstellungsmenü und alle erreichbaren Unterseiten: Allgemein, Privatsphäre, On-Chain- und Lightning-Wallet, Währung, Sprache, Sicherheit, Netzwerk mit Electrum-Server und Benachrichtigungen, Werkzeuge mit Adressprüfung und Transaktions-Publizierung, Feature Flags und Über."
+      "description": "Einstellungsmenü und alle erreichbaren Unterseiten: Allgemein, Privatsphäre, On-Chain- und Lightning-Wallet, Währung, Sprache, Sicherheit, Netzwerk mit Electrum-Server und Benachrichtigungen, Werkzeuge mit Adressprüfung und Transaktions-Publizierung, Feature Flags und Über.",
+      "captions": {
+        "01-menue": "Einstellungsmenü",
+        "02-allgemein": "Allgemein",
+        "03-wallet-einstellungen": "Wallet-Einstellungen",
+        "06-waehrung": "Währung",
+        "07-sprache": "Sprache",
+        "08-sicherheit": "Sicherheit",
+        "09-netzwerk": "Netzwerk",
+        "10-werkzeuge": "Werkzeuge",
+        "11-feature-flags": "Feature Flags",
+        "12-ueber": "Über die App",
+        "13-privatsphaere": "Privatsphäre",
+        "14-electrum-server": "Electrum-Server",
+        "15-benachrichtigungen": "Benachrichtigungen",
+        "16-werkzeuge-uebersicht": "Werkzeuge-Übersicht",
+        "17-ist-dies-meine-adresse": "Ist dies meine Adresse?",
+        "18-transaktion-publizieren": "Transaktion publizieren",
+        "19-lightning-wallet": "Lightning-Wallet-Einstellungen"
+      }
     },
     "04-empfangen-senden": {
       "title": "Empfangen und Senden",
-      "description": "Empfangsseite mit Adress-QR-Code und optionalen Feldern für Betrag und Beschreibung sowie der QR-Scanner, den „Senden\" öffnet."
+      "description": "Empfangsseite mit Adress-QR-Code und optionalen Feldern für Betrag und Beschreibung sowie der QR-Scanner, den „Senden\" öffnet.",
+      "captions": {
+        "01-erhalten": "Erhalten mit Adress-QR-Code",
+        "02-senden": "Senden über den QR-Scanner"
+      }
     },
     "06-wallet-hinzufuegen": {
       "title": "Weitere Wallet anlegen",
-      "description": "Einstiegsseiten für die Multi-Device-Wallet (3-Geräte-Setup) und für die Lightning-Wallet über einen LNDHub-Anbieter mit der Auswahl zwischen lightning.space, DFX.swiss und einem benutzerdefinierten Anbieter."
+      "description": "Einstiegsseiten für die Multi-Device-Wallet (3-Geräte-Setup) und für die Lightning-Wallet über einen LNDHub-Anbieter mit der Auswahl zwischen lightning.space, DFX.swiss und einem benutzerdefinierten Anbieter.",
+      "captions": {
+        "01-multi-device": "Multi-Device-Wallet anlegen",
+        "02-lightning": "Lightning-Wallet anlegen",
+        "03-lightning-benutzerdefiniert": "Benutzerdefinierter Lightning-Anbieter",
+        "04-lightning-dfx-swiss": "Lightning-Anbieter DFX.swiss"
+      }
     },
     "07-multi-device": {
       "title": "Multi-Device-Wallet einrichten",
-      "description": "Erster Schritt der 3-Geräte-Einrichtung: eigener QR-Code, Fortschrittsanzeige über die drei Geräte und der Scanner für die QR-Codes der beiden anderen."
+      "description": "Erster Schritt der 3-Geräte-Einrichtung: eigener QR-Code, Fortschrittsanzeige über die drei Geräte und der Scanner für die QR-Codes der beiden anderen.",
+      "captions": {
+        "01-erstellung-qr": "Erstellung: eigener QR-Code"
+      }
     },
     "08-lightning": {
       "title": "Lightning-Wallet",
-      "description": "Übersicht mit angelegter Lightning-Wallet über lightning.space, Wallet-Detailseite mit Zugang zur Bezahlkarte und die Empfangsseite mit Lightning-Adresse."
+      "description": "Übersicht mit angelegter Lightning-Wallet über lightning.space, Wallet-Detailseite mit Zugang zur Bezahlkarte und die Empfangsseite mit Lightning-Adresse.",
+      "captions": {
+        "01-uebersicht-mit-lightning": "Übersicht mit Lightning-Wallet",
+        "02-lightning-wallet": "Lightning-Wallet",
+        "03-rechnung-erstellen": "Rechnung erstellen"
+      }
     },
     "09-import": {
       "title": "Wallet importieren",
-      "description": "QR-Scanner als Einstieg, manuelle Eingabe von Phrase, privatem Schlüssel oder WIF, und die Trefferliste der erkannten Wallet-Typen (BIP44, BIP49, BIP84) mit Ableitungspfad und der Option auf einen eigenen Pfad."
+      "description": "QR-Scanner als Einstieg, manuelle Eingabe von Phrase, privatem Schlüssel oder WIF, und die Trefferliste der erkannten Wallet-Typen (BIP44, BIP49, BIP84) mit Ableitungspfad und der Option auf einen eigenen Pfad.",
+      "captions": {
+        "01-scanner": "Import über den QR-Scanner",
+        "02-manuelle-eingabe": "Manuelle Eingabe",
+        "03-trefferliste": "Erkannte Wallet-Typen"
+      }
     }
   },
   "docs": {
