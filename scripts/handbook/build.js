@@ -2346,40 +2346,48 @@ function resolvePosix(fromDir, relHref) {
 
 /**
  * Fail closed when open/close tags for active blocks are not nested in
- * document order. A count-only check would accept a closer before its opener
- * (or an extra closer between two well-formed pairs) as "balanced"; a
- * non-greedy `<tag>…</tag>` replace would then leave a later opener intact
- * (or delete everything up to the next closer — silent content loss, green
- * build). Self-closing tags (`<tag …/>`) are not opens.
+ * document order, including across tag types. A per-tag depth counter
+ * accepts an interleaved pair such as
+ * `<iframe>…<script></iframe></script>` as "balanced"; sequential
+ * non-greedy `<tag>…</tag>` replaces then eat the outer closer and leave
+ * its opener intact. A single stack over all four tags rejects that
+ * mismatch. Self-closing tags (`<tag …/>`) are not opens.
  */
 function assertBalancedDangerBlocks(html) {
-  for (const tag of ['script', 'iframe', 'object', 'form']) {
-    const tokenRe = new RegExp('<' + tag + '\\b([^>]*)>|</' + tag + '\\s*>', 'gi');
-    let depth = 0;
-    let m;
-    while ((m = tokenRe.exec(html)) !== null) {
-      if (/^<\//.test(m[0])) {
-        depth -= 1;
-        if (depth < 0) {
-          fail(
-            `handbook sanitizer: unbalanced <${tag}> blocks ` +
-              '(close without a matching open). Refusing to strip across content ' +
-              'boundaries — fix the markdown source.',
-          );
-        }
-      } else {
-        const attrs = m[1] || '';
-        if (/\/\s*$/.test(attrs)) continue; // self-closing
-        depth += 1;
+  const tokenRe = /<(script|iframe|object|form)\b([^>]*)>|<\/(script|iframe|object|form)\s*>/gi;
+  const stack = [];
+  let m;
+  while ((m = tokenRe.exec(html)) !== null) {
+    if (/^<\//.test(m[0])) {
+      const closeName = String(m[3] || '').toLowerCase();
+      if (stack.length === 0) {
+        fail(
+          `handbook sanitizer: unbalanced <${closeName}> blocks ` +
+            '(close without a matching open). Refusing to strip across content ' +
+            'boundaries — fix the markdown source.',
+        );
       }
+      const openName = stack.pop();
+      if (openName !== closeName) {
+        fail(
+          `handbook sanitizer: unbalanced <${openName}> / <${closeName}> blocks ` +
+            `(expected closing </${openName}>, found </${closeName}>). ` +
+            'Refusing to strip across content boundaries — fix the markdown source.',
+        );
+      }
+    } else {
+      const attrs = m[2] || '';
+      if (/\/\s*$/.test(attrs)) continue; // self-closing
+      stack.push(String(m[1] || '').toLowerCase());
     }
-    if (depth !== 0) {
-      fail(
-        `handbook sanitizer: unbalanced <${tag}> blocks ` +
-          `(${depth} open without a matching close). Refusing to strip across content ` +
-          'boundaries — fix the markdown source.',
-      );
-    }
+  }
+  if (stack.length !== 0) {
+    const names = [...new Set(stack)].map(tag => `<${tag}>`).join(', ');
+    fail(
+      `handbook sanitizer: unbalanced ${names} blocks ` +
+        `(${stack.length} open without a matching close). Refusing to strip across content ` +
+        'boundaries — fix the markdown source.',
+    );
   }
 }
 

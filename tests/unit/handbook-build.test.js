@@ -913,6 +913,70 @@ describe('unit - handbook build guards', () => {
     assert.match(r.stderr, /unbalanced <form>/i);
   });
 
+  // Per-tag depth is balanced (one iframe pair, one script pair) but the
+  // closer of the outer tag arrives while the inner tag is still open.
+  // Sequential non-greedy strip then eats `</iframe>` with the script
+  // block and leaves the iframe opener in the published page.
+  it('fails the build on count-balanced but cross-tag-interleaved iframe/script blocks', function () {
+    const { fixture, out } = freshDirs();
+    const danger = '# Title\n\n' + '<iframe src="http://evil.example">CLICKME<script></iframe></script>\n';
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docContents: { 'DOC-0.md': danger },
+    });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.notStrictEqual(r.status, 0, 'cross-tag interleaved iframe/script must fail the build');
+    assert.match(r.stderr, /iframe/i);
+    assert.match(r.stderr, /script/i);
+    assert.match(r.stderr, /expected closing/i);
+  });
+
+  // Same interleaving class, different pair: object closer while form is open.
+  it('fails the build on count-balanced but cross-tag-interleaved object/form blocks', function () {
+    const { fixture, out } = freshDirs();
+    const danger = '# Title\n\n' + '<object data="http://evil.example/o"><form action="http://evil.example/f"></object></form>\n';
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docContents: { 'DOC-0.md': danger },
+    });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.notStrictEqual(r.status, 0, 'cross-tag interleaved object/form must fail the build');
+    assert.match(r.stderr, /object/i);
+    assert.match(r.stderr, /form/i);
+    assert.match(r.stderr, /expected closing/i);
+  });
+
+  // Counterdirection: different tag types, correctly nested, must not trip
+  // the stack guard. Sequential strip then removes both pairs.
+  it('accepts correctly nested iframe/script blocks of different tag types', function () {
+    const { fixture, out } = freshDirs();
+    const nested =
+      '# Title\n\n' + '<p>KEEP-NESTED</p>\n\n' + '<div><iframe src="https://example.com/ok"><script>x</script></iframe></div>\n';
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docContents: { 'DOC-0.md': nested },
+    });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const html = fs.readFileSync(path.join(out, 'docs/DOC-0.html'), 'utf8');
+    const body = html.replace(/^[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*$/i, '');
+    assert.ok(body.includes('KEEP-NESTED'));
+    assert.ok(!/<iframe\b/i.test(body), 'nested iframe stripped');
+    assert.ok(!/<script\b/i.test(body), 'nested script stripped');
+  });
+
   it('leaves a harmless document free of sanitizer damage', function () {
     const { fixture, out } = freshDirs();
     // Counterdirection: no attack vectors — body content must round-trip.
