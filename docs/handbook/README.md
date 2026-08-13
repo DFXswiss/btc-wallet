@@ -1,7 +1,7 @@
 # DFX BTC Taro Wallet — Handbuch
 
-Statische, deutschsprachige Übersichtsseite aller committeten Screenshots,
-Store-Listing-Texte, App-Assets und Markdown-Dokumentation dieses Repos.
+Statische, **kundenzentrierte** Hilfe zur Wallet in **vier Sprachen** (DE/EN/FR/IT),
+gegliedert nach Aufgaben (Wallet anlegen, senden, Backup, Lightning, …).
 Ausgeliefert von nginx in einem Docker-Image **öffentlich** (ohne Anmeldewand)
 unter [handbook.taro.dfx.swiss](https://handbook.taro.dfx.swiss).
 Owner-Entscheid 2026-08-06 / Issue #211: alles im Handbuch ist ohnehin
@@ -14,15 +14,17 @@ Das Assembly-Script `scripts/handbook/build.js` **findet** die Artefakte selbst
 
 | Quelle | Pfad | Inhalt |
 |--------|------|--------|
-| A | `docs/handbook/screenshots/**/*.png` | Screenshots, gruppiert nach Unterverzeichnis (Wurzel → Gruppe `allgemein`) |
+| A | `docs/handbook/screenshots/**/*.png` | Screenshots (Discovery) |
 | B | rekursiver Scan aller `*.md` ab Repo-Root | Markdown-Doku (gerendert mit `marked`) |
-| C | `android/fastlane/metadata/android/**` und `ios/fastlane/metadata/**` | Store-Listing-Klartext (Locales und Felder per Discovery) |
+| C | `android/fastlane/metadata/android/**` und `ios/fastlane/metadata/**` | Store-Listing-Klartext |
 | D | `img/dfx/**/*.png` und `img/icon*.png` | App- und Icon-Assets |
+| E | `scripts/handbook/content/*.json` | Kapitel, UI-Texte, Captions je Sprache |
+| F | `scripts/handbook/pod/` | Design Pod (tokens.css, Logos SVG, Fonts woff2) |
 
 Bei Markdown-Discovery werden übersprungen: Verzeichnisse mit Basename beginnend
 mit `.`, die Basenamen `node_modules`, `.git`, `_handbook-deps`, `build`, `dist`,
 `coverage`, `blue_modules`, `ios`, `android`, `windows`, `macos`, `vendor`, sowie
-der exakte Pfad `docs/handbook` (Selbstdoku und lokales Build-Output).
+die exakten Pfade `docs/handbook` und `scripts/handbook` (Selbstdoku, Pod, Content).
 
 Bei Store-Discovery sind unter den beiden Metadata-Roots nur Locale-foermige
 Verzeichnisse erlaubt (`de`, `de-DE`, `pt-BR`, `zh-Hans`, `es-419`); alles
@@ -35,11 +37,15 @@ Ausgabe pro Build:
 
 ```
 <out>/
-  index.html
+  index.html              # Deutsch (locale de)
+  en/index.html
+  fr/index.html
+  it/index.html
+  handbook.js
   manifest.json
   screenshots/…
   docs/…
-  assets/…
+  assets/…                # inkl. assets/fonts/*.woff2
 ```
 
 Guards (Build bricht ab bei Verletzung):
@@ -51,6 +57,9 @@ Guards (Build bricht ab bei Verletzung):
   liegt bewusst ueber "alles minus die kleinste Locale", sonst koennte ein
   ganzes Store-Listing verschwinden, ohne dass der Build es merkt
 - **Floor:** mindestens `MIN_ASSETS` (20) PNGs unter Assets
+- **Floor:** mindestens `MIN_CONTENT_LOCALES` (4) Sprachdateien unter
+  `scripts/handbook/content/` (de/en/fr/it; Unterschreiten ist immer ein Fehler,
+  Überschreiten nie)
 - **PNG-Integrität:** Magic-Bytes `\x89PNG…`; Screenshots > 1000 Bytes,
   App-Assets > 100 Bytes (kleine 1×-Icons wie `telegram.png`/`twitter.png`
   sind im Repo unter 1000 Bytes und trotzdem gültige PNGs)
@@ -60,6 +69,10 @@ Guards (Build bricht ab bei Verletzung):
 - **Ausgabepfad-Kollision:** beanspruchen zwei Quellen denselben `outputPath`
   (z. B. `README.md` und `docs/README.md` → `docs/README.html`), bricht der
   Build ab und nennt beide Quellpfade — stilles Überschreiben ist verboten
+- **Anker-Kollision:** zwei Screenshots/Gruppen mit derselben Permalink-Id
+  (verlustbehaftetes `slugify`) → Build-Fehler mit beiden Quellen (#217)
+- **Kapitel-Doppelzuordnung:** ein Screenshot in zwei Kapiteln → Build-Fehler
+  mit beiden Kapitel-Ids
 - **Leeres Ausgabeverzeichnis:** jeder Lauf leert das Zielverzeichnis zuerst
   (Wächter gegen Repo-Root, Discovery-Quellen wie `docs/handbook/screenshots`
   und `img/dfx`, `.git`, `/` und Home), damit keine veralteten Dateien und
@@ -68,7 +81,44 @@ Guards (Build bricht ab bei Verletzung):
 Überschreitung der Mindestzahl ist **kein** Fehler — neue Dateien landen
 automatisch.
 
-### Nicht auflösende Markdown-Links
+### Inhaltsdateien und Kapitel
+
+`scripts/handbook/content/<locale>.json` steuert pro Sprache Titel, Lede,
+UI-Strings und die **Kapitel** (Aufgaben). Jede `*.json` im Ordner ist eine
+Sprache (Discovery). Fehlt der Ordner, eine Datei ist ungültig, oder es fehlen
+Pflichtfelder (`locale`, `chapters`), bricht der Build ab — es gibt keinen
+stillen Fallback mehr.
+
+Ein Kapitel listet `groups` (Verzeichnisnamen unter Screenshots) und/oder
+`images` (`<gruppe>/<stem>`). Reihenfolge der Kapitel und der Bilder darin
+bestimmt die Seitenreihenfolge. Ein Bild in **keinem** Kapitel erscheint unter
+`ui.moreScreens` („Weitere Screens“) und erzeugt **eine Warnung** auf stderr.
+Ein Bild in **zwei** Kapiteln bricht den Build ab.
+
+### Design Pod
+
+`scripts/handbook/pod/` ist eine **Kopie** des DFX Design Pod (siehe
+`scripts/handbook/pod/README.md`). Der Build liest `tokens.css` **wörtlich**
+in jede Seite, kopiert die woff2 nach `assets/fonts/`, bindet sie per
+`@font-face` ein und bettet `logo-dark.svg` / `logo-white.svg` als Inline-SVG
+ein (kein getippter Wortmarken-Text „DFX“ in der Kopfzeile). Theme-Klassen:
+`theme-light` / `theme-dark` auf `<html>`; der Umschalter setzt die Klasse und
+`localStorage`.
+
+### Sprachen
+
+`index.html` = Deutsch. Weitere Locales unter `<locale>/index.html`. Screenshots,
+Assets, Fonts, Docs und `handbook.js` liegen einmal in der Wurzel; Unterseiten
+rechnen relative Pfade aus der Verzeichnistiefe. Jede Seite hat
+`rel="alternate" hreflang="…"` inkl. `x-default`. Die Sprachauswahl sind reine
+Links (kein JS).
+
+### Kunden- vs. Entwicklerbereich
+
+Oben: Kapitel aus `content`. Unten, standardmäßig zugeklappt: Store-Listing,
+App-Assets und Dokumentation (`ui.developerSection`).
+
+### Nicht auflösende Markdown-Links und Remote-Bilder
 
 Die Repo-Markdown-Dateien verlinken teilweise auf Pfade, die nicht ins Handbook
 kopiert werden (z. B. `scripts/…`, Plattformcode, GitHub-Relative). Solche
@@ -78,19 +128,33 @@ wird **nicht** abgeschaltet: der Link wird in reinen Text umgewandelt
 protokolliert. Relative Links auf andere entdeckte `*.md`-Dokumente werden auf
 die gerenderte HTML-Seite umgeschrieben.
 
-Metadaten in `scripts/handbook/metadata.json` sind **nur Anreicherung**:
+Externe **Bilder** (`<img src="https://…">` bzw. protokollrelativ `//…`)
+werden ebenfalls nicht ausgeliefert: Die CSP erlaubt nur `img-src 'self' data:`.
+Beim Rendern ersetzt das Build-Script solche Tags durch ihren `alt`-Text
+(escaped; ohne `alt` entfällt das Bild ohne Ersatz) und protokolliert einmal
+je Vorkommen auf stderr (`handbook: replaced remote image in <seite>: <url>`).
+**Links** auf fremde Seiten (`<a href="https://…">`) bleiben unangetastet.
 
-```json
-{
-  "screenshots": { "<gruppenschlüssel>": { "title": "…", "description": "…" } },
-  "docs": { "<repo-relativer-md-pfad>": { "title": "…" } }
-}
-```
+Metadaten in `scripts/handbook/metadata.json` sind **nur Anreicherung**
+(Gruppen-Titel/-beschreibung und Captions als Fallback). Caption-Vorrang:
 
-Fehlende Einträge sind kein Fehler; verwaiste Einträge erzeugen nur eine
-Warnung auf stderr. Unter `screenshots` sind derzeit acht Gruppen mit
-Titel und Beschreibung gepflegt; neue Gruppen ohne Eintrag nutzen den
-Verzeichnisnamen als Titel.
+1. `content/<locale>.json` → `captions["<gruppe>/<stem>"]`
+2. `metadata.json` → `screenshots.<gruppe>.captions.<stem>`
+3. Ableitung aus dem Dateinamen (`NN-` → Badge, Rest humanisiert)
+
+Fehlende Einträge sind kein Fehler; verwaiste Metadaten erzeugen Warnungen
+auf stderr.
+
+### Layout und Bedienelemente
+
+Kundenseiten und Doc-Seiten teilen Pod-Tokens und Theme-Klassen. Sticky
+Chrome: Inline-Logo, „BTC Taro Wallet“, Sprachlinks, Suche, Theme. Kapitel
+als aufklappbare Sektionen mit Kacheln (Titel, Erklärtext, Permalink, Copy).
+TOC: Kapitel und Gruppen. Entwicklerbereich zugeklappt.
+
+Ohne JavaScript: Suche, Theme und Sidebar-Knöpfe mit `hidden`; alle Inhalte
+und Sprachlinks bleiben nutzbar. Alle Screenshot- und Asset-Links
+funktionieren als normale Links.
 
 ## Lokal bauen
 
@@ -157,7 +221,8 @@ docker run --rm -p 8080:8080 dfx-taro-handbook:local
 3. Nächster Handbook-Build nimmt die Datei automatisch auf — **keine**
    Mapping-Tabelle und **keinen** Count anpassen.
 4. Optional: in `scripts/handbook/metadata.json` unter `screenshots` einen
-   deutschen Titel/Beschreibung für den Gruppenschlüssel ergänzen.
+   deutschen Titel/Beschreibung für den Gruppenschlüssel und unter
+   `captions` lesbare Bildunterschriften pro Dateiname (ohne `.png`) ergänzen.
 5. Optional: Maestro-Flow unter `scripts/handbook/screenshots/` mit passendem
    `takeScreenshot: shots/<pfad>` ergänzen (genau ein Erzeuger pro PNG).
 

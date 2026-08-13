@@ -1,0 +1,292 @@
+{
+  "locale": "de",
+  "label": "Deutsch",
+  "meta": {
+    "title": "DFX BTC Taro Wallet — Handbuch",
+    "description": "Bebilderte Anleitung zur DFX BTC Taro Wallet: Wallet anlegen, Bitcoin empfangen und senden, Backup sichern, Lightning nutzen.",
+    "lede": "Diese Anleitung führt durch die App, Bild für Bild, in der Reihenfolge, in der die Schritte in der Wallet vorkommen. Jedes Bild ist eine echte Aufnahme aus der App."
+  },
+  "ui": {
+    "contents": "Inhalt",
+    "search": "Im Handbuch suchen…",
+    "searchLabel": "Handbuch durchsuchen",
+    "searchStatus": "{n} von {total} Bildern",
+    "searchEmpty": "Keine Treffer. Andere Schreibweise versuchen oder die Suche leeren.",
+    "expandAll": "Alle öffnen",
+    "collapseAll": "Alle schliessen",
+    "menu": "Inhalt anzeigen",
+    "theme": "Zwischen hellem und dunklem Erscheinungsbild wechseln",
+    "language": "Sprache",
+    "skipToContent": "Zum Inhalt springen",
+    "backToHandbook": "Zum Handbuch",
+    "breadcrumbHome": "Handbuch",
+    "images": "Bilder",
+    "image": "Bild",
+    "close": "Schliessen",
+    "previous": "Vorheriges Bild",
+    "next": "Nächstes Bild",
+    "copyLink": "Link kopieren",
+    "copied": "Kopiert",
+    "copyFailed": "Kopieren nicht möglich. Die Adresse steht jetzt in der Adresszeile.",
+    "imageCounter": "{n} von {total}",
+    "developerSection": "Für Entwickler",
+    "developerIntro": "Ab hier folgt Material aus dem Repository: die Texte für die Stores, die Bilddateien der App und die technische Dokumentation. Für die Bedienung der Wallet wird nichts davon gebraucht.",
+    "generatedFrom": "Diese Seite wird bei jedem Build aus dem Repository erzeugt. Stand:",
+    "openImage": "Bild vergrössern",
+    "moreScreens": "Weitere Ansichten",
+    "statDocs": "Dokumente",
+    "statStore": "Texte für die Stores",
+    "statAssets": "Bilddateien",
+    "statRevision": "Stand",
+    "devStore": "Texte für die Stores",
+    "devAssets": "Bilddateien der App",
+    "devDocs": "Technische Dokumentation"
+  },
+  "chapters": [
+    {
+      "id": "erste-schritte",
+      "title": "Erste Schritte",
+      "summary": "Die App zum ersten Mal öffnen und eine Wallet anlegen.",
+      "intro": "Beim ersten Start legt die App eine Wallet auf dem Gerät an. Die Schlüssel bleiben dabei auf dem Telefon. DFX hat keinen Zugriff darauf und kann eine verlorene Wallet nicht wiederherstellen. Deshalb steht am Anfang der Haftungsausschluss, und deshalb ist der nächste Schritt nach der Anlage immer das Backup.",
+      "groups": [
+        "01-onboarding"
+      ]
+    },
+    {
+      "id": "empfangen",
+      "title": "Bitcoin empfangen",
+      "summary": "Eine Adresse zeigen und Geld annehmen.",
+      "intro": "Zum Empfangen zeigt die Wallet eine Adresse als Code an. Wer bezahlt, scannt diesen Code. Betrag und Beschreibung sind freiwillig und helfen nur dabei, die Zahlung später wiederzuerkennen. Für jede neue Zahlung erzeugt die Wallet eine neue Adresse. Das ist gewollt und gut für die Privatsphäre.",
+      "images": [
+        "04-empfangen-senden/01-erhalten"
+      ]
+    },
+    {
+      "id": "senden",
+      "title": "Bitcoin senden",
+      "summary": "Eine Zahlung auslösen, meist über den Scanner.",
+      "intro": "Zum Senden wird die Adresse des Empfängers gebraucht. Am einfachsten ist der Scanner: Er liest den Code des Gegenübers und füllt Adresse und Betrag von selbst aus. Eine gesendete Zahlung in Bitcoin lässt sich nicht zurückholen. Deshalb vor dem Bestätigen Adresse und Betrag noch einmal ansehen.",
+      "images": [
+        "04-empfangen-senden/02-senden"
+      ]
+    },
+    {
+      "id": "backup",
+      "title": "Backup und Sicherheit",
+      "summary": "Die Wiederherstellungsphrase sichern und die Wallet exportieren.",
+      "intro": "Die Wiederherstellungsphrase aus zwölf Wörtern ist die Wallet. Wer sie hat, hat das Geld. Wer sie verliert und das Gerät verliert, hat das Geld verloren. Sie gehört auf Papier und an einen sicheren Ort, nicht in ein Foto, nicht in einen Chat, nicht in die Cloud. Auf den Bildern in diesem Kapitel sind die Phrase und der Code zum Export nachträglich geschwärzt, weil sie sonst öffentlich im Repository stünden.",
+      "groups": [
+        "02-wallet"
+      ]
+    },
+    {
+      "id": "lightning",
+      "title": "Lightning",
+      "summary": "Kleine Beträge sofort und mit sehr geringen Gebühren.",
+      "intro": "Lightning ist eine zweite Ebene auf Bitcoin für kleine, schnelle Zahlungen. Die Wallet für Lightning läuft in dieser App über einen Anbieter, einen sogenannten LNDHub. Voreingestellt ist lightning.space, DFX.swiss ist ebenfalls wählbar. Anders als bei der Wallet auf der Blockchain liegt das Guthaben dort beim Anbieter. Für grössere Beträge ist die Wallet auf der Blockchain der richtige Ort.",
+      "groups": [
+        "08-lightning"
+      ]
+    },
+    {
+      "id": "weitere-wallets",
+      "title": "Weitere Wallets anlegen und importieren",
+      "summary": "Eine Wallet auf drei Geräten, eine zusätzliche Wallet für Lightning, eine bestehende Wallet einlesen.",
+      "intro": "Neben der Wallet aus dem ersten Start lassen sich weitere anlegen: eine Wallet, die auf drei Geräten verteilt liegt und für jede Zahlung zwei davon braucht, oder eine weitere Wallet für Lightning. Eine anderswo angelegte Wallet lässt sich über die Wiederherstellungsphrase, einen privaten Schlüssel oder einen Code einlesen.",
+      "groups": [
+        "06-wallet-hinzufuegen",
+        "07-multi-device",
+        "09-import"
+      ]
+    },
+    {
+      "id": "einstellungen",
+      "title": "Einstellungen",
+      "summary": "Währung, Sprache, Sicherheit, Netzwerk und Werkzeuge.",
+      "intro": "In den Einstellungen lassen sich die angezeigte Währung und die Sprache umstellen, die App mit einer Sperre versehen und der verwendete Server von Electrum ändern. Die Werkzeuge sind für seltene Fälle gedacht, etwa um zu prüfen, ob eine Adresse zur eigenen Wallet gehört.",
+      "groups": [
+        "03-einstellungen"
+      ]
+    }
+  ],
+  "captions": {
+    "01-onboarding/01-start": {
+      "title": "Haftungsausschluss beim ersten Start",
+      "text": "Vor der ersten Wallet weist die App darauf hin, dass sie die Schlüssel selbst verwahrt: Sie liegen auf dem Gerät, nicht bei DFX."
+    },
+    "01-onboarding/02-lndhub-verbindung": {
+      "title": "Anbieter für Lightning wählen",
+      "text": "Für die Wallet für Lightning wird ein Anbieter gewählt. lightning.space ist voreingestellt."
+    },
+    "01-onboarding/03-lndhub-benutzerdefiniert": {
+      "title": "Eigener Anbieter",
+      "text": "Wer einen eigenen LNDHub betreibt, trägt hier dessen Adresse ein."
+    },
+    "01-onboarding/04-lndhub-dfx-swiss": {
+      "title": "Anbieter DFX.swiss",
+      "text": "Alternativ lässt sich der Dienst von DFX.swiss auswählen."
+    },
+    "01-onboarding/05-wallet-uebersicht": {
+      "title": "Die Übersicht nach der Anlage",
+      "text": "Nach der Anlage zeigt die Übersicht das Guthaben und die angelegten Wallets. Von hier führen alle weiteren Wege."
+    },
+    "01-onboarding/06-mitteilungen-berechtigung": {
+      "title": "Berechtigung für Mitteilungen",
+      "text": "Beim ersten Öffnen von „Erhalten“ fragt das Telefon nach der Erlaubnis für Mitteilungen. Damit meldet die App eingehende Zahlungen."
+    },
+    "02-wallet/01-uebersicht": {
+      "title": "Übersicht der Wallet",
+      "text": "Die Detailseite einer Wallet mit Guthaben, Transaktionen und den Schaltflächen zum Empfangen und Senden."
+    },
+    "02-wallet/02-backup-erklaerung": {
+      "title": "Wozu die Wiederherstellungsphrase dient",
+      "text": "Die App erklärt vor der Anzeige, was die zwölf Wörter bedeuten und warum sie niemand sehen darf."
+    },
+    "02-wallet/03-signieren-verifizieren": {
+      "title": "Nachricht signieren und prüfen",
+      "text": "Mit dem privaten Schlüssel lässt sich eine Nachricht unterschreiben. So wird belegt, dass eine Adresse zur eigenen Wallet gehört."
+    },
+    "02-wallet/04-onchain-transaktionen": {
+      "title": "Transaktionen der Wallet",
+      "text": "Die Liste aller eingehenden und ausgehenden Zahlungen dieser Wallet."
+    },
+    "02-wallet/05-adressen": {
+      "title": "Liste der Adressen",
+      "text": "Alle Adressen der Wallet, mit Guthaben und Verwendung. Neue Adressen zum Empfangen entstehen automatisch."
+    },
+    "02-wallet/06-export-backup": {
+      "title": "Export und Backup",
+      "text": "Die Wallet lässt sich als Code exportieren, um sie auf ein weiteres Gerät zu übertragen. Der Code enthält den Schlüssel und gehört niemandem sonst vor die Kamera."
+    },
+    "02-wallet/07-xpub": {
+      "title": "Öffentlicher Schlüssel",
+      "text": "Der öffentliche Schlüssel erlaubt es, Zahlungseingänge zu verfolgen, ohne ausgeben zu können. Er verrät allerdings alle Adressen der Wallet."
+    },
+    "02-wallet/08-wiederherstellungsphrase": {
+      "title": "Die zwölf Wörter",
+      "text": "Die Wiederherstellungsphrase. Auf Papier notieren, Reihenfolge einhalten, sicher verwahren. Hier für das Handbuch geschwärzt."
+    },
+    "03-einstellungen/01-menue": {
+      "title": "Menü der Einstellungen",
+      "text": "Der Einstieg in alle Einstellungen."
+    },
+    "03-einstellungen/02-allgemein": {
+      "title": "Allgemein",
+      "text": "Grundlegende Einstellungen der App."
+    },
+    "03-einstellungen/03-wallet-einstellungen": {
+      "title": "Einstellungen der Wallet",
+      "text": "Einstellungen, die nur die ausgewählte Wallet betreffen."
+    },
+    "03-einstellungen/06-waehrung": {
+      "title": "Angezeigte Währung",
+      "text": "Die Währung, in der Beträge zusätzlich zu Bitcoin angezeigt werden."
+    },
+    "03-einstellungen/07-sprache": {
+      "title": "Sprache",
+      "text": "Die Sprache der Oberfläche."
+    },
+    "03-einstellungen/08-sicherheit": {
+      "title": "Sicherheit",
+      "text": "Sperre für die App. Empfohlen, sobald mehr als ein Taschengeld darin liegt."
+    },
+    "03-einstellungen/09-netzwerk": {
+      "title": "Netzwerk",
+      "text": "Einstellungen zur Verbindung, darunter der verwendete Server von Electrum."
+    },
+    "03-einstellungen/10-werkzeuge": {
+      "title": "Werkzeuge",
+      "text": "Hilfsmittel für seltene Fälle."
+    },
+    "03-einstellungen/11-feature-flags": {
+      "title": "Schalter für neue Funktionen",
+      "text": "Schalter für Funktionen, die noch erprobt werden."
+    },
+    "03-einstellungen/12-ueber": {
+      "title": "Über die App",
+      "text": "Version, Lizenz und Herkunft der App."
+    },
+    "03-einstellungen/13-privatsphaere": {
+      "title": "Privatsphäre",
+      "text": "Einstellungen dazu, was die App über sich preisgibt."
+    },
+    "03-einstellungen/14-electrum-server": {
+      "title": "Server von Electrum",
+      "text": "Über diesen Server fragt die Wallet den Stand der Blockchain ab. Ein eigener Server ist die privateste Variante."
+    },
+    "03-einstellungen/15-benachrichtigungen": {
+      "title": "Benachrichtigungen",
+      "text": "Welche Meldungen die App schicken darf."
+    },
+    "03-einstellungen/16-werkzeuge-uebersicht": {
+      "title": "Übersicht der Werkzeuge",
+      "text": "Alle Werkzeuge auf einen Blick."
+    },
+    "03-einstellungen/17-ist-dies-meine-adresse": {
+      "title": "Gehört diese Adresse mir?",
+      "text": "Prüft, ob eine Adresse zur eigenen Wallet gehört. Nützlich vor einer grösseren Zahlung an sich selbst."
+    },
+    "03-einstellungen/18-transaktion-publizieren": {
+      "title": "Transaktion veröffentlichen",
+      "text": "Eine anderswo signierte Transaktion ins Netzwerk geben."
+    },
+    "03-einstellungen/19-lightning-wallet": {
+      "title": "Einstellungen für Lightning",
+      "text": "Einstellungen der Wallet für Lightning, darunter der verbundene Anbieter."
+    },
+    "04-empfangen-senden/01-erhalten": {
+      "title": "Empfangen",
+      "text": "Der Code enthält die Adresse zum Empfangen. Betrag und Beschreibung sind freiwillig."
+    },
+    "04-empfangen-senden/02-senden": {
+      "title": "Senden über den Scanner",
+      "text": "Der Scanner liest den Code des Empfängers und übernimmt Adresse und Betrag."
+    },
+    "06-wallet-hinzufuegen/01-multi-device": {
+      "title": "Wallet auf drei Geräten anlegen",
+      "text": "Eine Wallet über drei Geräte verteilt: Zwei davon müssen jede Zahlung freigeben. Das schützt davor, dass ein einzelnes verlorenes Gerät das Geld kostet."
+    },
+    "06-wallet-hinzufuegen/02-lightning": {
+      "title": "Wallet für Lightning anlegen",
+      "text": "Eine zusätzliche Wallet für Lightning über einen Anbieter."
+    },
+    "07-multi-device/01-erstellung-qr": {
+      "title": "Erster Schritt der Einrichtung",
+      "text": "Jedes der drei Geräte zeigt einen eigenen Code und scannt die beiden anderen. Die Anzeige oben verfolgt den Fortschritt."
+    },
+    "08-lightning/01-uebersicht-mit-lightning": {
+      "title": "Übersicht mit Lightning",
+      "text": "Die Startseite, sobald neben der Wallet auf der Blockchain auch eine Wallet für Lightning angelegt ist."
+    },
+    "08-lightning/02-lightning-wallet": {
+      "title": "Die Wallet für Lightning",
+      "text": "Guthaben, Zahlungen und der Zugang zur Bezahlkarte."
+    },
+    "08-lightning/03-rechnung-erstellen": {
+      "title": "Rechnung erstellen",
+      "text": "Für den Empfang über Lightning wird eine Rechnung erzeugt, meist mit festem Betrag und begrenzter Gültigkeit."
+    },
+    "09-import/01-scanner": {
+      "title": "Import über den Scanner",
+      "text": "Eine bestehende Wallet lässt sich über einen Code einlesen."
+    },
+    "09-import/02-manuelle-eingabe": {
+      "title": "Eingabe von Hand",
+      "text": "Alternativ werden die Wiederherstellungsphrase, ein privater Schlüssel oder ein WIF von Hand eingegeben."
+    },
+    "09-import/03-trefferliste": {
+      "title": "Gefundene Arten von Wallets",
+      "text": "Die App erkennt, welche Arten von Wallets zu der Eingabe passen, und zeigt den jeweiligen Ableitungspfad."
+    }
+  },
+  "groupTitles": {
+    "01-onboarding": "Erster Start und Anlage der Wallet",
+    "02-wallet": "Wallet, Backup und Export",
+    "03-einstellungen": "Einstellungen",
+    "04-empfangen-senden": "Empfangen und Senden",
+    "06-wallet-hinzufuegen": "Weitere Wallet anlegen",
+    "07-multi-device": "Wallet auf drei Geräten einrichten",
+    "08-lightning": "Wallet für Lightning",
+    "09-import": "Wallet importieren"
+  }
+}
