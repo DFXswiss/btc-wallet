@@ -1008,6 +1008,7 @@ describe('unit - handbook build guards', () => {
       '<div><script/></div>\n\n' +
       '<div><script /></div>\n\n' +
       '<div><script  /></div>\n\n' +
+      '<div><script/ ></div>\n\n' +
       '<img src="https://example.com/x.png" />\n';
     populateValidFixture(fixture, {
       shotSize: MIN_PNG_BYTES + 1,
@@ -1024,6 +1025,53 @@ describe('unit - handbook build guards', () => {
     assert.ok(body.includes('KEEP-SELFCLOSE'));
     assert.ok(!/<script\b/i.test(body), 'genuine self-closing script tags must be stripped');
     assert.match(body, /<img src="https:\/\/example\.com\/x\.png" \/>/);
+  });
+
+  // Guard already treats ` / ` before `>` as a self-close token
+  // (`/(^|\s)\/\s*$/`). The strip regex used to require `/` immediately
+  // before `>`, so `<script src=http://evil.example / >` passed the
+  // guard and shipped as a live tag. Both sides now share
+  // isSelfClosingAttrs; the sanitizer removes it and the build succeeds.
+  it('strips a self-closing script whose slash is surrounded by spaces before >', function () {
+    const { fixture, out } = freshDirs();
+    const danger = '# Title\n\n' + '<p>KEEP-SPACED-SLASH</p>\n\n' + '<script src=http://evil.example / >CLICKME</div>\n';
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docContents: { 'DOC-0.md': danger },
+    });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const html = fs.readFileSync(path.join(out, 'docs/DOC-0.html'), 'utf8');
+    const body = html.replace(/^[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*$/i, '');
+    assert.ok(body.includes('KEEP-SPACED-SLASH'));
+    assert.ok(!/<script\b/i.test(body), 'script with space-slash-space before > must be stripped');
+    assert.ok(!/evil\.example/i.test(body), 'self-closing script src must not remain');
+  });
+
+  // Same construction on iframe: slash as its own token, whitespace on
+  // both sides, no matching closer. Must be stripped, not shipped.
+  it('strips a self-closing iframe whose slash is surrounded by spaces before >', function () {
+    const { fixture, out } = freshDirs();
+    const danger = '# Title\n\n' + '<p>KEEP-IFRAME-SPACED-SLASH</p>\n\n' + '<iframe src=http://evil.example / >CLICKME</div>\n';
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docContents: { 'DOC-0.md': danger },
+    });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const html = fs.readFileSync(path.join(out, 'docs/DOC-0.html'), 'utf8');
+    const body = html.replace(/^[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*$/i, '');
+    assert.ok(body.includes('KEEP-IFRAME-SPACED-SLASH'));
+    assert.ok(!/<iframe\b/i.test(body), 'iframe with space-slash-space before > must be stripped');
+    assert.ok(!/evil\.example/i.test(body), 'self-closing iframe src must not remain');
   });
 
   // Counterdirection: different tag types, correctly nested, must not trip

@@ -2345,6 +2345,16 @@ function resolvePosix(fromDir, relHref) {
 }
 
 /**
+ * A `/` counts as a self-close marker only as its own token — preceded by
+ * whitespace or the start of the attribute string — never when it is the
+ * last character of an attribute value such as a URL. Shared by the guard
+ * and the stripper so both sides agree on exactly the same tags.
+ */
+function isSelfClosingAttrs(attrs) {
+  return /(^|\s)\/\s*$/.test(attrs || '');
+}
+
+/**
  * Fail closed when open/close tags for active blocks are not nested in
  * document order, including across tag types. A per-tag depth counter
  * accepts an interleaved pair such as
@@ -2377,10 +2387,7 @@ function assertBalancedDangerBlocks(html) {
       }
     } else {
       const attrs = m[2] || '';
-      // `/` is a self-close marker only as its own token (start of the
-      // attr string, or preceded by whitespace) — not when it is the
-      // last character of an attribute value such as a URL.
-      if (/(^|\s)\/\s*$/.test(attrs)) continue; // self-closing
+      if (isSelfClosingAttrs(attrs)) continue;
       stack.push(String(m[1] || '').toLowerCase());
     }
   }
@@ -2411,12 +2418,15 @@ function stripDangerousHtml(html) {
   // Closers tolerate whitespace before `>` — same grammar as the
   // balance guard (`<\/tag\s*>`). A stricter `<\/tag>` leaves the
   // whole block in the published page when the closer is `</tag >`.
+  // Remaining opens are dropped only when isSelfClosingAttrs says so —
+  // the same check the guard used — not via a second `/>` regex that
+  // missed whitespace between `/` and `>`.
   out = out.replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '');
-  out = out.replace(/<script\b[^>]*\/>/gi, '');
+  out = out.replace(/<script\b([^>]*)>/gi, (full, attrs) => (isSelfClosingAttrs(attrs) ? '' : full));
   out = out.replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe\s*>/gi, '');
-  out = out.replace(/<iframe\b[^>]*\/>/gi, '');
+  out = out.replace(/<iframe\b([^>]*)>/gi, (full, attrs) => (isSelfClosingAttrs(attrs) ? '' : full));
   out = out.replace(/<object\b[^>]*>[\s\S]*?<\/object\s*>/gi, '');
-  out = out.replace(/<object\b[^>]*\/>/gi, '');
+  out = out.replace(/<object\b([^>]*)>/gi, (full, attrs) => (isSelfClosingAttrs(attrs) ? '' : full));
   out = out.replace(/<embed\b[^>]*\/?>/gi, '');
   // Navigation / document chrome not needed in handbook body, and not covered
   // by CSP alone (meta refresh has no directive; form-action is separate).
