@@ -2345,26 +2345,38 @@ function resolvePosix(fromDir, relHref) {
 }
 
 /**
- * Fail closed when open/close counts for active blocks disagree. A non-greedy
- * `<tag>…</tag>` replace would otherwise delete everything up to the next
- * closer in the document (silent content loss, green build).
+ * Fail closed when open/close tags for active blocks are not nested in
+ * document order. A count-only check would accept a closer before its opener
+ * (or an extra closer between two well-formed pairs) as "balanced"; a
+ * non-greedy `<tag>…</tag>` replace would then leave a later opener intact
+ * (or delete everything up to the next closer — silent content loss, green
+ * build). Self-closing tags (`<tag …/>`) are not opens.
  */
 function assertBalancedDangerBlocks(html) {
-  for (const tag of ['script', 'iframe', 'object']) {
-    let opens = 0;
-    const openRe = new RegExp('<' + tag + '\\b([^>]*)>', 'gi');
+  for (const tag of ['script', 'iframe', 'object', 'form']) {
+    const tokenRe = new RegExp('<' + tag + '\\b([^>]*)>|</' + tag + '\\s*>', 'gi');
+    let depth = 0;
     let m;
-    while ((m = openRe.exec(html)) !== null) {
-      const attrs = m[1] || '';
-      if (/\/\s*$/.test(attrs)) continue; // self-closing
-      opens += 1;
+    while ((m = tokenRe.exec(html)) !== null) {
+      if (/^<\//.test(m[0])) {
+        depth -= 1;
+        if (depth < 0) {
+          fail(
+            `handbook sanitizer: unbalanced <${tag}> blocks ` +
+              '(close without a matching open). Refusing to strip across content ' +
+              'boundaries — fix the markdown source.',
+          );
+        }
+      } else {
+        const attrs = m[1] || '';
+        if (/\/\s*$/.test(attrs)) continue; // self-closing
+        depth += 1;
+      }
     }
-    const closeMatches = html.match(new RegExp('</' + tag + '\\s*>', 'gi'));
-    const closes = closeMatches ? closeMatches.length : 0;
-    if (opens !== closes) {
+    if (depth !== 0) {
       fail(
         `handbook sanitizer: unbalanced <${tag}> blocks ` +
-          `(${opens} open, ${closes} close). Refusing to strip across content ` +
+          `(${depth} open without a matching close). Refusing to strip across content ` +
           'boundaries — fix the markdown source.',
       );
     }

