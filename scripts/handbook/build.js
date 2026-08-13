@@ -317,6 +317,15 @@ function isSameOrAncestor(a, b) {
   return false;
 }
 
+/** True if `a` and `b` name the same path (case-folded on non-Linux). */
+function pathsEqual(a, b) {
+  if (a === b) return true;
+  if (process.platform !== 'linux') {
+    return a.toLowerCase() === b.toLowerCase();
+  }
+  return false;
+}
+
 /**
  * Empty the output directory before writing so a rebuild never leaves stale
  * files from a previous run (deleted markdown still present as HTML, old
@@ -344,7 +353,7 @@ function prepareOutputDir(outDir, repoRoot) {
       'handbook warning: home directory could not be determined; ' +
         'skipping home-directory output guard (other guards still apply).',
     );
-  } else if (resolvedOut === homeDir) {
+  } else if (pathsEqual(resolvedOut, homeDir)) {
     fail(
       `handbook: refusing to use home directory as output directory: ${resolvedOut}`,
     );
@@ -372,7 +381,7 @@ function prepareOutputDir(outDir, repoRoot) {
   }
   // Never touch anything under .git (object store, hooks, config).
   const segments = resolvedOut.split(path.sep);
-  if (segments.includes('.git')) {
+  if (segments.some(s => pathsEqual(s, '.git'))) {
     fail(
       `handbook: refusing to empty output path that contains a .git segment: ${resolvedOut}`,
     );

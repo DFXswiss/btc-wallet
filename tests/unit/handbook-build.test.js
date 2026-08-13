@@ -412,6 +412,18 @@ describe('unit - handbook build guards', () => {
     assert.match(r.stderr, /\.git/);
   });
 
+  // Linux default filesystems are case-sensitive: .GIT is a different segment
+  // there, so this case-folding hole cannot be observed.
+  (process.platform === 'linux' ? it.skip : it)('refuses output path containing a .GIT segment', function () {
+    const { fixture } = freshDirs();
+    populateValidFixture(fixture);
+    const out = path.join(tmpRoot, 'nested', '.GIT', 'handbook-out');
+
+    const r = runBuild(out, { HANDBOOK_REPO_ROOT: fixture });
+    assert.notStrictEqual(r.status, 0, r.stderr);
+    assert.match(r.stderr, /\.git/);
+  });
+
   it('refuses output dir equal to the home directory', function () {
     const { fixture } = freshDirs();
     populateValidFixture(fixture);
@@ -428,6 +440,34 @@ describe('unit - handbook build guards', () => {
     assert.match(r.stderr, /home directory/i);
     assert.ok(fs.existsSync(path.join(fakeHome, 'CANARY')), 'fake home not emptied');
   });
+
+  // Linux default filesystems are case-sensitive: fakeHome.toUpperCase() names a
+  // different directory there, so this case-folding hole cannot be observed.
+  (process.platform === 'linux' ? it.skip : it)(
+    'refuses output dir that differs from the home directory only in letter case without deleting it',
+    function () {
+      const { fixture } = freshDirs();
+      populateValidFixture(fixture);
+      // Synthetic HOME under tmpRoot only — never use the real user home as
+      // outDir (a failed guard would rmSync it). resolveHomeDir() prefers env.
+      const fakeHome = fs.mkdtempSync(path.join(tmpRoot, 'fake-home-'));
+      const canary = path.join(fakeHome, 'CANARY');
+      writeText(canary, 'keep\n');
+      assert.notStrictEqual(fakeHome.toUpperCase(), fakeHome);
+      assert.ok(fs.existsSync(canary), 'canary must exist before the build');
+
+      const r = runBuild(fakeHome.toUpperCase(), {
+        HANDBOOK_REPO_ROOT: fixture,
+        HOME: fakeHome,
+      });
+      // Canary first: without the case-fold the home is rmSync'd before later
+      // build failures (e.g. missing marked), so the message check alone
+      // would hide the deletion.
+      assert.ok(fs.existsSync(canary), 'fake home not emptied via case-folded path');
+      assert.notStrictEqual(r.status, 0, r.stderr);
+      assert.match(r.stderr, /home directory/i);
+    },
+  );
 
   it('refuses output dir equal to a discovery source root', function () {
     const { fixture } = freshDirs();
