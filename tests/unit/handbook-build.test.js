@@ -954,6 +954,78 @@ describe('unit - handbook build guards', () => {
     assert.match(r.stderr, /expected closing/i);
   });
 
+  // Guard already accepts `</script >` (whitespace before `>`). The strip
+  // regexes used to require the exact closer `</script>`, so a balanced
+  // document kept the live <script> in the published page. After aligning
+  // strip with the guard, the block is balanced and removable.
+  it('strips a script block whose closer has whitespace before >', function () {
+    const { fixture, out } = freshDirs();
+    const danger = '# Title\n\n' + '<div><script>alert(1)</script ></div>\n';
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docContents: { 'DOC-0.md': danger },
+    });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const html = fs.readFileSync(path.join(out, 'docs/DOC-0.html'), 'utf8');
+    const body = html.replace(/^[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*$/i, '');
+    assert.ok(!/<script\b/i.test(body), 'script with whitespace-before-> closer must be stripped');
+    assert.ok(!/alert\(1\)/i.test(body), 'script body must not remain');
+  });
+
+  // Guard used to treat an unquoted src ending in `/` as a self-close
+  // marker (`/\/\s*$/` on the raw attr string). The opener was never
+  // pushed, strip matched neither the block nor the `/>` form, and the
+  // live <script> shipped.
+  it('fails the build on an unclosed script whose src URL ends with a slash', function () {
+    const { fixture, out } = freshDirs();
+    const danger = '# Title\n\n' + '<script src=http://evil.example/ >CLICKME</div>\n';
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docContents: { 'DOC-0.md': danger },
+    });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.notStrictEqual(r.status, 0, 'unclosed script with URL-ending-slash must fail the build');
+    assert.match(r.stderr, /unbalanced <script>/i);
+  });
+
+  // Genuine self-closing spellings must still be skipped by the stack
+  // guard (not treated as opens) and removed. A harmless <img … /> must
+  // survive the sanitizer.
+  it('strips genuine self-closing script tags and keeps a self-closing img', function () {
+    const { fixture, out } = freshDirs();
+    const danger =
+      '# Title\n\n' +
+      '<p>KEEP-SELFCLOSE</p>\n\n' +
+      '<div><script/></div>\n\n' +
+      '<div><script /></div>\n\n' +
+      '<div><script  /></div>\n\n' +
+      '<img src="https://example.com/x.png" />\n';
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docContents: { 'DOC-0.md': danger },
+    });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const html = fs.readFileSync(path.join(out, 'docs/DOC-0.html'), 'utf8');
+    const body = html.replace(/^[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*$/i, '');
+    assert.ok(body.includes('KEEP-SELFCLOSE'));
+    assert.ok(!/<script\b/i.test(body), 'genuine self-closing script tags must be stripped');
+    assert.match(body, /<img src="https:\/\/example\.com\/x\.png" \/>/);
+  });
+
   // Counterdirection: different tag types, correctly nested, must not trip
   // the stack guard. Sequential strip then removes both pairs.
   it('accepts correctly nested iframe/script blocks of different tag types', function () {

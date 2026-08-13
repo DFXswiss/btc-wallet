@@ -2377,7 +2377,10 @@ function assertBalancedDangerBlocks(html) {
       }
     } else {
       const attrs = m[2] || '';
-      if (/\/\s*$/.test(attrs)) continue; // self-closing
+      // `/` is a self-close marker only as its own token (start of the
+      // attr string, or preceded by whitespace) — not when it is the
+      // last character of an attribute value such as a URL.
+      if (/(^|\s)\/\s*$/.test(attrs)) continue; // self-closing
       stack.push(String(m[1] || '').toLowerCase());
     }
   }
@@ -2405,11 +2408,14 @@ function stripDangerousHtml(html) {
   let out = String(html);
   assertBalancedDangerBlocks(out);
   // Remove script/iframe/object/embed blocks (content discarded).
-  out = out.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+  // Closers tolerate whitespace before `>` — same grammar as the
+  // balance guard (`<\/tag\s*>`). A stricter `<\/tag>` leaves the
+  // whole block in the published page when the closer is `</tag >`.
+  out = out.replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '');
   out = out.replace(/<script\b[^>]*\/>/gi, '');
-  out = out.replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, '');
+  out = out.replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe\s*>/gi, '');
   out = out.replace(/<iframe\b[^>]*\/>/gi, '');
-  out = out.replace(/<object\b[^>]*>[\s\S]*?<\/object>/gi, '');
+  out = out.replace(/<object\b[^>]*>[\s\S]*?<\/object\s*>/gi, '');
   out = out.replace(/<object\b[^>]*\/>/gi, '');
   out = out.replace(/<embed\b[^>]*\/?>/gi, '');
   // Navigation / document chrome not needed in handbook body, and not covered
@@ -2417,7 +2423,7 @@ function stripDangerousHtml(html) {
   out = out.replace(/<meta\b[^>]*\/?>/gi, '');
   out = out.replace(/<base\b[^>]*\/?>/gi, '');
   out = out.replace(/<link\b[^>]*\/?>/gi, '');
-  out = out.replace(/<form\b[^>]*>[\s\S]*?<\/form>/gi, '');
+  out = out.replace(/<form\b[^>]*>[\s\S]*?<\/form\s*>/gi, '');
   out = out.replace(/<\/?form\b[^>]*\/?>/gi, '');
   // Drop inline event handlers (onerror=, onclick=, …). `/` is a valid
   // attribute separator in HTML, not only whitespace.
