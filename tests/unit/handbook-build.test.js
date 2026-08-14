@@ -822,7 +822,10 @@ describe('unit - handbook build guards', () => {
     assert.ok(!new RegExp('java' + 'script:', 'i').test(html), 'unquoted javascript: neutralized');
     assert.ok(html.includes('SAFE-PARAGRAPH'), 'harmless paragraph kept');
     assert.ok(html.includes('class="keep-me"'), 'harmless class attr kept');
-    assert.match(html, /src="https:\/\/example\.com\/ok\.png"/);
+    // Remote images are replaced with their alt text (CSP img-src is 'self'
+    // data: only) — the harmless counterdirection is that the alt text
+    // survives, not the remote src itself.
+    assert.ok(html.includes('ok'), 'harmless remote image alt text kept');
   });
 
   // B4: meta refresh / form / base / link — not covered by script strip or CSP alone.
@@ -998,8 +1001,9 @@ describe('unit - handbook build guards', () => {
   });
 
   // Genuine self-closing spellings must still be skipped by the stack
-  // guard (not treated as opens) and removed. A harmless <img … /> must
-  // survive the sanitizer.
+  // guard (not treated as opens) and removed. A harmless, CSP-legal
+  // data:image <img … /> must survive the sanitizer untouched — proof that
+  // the script guard's self-closing check doesn't leak into unrelated tags.
   it('strips genuine self-closing script tags and keeps a self-closing img', function () {
     const { fixture, out } = freshDirs();
     const danger =
@@ -1009,7 +1013,7 @@ describe('unit - handbook build guards', () => {
       '<div><script /></div>\n\n' +
       '<div><script  /></div>\n\n' +
       '<div><script/ ></div>\n\n' +
-      '<img src="https://example.com/x.png" />\n';
+      '<img src="data:image/png;base64,AAAA" />\n';
     populateValidFixture(fixture, {
       shotSize: MIN_PNG_BYTES + 1,
       docContents: { 'DOC-0.md': danger },
@@ -1024,7 +1028,7 @@ describe('unit - handbook build guards', () => {
     const body = html.replace(/^[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*$/i, '');
     assert.ok(body.includes('KEEP-SELFCLOSE'));
     assert.ok(!/<script\b/i.test(body), 'genuine self-closing script tags must be stripped');
-    assert.match(body, /<img src="https:\/\/example\.com\/x\.png" \/>/);
+    assert.match(body, /<img src="data:image\/png;base64,AAAA" \/>/);
   });
 
   // Guard already treats ` / ` before `>` as a self-close token
