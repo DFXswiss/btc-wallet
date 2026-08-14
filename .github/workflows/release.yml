@@ -127,7 +127,7 @@ jobs:
           BREEZ_ENVFILE="$(mktemp /tmp/breez-env.XXXXXX)"
           chmod 600 "$BREEZ_ENVFILE"
           cleanup() {
-            for f in "$BREEZ_ENVFILE" /tmp/envfile; do
+            for f in "$BREEZ_ENVFILE" /tmp/envfile /tmp/breez-ci-envfile-marker; do
               [ -f "$f" ] || continue
               if command -v shred &>/dev/null; then shred -u "$f"; else rm -Pf "$f"; fi
             done
@@ -137,6 +137,7 @@ jobs:
           cp .env.prd "$BREEZ_ENVFILE"
           printf '\nBREEZ_API_KEY=%s\n' "$BREEZ_API_KEY" >> "$BREEZ_ENVFILE"
           echo "$BREEZ_ENVFILE" > /tmp/envfile
+          touch /tmp/breez-ci-envfile-marker
           (cd ios && bundle exec fastlane release)
 
   android-deploy:
