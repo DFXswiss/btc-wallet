@@ -16,6 +16,8 @@ set -euo pipefail
 #                             where to upload - without them it defaults to
 #                             sentry.io and fails with "An organization ID or
 #                             slug is required"
+#   BREEZ_API_KEY             baked into the binary via a generated overlay .env
+#                             (ENVFILE); never written to a tracked .env file
 #
 # Optional:
 #   BUILD_NUMBER              deterministic versionCode override
@@ -27,7 +29,8 @@ cd "$REPO_ROOT"
 # ── validate ──────────────────────────────────────────────────────────────────
 for var in KEYSTORE_FILE_HEX KEYSTORE_PASSWORD KEYSTORE_KEY_PASSWORD KEYSTORE_ALIAS \
            TRANSPARENCY_KEYSTORE_HEX TRANSPARENCY_PASSWORD TRANSPARENCY_ALIAS \
-           SENTRY_AUTH_TOKEN SENTRY_URL SENTRY_ORG SENTRY_PROJECT; do
+           SENTRY_AUTH_TOKEN SENTRY_URL SENTRY_ORG SENTRY_PROJECT \
+           BREEZ_API_KEY; do
   [ -n "${!var:-}" ] || { echo "Missing required env: $var" >&2; exit 1; }
 done
 
@@ -42,19 +45,26 @@ secure_delete() {
   fi
 }
 
-# ── keystores: write to temp files, guarantee cleanup on exit/error ───────────
+# ── keystores + breez overlay: write to temp files, guarantee cleanup ─────────
 KEYSTORE="$(mktemp /tmp/app-signing.XXXXXX.keystore)"
 TRANSPARENCY_KEYSTORE="$(mktemp /tmp/transparency.XXXXXX.keystore)"
-chmod 600 "$KEYSTORE" "$TRANSPARENCY_KEYSTORE"
+BREEZ_ENVFILE="$(mktemp /tmp/breez-env.XXXXXX)"
+chmod 600 "$KEYSTORE" "$TRANSPARENCY_KEYSTORE" "$BREEZ_ENVFILE"
 
 cleanup() {
   secure_delete "$KEYSTORE"
   secure_delete "$TRANSPARENCY_KEYSTORE"
+  secure_delete "$BREEZ_ENVFILE"
 }
 trap cleanup EXIT INT TERM
 
 printf '%s' "$KEYSTORE_FILE_HEX"         | xxd -plain -revert > "$KEYSTORE"
 printf '%s' "$TRANSPARENCY_KEYSTORE_HEX" | xxd -plain -revert > "$TRANSPARENCY_KEYSTORE"
+
+# .env.prd has no trailing newline; leading \n keeps BREEZ_API_KEY on its own line.
+cp .env.prd "$BREEZ_ENVFILE"
+printf '\nBREEZ_API_KEY=%s\n' "$BREEZ_API_KEY" >> "$BREEZ_ENVFILE"
+export ENVFILE="$BREEZ_ENVFILE"
 
 # ── gradle args ───────────────────────────────────────────────────────────────
 SIGN_ARGS=(

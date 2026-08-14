@@ -69,6 +69,7 @@ jobs:
           SENTRY_URL: https://sentry.dfxserve.com/
           SENTRY_ORG: sentry
           SENTRY_PROJECT: btc-taro
+          BREEZ_API_KEY: ${{ secrets.BREEZ_API_KEY }}
         run: ./scripts/build-release-apk.sh
 
       - name: Prepare release assets and checksums

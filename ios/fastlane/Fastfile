@@ -20,6 +20,14 @@ def require_sentry_env!
   end
 end
 
+# Overlay .env generation lives in the workflow step before this lane; the Fastfile
+# only checks that the secret is present so a missing key fails before xcodebuild.
+def require_breez_env!
+  %w[BREEZ_API_KEY].each do |var|
+    UI.user_error!("#{var} is required for a Release-configuration build") if ENV.fetch(var, "").empty?
+  end
+end
+
 # Run `deliver` (App Store listing push) as best-effort: a failure is logged
 # loudly but does NOT fail the lane. While the app has no editable App Store
 # version yet (TestFlight-only), `deliver` cannot create the first version via
@@ -62,6 +70,7 @@ platform :ios do
   desc "Build and upload an internal build to TestFlight"
   lane :beta do
     require_sentry_env!
+    require_breez_env!
 
     # Required fastlane CI signing prep (not a stopgap): makes a dedicated, unlocked
     # keychain the session default so match installs the cert there and sets its
@@ -124,6 +133,7 @@ platform :ios do
   desc "Tag-driven store release: TestFlight + stage the App Store listing"
   lane :release do
     require_sentry_env!
+    require_breez_env!
 
     setup_ci
     info = resolve_release_info(ENV["NEW_VERSION"] || "dev")

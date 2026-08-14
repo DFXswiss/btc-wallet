@@ -16,6 +16,8 @@ name: Release
 #            symbolication - see the explicit guards in each Fastfile/script).
 #            SENTRY_URL/ORG/PROJECT aren't secrets but are just as required -
 #            sentry-cli needs all four together to know where to upload.
+#            BREEZ_API_KEY (required: baked into the binary via a generated
+#            overlay .env; a missing key fails the release).
 
 on:
   workflow_dispatch:
@@ -102,8 +104,6 @@ jobs:
           ruby-version: '3.3'
           bundler-cache: true
           working-directory: ios
-      - name: Select prod env
-        run: echo ".env.prd" > /tmp/envfile
       - name: Write App Store Connect API key
         run: |
           echo "${{ secrets.APP_STORE_CONNECT_KEY }}" > "$RUNNER_TEMP/AuthKey.p8"
@@ -112,14 +112,32 @@ jobs:
           echo "FASTLANE_APPLE_API_ISSUER_ID=${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}" >> "$GITHUB_ENV"
           echo "MATCH_PASSWORD=${{ secrets.MATCH_PASSWORD }}" >> "$GITHUB_ENV"
       - name: Build + upload to TestFlight + stage listing
-        working-directory: ios
         env:
           NEW_VERSION: ${{ github.ref_name }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_URL: https://sentry.dfxserve.com/
           SENTRY_ORG: sentry
           SENTRY_PROJECT: btc-taro
-        run: bundle exec fastlane release
+          BREEZ_API_KEY: ${{ secrets.BREEZ_API_KEY }}
+        run: |
+          set -euo pipefail
+          for var in BREEZ_API_KEY; do
+            [ -n "${!var:-}" ] || { echo "Missing required env: $var" >&2; exit 1; }
+          done
+          BREEZ_ENVFILE="$(mktemp /tmp/breez-env.XXXXXX)"
+          chmod 600 "$BREEZ_ENVFILE"
+          cleanup() {
+            for f in "$BREEZ_ENVFILE" /tmp/envfile; do
+              [ -f "$f" ] || continue
+              if command -v shred &>/dev/null; then shred -u "$f"; else rm -Pf "$f"; fi
+            done
+          }
+          trap cleanup EXIT INT TERM
+          # .env.prd has no trailing newline; leading \n keeps BREEZ_API_KEY on its own line.
+          cp .env.prd "$BREEZ_ENVFILE"
+          printf '\nBREEZ_API_KEY=%s\n' "$BREEZ_API_KEY" >> "$BREEZ_ENVFILE"
+          echo "$BREEZ_ENVFILE" > /tmp/envfile
+          (cd ios && bundle exec fastlane release)
 
   android-deploy:
     name: Android -> Play internal + listing
@@ -172,6 +190,7 @@ jobs:
           SENTRY_URL: https://sentry.dfxserve.com/
           SENTRY_ORG: sentry
           SENTRY_PROJECT: btc-taro
+          BREEZ_API_KEY: ${{ secrets.BREEZ_API_KEY }}
         run: bundle exec fastlane release
       - name: Prepare release assets + checksums
         run: bash ./.github/scripts/prepare-release-assets.sh
