@@ -73,10 +73,16 @@ Guards (Build bricht ab bei Verletzung):
   (verlustbehaftetes `slugify`) → Build-Fehler mit beiden Quellen (#217)
 - **Kapitel-Doppelzuordnung:** ein Screenshot in zwei Kapiteln → Build-Fehler
   mit beiden Kapitel-Ids
-- **Leeres Ausgabeverzeichnis:** jeder Lauf leert das Zielverzeichnis zuerst
-  (Wächter gegen Repo-Root, Discovery-Quellen wie `docs/handbook/screenshots`
-  und `img/dfx`, `.git`, `/` und Home), damit keine veralteten Dateien und
-  keine Quellbäume gelöscht werden
+- **Leeres Ausgabeverzeichnis:** jeder Lauf leert das Zielverzeichnis zuerst.
+  Das Ziel muss **ausserhalb** des Repository-Baums liegen — jede Datei im Repo
+  ist potenzielle Quelle (`listMarkdownFiles` scannt ab Repo-Root). Zusätzlich
+  greifen sprechende Wächter für Repo-Root/Vorfahren, bekannte Discovery-
+  Wurzeln, `.git`, `/` und Home — case-insensitiv verglichen (macOS/Windows),
+  damit ein Pfad in anderer Groß-/Kleinschreibung keinen dieser Wächter
+  umgeht. Falsche Argumente (z. B. ein Unterverzeichnis unter
+  `docs/handbook/screenshots/` oder `scripts/handbook`) werden abgelehnt,
+  bevor etwas gelöscht wird. CI und Docker schreiben nach `/out` bzw. unter
+  `/tmp/…`.
 
 Überschreitung der Mindestzahl ist **kein** Fehler — neue Dateien landen
 automatisch.
@@ -117,6 +123,28 @@ Links (kein JS).
 
 Oben: Kapitel aus `content`. Unten, standardmäßig zugeklappt: Store-Listing,
 App-Assets und Dokumentation (`ui.developerSection`).
+
+### HTML-Sanitizer (Markdown-Body)
+
+`marked` sanitisiert nicht. Vor dem Ausliefern entfernt der Build aktive
+Vektoren im gerenderten Body (CSP in nginx ist die zweite Schicht):
+
+- Blöcke: `script`, `iframe`, `object`, `embed`, `meta`, `form`, `base`, `link`
+- Event-Handler `on*` — auch mit `/` als Attribut-Trenner und unzitierten Werten
+  (z. B. `<img/onerror=…>`)
+- Gefährliche Schemes in `href`/`src` (`javascript:`, `vbscript:`, nicht-Bild-
+  `data:`) — zitiert und unzitiert
+- `script`/`iframe`/`object`/`form`-Blöcke: ein gemeinsamer Stack prüft die
+  Reihenfolge über alle vier Tag-Typen hinweg, nicht nur die Gesamtzahl je Typ
+  — **Build bricht ab**, sobald ein Schließer ohne passenden Öffner auftaucht,
+  ein Tag am Dokumentende offen bleibt, oder sich zwei verschiedene Tag-Typen
+  überlappen statt sauber zu verschachteln (kein stilles Löschen bis zum
+  nächsten Schließer irgendwo im Dokument)
+- Selbstschließende Tags (`<script/>`) erkennt der Guard und der Entferner
+  über **dieselbe** Prüfung, damit beide Seiten nie auseinanderlaufen
+
+Die nginx-CSP setzt zusätzlich `form-action 'none'` (und `base-uri 'none'`,
+`object-src 'none'`).
 
 ### Nicht auflösende Markdown-Links und Remote-Bilder
 
@@ -163,13 +191,13 @@ des Repos:
 
 ```bash
 npm install --prefix ./_handbook-deps --no-save --no-audit --no-fund marked@15.0.7
-NODE_PATH=./_handbook-deps/node_modules node scripts/handbook/build.js docs/handbook/build
+NODE_PATH=./_handbook-deps/node_modules node scripts/handbook/build.js /tmp/handbook-out
 ```
 
-Anschliessend `docs/handbook/build/index.html` im Browser öffnen.
+Anschliessend `/tmp/handbook-out/index.html` im Browser öffnen. Das
+Ausgabeverzeichnis muss **ausserhalb** des Repos liegen (Löschschutz).
 
-Das Scratch-Verzeichnis `_handbook-deps/` und `docs/handbook/build/` sind
-gitignored.
+Das Scratch-Verzeichnis `_handbook-deps/` ist gitignored.
 
 Optional: `GIT_SHA=…` (oder `HANDBOOK_GIT_SHA`) setzt den Stand im Seitenkopf.
 Optional: `HANDBOOK_REPO_ROOT=/pfad/zum/repo` überschreibt die Root-Erkennung
