@@ -49,6 +49,18 @@ const ReceivePaymentMethod = {
   Bolt11Invoice: tagged('Bolt11Invoice'),
 };
 
+const SendPaymentOptions_Tags = {
+  BitcoinAddress: 'BitcoinAddress',
+  Bolt11Invoice: 'Bolt11Invoice',
+  SparkAddress: 'SparkAddress',
+};
+
+const SendPaymentOptions = {
+  BitcoinAddress: tagged('BitcoinAddress'),
+  Bolt11Invoice: tagged('Bolt11Invoice'),
+  SparkAddress: tagged('SparkAddress'),
+};
+
 const connect = jest.fn();
 const defaultConfig = jest.fn(() => ({
   apiKey: undefined,
@@ -66,6 +78,8 @@ module.exports = {
   PaymentDetails_Tags,
   PaymentRequest,
   ReceivePaymentMethod,
+  SendPaymentOptions,
+  SendPaymentOptions_Tags,
   SdkEvent_Tags,
   uniffiInitAsync: jest.fn().mockResolvedValue(undefined),
 };

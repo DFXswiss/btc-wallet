@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { PaymentDetails_Tags, PaymentStatus, PaymentType } from '@breeztech/breez-sdk-spark-react-native';
+import { PaymentDetails_Tags, PaymentStatus, PaymentType, SendPaymentOptions_Tags } from '@breeztech/breez-sdk-spark-react-native';
 
 const mockSdk = {
   getInfo: jest.fn(),
@@ -110,27 +110,42 @@ describe('SparkWallet', () => {
     assert.ok(decoded.expiry);
   });
 
-  it('payInvoice prepares and sends through the SDK', async () => {
+  it('payInvoice prepares and sends through the SDK, resolving on a completed payment', async () => {
     const prepareResponse = { paymentMethod: {} };
     mockSdk.prepareSendPayment.mockResolvedValue(prepareResponse);
-    mockSdk.sendPayment.mockResolvedValue({ payment: {} });
+    mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Completed } });
     const wallet = new SparkWallet();
     await wallet.payInvoice(SAMPLE_INVOICE, 0);
     expect(mockSdk.prepareSendPayment).toHaveBeenCalled();
-    expect(mockSdk.sendPayment).toHaveBeenCalledWith({
-      prepareResponse,
-      options: undefined,
-      idempotencyKey: undefined,
-    });
+    const arg = mockSdk.sendPayment.mock.calls[0][0];
+    assert.strictEqual(arg.prepareResponse, prepareResponse);
+    assert.strictEqual(arg.idempotencyKey, undefined);
+    assert.strictEqual(arg.options.tag, SendPaymentOptions_Tags.Bolt11Invoice);
+    assert.strictEqual(arg.options.inner.preferSpark, false);
+    assert.strictEqual(arg.options.inner.completionTimeoutSecs, 30);
   });
 
   it('payInvoice passes freeAmount for amountless invoices', async () => {
     mockSdk.prepareSendPayment.mockResolvedValue({ paymentMethod: {} });
-    mockSdk.sendPayment.mockResolvedValue({ payment: {} });
+    mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Completed } });
     const wallet = new SparkWallet();
     await wallet.payInvoice(SAMPLE_INVOICE, 250);
     const arg = mockSdk.prepareSendPayment.mock.calls[0][0];
     assert.strictEqual(arg.amount, 250n);
+  });
+
+  it('payInvoice does not resolve as success when the payment is still pending', async () => {
+    mockSdk.prepareSendPayment.mockResolvedValue({ paymentMethod: {} });
+    mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Pending } });
+    const wallet = new SparkWallet();
+    await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, 0), /in transit/);
+  });
+
+  it('payInvoice throws when the payment fails', async () => {
+    mockSdk.prepareSendPayment.mockResolvedValue({ paymentMethod: {} });
+    mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Failed } });
+    const wallet = new SparkWallet();
+    await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, 0), /failed/);
   });
 
   it('fetchTransactions maps completed and pending payments', async () => {

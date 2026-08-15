@@ -6,6 +6,7 @@ import {
   PaymentStatus,
   PaymentType,
   ReceivePaymentMethod,
+  SendPaymentOptions,
   type Payment,
 } from '@breeztech/breez-sdk-spark-react-native';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
@@ -237,6 +238,14 @@ export class SparkWallet extends AbstractWallet {
     return paymentRequest;
   }
 
+  /**
+   * Without a timeout the SDK returns as soon as the payment is initiated,
+   * before Lightning settlement completes -- payInvoice would then report
+   * success for a payment that may still fail. 30s gives real LN routing
+   * room to settle without blocking the UI indefinitely.
+   */
+  private static readonly SEND_PAYMENT_COMPLETION_TIMEOUT_SECS = 30;
+
   async payInvoice(invoice: string, freeAmount = 0): Promise<void> {
     const sdk = requireSparkSdk();
     const amount = freeAmount && freeAmount > 0 ? BigInt(freeAmount) : undefined;
@@ -249,11 +258,23 @@ export class SparkWallet extends AbstractWallet {
       feePolicy: undefined,
     });
 
-    await sdk.sendPayment({
+    const { payment } = await sdk.sendPayment({
       prepareResponse,
-      options: undefined,
+      options: new SendPaymentOptions.Bolt11Invoice({
+        preferSpark: false,
+        completionTimeoutSecs: SparkWallet.SEND_PAYMENT_COMPLETION_TIMEOUT_SECS,
+      }),
       idempotencyKey: undefined,
     });
+
+    if (payment.status === PaymentStatus.Failed) {
+      throw new Error('Payment failed');
+    }
+    if (payment.status !== PaymentStatus.Completed) {
+      // Mirrors the LND custodian path (lightning-custodian-wallet.js), which also
+      // refuses to report success without a confirmed payment_preimage.
+      throw new Error('Payment is in transit');
+    }
   }
 
   /**
