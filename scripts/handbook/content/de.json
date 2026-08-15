@@ -114,23 +114,19 @@
       "title": "Haftungsausschluss beim ersten Start",
       "text": "Vor der ersten Wallet weist die App darauf hin, dass sie die Schlüssel selbst verwahrt: Sie liegen auf dem Gerät, nicht bei DFX."
     },
-    "01-onboarding/02-lndhub-verbindung": {
-      "title": "Anbieter für Lightning wählen",
-      "text": "Für die Wallet für Lightning wird ein Anbieter gewählt. lightning.space ist voreingestellt."
-    },
-    "01-onboarding/03-lndhub-benutzerdefiniert": {
+    "06-wallet-hinzufuegen/03-lightning-benutzerdefiniert": {
       "title": "Eigener Anbieter",
       "text": "Wer einen eigenen LNDHub betreibt, trägt hier dessen Adresse ein."
     },
-    "01-onboarding/04-lndhub-dfx-swiss": {
+    "06-wallet-hinzufuegen/04-lightning-dfx-swiss": {
       "title": "Anbieter DFX.swiss",
       "text": "Alternativ lässt sich der Dienst von DFX.swiss auswählen."
     },
-    "01-onboarding/05-wallet-uebersicht": {
+    "01-onboarding/02-wallet-uebersicht": {
       "title": "Die Übersicht nach der Anlage",
       "text": "Nach der Anlage zeigt die Übersicht das Guthaben und die angelegten Wallets. Von hier führen alle weiteren Wege."
     },
-    "01-onboarding/06-mitteilungen-berechtigung": {
+    "01-onboarding/03-mitteilungen-berechtigung": {
       "title": "Berechtigung für Mitteilungen",
       "text": "Beim ersten Öffnen von „Erhalten“ fragt das Telefon nach der Erlaubnis für Mitteilungen. Damit meldet die App eingehende Zahlungen."
     },

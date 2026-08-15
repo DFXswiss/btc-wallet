@@ -7,26 +7,15 @@ appId: swiss.dfx.bitcoin
     timeout: 60000
 - takeScreenshot: shots/01-onboarding/01-start
 - tapOn: 'Erstellen'
-- extendedWaitUntil:
-    visible: 'Jetzt überspringen'
-    timeout: 60000
-- takeScreenshot: shots/01-onboarding/02-lndhub-verbindung
-- tapOn: 'Benutzerdefiniert'
-- waitForAnimationToEnd:
-    timeout: 4000
-- takeScreenshot: shots/01-onboarding/03-lndhub-benutzerdefiniert
-- tapOn: 'DFX.swiss'
-- waitForAnimationToEnd:
-    timeout: 4000
-- takeScreenshot: shots/01-onboarding/04-lndhub-dfx-swiss
-- tapOn: 'Jetzt überspringen'
+# Die Wallet-Anlage fuehrt direkt auf die Uebersicht; die Lightning-Wallet ist
+# opt-in und wird dort ueber "Hinzufuegen" angelegt (06b-wallet-lightning.yaml).
 - extendedWaitUntil:
     visible: 'Wallet Backup'
     timeout: 60000
-- takeScreenshot: shots/01-onboarding/05-wallet-uebersicht
+- takeScreenshot: shots/01-onboarding/02-wallet-uebersicht
 - tapOn:
     point: '16%,93%'
 - extendedWaitUntil:
     visible: 'Nicht erlauben'
     timeout: 25000
-- takeScreenshot: shots/01-onboarding/06-mitteilungen-berechtigung
+- takeScreenshot: shots/01-onboarding/03-mitteilungen-berechtigung

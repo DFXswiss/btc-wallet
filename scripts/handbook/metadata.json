@@ -2,14 +2,11 @@
   "screenshots": {
     "01-onboarding": {
       "title": "Erststart und Wallet-Anlage",
-      "description": "Haftungsausschluss, Auswahl des LNDHub-Anbieters (lightning.space, DFX.swiss, benutzerdefiniert), Wallet-Übersicht nach der Anlage und die Mitteilungs-Berechtigung beim ersten Öffnen von „Erhalten\".",
+      "description": "Haftungsausschluss mit „Erstellen\" und „Wallet importieren\", Wallet-Übersicht direkt nach der Anlage und die Mitteilungs-Berechtigung beim ersten Öffnen von „Erhalten\". Die Lightning-Wallet ist nicht Teil des Erststarts — sie wird über „Hinzufügen\" auf der Wallet-Übersicht angelegt (siehe „Weitere Wallet anlegen\").",
       "captions": {
         "01-start": "Haftungsausschluss beim Erststart",
-        "02-lndhub-verbindung": "LNDHub-Verbindung wählen",
-        "03-lndhub-benutzerdefiniert": "Benutzerdefinierter LNDHub-Server",
-        "04-lndhub-dfx-swiss": "LNDHub von DFX.swiss",
-        "05-wallet-uebersicht": "Wallet-Übersicht nach der Anlage",
-        "06-mitteilungen-berechtigung": "Berechtigung für Mitteilungen"
+        "02-wallet-uebersicht": "Wallet-Übersicht nach der Anlage",
+        "03-mitteilungen-berechtigung": "Berechtigung für Mitteilungen"
       }
     },
     "02-wallet": {
@@ -59,10 +56,12 @@
     },
     "06-wallet-hinzufuegen": {
       "title": "Weitere Wallet anlegen",
-      "description": "Einstiegsseiten für die Multi-Device-Wallet (3-Geräte-Setup) und für die Lightning-Wallet über einen LNDHub-Anbieter.",
+      "description": "Einstiegsseiten für die Multi-Device-Wallet (3-Geräte-Setup) und für die Lightning-Wallet über einen LNDHub-Anbieter mit der Auswahl zwischen lightning.space, DFX.swiss und einem benutzerdefinierten Anbieter.",
       "captions": {
         "01-multi-device": "Multi-Device-Wallet anlegen",
-        "02-lightning": "Lightning-Wallet anlegen"
+        "02-lightning": "Lightning-Wallet anlegen",
+        "03-lightning-benutzerdefiniert": "Benutzerdefinierter Lightning-Anbieter",
+        "04-lightning-dfx-swiss": "Lightning-Anbieter DFX.swiss"
       }
     },
     "07-multi-device": {

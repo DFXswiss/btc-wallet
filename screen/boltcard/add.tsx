@@ -76,7 +76,9 @@ const AddBoltcard: React.FC & { navigationOptions?: ReturnType<typeof navigation
         await updateInvoiceUrl();
         await updateCardsInStorage();
         await saveToDisk();
-      } catch (_) {}
+      } catch (error) {
+        reportError('boltcard/add: failed to prepare boltcard on mount', error);
+      }
       setIsLoading(false);
     })();
   }, []);

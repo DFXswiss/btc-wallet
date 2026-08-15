@@ -50,7 +50,7 @@ Ausgabe pro Build:
 
 Guards (Build bricht ab bei Verletzung):
 
-- **Floor:** mindestens `MIN_SCREENSHOTS` (35) PNGs (aktuell 42 committiert;
+- **Floor:** mindestens `MIN_SCREENSHOTS` (35) PNGs (aktuell 41 committiert;
   Boden bei Bestandszuwachs anheben)
 - **Floor:** mindestens `MIN_DOCS` (8) Markdown-Dokumente (nach Ausschlussregeln)
 - **Floor:** mindestens `MIN_STORE_FIELDS` (25) Store-Textfelder — der Boden
@@ -286,12 +286,14 @@ maestro test scripts/handbook/screenshots/01-onboarding.yaml
 Jedes committete PNG hat genau einen erzeugenden `takeScreenshot:`-Schritt, und
 kein Flow zielt auf einen Namen, den es im Satz nicht gibt — nachpruefbar, indem
 man alle `takeScreenshot: shots/<pfad>` gegen `docs/handbook/screenshots/**.png`
-abgleicht (Soll: 42 Treffer, 0 verwaist, 0 ohne Flow). Wer den Satz erweitert,
+abgleicht (Soll: 41 Treffer, 0 verwaist, 0 ohne Flow). Wer den Satz erweitert,
 haelt diese Zuordnung mit; sonst ist die Wiederholbarkeit nur behauptet.
 
 `_setup.yaml` ist der gemeinsame Vorlauf fuer die meisten Flows: frischer
-App-Start, Wallet anlegen, LNDHub ueberspringen und den Mitteilungs-Dialog
-einmal abraeumen. Lightning-Flows binden `_setup-lightning.yaml` ein. Zwei
+App-Start, Wallet anlegen und den Mitteilungs-Dialog einmal abraeumen. Die
+Wallet-Anlage fuehrt direkt auf die Uebersicht — die Lightning-Wallet ist opt-in
+und wird ueber „Hinzufuegen" in der Lightning-Zeile angelegt; genau das macht
+`_setup-lightning.yaml`, das die Lightning-Flows einbinden. Zwei
 Flows starten selbst mit `launchApp: clearState` und ohne `_setup*`:
 `01-onboarding.yaml` und `16-import.yaml` (sie brauchen den frischen
 Onboarding-/Import-Zustand). Der Simulator-Build ohne Code-Signing hat keine
@@ -360,8 +362,11 @@ schwaerzen.
 Das Issue verlangt „jeden Screen, in jeder Variante, in jedem Szenario". Dieser
 Stand erfuellt das **nicht**. Die Zahlen, damit die Luecke nachpruefbar ist statt
 ungefaehr: `navigation/` registriert **109** Routen, davon 17 reine
-Stack-Wrapper (Endung `Root`), bleiben **92 echte Screens**. Abgebildet sind
-**42**.
+Stack-Wrapper (Endung `Root`), bleiben **92 echte Screens**. Die **41**
+committeten PNGs bilden davon **33 verschiedene Screens** ab — sechs Screens
+sind mehrfach abgebildet, weil sie in mehreren Varianten vorkommen:
+`WalletTransactions` und `AddLightning` (je 3 Bilder), `ReceiveDetails`,
+`WalletAsset`, `WalletDetails` und `Tools` (je 2). **59 Screens fehlen ganz.**
 
 Die Luecke ist nicht zufaellig, sondern hat drei benennbare Ursachen:
 

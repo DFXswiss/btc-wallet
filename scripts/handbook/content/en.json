@@ -114,23 +114,19 @@
       "title": "Disclaimer on first launch",
       "text": "Before the first wallet the app points out that it keeps the keys itself: they live on the device, not with DFX."
     },
-    "01-onboarding/02-lndhub-verbindung": {
-      "title": "Choosing a provider for Lightning",
-      "text": "The wallet for Lightning needs a provider. lightning.space is preselected."
-    },
-    "01-onboarding/03-lndhub-benutzerdefiniert": {
+    "06-wallet-hinzufuegen/03-lightning-benutzerdefiniert": {
       "title": "Your own provider",
       "text": "If you run your own LNDHub, enter its address here."
     },
-    "01-onboarding/04-lndhub-dfx-swiss": {
+    "06-wallet-hinzufuegen/04-lightning-dfx-swiss": {
       "title": "The provider DFX.swiss",
       "text": "The service run by DFX.swiss can be selected instead."
     },
-    "01-onboarding/05-wallet-uebersicht": {
+    "01-onboarding/02-wallet-uebersicht": {
       "title": "The overview after setup",
       "text": "Once created, the overview shows your balance and your wallets. Every other path starts here."
     },
-    "01-onboarding/06-mitteilungen-berechtigung": {
+    "01-onboarding/03-mitteilungen-berechtigung": {
       "title": "Permission for notifications",
       "text": "The first time you open “Receive”, the phone asks for permission to send notifications. That is how the app reports incoming payments."
     },

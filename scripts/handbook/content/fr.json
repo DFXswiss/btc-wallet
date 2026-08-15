@@ -114,23 +114,19 @@
       "title": "Avertissement au premier lancement",
       "text": "Avant le premier portefeuille, l'application signale qu'elle garde les clés : elles restent sur l'appareil, pas chez DFX."
     },
-    "01-onboarding/02-lndhub-verbindung": {
-      "title": "Choisir un fournisseur pour Lightning",
-      "text": "Le portefeuille pour Lightning a besoin d'un fournisseur. lightning.space est présélectionné."
-    },
-    "01-onboarding/03-lndhub-benutzerdefiniert": {
+    "06-wallet-hinzufuegen/03-lightning-benutzerdefiniert": {
       "title": "Votre propre fournisseur",
       "text": "Si vous exploitez votre propre LNDHub, saisissez son adresse ici."
     },
-    "01-onboarding/04-lndhub-dfx-swiss": {
+    "06-wallet-hinzufuegen/04-lightning-dfx-swiss": {
       "title": "Le fournisseur DFX.swiss",
       "text": "Le service exploité par DFX.swiss peut être choisi à la place."
     },
-    "01-onboarding/05-wallet-uebersicht": {
+    "01-onboarding/02-wallet-uebersicht": {
       "title": "L'aperçu après la création",
       "text": "Une fois créé, l'aperçu affiche le solde et les portefeuilles. Tous les autres chemins partent d'ici."
     },
-    "01-onboarding/06-mitteilungen-berechtigung": {
+    "01-onboarding/03-mitteilungen-berechtigung": {
       "title": "Autorisation pour les notifications",
       "text": "À la première ouverture de « Recevoir », le téléphone demande l'autorisation d'envoyer des notifications. C'est ainsi que l'application signale les paiements entrants."
     },

@@ -353,7 +353,7 @@ const TappedCardDetails = () => {
             </BlueCard>
             <BlueCard style={styles.address}>
               <View>
-                {isEmptyCard && (
+                {isEmptyCard && Boolean(lnWallet) && (
                   <>
                     <SecondButton onPress={navigateToCreate} title={loc.boltcard.title_create} />
                     <BlueSpacing20 />

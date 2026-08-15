@@ -24,6 +24,8 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import alert from '../../components/Alert';
 import Config from 'react-native-config';
 import { useAuth } from '../../api/dfx/hooks/auth.hook';
+import { walletCreatedRoute } from '../../helpers/wallet-created-route';
+import { reportError } from '../../helpers/errors';
 const BlueApp = require('../../BlueApp');
 const AppStorage = BlueApp.AppStorage;
 
@@ -108,29 +110,33 @@ const WalletsAdd = () => {
       try {
         await w.generateFromEntropy(entropy);
       } catch (e) {
-        console.log(e.toString());
+        reportError('wallets/add: generateFromEntropy failed', e);
         alert(e.toString());
+        // goBack() is a no-op while AddWalletRoot is the only root route, so the screen
+        // stays and has to be usable again.
+        setIsLoading(false);
         goBack();
         return;
       }
-    } else {
-      await w.generate();
     }
-    const mainAddress = w._getExternalAddressByIndex(0);
-    const message = getSignMessage(mainAddress);
-    w.addressOwnershipProof = await w.signMessage(message, mainAddress);
-    addWallet(w);
-    await saveToDisk();
-    ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
-    dispatch(
-      StackActions.replace('WalletsRoot', {
-        screen: 'AddLightning',
-        params: {
-          walletID: w.getID(),
-          isOnboarding: true,
-        },
-      }),
-    );
+
+    try {
+      if (!entropy) {
+        await w.generate();
+      }
+      const mainAddress = w._getExternalAddressByIndex(0);
+      const message = getSignMessage(mainAddress);
+      w.addressOwnershipProof = await w.signMessage(message, mainAddress);
+      addWallet(w);
+      await saveToDisk();
+      ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
+      dispatch(StackActions.replace(...walletCreatedRoute()));
+    } catch (e) {
+      reportError('wallets/add: wallet creation failed', e);
+      alert(e.toString());
+      // First-run AddWalletRoot has nowhere to goBack to; unlock the screen instead.
+      setIsLoading(false);
+    }
   };
 
   const navigateToEntropy = () => {

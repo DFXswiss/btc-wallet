@@ -264,9 +264,6 @@ const WalletHome = ({ navigation }) => {
   const navigateToAddLightning = () => {
     navigate('WalletsRoot', {
       screen: 'AddLightning',
-      params: {
-        walletID: wallet.getID(),
-      },
     });
   };
 

@@ -1,14 +1,16 @@
 import React, { useState, useContext, useCallback, useMemo } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { BlueButton, BlueCard, BlueLoading, BlueSpacing20, BlueSpacing40, BlueText, SafeBlueArea } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
 import Lnurl from '../../class/lnurl';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
-import { useRoute, useTheme } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import URL from 'url';
 import { SuccessView } from '../send/success';
 import { Chain } from '../../models/bitcoinUnits';
+import alert from '../../components/Alert';
 
 const AuthState = {
   USER_PROMPT: 0,
@@ -20,6 +22,7 @@ const AuthState = {
 const LnurlAuth = () => {
   const { wallets } = useContext(BlueStorageContext);
   const { walletID, lnurl } = useRoute().params;
+  const { goBack } = useNavigation();
   const wallet = useMemo(() => {
     const w = wallets.find(w => w.getID() === walletID);
     if (w && w.chain === Chain.OFFCHAIN) {
@@ -40,6 +43,17 @@ const LnurlAuth = () => {
       backgroundColor: colors.background,
     },
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!wallet) {
+        ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
+        goBack();
+        setTimeout(() => alert(loc.wallets.add_ln_wallet_first), 500);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [wallet]),
+  );
 
   const authenticate = useCallback(() => {
     const address = Lnurl.getLnurlFromAddress(wallet.lnAddress);
