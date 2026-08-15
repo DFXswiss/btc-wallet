@@ -33,6 +33,13 @@ export type SparkInvoiceRecord = {
 export class SparkWallet extends AbstractWallet {
   static type = 'sparkWallet';
   static typeReadable = 'Lightning (Spark)';
+  /**
+   * Without a timeout the SDK returns as soon as the payment is initiated,
+   * before Lightning settlement completes -- payInvoice would then report
+   * success for a payment that may still fail. 30s gives real LN routing
+   * room to settle without blocking the UI indefinitely.
+   */
+  private static readonly SEND_PAYMENT_COMPLETION_TIMEOUT_SECS = 30;
 
   lnAddress?: string;
   identityPubkey?: string;
@@ -237,14 +244,6 @@ export class SparkWallet extends AbstractWallet {
     this.user_invoices_raw.push(record);
     return paymentRequest;
   }
-
-  /**
-   * Without a timeout the SDK returns as soon as the payment is initiated,
-   * before Lightning settlement completes -- payInvoice would then report
-   * success for a payment that may still fail. 30s gives real LN routing
-   * room to settle without blocking the UI indefinitely.
-   */
-  private static readonly SEND_PAYMENT_COMPLETION_TIMEOUT_SECS = 30;
 
   async payInvoice(invoice: string, freeAmount = 0): Promise<void> {
     const sdk = requireSparkSdk();
