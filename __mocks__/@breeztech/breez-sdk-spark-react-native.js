@@ -21,6 +21,16 @@ const SdkEvent_Tags = {
   NewDeposits: 'NewDeposits',
 };
 const Network = { Mainnet: 0, Regtest: 1 };
+const MaxFee_Tags = {
+  Fixed: 'Fixed',
+  Rate: 'Rate',
+  NetworkRecommended: 'NetworkRecommended',
+};
+const MaxFee = {
+  Fixed: tagged('Fixed'),
+  Rate: tagged('Rate'),
+  NetworkRecommended: tagged('NetworkRecommended'),
+};
 
 function tagged(tag) {
   return function Ctor(inner) {
@@ -81,5 +91,7 @@ module.exports = {
   SendPaymentOptions,
   SendPaymentOptions_Tags,
   SdkEvent_Tags,
+  MaxFee,
+  MaxFee_Tags,
   uniffiInitAsync: jest.fn().mockResolvedValue(undefined),
 };
