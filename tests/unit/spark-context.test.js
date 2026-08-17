@@ -50,11 +50,20 @@ const hdWallet = {
   getSecret: () => MNEMONIC,
 };
 
+const createHash = require('create-hash');
+
 const mockSdk = {
   getInfo: jest.fn().mockResolvedValue({ identityPubkey: 'pk-1', balanceSats: 0n }),
   getLightningAddress: jest.fn().mockResolvedValue({ lightningAddress: 'user@breez.blitz' }),
+  checkLightningAddressAvailable: jest.fn().mockResolvedValue(true),
+  registerLightningAddress: jest.fn().mockResolvedValue({ lightningAddress: 'reg@breez.blitz', username: 'reg', description: '' }),
   listPayments: jest.fn().mockResolvedValue({ payments: [] }),
 };
+
+function expectedUsername(identityPubkey, attempt = 0) {
+  const base = createHash('sha256').update(identityPubkey).digest().toString('hex').slice(0, 16);
+  return attempt === 0 ? base : `${base}${attempt + 1}`;
+}
 
 const addAndSaveWallet = jest.fn().mockResolvedValue(undefined);
 const saveToDisk = jest.fn().mockResolvedValue(undefined);
@@ -89,6 +98,12 @@ beforeEach(() => {
   mockRequireSdk.mockReturnValue(mockSdk);
   mockSdk.getInfo.mockResolvedValue({ identityPubkey: 'pk-1', balanceSats: 0n });
   mockSdk.getLightningAddress.mockResolvedValue({ lightningAddress: 'user@breez.blitz' });
+  mockSdk.checkLightningAddressAvailable.mockResolvedValue(true);
+  mockSdk.registerLightningAddress.mockResolvedValue({
+    lightningAddress: 'reg@breez.blitz',
+    username: 'reg',
+    description: loc.wallets.lightning_spark_wallet_label,
+  });
   mockSdk.listPayments.mockResolvedValue({ payments: [] });
   mockSync.mockResolvedValue(undefined);
   mockDisconnect.mockResolvedValue(undefined);
@@ -124,7 +139,133 @@ describe('SparkContextProvider', () => {
     assert.strictEqual(created.lnAddress, 'user@breez.blitz');
     expect(addAndSaveWallet).toHaveBeenCalledWith(created);
     expect(mockConnect).toHaveBeenCalled();
+    expect(mockSdk.registerLightningAddress).not.toHaveBeenCalled();
     alert.mockRestore();
+  });
+
+  it('registers a Lightning address on create when none exists yet', async () => {
+    mockSdk.getLightningAddress.mockResolvedValue(undefined);
+    renderWith([hdWallet]);
+    await waitFor(() => assert.ok(latestCtx));
+
+    let created;
+    await act(async () => {
+      created = await latestCtx.createSparkWallet();
+    });
+
+    assert.ok(created);
+    assert.strictEqual(created.lnAddress, 'reg@breez.blitz');
+    expect(mockSdk.checkLightningAddressAvailable).toHaveBeenCalledWith({ username: expectedUsername('pk-1') });
+    expect(mockSdk.registerLightningAddress).toHaveBeenCalledWith({
+      username: expectedUsername('pk-1'),
+      description: loc.wallets.lightning_spark_wallet_label,
+    });
+    expect(addAndSaveWallet).toHaveBeenCalledWith(created);
+  });
+
+  it('registers a suffix username when the derived name is taken', async () => {
+    mockSdk.getLightningAddress.mockResolvedValue(undefined);
+    mockSdk.checkLightningAddressAvailable.mockImplementation(async ({ username }) => username !== expectedUsername('pk-1'));
+    mockSdk.registerLightningAddress.mockResolvedValue({
+      lightningAddress: 'suffix@breez.blitz',
+      username: expectedUsername('pk-1', 1),
+      description: loc.wallets.lightning_spark_wallet_label,
+    });
+    renderWith([hdWallet]);
+    await waitFor(() => assert.ok(latestCtx));
+
+    let created;
+    await act(async () => {
+      created = await latestCtx.createSparkWallet();
+    });
+
+    assert.ok(created);
+    assert.strictEqual(created.lnAddress, 'suffix@breez.blitz');
+    expect(mockSdk.checkLightningAddressAvailable).toHaveBeenCalledWith({ username: expectedUsername('pk-1') });
+    expect(mockSdk.checkLightningAddressAvailable).toHaveBeenCalledWith({ username: expectedUsername('pk-1', 1) });
+    expect(mockSdk.registerLightningAddress).toHaveBeenCalledTimes(1);
+    expect(mockSdk.registerLightningAddress).toHaveBeenCalledWith({
+      username: expectedUsername('pk-1', 1),
+      description: loc.wallets.lightning_spark_wallet_label,
+    });
+  });
+
+  it('still creates the wallet when Lightning address registration fails', async () => {
+    mockSdk.getLightningAddress.mockResolvedValue(undefined);
+    mockSdk.registerLightningAddress.mockRejectedValue(new Error('register down'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    renderWith([hdWallet]);
+    await waitFor(() => assert.ok(latestCtx));
+
+    let created;
+    await act(async () => {
+      created = await latestCtx.createSparkWallet();
+    });
+
+    assert.ok(created);
+    assert.strictEqual(created.lnAddress, undefined);
+    expect(addAndSaveWallet).toHaveBeenCalledWith(created);
+    expect(alert).not.toHaveBeenCalled();
+    alert.mockRestore();
+    warn.mockRestore();
+  });
+
+  it('gives up registration after the named attempt budget and still creates the wallet', async () => {
+    mockSdk.getLightningAddress.mockResolvedValue(undefined);
+    mockSdk.checkLightningAddressAvailable.mockResolvedValue(false);
+    renderWith([hdWallet]);
+    await waitFor(() => assert.ok(latestCtx));
+
+    let created;
+    await act(async () => {
+      created = await latestCtx.createSparkWallet();
+    });
+
+    assert.ok(created);
+    assert.strictEqual(created.lnAddress, undefined);
+    expect(mockSdk.checkLightningAddressAvailable).toHaveBeenCalledTimes(5);
+    expect(mockSdk.registerLightningAddress).not.toHaveBeenCalled();
+    expect(addAndSaveWallet).toHaveBeenCalledWith(created);
+  });
+
+  it('retries Lightning address registration once for an existing wallet without an address', async () => {
+    mockSdk.getLightningAddress.mockResolvedValue(undefined);
+    const existing = stubSparkMethods(SparkWallet.create('stored-pk'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    renderWith([hdWallet, existing]);
+    await waitFor(() => expect(mockSdk.registerLightningAddress).toHaveBeenCalledTimes(1));
+    assert.strictEqual(existing.lnAddress, 'reg@breez.blitz');
+    expect(saveToDisk).toHaveBeenCalled();
+
+    const onEvent = mockConnect.lastOnEvent;
+    mockSdk.registerLightningAddress.mockClear();
+    await act(async () => {
+      await onEvent({ tag: SdkEvent_Tags.Synced });
+      await onEvent({ tag: SdkEvent_Tags.PaymentSucceeded });
+    });
+    expect(mockSdk.registerLightningAddress).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('does not retry registration on later refreshes when the first retry failed', async () => {
+    mockSdk.getLightningAddress.mockResolvedValue(undefined);
+    mockSdk.registerLightningAddress.mockRejectedValue(new Error('register down'));
+    const existing = stubSparkMethods(SparkWallet.create('retry-pk'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    renderWith([hdWallet, existing]);
+    await waitFor(() => expect(mockSdk.registerLightningAddress).toHaveBeenCalledTimes(1));
+    assert.strictEqual(existing.lnAddress, undefined);
+
+    mockSdk.registerLightningAddress.mockClear();
+    mockSdk.registerLightningAddress.mockResolvedValue({ lightningAddress: 'late@breez.blitz' });
+    const onEvent = mockConnect.lastOnEvent;
+    await act(async () => {
+      await onEvent({ tag: SdkEvent_Tags.Synced });
+    });
+    expect(mockSdk.registerLightningAddress).not.toHaveBeenCalled();
+    assert.strictEqual(existing.lnAddress, undefined);
+    warn.mockRestore();
   });
 
   it('alerts with a retry option when connect fails and does not persist', async () => {
@@ -330,7 +471,7 @@ describe('SparkContextProvider', () => {
     assert.ok(firstResult);
   });
 
-  it('reuses an already-connected SDK without reconnecting', async () => {
+  it('still calls connectSparkSdk when a session is already live', async () => {
     mockIsConnected.mockReturnValue(true);
     renderWith([hdWallet]);
     await waitFor(() => assert.ok(latestCtx));
@@ -338,9 +479,49 @@ describe('SparkContextProvider', () => {
     await act(async () => {
       await latestCtx.createSparkWallet();
     });
-    // ensureConnected sees isSparkSdkConnected → no connect call
-    expect(mockConnect).not.toHaveBeenCalled();
+    expect(mockConnect).toHaveBeenCalledWith(MNEMONIC, expect.any(Function));
     expect(addAndSaveWallet).toHaveBeenCalled();
+  });
+
+  it('hands a new on-chain seed to connectSparkSdk while a session is already live', async () => {
+    const seedB = 'legal winner thank year wave sausage worth useful legal winner thank yellow';
+    const hdB = { type: 'HDsegwitBech32', getSecret: () => seedB };
+    const existing = stubSparkMethods(SparkWallet.create('switch-pk'));
+    mockIsConnected.mockReturnValue(true);
+
+    const setInitRef = { current: null };
+    const setWalletsRef = { current: null };
+    function Harness() {
+      const [initialized, setInit] = React.useState(true);
+      const [wallets, setWallets] = React.useState([hdWallet, existing]);
+      React.useEffect(() => {
+        setInitRef.current = setInit;
+        setWalletsRef.current = setWallets;
+      }, [setInit, setWallets]);
+      return (
+        <BlueStorageContext.Provider value={{ wallets, walletsInitialized: initialized, addAndSaveWallet, saveToDisk }}>
+          <SparkContextProvider>
+            <Probe />
+          </SparkContextProvider>
+        </BlueStorageContext.Provider>
+      );
+    }
+
+    render(<Harness />);
+    await waitFor(() => expect(mockConnect).toHaveBeenCalled());
+    expect(mockConnect.mock.calls[0][0]).toBe(MNEMONIC);
+
+    mockConnect.mockClear();
+    await act(async () => {
+      setWalletsRef.current([hdB, existing]);
+      setInitRef.current(false);
+    });
+    await act(async () => {
+      setInitRef.current(true);
+    });
+
+    await waitFor(() => expect(mockConnect).toHaveBeenCalled());
+    expect(mockConnect.mock.calls[0][0]).toBe(seedB);
   });
 
   it('refreshes on relevant SDK events and ignores others', async () => {
@@ -358,11 +539,32 @@ describe('SparkContextProvider', () => {
       await onEvent({ tag: SdkEvent_Tags.PaymentPending });
       await onEvent({ tag: SdkEvent_Tags.PaymentFailed });
       await onEvent({ tag: SdkEvent_Tags.LightningAddressChanged });
+      await onEvent({ tag: SdkEvent_Tags.NewDeposits });
+      await onEvent({ tag: SdkEvent_Tags.ClaimedDeposits });
+      await onEvent({ tag: SdkEvent_Tags.UnclaimedDeposits });
       await onEvent({ tag: 'SomeOtherEvent' });
     });
 
-    // 5 relevant events → refresh each time
-    expect(existing.fetchBalance.mock.calls.length).toBe(5);
+    // 8 relevant events → refresh each time
+    expect(existing.fetchBalance.mock.calls.length).toBe(8);
+  });
+
+  it('warns with a fixed tag when deposits stay unclaimed', async () => {
+    const existing = stubSparkMethods(SparkWallet.create('unclaimed-pk'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    renderWith([hdWallet, existing]);
+    await waitFor(() => expect(mockConnect).toHaveBeenCalled());
+    warn.mockClear();
+    existing.fetchBalance.mockClear();
+
+    const onEvent = mockConnect.lastOnEvent;
+    await act(async () => {
+      await onEvent({ tag: SdkEvent_Tags.UnclaimedDeposits });
+    });
+
+    expect(existing.fetchBalance).toHaveBeenCalled();
+    expect(warn.mock.calls.some(c => c[0] === 'SparkContext: unclaimed deposits remain' && c.length === 1)).toBe(true);
+    warn.mockRestore();
   });
 
   it('refresh tolerates fetch failures and still updates lnAddress when present', async () => {
@@ -519,8 +721,9 @@ describe('SparkContextProvider', () => {
     alert.mockRestore();
   });
 
-  it('creates without lnAddress when getLightningAddress returns undefined', async () => {
+  it('creates without lnAddress when getLightningAddress returns undefined and register yields none', async () => {
     mockSdk.getLightningAddress.mockResolvedValue(undefined);
+    mockSdk.registerLightningAddress.mockResolvedValue(undefined);
     renderWith([hdWallet]);
     await waitFor(() => assert.ok(latestCtx));
 
@@ -582,12 +785,104 @@ describe('SparkContextProvider', () => {
     expect(existing.fetchBalance).not.toHaveBeenCalled();
   });
 
-  it('does not set lnAddress when getLightningAddress returns empty', async () => {
-    const existing = stubSparkMethods(SparkWallet.create('empty-ln'));
+  it('does not set lnAddress when getLightningAddress returns empty and register is skipped after a failed create attempt', async () => {
     mockSdk.getLightningAddress.mockResolvedValue({ lightningAddress: undefined });
-    renderWith([hdWallet, existing]);
-    await waitFor(() => expect(mockConnect).toHaveBeenCalled());
-    // lnAddress stays unset
-    assert.strictEqual(existing.lnAddress, undefined);
+    mockSdk.registerLightningAddress.mockRejectedValue(new Error('register down'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    renderWith([hdWallet]);
+    await waitFor(() => assert.ok(latestCtx));
+    await act(async () => {
+      await latestCtx.createSparkWallet();
+    });
+    warn.mockRestore();
+  });
+
+  it('lets a second ensureConnected join connectSparkSdk while the first is still running', async () => {
+    const resolvers = [];
+    mockConnect.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolvers.push(() => {
+            mockIsConnected.mockReturnValue(true);
+            resolve(mockSdk);
+          });
+        }),
+    );
+    const existing = stubSparkMethods(SparkWallet.create('connect-dup-pk'));
+    const setInitializedRef = { current: null };
+    function Harness() {
+      const [initialized, setInit] = React.useState(true);
+      React.useEffect(() => {
+        setInitializedRef.current = setInit;
+      }, [setInit]);
+      return (
+        <BlueStorageContext.Provider
+          value={{ wallets: [hdWallet, existing], walletsInitialized: initialized, addAndSaveWallet, saveToDisk }}
+        >
+          <SparkContextProvider>
+            <Probe />
+          </SparkContextProvider>
+        </BlueStorageContext.Provider>
+      );
+    }
+    render(<Harness />);
+    await waitFor(() => expect(mockConnect).toHaveBeenCalledTimes(1));
+    await waitFor(() => assert.ok(setInitializedRef.current));
+
+    await act(async () => {
+      setInitializedRef.current(false);
+    });
+    await act(async () => {
+      setInitializedRef.current(true);
+    });
+    expect(mockConnect).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      resolvers.forEach(resolve => resolve());
+    });
+  });
+
+  it('swallows disconnect failure when the provider unmounts', async () => {
+    mockDisconnect.mockRejectedValue(new Error('already gone'));
+    const screen = renderWith([hdWallet]);
+    await waitFor(() => assert.ok(latestCtx));
+    screen.unmount();
+    await waitFor(() => expect(mockDisconnect).toHaveBeenCalled());
+  });
+
+  it('swallows disconnect failure after a failed create', async () => {
+    mockConnect.mockRejectedValue(new Error('boom'));
+    mockDisconnect.mockRejectedValue(new Error('already gone'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    renderWith([hdWallet]);
+    await waitFor(() => assert.ok(latestCtx));
+    await act(async () => {
+      await latestCtx.createSparkWallet();
+    });
+    expect(mockDisconnect).toHaveBeenCalled();
+    alert.mockRestore();
+  });
+
+  it('swallows a retry that rejects after the alert handler runs', async () => {
+    mockConnect.mockRejectedValue(new Error('first fail'));
+    let retryPress;
+    let alertCalls = 0;
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
+      alertCalls += 1;
+      retryPress = buttons && buttons[1] && buttons[1].onPress;
+      if (alertCalls > 1) {
+        throw new Error('alert cannot open twice');
+      }
+    });
+    renderWith([hdWallet]);
+    await waitFor(() => assert.ok(latestCtx));
+    await act(async () => {
+      await latestCtx.createSparkWallet();
+    });
+    assert.ok(typeof retryPress === 'function');
+    await act(async () => {
+      retryPress();
+    });
+    alert.mockRestore();
   });
 });

@@ -1,11 +1,43 @@
 import React, { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, AppStateStatus } from 'react-native';
+import createHash from 'create-hash';
 import { BlueStorageContext } from '../../../blue_modules/storage-context';
 import { HDSegwitBech32Wallet } from '../../../class';
 import { SparkWallet } from '../../../class/wallets/spark-wallet';
 import loc from '../../../loc';
 import { connectSparkSdk, disconnectSparkSdk, isSparkSdkConnected, requireSparkSdk, syncSparkWallet } from '../spark-sdk';
 import { SdkEvent_Tags, type SdkEvent } from '@breeztech/breez-sdk-spark-react-native';
+
+const LIGHTNING_ADDRESS_USERNAME_LENGTH = 16;
+const LIGHTNING_ADDRESS_REGISTER_ATTEMPTS = 5;
+
+function lightningAddressUsername(identityPubkey: string, attempt: number): string {
+  const base = createHash('sha256').update(identityPubkey).digest().toString('hex').slice(0, LIGHTNING_ADDRESS_USERNAME_LENGTH);
+  return attempt === 0 ? base : `${base}${attempt + 1}`;
+}
+
+type LightningAddressSdk = {
+  checkLightningAddressAvailable: (req: { username: string }) => Promise<boolean>;
+  registerLightningAddress: (req: {
+    username: string;
+    description: string | undefined;
+  }) => Promise<{ lightningAddress: string } | undefined>;
+};
+
+async function registerLightningAddressOnce(
+  sdk: LightningAddressSdk,
+  identityPubkey: string,
+  description: string,
+): Promise<string | undefined> {
+  for (let attempt = 0; attempt < LIGHTNING_ADDRESS_REGISTER_ATTEMPTS; attempt++) {
+    const username = lightningAddressUsername(identityPubkey, attempt);
+    const available = await sdk.checkLightningAddressAvailable({ username });
+    if (!available) continue;
+    const info = await sdk.registerLightningAddress({ username, description });
+    return info?.lightningAddress;
+  }
+  return undefined;
+}
 
 export interface SparkContextInterface {
   isConnected: boolean;
@@ -49,15 +81,20 @@ function getSparkWallet(wallets: { type: string }[]): SparkWallet | undefined {
   return wallets.find(w => w.type === SparkWallet.type) as SparkWallet | undefined;
 }
 
+function writeLightningAddress(wallet: SparkWallet, address: string): void {
+  wallet.lnAddress = address;
+}
+
 export function SparkContextProvider(props: PropsWithChildren): React.JSX.Element {
   const { wallets, walletsInitialized, addAndSaveWallet, saveToDisk } = useContext(BlueStorageContext);
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const connectingRef = useRef(false);
+  const connectingCountRef = useRef(0);
   const isCreatingRef = useRef(false);
   const sparkWalletRef = useRef<SparkWallet | undefined>(undefined);
-  const createSparkWalletRef = useRef<() => Promise<SparkWallet | null>>(async () => null);
+  const lnAddressRegisterAttemptedRef = useRef(false);
+  const createSparkWalletRef = useRef<(() => Promise<SparkWallet | null>) | undefined>(undefined);
 
   useEffect(() => {
     sparkWalletRef.current = getSparkWallet(wallets);
@@ -71,9 +108,16 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
         await target.fetchBalance();
         await target.fetchTransactions();
         await target.fetchUserInvoices();
-        const lnInfo = await requireSparkSdk().getLightningAddress();
+        const sdk = requireSparkSdk();
+        const lnInfo = await sdk.getLightningAddress();
         if (lnInfo?.lightningAddress) {
-          target.lnAddress = lnInfo.lightningAddress;
+          writeLightningAddress(target, lnInfo.lightningAddress);
+        } else if (!target.lnAddress && !lnAddressRegisterAttemptedRef.current && target.identityPubkey) {
+          lnAddressRegisterAttemptedRef.current = true;
+          const registered = await registerLightningAddressOnce(sdk, target.identityPubkey, loc.wallets.lightning_spark_wallet_label);
+          if (registered) {
+            writeLightningAddress(target, registered);
+          }
         }
         await saveToDisk();
       } catch (e) {
@@ -90,8 +134,14 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
         event.tag === SdkEvent_Tags.PaymentSucceeded ||
         event.tag === SdkEvent_Tags.PaymentPending ||
         event.tag === SdkEvent_Tags.PaymentFailed ||
-        event.tag === SdkEvent_Tags.LightningAddressChanged
+        event.tag === SdkEvent_Tags.LightningAddressChanged ||
+        event.tag === SdkEvent_Tags.NewDeposits ||
+        event.tag === SdkEvent_Tags.ClaimedDeposits ||
+        event.tag === SdkEvent_Tags.UnclaimedDeposits
       ) {
+        if (event.tag === SdkEvent_Tags.UnclaimedDeposits) {
+          console.warn('SparkContext: unclaimed deposits remain');
+        }
         await refreshSparkWallet();
       }
     },
@@ -100,19 +150,17 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
 
   const ensureConnected = useCallback(
     async (mnemonic: string): Promise<void> => {
-      if (isSparkSdkConnected()) {
-        setIsConnected(true);
-        return;
-      }
-      if (connectingRef.current) return;
-      connectingRef.current = true;
+      // Always call through: connectSparkSdk reuses, replaces, or joins an in-flight connect.
+      connectingCountRef.current += 1;
       setIsConnecting(true);
       try {
         await connectSparkSdk(mnemonic, onSdkEvent);
         setIsConnected(true);
       } finally {
-        connectingRef.current = false;
-        setIsConnecting(false);
+        connectingCountRef.current -= 1;
+        if (connectingCountRef.current === 0) {
+          setIsConnecting(false);
+        }
       }
     },
     [onSdkEvent],
@@ -189,14 +237,18 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
       const sdk = requireSparkSdk();
       const info = await sdk.getInfo({ ensureSynced: false });
 
-      // Lightning address is optional for usability; a failed lookup must not abort create.
+      // Lightning address is optional for usability; a failed lookup or register must not abort create.
       let lnAddress: string | undefined;
       try {
         const lnInfo = await sdk.getLightningAddress();
         lnAddress = lnInfo?.lightningAddress;
+        if (!lnAddress) {
+          lnAddress = await registerLightningAddressOnce(sdk, info.identityPubkey, loc.wallets.lightning_spark_wallet_label);
+        }
       } catch (e) {
         console.warn('SparkContext: getLightningAddress failed; wallet remains usable without lnAddress', e);
       }
+      lnAddressRegisterAttemptedRef.current = true;
 
       const created = SparkWallet.create(info.identityPubkey, lnAddress);
       created.setLabel(loc.wallets.lightning_spark_wallet_label);
@@ -218,7 +270,10 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
         {
           text: loc._.repeat,
           onPress: () => {
-            createSparkWalletRef.current().catch(() => {});
+            const create = createSparkWalletRef.current;
+            if (create) {
+              create().catch(() => {});
+            }
           },
         },
       ]);
