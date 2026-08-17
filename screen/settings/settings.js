@@ -66,7 +66,7 @@ const Settings = () => {
             onPress={() =>
               chfTaprootWallet
                 ? navigateToWalletDetails(chfTaprootWallet.getID())
-                : // Nested form matches the former home.js entry and the AddLightning screen in WalletsStack.
+                : // No CHF taproot wallet yet: open the Lightning add flow for that asset.
                   navigate('WalletsRoot', { screen: 'AddLightning', params: { asset: TaprootLdsWalletType.CHF } })
             }
             testID="WalletDetailsChfTaproot"
