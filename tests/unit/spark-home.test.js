@@ -266,7 +266,8 @@ describe('home screen Spark Lightning add path (render)', () => {
     });
 
     await waitFor(() => expect(alert).toHaveBeenCalled());
-    expect(alert.mock.calls[0][1]).toMatch(/spark connect failed/);
+    expect(String(alert.mock.calls[0][1])).toBe(loc.formatString(loc.wallets.lightning_spark_generic_error, { kind: 'Error' }));
+    expect(String(alert.mock.calls[0][1])).not.toMatch(/spark connect failed/);
     expect(screen.queryByText(loc.wallets.lightning_spark_wallet_label)).toBeNull();
     expect(screen.getByText(loc.wallets.lightning_wallet_label)).toBeTruthy();
     expect(screen.getAllByText(loc._.add).length).toBeGreaterThanOrEqual(1);

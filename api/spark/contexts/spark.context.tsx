@@ -24,13 +24,13 @@ export function useSparkContext(): SparkContextInterface {
   return ctx;
 }
 
-function errorMessage(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
-}
-
-/** Class/kind only — safe for Sentry breadcrumbs and console.error issues. */
+/** Class/kind only — safe for crash-report breadcrumbs and console.error issues. */
 function errorClass(e: unknown): string {
   return e instanceof Error ? e.name : typeof e;
+}
+
+function userFacingError(e: unknown): string {
+  return loc.formatString(loc.wallets.lightning_spark_generic_error, { kind: errorClass(e) });
 }
 
 function getOnChainMnemonic(wallets: { type: string; getSecret: () => string }[]): string {
@@ -133,14 +133,12 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
           await refreshSparkWallet(spark);
         }
       } catch (e: unknown) {
-        const message = errorMessage(e);
-        // App.js wires captureConsoleIntegration({ levels: ['error'] }): every console.error
-        // becomes a Sentry issue. Connect receives the recovery phrase and BREEZ_API_KEY;
-        // SDK Error.message can echo those inputs. Log only a
-        // fixed tag + error class — never the raw message. The Alert below is UI-only.
+        // console.error is forwarded to crash reports; never log the raw message
+        // because connect receives the recovery phrase and API key, and the error
+        // text can repeat those inputs. Log only a fixed tag and the error class.
         console.error('SparkContext: failed to connect', errorClass(e));
         // Missing API key must fail loudly — never leave a silent broken Lightning tab.
-        Alert.alert(loc.wallets.lightning_spark_wallet_label, message);
+        Alert.alert(loc.wallets.lightning_spark_wallet_label, userFacingError(e));
       }
     })();
 
@@ -210,13 +208,12 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
       await refreshSparkWallet(created);
       return created;
     } catch (e: unknown) {
-      const message = errorMessage(e);
       // Nothing half-created: wallet is only persisted via addAndSaveWallet on success.
       if (!getSparkWallet(wallets)) {
         await Promise.resolve(disconnectSparkSdk()).catch(() => {});
         setIsConnected(false);
       }
-      Alert.alert(loc.wallets.lightning_spark_wallet_label, message, [
+      Alert.alert(loc.wallets.lightning_spark_wallet_label, userFacingError(e), [
         { text: loc._.cancel, style: 'cancel' },
         {
           text: loc._.repeat,

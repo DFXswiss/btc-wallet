@@ -26,6 +26,12 @@ jest.mock('../../class', () => ({
 const { SparkWallet } = require('../../class/wallets/spark-wallet');
 const { BlueStorageContext } = require('../../blue_modules/storage-context');
 const { SparkContextProvider, useSparkContext } = require('../../api/spark/contexts/spark.context');
+const loc = require('../../loc').default;
+
+function expectedUserFacingError(e) {
+  const kind = e instanceof Error ? e.name : typeof e;
+  return loc.formatString(loc.wallets.lightning_spark_generic_error, { kind });
+}
 
 let latestCtx;
 
@@ -155,7 +161,8 @@ describe('SparkContextProvider', () => {
     assert.strictEqual(result, null);
     expect(addAndSaveWallet).not.toHaveBeenCalled();
     expect(alert).toHaveBeenCalled();
-    expect(String(alert.mock.calls[0][1])).toMatch(/getInfo failed/);
+    expect(String(alert.mock.calls[0][1])).toBe(expectedUserFacingError(new Error('getInfo failed')));
+    expect(String(alert.mock.calls[0][1])).not.toMatch(/getInfo failed/);
     alert.mockRestore();
   });
 
@@ -206,7 +213,8 @@ describe('SparkContextProvider', () => {
     const existing = stubSparkMethods(SparkWallet.create('stored-pk'));
     renderWith([hdWallet, existing]);
     await waitFor(() => expect(alert).toHaveBeenCalled());
-    expect(String(alert.mock.calls[0][1])).toMatch(/BREEZ_API_KEY/);
+    expect(String(alert.mock.calls[0][1])).toBe(expectedUserFacingError(new Error('BREEZ_API_KEY missing')));
+    expect(String(alert.mock.calls[0][1])).not.toMatch(/BREEZ_API_KEY/);
     alert.mockRestore();
   });
 
@@ -226,9 +234,9 @@ describe('SparkContextProvider', () => {
         assert.ok(!String(arg).includes(seedMarker), `console.error must not contain seed material: ${arg}`);
       }
     }
-    // User-facing Alert may still show the message; that never reaches Sentry.
     expect(alert).toHaveBeenCalled();
-    expect(String(alert.mock.calls[0][1])).toContain(seedMarker);
+    expect(String(alert.mock.calls[0][1])).toBe(expectedUserFacingError(new Error(`invalid mnemonic: ${seedMarker}`)));
+    expect(String(alert.mock.calls[0][1])).not.toContain(seedMarker);
     // Fixed tag + Error name only.
     expect(errorSpy.mock.calls.some(c => c[0] === 'SparkContext: failed to connect' && c[1] === 'Error')).toBe(true);
 
@@ -256,7 +264,8 @@ describe('SparkContextProvider', () => {
     assert.strictEqual(result, null);
     expect(addAndSaveWallet).not.toHaveBeenCalled();
     expect(alert).toHaveBeenCalled();
-    expect(String(alert.mock.calls[0][1])).toMatch(/recovery phrase|not available/i);
+    expect(String(alert.mock.calls[0][1])).toBe(expectedUserFacingError(new Error('On-chain recovery phrase is not available')));
+    expect(String(alert.mock.calls[0][1])).not.toMatch(/recovery phrase|not available/i);
     alert.mockRestore();
   });
 
@@ -485,7 +494,28 @@ describe('SparkContextProvider', () => {
       await latestCtx.createSparkWallet();
     });
     expect(alert).toHaveBeenCalled();
-    expect(String(alert.mock.calls[0][1])).toMatch(/plain-string-failure/);
+    expect(String(alert.mock.calls[0][1])).toBe(expectedUserFacingError('plain-string-failure'));
+    expect(String(alert.mock.calls[0][1])).not.toMatch(/plain-string-failure/);
+    alert.mockRestore();
+  });
+
+  it('shows the localized Spark error plus the error class, never the SDK message', async () => {
+    const sdkMessage = 'invalid mnemonic: abandon abandon abandon BREEZ_API_KEY=secret';
+    mockConnect.mockRejectedValue(new Error(sdkMessage));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const existing = stubSparkMethods(SparkWallet.create('stored-pk'));
+    renderWith([hdWallet, existing]);
+    await waitFor(() => expect(alert).toHaveBeenCalled());
+
+    const title = alert.mock.calls[0][0];
+    const body = String(alert.mock.calls[0][1]);
+    assert.strictEqual(title, loc.wallets.lightning_spark_wallet_label);
+    assert.strictEqual(body, loc.formatString(loc.wallets.lightning_spark_generic_error, { kind: 'Error' }));
+    assert.ok(!body.includes(sdkMessage));
+    assert.ok(!body.includes('abandon'));
+    assert.ok(!body.includes('BREEZ_API_KEY'));
+    assert.ok(!body.includes('secret'));
+    assert.ok(body.includes('Error'));
     alert.mockRestore();
   });
 
