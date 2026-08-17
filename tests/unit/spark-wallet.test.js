@@ -366,4 +366,201 @@ describe('SparkWallet', () => {
     const method = mockSdk.receivePayment.mock.calls[0][0].paymentMethod;
     assert.strictEqual(method.inner.amountSats, undefined);
   });
+
+  it('addInvoice parses a string amount and defaults an empty local invoice list', async () => {
+    mockSdk.receivePayment.mockResolvedValue({ paymentRequest: SAMPLE_INVOICE, fee: 0n });
+    const wallet = new SparkWallet();
+    wallet.user_invoices_raw = undefined;
+    await wallet.addInvoice('250', 'tea');
+    assert.strictEqual(wallet.user_invoices_raw.length, 1);
+    assert.strictEqual(wallet.user_invoices_raw[0].amt, 250);
+    const method = mockSdk.receivePayment.mock.calls[0][0].paymentMethod;
+    assert.strictEqual(method.inner.amountSats, 250n);
+  });
+
+  it('addInvoice uses a 3600s expiry when decodeInvoice omits one', async () => {
+    mockSdk.receivePayment.mockResolvedValue({ paymentRequest: SAMPLE_INVOICE, fee: 0n });
+    const wallet = new SparkWallet();
+    wallet.decodeInvoice = () => ({
+      payment_hash: 'h',
+      num_satoshis: '1',
+      num_millisatoshis: '1000',
+      timestamp: '1',
+      fallback_addr: '',
+      route_hints: [],
+    });
+    await wallet.addInvoice(1, 'x');
+    assert.strictEqual(wallet.user_invoices_raw[0].expire_time, 3600);
+  });
+
+  it('payInvoice without a free amount still completes', async () => {
+    mockSdk.prepareSendPayment.mockResolvedValue({ paymentMethod: {} });
+    mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Completed } });
+    const wallet = new SparkWallet();
+    await wallet.payInvoice(SAMPLE_INVOICE);
+    const arg = mockSdk.prepareSendPayment.mock.calls[0][0];
+    assert.strictEqual(arg.amount, undefined);
+  });
+
+  it('getTransactions fills missing lists and drops unpaid 1-sat sign-in invoices', () => {
+    const wallet = SparkWallet.create('lists-pk');
+    wallet.pending_transactions_raw = undefined;
+    wallet.user_invoices_raw = undefined;
+    wallet.transactions_raw = undefined;
+    assert.deepStrictEqual(wallet.getTransactions(), []);
+
+    wallet.user_invoices_raw = [
+      { payment_request: 'signin', timestamp: 1, type: 'user_invoice', amt: 1, ispaid: false, expire_time: 3600 },
+      { payment_request: 'paid-signin', timestamp: 2, type: 'user_invoice', amt: 1, ispaid: true, expire_time: 3600 },
+      { payment_request: 'open', timestamp: 3, type: 'user_invoice', amt: 5, ispaid: false, expire_time: 3600 },
+    ];
+    const txs = wallet.getTransactions();
+    assert.strictEqual(
+      txs.some(tx => tx.payment_request === 'signin'),
+      false,
+    );
+    assert.strictEqual(
+      txs.some(tx => tx.payment_request === 'paid-signin'),
+      true,
+    );
+    assert.strictEqual(
+      txs.some(tx => tx.payment_request === 'open'),
+      true,
+    );
+  });
+
+  it('getTransactions derives values and skips records that already have one', () => {
+    const wallet = SparkWallet.create('value-pk');
+    wallet.transactions_raw = [
+      { payment_request: 'paid', timestamp: 4, type: 'paid_invoice', amt: 10, expire_time: 3600, ispaid: true },
+      { payment_request: 'kept', timestamp: 5, type: 'paid_invoice', amt: 3, value: -9, expire_time: 3600, ispaid: true },
+      { payment_request: 'other', timestamp: 6, type: 'other', expire_time: 3600, ispaid: false },
+    ];
+    wallet.user_invoices_raw = [{ payment_request: 'in', timestamp: 7, type: 'user_invoice', amt: 8, expire_time: 3600, ispaid: true }];
+    const txs = wallet.getTransactions();
+    const byReq = Object.fromEntries(txs.map(tx => [tx.payment_request, tx]));
+    assert.strictEqual(byReq.paid.value, -10);
+    assert.strictEqual(byReq.kept.value, -9);
+    assert.strictEqual(byReq.in.value, 8);
+    assert.strictEqual(byReq.other.value, undefined);
+  });
+
+  it('weOwnTransaction ignores empty entries and invoices without a hash', () => {
+    const wallet = SparkWallet.create('own-empty-pk');
+    wallet.getTransactions = () => [
+      undefined,
+      { payment_request: 'x', timestamp: 1, type: 'user_invoice', amt: 1, ispaid: true, expire_time: 3600 },
+    ];
+    assert.strictEqual(wallet.weOwnTransaction('abc'), false);
+  });
+
+  it('fetchTransactions ignores failed payments', async () => {
+    mockSdk.listPayments.mockResolvedValue({
+      payments: [
+        {
+          id: 'fail',
+          paymentType: PaymentType.Send,
+          status: PaymentStatus.Failed,
+          amount: 1n,
+          fees: 0n,
+          timestamp: 1n,
+          method: {},
+          details: undefined,
+        },
+      ],
+    });
+    const wallet = new SparkWallet();
+    await wallet.fetchTransactions();
+    assert.strictEqual(wallet.transactions_raw.length, 0);
+    assert.strictEqual(wallet.pending_transactions_raw.length, 0);
+  });
+
+  it('mapPayment uses fallback memos when Lightning details have no description', async () => {
+    mockSdk.listPayments.mockResolvedValue({
+      payments: [
+        {
+          id: 's1',
+          paymentType: PaymentType.Send,
+          status: PaymentStatus.Completed,
+          amount: 2n,
+          fees: 1n,
+          timestamp: 2n,
+          method: {},
+          details: {
+            tag: PaymentDetails_Tags.Lightning,
+            inner: { description: undefined, invoice: 'inv-s', destinationPubkey: 'x', htlcDetails: {} },
+          },
+        },
+        {
+          id: 'r1',
+          paymentType: PaymentType.Receive,
+          status: PaymentStatus.Completed,
+          amount: 3n,
+          fees: 0n,
+          timestamp: 3n,
+          method: {},
+          details: {
+            tag: PaymentDetails_Tags.Lightning,
+            inner: { description: '', invoice: 'inv-r', destinationPubkey: 'x', htlcDetails: {} },
+          },
+        },
+      ],
+    });
+    const wallet = new SparkWallet();
+    await wallet.fetchTransactions();
+    assert.strictEqual(wallet.transactions_raw[0].memo, 'Lightning payment');
+    assert.strictEqual(wallet.transactions_raw[1].memo, 'Lightning invoice');
+  });
+
+  it('decodeInvoice maps millisatoshis and the remaining bolt11 tags', () => {
+    const bolt11 = require('bolt11');
+    const spy = jest.spyOn(bolt11, 'decode').mockReturnValue({
+      payeeNodeKey: 'dest',
+      tags: [
+        { tagName: 'payment_hash', data: 'hh' },
+        { tagName: 'purpose_commit_hash', data: 'dh' },
+        { tagName: 'min_final_cltv_expiry', data: 40 },
+        { tagName: 'expire_time', data: '' },
+        { tagName: 'description', data: 'memo' },
+        { tagName: 'unknown', data: 'x' },
+      ],
+      satoshis: null,
+      millisatoshis: '1500',
+      timestamp: undefined,
+    });
+    const decoded = new SparkWallet().decodeInvoice('lnbc1fake');
+    assert.strictEqual(decoded.destination, 'dest');
+    assert.strictEqual(decoded.num_satoshis, '1.5');
+    assert.strictEqual(decoded.num_millisatoshis, '1500');
+    assert.strictEqual(decoded.description_hash, 'dh');
+    assert.strictEqual(decoded.cltv_expiry, '40');
+    assert.strictEqual(decoded.expiry, '3600');
+    assert.strictEqual(decoded.timestamp, '0');
+    assert.strictEqual(decoded.description, 'memo');
+    spy.mockRestore();
+  });
+
+  it('decodeInvoice converts a real millisatoshi invoice into satoshis', () => {
+    const wallet = new SparkWallet();
+    const decoded = wallet.decodeInvoice(
+      'lnbc89n1p0zptvhpp5j3h5e80vdlzn32df8y80nl2t7hssn74lzdr96ve0u4kpaupflx2sdphgfkx7cmtwd68yetpd5s9xct5v4kxc6t5v5s9gunpdeek66tnwd5k7mscqp2sp57m89zv0lrgc9zzaxy5p3d5rr2cap2pm6zm4n0ew9vyp2d5zf2mfqrzjqfxj8p6qjf5l8du7yuytkwdcjhylfd4gxgs48t65awjg04ye80mq7z990yqq9jsqqqqqqqqqqqqq05qqrc9qy9qsq9mynpa9ucxg53hwnvw323r55xdd3l6lcadzs584zvm4wdw5pv3eksdlcek425pxaqrn9u5gpw0dtpyl9jw2pynjtqexxgh50akwszjgq4ht4dh',
+    );
+    assert.strictEqual(decoded.num_satoshis, '8.9');
+    assert.ok(parseInt(decoded.num_millisatoshis, 10) > 0);
+  });
+
+  it('decodeInvoice uses zero millisatoshis when bolt11 omits them', () => {
+    const bolt11 = require('bolt11');
+    const spy = jest.spyOn(bolt11, 'decode').mockReturnValue({
+      payeeNodeKey: 'dest',
+      tags: [{ tagName: 'payment_hash', data: 'hh' }],
+      satoshis: 12,
+      millisatoshis: null,
+      timestamp: 1,
+    });
+    const decoded = new SparkWallet().decodeInvoice('lnbc1fake');
+    assert.strictEqual(decoded.num_satoshis, '12');
+    assert.strictEqual(decoded.num_millisatoshis, '0');
+    spy.mockRestore();
+  });
 });
