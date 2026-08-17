@@ -11,6 +11,7 @@ import {
 } from '@breeztech/breez-sdk-spark-react-native';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import { requireSparkSdk } from '../../api/spark/spark-sdk';
+import loc from '../../loc';
 import { AbstractWallet } from './abstract-wallet';
 
 /** Shape expected by LND screens (lndReceive, transaction list, etc.). */
@@ -172,7 +173,7 @@ export class SparkWallet extends AbstractWallet {
     }
   }
 
-  async fetchUserInvoices(): Promise<void> {
+  async getUserInvoices(limit = 0): Promise<SparkInvoiceRecord[]> {
     const sdk = requireSparkSdk();
     const response = await sdk.listPayments({
       typeFilter: [PaymentType.Receive],
@@ -182,7 +183,7 @@ export class SparkWallet extends AbstractWallet {
       fromTimestamp: undefined,
       toTimestamp: undefined,
       offset: undefined,
-      limit: 50,
+      limit: limit > 0 ? limit : 50,
       sortAscending: false,
     });
 
@@ -194,6 +195,11 @@ export class SparkWallet extends AbstractWallet {
       }
     }
     this.user_invoices_raw = remote.sort((a, b) => a.timestamp - b.timestamp);
+    return this.user_invoices_raw;
+  }
+
+  async fetchUserInvoices(): Promise<void> {
+    await this.getUserInvoices();
   }
 
   isInvoiceGeneratedByWallet(paymentRequest: string): boolean {
@@ -246,6 +252,11 @@ export class SparkWallet extends AbstractWallet {
   }
 
   async payInvoice(invoice: string, freeAmount = 0): Promise<void> {
+    const decoded = this.decodeInvoice(invoice);
+    if (!decoded.payment_hash) {
+      throw new Error(loc.wallets.lightning_spark_invoice_unreadable);
+    }
+
     const sdk = requireSparkSdk();
     const amount = freeAmount && freeAmount > 0 ? BigInt(freeAmount) : undefined;
 
@@ -263,16 +274,15 @@ export class SparkWallet extends AbstractWallet {
         preferSpark: false,
         completionTimeoutSecs: SparkWallet.SEND_PAYMENT_COMPLETION_TIMEOUT_SECS,
       }),
-      idempotencyKey: undefined,
+      idempotencyKey: decoded.payment_hash,
     });
 
     if (payment.status === PaymentStatus.Failed) {
-      throw new Error('Payment failed');
+      throw new Error(loc.wallets.lightning_spark_payment_failed);
     }
     if (payment.status !== PaymentStatus.Completed) {
-      // Mirrors the LND custodian path (lightning-custodian-wallet.js), which also
-      // refuses to report success without a confirmed payment_preimage.
-      throw new Error('Payment is in transit');
+      // Pending is not success: the payment may still fail, and the caller must not treat it as paid.
+      throw new Error(loc.wallets.lightning_spark_payment_in_transit);
     }
   }
 

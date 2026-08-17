@@ -22,6 +22,7 @@ const SAMPLE_INVOICE =
 
 const { SparkWallet } = require('../../class/wallets/spark-wallet');
 const { BitcoinUnit, Chain } = require('../../models/bitcoinUnits');
+const loc = require('../../loc').default;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -119,7 +120,7 @@ describe('SparkWallet', () => {
     expect(mockSdk.prepareSendPayment).toHaveBeenCalled();
     const arg = mockSdk.sendPayment.mock.calls[0][0];
     assert.strictEqual(arg.prepareResponse, prepareResponse);
-    assert.strictEqual(arg.idempotencyKey, undefined);
+    assert.strictEqual(arg.idempotencyKey, wallet.decodeInvoice(SAMPLE_INVOICE).payment_hash);
     assert.strictEqual(arg.options.tag, SendPaymentOptions_Tags.Bolt11Invoice);
     assert.strictEqual(arg.options.inner.preferSpark, false);
     assert.strictEqual(arg.options.inner.completionTimeoutSecs, 30);
@@ -138,14 +139,45 @@ describe('SparkWallet', () => {
     mockSdk.prepareSendPayment.mockResolvedValue({ paymentMethod: {} });
     mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Pending } });
     const wallet = new SparkWallet();
-    await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, 0), /in transit/);
+    await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, 0), new RegExp(loc.wallets.lightning_spark_payment_in_transit));
   });
 
   it('payInvoice throws when the payment fails', async () => {
     mockSdk.prepareSendPayment.mockResolvedValue({ paymentMethod: {} });
     mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Failed } });
     const wallet = new SparkWallet();
-    await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, 0), /failed/);
+    await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, 0), new RegExp(loc.wallets.lightning_spark_payment_failed));
+  });
+
+  it('payInvoice reuses the invoice payment_hash as idempotencyKey on repeat sends', async () => {
+    mockSdk.prepareSendPayment.mockResolvedValue({ paymentMethod: {} });
+    mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Completed } });
+    const wallet = new SparkWallet();
+    await wallet.payInvoice(SAMPLE_INVOICE, 0);
+    await wallet.payInvoice(SAMPLE_INVOICE, 0);
+    assert.strictEqual(mockSdk.sendPayment.mock.calls.length, 2);
+    const firstKey = mockSdk.sendPayment.mock.calls[0][0].idempotencyKey;
+    const secondKey = mockSdk.sendPayment.mock.calls[1][0].idempotencyKey;
+    assert.strictEqual(firstKey, secondKey);
+    assert.strictEqual(firstKey, wallet.decodeInvoice(SAMPLE_INVOICE).payment_hash);
+    assert.ok(firstKey);
+  });
+
+  it('payInvoice does not send when the invoice has no payment_hash', async () => {
+    mockSdk.prepareSendPayment.mockResolvedValue({ paymentMethod: {} });
+    mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Completed } });
+    const wallet = new SparkWallet();
+    wallet.decodeInvoice = () => ({
+      num_satoshis: '0',
+      num_millisatoshis: '0',
+      timestamp: '0',
+      fallback_addr: '',
+      route_hints: [],
+      expiry: '3600',
+    });
+    await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, 0), new RegExp(loc.wallets.lightning_spark_invoice_unreadable));
+    expect(mockSdk.prepareSendPayment).not.toHaveBeenCalled();
+    expect(mockSdk.sendPayment).not.toHaveBeenCalled();
   });
 
   it('fetchTransactions maps completed and pending payments', async () => {
@@ -213,6 +245,60 @@ describe('SparkWallet', () => {
     await wallet.fetchUserInvoices();
     assert.strictEqual(wallet.user_invoices_raw.length, 1);
     assert.strictEqual(wallet.user_invoices_raw[0].payment_request, SAMPLE_INVOICE);
+  });
+
+  it('getUserInvoices returns a findable array and merges unpaid local invoices', async () => {
+    mockSdk.listPayments.mockResolvedValue({
+      payments: [
+        {
+          id: 'remote-1',
+          paymentType: PaymentType.Receive,
+          status: PaymentStatus.Completed,
+          amount: 20n,
+          fees: 0n,
+          timestamp: 20n,
+          method: {},
+          details: {
+            tag: PaymentDetails_Tags.Lightning,
+            inner: { description: 'paid', invoice: 'remote-invoice', destinationPubkey: 'x', htlcDetails: {} },
+          },
+        },
+      ],
+    });
+    const wallet = new SparkWallet();
+    wallet.user_invoices_raw = [
+      {
+        payment_request: SAMPLE_INVOICE,
+        timestamp: 1,
+        type: 'user_invoice',
+        amt: 10,
+        ispaid: false,
+        expire_time: 3600,
+      },
+    ];
+    const invoices = await wallet.getUserInvoices(1);
+    assert.ok(Array.isArray(invoices));
+    assert.ok(typeof invoices.find === 'function');
+    assert.strictEqual(invoices.find(i => i.payment_request === SAMPLE_INVOICE)?.ispaid, false);
+    assert.strictEqual(invoices.find(i => i.payment_request === 'remote-invoice')?.ispaid, true);
+    assert.strictEqual(wallet.user_invoices_raw, invoices);
+    expect(mockSdk.listPayments).toHaveBeenCalledWith(expect.objectContaining({ limit: 1, typeFilter: [PaymentType.Receive] }));
+  });
+
+  it('getUserInvoices uses limit 50 when called with 0', async () => {
+    mockSdk.listPayments.mockResolvedValue({ payments: [] });
+    const wallet = new SparkWallet();
+    const invoices = await wallet.getUserInvoices(0);
+    assert.ok(Array.isArray(invoices));
+    expect(mockSdk.listPayments).toHaveBeenCalledWith(expect.objectContaining({ limit: 50 }));
+  });
+
+  it('exposes the invoice methods the Lightning receive screens call', () => {
+    const wallet = new SparkWallet();
+    assert.strictEqual(typeof wallet.getUserInvoices, 'function');
+    assert.strictEqual(typeof wallet.fetchUserInvoices, 'function');
+    assert.strictEqual(typeof wallet.addInvoice, 'function');
+    assert.strictEqual(typeof wallet.decodeInvoice, 'function');
   });
 
   it('weOwnTransaction matches payment_hash', () => {
