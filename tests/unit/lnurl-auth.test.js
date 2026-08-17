@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import { Chain } from '../../models/bitcoinUnits';
 import loc from '../../loc';
@@ -113,5 +113,22 @@ describe('LnurlAuth without Lightning wallet', () => {
     expect(mockGoBack).not.toHaveBeenCalled();
     expect(screen.getByText(loc.lnurl_auth.authenticate)).toBeTruthy();
     expect(Alert.alert).not.toHaveBeenCalled();
+  });
+
+  it('shows a localized error when the wallet cannot authenticate, instead of throwing', () => {
+    const sparkLikeWallet = {
+      getID: () => 'spark-1',
+      chain: Chain.OFFCHAIN,
+      lnAddress: 'spark@example.com',
+    };
+    mockWallets = [sparkLikeWallet];
+    const screen = renderScreen();
+
+    expect(() => {
+      fireEvent.press(screen.getByText(loc.lnurl_auth.authenticate));
+    }).not.toThrow();
+
+    expect(screen.getByText(loc.wallets.lightning_spark_lnurl_auth_unsupported)).toBeTruthy();
+    expect(screen.queryByText(loc.lnurl_auth.authenticate)).toBeNull();
   });
 });
