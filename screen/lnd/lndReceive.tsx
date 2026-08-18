@@ -32,6 +32,7 @@ import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { AbstractWallet } from '../../class';
+import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import { majorTomToGroundControl, tryToObtainPermissions } from '../../blue_modules/notifications';
 import useInputAmount from '../../hooks/useInputAmount';
 import { SuccessView } from '../send/success';
@@ -273,7 +274,7 @@ const LNDReceive = () => {
                     onBlur={handleOnBlur}
                   />
                 </View>
-                {invoiceRequest ? (
+                {invoiceRequest && wallet.type === LightningLdsWallet.type ? (
                   <View>
                     {Platform.select({
                       ios: (

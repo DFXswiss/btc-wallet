@@ -42,11 +42,12 @@ jest.mock('../../components/navigationStyle', () => () => options => options);
 
 const mockSetParams = jest.fn();
 const mockGetParent = jest.fn(() => ({ popToTop: jest.fn() }));
+const mockRouteParams = { walletID: 'spark-receive-1' };
 jest.mock('@react-navigation/native', () => {
   const actual = jest.requireActual('@react-navigation/native');
   return {
     ...actual,
-    useRoute: () => ({ params: { walletID: 'spark-receive-1' } }),
+    useRoute: () => ({ params: mockRouteParams }),
     useNavigation: () => ({
       setParams: mockSetParams,
       getParent: mockGetParent,
@@ -76,6 +77,8 @@ const SAMPLE_INVOICE =
 
 const LNDReceive = require('../../screen/lnd/lndReceive').default;
 const { SparkWallet } = require('../../class/wallets/spark-wallet');
+const { LightningLdsWallet } = require('../../class/wallets/lightning-lds-wallet');
+const { Chain } = require('../../models/bitcoinUnits');
 const { BlueStorageContext } = require('../../blue_modules/storage-context');
 const loc = require('../../loc').default;
 
@@ -95,10 +98,58 @@ function paidPayment() {
   };
 }
 
+function makeSparkReceiveWallet(id) {
+  const wallet = SparkWallet.create('pk-receive-1');
+  wallet.getID = () => id;
+  wallet.lnAddress = 'spark@test';
+  wallet.setLabel('Spark');
+  return wallet;
+}
+
+function makeLdsReceiveWallet(id) {
+  return {
+    type: LightningLdsWallet.type,
+    chain: Chain.OFFCHAIN,
+    lnAddress: 'lds@test',
+    isPosMode: false,
+    getID: () => id,
+    getLabel: () => 'Lightning',
+    getLnurl: () => 'lnurl',
+    addInvoice: jest.fn().mockResolvedValue(SAMPLE_INVOICE),
+    decodeInvoice: jest.fn().mockResolvedValue({ payment_hash: 'hash' }),
+    getUserInvoices: jest.fn().mockResolvedValue([]),
+  };
+}
+
+function renderReceive(wallet) {
+  mockRouteParams.walletID = wallet.getID();
+  return render(
+    <BlueStorageContext.Provider
+      value={{
+        wallets: [wallet],
+        saveToDisk: jest.fn().mockResolvedValue(undefined),
+        setSelectedWallet: jest.fn(),
+        fetchAndSaveWalletTransactions: jest.fn(),
+      }}
+    >
+      <LNDReceive />
+    </BlueStorageContext.Provider>,
+  );
+}
+
+async function createInvoice(screen) {
+  fireEvent.changeText(screen.getByPlaceholderText('Amount (optional)'), '1000');
+  fireEvent(screen.getByPlaceholderText('Amount (optional)'), 'blur');
+  await act(async () => {
+    await Promise.resolve();
+  });
+}
+
 describe('LNDReceive with SparkWallet', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    mockRouteParams.walletID = 'spark-receive-1';
     mockSdk.receivePayment.mockResolvedValue({ paymentRequest: SAMPLE_INVOICE, fee: 0n });
     mockSdk.listPayments.mockResolvedValue({ payments: [] });
   });
@@ -155,5 +206,16 @@ describe('LNDReceive with SparkWallet', () => {
     expect(screen.getByText(loc.send.success_done)).toBeTruthy();
     expect(fetchAndSaveWalletTransactions).toHaveBeenCalledWith('spark-receive-1');
     assert.ok(typeof wallet.getUserInvoices === 'function');
+  });
+
+  it('hides Use Boltcard for Spark and keeps it for an LNDHub invoice', async () => {
+    const sparkScreen = renderReceive(makeSparkReceiveWallet('spark-receive-1'));
+    await createInvoice(sparkScreen);
+    expect(sparkScreen.queryByText('Use Boltcard')).toBeNull();
+    sparkScreen.unmount();
+
+    const ldsScreen = renderReceive(makeLdsReceiveWallet('lds-receive-1'));
+    await createInvoice(ldsScreen);
+    expect(ldsScreen.getByText('Use Boltcard')).toBeTruthy();
   });
 });
