@@ -362,7 +362,7 @@ describe('SparkContextProvider', () => {
     expect(addAndSaveWallet).toHaveBeenCalledWith(created);
     expect(alert).not.toHaveBeenCalled();
     const lnCalls = warn.mock.calls.filter(c => String(c[0]).includes('getLightningAddress failed'));
-    assert.ok(lnCalls.length >= 1);
+    assert.strictEqual(lnCalls.length, 1);
     for (const args of lnCalls) {
       assert.strictEqual(args[1], 'Error');
       assert.ok(!String(args[1]).includes('lnaddr down'));
@@ -682,7 +682,7 @@ describe('SparkContextProvider', () => {
     renderWith([hdWallet, existing]);
     await waitFor(() => expect(mockConnect).toHaveBeenCalled());
     const refreshCalls = warn.mock.calls.filter(c => c[0] === 'SparkContext: refresh failed');
-    assert.ok(refreshCalls.length >= 1);
+    assert.strictEqual(refreshCalls.length, 1);
     for (const args of refreshCalls) {
       assert.strictEqual(args[1], 'Error');
       assert.ok(!String(args[1]).includes('balance fail'));
@@ -744,7 +744,7 @@ describe('SparkContextProvider', () => {
       }
     });
     const syncCalls = warn.mock.calls.filter(c => c[0] === 'SparkContext: foreground sync failed');
-    assert.ok(syncCalls.length >= 1);
+    assert.strictEqual(syncCalls.length, 1);
     for (const args of syncCalls) {
       assert.strictEqual(args[1], 'Error');
       assert.ok(!String(args[1]).includes('sync fail'));
