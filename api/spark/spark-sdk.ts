@@ -24,9 +24,15 @@ let connectPromise: Promise<BreezSdkInterface> | null = null;
 let connectedSeedFingerprint: string | null = null;
 let connectedIdentityPubkey: string | null = null;
 let connectGeneration = 0;
+/** Resolves when an in-flight native teardown finishes. Connect waits so two sessions never share storageDir. */
+let transitionPromise: Promise<void> | null = null;
 
 function fingerprintMnemonic(mnemonic: string): string {
   return createHash('sha256').update(mnemonic).digest().toString('hex');
+}
+
+function errorKind(e: unknown): string {
+  return e instanceof Error ? e.name : typeof e;
 }
 
 export function getSparkSdk(): BreezSdkInterface | null {
@@ -64,24 +70,36 @@ export async function disconnectSparkSdk(): Promise<void> {
   listenerId = null;
   connectPromise = null;
 
-  try {
-    if (id) {
-      await instance.removeEventListener(id);
+  const teardown = (async () => {
+    try {
+      if (id) {
+        await instance.removeEventListener(id);
+      }
+    } catch (e) {
+      // Best-effort: the SDK may already have dropped the listener during disconnect.
+      // Follow-up is impossible without a live instance. Log class only — this SDK instance
+      // was built with seed + API key; Sentry breadcrumbs ride along with later issues.
+      console.warn('disconnectSparkSdk: removeEventListener failed', errorKind(e));
     }
-  } catch (e) {
-    // Best-effort: the SDK may already have dropped the listener during disconnect.
-    // Follow-up is impossible without a live instance. Log class only — this SDK instance
-    // was built with seed + API key; Sentry breadcrumbs ride along with later issues.
-    console.warn('disconnectSparkSdk: removeEventListener failed', e instanceof Error ? e.name : typeof e);
-  }
 
+    try {
+      await instance.disconnect();
+    } catch (e) {
+      // Best-effort session teardown: the process is exiting or the native side is already gone.
+      // Leaving a zombie listener is preferable to crashing the app on cleanup.
+      // Class only (seed/key may live in SDK error text); see App.js captureConsoleIntegration.
+      console.warn('disconnectSparkSdk: disconnect failed', errorKind(e));
+    }
+  })();
+
+  // Always resolve: a rejected transition would stall every later connect.
+  transitionPromise = teardown;
   try {
-    await instance.disconnect();
-  } catch (e) {
-    // Best-effort session teardown: the process is exiting or the native side is already gone.
-    // Leaving a zombie listener is preferable to crashing the app on cleanup.
-    // Class only (seed/key may live in SDK error text); see App.js captureConsoleIntegration.
-    console.warn('disconnectSparkSdk: disconnect failed', e instanceof Error ? e.name : typeof e);
+    await teardown;
+  } finally {
+    if (transitionPromise === teardown) {
+      transitionPromise = null;
+    }
   }
 }
 
@@ -96,6 +114,10 @@ export async function connectSparkSdk(mnemonic: string, onEvent?: (event: SdkEve
   // Never start a second native connect against the same storageDir. Wait, then
   // tear down, then start. The generation counter still covers disconnect-during-connect.
   while (true) {
+    if (transitionPromise) {
+      await transitionPromise;
+      continue;
+    }
     if (connectPromise && !sdk && connectedSeedFingerprint !== fingerprint) {
       const pending = connectPromise;
       try {
@@ -139,56 +161,52 @@ export async function connectSparkSdk(mnemonic: string, onEvent?: (event: SdkEve
       storageDir: `${RNFS.DocumentDirectoryPath}/breezSdkSpark`,
     });
 
-    if (generation !== connectGeneration) {
-      try {
-        await instance.disconnect();
-      } catch {
-        // Native teardown of a superseded connect; the replacement session is already starting.
-      }
-      throw new Error('Spark SDK connect superseded');
-    }
-
-    const info = await instance.getInfo({ ensureSynced: false });
-
-    if (generation !== connectGeneration) {
-      try {
-        await instance.disconnect();
-      } catch {
-        // Native teardown of a superseded connect; the replacement session is already starting.
-      }
-      throw new Error('Spark SDK connect superseded');
-    }
-
     let newListenerId: string | null = null;
-    if (onEvent) {
-      const listener: EventListener = {
-        onEvent: async (event: SdkEvent) => {
-          await onEvent(event);
-        },
-      };
-      newListenerId = await instance.addEventListener(listener);
-    }
+    try {
+      if (generation !== connectGeneration) {
+        throw new Error('Spark SDK connect superseded');
+      }
 
-    if (generation !== connectGeneration) {
+      const info = await instance.getInfo({ ensureSynced: false });
+
+      if (generation !== connectGeneration) {
+        throw new Error('Spark SDK connect superseded');
+      }
+
+      if (onEvent) {
+        const listener: EventListener = {
+          onEvent: async (event: SdkEvent) => {
+            await onEvent(event);
+          },
+        };
+        newListenerId = await instance.addEventListener(listener);
+      }
+
+      if (generation !== connectGeneration) {
+        throw new Error('Spark SDK connect superseded');
+      }
+
+      sdk = instance;
+      listenerId = newListenerId;
+      connectedIdentityPubkey = info.identityPubkey;
+      return instance;
+    } catch (e) {
+      // Any failure after native connect() — superseded or real — must drop this instance.
+      // Re-throw the original error; cleanup failures are class-only, like disconnectSparkSdk.
       try {
         if (newListenerId) {
           await instance.removeEventListener(newListenerId);
         }
-      } catch {
-        // Listener may already be gone with the superseded instance.
+      } catch (cleanupErr) {
+        console.warn('connectSparkSdk: removeEventListener failed', errorKind(cleanupErr));
       }
       try {
         await instance.disconnect();
-      } catch {
-        // Native teardown of a superseded connect; the replacement session is already starting.
+      } catch (cleanupErr) {
+        console.warn('connectSparkSdk: disconnect failed', errorKind(cleanupErr));
       }
-      throw new Error('Spark SDK connect superseded');
+      throw e;
     }
-
-    sdk = instance;
-    listenerId = newListenerId;
-    connectedIdentityPubkey = info.identityPubkey;
-    return instance;
   })();
 
   try {
@@ -218,4 +236,5 @@ export function __resetSparkSdkForTests(): void {
   connectedSeedFingerprint = null;
   connectedIdentityPubkey = null;
   connectGeneration = 0;
+  transitionPromise = null;
 }

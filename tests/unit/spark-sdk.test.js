@@ -146,6 +146,105 @@ describe('spark-sdk', () => {
     await assert.rejects(() => connectSparkSdk('one two three four five six seven eight nine ten eleven about'), /info down/);
     assert.strictEqual(isSparkSdkConnected(), false);
     assert.strictEqual(getSparkSessionIdentity(), null);
+    expect(mockInstance.disconnect).toHaveBeenCalled();
+  });
+
+  it('disconnects the native instance when addEventListener fails after connect', async () => {
+    mockInstance.addEventListener.mockRejectedValueOnce(new Error('listener down'));
+    await assert.rejects(
+      () => connectSparkSdk('one two three four five six seven eight nine ten eleven about', async () => {}),
+      /listener down/,
+    );
+    assert.strictEqual(isSparkSdkConnected(), false);
+    expect(mockInstance.disconnect).toHaveBeenCalled();
+    expect(mockInstance.removeEventListener).not.toHaveBeenCalled();
+  });
+
+  it('rethrows the original error when post-connect teardown also fails', async () => {
+    mockInstance.getInfo.mockRejectedValueOnce(new Error('info down'));
+    mockInstance.disconnect.mockRejectedValueOnce(new Error('teardown down'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    await assert.rejects(() => connectSparkSdk('one two three four five six seven eight nine ten eleven about'), /info down/);
+    expect(mockInstance.disconnect).toHaveBeenCalled();
+    const connectWarns = warn.mock.calls.filter(args => String(args[0]).includes('connectSparkSdk: disconnect failed'));
+    assert.strictEqual(connectWarns.length, 1);
+    assert.strictEqual(connectWarns[0][1], 'Error');
+    assert.ok(!String(connectWarns[0][1]).includes('teardown down'));
+    assert.ok(!String(connectWarns[0][1]).includes('info down'));
+    warn.mockRestore();
+  });
+
+  it('logs only the value kind when post-connect teardown rejects with a non-Error', async () => {
+    mockInstance.getInfo.mockRejectedValueOnce(new Error('info down'));
+    mockInstance.disconnect.mockRejectedValueOnce('teardown down');
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    await assert.rejects(() => connectSparkSdk('one two three four five six seven eight nine ten eleven about'), /info down/);
+    const kinds = warn.mock.calls.filter(args => String(args[0]).includes('connectSparkSdk: disconnect failed')).map(args => args[1]);
+    assert.ok(kinds.includes('string'));
+    warn.mockRestore();
+  });
+
+  it('removes a registered listener and still rethrows when that teardown step fails', async () => {
+    const seedA = 'one two three four five six seven eight nine ten eleven about';
+    let resolveAddA;
+    let markAddAStarted;
+    const addAStarted = new Promise(resolve => {
+      markAddAStarted = resolve;
+    });
+    const instanceA = makeSdkInstance('a');
+    instanceA.addEventListener.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveAddA = resolve;
+          markAddAStarted();
+        }),
+    );
+    instanceA.removeEventListener.mockRejectedValueOnce(new Error('listener gone'));
+    breez.connect.mockResolvedValue(instanceA);
+
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const pendingA = connectSparkSdk(seedA, async () => {});
+    await addAStarted;
+    await disconnectSparkSdk();
+    resolveAddA('listener-a');
+    await assert.rejects(pendingA, /superseded/);
+    expect(instanceA.removeEventListener).toHaveBeenCalledWith('listener-a');
+    expect(instanceA.disconnect).toHaveBeenCalled();
+    const listenerWarns = warn.mock.calls.filter(args => String(args[0]).includes('connectSparkSdk: removeEventListener failed'));
+    assert.strictEqual(listenerWarns.length, 1);
+    assert.strictEqual(listenerWarns[0][1], 'Error');
+    warn.mockRestore();
+  });
+
+  it('logs only the value kind when listener teardown after connect rejects with a non-Error', async () => {
+    const seedA = 'one two three four five six seven eight nine ten eleven about';
+    let resolveAddA;
+    let markAddAStarted;
+    const addAStarted = new Promise(resolve => {
+      markAddAStarted = resolve;
+    });
+    const instanceA = makeSdkInstance('a');
+    instanceA.addEventListener.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveAddA = resolve;
+          markAddAStarted();
+        }),
+    );
+    instanceA.removeEventListener.mockRejectedValueOnce('listener gone');
+    breez.connect.mockResolvedValue(instanceA);
+
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const pendingA = connectSparkSdk(seedA, async () => {});
+    await addAStarted;
+    await disconnectSparkSdk();
+    resolveAddA('listener-a');
+    await assert.rejects(pendingA, /superseded/);
+    const kinds = warn.mock.calls
+      .filter(args => String(args[0]).includes('connectSparkSdk: removeEventListener failed'))
+      .map(args => args[1]);
+    assert.ok(kinds.includes('string'));
+    warn.mockRestore();
   });
 
   it('shares an in-flight connect promise between concurrent callers', async () => {
@@ -289,6 +388,35 @@ describe('spark-sdk', () => {
     assert.strictEqual(getSparkSdk(), null);
     assert.strictEqual(getSparkSessionIdentity(), null);
     expect(instanceA.disconnect).toHaveBeenCalled();
+  });
+
+  it('does not start a native connect while a previous session is still tearing down', async () => {
+    const seed = 'one two three four five six seven eight nine ten eleven about';
+    const seedB = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+    await connectSparkSdk(seed);
+    expect(breez.connect).toHaveBeenCalledTimes(1);
+
+    let releaseDisconnect;
+    mockInstance.disconnect.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          releaseDisconnect = resolve;
+        }),
+    );
+    const instanceB = makeSdkInstance('b');
+    breez.connect.mockResolvedValueOnce(instanceB);
+
+    const pendingDisconnect = disconnectSparkSdk();
+    const pendingConnect = connectSparkSdk(seedB);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(breez.connect).toHaveBeenCalledTimes(1);
+
+    releaseDisconnect();
+    await pendingDisconnect;
+    const next = await pendingConnect;
+    assert.strictEqual(next, instanceB);
+    expect(breez.connect).toHaveBeenCalledTimes(2);
   });
 
   it('starts a different-seed connect only after the in-flight connect finishes and is disconnected', async () => {

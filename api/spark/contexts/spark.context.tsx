@@ -5,7 +5,14 @@ import { BlueStorageContext } from '../../../blue_modules/storage-context';
 import { HDSegwitBech32Wallet } from '../../../class';
 import { SparkWallet } from '../../../class/wallets/spark-wallet';
 import loc from '../../../loc';
-import { connectSparkSdk, disconnectSparkSdk, isSparkSdkConnected, requireSparkSdk, syncSparkWallet } from '../spark-sdk';
+import {
+  connectSparkSdk,
+  disconnectSparkSdk,
+  getSparkSessionIdentity,
+  isSparkSdkConnected,
+  requireSparkSdk,
+  syncSparkWallet,
+} from '../spark-sdk';
 import { SdkEvent_Tags, type SdkEvent } from '@breeztech/breez-sdk-spark-react-native';
 
 const LIGHTNING_ADDRESS_USERNAME_LENGTH = 16;
@@ -113,13 +120,23 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
         await target.fetchTransactions();
         await target.fetchUserInvoices();
         const sdk = requireSparkSdk();
+        // Same comparison as SparkWallet.requireMatchingSdk: live session vs this wallet.
+        if (getSparkSessionIdentity() !== target.identityPubkey) {
+          return;
+        }
         const lnInfo = await sdk.getLightningAddress();
+        if (getSparkSessionIdentity() !== target.identityPubkey) {
+          return;
+        }
         if (lnInfo?.lightningAddress) {
           writeLightningAddress(target, lnInfo.lightningAddress);
         } else if (!target.lnAddress && !lnAddressRegisterAttemptedRef.current && target.identityPubkey) {
           lnAddressRegisterAttemptedRef.current = true;
           const registered = await registerLightningAddressOnce(sdk, target.identityPubkey, loc.wallets.lightning_spark_wallet_label);
           if (registered) {
+            if (getSparkSessionIdentity() !== target.identityPubkey) {
+              return;
+            }
             writeLightningAddress(target, registered);
           }
         }

@@ -119,7 +119,7 @@ function makeLds(id = 'lds-1', balance = 50) {
 }
 
 function makeSpark(id = 'spark-1', balance = 0) {
-  const w = SparkWallet.create('pk-existing');
+  const w = SparkWallet.create('pk-home-1');
   w.getID = () => id;
   w.balance = balance;
   w.fetchBalance = jest.fn().mockResolvedValue(undefined);

@@ -9,6 +9,7 @@ const mockDisconnect = jest.fn(() => Promise.resolve());
 const mockSync = jest.fn(() => Promise.resolve());
 const mockIsConnected = jest.fn(() => false);
 const mockRequireSdk = jest.fn();
+const mockGetSessionIdentity = jest.fn(() => 'pk-1');
 
 jest.mock('../../api/spark/spark-sdk', () => ({
   connectSparkSdk: (...args) => mockConnect(...args),
@@ -16,7 +17,7 @@ jest.mock('../../api/spark/spark-sdk', () => ({
   syncSparkWallet: (...args) => mockSync(...args),
   isSparkSdkConnected: (...args) => mockIsConnected(...args),
   requireSparkSdk: (...args) => mockRequireSdk(...args),
-  getSparkSessionIdentity: () => 'pk-1',
+  getSparkSessionIdentity: (...args) => mockGetSessionIdentity(...args),
   BREEZ_API_KEY_MISSING: 'BREEZ_API_KEY is not configured...',
 }));
 
@@ -84,6 +85,7 @@ function stubSparkMethods(wallet) {
   wallet.fetchBalance = jest.fn().mockResolvedValue(undefined);
   wallet.fetchTransactions = jest.fn().mockResolvedValue(undefined);
   wallet.fetchUserInvoices = jest.fn().mockResolvedValue(undefined);
+  mockGetSessionIdentity.mockReturnValue(wallet.identityPubkey);
   return wallet;
 }
 
@@ -108,6 +110,7 @@ beforeEach(() => {
   mockSdk.listPayments.mockResolvedValue({ payments: [] });
   mockSync.mockResolvedValue(undefined);
   mockDisconnect.mockResolvedValue(undefined);
+  mockGetSessionIdentity.mockReturnValue('pk-1');
 });
 
 describe('useSparkContext', () => {
@@ -531,7 +534,10 @@ describe('SparkContextProvider', () => {
   it('retries Lightning address registration after the Spark identity changes', async () => {
     mockSdk.getLightningAddress.mockResolvedValue(undefined);
     const first = stubSparkMethods(SparkWallet.create('pk-a'));
-    const second = stubSparkMethods(SparkWallet.create('pk-b'));
+    const second = SparkWallet.create('pk-b');
+    second.fetchBalance = jest.fn().mockResolvedValue(undefined);
+    second.fetchTransactions = jest.fn().mockResolvedValue(undefined);
+    second.fetchUserInvoices = jest.fn().mockResolvedValue(undefined);
     const setWalletsRef = { current: null };
     function Harness() {
       const [wallets, setWallets] = React.useState([hdWallet, first]);
@@ -553,6 +559,7 @@ describe('SparkContextProvider', () => {
 
     mockSdk.registerLightningAddress.mockClear();
     await act(async () => {
+      stubSparkMethods(second);
       setWalletsRef.current([hdWallet, second]);
     });
     await waitFor(() => expect(mockSdk.registerLightningAddress).toHaveBeenCalledTimes(1));
@@ -948,6 +955,78 @@ describe('SparkContextProvider', () => {
     });
     // Only one native connect for the in-flight session
     assert.ok(connectCalls >= 1);
+  });
+
+  it('does not register or write when the session identity changes during refresh', async () => {
+    mockSdk.getLightningAddress.mockResolvedValue(undefined);
+    const existing = stubSparkMethods(SparkWallet.create('stored-pk'));
+    let releaseInvoices;
+    existing.fetchUserInvoices.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          releaseInvoices = resolve;
+        }),
+    );
+
+    renderWith([hdWallet, existing]);
+    await waitFor(() => expect(existing.fetchUserInvoices).toHaveBeenCalled());
+    mockGetSessionIdentity.mockReturnValue('other-session');
+    mockSdk.getLightningAddress.mockResolvedValue({ lightningAddress: 'stolen@breez.blitz' });
+
+    await act(async () => {
+      releaseInvoices();
+    });
+    await act(async () => {});
+
+    expect(mockSdk.getLightningAddress).not.toHaveBeenCalled();
+    expect(mockSdk.registerLightningAddress).not.toHaveBeenCalled();
+    assert.strictEqual(existing.lnAddress, undefined);
+  });
+
+  it('does not write a Lightning address when the session changes after getLightningAddress', async () => {
+    const existing = stubSparkMethods(SparkWallet.create('ln-switch-pk'));
+    let releaseLn;
+    mockSdk.getLightningAddress.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          releaseLn = resolve;
+        }),
+    );
+
+    renderWith([hdWallet, existing]);
+    await waitFor(() => expect(mockSdk.getLightningAddress).toHaveBeenCalled());
+    mockGetSessionIdentity.mockReturnValue('other-session');
+
+    await act(async () => {
+      releaseLn({ lightningAddress: 'stolen@breez.blitz' });
+    });
+    await act(async () => {});
+
+    expect(mockSdk.registerLightningAddress).not.toHaveBeenCalled();
+    assert.strictEqual(existing.lnAddress, undefined);
+  });
+
+  it('does not write a registered Lightning address when the session changes during register', async () => {
+    mockSdk.getLightningAddress.mockResolvedValue(undefined);
+    const existing = stubSparkMethods(SparkWallet.create('reg-switch-pk'));
+    let releaseRegister;
+    mockSdk.registerLightningAddress.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          releaseRegister = resolve;
+        }),
+    );
+
+    renderWith([hdWallet, existing]);
+    await waitFor(() => expect(mockSdk.registerLightningAddress).toHaveBeenCalled());
+    mockGetSessionIdentity.mockReturnValue('other-session');
+
+    await act(async () => {
+      releaseRegister({ lightningAddress: 'stolen@breez.blitz' });
+    });
+    await act(async () => {});
+
+    assert.strictEqual(existing.lnAddress, undefined);
   });
 
   it('refresh no-ops when the SDK is not connected', async () => {
