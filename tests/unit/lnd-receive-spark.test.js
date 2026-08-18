@@ -70,6 +70,7 @@ jest.mock('../../api/spark/spark-sdk', () => ({
   requireSparkSdk: () => mockSdk,
   getSparkSdk: () => mockSdk,
   isSparkSdkConnected: () => true,
+  getSparkSessionIdentity: () => 'pk-receive-1',
 }));
 
 const SAMPLE_INVOICE =

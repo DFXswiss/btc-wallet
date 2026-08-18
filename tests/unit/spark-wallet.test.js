@@ -10,10 +10,13 @@ const mockSdk = {
   getLightningAddress: jest.fn(),
 };
 
+let mockSessionIdentity = null;
+
 jest.mock('../../api/spark/spark-sdk', () => ({
   requireSparkSdk: () => mockSdk,
   getSparkSdk: () => mockSdk,
   isSparkSdkConnected: () => true,
+  getSparkSessionIdentity: () => mockSessionIdentity,
 }));
 
 // Known bolt11 test vector (BOLT 11 examples).
@@ -26,6 +29,7 @@ const loc = require('../../loc').default;
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockSessionIdentity = null;
 });
 
 describe('SparkWallet', () => {
@@ -104,6 +108,35 @@ describe('SparkWallet', () => {
     await assert.rejects(() => wallet.fetchBalance(), new RegExp(loc.wallets.lightning_spark_session_mismatch));
     assert.strictEqual(wallet.identityPubkey, 'stored-pk');
     assert.strictEqual(wallet.getBalance(), 7);
+  });
+
+  it('rejects payInvoice, lists and addInvoice when the session identity differs', async () => {
+    mockSessionIdentity = 'session-pk';
+    mockSdk.listPayments.mockResolvedValue({ payments: [] });
+    mockSdk.receivePayment.mockResolvedValue({ paymentRequest: SAMPLE_INVOICE, fee: 0n });
+    mockSdk.prepareSendPayment.mockResolvedValue({ paymentMethod: {} });
+    mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Completed } });
+    const wallet = SparkWallet.create('other-pk');
+    const mismatch = new RegExp(loc.wallets.lightning_spark_session_mismatch);
+    await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, 0), mismatch);
+    await assert.rejects(() => wallet.fetchTransactions(), mismatch);
+    await assert.rejects(() => wallet.getUserInvoices(), mismatch);
+    await assert.rejects(() => wallet.fetchUserInvoices(), mismatch);
+    await assert.rejects(() => wallet.addInvoice(1, 'x'), mismatch);
+    expect(mockSdk.prepareSendPayment).not.toHaveBeenCalled();
+    expect(mockSdk.sendPayment).not.toHaveBeenCalled();
+    expect(mockSdk.listPayments).not.toHaveBeenCalled();
+    expect(mockSdk.receivePayment).not.toHaveBeenCalled();
+  });
+
+  it('allows payInvoice when the session identity matches the wallet', async () => {
+    mockSessionIdentity = 'id-pk';
+    mockSdk.prepareSendPayment.mockResolvedValue({ paymentMethod: {} });
+    mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Completed } });
+    const wallet = SparkWallet.create('id-pk');
+    await wallet.payInvoice(SAMPLE_INVOICE, 0);
+    expect(mockSdk.prepareSendPayment).toHaveBeenCalled();
+    expect(mockSdk.sendPayment).toHaveBeenCalled();
   });
 
   it('addInvoice creates a bolt11 invoice via receivePayment and tracks it', async () => {

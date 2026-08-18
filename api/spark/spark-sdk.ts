@@ -22,6 +22,7 @@ let sdk: BreezSdkInterface | null = null;
 let listenerId: string | null = null;
 let connectPromise: Promise<BreezSdkInterface> | null = null;
 let connectedSeedFingerprint: string | null = null;
+let connectedIdentityPubkey: string | null = null;
 let connectGeneration = 0;
 
 function fingerprintMnemonic(mnemonic: string): string {
@@ -43,9 +44,15 @@ export function isSparkSdkConnected(): boolean {
   return sdk !== null;
 }
 
+/** Public identity of the live session, or null when none is committed. */
+export function getSparkSessionIdentity(): string | null {
+  return connectedIdentityPubkey;
+}
+
 export async function disconnectSparkSdk(): Promise<void> {
   connectGeneration += 1;
   connectedSeedFingerprint = null;
+  connectedIdentityPubkey = null;
   if (!sdk) {
     connectPromise = null;
     return;
@@ -86,20 +93,29 @@ export async function disconnectSparkSdk(): Promise<void> {
 export async function connectSparkSdk(mnemonic: string, onEvent?: (event: SdkEvent) => Promise<void>): Promise<BreezSdkInterface> {
   const fingerprint = fingerprintMnemonic(mnemonic);
 
-  if (sdk && connectedSeedFingerprint === fingerprint) {
-    return sdk;
-  }
-  if (sdk) {
-    await disconnectSparkSdk();
-  }
-  if (connectPromise && connectedSeedFingerprint === fingerprint) {
-    return connectPromise;
-  }
-  if (connectPromise) {
-    // Drop the in-flight session so this caller does not inherit the other seed.
-    connectGeneration += 1;
-    connectPromise = null;
-    connectedSeedFingerprint = null;
+  // Never start a second native connect against the same storageDir. Wait, then
+  // tear down, then start. The generation counter still covers disconnect-during-connect.
+  while (true) {
+    if (connectPromise && !sdk && connectedSeedFingerprint !== fingerprint) {
+      const pending = connectPromise;
+      try {
+        await pending;
+      } catch {
+        // In-flight connect failed or was superseded; re-evaluate.
+      }
+      continue;
+    }
+    if (sdk && connectedSeedFingerprint === fingerprint) {
+      return sdk;
+    }
+    if (sdk) {
+      await disconnectSparkSdk();
+      continue;
+    }
+    if (connectPromise && connectedSeedFingerprint === fingerprint) {
+      return connectPromise;
+    }
+    break;
   }
 
   const apiKey = Config.BREEZ_API_KEY;
@@ -122,6 +138,17 @@ export async function connectSparkSdk(mnemonic: string, onEvent?: (event: SdkEve
       seed,
       storageDir: `${RNFS.DocumentDirectoryPath}/breezSdkSpark`,
     });
+
+    if (generation !== connectGeneration) {
+      try {
+        await instance.disconnect();
+      } catch {
+        // Native teardown of a superseded connect; the replacement session is already starting.
+      }
+      throw new Error('Spark SDK connect superseded');
+    }
+
+    const info = await instance.getInfo({ ensureSynced: false });
 
     if (generation !== connectGeneration) {
       try {
@@ -160,6 +187,7 @@ export async function connectSparkSdk(mnemonic: string, onEvent?: (event: SdkEve
 
     sdk = instance;
     listenerId = newListenerId;
+    connectedIdentityPubkey = info.identityPubkey;
     return instance;
   })();
 
@@ -171,6 +199,7 @@ export async function connectSparkSdk(mnemonic: string, onEvent?: (event: SdkEve
       sdk = null;
       listenerId = null;
       connectedSeedFingerprint = null;
+      connectedIdentityPubkey = null;
     }
     throw e;
   }
@@ -187,5 +216,6 @@ export function __resetSparkSdkForTests(): void {
   listenerId = null;
   connectPromise = null;
   connectedSeedFingerprint = null;
+  connectedIdentityPubkey = null;
   connectGeneration = 0;
 }

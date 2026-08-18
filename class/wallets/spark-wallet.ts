@@ -10,7 +10,7 @@ import {
   type Payment,
 } from '@breeztech/breez-sdk-spark-react-native';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
-import { requireSparkSdk } from '../../api/spark/spark-sdk';
+import { getSparkSessionIdentity, requireSparkSdk } from '../../api/spark/spark-sdk';
 import loc from '../../loc';
 import { AbstractWallet } from './abstract-wallet';
 
@@ -111,6 +111,19 @@ export class SparkWallet extends AbstractWallet {
     return this.balance;
   }
 
+  /**
+   * Every SDK call goes through here so a session bound to another seed cannot
+   * pay or list. fetchBalance does not use this: it is the one path that may
+   * still set identityPubkey when the wallet has none.
+   */
+  private requireMatchingSdk() {
+    const sdk = requireSparkSdk();
+    if (this.identityPubkey && getSparkSessionIdentity() !== this.identityPubkey) {
+      throw new Error(loc.wallets.lightning_spark_session_mismatch);
+    }
+    return sdk;
+  }
+
   async fetchBalance(): Promise<void> {
     const sdk = requireSparkSdk();
     const info = await sdk.getInfo({ ensureSynced: false });
@@ -154,7 +167,7 @@ export class SparkWallet extends AbstractWallet {
   }
 
   async fetchTransactions(): Promise<void> {
-    const sdk = requireSparkSdk();
+    const sdk = this.requireMatchingSdk();
     const response = await sdk.listPayments({
       typeFilter: undefined,
       statusFilter: undefined,
@@ -192,7 +205,7 @@ export class SparkWallet extends AbstractWallet {
   }
 
   async getUserInvoices(limit = 0): Promise<SparkInvoiceRecord[]> {
-    const sdk = requireSparkSdk();
+    const sdk = this.requireMatchingSdk();
     const response = await sdk.listPayments({
       typeFilter: [PaymentType.Receive],
       statusFilter: undefined,
@@ -236,7 +249,7 @@ export class SparkWallet extends AbstractWallet {
   }
 
   async addInvoice(amt: number | string, memo: string): Promise<string> {
-    const sdk = requireSparkSdk();
+    const sdk = this.requireMatchingSdk();
     const amountNum = typeof amt === 'string' ? parseInt(amt, 10) : amt;
     const amountSats = amountNum && !Number.isNaN(amountNum) && amountNum > 0 ? BigInt(amountNum) : undefined;
 
@@ -275,7 +288,7 @@ export class SparkWallet extends AbstractWallet {
       throw new Error(loc.wallets.lightning_spark_invoice_unreadable);
     }
 
-    const sdk = requireSparkSdk();
+    const sdk = this.requireMatchingSdk();
     const amount = freeAmount && freeAmount > 0 ? BigInt(freeAmount) : undefined;
 
     const prepareResponse = await sdk.prepareSendPayment({

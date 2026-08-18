@@ -4,6 +4,7 @@ import {
   connectSparkSdk,
   disconnectSparkSdk,
   getSparkSdk,
+  getSparkSessionIdentity,
   isSparkSdkConnected,
   requireSparkSdk,
   syncSparkWallet,
@@ -13,12 +14,17 @@ import {
 
 const breez = require('@breeztech/breez-sdk-spark-react-native');
 
-const mockInstance = {
-  addEventListener: jest.fn().mockResolvedValue('listener-1'),
-  removeEventListener: jest.fn().mockResolvedValue(true),
-  disconnect: jest.fn().mockResolvedValue(undefined),
-  syncWallet: jest.fn().mockResolvedValue({}),
-};
+function makeSdkInstance(id = '1') {
+  return {
+    addEventListener: jest.fn().mockResolvedValue(`listener-${id}`),
+    removeEventListener: jest.fn().mockResolvedValue(true),
+    disconnect: jest.fn().mockResolvedValue(undefined),
+    syncWallet: jest.fn().mockResolvedValue({}),
+    getInfo: jest.fn().mockResolvedValue({ identityPubkey: `identity-${id}`, balanceSats: 0n }),
+  };
+}
+
+const mockInstance = makeSdkInstance('1');
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -53,6 +59,8 @@ describe('spark-sdk', () => {
     assert.strictEqual(isSparkSdkConnected(), true);
     assert.strictEqual(getSparkSdk(), mockInstance);
     assert.strictEqual(requireSparkSdk(), mockInstance);
+    assert.strictEqual(getSparkSessionIdentity(), 'identity-1');
+    expect(mockInstance.getInfo).toHaveBeenCalledWith({ ensureSynced: false });
   });
 
   it('reuses the same connection on a second call', async () => {
@@ -82,6 +90,7 @@ describe('spark-sdk', () => {
     await connectSparkSdk('one two three four five six seven eight nine ten eleven about', async () => {});
     await disconnectSparkSdk();
     assert.strictEqual(isSparkSdkConnected(), false);
+    assert.strictEqual(getSparkSessionIdentity(), null);
     expect(mockInstance.disconnect).toHaveBeenCalled();
     expect(mockInstance.removeEventListener).toHaveBeenCalledWith('listener-1');
   });
@@ -128,7 +137,15 @@ describe('spark-sdk', () => {
     breez.connect.mockRejectedValueOnce(new Error('network down'));
     await assert.rejects(() => connectSparkSdk('one two three four five six seven eight nine ten eleven about'), /network down/);
     assert.strictEqual(isSparkSdkConnected(), false);
+    assert.strictEqual(getSparkSessionIdentity(), null);
     assert.throws(() => requireSparkSdk(), /not connected/);
+  });
+
+  it('clears state when getInfo fails after native connect', async () => {
+    mockInstance.getInfo.mockRejectedValueOnce(new Error('info down'));
+    await assert.rejects(() => connectSparkSdk('one two three four five six seven eight nine ten eleven about'), /info down/);
+    assert.strictEqual(isSparkSdkConnected(), false);
+    assert.strictEqual(getSparkSessionIdentity(), null);
   });
 
   it('shares an in-flight connect promise between concurrent callers', async () => {
@@ -178,12 +195,7 @@ describe('spark-sdk', () => {
   it('disconnects and reconnects when the seed changes after a live session', async () => {
     const seedA = 'one two three four five six seven eight nine ten eleven about';
     const seedB = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
-    const instanceB = {
-      addEventListener: jest.fn().mockResolvedValue('listener-2'),
-      removeEventListener: jest.fn().mockResolvedValue(true),
-      disconnect: jest.fn().mockResolvedValue(undefined),
-      syncWallet: jest.fn().mockResolvedValue({}),
-    };
+    const instanceB = makeSdkInstance('2');
     breez.connect.mockResolvedValueOnce(mockInstance).mockResolvedValueOnce(instanceB);
 
     const first = await connectSparkSdk(seedA);
@@ -193,106 +205,147 @@ describe('spark-sdk', () => {
     assert.strictEqual(second, instanceB);
     expect(mockInstance.disconnect).toHaveBeenCalled();
     expect(breez.connect).toHaveBeenCalledTimes(2);
+    assert.strictEqual(getSparkSessionIdentity(), 'identity-2');
   });
 
-  it('does not let a late listener registration overwrite the winning session', async () => {
+  it('does not adopt a connect whose native connect finishes after disconnect', async () => {
     const seedA = 'one two three four five six seven eight nine ten eleven about';
-    const seedB = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+    let resolveConnect;
+    let markConnectStarted;
+    const connectStarted = new Promise(resolve => {
+      markConnectStarted = resolve;
+    });
+    const instanceA = makeSdkInstance('a');
+    instanceA.disconnect.mockRejectedValue(new Error('already gone'));
+    breez.connect.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveConnect = resolve;
+          markConnectStarted();
+        }),
+    );
+
+    const pendingA = connectSparkSdk(seedA);
+    await connectStarted;
+    await disconnectSparkSdk();
+    resolveConnect(instanceA);
+    await assert.rejects(pendingA, /superseded/);
+    assert.strictEqual(getSparkSdk(), null);
+    assert.strictEqual(getSparkSessionIdentity(), null);
+    expect(instanceA.disconnect).toHaveBeenCalled();
+  });
+
+  it('does not adopt a connect whose listener registration finishes after disconnect', async () => {
+    const seedA = 'one two three four five six seven eight nine ten eleven about';
     let resolveAddA;
     let markAddAStarted;
     const addAStarted = new Promise(resolve => {
       markAddAStarted = resolve;
     });
-    const instanceA = {
-      addEventListener: jest.fn(
-        () =>
-          new Promise(resolve => {
-            resolveAddA = resolve;
-            markAddAStarted();
-          }),
-      ),
-      removeEventListener: jest.fn().mockResolvedValue(true),
-      disconnect: jest.fn().mockResolvedValue(undefined),
-      syncWallet: jest.fn().mockResolvedValue({}),
-    };
-    const instanceB = {
-      addEventListener: jest.fn().mockResolvedValue('listener-b'),
-      removeEventListener: jest.fn().mockResolvedValue(true),
-      disconnect: jest.fn().mockResolvedValue(undefined),
-      syncWallet: jest.fn().mockResolvedValue({}),
-    };
-    breez.connect.mockResolvedValueOnce(instanceA).mockResolvedValueOnce(instanceB);
+    const instanceA = makeSdkInstance('a');
+    instanceA.addEventListener.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveAddA = resolve;
+          markAddAStarted();
+        }),
+    );
+    breez.connect.mockResolvedValue(instanceA);
 
     const pendingA = connectSparkSdk(seedA, async () => {});
     await addAStarted;
-
-    const resultB = await connectSparkSdk(seedB, async () => {});
-    assert.strictEqual(resultB, instanceB);
-    assert.strictEqual(getSparkSdk(), instanceB);
-
+    await disconnectSparkSdk();
     resolveAddA('listener-a');
     await assert.rejects(pendingA, /superseded/);
-    assert.strictEqual(getSparkSdk(), instanceB);
+    assert.strictEqual(getSparkSdk(), null);
+    assert.strictEqual(getSparkSessionIdentity(), null);
     expect(instanceA.removeEventListener).toHaveBeenCalledWith('listener-a');
     expect(instanceA.disconnect).toHaveBeenCalled();
-    expect(instanceB.disconnect).not.toHaveBeenCalled();
-
-    const again = await connectSparkSdk(seedB, async () => {});
-    assert.strictEqual(again, instanceB);
-    expect(breez.connect).toHaveBeenCalledTimes(2);
   });
 
-  it('does not adopt an in-flight connect when a different seed arrives', async () => {
+  it('does not adopt a connect whose getInfo finishes after disconnect', async () => {
     const seedA = 'one two three four five six seven eight nine ten eleven about';
-    const seedB = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
-    const resolvers = [];
-    breez.connect.mockImplementation(
+    let resolveInfo;
+    let markInfoStarted;
+    const infoStarted = new Promise(resolve => {
+      markInfoStarted = resolve;
+    });
+    const instanceA = makeSdkInstance('a');
+    instanceA.disconnect.mockRejectedValue(new Error('already gone'));
+    instanceA.getInfo.mockImplementation(
       () =>
         new Promise(resolve => {
-          resolvers.push(resolve);
+          resolveInfo = resolve;
+          markInfoStarted();
         }),
     );
-    const instanceA = {
-      addEventListener: jest.fn().mockResolvedValue('listener-a'),
-      removeEventListener: jest.fn().mockResolvedValue(true),
-      disconnect: jest.fn().mockResolvedValue(undefined),
-      syncWallet: jest.fn().mockResolvedValue({}),
-    };
-    const instanceB = {
-      addEventListener: jest.fn().mockResolvedValue('listener-b'),
-      removeEventListener: jest.fn().mockResolvedValue(true),
-      disconnect: jest.fn().mockResolvedValue(undefined),
-      syncWallet: jest.fn().mockResolvedValue({}),
-    };
+    breez.connect.mockResolvedValue(instanceA);
+
+    const pendingA = connectSparkSdk(seedA);
+    await infoStarted;
+    await disconnectSparkSdk();
+    resolveInfo({ identityPubkey: 'late', balanceSats: 0n });
+    await assert.rejects(pendingA, /superseded/);
+    assert.strictEqual(getSparkSdk(), null);
+    assert.strictEqual(getSparkSessionIdentity(), null);
+    expect(instanceA.disconnect).toHaveBeenCalled();
+  });
+
+  it('starts a different-seed connect only after the in-flight connect finishes and is disconnected', async () => {
+    const seedA = 'one two three four five six seven eight nine ten eleven about';
+    const seedB = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+    const instanceA = makeSdkInstance('a');
+    const instanceB = makeSdkInstance('b');
+    const order = [];
+    let resolveConnectA;
+    breez.connect.mockImplementation(() => {
+      if (breez.connect.mock.calls.length === 1) {
+        return new Promise(resolve => {
+          resolveConnectA = () => resolve(instanceA);
+        });
+      }
+      order.push('b-started');
+      return Promise.resolve(instanceB);
+    });
+    instanceA.disconnect.mockImplementation(async () => {
+      order.push('a-disconnected');
+    });
 
     const pendingA = connectSparkSdk(seedA);
     await Promise.resolve();
-    assert.strictEqual(resolvers.length, 1);
+    assert.strictEqual(breez.connect.mock.calls.length, 1);
 
     const pendingB = connectSparkSdk(seedB);
     await Promise.resolve();
-    assert.strictEqual(resolvers.length, 2);
+    assert.strictEqual(breez.connect.mock.calls.length, 1);
 
-    resolvers[0](instanceA);
-    resolvers[1](instanceB);
-
+    resolveConnectA();
+    const resultA = await pendingA;
     const resultB = await pendingB;
+    assert.strictEqual(resultA, instanceA);
     assert.strictEqual(resultB, instanceB);
-    await assert.rejects(pendingA, /superseded/);
-    expect(instanceA.disconnect).toHaveBeenCalled();
     expect(breez.connect).toHaveBeenCalledTimes(2);
+    expect(instanceA.disconnect).toHaveBeenCalled();
+    assert.ok(order.indexOf('a-disconnected') >= 0);
+    assert.ok(order.indexOf('b-started') >= 0);
+    assert.ok(order.indexOf('a-disconnected') < order.indexOf('b-started'));
+    assert.strictEqual(getSparkSessionIdentity(), 'identity-b');
   });
 
-  it('clears a superseded connect without logging the seed fingerprint', async () => {
+  it('replaces a finished session without logging the seed fingerprint', async () => {
     const seedA = 'one two three four five six seven eight nine ten eleven about';
     const seedB = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
-    const resolvers = [];
-    breez.connect.mockImplementation(
+    let resolveConnectA;
+    const instanceA = makeSdkInstance('a');
+    instanceA.disconnect.mockRejectedValue(new Error('stale native'));
+    breez.connect.mockImplementationOnce(
       () =>
         new Promise(resolve => {
-          resolvers.push(resolve);
+          resolveConnectA = resolve;
         }),
     );
+    breez.connect.mockResolvedValueOnce(mockInstance);
+
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const error = jest.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -300,16 +353,11 @@ describe('spark-sdk', () => {
     await Promise.resolve();
     const pendingB = connectSparkSdk(seedB);
     await Promise.resolve();
-    resolvers[0]({
-      addEventListener: jest.fn().mockResolvedValue('a'),
-      removeEventListener: jest.fn().mockResolvedValue(true),
-      disconnect: jest.fn().mockRejectedValue(new Error('stale native')),
-      syncWallet: jest.fn().mockResolvedValue({}),
-    });
-    resolvers[1](mockInstance);
+    expect(breez.connect).toHaveBeenCalledTimes(1);
+    resolveConnectA(instanceA);
 
+    await pendingA;
     await pendingB;
-    await assert.rejects(pendingA, /superseded/);
     for (const spy of [warn, error]) {
       for (const args of spy.mock.calls) {
         assert.ok(!String(args.join(' ')).includes(seedA));

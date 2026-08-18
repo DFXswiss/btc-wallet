@@ -15,3 +15,6 @@ In the commit where you up version you can have the commit message as
 
 
 Do *not* add new dependencies. Bonus points if you manage to actually remove a dependency.
+An exception is allowed only when the pull request names the package and explains why no
+existing dependency can do the job. That is the bar this repository used for the native
+Lightning binding.

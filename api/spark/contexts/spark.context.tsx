@@ -125,7 +125,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
         }
         await saveToDisk();
       } catch (e) {
-        console.warn('SparkContext: refresh failed', e);
+        console.warn('SparkContext: refresh failed', errorClass(e));
       }
     },
     [saveToDisk],
@@ -174,9 +174,16 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
 
   // Connect when a Spark wallet exists, and again when that wallet is replaced.
   useEffect(() => {
+    lnAddressRegisterAttemptedRef.current = false;
     if (!walletsInitialized) return;
     const spark = getSparkWallet(wallets);
-    if (!spark) return;
+    if (!spark) {
+      // Wallet gone: drop the native session. Do not disconnect in the cleanup
+      // of a run that still had a wallet — a re-run must not tear the session down.
+      setIsConnected(false);
+      Promise.resolve(disconnectSparkSdk()).catch(() => {});
+      return;
+    }
 
     let cancelled = false;
     (async () => {
@@ -216,7 +223,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
       if (state === 'active' && isSparkSdkConnected()) {
         syncSparkWallet()
           .then(() => refreshSparkWallet())
-          .catch(e => console.warn('SparkContext: foreground sync failed', e));
+          .catch(e => console.warn('SparkContext: foreground sync failed', errorClass(e)));
       }
     };
     const sub = AppState.addEventListener('change', onChange);
@@ -252,7 +259,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
           lnAddress = await registerLightningAddressOnce(sdk, info.identityPubkey, loc.wallets.lightning_spark_wallet_label);
         }
       } catch (e) {
-        console.warn('SparkContext: getLightningAddress failed; wallet remains usable without lnAddress', e);
+        console.warn('SparkContext: getLightningAddress failed; wallet remains usable without lnAddress', errorClass(e));
       }
       lnAddressRegisterAttemptedRef.current = true;
 
