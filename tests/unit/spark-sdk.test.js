@@ -195,6 +195,53 @@ describe('spark-sdk', () => {
     expect(breez.connect).toHaveBeenCalledTimes(2);
   });
 
+  it('does not let a late listener registration overwrite the winning session', async () => {
+    const seedA = 'one two three four five six seven eight nine ten eleven about';
+    const seedB = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+    let resolveAddA;
+    let markAddAStarted;
+    const addAStarted = new Promise(resolve => {
+      markAddAStarted = resolve;
+    });
+    const instanceA = {
+      addEventListener: jest.fn(
+        () =>
+          new Promise(resolve => {
+            resolveAddA = resolve;
+            markAddAStarted();
+          }),
+      ),
+      removeEventListener: jest.fn().mockResolvedValue(true),
+      disconnect: jest.fn().mockResolvedValue(undefined),
+      syncWallet: jest.fn().mockResolvedValue({}),
+    };
+    const instanceB = {
+      addEventListener: jest.fn().mockResolvedValue('listener-b'),
+      removeEventListener: jest.fn().mockResolvedValue(true),
+      disconnect: jest.fn().mockResolvedValue(undefined),
+      syncWallet: jest.fn().mockResolvedValue({}),
+    };
+    breez.connect.mockResolvedValueOnce(instanceA).mockResolvedValueOnce(instanceB);
+
+    const pendingA = connectSparkSdk(seedA, async () => {});
+    await addAStarted;
+
+    const resultB = await connectSparkSdk(seedB, async () => {});
+    assert.strictEqual(resultB, instanceB);
+    assert.strictEqual(getSparkSdk(), instanceB);
+
+    resolveAddA('listener-a');
+    await assert.rejects(pendingA, /superseded/);
+    assert.strictEqual(getSparkSdk(), instanceB);
+    expect(instanceA.removeEventListener).toHaveBeenCalledWith('listener-a');
+    expect(instanceA.disconnect).toHaveBeenCalled();
+    expect(instanceB.disconnect).not.toHaveBeenCalled();
+
+    const again = await connectSparkSdk(seedB, async () => {});
+    assert.strictEqual(again, instanceB);
+    expect(breez.connect).toHaveBeenCalledTimes(2);
+  });
+
   it('does not adopt an in-flight connect when a different seed arrives', async () => {
     const seedA = 'one two three four five six seven eight nine ten eleven about';
     const seedB = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';

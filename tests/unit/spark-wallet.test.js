@@ -88,6 +88,24 @@ describe('SparkWallet', () => {
     expect(mockSdk.getInfo).toHaveBeenCalledWith({ ensureSynced: false });
   });
 
+  it('fetchBalance keeps a matching identity and updates the balance', async () => {
+    mockSdk.getInfo.mockResolvedValue({ identityPubkey: 'id-pk', balanceSats: 99n, tokenBalances: new Map() });
+    const wallet = SparkWallet.create('id-pk');
+    wallet.balance = 1;
+    await wallet.fetchBalance();
+    assert.strictEqual(wallet.identityPubkey, 'id-pk');
+    assert.strictEqual(wallet.getBalance(), 99);
+  });
+
+  it('fetchBalance throws and leaves the wallet unchanged when the session identity differs', async () => {
+    mockSdk.getInfo.mockResolvedValue({ identityPubkey: 'other-pk', balanceSats: 99n, tokenBalances: new Map() });
+    const wallet = SparkWallet.create('stored-pk');
+    wallet.balance = 7;
+    await assert.rejects(() => wallet.fetchBalance(), new RegExp(loc.wallets.lightning_spark_session_mismatch));
+    assert.strictEqual(wallet.identityPubkey, 'stored-pk');
+    assert.strictEqual(wallet.getBalance(), 7);
+  });
+
   it('addInvoice creates a bolt11 invoice via receivePayment and tracks it', async () => {
     mockSdk.receivePayment.mockResolvedValue({ paymentRequest: SAMPLE_INVOICE, fee: 0n });
     const wallet = new SparkWallet();
@@ -120,7 +138,8 @@ describe('SparkWallet', () => {
     expect(mockSdk.prepareSendPayment).toHaveBeenCalled();
     const arg = mockSdk.sendPayment.mock.calls[0][0];
     assert.strictEqual(arg.prepareResponse, prepareResponse);
-    assert.strictEqual(arg.idempotencyKey, wallet.decodeInvoice(SAMPLE_INVOICE).payment_hash);
+    assert.ok(/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(arg.idempotencyKey));
+    assert.notStrictEqual(arg.idempotencyKey, wallet.decodeInvoice(SAMPLE_INVOICE).payment_hash);
     assert.strictEqual(arg.options.tag, SendPaymentOptions_Tags.Bolt11Invoice);
     assert.strictEqual(arg.options.inner.preferSpark, false);
     assert.strictEqual(arg.options.inner.completionTimeoutSecs, 30);
@@ -149,18 +168,25 @@ describe('SparkWallet', () => {
     await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, 0), new RegExp(loc.wallets.lightning_spark_payment_failed));
   });
 
-  it('payInvoice reuses the invoice payment_hash as idempotencyKey on repeat sends', async () => {
+  it('payInvoice reuses a UUID idempotencyKey derived from the invoice', async () => {
     mockSdk.prepareSendPayment.mockResolvedValue({ paymentMethod: {} });
     mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Completed } });
     const wallet = new SparkWallet();
+    const otherInvoice =
+      'lnbc89n1p0zptvhpp5j3h5e80vdlzn32df8y80nl2t7hssn74lzdr96ve0u4kpaupflx2sdphgfkx7cmtwd68yetpd5s9xct5v4kxc6t5v5s9gunpdeek66tnwd5k7mscqp2sp57m89zv0lrgc9zzaxy5p3d5rr2cap2pm6zm4n0ew9vyp2d5zf2mfqrzjqfxj8p6qjf5l8du7yuytkwdcjhylfd4gxgs48t65awjg04ye80mq7z990yqq9jsqqqqqqqqqqqqq05qqrc9qy9qsq9mynpa9ucxg53hwnvw323r55xdd3l6lcadzs584zvm4wdw5pv3eksdlcek425pxaqrn9u5gpw0dtpyl9jw2pynjtqexxgh50akwszjgq4ht4dh';
     await wallet.payInvoice(SAMPLE_INVOICE, 0);
     await wallet.payInvoice(SAMPLE_INVOICE, 0);
-    assert.strictEqual(mockSdk.sendPayment.mock.calls.length, 2);
+    await wallet.payInvoice(otherInvoice, 0);
+    assert.strictEqual(mockSdk.sendPayment.mock.calls.length, 3);
     const firstKey = mockSdk.sendPayment.mock.calls[0][0].idempotencyKey;
     const secondKey = mockSdk.sendPayment.mock.calls[1][0].idempotencyKey;
+    const otherKey = mockSdk.sendPayment.mock.calls[2][0].idempotencyKey;
+    const uuidForm = /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    assert.ok(uuidForm.test(firstKey));
+    assert.ok(uuidForm.test(otherKey));
     assert.strictEqual(firstKey, secondKey);
-    assert.strictEqual(firstKey, wallet.decodeInvoice(SAMPLE_INVOICE).payment_hash);
-    assert.ok(firstKey);
+    assert.notStrictEqual(firstKey, otherKey);
+    assert.notStrictEqual(firstKey, wallet.decodeInvoice(SAMPLE_INVOICE).payment_hash);
   });
 
   it('payInvoice does not send when the invoice has no payment_hash', async () => {

@@ -132,16 +132,34 @@ export async function connectSparkSdk(mnemonic: string, onEvent?: (event: SdkEve
       throw new Error('Spark SDK connect superseded');
     }
 
+    let newListenerId: string | null = null;
     if (onEvent) {
       const listener: EventListener = {
         onEvent: async (event: SdkEvent) => {
           await onEvent(event);
         },
       };
-      listenerId = await instance.addEventListener(listener);
+      newListenerId = await instance.addEventListener(listener);
+    }
+
+    if (generation !== connectGeneration) {
+      try {
+        if (newListenerId) {
+          await instance.removeEventListener(newListenerId);
+        }
+      } catch {
+        // Listener may already be gone with the superseded instance.
+      }
+      try {
+        await instance.disconnect();
+      } catch {
+        // Native teardown of a superseded connect; the replacement session is already starting.
+      }
+      throw new Error('Spark SDK connect superseded');
     }
 
     sdk = instance;
+    listenerId = newListenerId;
     return instance;
   })();
 

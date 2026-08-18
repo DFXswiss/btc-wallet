@@ -371,6 +371,7 @@ const WalletDetails = () => {
   };
 
   const showPosModeOptions = wallet.isPosMode || isPosMode;
+  const isSparkWallet = wallet.type === SparkWallet.type;
 
   return (
     <ScrollView
@@ -479,7 +480,7 @@ const WalletDetails = () => {
                   </View>
                 )}
               </View>
-              {wallet.type !== MultisigHDWallet.type && (
+              {wallet.type !== MultisigHDWallet.type && !isSparkWallet && (
                 <>
                   <Text style={[styles.textLabel2, stylesHook.textLabel2]}>{loc.wallets.ownership_proof}</Text>
                   <View style={styles.addressProofContainer}>
@@ -522,8 +523,12 @@ const WalletDetails = () => {
                     <SecondButton onPress={navigateToBackupPayCardDetails} title="Backup Pay Card Details" chevron />
                   </>
                 )}
-                <BlueSpacing20 />
-                <SecondButton onPress={navigateToWalletExport} testID="WalletExport" title={loc.wallets.details_export_backup} />
+                {!isSparkWallet && (
+                  <>
+                    <BlueSpacing20 />
+                    <SecondButton onPress={navigateToWalletExport} testID="WalletExport" title={loc.wallets.details_export_backup} />
+                  </>
+                )}
                 {walletTransactionsLength > 0 && (
                   <>
                     <BlueSpacing20 />

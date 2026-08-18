@@ -190,6 +190,42 @@ describe('SparkContextProvider', () => {
     });
   });
 
+  it('tries the next Lightning address candidate when register fails for an available name', async () => {
+    mockSdk.getLightningAddress.mockResolvedValue(undefined);
+    mockSdk.registerLightningAddress.mockRejectedValueOnce(new Error('name taken')).mockResolvedValue({
+      lightningAddress: 'second@breez.blitz',
+      username: expectedUsername('pk-1', 1),
+      description: loc.wallets.lightning_spark_wallet_label,
+    });
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    renderWith([hdWallet]);
+    await waitFor(() => assert.ok(latestCtx));
+
+    let created;
+    await act(async () => {
+      created = await latestCtx.createSparkWallet();
+    });
+
+    assert.ok(created);
+    assert.strictEqual(created.lnAddress, 'second@breez.blitz');
+    expect(mockSdk.registerLightningAddress).toHaveBeenCalledTimes(2);
+    expect(mockSdk.registerLightningAddress).toHaveBeenCalledWith({
+      username: expectedUsername('pk-1'),
+      description: loc.wallets.lightning_spark_wallet_label,
+    });
+    expect(mockSdk.registerLightningAddress).toHaveBeenCalledWith({
+      username: expectedUsername('pk-1', 1),
+      description: loc.wallets.lightning_spark_wallet_label,
+    });
+    expect(warn.mock.calls.some(c => c[0] === 'SparkContext: registerLightningAddress failed' && c[1] === 'Error')).toBe(true);
+    for (const args of warn.mock.calls) {
+      if (args[0] === 'SparkContext: registerLightningAddress failed') {
+        assert.ok(!String(args[1]).includes('name taken'));
+      }
+    }
+    warn.mockRestore();
+  });
+
   it('still creates the wallet when Lightning address registration fails', async () => {
     mockSdk.getLightningAddress.mockResolvedValue(undefined);
     mockSdk.registerLightningAddress.mockRejectedValue(new Error('register down'));
@@ -254,7 +290,7 @@ describe('SparkContextProvider', () => {
     const existing = stubSparkMethods(SparkWallet.create('retry-pk'));
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     renderWith([hdWallet, existing]);
-    await waitFor(() => expect(mockSdk.registerLightningAddress).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockSdk.registerLightningAddress).toHaveBeenCalledTimes(5));
     assert.strictEqual(existing.lnAddress, undefined);
 
     mockSdk.registerLightningAddress.mockClear();
@@ -481,6 +517,38 @@ describe('SparkContextProvider', () => {
     });
     expect(mockConnect).toHaveBeenCalledWith(MNEMONIC, expect.any(Function));
     expect(addAndSaveWallet).toHaveBeenCalled();
+  });
+
+  it('reconnects when the stored Spark wallet identity changes', async () => {
+    const seedB = 'legal winner thank year wave sausage worth useful legal winner thank yellow';
+    const hdB = { type: 'HDsegwitBech32', getSecret: () => seedB };
+    const first = stubSparkMethods(SparkWallet.create('pk-a'));
+    const second = stubSparkMethods(SparkWallet.create('pk-b'));
+    const setWalletsRef = { current: null };
+    function Harness() {
+      const [wallets, setWallets] = React.useState([hdWallet, first]);
+      React.useEffect(() => {
+        setWalletsRef.current = setWallets;
+      }, [setWallets]);
+      return (
+        <BlueStorageContext.Provider value={{ wallets, walletsInitialized: true, addAndSaveWallet, saveToDisk }}>
+          <SparkContextProvider>
+            <Probe />
+          </SparkContextProvider>
+        </BlueStorageContext.Provider>
+      );
+    }
+
+    render(<Harness />);
+    await waitFor(() => expect(mockConnect).toHaveBeenCalled());
+    expect(mockConnect.mock.calls[0][0]).toBe(MNEMONIC);
+
+    mockConnect.mockClear();
+    await act(async () => {
+      setWalletsRef.current([hdB, second]);
+    });
+    await waitFor(() => expect(mockConnect).toHaveBeenCalled());
+    expect(mockConnect.mock.calls[0][0]).toBe(seedB);
   });
 
   it('hands a new on-chain seed to connectSparkSdk while a session is already live', async () => {

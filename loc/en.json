@@ -387,6 +387,7 @@
     "lightning_spark_generic_error": "Lightning could not be started. ({kind})",
     "lightning_spark_lnurl_auth_unsupported": "This wallet cannot sign in with that code.",
     "lightning_spark_invoice_unreadable": "This invoice could not be read. Nothing was paid.",
+    "lightning_spark_session_mismatch": "This Lightning wallet does not match the connected wallet. Nothing was changed.",
     "multi_sig_wallet_label": "Multi-Device Wallet",
     "chf_taproot_wallet_label": "CHF Taproot Wallet",
     "add_bitcoin": "Bitcoin",

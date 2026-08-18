@@ -523,6 +523,7 @@
     "lightning_spark_generic_error": "Impossibile avviare Lightning. ({kind})",
     "lightning_spark_lnurl_auth_unsupported": "Questo portafoglio non può accedere con questo codice.",
     "lightning_spark_invoice_unreadable": "Questa fattura non può essere letta. Non è stato pagato nulla.",
+    "lightning_spark_session_mismatch": "Questo portafoglio Lightning non corrisponde al portafoglio collegato. Non è stato modificato nulla.",
     "multi_sig_wallet_label": "Portafoglio multi-dispositivo",
     "chf_taproot_wallet_label": "Portafoglio Taproot CHF",
     "add_lndhub_DFXswiss_not_available": "Questo servizio sarà presto disponibile",

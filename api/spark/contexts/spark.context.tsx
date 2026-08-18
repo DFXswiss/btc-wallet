@@ -11,6 +11,11 @@ import { SdkEvent_Tags, type SdkEvent } from '@breeztech/breez-sdk-spark-react-n
 const LIGHTNING_ADDRESS_USERNAME_LENGTH = 16;
 const LIGHTNING_ADDRESS_REGISTER_ATTEMPTS = 5;
 
+/** Class/kind only — safe for crash-report breadcrumbs and console.error issues. */
+function errorClass(e: unknown): string {
+  return e instanceof Error ? e.name : typeof e;
+}
+
 function lightningAddressUsername(identityPubkey: string, attempt: number): string {
   const base = createHash('sha256').update(identityPubkey).digest().toString('hex').slice(0, LIGHTNING_ADDRESS_USERNAME_LENGTH);
   return attempt === 0 ? base : `${base}${attempt + 1}`;
@@ -33,8 +38,12 @@ async function registerLightningAddressOnce(
     const username = lightningAddressUsername(identityPubkey, attempt);
     const available = await sdk.checkLightningAddressAvailable({ username });
     if (!available) continue;
-    const info = await sdk.registerLightningAddress({ username, description });
-    return info?.lightningAddress;
+    try {
+      const info = await sdk.registerLightningAddress({ username, description });
+      return info?.lightningAddress;
+    } catch (e) {
+      console.warn('SparkContext: registerLightningAddress failed', errorClass(e));
+    }
   }
   return undefined;
 }
@@ -54,11 +63,6 @@ export function useSparkContext(): SparkContextInterface {
     throw new Error('useSparkContext must be used within SparkContextProvider');
   }
   return ctx;
-}
-
-/** Class/kind only — safe for crash-report breadcrumbs and console.error issues. */
-function errorClass(e: unknown): string {
-  return e instanceof Error ? e.name : typeof e;
 }
 
 function userFacingError(e: unknown): string {
@@ -166,7 +170,9 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
     [onSdkEvent],
   );
 
-  // Connect once when a Spark wallet exists in storage.
+  const sparkIdentity = getSparkWallet(wallets)?.identityPubkey ?? '';
+
+  // Connect when a Spark wallet exists, and again when that wallet is replaced.
   useEffect(() => {
     if (!walletsInitialized) return;
     const spark = getSparkWallet(wallets);
@@ -193,9 +199,9 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
     return () => {
       cancelled = true;
     };
-    // Only re-run when init flips or a Spark wallet appears/disappears.
+    // Re-run when init flips or the stored Spark identity changes (wallet set swap).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [walletsInitialized, !!getSparkWallet(wallets)]);
+  }, [walletsInitialized, sparkIdentity]);
 
   // Teardown once when the provider unmounts (app session end).
   useEffect(() => {

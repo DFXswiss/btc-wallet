@@ -14,6 +14,21 @@ import { requireSparkSdk } from '../../api/spark/spark-sdk';
 import loc from '../../loc';
 import { AbstractWallet } from './abstract-wallet';
 
+/**
+ * Fixed 16-byte namespace so the same invoice always maps to the same UUID.
+ * A fresh namespace per call would make a retry look like a new payment.
+ */
+const IDEMPOTENCY_NAMESPACE = Buffer.from('6b8f3c2a1d9e0475b3c8a0f4e21769d1', 'hex');
+
+function invoiceIdempotencyKey(paymentHash: string): string {
+  const digest = createHash('sha1').update(IDEMPOTENCY_NAMESPACE).update(paymentHash).digest();
+  const bytes = Buffer.from(digest.subarray(0, 16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x50; // eslint-disable-line no-bitwise
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // eslint-disable-line no-bitwise
+  const hex = bytes.toString('hex');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
+
 /** Shape expected by LND screens (lndReceive, transaction list, etc.). */
 export type SparkInvoiceRecord = {
   payment_request: string;
@@ -99,6 +114,9 @@ export class SparkWallet extends AbstractWallet {
   async fetchBalance(): Promise<void> {
     const sdk = requireSparkSdk();
     const info = await sdk.getInfo({ ensureSynced: false });
+    if (this.identityPubkey && this.identityPubkey !== info.identityPubkey) {
+      throw new Error(loc.wallets.lightning_spark_session_mismatch);
+    }
     this.identityPubkey = info.identityPubkey;
     this.balance = Number(info.balanceSats);
     this._lastBalanceFetch = +new Date();
@@ -274,7 +292,7 @@ export class SparkWallet extends AbstractWallet {
         preferSpark: false,
         completionTimeoutSecs: SparkWallet.SEND_PAYMENT_COMPLETION_TIMEOUT_SECS,
       }),
-      idempotencyKey: decoded.payment_hash,
+      idempotencyKey: invoiceIdempotencyKey(decoded.payment_hash),
     });
 
     if (payment.status === PaymentStatus.Failed) {
