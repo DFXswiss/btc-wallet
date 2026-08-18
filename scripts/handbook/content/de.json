@@ -83,7 +83,7 @@
       "id": "lightning",
       "title": "Lightning",
       "summary": "Kleine Beträge sofort und mit sehr geringen Gebühren.",
-      "intro": "Lightning ist eine zweite Ebene auf Bitcoin für kleine, schnelle Zahlungen. Die Wallet für Lightning läuft in dieser App über einen Anbieter, einen sogenannten LNDHub. Voreingestellt ist lightning.space, DFX.swiss ist ebenfalls wählbar. Anders als bei der Wallet auf der Blockchain liegt das Guthaben dort beim Anbieter. Für grössere Beträge ist die Wallet auf der Blockchain der richtige Ort.",
+      "intro": "Lightning ist eine zweite Ebene auf Bitcoin für kleine, schnelle Zahlungen. Neue Nutzer legen Lightning (Spark) mit einem Tipp auf die Zeile in der Übersicht an. Eine Bezahlkarte gibt es dort nicht. Die Lightning-Adresse liegt bei Breez. Für grössere Beträge ist die Wallet auf der Blockchain der richtige Ort.",
       "groups": [
         "08-lightning"
       ]
@@ -92,7 +92,7 @@
       "id": "weitere-wallets",
       "title": "Weitere Wallets anlegen und importieren",
       "summary": "Eine Wallet auf drei Geräten, eine zusätzliche Wallet für Lightning, eine bestehende Wallet einlesen.",
-      "intro": "Neben der Wallet aus dem ersten Start lassen sich weitere anlegen: eine Wallet, die auf drei Geräten verteilt liegt und für jede Zahlung zwei davon braucht, oder eine weitere Wallet für Lightning. Eine anderswo angelegte Wallet lässt sich über die Wiederherstellungsphrase, einen privaten Schlüssel oder einen Code einlesen.",
+      "intro": "Neben der Wallet aus dem ersten Start lassen sich weitere anlegen: eine Wallet, die auf drei Geräten verteilt liegt und für jede Zahlung zwei davon braucht, oder Lightning (Spark) mit einem Tipp auf die Zeile in der Übersicht. Eine Auswahl des Anbieters gibt es dabei nicht. Eine anderswo angelegte Wallet lässt sich über die Wiederherstellungsphrase, einen privaten Schlüssel oder einen Code einlesen.",
       "groups": [
         "06-wallet-hinzufuegen",
         "07-multi-device",
@@ -113,14 +113,6 @@
     "01-onboarding/01-start": {
       "title": "Haftungsausschluss beim ersten Start",
       "text": "Vor der ersten Wallet weist die App darauf hin, dass sie die Schlüssel selbst verwahrt: Sie liegen auf dem Gerät, nicht bei DFX."
-    },
-    "06-wallet-hinzufuegen/03-lightning-benutzerdefiniert": {
-      "title": "Eigener Anbieter",
-      "text": "Wer einen eigenen LNDHub betreibt, trägt hier dessen Adresse ein."
-    },
-    "06-wallet-hinzufuegen/04-lightning-dfx-swiss": {
-      "title": "Anbieter DFX.swiss",
-      "text": "Alternativ lässt sich der Dienst von DFX.swiss auswählen."
     },
     "01-onboarding/02-wallet-uebersicht": {
       "title": "Die Übersicht nach der Anlage",
@@ -226,10 +218,6 @@
       "title": "Transaktion veröffentlichen",
       "text": "Eine anderswo signierte Transaktion ins Netzwerk geben."
     },
-    "03-einstellungen/19-lightning-wallet": {
-      "title": "Einstellungen für Lightning",
-      "text": "Einstellungen der Wallet für Lightning, darunter der verbundene Anbieter."
-    },
     "04-empfangen-senden/01-erhalten": {
       "title": "Empfangen",
       "text": "Der Code enthält die Adresse zum Empfangen. Betrag und Beschreibung sind freiwillig."
@@ -242,25 +230,25 @@
       "title": "Wallet auf drei Geräten anlegen",
       "text": "Eine Wallet über drei Geräte verteilt: Zwei davon müssen jede Zahlung freigeben. Das schützt davor, dass ein einzelnes verlorenes Gerät das Geld kostet."
     },
-    "06-wallet-hinzufuegen/02-lightning": {
-      "title": "Wallet für Lightning anlegen",
-      "text": "Eine zusätzliche Wallet für Lightning über einen Anbieter."
+    "06-wallet-hinzufuegen/02-lightning-spark": {
+      "title": "Lightning-Zeile mit Hinzufügen",
+      "text": "Ein Tipp auf „Hinzufügen“ in dieser Zeile legt Lightning (Spark) an. Eine weitere Auswahl gibt es nicht."
     },
     "07-multi-device/01-erstellung-qr": {
       "title": "Erster Schritt der Einrichtung",
       "text": "Jedes der drei Geräte zeigt einen eigenen Code und scannt die beiden anderen. Die Anzeige oben verfolgt den Fortschritt."
     },
     "08-lightning/01-uebersicht-mit-lightning": {
-      "title": "Übersicht mit Lightning",
-      "text": "Die Startseite, sobald neben der Wallet auf der Blockchain auch eine Wallet für Lightning angelegt ist."
+      "title": "Übersicht mit Lightning (Spark)",
+      "text": "Die Startseite, sobald neben der Wallet auf der Blockchain auch Lightning (Spark) angelegt ist."
     },
     "08-lightning/02-lightning-wallet": {
-      "title": "Die Wallet für Lightning",
-      "text": "Guthaben, Zahlungen und der Zugang zur Bezahlkarte."
+      "title": "Lightning (Spark)",
+      "text": "Guthaben und Zahlungen dieser Wallet. Eine Bezahlkarte gibt es hier nicht. Die Lightning-Adresse liegt bei Breez."
     },
     "08-lightning/03-rechnung-erstellen": {
       "title": "Rechnung erstellen",
-      "text": "Für den Empfang über Lightning wird eine Rechnung erzeugt, meist mit festem Betrag und begrenzter Gültigkeit."
+      "text": "Mit Betrag erzeugt die Seite eine Rechnung für Lightning. Ohne Betrag stünde hier die Lightning-Adresse bei Breez."
     },
     "09-import/01-scanner": {
       "title": "Import über den Scanner",

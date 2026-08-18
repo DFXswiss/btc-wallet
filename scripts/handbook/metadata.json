@@ -25,7 +25,7 @@
     },
     "03-einstellungen": {
       "title": "Einstellungen",
-      "description": "Einstellungsmenü und alle erreichbaren Unterseiten: Allgemein, Privatsphäre, On-Chain- und Lightning-Wallet, Währung, Sprache, Sicherheit, Netzwerk mit Electrum-Server und Benachrichtigungen, Werkzeuge mit Adressprüfung und Transaktions-Publizierung, Feature Flags und Über.",
+      "description": "Einstellungsmenü und alle erreichbaren Unterseiten: Allgemein, Privatsphäre, On-Chain-Wallet, Währung, Sprache, Sicherheit, Netzwerk mit Electrum-Server und Benachrichtigungen, Werkzeuge mit Adressprüfung und Transaktions-Publizierung, Feature Flags und Über.",
       "captions": {
         "01-menue": "Einstellungsmenü",
         "02-allgemein": "Allgemein",
@@ -42,8 +42,7 @@
         "15-benachrichtigungen": "Benachrichtigungen",
         "16-werkzeuge-uebersicht": "Werkzeuge-Übersicht",
         "17-ist-dies-meine-adresse": "Ist dies meine Adresse?",
-        "18-transaktion-publizieren": "Transaktion publizieren",
-        "19-lightning-wallet": "Lightning-Wallet-Einstellungen"
+        "18-transaktion-publizieren": "Transaktion publizieren"
       }
     },
     "04-empfangen-senden": {
@@ -56,12 +55,10 @@
     },
     "06-wallet-hinzufuegen": {
       "title": "Weitere Wallet anlegen",
-      "description": "Einstiegsseiten für die Multi-Device-Wallet (3-Geräte-Setup) und für die Lightning-Wallet über einen LNDHub-Anbieter mit der Auswahl zwischen lightning.space, DFX.swiss und einem benutzerdefinierten Anbieter.",
+      "description": "Einstiegsseite für die Multi-Device-Wallet (3-Geräte-Setup) und die Übersicht mit der Lightning-Zeile, auf der noch „Hinzufügen“ steht. Die Lightning-Wallet entsteht mit einem Tipp darauf, ohne weitere Auswahl.",
       "captions": {
         "01-multi-device": "Multi-Device-Wallet anlegen",
-        "02-lightning": "Lightning-Wallet anlegen",
-        "03-lightning-benutzerdefiniert": "Benutzerdefinierter Lightning-Anbieter",
-        "04-lightning-dfx-swiss": "Lightning-Anbieter DFX.swiss"
+        "02-lightning-spark": "Lightning-Zeile mit Hinzufügen"
       }
     },
     "07-multi-device": {
@@ -73,10 +70,10 @@
     },
     "08-lightning": {
       "title": "Lightning-Wallet",
-      "description": "Übersicht mit angelegter Lightning-Wallet über lightning.space, Wallet-Detailseite mit Zugang zur Bezahlkarte und die Empfangsseite mit Lightning-Adresse.",
+      "description": "Übersicht mit angelegter Lightning (Spark)-Wallet, Wallet-Seite ohne Bezahlkarte und Empfangsseite mit erzeugter Rechnung. Die Lightning-Adresse liegt bei Breez.",
       "captions": {
-        "01-uebersicht-mit-lightning": "Übersicht mit Lightning-Wallet",
-        "02-lightning-wallet": "Lightning-Wallet",
+        "01-uebersicht-mit-lightning": "Übersicht mit Lightning (Spark)",
+        "02-lightning-wallet": "Lightning (Spark)",
         "03-rechnung-erstellen": "Rechnung erstellen"
       }
     },
