@@ -22,8 +22,6 @@ jest.mock('../../api/dfx/contexts/session.context', () => ({
   useDfxSessionContext: () => ({ reset: jest.fn() }),
 }));
 jest.mock('../../api/spark/spark-sdk', () => ({
-  requireSparkSdk: () => ({}),
-  getSparkSdk: () => ({}),
   isSparkSdkConnected: () => false,
 }));
 jest.mock('../../components/navigationStyle', () => () => options => options);

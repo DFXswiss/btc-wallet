@@ -73,12 +73,10 @@ jest.mock('../../api/spark/spark-sdk', () => {
     disconnectSparkSdk: (...args) => mockDisconnect(...args),
     syncSparkWallet: (...args) => mockSync(...args),
     isSparkSdkConnected: (...args) => mockIsConnected(...args),
-    requireSparkSdk: (...args) => mockRequireSdk(...args),
-    getSparkSessionIdentity: () => 'pk-home-1',
     SparkSessionStaleError,
     acquireSparkSessionLease: () => ({
       identity: 'pk-home-1',
-      sdk: () => mockRequireSdk(),
+      requireSdk: () => mockRequireSdk(),
     }),
     BREEZ_API_KEY_MISSING: 'BREEZ_API_KEY is not configured...',
   };

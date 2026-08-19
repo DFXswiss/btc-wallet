@@ -36,12 +36,12 @@ async function registerLightningAddressOnce(
 ): Promise<string | undefined> {
   for (let attempt = 0; attempt < LIGHTNING_ADDRESS_REGISTER_ATTEMPTS; attempt++) {
     const username = lightningAddressUsername(identityPubkey, attempt);
-    const available = await lease.sdk().checkLightningAddressAvailable({ username });
-    const sdk = lease.sdk();
+    const available = await lease.requireSdk().checkLightningAddressAvailable({ username });
+    const sdk = lease.requireSdk();
     if (!available) continue;
     try {
       const info = await sdk.registerLightningAddress({ username, description });
-      lease.sdk();
+      lease.requireSdk();
       return info?.lightningAddress;
     } catch (e) {
       if (e instanceof SparkSessionStaleError) {
@@ -121,15 +121,15 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
         if (lease.identity !== target.identityPubkey) {
           return;
         }
-        const lnInfo = await lease.sdk().getLightningAddress();
-        lease.sdk();
+        const lnInfo = await lease.requireSdk().getLightningAddress();
+        lease.requireSdk();
         if (lnInfo?.lightningAddress) {
           writeLightningAddress(target, lnInfo.lightningAddress);
         } else if (!target.lnAddress && !lnAddressRegisterAttemptedRef.current && target.identityPubkey) {
           lnAddressRegisterAttemptedRef.current = true;
           const registered = await registerLightningAddressOnce(target.identityPubkey, loc.wallets.lightning_spark_wallet_label, lease);
           if (registered) {
-            lease.sdk();
+            lease.requireSdk();
             writeLightningAddress(target, registered);
           }
         }
@@ -261,14 +261,14 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
       await ensureConnected(mnemonic);
 
       const lease = acquireSparkSessionLease();
-      const info = await lease.sdk().getInfo({ ensureSynced: false });
-      lease.sdk();
+      const info = await lease.requireSdk().getInfo({ ensureSynced: false });
+      const session = lease.requireSdk();
 
       // Lightning address is optional; a failed lookup or name conflict must not abort create.
       let lnAddress: string | undefined;
       try {
-        const lnInfo = await lease.sdk().getLightningAddress();
-        lease.sdk();
+        const lnInfo = await session.getLightningAddress();
+        lease.requireSdk();
         lnAddress = lnInfo?.lightningAddress;
         if (!lnAddress) {
           lnAddress = await registerLightningAddressOnce(info.identityPubkey, loc.wallets.lightning_spark_wallet_label, lease);

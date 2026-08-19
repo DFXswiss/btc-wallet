@@ -36,7 +36,7 @@ export class SparkSessionStaleError extends Error {
 
 export type SparkSessionLease = {
   readonly identity: string | null;
-  sdk(): BreezSdkInterface;
+  requireSdk(): BreezSdkInterface;
 };
 
 function fingerprintMnemonic(mnemonic: string): string {
@@ -56,11 +56,7 @@ function enqueueLifecycle<T>(op: () => Promise<T>): Promise<T> {
   return run;
 }
 
-export function getSparkSdk(): BreezSdkInterface | null {
-  return sdk;
-}
-
-export function requireSparkSdk(): BreezSdkInterface {
+function requireSparkSdk(): BreezSdkInterface {
   if (!sdk) {
     throw new Error('Spark SDK is not connected');
   }
@@ -71,21 +67,16 @@ export function isSparkSdkConnected(): boolean {
   return sdk !== null;
 }
 
-/** Public identity of the live session, or null when none is committed. */
-export function getSparkSessionIdentity(): string | null {
-  return connectedIdentityPubkey;
-}
-
 /**
  * Holds the committed session across the caller's awaits.
- * sdk() throws SparkSessionStaleError once that session is gone or replaced.
+ * requireSdk() throws SparkSessionStaleError once that session is gone or replaced.
  */
 export function acquireSparkSessionLease(): SparkSessionLease {
   const held = requireSparkSdk();
   const identity = connectedIdentityPubkey;
   return {
     identity,
-    sdk() {
+    requireSdk() {
       if (sdk !== held) {
         throw new SparkSessionStaleError();
       }

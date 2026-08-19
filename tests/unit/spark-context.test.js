@@ -23,14 +23,12 @@ jest.mock('../../api/spark/spark-sdk', () => {
     disconnectSparkSdk: (...args) => mockDisconnect(...args),
     syncSparkWallet: (...args) => mockSync(...args),
     isSparkSdkConnected: (...args) => mockIsConnected(...args),
-    requireSparkSdk: (...args) => mockRequireSdk(...args),
-    getSparkSessionIdentity: (...args) => mockGetSessionIdentity(...args),
     SparkSessionStaleError,
     acquireSparkSessionLease: () => {
       const identity = mockGetSessionIdentity();
       return {
         identity,
-        sdk() {
+        requireSdk() {
           if (mockGetSessionIdentity() !== identity) {
             throw new SparkSessionStaleError();
           }

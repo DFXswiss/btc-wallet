@@ -4,10 +4,7 @@ import {
   acquireSparkSessionLease,
   connectSparkSdk,
   disconnectSparkSdk,
-  getSparkSdk,
-  getSparkSessionIdentity,
   isSparkSdkConnected,
-  requireSparkSdk,
   SparkSessionStaleError,
   syncSparkWallet,
   __resetSparkSdkForTests,
@@ -68,9 +65,9 @@ describe('spark-sdk', () => {
     assert.strictEqual(request.config.maxDepositClaimFee.inner.satPerVbyte, 10n);
     expect(mockInstance.addEventListener).toHaveBeenCalled();
     assert.strictEqual(isSparkSdkConnected(), true);
-    assert.strictEqual(getSparkSdk(), mockInstance);
-    assert.strictEqual(requireSparkSdk(), mockInstance);
-    assert.strictEqual(getSparkSessionIdentity(), 'identity-1');
+    const lease = acquireSparkSessionLease();
+    assert.strictEqual(lease.requireSdk(), mockInstance);
+    assert.strictEqual(lease.identity, 'identity-1');
     expect(mockInstance.getInfo).toHaveBeenCalledWith({ ensureSynced: false });
   });
 
@@ -93,15 +90,11 @@ describe('spark-sdk', () => {
     assert.strictEqual(isSparkSdkConnected(), false);
   });
 
-  it('requireSparkSdk throws when not connected', () => {
-    assert.throws(() => requireSparkSdk(), /not connected/);
-  });
-
   it('disconnect clears the session', async () => {
     await connectSparkSdk('one two three four five six seven eight nine ten eleven about', async () => {});
     await disconnectSparkSdk();
     assert.strictEqual(isSparkSdkConnected(), false);
-    assert.strictEqual(getSparkSessionIdentity(), null);
+    assert.throws(() => acquireSparkSessionLease(), /not connected/);
     expect(mockInstance.disconnect).toHaveBeenCalled();
     expect(mockInstance.removeEventListener).toHaveBeenCalledWith('listener-1');
   });
@@ -148,15 +141,14 @@ describe('spark-sdk', () => {
     breez.connect.mockRejectedValueOnce(new Error('network down'));
     await assert.rejects(() => connectSparkSdk('one two three four five six seven eight nine ten eleven about'), /network down/);
     assert.strictEqual(isSparkSdkConnected(), false);
-    assert.strictEqual(getSparkSessionIdentity(), null);
-    assert.throws(() => requireSparkSdk(), /not connected/);
+    assert.throws(() => acquireSparkSessionLease(), /not connected/);
   });
 
   it('clears state when getInfo fails after native connect', async () => {
     mockInstance.getInfo.mockRejectedValueOnce(new Error('info down'));
     await assert.rejects(() => connectSparkSdk('one two three four five six seven eight nine ten eleven about'), /info down/);
     assert.strictEqual(isSparkSdkConnected(), false);
-    assert.strictEqual(getSparkSessionIdentity(), null);
+    assert.throws(() => acquireSparkSessionLease(), /not connected/);
     expect(mockInstance.disconnect).toHaveBeenCalled();
   });
 
@@ -270,7 +262,7 @@ describe('spark-sdk', () => {
     assert.strictEqual(second, instanceB);
     expect(mockInstance.disconnect).toHaveBeenCalled();
     expect(breez.connect).toHaveBeenCalledTimes(2);
-    assert.strictEqual(getSparkSessionIdentity(), 'identity-2');
+    assert.strictEqual(acquireSparkSessionLease().identity, 'identity-2');
   });
 
   it('finishes an in-flight connect before a queued disconnect tears it down', async () => {
@@ -296,8 +288,8 @@ describe('spark-sdk', () => {
     const result = await pendingA;
     await pendingDisc;
     assert.strictEqual(result, instanceA);
-    assert.strictEqual(getSparkSdk(), null);
-    assert.strictEqual(getSparkSessionIdentity(), null);
+    assert.strictEqual(isSparkSdkConnected(), false);
+    assert.throws(() => acquireSparkSessionLease(), /not connected/);
     expect(instanceA.disconnect).toHaveBeenCalled();
   });
 
@@ -324,8 +316,8 @@ describe('spark-sdk', () => {
     resolveAddA('listener-a');
     await pendingA;
     await pendingDisc;
-    assert.strictEqual(getSparkSdk(), null);
-    assert.strictEqual(getSparkSessionIdentity(), null);
+    assert.strictEqual(isSparkSdkConnected(), false);
+    assert.throws(() => acquireSparkSessionLease(), /not connected/);
     expect(instanceA.removeEventListener).toHaveBeenCalledWith('listener-a');
     expect(instanceA.disconnect).toHaveBeenCalled();
   });
@@ -353,8 +345,8 @@ describe('spark-sdk', () => {
     resolveInfo({ identityPubkey: 'late', balanceSats: 0n });
     await pendingA;
     await pendingDisc;
-    assert.strictEqual(getSparkSdk(), null);
-    assert.strictEqual(getSparkSessionIdentity(), null);
+    assert.strictEqual(isSparkSdkConnected(), false);
+    assert.throws(() => acquireSparkSessionLease(), /not connected/);
     expect(instanceA.disconnect).toHaveBeenCalled();
   });
 
@@ -425,7 +417,7 @@ describe('spark-sdk', () => {
     assert.ok(order.indexOf('a-disconnected') >= 0);
     assert.ok(order.indexOf('b-started') >= 0);
     assert.ok(order.indexOf('a-disconnected') < order.indexOf('b-started'));
-    assert.strictEqual(getSparkSessionIdentity(), 'identity-b');
+    assert.strictEqual(acquireSparkSessionLease().identity, 'identity-b');
   });
 
   it('replaces a finished session without logging the seed fingerprint', async () => {
@@ -491,7 +483,7 @@ describe('spark-sdk', () => {
     await pendingB;
     expect(breez.connect).toHaveBeenCalledTimes(2);
     expect(mockInstance.disconnect).toHaveBeenCalled();
-    assert.strictEqual(getSparkSdk(), instanceB);
+    assert.strictEqual(acquireSparkSessionLease().requireSdk(), instanceB);
   });
 
   it('keeps only the last of two overlapping connects with different seeds', async () => {
@@ -511,8 +503,9 @@ describe('spark-sdk', () => {
     await Promise.all([pendingA, pendingB]);
     expect(breez.connect).toHaveBeenCalledTimes(2);
     expect(instanceA.disconnect).toHaveBeenCalled();
-    assert.strictEqual(getSparkSdk(), instanceB);
-    assert.strictEqual(getSparkSessionIdentity(), 'identity-b');
+    const live = acquireSparkSessionLease();
+    assert.strictEqual(live.requireSdk(), instanceB);
+    assert.strictEqual(live.identity, 'identity-b');
   });
 
   it('tears down a poisoned session before the next native connect', async () => {
@@ -628,11 +621,11 @@ describe('spark-sdk', () => {
     const seed = 'one two three four five six seven eight nine ten eleven about';
     await connectSparkSdk(seed);
     const lease = acquireSparkSessionLease();
-    assert.strictEqual(lease.sdk(), mockInstance);
+    assert.strictEqual(lease.requireSdk(), mockInstance);
     assert.strictEqual(lease.identity, 'identity-1');
     await disconnectSparkSdk();
     assert.throws(
-      () => lease.sdk(),
+      () => lease.requireSdk(),
       err => err instanceof SparkSessionStaleError,
     );
   });
@@ -650,9 +643,9 @@ describe('spark-sdk', () => {
     const lease = acquireSparkSessionLease();
     await connectSparkSdk(seedB);
     assert.throws(
-      () => lease.sdk(),
+      () => lease.requireSdk(),
       err => err instanceof SparkSessionStaleError,
     );
-    assert.strictEqual(getSparkSdk(), instanceB);
+    assert.strictEqual(acquireSparkSessionLease().requireSdk(), instanceB);
   });
 });

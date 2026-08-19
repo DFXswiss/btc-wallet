@@ -38,8 +38,6 @@ jest.mock('../../contexts/wallet.context', () => ({
   useWalletContext: () => ({ wallet: null }),
 }));
 jest.mock('../../api/spark/spark-sdk', () => ({
-  requireSparkSdk: () => ({}),
-  getSparkSdk: () => ({}),
   isSparkSdkConnected: () => false,
   SparkSessionStaleError: class SparkSessionStaleError extends Error {
     constructor() {
@@ -49,7 +47,7 @@ jest.mock('../../api/spark/spark-sdk', () => ({
   },
   acquireSparkSessionLease: () => ({
     identity: null,
-    sdk: () => ({}),
+    requireSdk: () => ({}),
   }),
 }));
 

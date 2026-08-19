@@ -67,10 +67,7 @@ const mockSdk = {
 };
 
 jest.mock('../../api/spark/spark-sdk', () => ({
-  requireSparkSdk: () => mockSdk,
-  getSparkSdk: () => mockSdk,
   isSparkSdkConnected: () => true,
-  getSparkSessionIdentity: () => 'pk-receive-1',
   SparkSessionStaleError: class SparkSessionStaleError extends Error {
     constructor() {
       super('Spark session is no longer the one this call started with');
@@ -79,7 +76,7 @@ jest.mock('../../api/spark/spark-sdk', () => ({
   },
   acquireSparkSessionLease: () => ({
     identity: 'pk-receive-1',
-    sdk: () => mockSdk,
+    requireSdk: () => mockSdk,
   }),
 }));
 

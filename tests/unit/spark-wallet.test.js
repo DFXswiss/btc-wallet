@@ -22,16 +22,13 @@ jest.mock('../../api/spark/spark-sdk', () => {
     }
   }
   return {
-    requireSparkSdk: () => mockSdk,
-    getSparkSdk: () => mockSdk,
     isSparkSdkConnected: () => true,
-    getSparkSessionIdentity: () => mockSessionIdentity,
     SparkSessionStaleError,
     acquireSparkSessionLease: () => ({
       get identity() {
         return mockSessionIdentity;
       },
-      sdk() {
+      requireSdk() {
         if (mockLeaseSdkOverride) {
           return mockLeaseSdkOverride();
         }
