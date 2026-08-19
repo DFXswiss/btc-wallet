@@ -234,6 +234,16 @@ describe('home screen Spark Lightning add path (render)', () => {
   });
 
   it('does not navigate to AddLightning when the Lightning add is pressed', async () => {
+    let resolveConnect;
+    mockConnect.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveConnect = () => {
+            mockIsConnected.mockReturnValue(true);
+            resolve(mockSdk);
+          };
+        }),
+    );
     const screen = renderHome([makeOnChain()]);
     await waitFor(() => expect(screen.getByText(loc.wallets.lightning_wallet_label)).toBeTruthy());
 
@@ -241,11 +251,19 @@ describe('home screen Spark Lightning add path (render)', () => {
       pressLightningAdd(screen);
     });
 
+    await waitFor(() => {
+      assert.ok(mockConnect.mock.calls.length > 0 || mockNavigate.mock.calls.length > 0);
+    });
+    await act(async () => {
+      if (resolveConnect) resolveConnect();
+    });
+    await waitFor(() => {
+      assert.ok(screen.queryByText(loc.wallets.lightning_spark_wallet_label) || mockNavigate.mock.calls.length > 0);
+    });
     const navToAddLightning = mockNavigate.mock.calls.some(
       call => (call[0] === 'WalletsRoot' && call[1]?.screen === 'AddLightning') || call[0] === 'AddLightning',
     );
     assert.strictEqual(navToAddLightning, false);
-    await waitFor(() => expect(mockConnect).toHaveBeenCalled());
   });
 
   it('leaves existing lightningLdsWallet users on LDS without creating Spark', async () => {

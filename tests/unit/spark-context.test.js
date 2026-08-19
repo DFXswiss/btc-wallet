@@ -818,9 +818,11 @@ describe('SparkContextProvider', () => {
     const refreshCalls = warn.mock.calls.filter(c => c[0] === 'SparkContext: refresh failed');
     assert.strictEqual(refreshCalls.length, 1);
     for (const args of refreshCalls) {
+      assert.strictEqual(args.length, 2);
+      assert.strictEqual(args[0], 'SparkContext: refresh failed');
       assert.strictEqual(args[1], 'Error');
-      assert.ok(!String(args[1]).includes('balance fail'));
-      assert.ok(!String(args[1]).includes('SEED_MARKER'));
+      assert.ok(args.every(a => !String(a).includes('balance fail')));
+      assert.ok(args.every(a => !String(a).includes('SEED_MARKER')));
     }
     warn.mockRestore();
   });
@@ -1194,6 +1196,7 @@ describe('SparkContextProvider', () => {
     });
     assert.ok(created);
     assert.strictEqual(created.lnAddress, undefined);
+    expect(mockSdk.registerLightningAddress).toHaveBeenCalled();
     expect(addAndSaveWallet).toHaveBeenCalledWith(created);
     warn.mockRestore();
   });
