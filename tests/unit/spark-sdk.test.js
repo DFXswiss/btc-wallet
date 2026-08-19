@@ -554,6 +554,42 @@ describe('spark-sdk', () => {
     warn.mockRestore();
   });
 
+  it('retries removeEventListener and disconnect after a poisoned teardown and then connects', async () => {
+    const seed = 'one two three four five six seven eight nine ten eleven about';
+    const seedB = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+    await connectSparkSdk(seed, async () => {});
+    mockInstance.removeEventListener.mockRejectedValueOnce(new Error('listener held'));
+    mockInstance.disconnect.mockRejectedValueOnce(new Error('native down'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    await disconnectSparkSdk();
+    assert.strictEqual(isSparkSdkConnected(), false);
+    expect(mockInstance.removeEventListener).toHaveBeenCalledWith('listener-1');
+    expect(mockInstance.removeEventListener).toHaveBeenCalledTimes(1);
+    expect(mockInstance.disconnect).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+
+    const instanceB = makeSdkInstance('b');
+    const order = [];
+    mockInstance.removeEventListener.mockImplementation(async () => {
+      order.push('remove');
+    });
+    mockInstance.disconnect.mockImplementation(async () => {
+      order.push('disconnect');
+    });
+    breez.connect.mockImplementation(() => {
+      order.push('connect');
+      return Promise.resolve(instanceB);
+    });
+
+    const next = await connectSparkSdk(seedB);
+    assert.strictEqual(next, instanceB);
+    assert.strictEqual(isSparkSdkConnected(), true);
+    assert.deepStrictEqual(order, ['remove', 'disconnect', 'connect']);
+    expect(mockInstance.removeEventListener).toHaveBeenCalledWith('listener-1');
+    expect(mockInstance.removeEventListener).toHaveBeenCalledTimes(2);
+    expect(mockInstance.disconnect).toHaveBeenCalledTimes(2);
+  });
+
   it('tears down a leftover instance after a failed connect before opening another', async () => {
     const seed = 'one two three four five six seven eight nine ten eleven about';
     mockInstance.getInfo.mockRejectedValueOnce(new Error('info down'));

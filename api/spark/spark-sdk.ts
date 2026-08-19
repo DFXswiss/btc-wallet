@@ -100,8 +100,8 @@ async function teardownInstance(instance: BreezSdkInterface, id: string | null):
       await instance.removeEventListener(id);
     } catch (e) {
       // Best-effort: the SDK may already have dropped the listener during disconnect.
-      // Follow-up is impossible without a live instance. Log class only — this SDK instance
-      // was built with seed + API key; Sentry breadcrumbs ride along with later issues.
+      // Log class only — this SDK instance was built with seed + API key;
+      // Sentry breadcrumbs ride along with later issues.
       console.warn('disconnectSparkSdk: removeEventListener failed', errorKind(e));
     }
   }
@@ -109,9 +109,10 @@ async function teardownInstance(instance: BreezSdkInterface, id: string | null):
   try {
     await instance.disconnect();
     poisonedSdk = null;
+    listenerId = null;
   } catch (e) {
-    // Native session may still hold storageDir. Keep the instance so the next connect
-    // tears it down instead of opening a second session against the same directory.
+    // Native session may still hold storageDir. Keep the instance and listener id
+    // so the next connect can retry both teardown steps against the same directory.
     console.warn('disconnectSparkSdk: disconnect failed', errorKind(e));
     poisonedSdk = instance;
   }
@@ -124,9 +125,9 @@ async function disconnectLocked(): Promise<void> {
   const instance = sdk ?? poisonedSdk;
   const id = listenerId;
   sdk = null;
-  listenerId = null;
 
   if (!instance) {
+    listenerId = null;
     return;
   }
 

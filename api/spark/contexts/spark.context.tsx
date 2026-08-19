@@ -34,24 +34,21 @@ async function registerLightningAddressOnce(
   description: string,
   lease: SparkSessionLease,
 ): Promise<string | undefined> {
-  try {
-    for (let attempt = 0; attempt < LIGHTNING_ADDRESS_REGISTER_ATTEMPTS; attempt++) {
-      const username = lightningAddressUsername(identityPubkey, attempt);
-      const available = await lease.sdk().checkLightningAddressAvailable({ username });
-      const sdk = lease.sdk();
-      if (!available) continue;
-      try {
-        const info = await sdk.registerLightningAddress({ username, description });
-        return info?.lightningAddress;
-      } catch (e) {
-        console.warn('SparkContext: registerLightningAddress failed', errorClass(e));
+  for (let attempt = 0; attempt < LIGHTNING_ADDRESS_REGISTER_ATTEMPTS; attempt++) {
+    const username = lightningAddressUsername(identityPubkey, attempt);
+    const available = await lease.sdk().checkLightningAddressAvailable({ username });
+    const sdk = lease.sdk();
+    if (!available) continue;
+    try {
+      const info = await sdk.registerLightningAddress({ username, description });
+      lease.sdk();
+      return info?.lightningAddress;
+    } catch (e) {
+      if (e instanceof SparkSessionStaleError) {
+        throw e;
       }
+      console.warn('SparkContext: registerLightningAddress failed', errorClass(e));
     }
-  } catch (e) {
-    if (e instanceof SparkSessionStaleError) {
-      return undefined;
-    }
-    throw e;
   }
   return undefined;
 }
@@ -267,7 +264,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
       const info = await lease.sdk().getInfo({ ensureSynced: false });
       lease.sdk();
 
-      // Lightning address is optional for usability; a failed lookup or register must not abort create.
+      // Lightning address is optional; a failed lookup or name conflict must not abort create.
       let lnAddress: string | undefined;
       try {
         const lnInfo = await lease.sdk().getLightningAddress();
@@ -277,9 +274,10 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
           lnAddress = await registerLightningAddressOnce(info.identityPubkey, loc.wallets.lightning_spark_wallet_label, lease);
         }
       } catch (e) {
-        if (!(e instanceof SparkSessionStaleError)) {
-          console.warn('SparkContext: getLightningAddress failed; wallet remains usable without lnAddress', errorClass(e));
+        if (e instanceof SparkSessionStaleError) {
+          throw e;
         }
+        console.warn('SparkContext: getLightningAddress failed; wallet remains usable without lnAddress', errorClass(e));
       }
       lnAddressRegisterAttemptedRef.current = true;
 
