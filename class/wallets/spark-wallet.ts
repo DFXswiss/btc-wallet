@@ -2,6 +2,7 @@ import createHash from 'create-hash';
 import bolt11 from 'bolt11';
 import {
   PaymentDetails_Tags,
+  PaymentDetailsFilter,
   PaymentRequest,
   PaymentStatus,
   PaymentType,
@@ -224,7 +225,7 @@ export class SparkWallet extends AbstractWallet {
       typeFilter: [PaymentType.Receive],
       statusFilter: undefined,
       assetFilter: undefined,
-      paymentDetailsFilter: undefined,
+      paymentDetailsFilter: [new PaymentDetailsFilter.Lightning({ htlcStatus: undefined })],
       fromTimestamp: undefined,
       toTimestamp: undefined,
       offset: undefined,
@@ -234,8 +235,9 @@ export class SparkWallet extends AbstractWallet {
 
     const remote = response.payments.map(p => this.mapPayment(p));
     // Keep locally created unpaid invoices that the network has not seen yet.
+    // Empty payment_request is not an identity (details may be missing).
     for (const old of this.user_invoices_raw) {
-      if (!remote.some(r => r.payment_request === old.payment_request)) {
+      if (!remote.some(r => Boolean(r.payment_request) && r.payment_request === old.payment_request)) {
         remote.push(old);
       }
     }

@@ -9,6 +9,16 @@ const PaymentDetails_Tags = {
   Withdraw: 'Withdraw',
   Deposit: 'Deposit',
 };
+const PaymentDetailsFilter_Tags = {
+  Spark: 'Spark',
+  Token: 'Token',
+  Lightning: 'Lightning',
+};
+const PaymentDetailsFilter = {
+  Spark: tagged('Spark'),
+  Token: tagged('Token'),
+  Lightning: tagged('Lightning'),
+};
 const SdkEvent_Tags = {
   Synced: 'Synced',
   UnclaimedDeposits: 'UnclaimedDeposits',
@@ -86,6 +96,8 @@ module.exports = {
   PaymentType,
   PaymentStatus,
   PaymentDetails_Tags,
+  PaymentDetailsFilter_Tags,
+  PaymentDetailsFilter,
   PaymentRequest,
   ReceivePaymentMethod,
   SendPaymentOptions,

@@ -346,6 +346,19 @@ describe('SparkWallet', () => {
             inner: { description: 'paid', invoice: 'remote-invoice', destinationPubkey: 'x', htlcDetails: {} },
           },
         },
+        {
+          id: 'remote-empty',
+          paymentType: PaymentType.Receive,
+          status: PaymentStatus.Completed,
+          amount: 1n,
+          fees: 0n,
+          timestamp: 5n,
+          method: {},
+          details: {
+            tag: PaymentDetails_Tags.Lightning,
+            inner: { description: '', invoice: '', destinationPubkey: 'x', htlcDetails: {} },
+          },
+        },
       ],
     });
     const wallet = new SparkWallet();
@@ -365,7 +378,13 @@ describe('SparkWallet', () => {
     assert.strictEqual(invoices.find(i => i.payment_request === SAMPLE_INVOICE)?.ispaid, false);
     assert.strictEqual(invoices.find(i => i.payment_request === 'remote-invoice')?.ispaid, true);
     assert.strictEqual(wallet.user_invoices_raw, invoices);
-    expect(mockSdk.listPayments).toHaveBeenCalledWith(expect.objectContaining({ limit: 1, typeFilter: [PaymentType.Receive] }));
+    expect(mockSdk.listPayments).toHaveBeenCalledWith(
+      expect.objectContaining({
+        limit: 1,
+        typeFilter: [PaymentType.Receive],
+        paymentDetailsFilter: [expect.objectContaining({ tag: 'Lightning' })],
+      }),
+    );
   });
 
   it('getUserInvoices uses limit 50 when called with 0', async () => {
@@ -373,7 +392,76 @@ describe('SparkWallet', () => {
     const wallet = new SparkWallet();
     const invoices = await wallet.getUserInvoices(0);
     assert.ok(Array.isArray(invoices));
-    expect(mockSdk.listPayments).toHaveBeenCalledWith(expect.objectContaining({ limit: 50 }));
+    expect(mockSdk.listPayments).toHaveBeenCalledWith(
+      expect.objectContaining({
+        limit: 50,
+        paymentDetailsFilter: [expect.objectContaining({ tag: 'Lightning' })],
+      }),
+    );
+  });
+
+  it('getUserInvoices drops non-Lightning receives so they cannot displace the sought invoice', async () => {
+    const soughtInvoice = 'sought-ln-invoice';
+    const mixed = [
+      {
+        id: 'spark-newer',
+        paymentType: PaymentType.Receive,
+        status: PaymentStatus.Completed,
+        amount: 1n,
+        fees: 0n,
+        timestamp: 30n,
+        method: {},
+        details: { tag: PaymentDetails_Tags.Spark, inner: {} },
+      },
+      {
+        id: 'ln-sought',
+        paymentType: PaymentType.Receive,
+        status: PaymentStatus.Completed,
+        amount: 20n,
+        fees: 0n,
+        timestamp: 20n,
+        method: {},
+        details: {
+          tag: PaymentDetails_Tags.Lightning,
+          inner: { description: 'sought', invoice: soughtInvoice, destinationPubkey: 'x', htlcDetails: {} },
+        },
+      },
+      {
+        id: 'token',
+        paymentType: PaymentType.Receive,
+        status: PaymentStatus.Completed,
+        amount: 3n,
+        fees: 0n,
+        timestamp: 10n,
+        method: {},
+        details: { tag: PaymentDetails_Tags.Token, inner: {} },
+      },
+    ];
+    mockSdk.listPayments.mockImplementation(async req => {
+      let out = mixed.slice();
+      if (req.typeFilter) {
+        out = out.filter(p => req.typeFilter.includes(p.paymentType));
+      }
+      if (Array.isArray(req.paymentDetailsFilter) && req.paymentDetailsFilter.length) {
+        const tags = req.paymentDetailsFilter.map(f => f.tag);
+        out = out.filter(p => p.details && tags.includes(p.details.tag));
+      }
+      if (req.limit) {
+        out = out.slice(0, req.limit);
+      }
+      return { payments: out };
+    });
+    const wallet = new SparkWallet();
+    const invoices = await wallet.getUserInvoices(1);
+    assert.strictEqual(invoices.length, 1);
+    assert.strictEqual(invoices[0].payment_request, soughtInvoice);
+    expect(mockSdk.listPayments).toHaveBeenCalledWith(
+      expect.objectContaining({
+        limit: 1,
+        typeFilter: [PaymentType.Receive],
+        paymentDetailsFilter: [expect.objectContaining({ tag: 'Lightning' })],
+      }),
+    );
   });
 
   it('exposes the invoice methods the Lightning receive screens call', () => {
