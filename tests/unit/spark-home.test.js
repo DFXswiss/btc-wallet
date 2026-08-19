@@ -15,17 +15,17 @@ jest.mock('../../blue_modules/currency', () => ({
 }));
 jest.mock('react-native-haptic-feedback', () => ({ trigger: jest.fn() }));
 jest.mock('../../components/DfxServicesButtons', () => {
-  const React = require('react');
+  const ReactModule = require('react');
   const { View } = require('react-native');
   return function DfxServicesButtons() {
-    return React.createElement(View, { testID: 'DfxServicesButtons' });
+    return ReactModule.createElement(View, { testID: 'DfxServicesButtons' });
   };
 });
 jest.mock('../../components/TransactionsNavigationHeader', () => {
-  const React = require('react');
+  const ReactModule = require('react');
   const { View } = require('react-native');
   return function TransactionsNavigationHeader() {
-    return React.createElement(View, { testID: 'TransactionsNavigationHeader' });
+    return ReactModule.createElement(View, { testID: 'TransactionsNavigationHeader' });
   };
 });
 jest.mock('../../helpers/scan-qr', () => jest.fn());
