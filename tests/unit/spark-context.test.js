@@ -787,7 +787,7 @@ describe('SparkContextProvider', () => {
     warn.mockRestore();
   });
 
-  it('refresh tolerates fetch failures and still updates lnAddress when present', async () => {
+  it('refresh fetch failure warns with the error class only', async () => {
     const existing = stubSparkMethods(SparkWallet.create('rf-pk'));
     existing.fetchBalance.mockRejectedValueOnce(new Error('balance fail SEED_MARKER'));
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
@@ -943,7 +943,7 @@ describe('SparkContextProvider', () => {
       setInitRef.current(true);
     });
     expect(mockDisconnect).not.toHaveBeenCalled();
-    await waitFor(() => expect(mockConnect.mock.calls.length).toBeGreaterThanOrEqual(2));
+    await waitFor(() => expect(mockConnect).toHaveBeenCalledTimes(2));
   });
 
   it('disconnects the SDK when the provider unmounts', async () => {
@@ -1028,7 +1028,7 @@ describe('SparkContextProvider', () => {
     expect(addAndSaveWallet).toHaveBeenCalled();
   });
 
-  it('dedupes ensureConnected while a connect is already in flight', async () => {
+  it('createSparkWallet returns the stored wallet without starting another connect', async () => {
     let resolveConnect;
     let connectCalls = 0;
     mockConnect.mockImplementation(
@@ -1042,14 +1042,10 @@ describe('SparkContextProvider', () => {
         }),
     );
 
-    // Stored spark triggers ensureConnected; create will also call it while still connecting.
     const existing = stubSparkMethods(SparkWallet.create('dup-pk'));
     renderWith([hdWallet, existing]);
-    // Wait until first connect started
     await waitFor(() => expect(mockConnect).toHaveBeenCalled());
 
-    // Force another ensureConnected via create path is blocked by getSparkWallet existing.
-    // Instead fire a second connect by re-rendering is hard; call createSparkWallet which returns existing.
     await act(async () => {
       const result = await latestCtx.createSparkWallet();
       assert.strictEqual(result, existing);
@@ -1058,8 +1054,7 @@ describe('SparkContextProvider', () => {
     await act(async () => {
       resolveConnect();
     });
-    // Only one native connect for the in-flight session
-    assert.ok(connectCalls >= 1);
+    assert.strictEqual(connectCalls, 1);
   });
 
   it('does not register when the session changes after the availability check', async () => {
@@ -1165,15 +1160,19 @@ describe('SparkContextProvider', () => {
     expect(existing.fetchBalance).not.toHaveBeenCalled();
   });
 
-  it('does not set lnAddress when getLightningAddress returns empty and register is skipped after a failed create attempt', async () => {
+  it('creates without lnAddress when getLightningAddress is empty and register rejects', async () => {
     mockSdk.getLightningAddress.mockResolvedValue({ lightningAddress: undefined });
     mockSdk.registerLightningAddress.mockRejectedValue(new Error('register down'));
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     renderWith([hdWallet]);
     await waitFor(() => assert.ok(latestCtx));
+    let created;
     await act(async () => {
-      await latestCtx.createSparkWallet();
+      created = await latestCtx.createSparkWallet();
     });
+    assert.ok(created);
+    assert.strictEqual(created.lnAddress, undefined);
+    expect(addAndSaveWallet).toHaveBeenCalledWith(created);
     warn.mockRestore();
   });
 
