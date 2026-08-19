@@ -233,7 +233,11 @@ export class SparkWallet extends AbstractWallet {
       sortAscending: false,
     });
 
-    const remote = response.payments.map(p => this.mapPayment(p));
+    // Lightning without htlcStatus adds no SQL clause in breez-sdk 0.19.2, so
+    // the request filter above is a hint, not a guarantee. Drop other kinds here.
+    const remote = response.payments
+      .filter(payment => payment.details && payment.details.tag === PaymentDetails_Tags.Lightning)
+      .map(p => this.mapPayment(p));
     // Keep locally created unpaid invoices that the network has not seen yet.
     // Empty payment_request is not an identity (details may be missing).
     for (const old of this.user_invoices_raw) {

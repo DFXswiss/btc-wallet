@@ -400,66 +400,123 @@ describe('SparkWallet', () => {
     );
   });
 
-  it('getUserInvoices drops non-Lightning receives so they cannot displace the sought invoice', async () => {
+  it('getUserInvoices keeps only Lightning invoices when the SDK returns mixed incoming payments', async () => {
     const soughtInvoice = 'sought-ln-invoice';
-    const mixed = [
-      {
-        id: 'spark-newer',
-        paymentType: PaymentType.Receive,
-        status: PaymentStatus.Completed,
-        amount: 1n,
-        fees: 0n,
-        timestamp: 30n,
-        method: {},
-        details: { tag: PaymentDetails_Tags.Spark, inner: {} },
-      },
-      {
-        id: 'ln-sought',
-        paymentType: PaymentType.Receive,
-        status: PaymentStatus.Completed,
-        amount: 20n,
-        fees: 0n,
-        timestamp: 20n,
-        method: {},
-        details: {
-          tag: PaymentDetails_Tags.Lightning,
-          inner: { description: 'sought', invoice: soughtInvoice, destinationPubkey: 'x', htlcDetails: {} },
+    mockSdk.listPayments.mockResolvedValue({
+      payments: [
+        {
+          id: 'spark-newer',
+          paymentType: PaymentType.Receive,
+          status: PaymentStatus.Completed,
+          amount: 1n,
+          fees: 0n,
+          timestamp: 30n,
+          method: {},
+          details: { tag: PaymentDetails_Tags.Spark, inner: {} },
         },
-      },
-      {
-        id: 'token',
-        paymentType: PaymentType.Receive,
-        status: PaymentStatus.Completed,
-        amount: 3n,
-        fees: 0n,
-        timestamp: 10n,
-        method: {},
-        details: { tag: PaymentDetails_Tags.Token, inner: {} },
-      },
-    ];
-    mockSdk.listPayments.mockImplementation(async req => {
-      let out = mixed.slice();
-      if (req.typeFilter) {
-        out = out.filter(p => req.typeFilter.includes(p.paymentType));
-      }
-      if (Array.isArray(req.paymentDetailsFilter) && req.paymentDetailsFilter.length) {
-        const tags = req.paymentDetailsFilter.map(f => f.tag);
-        out = out.filter(p => p.details && tags.includes(p.details.tag));
-      }
-      if (req.limit) {
-        out = out.slice(0, req.limit);
-      }
-      return { payments: out };
+        {
+          id: 'ln-sought',
+          paymentType: PaymentType.Receive,
+          status: PaymentStatus.Completed,
+          amount: 20n,
+          fees: 0n,
+          timestamp: 20n,
+          method: {},
+          details: {
+            tag: PaymentDetails_Tags.Lightning,
+            inner: { description: 'sought', invoice: soughtInvoice, destinationPubkey: 'x', htlcDetails: {} },
+          },
+        },
+        {
+          id: 'token',
+          paymentType: PaymentType.Receive,
+          status: PaymentStatus.Completed,
+          amount: 3n,
+          fees: 0n,
+          timestamp: 10n,
+          method: {},
+          details: { tag: PaymentDetails_Tags.Token, inner: {} },
+        },
+        {
+          id: 'no-details',
+          paymentType: PaymentType.Receive,
+          status: PaymentStatus.Completed,
+          amount: 4n,
+          fees: 0n,
+          timestamp: 8n,
+          method: {},
+          details: undefined,
+        },
+        {
+          id: 'deposit',
+          paymentType: PaymentType.Receive,
+          status: PaymentStatus.Completed,
+          amount: 5n,
+          fees: 0n,
+          timestamp: 6n,
+          method: {},
+          details: { tag: PaymentDetails_Tags.Deposit, inner: {} },
+        },
+      ],
     });
     const wallet = new SparkWallet();
-    const invoices = await wallet.getUserInvoices(1);
+    const invoices = await wallet.getUserInvoices();
     assert.strictEqual(invoices.length, 1);
     assert.strictEqual(invoices[0].payment_request, soughtInvoice);
+    assert.strictEqual(wallet.user_invoices_raw.length, 1);
+    assert.strictEqual(wallet.user_invoices_raw[0].payment_request, soughtInvoice);
+    assert.strictEqual(
+      wallet.user_invoices_raw.some(
+        invoice =>
+          invoice.payment_hash === 'spark-newer' ||
+          invoice.payment_hash === 'token' ||
+          invoice.payment_hash === 'no-details' ||
+          invoice.payment_hash === 'deposit',
+      ),
+      false,
+    );
+  });
+
+  it('getUserInvoices does not let a single non-Lightning receive displace a local unpaid invoice', async () => {
+    mockSdk.listPayments.mockResolvedValue({
+      payments: [
+        {
+          id: 'onchain-only',
+          paymentType: PaymentType.Receive,
+          status: PaymentStatus.Completed,
+          amount: 1n,
+          fees: 0n,
+          timestamp: 99n,
+          method: {},
+          details: { tag: PaymentDetails_Tags.Spark, inner: {} },
+        },
+      ],
+    });
+    const wallet = new SparkWallet();
+    wallet.user_invoices_raw = [
+      {
+        payment_request: SAMPLE_INVOICE,
+        timestamp: 1,
+        type: 'user_invoice',
+        amt: 10,
+        ispaid: false,
+        expire_time: 3600,
+      },
+    ];
+    const invoices = await wallet.getUserInvoices(1);
+    assert.strictEqual(invoices.length, 1);
+    assert.strictEqual(invoices[0].payment_request, SAMPLE_INVOICE);
+    assert.strictEqual(invoices[0].ispaid, false);
+    assert.strictEqual(wallet.user_invoices_raw.length, 1);
+    assert.strictEqual(wallet.user_invoices_raw[0].payment_request, SAMPLE_INVOICE);
+    assert.strictEqual(
+      wallet.user_invoices_raw.some(invoice => invoice.payment_hash === 'onchain-only' || invoice.payment_request === ''),
+      false,
+    );
     expect(mockSdk.listPayments).toHaveBeenCalledWith(
       expect.objectContaining({
         limit: 1,
         typeFilter: [PaymentType.Receive],
-        paymentDetailsFilter: [expect.objectContaining({ tag: 'Lightning' })],
       }),
     );
   });
