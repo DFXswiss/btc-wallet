@@ -366,6 +366,28 @@ describe('SparkContextProvider', () => {
     alert.mockRestore();
   });
 
+  it('does not persist a wallet when the session changes after a swallowed Lightning address error', async () => {
+    mockSdk.getLightningAddress.mockImplementation(async () => {
+      mockGetSessionIdentity.mockReturnValue('other-session');
+      throw new Error('lnaddr down');
+    });
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    renderWith([hdWallet]);
+    await waitFor(() => assert.ok(latestCtx));
+
+    let result;
+    await act(async () => {
+      result = await latestCtx.createSparkWallet();
+    });
+
+    assert.strictEqual(result, null);
+    expect(addAndSaveWallet).not.toHaveBeenCalled();
+    expect(alert).toHaveBeenCalled();
+    alert.mockRestore();
+    warn.mockRestore();
+  });
+
   it('does not persist a wallet when the session goes stale during Lightning address lookup', async () => {
     mockSdk.getLightningAddress.mockImplementation(async () => {
       mockGetSessionIdentity.mockReturnValue('other-session');

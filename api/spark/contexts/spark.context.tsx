@@ -281,6 +281,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
       }
       lnAddressRegisterAttemptedRef.current = true;
 
+      lease.requireSdk();
       const created = SparkWallet.create(info.identityPubkey, lnAddress);
       created.setLabel(loc.wallets.lightning_spark_wallet_label);
       // Never write the recovery phrase into the Spark wallet record.
