@@ -240,12 +240,12 @@ describe('home screen Spark Lightning add path (render)', () => {
     await act(async () => {
       pressLightningAdd(screen);
     });
-    await waitFor(() => expect(mockConnect).toHaveBeenCalled());
 
     const navToAddLightning = mockNavigate.mock.calls.some(
       call => (call[0] === 'WalletsRoot' && call[1]?.screen === 'AddLightning') || call[0] === 'AddLightning',
     );
     assert.strictEqual(navToAddLightning, false);
+    await waitFor(() => expect(mockConnect).toHaveBeenCalled());
   });
 
   it('leaves existing lightningLdsWallet users on LDS without creating Spark', async () => {
@@ -358,25 +358,6 @@ describe('BlueApp deserializes Spark without LNDHub init', () => {
     assert.strictEqual(restored.getSecret(), '');
     assert.strictEqual(setBaseURI.mock.calls.length, 0);
     assert.strictEqual(init.mock.calls.length, 0);
-  });
-});
-
-describe('details screen includes Spark in the connected-to block', () => {
-  const repoRoot = path.join(__dirname, '..', '..');
-  const source = fs.readFileSync(path.join(repoRoot, 'screen/wallets/details.js'), 'utf8');
-
-  it('lists SparkWallet alongside LNDHub types at the connection info check', () => {
-    assert.ok(source.includes('SparkWallet.type'), 'expected Spark type in details');
-    assert.ok(
-      source.includes('LightningCustodianWallet.type, LightningLdsWallet.type, SparkWallet.type') || source.includes('SparkWallet.type]'),
-      'expected Spark in the connected-to type list',
-    );
-  });
-
-  it('keeps POS and boltcard checks LNDHub-only', () => {
-    const posMatches = source.match(/showPosModeOptions && wallet\.type === LightningLdsWallet\.type/g) || [];
-    assert.ok(posMatches.length >= 2, 'expected POS checks to remain LDS-only');
-    assert.ok(source.includes('[LightningLdsWallet.type].includes(wallet.type) && wallet.getBoltcard()'), 'boltcard remains LDS-only');
   });
 });
 

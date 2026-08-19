@@ -141,4 +141,47 @@ describe('WalletDetails Spark vs LNDHub blocks', () => {
     expect(screen.queryByTestId('WalletExport')).toBeNull();
     expect(screen.queryByText(loc.wallets.details_export_backup)).toBeNull();
   });
+
+  it('shows POS toggle, cashier station and boltcard backup for an LNDHub wallet', async () => {
+    const wallet = makeWallet('lightningLdsWallet', {
+      id: 'lds-details-pos-bolt',
+      isPosMode: true,
+      getBoltcard: () => ({ uid: 'card-1' }),
+    });
+    const screen = renderDetails(wallet);
+    await waitFor(() => expect(screen.getByText(loc.wallets.details_type)).toBeTruthy());
+    expect(screen.getByText('Activate POS mode')).toBeTruthy();
+    expect(screen.getByText('Go to cashier station')).toBeTruthy();
+    expect(screen.getByText('Backup Pay Card Details')).toBeTruthy();
+  });
+
+  it('hides POS toggle, cashier station and boltcard backup for a Spark wallet', async () => {
+    const wallet = makeWallet('sparkWallet', {
+      id: 'spark-details-pos-bolt',
+      isPosMode: true,
+      getBoltcard: () => ({ uid: 'card-1' }),
+    });
+    const screen = renderDetails(wallet);
+    await waitFor(() => expect(screen.getByText(loc.wallets.details_type)).toBeTruthy());
+    expect(screen.queryByText('Activate POS mode')).toBeNull();
+    expect(screen.queryByText('Go to cashier station')).toBeNull();
+    expect(screen.queryByText('Backup Pay Card Details')).toBeNull();
+  });
+});
+
+describe('WalletDetails connected-to block', () => {
+  it('shows the connected-to block for a Spark wallet', async () => {
+    const wallet = makeWallet('sparkWallet', { id: 'spark-details-connected', getBaseURI: () => 'Breez Spark' });
+    const screen = renderDetails(wallet);
+    await waitFor(() => expect(screen.getByText(loc.wallets.details_type)).toBeTruthy());
+    expect(screen.getByText(loc.wallets.details_connected_to)).toBeTruthy();
+    expect(screen.getByText('Breez Spark')).toBeTruthy();
+  });
+
+  it('hides the connected-to block for an on-chain wallet', async () => {
+    const wallet = makeWallet('HDsegwitBech32', { id: 'onchain-details-connected', chain: 'ONCHAIN' });
+    const screen = renderDetails(wallet);
+    await waitFor(() => expect(screen.getByText(loc.wallets.details_type)).toBeTruthy());
+    expect(screen.queryByText(loc.wallets.details_connected_to)).toBeNull();
+  });
 });
