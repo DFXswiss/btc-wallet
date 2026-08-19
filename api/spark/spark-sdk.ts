@@ -20,12 +20,24 @@ const MAX_DEPOSIT_CLAIM_FEE_SAT_PER_VBYTE = 10n;
 
 let sdk: BreezSdkInterface | null = null;
 let listenerId: string | null = null;
-let connectPromise: Promise<BreezSdkInterface> | null = null;
 let connectedSeedFingerprint: string | null = null;
 let connectedIdentityPubkey: string | null = null;
-let connectGeneration = 0;
-/** Resolves when an in-flight native teardown finishes. Connect waits so two sessions never share storageDir. */
-let transitionPromise: Promise<void> | null = null;
+/** Instance whose native disconnect() failed. The next connect tears it down before opening another. */
+let poisonedSdk: BreezSdkInterface | null = null;
+/** Tail of the connect/disconnect queue. Always settles so a failed transition cannot stall the next. */
+let lifecycleTail: Promise<void> = Promise.resolve();
+
+export class SparkSessionStaleError extends Error {
+  constructor() {
+    super('Spark session is no longer the one this call started with');
+    this.name = 'SparkSessionStaleError';
+  }
+}
+
+export type SparkSessionLease = {
+  readonly identity: string | null;
+  sdk(): BreezSdkInterface;
+};
 
 function fingerprintMnemonic(mnemonic: string): string {
   return createHash('sha256').update(mnemonic).digest().toString('hex');
@@ -33,6 +45,15 @@ function fingerprintMnemonic(mnemonic: string): string {
 
 function errorKind(e: unknown): string {
   return e instanceof Error ? e.name : typeof e;
+}
+
+function enqueueLifecycle<T>(op: () => Promise<T>): Promise<T> {
+  const run = lifecycleTail.then(op, op);
+  lifecycleTail = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
 }
 
 export function getSparkSdk(): BreezSdkInterface | null {
@@ -55,51 +76,126 @@ export function getSparkSessionIdentity(): string | null {
   return connectedIdentityPubkey;
 }
 
-export async function disconnectSparkSdk(): Promise<void> {
-  connectGeneration += 1;
-  connectedSeedFingerprint = null;
-  connectedIdentityPubkey = null;
-  if (!sdk) {
-    connectPromise = null;
-    return;
-  }
-
-  const instance = sdk;
-  const id = listenerId;
-  sdk = null;
-  listenerId = null;
-  connectPromise = null;
-
-  const teardown = (async () => {
-    try {
-      if (id) {
-        await instance.removeEventListener(id);
+/**
+ * Holds the committed session across the caller's awaits.
+ * sdk() throws SparkSessionStaleError once that session is gone or replaced.
+ */
+export function acquireSparkSessionLease(): SparkSessionLease {
+  const held = requireSparkSdk();
+  const identity = connectedIdentityPubkey;
+  return {
+    identity,
+    sdk() {
+      if (sdk !== held) {
+        throw new SparkSessionStaleError();
       }
+      return held;
+    },
+  };
+}
+
+async function teardownInstance(instance: BreezSdkInterface, id: string | null): Promise<void> {
+  if (id) {
+    try {
+      await instance.removeEventListener(id);
     } catch (e) {
       // Best-effort: the SDK may already have dropped the listener during disconnect.
       // Follow-up is impossible without a live instance. Log class only — this SDK instance
       // was built with seed + API key; Sentry breadcrumbs ride along with later issues.
       console.warn('disconnectSparkSdk: removeEventListener failed', errorKind(e));
     }
+  }
 
+  try {
+    await instance.disconnect();
+    poisonedSdk = null;
+  } catch (e) {
+    // Native session may still hold storageDir. Keep the instance so the next connect
+    // tears it down instead of opening a second session against the same directory.
+    console.warn('disconnectSparkSdk: disconnect failed', errorKind(e));
+    poisonedSdk = instance;
+  }
+}
+
+async function disconnectLocked(): Promise<void> {
+  connectedSeedFingerprint = null;
+  connectedIdentityPubkey = null;
+
+  const instance = sdk ?? poisonedSdk;
+  const id = listenerId;
+  sdk = null;
+  listenerId = null;
+
+  if (!instance) {
+    return;
+  }
+
+  await teardownInstance(instance, id);
+}
+
+export async function disconnectSparkSdk(): Promise<void> {
+  await enqueueLifecycle(() => disconnectLocked());
+}
+
+async function connectLocked(mnemonic: string, onEvent?: (event: SdkEvent) => Promise<void>): Promise<BreezSdkInterface> {
+  const fingerprint = fingerprintMnemonic(mnemonic);
+
+  if (sdk && connectedSeedFingerprint === fingerprint) {
+    return sdk;
+  }
+
+  if (sdk || poisonedSdk) {
+    await disconnectLocked();
+    if (poisonedSdk) {
+      throw new Error('Spark SDK previous session is still open');
+    }
+  }
+
+  const apiKey = Config.BREEZ_API_KEY;
+  if (!apiKey) {
+    throw new Error(BREEZ_API_KEY_MISSING);
+  }
+
+  const config = defaultConfig(Network.Mainnet);
+  config.apiKey = apiKey;
+  // A cap, not "always claim": expensive blocks must not spend unbounded sats for the user.
+  config.maxDepositClaimFee = new MaxFee.Rate({ satPerVbyte: MAX_DEPOSIT_CLAIM_FEE_SAT_PER_VBYTE });
+
+  const seed = new Seed.Mnemonic({ mnemonic, passphrase: undefined });
+  const instance = await connect({
+    config,
+    seed,
+    storageDir: `${RNFS.DocumentDirectoryPath}/breezSdkSpark`,
+  });
+
+  let newListenerId: string | null = null;
+  try {
+    const info = await instance.getInfo({ ensureSynced: false });
+
+    if (onEvent) {
+      const listener: EventListener = {
+        onEvent: async (event: SdkEvent) => {
+          await onEvent(event);
+        },
+      };
+      newListenerId = await instance.addEventListener(listener);
+    }
+
+    sdk = instance;
+    listenerId = newListenerId;
+    connectedSeedFingerprint = fingerprint;
+    connectedIdentityPubkey = info.identityPubkey;
+    return instance;
+  } catch (e) {
+    // Native connect() succeeded but setup did not. Drop the instance; a failed
+    // disconnect is remembered so the next connect does not open a second session.
     try {
       await instance.disconnect();
-    } catch (e) {
-      // Best-effort session teardown: the process is exiting or the native side is already gone.
-      // Leaving a zombie listener is preferable to crashing the app on cleanup.
-      // Class only (seed/key may live in SDK error text); see App.js captureConsoleIntegration.
-      console.warn('disconnectSparkSdk: disconnect failed', errorKind(e));
+    } catch (cleanupErr) {
+      console.warn('connectSparkSdk: disconnect failed', errorKind(cleanupErr));
+      poisonedSdk = instance;
     }
-  })();
-
-  // Always resolve: a rejected transition would stall every later connect.
-  transitionPromise = teardown;
-  try {
-    await teardown;
-  } finally {
-    if (transitionPromise === teardown) {
-      transitionPromise = null;
-    }
+    throw e;
   }
 }
 
@@ -109,118 +205,7 @@ export async function disconnectSparkSdk(): Promise<void> {
  * Does not set a custom LNURL domain — the SDK default Breez server is used.
  */
 export async function connectSparkSdk(mnemonic: string, onEvent?: (event: SdkEvent) => Promise<void>): Promise<BreezSdkInterface> {
-  const fingerprint = fingerprintMnemonic(mnemonic);
-
-  // Never start a second native connect against the same storageDir. Wait, then
-  // tear down, then start. The generation counter still covers disconnect-during-connect.
-  while (true) {
-    if (transitionPromise) {
-      await transitionPromise;
-      continue;
-    }
-    if (connectPromise && !sdk && connectedSeedFingerprint !== fingerprint) {
-      const pending = connectPromise;
-      try {
-        await pending;
-      } catch {
-        // In-flight connect failed or was superseded; re-evaluate.
-      }
-      continue;
-    }
-    if (sdk && connectedSeedFingerprint === fingerprint) {
-      return sdk;
-    }
-    if (sdk) {
-      await disconnectSparkSdk();
-      continue;
-    }
-    if (connectPromise && connectedSeedFingerprint === fingerprint) {
-      return connectPromise;
-    }
-    break;
-  }
-
-  const apiKey = Config.BREEZ_API_KEY;
-  if (!apiKey) {
-    throw new Error(BREEZ_API_KEY_MISSING);
-  }
-
-  const generation = ++connectGeneration;
-  connectedSeedFingerprint = fingerprint;
-
-  connectPromise = (async () => {
-    const config = defaultConfig(Network.Mainnet);
-    config.apiKey = apiKey;
-    // A cap, not "always claim": expensive blocks must not spend unbounded sats for the user.
-    config.maxDepositClaimFee = new MaxFee.Rate({ satPerVbyte: MAX_DEPOSIT_CLAIM_FEE_SAT_PER_VBYTE });
-
-    const seed = new Seed.Mnemonic({ mnemonic, passphrase: undefined });
-    const instance = await connect({
-      config,
-      seed,
-      storageDir: `${RNFS.DocumentDirectoryPath}/breezSdkSpark`,
-    });
-
-    let newListenerId: string | null = null;
-    try {
-      if (generation !== connectGeneration) {
-        throw new Error('Spark SDK connect superseded');
-      }
-
-      const info = await instance.getInfo({ ensureSynced: false });
-
-      if (generation !== connectGeneration) {
-        throw new Error('Spark SDK connect superseded');
-      }
-
-      if (onEvent) {
-        const listener: EventListener = {
-          onEvent: async (event: SdkEvent) => {
-            await onEvent(event);
-          },
-        };
-        newListenerId = await instance.addEventListener(listener);
-      }
-
-      if (generation !== connectGeneration) {
-        throw new Error('Spark SDK connect superseded');
-      }
-
-      sdk = instance;
-      listenerId = newListenerId;
-      connectedIdentityPubkey = info.identityPubkey;
-      return instance;
-    } catch (e) {
-      // Any failure after native connect() — superseded or real — must drop this instance.
-      // Re-throw the original error; cleanup failures are class-only, like disconnectSparkSdk.
-      try {
-        if (newListenerId) {
-          await instance.removeEventListener(newListenerId);
-        }
-      } catch (cleanupErr) {
-        console.warn('connectSparkSdk: removeEventListener failed', errorKind(cleanupErr));
-      }
-      try {
-        await instance.disconnect();
-      } catch (cleanupErr) {
-        console.warn('connectSparkSdk: disconnect failed', errorKind(cleanupErr));
-      }
-      throw e;
-    }
-  })();
-
-  try {
-    return await connectPromise;
-  } catch (e) {
-    if (generation === connectGeneration) {
-      connectPromise = null;
-      sdk = null;
-      listenerId = null;
-      connectedSeedFingerprint = null;
-      connectedIdentityPubkey = null;
-    }
-    throw e;
-  }
+  return enqueueLifecycle(() => connectLocked(mnemonic, onEvent));
 }
 
 export async function syncSparkWallet(): Promise<void> {
@@ -232,9 +217,8 @@ export async function syncSparkWallet(): Promise<void> {
 export function __resetSparkSdkForTests(): void {
   sdk = null;
   listenerId = null;
-  connectPromise = null;
   connectedSeedFingerprint = null;
   connectedIdentityPubkey = null;
-  connectGeneration = 0;
-  transitionPromise = null;
+  poisonedSdk = null;
+  lifecycleTail = Promise.resolve();
 }

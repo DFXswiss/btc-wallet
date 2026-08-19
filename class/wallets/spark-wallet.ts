@@ -10,7 +10,7 @@ import {
   type Payment,
 } from '@breeztech/breez-sdk-spark-react-native';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
-import { getSparkSessionIdentity, requireSparkSdk } from '../../api/spark/spark-sdk';
+import { acquireSparkSessionLease, SparkSessionStaleError, type SparkSessionLease } from '../../api/spark/spark-sdk';
 import loc from '../../loc';
 import { AbstractWallet } from './abstract-wallet';
 
@@ -112,21 +112,34 @@ export class SparkWallet extends AbstractWallet {
   }
 
   /**
-   * Every SDK call goes through here so a session bound to another seed cannot
-   * pay or list. fetchBalance does not use this: it is the one path that may
-   * still set identityPubkey when the wallet has none.
+   * Lease on the live session. Rejects a session bound to another identity.
+   * fetchBalance does not use this: it is the one path that may still set
+   * identityPubkey when the wallet has none.
    */
-  private requireMatchingSdk() {
-    const sdk = requireSparkSdk();
-    if (this.identityPubkey && getSparkSessionIdentity() !== this.identityPubkey) {
+  private holdMatchingSession(): SparkSessionLease {
+    const lease = acquireSparkSessionLease();
+    if (this.identityPubkey && lease.identity !== this.identityPubkey) {
       throw new Error(loc.wallets.lightning_spark_session_mismatch);
     }
-    return sdk;
+    return lease;
+  }
+
+  /** Re-check after an await. Throws the same mismatch error once the held session is gone. */
+  private requireHeld(lease: SparkSessionLease): ReturnType<SparkSessionLease['sdk']> {
+    try {
+      return lease.sdk();
+    } catch (e) {
+      if (e instanceof SparkSessionStaleError) {
+        throw new Error(loc.wallets.lightning_spark_session_mismatch);
+      }
+      throw e;
+    }
   }
 
   async fetchBalance(): Promise<void> {
-    const sdk = requireSparkSdk();
-    const info = await sdk.getInfo({ ensureSynced: false });
+    const lease = acquireSparkSessionLease();
+    const info = await lease.sdk().getInfo({ ensureSynced: false });
+    this.requireHeld(lease);
     if (this.identityPubkey && this.identityPubkey !== info.identityPubkey) {
       throw new Error(loc.wallets.lightning_spark_session_mismatch);
     }
@@ -167,8 +180,8 @@ export class SparkWallet extends AbstractWallet {
   }
 
   async fetchTransactions(): Promise<void> {
-    const sdk = this.requireMatchingSdk();
-    const response = await sdk.listPayments({
+    const lease = this.holdMatchingSession();
+    const response = await lease.sdk().listPayments({
       typeFilter: undefined,
       statusFilter: undefined,
       assetFilter: undefined,
@@ -192,6 +205,7 @@ export class SparkWallet extends AbstractWallet {
       }
     }
 
+    this.requireHeld(lease);
     this.transactions_raw = completed;
     this.pending_transactions_raw = pending;
     this._lastTxFetch = +new Date();
@@ -205,8 +219,8 @@ export class SparkWallet extends AbstractWallet {
   }
 
   async getUserInvoices(limit = 0): Promise<SparkInvoiceRecord[]> {
-    const sdk = this.requireMatchingSdk();
-    const response = await sdk.listPayments({
+    const lease = this.holdMatchingSession();
+    const response = await lease.sdk().listPayments({
       typeFilter: [PaymentType.Receive],
       statusFilter: undefined,
       assetFilter: undefined,
@@ -225,6 +239,7 @@ export class SparkWallet extends AbstractWallet {
         remote.push(old);
       }
     }
+    this.requireHeld(lease);
     this.user_invoices_raw = remote.sort((a, b) => a.timestamp - b.timestamp);
     return this.user_invoices_raw;
   }
@@ -249,11 +264,11 @@ export class SparkWallet extends AbstractWallet {
   }
 
   async addInvoice(amt: number | string, memo: string): Promise<string> {
-    const sdk = this.requireMatchingSdk();
+    const lease = this.holdMatchingSession();
     const amountNum = typeof amt === 'string' ? parseInt(amt, 10) : amt;
     const amountSats = amountNum && !Number.isNaN(amountNum) && amountNum > 0 ? BigInt(amountNum) : undefined;
 
-    const response = await sdk.receivePayment({
+    const response = await lease.sdk().receivePayment({
       paymentMethod: new ReceivePaymentMethod.Bolt11Invoice({
         description: memo || '',
         amountSats,
@@ -262,6 +277,7 @@ export class SparkWallet extends AbstractWallet {
       }),
     });
 
+    this.requireHeld(lease);
     const paymentRequest = response.paymentRequest;
     const decoded = this.decodeInvoice(paymentRequest);
     const record: SparkInvoiceRecord = {
@@ -288,10 +304,10 @@ export class SparkWallet extends AbstractWallet {
       throw new Error(loc.wallets.lightning_spark_invoice_unreadable);
     }
 
-    const sdk = this.requireMatchingSdk();
+    const lease = this.holdMatchingSession();
     const amount = freeAmount && freeAmount > 0 ? BigInt(freeAmount) : undefined;
 
-    const prepareResponse = await sdk.prepareSendPayment({
+    const prepareResponse = await lease.sdk().prepareSendPayment({
       paymentRequest: new PaymentRequest.Input({ input: invoice }),
       amount,
       tokenIdentifier: undefined,
@@ -299,7 +315,7 @@ export class SparkWallet extends AbstractWallet {
       feePolicy: undefined,
     });
 
-    const { payment } = await sdk.sendPayment({
+    const { payment } = await this.requireHeld(lease).sendPayment({
       prepareResponse,
       options: new SendPaymentOptions.Bolt11Invoice({
         preferSpark: false,

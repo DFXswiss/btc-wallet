@@ -11,15 +11,36 @@ const mockIsConnected = jest.fn(() => false);
 const mockRequireSdk = jest.fn();
 const mockGetSessionIdentity = jest.fn(() => 'pk-1');
 
-jest.mock('../../api/spark/spark-sdk', () => ({
-  connectSparkSdk: (...args) => mockConnect(...args),
-  disconnectSparkSdk: (...args) => mockDisconnect(...args),
-  syncSparkWallet: (...args) => mockSync(...args),
-  isSparkSdkConnected: (...args) => mockIsConnected(...args),
-  requireSparkSdk: (...args) => mockRequireSdk(...args),
-  getSparkSessionIdentity: (...args) => mockGetSessionIdentity(...args),
-  BREEZ_API_KEY_MISSING: 'BREEZ_API_KEY is not configured...',
-}));
+jest.mock('../../api/spark/spark-sdk', () => {
+  class SparkSessionStaleError extends Error {
+    constructor() {
+      super('Spark session is no longer the one this call started with');
+      this.name = 'SparkSessionStaleError';
+    }
+  }
+  return {
+    connectSparkSdk: (...args) => mockConnect(...args),
+    disconnectSparkSdk: (...args) => mockDisconnect(...args),
+    syncSparkWallet: (...args) => mockSync(...args),
+    isSparkSdkConnected: (...args) => mockIsConnected(...args),
+    requireSparkSdk: (...args) => mockRequireSdk(...args),
+    getSparkSessionIdentity: (...args) => mockGetSessionIdentity(...args),
+    SparkSessionStaleError,
+    acquireSparkSessionLease: () => {
+      const identity = mockGetSessionIdentity();
+      return {
+        identity,
+        sdk() {
+          if (mockGetSessionIdentity() !== identity) {
+            throw new SparkSessionStaleError();
+          }
+          return mockRequireSdk();
+        },
+      };
+    },
+    BREEZ_API_KEY_MISSING: 'BREEZ_API_KEY is not configured...',
+  };
+});
 
 jest.mock('../../class', () => ({
   HDSegwitBech32Wallet: { type: 'HDsegwitBech32' },
@@ -345,6 +366,49 @@ describe('SparkContextProvider', () => {
     expect(String(alert.mock.calls[0][1])).toBe(expectedUserFacingError(new Error('getInfo failed')));
     expect(String(alert.mock.calls[0][1])).not.toMatch(/getInfo failed/);
     alert.mockRestore();
+  });
+
+  it('still creates the wallet when the session goes stale during Lightning address lookup', async () => {
+    mockSdk.getLightningAddress.mockImplementation(async () => {
+      mockGetSessionIdentity.mockReturnValue('other-session');
+      return { lightningAddress: 'stolen@breez.blitz' };
+    });
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    renderWith([hdWallet]);
+    await waitFor(() => assert.ok(latestCtx));
+
+    let created;
+    await act(async () => {
+      created = await latestCtx.createSparkWallet();
+    });
+
+    assert.ok(created);
+    assert.strictEqual(created.identityPubkey, 'pk-1');
+    assert.strictEqual(created.lnAddress, undefined);
+    expect(addAndSaveWallet).toHaveBeenCalledWith(created);
+    expect(alert).not.toHaveBeenCalled();
+    alert.mockRestore();
+  });
+
+  it('still creates the wallet when the availability check throws', async () => {
+    mockSdk.getLightningAddress.mockResolvedValue(undefined);
+    mockSdk.checkLightningAddressAvailable.mockRejectedValue(new Error('lookup down'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    renderWith([hdWallet]);
+    await waitFor(() => assert.ok(latestCtx));
+
+    let created;
+    await act(async () => {
+      created = await latestCtx.createSparkWallet();
+    });
+
+    assert.ok(created);
+    assert.strictEqual(created.lnAddress, undefined);
+    expect(addAndSaveWallet).toHaveBeenCalledWith(created);
+    expect(alert).not.toHaveBeenCalled();
+    alert.mockRestore();
+    warn.mockRestore();
   });
 
   it('still creates a usable wallet when getLightningAddress fails', async () => {
@@ -955,6 +1019,22 @@ describe('SparkContextProvider', () => {
     });
     // Only one native connect for the in-flight session
     assert.ok(connectCalls >= 1);
+  });
+
+  it('does not register when the session changes after the availability check', async () => {
+    mockSdk.getLightningAddress.mockResolvedValue(undefined);
+    mockSdk.checkLightningAddressAvailable.mockImplementation(async () => {
+      mockGetSessionIdentity.mockReturnValue('other-session');
+      return true;
+    });
+    const existing = stubSparkMethods(SparkWallet.create('stored-pk'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    renderWith([hdWallet, existing]);
+    await waitFor(() => expect(mockSdk.checkLightningAddressAvailable).toHaveBeenCalled());
+    await act(async () => {});
+    expect(mockSdk.registerLightningAddress).not.toHaveBeenCalled();
+    assert.strictEqual(existing.lnAddress, undefined);
+    warn.mockRestore();
   });
 
   it('does not register or write when the session identity changes during refresh', async () => {

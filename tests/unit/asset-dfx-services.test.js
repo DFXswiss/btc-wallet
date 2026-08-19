@@ -41,6 +41,16 @@ jest.mock('../../api/spark/spark-sdk', () => ({
   requireSparkSdk: () => ({}),
   getSparkSdk: () => ({}),
   isSparkSdkConnected: () => false,
+  SparkSessionStaleError: class SparkSessionStaleError extends Error {
+    constructor() {
+      super('Spark session is no longer the one this call started with');
+      this.name = 'SparkSessionStaleError';
+    }
+  },
+  acquireSparkSessionLease: () => ({
+    identity: null,
+    sdk: () => ({}),
+  }),
 }));
 
 const mockRoute = { name: 'WalletTransactions', params: { walletID: '' } };

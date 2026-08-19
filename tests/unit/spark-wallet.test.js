@@ -11,13 +11,38 @@ const mockSdk = {
 };
 
 let mockSessionIdentity = null;
+let mockLeaseValid = true;
+let mockLeaseSdkOverride = null;
 
-jest.mock('../../api/spark/spark-sdk', () => ({
-  requireSparkSdk: () => mockSdk,
-  getSparkSdk: () => mockSdk,
-  isSparkSdkConnected: () => true,
-  getSparkSessionIdentity: () => mockSessionIdentity,
-}));
+jest.mock('../../api/spark/spark-sdk', () => {
+  class SparkSessionStaleError extends Error {
+    constructor() {
+      super('Spark session is no longer the one this call started with');
+      this.name = 'SparkSessionStaleError';
+    }
+  }
+  return {
+    requireSparkSdk: () => mockSdk,
+    getSparkSdk: () => mockSdk,
+    isSparkSdkConnected: () => true,
+    getSparkSessionIdentity: () => mockSessionIdentity,
+    SparkSessionStaleError,
+    acquireSparkSessionLease: () => ({
+      get identity() {
+        return mockSessionIdentity;
+      },
+      sdk() {
+        if (mockLeaseSdkOverride) {
+          return mockLeaseSdkOverride();
+        }
+        if (!mockLeaseValid) {
+          throw new SparkSessionStaleError();
+        }
+        return mockSdk;
+      },
+    }),
+  };
+});
 
 // Known bolt11 test vector (BOLT 11 examples).
 const SAMPLE_INVOICE =
@@ -30,6 +55,8 @@ const loc = require('../../loc').default;
 beforeEach(() => {
   jest.clearAllMocks();
   mockSessionIdentity = null;
+  mockLeaseValid = true;
+  mockLeaseSdkOverride = null;
 });
 
 describe('SparkWallet', () => {
@@ -606,6 +633,100 @@ describe('SparkWallet', () => {
     );
     assert.strictEqual(decoded.num_satoshis, '8.9');
     assert.ok(parseInt(decoded.num_millisatoshis, 10) > 0);
+  });
+
+  it('payInvoice does not send when the session is replaced after prepare', async () => {
+    mockSessionIdentity = 'id-pk';
+    mockSdk.prepareSendPayment.mockImplementation(async () => {
+      mockLeaseValid = false;
+      return { paymentMethod: {} };
+    });
+    mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Completed } });
+    const wallet = SparkWallet.create('id-pk');
+    await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, 0), new RegExp(loc.wallets.lightning_spark_session_mismatch));
+    expect(mockSdk.prepareSendPayment).toHaveBeenCalled();
+    expect(mockSdk.sendPayment).not.toHaveBeenCalled();
+  });
+
+  it('fetchTransactions does not write when the session is replaced during the list', async () => {
+    mockSdk.listPayments.mockImplementation(async () => {
+      mockLeaseValid = false;
+      return {
+        payments: [
+          {
+            id: 'p1',
+            paymentType: PaymentType.Send,
+            status: PaymentStatus.Completed,
+            amount: 100n,
+            fees: 1n,
+            timestamp: 1700000000n,
+            method: {},
+            details: undefined,
+          },
+        ],
+      };
+    });
+    const wallet = new SparkWallet();
+    wallet.transactions_raw = [];
+    await assert.rejects(() => wallet.fetchTransactions(), new RegExp(loc.wallets.lightning_spark_session_mismatch));
+    assert.strictEqual(wallet.transactions_raw.length, 0);
+  });
+
+  it('fetchBalance does not write when the session is replaced during getInfo', async () => {
+    mockSdk.getInfo.mockImplementation(async () => {
+      mockLeaseValid = false;
+      return { identityPubkey: 'id-pk', balanceSats: 42n, tokenBalances: new Map() };
+    });
+    const wallet = new SparkWallet();
+    await assert.rejects(() => wallet.fetchBalance(), new RegExp(loc.wallets.lightning_spark_session_mismatch));
+    assert.strictEqual(wallet.identityPubkey, undefined);
+    assert.strictEqual(wallet.getBalance(), 0);
+  });
+
+  it('getUserInvoices does not write when the session is replaced during the list', async () => {
+    mockSdk.listPayments.mockImplementation(async () => {
+      mockLeaseValid = false;
+      return { payments: [] };
+    });
+    const wallet = new SparkWallet();
+    wallet.user_invoices_raw = [
+      {
+        payment_request: SAMPLE_INVOICE,
+        timestamp: 1,
+        type: 'user_invoice',
+        amt: 10,
+        ispaid: false,
+        expire_time: 3600,
+      },
+    ];
+    const before = wallet.user_invoices_raw;
+    await assert.rejects(() => wallet.getUserInvoices(), new RegExp(loc.wallets.lightning_spark_session_mismatch));
+    assert.strictEqual(wallet.user_invoices_raw, before);
+  });
+
+  it('addInvoice does not write when the session is replaced during receive', async () => {
+    mockSdk.receivePayment.mockImplementation(async () => {
+      mockLeaseValid = false;
+      return { paymentRequest: SAMPLE_INVOICE, fee: 0n };
+    });
+    const wallet = new SparkWallet();
+    await assert.rejects(() => wallet.addInvoice(1, 'x'), new RegExp(loc.wallets.lightning_spark_session_mismatch));
+    assert.strictEqual(wallet.user_invoices_raw.length, 0);
+  });
+
+  it('maps a non-stale lease error through requireHeld', async () => {
+    let calls = 0;
+    mockLeaseSdkOverride = () => {
+      calls += 1;
+      if (calls > 1) {
+        throw new TypeError('lease impl exploded');
+      }
+      return mockSdk;
+    };
+    mockSdk.getInfo.mockResolvedValue({ identityPubkey: 'id-pk', balanceSats: 1n, tokenBalances: new Map() });
+    const wallet = new SparkWallet();
+    await assert.rejects(() => wallet.fetchBalance(), /lease impl exploded/);
+    assert.strictEqual(wallet.identityPubkey, undefined);
   });
 
   it('decodeInvoice uses zero millisatoshis when bolt11 omits them', () => {

@@ -61,15 +61,28 @@ const mockSync = jest.fn(() => Promise.resolve());
 const mockIsConnected = jest.fn(() => false);
 const mockRequireSdk = jest.fn();
 
-jest.mock('../../api/spark/spark-sdk', () => ({
-  connectSparkSdk: (...args) => mockConnect(...args),
-  disconnectSparkSdk: (...args) => mockDisconnect(...args),
-  syncSparkWallet: (...args) => mockSync(...args),
-  isSparkSdkConnected: (...args) => mockIsConnected(...args),
-  requireSparkSdk: (...args) => mockRequireSdk(...args),
-  getSparkSessionIdentity: () => 'pk-home-1',
-  BREEZ_API_KEY_MISSING: 'BREEZ_API_KEY is not configured...',
-}));
+jest.mock('../../api/spark/spark-sdk', () => {
+  class SparkSessionStaleError extends Error {
+    constructor() {
+      super('Spark session is no longer the one this call started with');
+      this.name = 'SparkSessionStaleError';
+    }
+  }
+  return {
+    connectSparkSdk: (...args) => mockConnect(...args),
+    disconnectSparkSdk: (...args) => mockDisconnect(...args),
+    syncSparkWallet: (...args) => mockSync(...args),
+    isSparkSdkConnected: (...args) => mockIsConnected(...args),
+    requireSparkSdk: (...args) => mockRequireSdk(...args),
+    getSparkSessionIdentity: () => 'pk-home-1',
+    SparkSessionStaleError,
+    acquireSparkSessionLease: () => ({
+      identity: 'pk-home-1',
+      sdk: () => mockRequireSdk(),
+    }),
+    BREEZ_API_KEY_MISSING: 'BREEZ_API_KEY is not configured...',
+  };
+});
 
 const WalletHome = require('../../screen/wallets/home').default;
 const { BlueStorageContext } = require('../../blue_modules/storage-context');
