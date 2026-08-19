@@ -88,6 +88,8 @@ const { SparkContextProvider } = require('../../api/spark/contexts/spark.context
 const { SparkWallet } = require('../../class/wallets/spark-wallet');
 const { LightningLdsWallet } = require('../../class/wallets/lightning-lds-wallet');
 const loc = require('../../loc').default;
+const BlueApp = require('../../BlueApp');
+const AppStorage = BlueApp.AppStorage;
 
 const MNEMONIC = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
 
@@ -295,15 +297,67 @@ describe('home screen Spark Lightning add path (render)', () => {
 });
 
 describe('BlueApp deserializes Spark without LNDHub init', () => {
-  const repoRoot = path.join(__dirname, '..', '..');
-  const source = fs.readFileSync(path.join(repoRoot, 'BlueApp.js'), 'utf8');
+  const realmStub = {
+    close() {},
+    write() {},
+    objectForPrimaryKey() {
+      return {};
+    },
+    objects() {
+      return {
+        filtered() {
+          return [];
+        },
+      };
+    },
+  };
 
-  it('has a dedicated SparkWallet case outside the LNDHub block', () => {
-    assert.ok(source.includes('case SparkWallet.type'), 'expected own case for Spark');
-    const sparkCase = source.slice(source.indexOf('case SparkWallet.type'));
-    const sparkCaseBody = sparkCase.slice(0, sparkCase.indexOf('break') + 5);
-    assert.ok(!sparkCaseBody.includes('setBaseURI'), 'Spark case must not call setBaseURI');
-    assert.ok(!sparkCaseBody.includes('.init()'), 'Spark case must not call init()');
+  beforeEach(() => {
+    // This file's suite-level clearAllMocks leaves Realm.open and AsyncStorage
+    // methods as empty mocks; restore the same persist behaviour storage.test.js relies on.
+    require('realm').open.mockImplementation(() => realmStub);
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    const store = AsyncStorage.__INTERNAL_MOCK_STORAGE__;
+    AsyncStorage.setItem.mockImplementation(async (key, value) => {
+      store[key] = value;
+      return null;
+    });
+    AsyncStorage.getItem.mockImplementation(async key => (Object.prototype.hasOwnProperty.call(store, key) ? store[key] : null));
+  });
+
+  afterEach(() => {
+    delete SparkWallet.prototype.setBaseURI;
+    delete SparkWallet.prototype.init;
+  });
+
+  it('loads a serialized Spark wallet as SparkWallet and does not run LNDHub setup', async () => {
+    const spark = SparkWallet.create('pk-disk-1', 'spark@breez.blitz');
+    spark.setLabel('spark-saved');
+    spark.balance = 42;
+
+    const Storage = new AppStorage();
+    Storage.wallets.push(spark);
+    await Storage.saveToDisk();
+
+    const setBaseURI = jest.fn();
+    const init = jest.fn();
+    SparkWallet.prototype.setBaseURI = setBaseURI;
+    SparkWallet.prototype.init = init;
+
+    const Storage2 = new AppStorage();
+    const loadResult = await Storage2.loadFromDisk();
+    assert.ok(loadResult);
+    assert.strictEqual(Storage2.wallets.length, 1);
+    const restored = Storage2.wallets[0];
+    assert.ok(restored instanceof SparkWallet);
+    assert.strictEqual(restored.type, SparkWallet.type);
+    assert.strictEqual(restored.identityPubkey, 'pk-disk-1');
+    assert.strictEqual(restored.lnAddress, 'spark@breez.blitz');
+    assert.strictEqual(restored.getLabel(), 'spark-saved');
+    assert.strictEqual(restored.getBalance(), 42);
+    assert.strictEqual(restored.getSecret(), '');
+    assert.strictEqual(setBaseURI.mock.calls.length, 0);
+    assert.strictEqual(init.mock.calls.length, 0);
   });
 });
 
