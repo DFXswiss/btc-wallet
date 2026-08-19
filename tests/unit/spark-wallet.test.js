@@ -551,6 +551,151 @@ describe('SparkWallet', () => {
     assert.strictEqual(wallet.user_invoices_raw.length, 1);
   });
 
+  it('mapPayment sets payment_hash from the Lightning HTLC hash, not the payment id', async () => {
+    mockSdk.listPayments.mockResolvedValue({
+      payments: [
+        {
+          id: 'payment-id-not-a-hash',
+          paymentType: PaymentType.Send,
+          status: PaymentStatus.Completed,
+          amount: 100n,
+          fees: 1n,
+          timestamp: 20n,
+          method: {},
+          details: {
+            tag: PaymentDetails_Tags.Lightning,
+            inner: {
+              description: 'out',
+              invoice: SAMPLE_INVOICE,
+              destinationPubkey: 'x',
+              htlcDetails: { paymentHash: 'htlc-real-hash' },
+            },
+          },
+        },
+      ],
+    });
+    const wallet = new SparkWallet();
+    await wallet.fetchTransactions();
+    assert.strictEqual(wallet.transactions_raw.length, 1);
+    assert.strictEqual(wallet.transactions_raw[0].payment_hash, 'htlc-real-hash');
+    assert.notStrictEqual(wallet.transactions_raw[0].payment_hash, 'payment-id-not-a-hash');
+
+    mockSdk.listPayments.mockResolvedValue({
+      payments: [
+        {
+          id: 'recv-id-not-a-hash',
+          paymentType: PaymentType.Receive,
+          status: PaymentStatus.Completed,
+          amount: 20n,
+          fees: 0n,
+          timestamp: 21n,
+          method: {},
+          details: {
+            tag: PaymentDetails_Tags.Lightning,
+            inner: {
+              description: 'in',
+              invoice: 'remote-invoice',
+              destinationPubkey: 'x',
+              htlcDetails: { paymentHash: 'htlc-recv-hash' },
+            },
+          },
+        },
+      ],
+    });
+    const invoices = await wallet.getUserInvoices();
+    assert.strictEqual(invoices.length, 1);
+    assert.strictEqual(invoices[0].payment_hash, 'htlc-recv-hash');
+    assert.notStrictEqual(invoices[0].payment_hash, 'recv-id-not-a-hash');
+  });
+
+  it('mapPayment keeps payment.id when Lightning HTLC details are missing', async () => {
+    mockSdk.listPayments.mockResolvedValue({
+      payments: [
+        {
+          id: 'empty-invoice',
+          paymentType: PaymentType.Receive,
+          status: PaymentStatus.Completed,
+          amount: 7n,
+          fees: 0n,
+          timestamp: 11n,
+          method: {},
+          details: {
+            tag: PaymentDetails_Tags.Lightning,
+            inner: { description: '', invoice: '', destinationPubkey: 'x' },
+          },
+        },
+        {
+          id: 'hashed',
+          paymentType: PaymentType.Receive,
+          status: PaymentStatus.Completed,
+          amount: 3n,
+          fees: 0n,
+          timestamp: 12n,
+          method: {},
+          details: {
+            tag: PaymentDetails_Tags.Lightning,
+            inner: {
+              description: 'has-htlc',
+              invoice: 'hashed-invoice',
+              destinationPubkey: 'x',
+              htlcDetails: { paymentHash: 'real-htlc-hash' },
+            },
+          },
+        },
+      ],
+    });
+    const wallet = new SparkWallet();
+    const first = await wallet.getUserInvoices();
+    assert.strictEqual(first.length, 2);
+    const byRequest = Object.fromEntries(first.map(invoice => [invoice.payment_request, invoice]));
+    assert.strictEqual(byRequest[''].payment_hash, 'empty-invoice');
+    assert.strictEqual(byRequest['hashed-invoice'].payment_hash, 'real-htlc-hash');
+    assert.notStrictEqual(byRequest['hashed-invoice'].payment_hash, 'hashed');
+    const second = await wallet.getUserInvoices();
+    assert.strictEqual(second.length, 2);
+    const third = await wallet.getUserInvoices();
+    assert.strictEqual(third.length, 2);
+  });
+
+  it('getUserInvoices matches a local unpaid invoice to a remote paid payment by hash', async () => {
+    mockSdk.receivePayment.mockResolvedValue({ paymentRequest: SAMPLE_INVOICE, fee: 0n });
+    const wallet = new SparkWallet();
+    await wallet.addInvoice(1000, 'coffee');
+    const localHash = wallet.decodeInvoice(SAMPLE_INVOICE).payment_hash;
+    assert.ok(localHash);
+    assert.strictEqual(wallet.user_invoices_raw.length, 1);
+    assert.strictEqual(wallet.user_invoices_raw[0].ispaid, false);
+    assert.strictEqual(wallet.user_invoices_raw[0].payment_hash, localHash);
+
+    mockSdk.listPayments.mockResolvedValue({
+      payments: [
+        {
+          id: 'counterparty-payment-id',
+          paymentType: PaymentType.Receive,
+          status: PaymentStatus.Completed,
+          amount: 1000n,
+          fees: 0n,
+          timestamp: 99n,
+          method: {},
+          details: {
+            tag: PaymentDetails_Tags.Lightning,
+            inner: {
+              description: 'coffee',
+              invoice: '',
+              destinationPubkey: 'x',
+              htlcDetails: { paymentHash: localHash },
+            },
+          },
+        },
+      ],
+    });
+    const invoices = await wallet.getUserInvoices();
+    assert.strictEqual(invoices.length, 1);
+    assert.strictEqual(invoices[0].payment_hash, localHash);
+    assert.notStrictEqual(invoices[0].payment_hash, 'counterparty-payment-id');
+    assert.strictEqual(invoices[0].ispaid, true);
+  });
+
   it('getUserInvoices does not re-append a local invoice that has no identity', async () => {
     mockSdk.listPayments.mockResolvedValue({ payments: [] });
     const wallet = new SparkWallet();

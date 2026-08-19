@@ -239,11 +239,12 @@ export class SparkWallet extends AbstractWallet {
       .filter(payment => payment.details && payment.details.tag === PaymentDetails_Tags.Lightning)
       .map(p => this.mapPayment(p));
     // Keep locally created unpaid invoices that the network has not seen yet.
-    // Match on payment_hash (mapPayment sets it from payment.id; addInvoice
-    // from the bolt11 decode) or a non-empty payment_request. An empty request
-    // is not an identity — Lightning details.inner.invoice can be missing.
-    // A row with neither key cannot be told apart from a new empty row, so it
-    // is not re-appended: re-appending would grow the list on every fetch.
+    // Match on payment_hash (mapPayment sets it from the Lightning HTLC hash
+    // when present, otherwise payment.id; addInvoice from the bolt11 decode)
+    // or a non-empty payment_request. An empty request is not an identity —
+    // Lightning details.inner.invoice can be missing. A row with neither key
+    // cannot be told apart from a new empty row, so it is not re-appended:
+    // re-appending would grow the list on every fetch.
     for (const old of this.user_invoices_raw) {
       const hasKey = Boolean(old.payment_hash) || Boolean(old.payment_request);
       if (!hasKey) {
@@ -431,11 +432,18 @@ export class SparkWallet extends AbstractWallet {
 
     let paymentRequest = '';
     let description = '';
-    const paymentHash = payment.id;
+    // payment.id is the SDK payment id, not the Lightning payment hash. Use
+    // the HTLC hash when the Lightning details carry one; otherwise keep id
+    // so an empty invoice still has a merge key.
+    let paymentHash = payment.id;
 
     if (payment.details && payment.details.tag === PaymentDetails_Tags.Lightning) {
       paymentRequest = payment.details.inner.invoice;
       description = payment.details.inner.description || '';
+      const htlcHash = payment.details.inner.htlcDetails?.paymentHash;
+      if (htlcHash) {
+        paymentHash = htlcHash;
+      }
     }
 
     return {
