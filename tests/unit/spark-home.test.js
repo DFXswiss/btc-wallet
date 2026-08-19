@@ -252,13 +252,13 @@ describe('home screen Spark Lightning add path (render)', () => {
     });
 
     await waitFor(() => {
-      assert.ok(mockConnect.mock.calls.length > 0 || mockNavigate.mock.calls.length > 0);
+      expect(screen.UNSAFE_queryAllByType(ActivityIndicator).length).toBeGreaterThan(0);
     });
     await act(async () => {
-      if (resolveConnect) resolveConnect();
+      resolveConnect();
     });
     await waitFor(() => {
-      assert.ok(screen.queryByText(loc.wallets.lightning_spark_wallet_label) || mockNavigate.mock.calls.length > 0);
+      expect(screen.getByText(loc.wallets.lightning_spark_wallet_label)).toBeTruthy();
     });
     const navToAddLightning = mockNavigate.mock.calls.some(
       call => (call[0] === 'WalletsRoot' && call[1]?.screen === 'AddLightning') || call[0] === 'AddLightning',

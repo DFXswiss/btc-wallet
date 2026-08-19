@@ -521,6 +521,48 @@ describe('SparkWallet', () => {
     );
   });
 
+  it('getUserInvoices does not grow across fetches when a Lightning payment has an empty invoice', async () => {
+    mockSdk.listPayments.mockResolvedValue({
+      payments: [
+        {
+          id: 'empty-invoice',
+          paymentType: PaymentType.Receive,
+          status: PaymentStatus.Completed,
+          amount: 7n,
+          fees: 0n,
+          timestamp: 11n,
+          method: {},
+          details: {
+            tag: PaymentDetails_Tags.Lightning,
+            inner: { description: '', invoice: '', destinationPubkey: 'x', htlcDetails: {} },
+          },
+        },
+      ],
+    });
+    const wallet = new SparkWallet();
+    const first = await wallet.getUserInvoices();
+    assert.strictEqual(first.length, 1);
+    assert.strictEqual(first[0].payment_request, '');
+    assert.strictEqual(first[0].payment_hash, 'empty-invoice');
+    const second = await wallet.getUserInvoices();
+    assert.strictEqual(second.length, 1);
+    const third = await wallet.getUserInvoices();
+    assert.strictEqual(third.length, 1);
+    assert.strictEqual(wallet.user_invoices_raw.length, 1);
+  });
+
+  it('getUserInvoices does not re-append a local invoice that has no identity', async () => {
+    mockSdk.listPayments.mockResolvedValue({ payments: [] });
+    const wallet = new SparkWallet();
+    wallet.user_invoices_raw = [{ payment_request: '', timestamp: 1, type: 'user_invoice', amt: 1, ispaid: false, expire_time: 3600 }];
+    const first = await wallet.getUserInvoices();
+    assert.strictEqual(first.length, 0);
+    const second = await wallet.getUserInvoices();
+    assert.strictEqual(second.length, 0);
+    const third = await wallet.getUserInvoices();
+    assert.strictEqual(third.length, 0);
+  });
+
   it('exposes the invoice methods the Lightning receive screens call', () => {
     const wallet = new SparkWallet();
     assert.strictEqual(typeof wallet.getUserInvoices, 'function');

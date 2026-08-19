@@ -128,8 +128,8 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
         } else if (!target.lnAddress && !lnAddressRegisterAttemptedRef.current && target.identityPubkey) {
           lnAddressRegisterAttemptedRef.current = true;
           const registered = await registerLightningAddressOnce(target.identityPubkey, loc.wallets.lightning_spark_wallet_label, lease);
+          lease.requireSdk();
           if (registered) {
-            lease.requireSdk();
             writeLightningAddress(target, registered);
           }
         }

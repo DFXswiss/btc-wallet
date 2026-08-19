@@ -1169,6 +1169,26 @@ describe('SparkContextProvider', () => {
     assert.strictEqual(existing.lnAddress, undefined);
   });
 
+  it('does not save when the session changes during a refresh registration that yields no address', async () => {
+    mockSdk.getLightningAddress.mockResolvedValue(undefined);
+    let registerCalls = 0;
+    mockSdk.registerLightningAddress.mockImplementation(async () => {
+      registerCalls += 1;
+      if (registerCalls === 5) {
+        mockGetSessionIdentity.mockReturnValue('other-session');
+      }
+      throw new Error('register down');
+    });
+    const existing = stubSparkMethods(SparkWallet.create('reg-empty-pk'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    renderWith([hdWallet, existing]);
+    await waitFor(() => expect(mockSdk.registerLightningAddress).toHaveBeenCalledTimes(5));
+    await act(async () => {});
+    expect(saveToDisk).not.toHaveBeenCalled();
+    assert.strictEqual(existing.lnAddress, undefined);
+    warn.mockRestore();
+  });
+
   it('refresh no-ops when the SDK is not connected', async () => {
     const existing = stubSparkMethods(SparkWallet.create('nc-pk'));
     // Connect once to install the event listener, then mark disconnected.

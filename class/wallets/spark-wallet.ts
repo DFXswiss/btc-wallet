@@ -239,9 +239,23 @@ export class SparkWallet extends AbstractWallet {
       .filter(payment => payment.details && payment.details.tag === PaymentDetails_Tags.Lightning)
       .map(p => this.mapPayment(p));
     // Keep locally created unpaid invoices that the network has not seen yet.
-    // Empty payment_request is not an identity (details may be missing).
+    // Match on payment_hash (mapPayment sets it from payment.id; addInvoice
+    // from the bolt11 decode) or a non-empty payment_request. An empty request
+    // is not an identity — Lightning details.inner.invoice can be missing.
+    // A row with neither key cannot be told apart from a new empty row, so it
+    // is not re-appended: re-appending would grow the list on every fetch.
     for (const old of this.user_invoices_raw) {
-      if (!remote.some(r => Boolean(r.payment_request) && r.payment_request === old.payment_request)) {
+      const hasKey = Boolean(old.payment_hash) || Boolean(old.payment_request);
+      if (!hasKey) {
+        continue;
+      }
+      if (
+        !remote.some(
+          r =>
+            (Boolean(r.payment_hash) && r.payment_hash === old.payment_hash) ||
+            (Boolean(r.payment_request) && r.payment_request === old.payment_request),
+        )
+      ) {
         remote.push(old);
       }
     }
