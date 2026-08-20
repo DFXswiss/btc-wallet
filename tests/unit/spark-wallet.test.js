@@ -1,5 +1,11 @@
 import assert from 'assert';
-import { PaymentDetails_Tags, PaymentStatus, PaymentType, SendPaymentOptions_Tags } from '@breeztech/breez-sdk-spark-react-native';
+import {
+  PaymentDetails_Tags,
+  PaymentStatus,
+  PaymentType,
+  SendPaymentMethod_Tags,
+  SendPaymentOptions_Tags,
+} from '@breeztech/breez-sdk-spark-react-native';
 
 const mockSdk = {
   getInfo: jest.fn(),
@@ -44,6 +50,20 @@ jest.mock('../../api/spark/spark-sdk', () => {
 // Known bolt11 test vector (BOLT 11 examples).
 const SAMPLE_INVOICE =
   'lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp';
+
+function bolt11PrepareResponse({ amount = 250000n, lightningFeeSats = 1n, sparkTransferFeeSats } = {}) {
+  return {
+    amount,
+    paymentMethod: {
+      tag: SendPaymentMethod_Tags.Bolt11Invoice,
+      inner: {
+        invoiceDetails: {},
+        lightningFeeSats,
+        sparkTransferFeeSats,
+      },
+    },
+  };
+}
 
 const { SparkWallet } = require('../../class/wallets/spark-wallet');
 const { BitcoinUnit, Chain } = require('../../models/bitcoinUnits');
@@ -138,7 +158,7 @@ describe('SparkWallet', () => {
     mockSessionIdentity = 'session-pk';
     mockSdk.listPayments.mockResolvedValue({ payments: [] });
     mockSdk.receivePayment.mockResolvedValue({ paymentRequest: SAMPLE_INVOICE, fee: 0n });
-    mockSdk.prepareSendPayment.mockResolvedValue({ paymentMethod: {} });
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
     mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Completed } });
     const wallet = SparkWallet.create('other-pk');
     const mismatch = new RegExp(loc.wallets.lightning_spark_session_mismatch);
@@ -155,7 +175,7 @@ describe('SparkWallet', () => {
 
   it('allows payInvoice when the session identity matches the wallet', async () => {
     mockSessionIdentity = 'id-pk';
-    mockSdk.prepareSendPayment.mockResolvedValue({ paymentMethod: {} });
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
     mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Completed } });
     const wallet = SparkWallet.create('id-pk');
     await wallet.payInvoice(SAMPLE_INVOICE, 0);
@@ -187,7 +207,7 @@ describe('SparkWallet', () => {
   });
 
   it('payInvoice prepares and sends through the SDK, resolving on a completed payment', async () => {
-    const prepareResponse = { paymentMethod: {} };
+    const prepareResponse = bolt11PrepareResponse();
     mockSdk.prepareSendPayment.mockResolvedValue(prepareResponse);
     mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Completed } });
     const wallet = new SparkWallet();
@@ -203,7 +223,7 @@ describe('SparkWallet', () => {
   });
 
   it('payInvoice passes freeAmount for amountless invoices', async () => {
-    mockSdk.prepareSendPayment.mockResolvedValue({ paymentMethod: {} });
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
     mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Completed } });
     const wallet = new SparkWallet();
     await wallet.payInvoice(SAMPLE_INVOICE, 250);
@@ -212,21 +232,21 @@ describe('SparkWallet', () => {
   });
 
   it('payInvoice does not resolve as success when the payment is still pending', async () => {
-    mockSdk.prepareSendPayment.mockResolvedValue({ paymentMethod: {} });
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
     mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Pending } });
     const wallet = new SparkWallet();
     await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, 0), new RegExp(loc.wallets.lightning_spark_payment_in_transit));
   });
 
   it('payInvoice throws when the payment fails', async () => {
-    mockSdk.prepareSendPayment.mockResolvedValue({ paymentMethod: {} });
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
     mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Failed } });
     const wallet = new SparkWallet();
     await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, 0), new RegExp(loc.wallets.lightning_spark_payment_failed));
   });
 
   it('payInvoice reuses a UUID idempotencyKey derived from the invoice', async () => {
-    mockSdk.prepareSendPayment.mockResolvedValue({ paymentMethod: {} });
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
     mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Completed } });
     const wallet = new SparkWallet();
     const otherInvoice =
@@ -247,7 +267,7 @@ describe('SparkWallet', () => {
   });
 
   it('payInvoice does not send when the invoice has no payment_hash', async () => {
-    mockSdk.prepareSendPayment.mockResolvedValue({ paymentMethod: {} });
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
     mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Completed } });
     const wallet = new SparkWallet();
     wallet.decodeInvoice = () => ({
@@ -260,6 +280,51 @@ describe('SparkWallet', () => {
     });
     await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, 0), new RegExp(loc.wallets.lightning_spark_invoice_unreadable));
     expect(mockSdk.prepareSendPayment).not.toHaveBeenCalled();
+    expect(mockSdk.sendPayment).not.toHaveBeenCalled();
+  });
+
+  it('payInvoice sends when the prepared fee is under the 3% cap', async () => {
+    // 100 sats * 0.03 floors to 3; a 2-sat fee must still send.
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse({ amount: 100n, lightningFeeSats: 2n }));
+    mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Completed } });
+    const wallet = new SparkWallet();
+    await wallet.payInvoice(SAMPLE_INVOICE, 0);
+    expect(mockSdk.sendPayment).toHaveBeenCalledTimes(1);
+  });
+
+  it('payInvoice does not send when the prepared fee is over the 3% floor cap', async () => {
+    // 50 * 0.03 = 1.5 → floor 1, round 2. lightning 1 + spark 1 = 2, so:
+    // floor rejects, round would accept, and omitting sparkTransferFeeSats would accept.
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse({ amount: 50n, lightningFeeSats: 1n, sparkTransferFeeSats: 1n }));
+    mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Completed } });
+    const wallet = new SparkWallet();
+    const expected = loc.formatString(loc.wallets.lightning_spark_fee_too_high, {
+      fee: '2',
+      maxFee: '1',
+      amount: '50',
+    });
+    await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, 0), { message: expected });
+    expect(mockSdk.sendPayment).not.toHaveBeenCalled();
+  });
+
+  it('payInvoice sends a 1-sat fee on a small amount whose 3% floors below 1 sat', async () => {
+    // 10 * 0.03 floors to 0; the 1-sat minimum must still accept a 1-sat fee.
+    // `>=` instead of `>` would reject this payment.
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse({ amount: 10n, lightningFeeSats: 1n }));
+    mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Completed } });
+    const wallet = new SparkWallet();
+    await wallet.payInvoice(SAMPLE_INVOICE, 0);
+    expect(mockSdk.sendPayment).toHaveBeenCalledTimes(1);
+  });
+
+  it('payInvoice does not send when prepare is not a bolt11 invoice', async () => {
+    mockSdk.prepareSendPayment.mockResolvedValue({
+      amount: 100n,
+      paymentMethod: { tag: SendPaymentMethod_Tags.SparkAddress, inner: { fee: 1n } },
+    });
+    mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Completed } });
+    const wallet = new SparkWallet();
+    await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, 0), new RegExp(loc.wallets.lightning_spark_invoice_unreadable));
     expect(mockSdk.sendPayment).not.toHaveBeenCalled();
   });
 
@@ -820,7 +885,7 @@ describe('SparkWallet', () => {
   });
 
   it('payInvoice without a free amount still completes', async () => {
-    mockSdk.prepareSendPayment.mockResolvedValue({ paymentMethod: {} });
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
     mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Completed } });
     const wallet = new SparkWallet();
     await wallet.payInvoice(SAMPLE_INVOICE);

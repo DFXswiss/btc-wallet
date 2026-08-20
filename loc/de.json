@@ -524,6 +524,7 @@
     "lightning_spark_lnurl_auth_unsupported": "Dieses Wallet kann sich mit diesem Code nicht anmelden.",
     "lightning_spark_invoice_unreadable": "Diese Rechnung lässt sich nicht lesen. Es wurde nichts bezahlt.",
     "lightning_spark_session_mismatch": "Diese Lightning-Wallet passt nicht zur verbundenen Wallet. Es wurde nichts geändert.",
+    "lightning_spark_fee_too_high": "Diese Zahlung über {amount} Sats wurde nicht gesendet. Die Gebühr von {fee} Sats liegt über der Grenze von {maxFee} Sats. Es wurde nichts bezahlt.",
     "multi_sig_wallet_label": "Multi-Device-Wallet",
     "chf_taproot_wallet_label": "CHF Taproot-Wallet",
     "add_lndhub_DFXswiss_not_available": "Dieser Dienst wird bald verfügbar sein",

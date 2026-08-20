@@ -7,8 +7,10 @@ import {
   PaymentStatus,
   PaymentType,
   ReceivePaymentMethod,
+  SendPaymentMethod_Tags,
   SendPaymentOptions,
   type Payment,
+  type PrepareSendPaymentResponse,
 } from '@breeztech/breez-sdk-spark-react-native';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import { acquireSparkSessionLease, SparkSessionStaleError, type SparkSessionLease } from '../../api/spark/spark-sdk';
@@ -28,6 +30,28 @@ function invoiceIdempotencyKey(paymentHash: string): string {
   bytes[8] = (bytes[8] & 0x3f) | 0x80; // eslint-disable-line no-bitwise
   const hex = bytes.toString('hex');
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
+
+/**
+ * 3% of the prepared amount, at least 1 sat. Without the floor,
+ * Math.floor(n * 0.03) is 0 for every payment under 34 sats.
+ */
+function assertSendFeeWithinLimit(prepareResponse: PrepareSendPaymentResponse): void {
+  const { paymentMethod, amount } = prepareResponse;
+  if (paymentMethod.tag !== SendPaymentMethod_Tags.Bolt11Invoice) {
+    throw new Error(loc.wallets.lightning_spark_invoice_unreadable);
+  }
+  const feeSats = paymentMethod.inner.lightningFeeSats + (paymentMethod.inner.sparkTransferFeeSats ?? 0n);
+  const maxFeeSats = Math.max(Math.floor(Number(amount) * 0.03), 1);
+  if (feeSats > BigInt(maxFeeSats)) {
+    throw new Error(
+      loc.formatString(loc.wallets.lightning_spark_fee_too_high, {
+        fee: String(feeSats),
+        maxFee: String(maxFeeSats),
+        amount: String(amount),
+      }),
+    );
+  }
 }
 
 /** Shape expected by LND screens (lndReceive, transaction list, etc.). */
@@ -338,7 +362,10 @@ export class SparkWallet extends AbstractWallet {
       feePolicy: undefined,
     });
 
-    const { payment } = await this.requireHeld(lease).sendPayment({
+    const sdk = this.requireHeld(lease);
+    assertSendFeeWithinLimit(prepareResponse);
+
+    const { payment } = await sdk.sendPayment({
       prepareResponse,
       options: new SendPaymentOptions.Bolt11Invoice({
         preferSpark: false,

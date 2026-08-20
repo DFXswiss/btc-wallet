@@ -69,6 +69,14 @@ const ReceivePaymentMethod = {
   Bolt11Invoice: tagged('Bolt11Invoice'),
 };
 
+const SendPaymentMethod_Tags = {
+  BitcoinAddress: 'BitcoinAddress',
+  Bolt11Invoice: 'Bolt11Invoice',
+  SparkAddress: 'SparkAddress',
+  SparkInvoice: 'SparkInvoice',
+  CrossChainAddress: 'CrossChainAddress',
+};
+
 const SendPaymentOptions_Tags = {
   BitcoinAddress: 'BitcoinAddress',
   Bolt11Invoice: 'Bolt11Invoice',
@@ -100,6 +108,7 @@ module.exports = {
   PaymentDetailsFilter,
   PaymentRequest,
   ReceivePaymentMethod,
+  SendPaymentMethod_Tags,
   SendPaymentOptions,
   SendPaymentOptions_Tags,
   SdkEvent_Tags,
