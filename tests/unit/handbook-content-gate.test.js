@@ -561,13 +561,13 @@ describe('unit - handbook content gate', () => {
 
     it('keeps the OCR floor between a blind tool and the real yield', function () {
       // Measured: the 66 published PNGs return 1147 alphabetic tokens under
-      // tesseract 5.5.3. The 1263 below is from an earlier 70-PNG set under the
-      // 5.3.4 the CI runner ships; it stays as the upper bound because it is the
-      // lower of the two measurements and the assertion only needs a ceiling.
+      // tesseract 5.5.3. That is the only current yield, so it is the ceiling:
+      // a floor at or above it would report "broken tool" for a content change.
+      // The 5.3.4 the CI runner ships has not been re-run on today's images.
       assert.ok(gate.MIN_OCR_TOKENS > 0, 'a floor of 0 cannot detect a blind tool');
-      assert.ok(gate.MIN_OCR_TOKENS < 1263, `floor ${gate.MIN_OCR_TOKENS} is above the measured yield`);
+      assert.ok(gate.MIN_OCR_TOKENS < 1147, `floor ${gate.MIN_OCR_TOKENS} is above the measured yield`);
       // A floor far below reality only catches total blindness: the four most
-      // text-rich images alone return 352.
+      // text-rich images on this set return 352 under the same 5.5.3 run.
       assert.ok(gate.MIN_OCR_TOKENS > 352, `floor ${gate.MIN_OCR_TOKENS} is cleared by four images alone`);
     });
 

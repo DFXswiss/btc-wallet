@@ -248,7 +248,7 @@
     },
     "08-lightning/03-rechnung-erstellen": {
       "title": "Rechnung erstellen",
-      "text": "Mit Betrag erzeugt die Seite eine Rechnung für Lightning. Ohne Betrag stünde hier die Lightning-Adresse bei Breez, sofern eine registriert werden konnte; sie gilt dauerhaft und nicht in ein öffentliches Handbuch gehört."
+      "text": "Mit Betrag erzeugt die Seite eine Rechnung für Lightning. Ohne Betrag stünde hier die Lightning-Adresse bei Breez, sofern eine registriert werden konnte; sie gilt dauerhaft und gehört nicht in ein öffentliches Handbuch."
     },
     "09-import/01-scanner": {
       "title": "Import über den Scanner",
