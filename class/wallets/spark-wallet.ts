@@ -287,7 +287,9 @@ export class SparkWallet extends AbstractWallet {
   async addInvoice(amt: number | string, memo: string): Promise<string> {
     const lease = this.holdMatchingSession();
     const amountNum = typeof amt === 'string' ? parseInt(amt, 10) : amt;
-    const amountSats = amountNum && !Number.isNaN(amountNum) && amountNum > 0 ? BigInt(amountNum) : undefined;
+    // Round after the > 0 check so a sub-sat amount (e.g. 0.4) stays a fixed invoice (0n),
+    // not an amountless one. BigInt() rejects non-integers.
+    const amountSats = amountNum && !Number.isNaN(amountNum) && amountNum > 0 ? BigInt(Math.round(amountNum)) : undefined;
 
     const response = await lease.requireSdk().receivePayment({
       paymentMethod: new ReceivePaymentMethod.Bolt11Invoice({

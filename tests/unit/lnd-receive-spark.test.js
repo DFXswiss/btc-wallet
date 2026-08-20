@@ -1,5 +1,6 @@
 import React from 'react';
 import assert from 'assert';
+import { ActivityIndicator } from 'react-native';
 import { fireEvent, render, act } from '@testing-library/react-native';
 import { PaymentDetails_Tags, PaymentStatus, PaymentType } from '@breeztech/breez-sdk-spark-react-native';
 
@@ -225,5 +226,22 @@ describe('LNDReceive with SparkWallet', () => {
     const ldsScreen = renderReceive(makeLdsReceiveWallet('lds-receive-1'));
     await createInvoice(ldsScreen);
     expect(ldsScreen.getByText('Use Boltcard')).toBeTruthy();
+  });
+
+  it('clears the loading state and shows the error when addInvoice rejects', async () => {
+    const wallet = makeLdsReceiveWallet('lds-receive-err');
+    wallet.addInvoice.mockRejectedValue(new Error('invoice failed'));
+    const alertSpy = jest.spyOn(global, 'alert').mockImplementation(() => {});
+
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(alertSpy).toHaveBeenCalledWith('invoice failed');
+    expect(screen.getByTestId('QRCode')).toBeTruthy();
+    expect(screen.UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0);
+    alertSpy.mockRestore();
   });
 });

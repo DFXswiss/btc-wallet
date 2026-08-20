@@ -155,26 +155,31 @@ const LNDReceive = () => {
     setIsInvoiceLoading(true);
     Keyboard.dismiss();
 
-    if (amountSats === 0 || isNaN(amountSats)) {
-      setInvoiceRequest(undefined);
+    try {
+      if (amountSats === 0 || isNaN(amountSats)) {
+        setInvoiceRequest(undefined);
+        return;
+      }
+      const invoiceRequest = await wallet.addInvoice(amountSats, description);
+      ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
+      const decoded = await wallet.decodeInvoice(invoiceRequest);
+      await tryToObtainPermissions();
+      majorTomToGroundControl([], [decoded.payment_hash], []);
+
+      setTimeout(async () => {
+        await wallet.getUserInvoices(1);
+        initInvoicePolling(invoiceRequest);
+        await saveToDisk();
+      }, 1000);
+
+      setInvoiceRequest(invoiceRequest);
+      if (Platform.OS === 'android') startReading(handleNfcRead(invoiceRequest));
+    } catch (error: any) {
+      ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
+      alert(error.message);
+    } finally {
       setIsInvoiceLoading(false);
-      return;
     }
-    const invoiceRequest = await wallet.addInvoice(amountSats, description);
-    ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
-    const decoded = await wallet.decodeInvoice(invoiceRequest);
-    await tryToObtainPermissions();
-    majorTomToGroundControl([], [decoded.payment_hash], []);
-
-    setTimeout(async () => {
-      await wallet.getUserInvoices(1);
-      initInvoicePolling(invoiceRequest);
-      await saveToDisk();
-    }, 1000);
-
-    setInvoiceRequest(invoiceRequest);
-    if (Platform.OS === 'android') startReading(handleNfcRead(invoiceRequest));
-    setIsInvoiceLoading(false);
   };
 
   const onWalletChange = (id: string) => {

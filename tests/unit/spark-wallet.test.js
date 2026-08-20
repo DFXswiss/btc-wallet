@@ -782,6 +782,17 @@ describe('SparkWallet', () => {
     assert.strictEqual(method.inner.amountSats, undefined);
   });
 
+  it('addInvoice rounds a fractional sat amount before BigInt', async () => {
+    mockSdk.receivePayment.mockResolvedValue({ paymentRequest: SAMPLE_INVOICE, fee: 0n });
+    const wallet = new SparkWallet();
+    await wallet.addInvoice(1.5, 'coffee');
+    assert.strictEqual(mockSdk.receivePayment.mock.calls[0][0].paymentMethod.inner.amountSats, 2n);
+    await wallet.addInvoice(1.4, 'tea');
+    assert.strictEqual(mockSdk.receivePayment.mock.calls[1][0].paymentMethod.inner.amountSats, 1n);
+    await wallet.addInvoice(0.4, '');
+    assert.strictEqual(mockSdk.receivePayment.mock.calls[2][0].paymentMethod.inner.amountSats, 0n);
+  });
+
   it('addInvoice parses a string amount and defaults an empty local invoice list', async () => {
     mockSdk.receivePayment.mockResolvedValue({ paymentRequest: SAMPLE_INVOICE, fee: 0n });
     const wallet = new SparkWallet();
