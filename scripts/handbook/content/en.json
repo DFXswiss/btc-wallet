@@ -248,7 +248,7 @@
     },
     "08-lightning/03-rechnung-erstellen": {
       "title": "Creating an invoice",
-      "text": "With an amount the page creates a Lightning invoice. Without an amount it would show the Lightning address on Breez, which is permanent and does not belong in a public handbook."
+      "text": "With an amount the page creates a Lightning invoice. Without an amount it would show the Lightning address on Breez, if one could be registered; it is permanent and does not belong in a public handbook."
     },
     "09-import/01-scanner": {
       "title": "Import with the scanner",

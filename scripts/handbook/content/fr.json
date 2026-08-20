@@ -248,7 +248,7 @@
     },
     "08-lightning/03-rechnung-erstellen": {
       "title": "Créer une facture",
-      "text": "Avec un montant, la page crée une facture Lightning. Sans montant, elle afficherait l'adresse Lightning chez Breez, qui vaut de façon permanente et n'a pas sa place dans un manuel public."
+      "text": "Avec un montant, la page crée une facture Lightning. Sans montant, elle afficherait l'adresse Lightning chez Breez, si elle a pu être enregistrée ; elle vaut de façon permanente et n'a pas sa place dans un manuel public."
     },
     "09-import/01-scanner": {
       "title": "Importer avec le scanner",

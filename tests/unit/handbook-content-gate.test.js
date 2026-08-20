@@ -560,8 +560,10 @@ describe('unit - handbook content gate', () => {
     });
 
     it('keeps the OCR floor between a blind tool and the real yield', function () {
-      // Measured: the 70 published PNGs return 1264 alphabetic tokens under
-      // tesseract 5.5.3 and 1263 under the 5.3.4 the CI runner ships.
+      // Measured: the 66 published PNGs return 1147 alphabetic tokens under
+      // tesseract 5.5.3. The 1263 below is from an earlier 70-PNG set under the
+      // 5.3.4 the CI runner ships; it stays as the upper bound because it is the
+      // lower of the two measurements and the assertion only needs a ceiling.
       assert.ok(gate.MIN_OCR_TOKENS > 0, 'a floor of 0 cannot detect a blind tool');
       assert.ok(gate.MIN_OCR_TOKENS < 1263, `floor ${gate.MIN_OCR_TOKENS} is above the measured yield`);
       // A floor far below reality only catches total blindness: the four most
