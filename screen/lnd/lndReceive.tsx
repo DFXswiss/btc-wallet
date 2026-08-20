@@ -174,9 +174,9 @@ const LNDReceive = () => {
 
       setInvoiceRequest(invoiceRequest);
       if (Platform.OS === 'android') startReading(handleNfcRead(invoiceRequest));
-    } catch (error: any) {
+    } catch (error) {
       ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
-      alert(error.message);
+      alert(error instanceof Error ? error.message : String(error));
     } finally {
       setIsInvoiceLoading(false);
     }
