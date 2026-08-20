@@ -83,7 +83,7 @@
       "id": "lightning",
       "title": "Lightning",
       "summary": "Small amounts, instantly and at very low cost.",
-      "intro": "Lightning is a second layer on top of bitcoin for small, fast payments. New users create Lightning (Spark) with a tap on the row in the overview. There is no payment card. The Lightning address lives on Breez. For larger amounts the wallet on the blockchain is the right place.",
+      "intro": "Lightning is a second layer on top of bitcoin for small, fast payments. New users create Lightning (Spark) with a tap on the row in the overview. There is no payment card, and no buying or selling either. The Lightning address lives on Breez. For larger amounts the wallet on the blockchain is the right place.",
       "groups": [
         "08-lightning"
       ]
@@ -244,11 +244,11 @@
     },
     "08-lightning/02-lightning-wallet": {
       "title": "Lightning (Spark)",
-      "text": "Balance and payments of this wallet. There is no payment card here. The Lightning address lives on Breez."
+      "text": "Balance and payments of this wallet. There is no payment card here, and no buying or selling either. The Lightning address lives on Breez."
     },
     "08-lightning/03-rechnung-erstellen": {
       "title": "Creating an invoice",
-      "text": "With an amount the page creates a Lightning invoice. Without an amount it would show the Lightning address on Breez."
+      "text": "With an amount the page creates a Lightning invoice. Without an amount it would show the Lightning address on Breez, which is permanent and does not belong in a public handbook."
     },
     "09-import/01-scanner": {
       "title": "Import with the scanner",

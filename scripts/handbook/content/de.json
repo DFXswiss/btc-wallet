@@ -83,7 +83,7 @@
       "id": "lightning",
       "title": "Lightning",
       "summary": "Kleine Beträge sofort und mit sehr geringen Gebühren.",
-      "intro": "Lightning ist eine zweite Ebene auf Bitcoin für kleine, schnelle Zahlungen. Neue Nutzer legen Lightning (Spark) mit einem Tipp auf die Zeile in der Übersicht an. Eine Bezahlkarte gibt es dort nicht. Die Lightning-Adresse liegt bei Breez. Für grössere Beträge ist die Wallet auf der Blockchain der richtige Ort.",
+      "intro": "Lightning ist eine zweite Ebene auf Bitcoin für kleine, schnelle Zahlungen. Neue Nutzer legen Lightning (Spark) mit einem Tipp auf die Zeile in der Übersicht an. Eine Bezahlkarte gibt es dort nicht, und auch kein Kaufen und Verkaufen. Die Lightning-Adresse liegt bei Breez. Für grössere Beträge ist die Wallet auf der Blockchain der richtige Ort.",
       "groups": [
         "08-lightning"
       ]
@@ -244,11 +244,11 @@
     },
     "08-lightning/02-lightning-wallet": {
       "title": "Lightning (Spark)",
-      "text": "Guthaben und Zahlungen dieser Wallet. Eine Bezahlkarte gibt es hier nicht. Die Lightning-Adresse liegt bei Breez."
+      "text": "Guthaben und Zahlungen dieser Wallet. Eine Bezahlkarte gibt es hier nicht, und auch kein Kaufen und Verkaufen. Die Lightning-Adresse liegt bei Breez."
     },
     "08-lightning/03-rechnung-erstellen": {
       "title": "Rechnung erstellen",
-      "text": "Mit Betrag erzeugt die Seite eine Rechnung für Lightning. Ohne Betrag stünde hier die Lightning-Adresse bei Breez."
+      "text": "Mit Betrag erzeugt die Seite eine Rechnung für Lightning. Ohne Betrag stünde hier die Lightning-Adresse bei Breez, die dauerhaft gilt und nicht in ein öffentliches Handbuch gehört."
     },
     "09-import/01-scanner": {
       "title": "Import über den Scanner",

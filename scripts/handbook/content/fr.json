@@ -83,7 +83,7 @@
       "id": "lightning",
       "title": "Lightning",
       "summary": "De petits montants, instantanément et à très faible coût.",
-      "intro": "Lightning est une seconde couche sur bitcoin pour les petits paiements rapides. Les nouveaux utilisateurs créent Lightning (Spark) d'un tap sur la ligne de l'aperçu. Il n'y a pas de carte de paiement. L'adresse Lightning se trouve chez Breez. Pour des montants plus élevés, le portefeuille sur la blockchain reste le bon endroit.",
+      "intro": "Lightning est une seconde couche sur bitcoin pour les petits paiements rapides. Les nouveaux utilisateurs créent Lightning (Spark) d'un tap sur la ligne de l'aperçu. Il n'y a pas de carte de paiement, ni d’achat ou de vente. L'adresse Lightning se trouve chez Breez. Pour des montants plus élevés, le portefeuille sur la blockchain reste le bon endroit.",
       "groups": [
         "08-lightning"
       ]
@@ -244,11 +244,11 @@
     },
     "08-lightning/02-lightning-wallet": {
       "title": "Lightning (Spark)",
-      "text": "Solde et paiements de ce portefeuille. Il n'y a pas de carte de paiement ici. L'adresse Lightning se trouve chez Breez."
+      "text": "Solde et paiements de ce portefeuille. Il n'y a pas de carte de paiement ici, ni d'achat ni de vente. L'adresse Lightning se trouve chez Breez."
     },
     "08-lightning/03-rechnung-erstellen": {
       "title": "Créer une facture",
-      "text": "Avec un montant, la page crée une facture Lightning. Sans montant, elle afficherait l'adresse Lightning chez Breez."
+      "text": "Avec un montant, la page crée une facture Lightning. Sans montant, elle afficherait l'adresse Lightning chez Breez, qui vaut de façon permanente et n'a pas sa place dans un manuel public."
     },
     "09-import/01-scanner": {
       "title": "Importer avec le scanner",

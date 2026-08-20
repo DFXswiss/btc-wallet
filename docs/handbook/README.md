@@ -430,3 +430,23 @@ einem kleinen Betrag on-chain und ein paar Sats auf Lightning (deckt Ursache 1
 ab), ein echtes Geraet mit NFC und eine Boltcard (Ursache 2), drei Geraete
 (Ursache 3).
 
+### Zwei Varianten abgebildeter Screens, die trotzdem fehlen
+
+Die Zaehlung oben geht ueber Routen. Zwei **Varianten** von Screens, die im Satz
+sind, fehlen aus Gruenden, die keine der drei Ursachen trifft:
+
+Der Empfangs-Bildschirm **ohne** Betrag zeigt die Lightning-Adresse als QR und
+darunter im Klartext, und die gilt dauerhaft — anders als eine Rechnung mit
+Ablauf. Die Redaktionspruefung (`scripts/handbook/content-gate.js`) verbietet
+diesen Inhalt ausdruecklich. Eine Aufnahme mit geschwaerztem QR wurde probiert
+und verworfen: der Code nimmt die halbe Seite ein, geschwaerzt bleibt eine
+Flaeche ohne Aussage. Die Bildunterschrift zu
+`08-lightning/03-rechnung-erstellen` beschreibt den Zustand stattdessen. Das ist
+eine Redaktionsentscheidung, kein fehlendes Artefakt.
+
+Die Wallet-Einstellungen einer Lightning-(Spark)-Wallet fehlen, weil sie sich
+nicht oeffnen lassen: der einzige Weg zu `WalletDetails` fuehrt ueber den Eintrag
+„Lightning-Wallet" in den Einstellungen, und der bleibt fuer diesen Wallet-Typ
+ausgegraut — kein Umweg, kein Deeplink. Das ist ein offener Befund am Produkt
+(#269), keine Luecke der Aufnahme.
+
