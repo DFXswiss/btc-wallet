@@ -520,7 +520,17 @@ export class SparkWallet extends AbstractWallet {
       if (e instanceof SparkSessionStaleError || this.sessionGone(lease)) {
         return { status: SparkPayInvoiceStatus.Pending, paymentHash };
       }
-      clearOutgoingPayment();
+      const tracked = getOutgoingPayment();
+      if (tracked?.paymentHash === paymentHash) {
+        if (tracked.status === 'completed') {
+          this.recordPaidInvoice(undefined, tracked.preimage);
+          return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: tracked.paymentId };
+        }
+        if (tracked.status === 'failed') {
+          throw new Error(loc.wallets.lightning_spark_payment_failed);
+        }
+        clearOutgoingPayment();
+      }
       throw e;
     }
 

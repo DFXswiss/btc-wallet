@@ -91,6 +91,21 @@ function takeUnclaimed(identity: OutgoingPaymentIdentity): OutgoingPayment | und
   return found;
 }
 
+function rememberUnclaimed(payment: OutgoingPayment): void {
+  unclaimed.push(payment);
+  if (unclaimed.length > 20) {
+    unclaimed.shift();
+  }
+}
+
+function identityOf(value: { paymentHash?: string; paymentId?: string; invoice?: string }): OutgoingPaymentIdentity {
+  return {
+    paymentHash: value.paymentHash || '',
+    paymentId: value.paymentId,
+    invoice: value.invoice,
+  };
+}
+
 export function getOutgoingPayment(): OutgoingPayment | null {
   return current;
 }
@@ -144,23 +159,37 @@ export function settleOutgoingPayment(update: {
   paymentId?: string;
   preimage?: string;
 }): OutgoingPayment | null {
-  if (!current) {
-    if (!update.paymentHash) return current;
+  const identity = identityOf(update);
+  if (current && samePayment(current, identity)) {
     current = {
+      ...current,
       status: update.status,
-      paymentHash: update.paymentHash,
-      paymentId: update.paymentId,
-      preimage: update.preimage,
+      paymentId: update.paymentId || current.paymentId,
+      paymentHash: update.paymentHash || current.paymentHash,
+      preimage: update.preimage || current.preimage,
     };
     notify();
     return current;
   }
+
+  if (current) {
+    if (present(identity.paymentHash) || present(identity.paymentId)) {
+      rememberUnclaimed({
+        status: update.status,
+        paymentHash: identity.paymentHash,
+        paymentId: update.paymentId,
+        preimage: update.preimage,
+      });
+    }
+    return current;
+  }
+
+  if (!update.paymentHash) return current;
   current = {
-    ...current,
     status: update.status,
-    paymentId: update.paymentId || current.paymentId,
-    paymentHash: update.paymentHash || current.paymentHash,
-    preimage: update.preimage || current.preimage,
+    paymentHash: update.paymentHash,
+    paymentId: update.paymentId,
+    preimage: update.preimage,
   };
   notify();
   return current;
@@ -173,35 +202,34 @@ export function applyOutgoingSdkEvent(event: SdkEvent): OutgoingPayment | null {
 
   const extracted = identityFromPayment(payment);
   const status = statusFrom(event, payment);
-  const next: OutgoingPayment = {
-    status,
-    paymentHash: extracted.paymentHash || current?.paymentHash || '',
-    paymentId: extracted.paymentId,
-    invoice: extracted.invoice,
-    preimage: extracted.preimage,
-  };
+  // Only fields that came from the event go into the match. Filling gaps from
+  // `current` here would make samePayment succeed for a foreign payment.
+  const extractedIdentity = identityOf(extracted);
 
-  if (current && samePayment(current, { paymentHash: next.paymentHash, paymentId: next.paymentId, invoice: next.invoice })) {
+  if (current && samePayment(current, extractedIdentity)) {
     if (current.status !== 'pending' && status === 'pending') {
       return current;
     }
     current = {
       ...current,
-      ...next,
-      paymentHash: next.paymentHash || current.paymentHash,
-      paymentId: next.paymentId || current.paymentId,
-      invoice: next.invoice || current.invoice,
-      preimage: next.preimage || current.preimage,
+      status,
+      paymentHash: extracted.paymentHash || current.paymentHash,
+      paymentId: extracted.paymentId || current.paymentId,
+      invoice: extracted.invoice || current.invoice,
+      preimage: extracted.preimage || current.preimage,
     };
     notify();
     return current;
   }
 
   if (status === 'completed' || status === 'failed') {
-    unclaimed.push(next);
-    if (unclaimed.length > 20) {
-      unclaimed.shift();
-    }
+    rememberUnclaimed({
+      status,
+      paymentHash: extracted.paymentHash || '',
+      paymentId: extracted.paymentId,
+      invoice: extracted.invoice,
+      preimage: extracted.preimage,
+    });
   }
   return current;
 }

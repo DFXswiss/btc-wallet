@@ -3,7 +3,9 @@ import { PaymentDetails_Tags, PaymentStatus, PaymentType, SdkEvent_Tags } from '
 import {
   applyOutgoingSdkEvent,
   beginOutgoingPayment,
+  clearOutgoingPayment,
   getOutgoingPayment,
+  settleOutgoingPayment,
   __resetOutgoingPaymentForTests,
 } from '../../api/spark/outgoing-payment';
 
@@ -109,5 +111,50 @@ describe('outgoing payment tracker', () => {
       inner: { payment: sendPayment('p1', PaymentStatus.Pending, { paymentHash: 'h1' }) },
     });
     assert.strictEqual(getOutgoingPayment().status, 'completed');
+  });
+
+  it('does not copy a foreign settlement onto a running payment', () => {
+    beginOutgoingPayment({ paymentHash: 'h-b', paymentId: 'p-b' });
+    settleOutgoingPayment({ status: 'completed', paymentHash: 'h-a', paymentId: 'p-a', preimage: 'pre-a' });
+    const running = getOutgoingPayment();
+    assert.strictEqual(running.paymentHash, 'h-b');
+    assert.strictEqual(running.paymentId, 'p-b');
+    assert.strictEqual(running.status, 'pending');
+    assert.strictEqual(running.preimage, undefined);
+    assert.notStrictEqual(running.preimage, 'pre-a');
+    assert.notStrictEqual(running.status, 'completed');
+
+    clearOutgoingPayment();
+    const claimed = beginOutgoingPayment({ paymentHash: 'h-a', paymentId: 'p-a' });
+    assert.strictEqual(claimed.status, 'completed');
+    assert.strictEqual(claimed.paymentHash, 'h-a');
+    assert.strictEqual(claimed.preimage, 'pre-a');
+  });
+
+  it('settleOutgoingPayment still completes the matching in-flight payment', () => {
+    beginOutgoingPayment({ paymentHash: 'h1', paymentId: 'p1' });
+    settleOutgoingPayment({ status: 'completed', paymentHash: 'h1', paymentId: 'p1', preimage: 'pre-1' });
+    const outgoing = getOutgoingPayment();
+    assert.strictEqual(outgoing.status, 'completed');
+    assert.strictEqual(outgoing.paymentHash, 'h1');
+    assert.strictEqual(outgoing.paymentId, 'p1');
+    assert.strictEqual(outgoing.preimage, 'pre-1');
+  });
+
+  it('does not settle the running payment from a terminal event that has no payment hash', () => {
+    beginOutgoingPayment({ paymentHash: 'h1', paymentId: 'p1' });
+    const foreign = sendPayment('foreign-id', PaymentStatus.Completed, { preimage: 'stolen-preimage', invoice: 'inv-foreign' });
+    foreign.details.inner.htlcDetails = { preimage: 'stolen-preimage' };
+    applyOutgoingSdkEvent({
+      tag: SdkEvent_Tags.PaymentSucceeded,
+      inner: { payment: foreign },
+    });
+    const outgoing = getOutgoingPayment();
+    assert.strictEqual(outgoing.status, 'pending');
+    assert.strictEqual(outgoing.paymentHash, 'h1');
+    assert.strictEqual(outgoing.paymentId, 'p1');
+    assert.strictEqual(outgoing.preimage, undefined);
+    assert.notStrictEqual(outgoing.preimage, 'stolen-preimage');
+    assert.notStrictEqual(outgoing.status, 'completed');
   });
 });

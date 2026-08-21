@@ -3,6 +3,7 @@ import {
   PaymentDetails_Tags,
   PaymentStatus,
   PaymentType,
+  SdkEvent_Tags,
   SendPaymentMethod_Tags,
   SendPaymentOptions_Tags,
 } from '@breeztech/breez-sdk-spark-react-native';
@@ -102,7 +103,7 @@ function lightningReceive(id, invoice = `inv-${id}`) {
 const { SparkWallet, SparkPayInvoiceStatus } = require('../../class/wallets/spark-wallet');
 const { BitcoinUnit, Chain } = require('../../models/bitcoinUnits');
 const loc = require('../../loc').default;
-const { getOutgoingPayment, __resetOutgoingPaymentForTests } = require('../../api/spark/outgoing-payment');
+const { applyOutgoingSdkEvent, getOutgoingPayment, __resetOutgoingPaymentForTests } = require('../../api/spark/outgoing-payment');
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -331,6 +332,93 @@ describe('SparkWallet', () => {
     assert.ok(outgoing);
     assert.strictEqual(outgoing.status, 'pending');
     assert.notStrictEqual(outgoing.status, 'failed');
+  });
+
+  it('payInvoice returns completed when a PaymentSucceeded event beats a sendPayment network error', async () => {
+    const wallet = new SparkWallet();
+    const paymentHash = wallet.decodeInvoice(SAMPLE_INVOICE).payment_hash;
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
+    mockSdk.sendPayment.mockImplementation(async () => {
+      applyOutgoingSdkEvent({
+        tag: SdkEvent_Tags.PaymentSucceeded,
+        inner: {
+          payment: {
+            id: 'pay-a',
+            paymentType: PaymentType.Send,
+            status: PaymentStatus.Completed,
+            amount: 1n,
+            fees: 0n,
+            timestamp: 1n,
+            method: {},
+            details: {
+              tag: PaymentDetails_Tags.Lightning,
+              inner: {
+                description: '',
+                invoice: SAMPLE_INVOICE,
+                destinationPubkey: 'x',
+                htlcDetails: { paymentHash, preimage: 'pre-from-event' },
+              },
+            },
+          },
+        },
+      });
+      throw new Error('network error');
+    });
+    const result = await wallet.payInvoice(SAMPLE_INVOICE, 0);
+    assert.strictEqual(result.status, SparkPayInvoiceStatus.Completed);
+    assert.strictEqual(result.paymentHash, paymentHash);
+    assert.strictEqual(result.paymentId, 'pay-a');
+    assert.notStrictEqual(result.status, SparkPayInvoiceStatus.Pending);
+    assert.strictEqual(wallet.last_paid_invoice_result.payment_preimage, 'pre-from-event');
+    const outgoing = getOutgoingPayment();
+    assert.strictEqual(outgoing.status, 'completed');
+    assert.strictEqual(outgoing.paymentHash, paymentHash);
+    assert.strictEqual(outgoing.preimage, 'pre-from-event');
+  });
+
+  it('payInvoice surfaces the failed tracker when a PaymentFailed event beats a sendPayment network error', async () => {
+    const wallet = new SparkWallet();
+    const paymentHash = wallet.decodeInvoice(SAMPLE_INVOICE).payment_hash;
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
+    mockSdk.sendPayment.mockImplementation(async () => {
+      applyOutgoingSdkEvent({
+        tag: SdkEvent_Tags.PaymentFailed,
+        inner: {
+          payment: {
+            id: 'pay-a',
+            paymentType: PaymentType.Send,
+            status: PaymentStatus.Failed,
+            amount: 1n,
+            fees: 0n,
+            timestamp: 1n,
+            method: {},
+            details: {
+              tag: PaymentDetails_Tags.Lightning,
+              inner: {
+                description: '',
+                invoice: SAMPLE_INVOICE,
+                destinationPubkey: 'x',
+                htlcDetails: { paymentHash },
+              },
+            },
+          },
+        },
+      });
+      throw new Error('network error');
+    });
+    await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, 0), new RegExp(loc.wallets.lightning_spark_payment_failed));
+    const outgoing = getOutgoingPayment();
+    assert.strictEqual(outgoing.status, 'failed');
+    assert.strictEqual(outgoing.paymentHash, paymentHash);
+    assert.notStrictEqual(outgoing.status, 'pending');
+  });
+
+  it('payInvoice still throws a sendPayment network error when nothing has settled', async () => {
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
+    mockSdk.sendPayment.mockRejectedValue(new Error('network error'));
+    const wallet = new SparkWallet();
+    await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, 0), /network error/);
+    assert.strictEqual(getOutgoingPayment(), null);
   });
 
   it('payInvoice throws when the payment fails', async () => {
