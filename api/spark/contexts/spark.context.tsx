@@ -74,7 +74,13 @@ function userFacingError(e: unknown): string {
   return loc.formatString(loc.wallets.lightning_spark_generic_error, { kind: errorClass(e) });
 }
 
-function getOnChainMnemonic(wallets: { type: string; getSecret: () => string }[]): string {
+type OnChainMnemonicWallet = {
+  type: string;
+  getSecret: () => string;
+  getPassphrase?: () => string | undefined;
+};
+
+function getOnChainMnemonic(wallets: OnChainMnemonicWallet[]): { mnemonic: string; passphrase?: string } {
   const hd = wallets.find(w => w.type === HDSegwitBech32Wallet.type) || wallets[0];
   if (!hd) {
     throw new Error('On-chain wallet is required to create a Spark Lightning wallet');
@@ -83,7 +89,8 @@ function getOnChainMnemonic(wallets: { type: string; getSecret: () => string }[]
   if (!secret || !secret.includes(' ')) {
     throw new Error('On-chain recovery phrase is not available');
   }
-  return secret;
+  const rawPassphrase = hd.getPassphrase?.();
+  return { mnemonic: secret, passphrase: rawPassphrase ? rawPassphrase : undefined };
 }
 
 function getSparkWallet(wallets: { type: string }[]): SparkWallet | undefined {
@@ -166,12 +173,12 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
   );
 
   const ensureConnected = useCallback(
-    async (mnemonic: string): Promise<void> => {
+    async (mnemonic: string, passphrase?: string): Promise<void> => {
       // Always call through: connectSparkSdk reuses, replaces, or joins an in-flight connect.
       connectingCountRef.current += 1;
       setIsConnecting(true);
       try {
-        await connectSparkSdk(mnemonic, onSdkEvent);
+        await connectSparkSdk(mnemonic, onSdkEvent, passphrase);
         setIsConnected(true);
       } finally {
         connectingCountRef.current -= 1;
@@ -201,8 +208,8 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
     let cancelled = false;
     (async () => {
       try {
-        const mnemonic = getOnChainMnemonic(wallets);
-        await ensureConnected(mnemonic);
+        const { mnemonic, passphrase } = getOnChainMnemonic(wallets);
+        await ensureConnected(mnemonic, passphrase);
         if (!cancelled) {
           await refreshSparkWallet(spark);
         }
@@ -257,8 +264,8 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
     isCreatingRef.current = true;
     setIsCreating(true);
     try {
-      const mnemonic = getOnChainMnemonic(wallets);
-      await ensureConnected(mnemonic);
+      const { mnemonic, passphrase } = getOnChainMnemonic(wallets);
+      await ensureConnected(mnemonic, passphrase);
 
       const lease = acquireSparkSessionLease();
       const info = await lease.requireSdk().getInfo({ ensureSynced: false });

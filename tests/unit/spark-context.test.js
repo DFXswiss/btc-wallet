@@ -654,7 +654,7 @@ describe('SparkContextProvider', () => {
     await act(async () => {
       await latestCtx.createSparkWallet();
     });
-    expect(mockConnect).toHaveBeenCalledWith(MNEMONIC, expect.any(Function));
+    expect(mockConnect).toHaveBeenCalledWith(MNEMONIC, expect.any(Function), undefined);
     expect(addAndSaveWallet).toHaveBeenCalled();
   });
 
@@ -1308,5 +1308,72 @@ describe('SparkContextProvider', () => {
       retryPress();
     });
     alert.mockRestore();
+  });
+
+  it('hands the on-chain BIP39 passphrase to connectSparkSdk', async () => {
+    const hd = {
+      type: 'HDsegwitBech32',
+      getSecret: () => MNEMONIC,
+      getPassphrase: () => 'super secret passphrase',
+    };
+    const existing = stubSparkMethods(SparkWallet.create('stored-pk'));
+    renderWith([hd, existing]);
+    await waitFor(() => expect(mockConnect).toHaveBeenCalled());
+    expect(mockConnect).toHaveBeenCalledWith(MNEMONIC, expect.any(Function), 'super secret passphrase');
+  });
+
+  it('creates from an on-chain wallet that has no getPassphrase method', async () => {
+    const wallet = { type: 'HDsegwitBech32', getSecret: () => MNEMONIC };
+    assert.strictEqual('getPassphrase' in wallet, false);
+    renderWith([wallet]);
+    await waitFor(() => assert.ok(latestCtx));
+
+    let created;
+    await act(async () => {
+      created = await latestCtx.createSparkWallet();
+    });
+    assert.ok(created);
+    expect(mockConnect).toHaveBeenCalledWith(MNEMONIC, expect.any(Function), undefined);
+    expect(addAndSaveWallet).toHaveBeenCalledWith(created);
+  });
+
+  it('does not treat a missing or empty passphrase as an empty string', async () => {
+    const hd = {
+      type: 'HDsegwitBech32',
+      getSecret: () => MNEMONIC,
+      getPassphrase: () => '',
+    };
+    const existing = stubSparkMethods(SparkWallet.create('stored-pk'));
+    renderWith([hd, existing]);
+    await waitFor(() => expect(mockConnect).toHaveBeenCalled());
+    expect(mockConnect).toHaveBeenCalledWith(MNEMONIC, expect.any(Function), undefined);
+    assert.notStrictEqual(mockConnect.mock.calls[0][2], '');
+  });
+
+  it('does not put the BIP39 passphrase into console.error or the alert', async () => {
+    const passphrase = 'unique-passphrase-marker-xyzzy';
+    const hd = {
+      type: 'HDsegwitBech32',
+      getSecret: () => MNEMONIC,
+      getPassphrase: () => passphrase,
+    };
+    mockConnect.mockRejectedValue(new Error(`invalid mnemonic: ${MNEMONIC} passphrase=${passphrase}`));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const existing = stubSparkMethods(SparkWallet.create('stored-pk'));
+    renderWith([hd, existing]);
+
+    await waitFor(() => expect(errorSpy).toHaveBeenCalled());
+    for (const args of errorSpy.mock.calls) {
+      for (const arg of args) {
+        assert.ok(!String(arg).includes(passphrase), `console.error must not contain passphrase: ${arg}`);
+      }
+    }
+    expect(alert).toHaveBeenCalled();
+    expect(String(alert.mock.calls[0][1])).not.toContain(passphrase);
+    expect(errorSpy.mock.calls.some(c => c[0] === 'SparkContext: failed to connect' && c[1] === 'Error')).toBe(true);
+
+    alert.mockRestore();
+    errorSpy.mockRestore();
   });
 });

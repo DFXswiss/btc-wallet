@@ -648,4 +648,69 @@ describe('spark-sdk', () => {
     );
     assert.strictEqual(acquireSparkSessionLease().requireSdk(), instanceB);
   });
+
+  it('derives a different Spark seed when the same mnemonic has a BIP39 passphrase', async () => {
+    const mnemonic = 'one two three four five six seven eight nine ten eleven about';
+    const instanceB = makeSdkInstance('2');
+    breez.connect.mockResolvedValueOnce(mockInstance).mockResolvedValueOnce(instanceB);
+
+    await connectSparkSdk(mnemonic);
+    await connectSparkSdk(mnemonic, undefined, 'super secret passphrase');
+
+    expect(breez.connect).toHaveBeenCalledTimes(2);
+    const seedWithout = breez.connect.mock.calls[0][0].seed;
+    const seedWith = breez.connect.mock.calls[1][0].seed;
+    assert.strictEqual(seedWithout.inner.mnemonic, mnemonic);
+    assert.strictEqual(seedWith.inner.mnemonic, mnemonic);
+    assert.strictEqual(seedWithout.inner.passphrase, undefined);
+    assert.notStrictEqual(seedWithout.inner.passphrase, '');
+    assert.strictEqual(seedWith.inner.passphrase, 'super secret passphrase');
+    expect(mockInstance.disconnect).toHaveBeenCalled();
+    assert.strictEqual(acquireSparkSessionLease().identity, 'identity-2');
+  });
+
+  it('builds Seed.Mnemonic with passphrase undefined when none is set', async () => {
+    const mnemonic = 'one two three four five six seven eight nine ten eleven about';
+    await connectSparkSdk(mnemonic);
+    const seed = breez.connect.mock.calls[0][0].seed;
+    assert.strictEqual(seed.tag, 'Mnemonic');
+    assert.strictEqual(seed.inner.mnemonic, mnemonic);
+    assert.strictEqual(seed.inner.passphrase, undefined);
+    assert.notStrictEqual(seed.inner.passphrase, '');
+  });
+
+  it('treats an empty passphrase as unset so the seed matches a wallet with none', async () => {
+    const mnemonic = 'one two three four five six seven eight nine ten eleven about';
+    await connectSparkSdk(mnemonic, undefined, '');
+    await connectSparkSdk(mnemonic);
+    expect(breez.connect).toHaveBeenCalledTimes(1);
+    const seed = breez.connect.mock.calls[0][0].seed;
+    assert.strictEqual(seed.inner.passphrase, undefined);
+    assert.notStrictEqual(seed.inner.passphrase, '');
+  });
+
+  it('reuses the session when the same mnemonic and passphrase connect again', async () => {
+    const mnemonic = 'one two three four five six seven eight nine ten eleven about';
+    await connectSparkSdk(mnemonic, undefined, 'super secret passphrase');
+    await connectSparkSdk(mnemonic, undefined, 'super secret passphrase');
+    expect(breez.connect).toHaveBeenCalledTimes(1);
+    expect(mockInstance.disconnect).not.toHaveBeenCalled();
+  });
+
+  it('does not log the BIP39 passphrase when connect fails', async () => {
+    const mnemonic = 'one two three four five six seven eight nine ten eleven about';
+    const passphrase = 'unique-passphrase-marker-xyzzy';
+    breez.connect.mockRejectedValueOnce(new Error(`bad seed ${passphrase}`));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+    await assert.rejects(() => connectSparkSdk(mnemonic, undefined, passphrase), /bad seed/);
+    for (const spy of [warn, error]) {
+      for (const args of spy.mock.calls) {
+        assert.ok(!String(args.join(' ')).includes(passphrase));
+        assert.ok(!String(args.join(' ')).includes(mnemonic));
+      }
+    }
+    warn.mockRestore();
+    error.mockRestore();
+  });
 });
