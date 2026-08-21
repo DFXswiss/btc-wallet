@@ -444,9 +444,9 @@ Flaeche ohne Aussage. Die Bildunterschrift zu
 `08-lightning/03-rechnung-erstellen` beschreibt den Zustand stattdessen. Das ist
 eine Redaktionsentscheidung, kein fehlendes Artefakt.
 
-Die Wallet-Einstellungen einer Lightning-(Spark)-Wallet fehlen, weil sie sich
-nicht oeffnen lassen: der einzige Weg zu `WalletDetails` fuehrt ueber den Eintrag
-„Lightning-Wallet" in den Einstellungen, und der bleibt fuer diesen Wallet-Typ
-ausgegraut — kein Umweg, kein Deeplink. Das ist ein offener Befund am Produkt
-(#269), keine Luecke der Aufnahme.
+Die Wallet-Einstellungen einer Lightning-(Spark)-Wallet fehlen als Aufnahme,
+nicht mehr als Weg: Der Eintrag „Lightning-Wallet" in den Einstellungen fuehrt
+seit `3e799f57f` auch fuer diesen Wallet-Typ nach `WalletDetails` — der Screen
+kennt Spark und bietet dort auch das Loeschen an. Was hier fehlt, ist allein das
+Bild dazu; #269 ist geschlossen.
 
