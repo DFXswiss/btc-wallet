@@ -750,6 +750,23 @@ describe('spark-sdk', () => {
       await Promise.resolve();
     }
 
+    it('does not emit an unhandled rejection when the timeout guard rejects', async () => {
+      const unhandledReasons = [];
+      const onUnhandledRejection = reason => unhandledReasons.push(reason);
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      process.on('unhandledRejection', onUnhandledRejection);
+      breez.connect.mockImplementation(() => new Promise(() => {}));
+
+      try {
+        await expectHungLifecycle(connectSparkSdk(seed));
+        await flush();
+        assert.deepStrictEqual(unhandledReasons, []);
+      } finally {
+        process.off('unhandledRejection', onUnhandledRejection);
+        warn.mockRestore();
+      }
+    });
+
     it('unblocks the queue when connect hangs and leaves Lightning in a defined unusable state', async () => {
       breez.connect.mockImplementation(() => new Promise(() => {}));
       const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
@@ -1036,6 +1053,50 @@ describe('spark-sdk', () => {
         expect(instanceB.disconnect).not.toHaveBeenCalled();
         const reused = await connectSparkSdk(seedB);
         assert.strictEqual(reused, instanceB);
+        warn.mockRestore();
+      });
+
+      it('fails closed when a late connect and the replacement expose the same native instance', async () => {
+        const sharedInstance = makeSdkInstance('shared');
+        const replacement = makeSdkInstance('replacement');
+        let resolveFirstInfo;
+        let markFirstInfoStarted;
+        const firstInfoStarted = new Promise(resolve => {
+          markFirstInfoStarted = resolve;
+        });
+        sharedInstance.getInfo
+          .mockImplementationOnce(
+            () =>
+              new Promise(resolve => {
+                resolveFirstInfo = resolve;
+                markFirstInfoStarted();
+              }),
+          )
+          .mockResolvedValueOnce({ identityPubkey: 'identity-shared-new', balanceSats: 0n });
+        breez.connect.mockResolvedValueOnce(sharedInstance).mockResolvedValueOnce(sharedInstance);
+
+        const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+        const first = connectSparkSdk(seed);
+        const firstHung = assert.rejects(first, err => err instanceof SparkLifecycleHungError);
+        await firstInfoStarted;
+        await jest.advanceTimersByTimeAsync(50);
+        await firstHung;
+
+        const second = await connectSparkSdk(seedB);
+        assert.strictEqual(second, sharedInstance);
+        assert.strictEqual(acquireSparkSessionLease().identity, 'identity-shared-new');
+
+        resolveFirstInfo({ identityPubkey: 'identity-shared-old', balanceSats: 0n });
+        await flush();
+
+        assert.strictEqual(isSparkSdkConnected(), false);
+        assert.throws(() => acquireSparkSessionLease(), /not connected/);
+
+        breez.connect.mockResolvedValueOnce(replacement);
+        const third = await connectSparkSdk(seedB);
+        assert.strictEqual(third, replacement);
+        assert.strictEqual(acquireSparkSessionLease().identity, 'identity-replacement');
+        expect(sharedInstance.disconnect).toHaveBeenCalled();
         warn.mockRestore();
       });
 

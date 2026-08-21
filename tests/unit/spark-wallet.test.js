@@ -103,7 +103,12 @@ function lightningReceive(id, invoice = `inv-${id}`) {
 const { SparkWallet, SparkPayInvoiceStatus } = require('../../class/wallets/spark-wallet');
 const { BitcoinUnit, Chain } = require('../../models/bitcoinUnits');
 const loc = require('../../loc').default;
-const { applyOutgoingSdkEvent, getOutgoingPayment, __resetOutgoingPaymentForTests } = require('../../api/spark/outgoing-payment');
+const {
+  applyOutgoingSdkEvent,
+  beginOutgoingPayment,
+  getOutgoingPayment,
+  __resetOutgoingPaymentForTests,
+} = require('../../api/spark/outgoing-payment');
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -318,6 +323,84 @@ describe('SparkWallet', () => {
     assert.strictEqual(outgoing.paymentId, 'pay-pending');
   });
 
+  it('payInvoice keeps a success event that arrives before sendPayment returns pending', async () => {
+    const wallet = new SparkWallet();
+    const paymentHash = wallet.decodeInvoice(SAMPLE_INVOICE).payment_hash;
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
+    mockSdk.sendPayment.mockImplementation(async () => {
+      applyOutgoingSdkEvent({
+        tag: SdkEvent_Tags.PaymentSucceeded,
+        inner: {
+          payment: {
+            id: 'pay-event-first',
+            paymentType: PaymentType.Send,
+            status: PaymentStatus.Completed,
+            amount: 1n,
+            fees: 0n,
+            timestamp: 1n,
+            method: {},
+            details: {
+              tag: PaymentDetails_Tags.Lightning,
+              inner: {
+                description: '',
+                invoice: SAMPLE_INVOICE,
+                destinationPubkey: 'x',
+                htlcDetails: { paymentHash, preimage: 'event-first-preimage' },
+              },
+            },
+          },
+        },
+      });
+      return { payment: { id: 'pay-event-first', status: PaymentStatus.Pending } };
+    });
+
+    const result = await wallet.payInvoice(SAMPLE_INVOICE, 0);
+
+    assert.deepStrictEqual(result, {
+      status: SparkPayInvoiceStatus.Completed,
+      paymentHash,
+      paymentId: 'pay-event-first',
+    });
+    assert.strictEqual(wallet.last_paid_invoice_result.payment_preimage, 'event-first-preimage');
+    assert.strictEqual(getOutgoingPayment().status, 'completed');
+  });
+
+  it('payInvoice keeps a failure event that arrives before sendPayment returns pending', async () => {
+    const wallet = new SparkWallet();
+    const paymentHash = wallet.decodeInvoice(SAMPLE_INVOICE).payment_hash;
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
+    mockSdk.sendPayment.mockImplementation(async () => {
+      applyOutgoingSdkEvent({
+        tag: SdkEvent_Tags.PaymentFailed,
+        inner: {
+          payment: {
+            id: 'pay-failed-event-first',
+            paymentType: PaymentType.Send,
+            status: PaymentStatus.Failed,
+            amount: 1n,
+            fees: 0n,
+            timestamp: 1n,
+            method: {},
+            details: {
+              tag: PaymentDetails_Tags.Lightning,
+              inner: {
+                description: '',
+                invoice: SAMPLE_INVOICE,
+                destinationPubkey: 'x',
+                htlcDetails: { paymentHash },
+              },
+            },
+          },
+        },
+      });
+      return { payment: { id: 'pay-failed-event-first', status: PaymentStatus.Pending } };
+    });
+
+    await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, 0), new RegExp(loc.wallets.lightning_spark_payment_failed));
+    assert.strictEqual(getOutgoingPayment().status, 'failed');
+    assert.strictEqual(getOutgoingPayment().paymentId, 'pay-failed-event-first');
+  });
+
   it('payInvoice treats a teardown during send as pending, not failed', async () => {
     mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
     mockSdk.sendPayment.mockImplementation(async () => {
@@ -332,6 +415,39 @@ describe('SparkWallet', () => {
     assert.ok(outgoing);
     assert.strictEqual(outgoing.status, 'pending');
     assert.notStrictEqual(outgoing.status, 'failed');
+  });
+
+  it('payInvoice treats an explicit stale-session send error as pending without probing the lease again', async () => {
+    const { SparkSessionStaleError } = require('../../api/spark/spark-sdk');
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
+    mockSdk.sendPayment.mockRejectedValue(new SparkSessionStaleError());
+    const wallet = new SparkWallet();
+
+    const result = await wallet.payInvoice(SAMPLE_INVOICE, 0);
+
+    assert.strictEqual(result.status, SparkPayInvoiceStatus.Pending);
+    assert.strictEqual(getOutgoingPayment().status, 'pending');
+  });
+
+  it('payInvoice preserves the send error when a lease probe fails for a non-stale reason', async () => {
+    const sendError = new Error('network error');
+    let leaseChecks = 0;
+    mockLeaseSdkOverride = () => {
+      leaseChecks += 1;
+      if (leaseChecks === 3) {
+        throw new TypeError('lease implementation failed');
+      }
+      return mockSdk;
+    };
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
+    mockSdk.sendPayment.mockRejectedValue(sendError);
+    const wallet = new SparkWallet();
+
+    await assert.rejects(
+      () => wallet.payInvoice(SAMPLE_INVOICE, 0),
+      error => error === sendError,
+    );
+    assert.strictEqual(getOutgoingPayment(), null);
   });
 
   it('payInvoice returns completed when a PaymentSucceeded event beats a sendPayment network error', async () => {
@@ -419,6 +535,24 @@ describe('SparkWallet', () => {
     const wallet = new SparkWallet();
     await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, 0), /network error/);
     assert.strictEqual(getOutgoingPayment(), null);
+  });
+
+  it('payInvoice does not clear a different payment that starts before its send error returns', async () => {
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
+    mockSdk.sendPayment.mockImplementation(async () => {
+      beginOutgoingPayment({ paymentHash: 'other-payment', paymentId: 'other-id', invoice: 'other-invoice' });
+      throw new Error('first payment failed to send');
+    });
+    const wallet = new SparkWallet();
+
+    await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, 0), /first payment failed to send/);
+
+    assert.deepStrictEqual(getOutgoingPayment(), {
+      status: 'pending',
+      paymentHash: 'other-payment',
+      paymentId: 'other-id',
+      invoice: 'other-invoice',
+    });
   });
 
   it('payInvoice throws when the payment fails', async () => {
@@ -608,6 +742,62 @@ describe('SparkWallet', () => {
     assert.strictEqual(receives[0].amt, 20);
     assert.strictEqual(receives[0].type, 'user_invoice');
     assert.strictEqual(txs.filter(tx => tx.payment_hash === 'send-htlc').length, 1);
+  });
+
+  it('getTransactions deduplicates by payment request when no payment hash is available', () => {
+    const wallet = SparkWallet.create('request-dedup-pk');
+    const receive = {
+      payment_request: SAMPLE_INVOICE,
+      timestamp: 20,
+      type: 'user_invoice',
+      amt: 20,
+      ispaid: true,
+      expire_time: 3600,
+    };
+    wallet.transactions_raw = [{ ...receive }];
+    wallet.user_invoices_raw = [{ ...receive }];
+
+    const txs = wallet.getTransactions();
+
+    assert.strictEqual(txs.length, 1);
+    assert.strictEqual(txs[0].payment_request, SAMPLE_INVOICE);
+  });
+
+  it('getTransactions treats missing and empty transaction types as the same dedupe namespace', () => {
+    const wallet = SparkWallet.create('untyped-dedup-pk');
+    const receiveWithoutType = {
+      payment_request: SAMPLE_INVOICE,
+      payment_hash: 'untyped-payment-hash',
+      timestamp: 20,
+      amt: 20,
+      ispaid: true,
+      expire_time: 3600,
+    };
+    wallet.transactions_raw = [receiveWithoutType];
+    wallet.user_invoices_raw = [{ ...receiveWithoutType, type: '' }];
+
+    const txs = wallet.getTransactions();
+
+    assert.strictEqual(txs.length, 1);
+    assert.strictEqual(txs[0], receiveWithoutType);
+  });
+
+  it('getTransactions preserves separate rows when neither invoice identity is available', () => {
+    const wallet = SparkWallet.create('identity-free-pk');
+    const receive = {
+      payment_request: '',
+      timestamp: 20,
+      type: 'user_invoice',
+      amt: 20,
+      ispaid: true,
+      expire_time: 3600,
+    };
+    wallet.transactions_raw = [{ ...receive }];
+    wallet.user_invoices_raw = [{ ...receive }];
+
+    const txs = wallet.getTransactions();
+
+    assert.strictEqual(txs.length, 2);
   });
 
   it('getTransactions keeps a send and a receive that share a payment_hash', () => {
@@ -1098,6 +1288,28 @@ describe('SparkWallet', () => {
     assert.strictEqual(invoices[0].ispaid, true);
   });
 
+  it('getUserInvoices matches a local unpaid invoice by payment request when it has no hash', async () => {
+    mockSdk.listPayments.mockResolvedValue({ payments: [lightningReceive('remote-payment-id', 'same-invoice')] });
+    const wallet = new SparkWallet();
+    wallet.user_invoices_raw = [
+      {
+        payment_request: 'same-invoice',
+        timestamp: 1,
+        type: 'user_invoice',
+        amt: 1,
+        ispaid: false,
+        expire_time: 3600,
+      },
+    ];
+
+    const invoices = await wallet.getUserInvoices();
+
+    assert.strictEqual(invoices.length, 1);
+    assert.strictEqual(invoices[0].payment_hash, 'remote-payment-id');
+    assert.strictEqual(invoices[0].payment_request, 'same-invoice');
+    assert.strictEqual(invoices[0].ispaid, true);
+  });
+
   it('getUserInvoices does not re-append a local invoice that has no identity', async () => {
     mockSdk.listPayments.mockResolvedValue({ payments: [] });
     const wallet = new SparkWallet();
@@ -1145,6 +1357,15 @@ describe('SparkWallet', () => {
     assert.strictEqual(wallet.weOwnAddress(address), true);
     assert.strictEqual(wallet.weOwnAddress(address.toUpperCase()), true);
     assert.strictEqual(wallet.weOwnAddress('bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq'), false);
+  });
+
+  it('weOwnAddress keeps non-bech32 address comparison case-sensitive', () => {
+    const address = '1BoatSLRHtKNngkdXEeobR76b53LETtpyT';
+    const wallet = new SparkWallet();
+    wallet.depositAddress = address;
+
+    assert.strictEqual(wallet.weOwnAddress(address), true);
+    assert.strictEqual(wallet.weOwnAddress(address.toLowerCase()), false);
   });
 
   it('getDepositAddress returns the Bitcoin deposit address and does not request it again', async () => {
@@ -1218,6 +1439,20 @@ describe('SparkWallet', () => {
     assert.strictEqual(method.inner.amountSats, undefined);
   });
 
+  it.each([
+    ['not-a-number', 0],
+    [-2, -2],
+  ])('addInvoice omits an invalid non-positive amount %p instead of passing it to BigInt', async (amount, recordedAmount) => {
+    mockSdk.receivePayment.mockResolvedValue({ paymentRequest: SAMPLE_INVOICE, fee: 0n });
+    const wallet = new SparkWallet();
+
+    await wallet.addInvoice(amount, 'invalid amount');
+
+    const method = mockSdk.receivePayment.mock.calls[0][0].paymentMethod;
+    assert.strictEqual(method.inner.amountSats, undefined);
+    assert.strictEqual(wallet.user_invoices_raw[0].amt, recordedAmount);
+  });
+
   it('addInvoice rounds a fractional sat amount before BigInt', async () => {
     mockSdk.receivePayment.mockResolvedValue({ paymentRequest: SAMPLE_INVOICE, fee: 0n });
     const wallet = new SparkWallet();
@@ -1262,6 +1497,16 @@ describe('SparkWallet', () => {
     await wallet.payInvoice(SAMPLE_INVOICE);
     const arg = mockSdk.prepareSendPayment.mock.calls[0][0];
     assert.strictEqual(arg.amount, undefined);
+  });
+
+  it('payInvoice does not pass a negative free amount to the SDK', async () => {
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
+    mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Completed } });
+    const wallet = new SparkWallet();
+
+    await wallet.payInvoice(SAMPLE_INVOICE, -1);
+
+    assert.strictEqual(mockSdk.prepareSendPayment.mock.calls[0][0].amount, undefined);
   });
 
   it('getTransactions fills missing lists and drops unpaid 1-sat sign-in invoices', () => {

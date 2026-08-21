@@ -544,6 +544,134 @@ describe('SparkContextProvider', () => {
     alert.mockRestore();
   });
 
+  it('repeated retry on an existing-wallet alert eventually reconnects and refreshes that wallet', async () => {
+    mockConnect.mockRejectedValueOnce(new Error('offline')).mockRejectedValueOnce(new Error('still offline'));
+    let retryPress;
+    let alertCount = 0;
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      alertCount += 1;
+      retryPress = buttons && buttons[1] && buttons[1].onPress;
+    });
+    const existing = stubSparkMethods(SparkWallet.create('retry-existing-pk'));
+    renderWith([hdWallet, existing]);
+    await waitFor(() => assert.ok(typeof retryPress === 'function'));
+
+    await act(async () => {
+      retryPress();
+    });
+    await waitFor(() => assert.strictEqual(alertCount, 2));
+
+    await act(async () => {
+      retryPress();
+    });
+
+    await waitFor(() => expect(mockConnect).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(existing.fetchBalance).toHaveBeenCalled());
+    assert.strictEqual(latestCtx.isConnected, true);
+    alert.mockRestore();
+  });
+
+  it('swallows a rejected initial retry when reporting that retry failure also throws', async () => {
+    mockConnect.mockRejectedValue(new Error('offline'));
+    let retryPress;
+    let alertCount = 0;
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      alertCount += 1;
+      if (alertCount === 1) {
+        retryPress = buttons && buttons[1] && buttons[1].onPress;
+        return;
+      }
+      throw new Error('native alert unavailable');
+    });
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const existing = stubSparkMethods(SparkWallet.create('initial-retry-rejection-pk'));
+    renderWith([hdWallet, existing]);
+    await waitFor(() => assert.ok(typeof retryPress === 'function'));
+
+    await act(async () => {
+      retryPress();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(mockConnect).toHaveBeenCalledTimes(2));
+    expect(alert).toHaveBeenCalledTimes(2);
+    errorSpy.mockRestore();
+    alert.mockRestore();
+  });
+
+  it('swallows a rejected repeated retry when reporting that retry failure also throws', async () => {
+    mockConnect.mockRejectedValue(new Error('offline'));
+    let retryPress;
+    let alertCount = 0;
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      alertCount += 1;
+      if (alertCount < 3) {
+        retryPress = buttons && buttons[1] && buttons[1].onPress;
+        return;
+      }
+      throw new Error('native alert unavailable');
+    });
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const existing = stubSparkMethods(SparkWallet.create('repeated-retry-rejection-pk'));
+    renderWith([hdWallet, existing]);
+    await waitFor(() => assert.ok(typeof retryPress === 'function'));
+
+    await act(async () => {
+      retryPress();
+    });
+    await waitFor(() => assert.strictEqual(alertCount, 2));
+
+    await act(async () => {
+      retryPress();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(mockConnect).toHaveBeenCalledTimes(3));
+    expect(alert).toHaveBeenCalledTimes(3);
+    errorSpy.mockRestore();
+    alert.mockRestore();
+  });
+
+  it('a stale retry becomes a no-op after the Spark wallet was removed', async () => {
+    mockConnect.mockRejectedValueOnce(new Error('offline'));
+    let retryPress;
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      retryPress = buttons && buttons[1] && buttons[1].onPress;
+    });
+    const existing = stubSparkMethods(SparkWallet.create('removed-before-retry-pk'));
+    const setWalletsRef = { current: null };
+    function Harness() {
+      const [wallets, setWallets] = React.useState([hdWallet, existing]);
+      React.useEffect(() => {
+        setWalletsRef.current = setWallets;
+      }, [setWallets]);
+      return (
+        <BlueStorageContext.Provider value={{ wallets, walletsInitialized: true, addAndSaveWallet, saveToDisk, deleteWallet }}>
+          <SparkContextProvider>
+            <Probe />
+          </SparkContextProvider>
+        </BlueStorageContext.Provider>
+      );
+    }
+
+    render(<Harness />);
+    await waitFor(() => assert.ok(typeof retryPress === 'function'));
+    await act(async () => {
+      setWalletsRef.current([hdWallet]);
+    });
+    await waitFor(() => expect(mockDisconnect).toHaveBeenCalled());
+
+    await act(async () => {
+      retryPress();
+    });
+
+    expect(mockConnect).toHaveBeenCalledTimes(1);
+    expect(alert).toHaveBeenCalledTimes(1);
+    alert.mockRestore();
+  });
+
   it('does not put SDK error messages (seed markers) into console.error for Sentry', async () => {
     // connectSparkSdk sees the mnemonic; if the SDK echoed it into Error.message we must not
     // ship that via captureConsoleIntegration({ levels: ['error'] }) in App.js.
@@ -566,6 +694,31 @@ describe('SparkContextProvider', () => {
     // Fixed tag + Error name only.
     expect(errorSpy.mock.calls.some(c => c[0] === 'SparkContext: failed to connect' && c[1] === 'Error')).toBe(true);
 
+    alert.mockRestore();
+    errorSpy.mockRestore();
+  });
+
+  it('does not alert when an initial connect fails after the provider was unmounted', async () => {
+    let rejectConnect;
+    mockConnect.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectConnect = reject;
+        }),
+    );
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const existing = stubSparkMethods(SparkWallet.create('cancelled-pk'));
+    const screen = renderWith([hdWallet, existing]);
+    await waitFor(() => expect(mockConnect).toHaveBeenCalled());
+
+    screen.unmount();
+    await act(async () => {
+      rejectConnect(new Error('late failure'));
+    });
+
+    expect(alert).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
     alert.mockRestore();
     errorSpy.mockRestore();
   });
@@ -605,6 +758,36 @@ describe('SparkContextProvider', () => {
       result = await latestCtx.createSparkWallet();
     });
     assert.strictEqual(result, null);
+    expect(addAndSaveWallet).not.toHaveBeenCalled();
+    expect(alert).toHaveBeenCalled();
+    alert.mockRestore();
+  });
+
+  it.each([
+    ['has no getID method', { type: 'HDsegwitBech32', getSecret: () => MNEMONIC }],
+    ['returns an empty id', { type: 'HDsegwitBech32', getSecret: () => MNEMONIC, getID: () => '' }],
+    [
+      'throws while deriving its id',
+      {
+        type: 'HDsegwitBech32',
+        getSecret: () => MNEMONIC,
+        getID: () => {
+          throw new Error('id unavailable');
+        },
+      },
+    ],
+  ])('does not create an unbound Spark wallet when the source %s', async (_case, source) => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    renderWith([source]);
+    await waitFor(() => assert.ok(latestCtx));
+
+    let result;
+    await act(async () => {
+      result = await latestCtx.createSparkWallet();
+    });
+
+    assert.strictEqual(result, null);
+    expect(mockConnect).not.toHaveBeenCalled();
     expect(addAndSaveWallet).not.toHaveBeenCalled();
     expect(alert).toHaveBeenCalled();
     alert.mockRestore();
@@ -910,6 +1093,32 @@ describe('SparkContextProvider', () => {
     AppState.addEventListener = orig;
   });
 
+  it('does nothing for a non-active AppState transition', async () => {
+    const listeners = [];
+    const orig = AppState.addEventListener;
+    AppState.addEventListener = (event, cb) => {
+      listeners.push(cb);
+      return { remove: jest.fn() };
+    };
+    const existing = stubSparkMethods(SparkWallet.create('background-pk'));
+    renderWith([hdWallet, existing]);
+    await waitFor(() => expect(mockConnect).toHaveBeenCalled());
+    mockSync.mockClear();
+    mockConnect.mockClear();
+    existing.fetchBalance.mockClear();
+
+    await act(async () => {
+      for (const listener of listeners) {
+        await listener('background');
+      }
+    });
+
+    expect(mockSync).not.toHaveBeenCalled();
+    expect(mockConnect).not.toHaveBeenCalled();
+    expect(existing.fetchBalance).not.toHaveBeenCalled();
+    AppState.addEventListener = orig;
+  });
+
   it('foreground sync failure is swallowed', async () => {
     const listeners = [];
     const orig = AppState.addEventListener;
@@ -959,7 +1168,37 @@ describe('SparkContextProvider', () => {
     AppState.addEventListener = orig;
   });
 
-  it('disconnects the SDK when the Spark wallet is removed', async () => {
+  it('logs only the error class when foreground reconnect fails', async () => {
+    const listeners = [];
+    const orig = AppState.addEventListener;
+    AppState.addEventListener = (event, cb) => {
+      listeners.push(cb);
+      return { remove: jest.fn() };
+    };
+    const existing = stubSparkMethods(SparkWallet.create('foreground-reconnect-pk'));
+    renderWith([hdWallet, existing]);
+    await waitFor(() => expect(mockConnect).toHaveBeenCalled());
+
+    mockIsConnected.mockReturnValue(false);
+    mockConnect.mockRejectedValueOnce(new Error('offline SEED_MARKER'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    await act(async () => {
+      for (const listener of listeners) {
+        await listener('active');
+      }
+    });
+
+    const reconnectCalls = warn.mock.calls.filter(c => c[0] === 'SparkContext: foreground reconnect failed');
+    assert.strictEqual(reconnectCalls.length, 1);
+    assert.strictEqual(reconnectCalls[0][1], 'Error');
+    assert.ok(!String(reconnectCalls[0][1]).includes('offline'));
+    assert.ok(!String(reconnectCalls[0][1]).includes('SEED_MARKER'));
+    expect(mockSync).not.toHaveBeenCalled();
+    warn.mockRestore();
+    AppState.addEventListener = orig;
+  });
+
+  it('swallows a disconnect failure when the Spark wallet is removed', async () => {
     const existing = stubSparkMethods(SparkWallet.create('gone-pk'));
     const setWalletsRef = { current: null };
     function Harness() {
@@ -979,11 +1218,47 @@ describe('SparkContextProvider', () => {
     render(<Harness />);
     await waitFor(() => expect(mockConnect).toHaveBeenCalled());
     mockDisconnect.mockClear();
+    mockDisconnect.mockRejectedValueOnce(new Error('native session already gone'));
 
     await act(async () => {
       setWalletsRef.current([hdWallet]);
     });
     await waitFor(() => expect(mockDisconnect).toHaveBeenCalled());
+  });
+
+  it('ignores a late SDK event after the Spark wallet was removed', async () => {
+    const existing = stubSparkMethods(SparkWallet.create('removed-event-pk'));
+    const setWalletsRef = { current: null };
+    function Harness() {
+      const [wallets, setWallets] = React.useState([hdWallet, existing]);
+      React.useEffect(() => {
+        setWalletsRef.current = setWallets;
+      }, [setWallets]);
+      return (
+        <BlueStorageContext.Provider value={{ wallets, walletsInitialized: true, addAndSaveWallet, saveToDisk, deleteWallet }}>
+          <SparkContextProvider>
+            <Probe />
+          </SparkContextProvider>
+        </BlueStorageContext.Provider>
+      );
+    }
+
+    render(<Harness />);
+    await waitFor(() => expect(mockConnect).toHaveBeenCalled());
+    const onEvent = mockConnect.lastOnEvent;
+    await act(async () => {
+      setWalletsRef.current([hdWallet]);
+    });
+    await waitFor(() => expect(mockDisconnect).toHaveBeenCalled());
+    existing.fetchBalance.mockClear();
+    saveToDisk.mockClear();
+
+    await act(async () => {
+      await onEvent({ tag: SdkEvent_Tags.Synced });
+    });
+
+    expect(existing.fetchBalance).not.toHaveBeenCalled();
+    expect(saveToDisk).not.toHaveBeenCalled();
   });
 
   it('does not disconnect when the Spark wallet remains across an effect re-run', async () => {
@@ -1501,6 +1776,22 @@ describe('SparkContextProvider', () => {
     alert.mockRestore();
   });
 
+  it('uses the main-wallet label when a missing bound source has no stored label', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const spark = stubSparkMethods(SparkWallet.create('pk-bound-without-label'));
+    spark.sourceWalletId = 'hd-deleted';
+    renderWith([hdWallet, spark]);
+
+    await waitFor(() => expect(alert).toHaveBeenCalled());
+
+    assert.strictEqual(
+      String(alert.mock.calls[0][1]),
+      loc.formatString(loc.wallets.lightning_spark_source_missing, { label: loc.wallets.main_wallet_label }),
+    );
+    expect(mockConnect).not.toHaveBeenCalled();
+    alert.mockRestore();
+  });
+
   it('retries a failed initial connect on the next foreground without restarting', async () => {
     const listeners = [];
     const orig = AppState.addEventListener;
@@ -1533,6 +1824,27 @@ describe('SparkContextProvider', () => {
 
     alert.mockRestore();
     AppState.addEventListener = orig;
+  });
+
+  it('rolls back the locally created wallet when saving fails before the store exposes it', async () => {
+    addAndSaveWallet.mockRejectedValueOnce(new Error('disk full'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    renderWith([hdWallet]);
+    await waitFor(() => assert.ok(latestCtx));
+
+    let result;
+    await act(async () => {
+      result = await latestCtx.createSparkWallet();
+    });
+
+    assert.strictEqual(result, null);
+    expect(deleteWallet).toHaveBeenCalledTimes(1);
+    const rolledBack = deleteWallet.mock.calls[0][0];
+    assert.ok(rolledBack instanceof SparkWallet);
+    assert.strictEqual(rolledBack.identityPubkey, 'pk-1');
+    expect(mockDisconnect).toHaveBeenCalled();
+    expect(alert).toHaveBeenCalled();
+    alert.mockRestore();
   });
 
   it('removes the in-memory Spark wallet when saving it to disk fails', async () => {
