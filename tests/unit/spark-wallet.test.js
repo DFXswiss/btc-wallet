@@ -65,6 +65,40 @@ function bolt11PrepareResponse({ amount = 250000n, lightningFeeSats = 1n, sparkT
   };
 }
 
+function completedSend(id, timestamp = 1n) {
+  return {
+    id,
+    paymentType: PaymentType.Send,
+    status: PaymentStatus.Completed,
+    amount: 1n,
+    fees: 0n,
+    timestamp,
+    method: {},
+    details: undefined,
+  };
+}
+
+function lightningReceive(id, invoice = `inv-${id}`) {
+  return {
+    id,
+    paymentType: PaymentType.Receive,
+    status: PaymentStatus.Completed,
+    amount: 1n,
+    fees: 0n,
+    timestamp: 1n,
+    method: {},
+    details: {
+      tag: PaymentDetails_Tags.Lightning,
+      inner: {
+        description: '',
+        invoice,
+        destinationPubkey: 'x',
+        htlcDetails: { paymentHash: id },
+      },
+    },
+  };
+}
+
 const { SparkWallet } = require('../../class/wallets/spark-wallet');
 const { BitcoinUnit, Chain } = require('../../models/bitcoinUnits');
 const loc = require('../../loc').default;
@@ -220,6 +254,29 @@ describe('SparkWallet', () => {
     assert.strictEqual(arg.options.tag, SendPaymentOptions_Tags.Bolt11Invoice);
     assert.strictEqual(arg.options.inner.preferSpark, false);
     assert.strictEqual(arg.options.inner.completionTimeoutSecs, 30);
+  });
+
+  it('payInvoice writes payment_preimage onto last_paid_invoice_result', async () => {
+    const preimage = 'bf62911aa53c017c27ba34391f694bc8bf8aaf59b4ebfd9020e66ac0412e189b';
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
+    mockSdk.sendPayment.mockResolvedValue({
+      payment: {
+        status: PaymentStatus.Completed,
+        details: {
+          tag: PaymentDetails_Tags.Lightning,
+          inner: {
+            description: '',
+            invoice: SAMPLE_INVOICE,
+            destinationPubkey: 'x',
+            htlcDetails: { paymentHash: 'h', preimage },
+          },
+        },
+      },
+    });
+    const wallet = new SparkWallet();
+    await wallet.payInvoice(SAMPLE_INVOICE, 0);
+    assert.ok(wallet.last_paid_invoice_result);
+    assert.strictEqual(wallet.last_paid_invoice_result.payment_preimage, preimage);
   });
 
   it('payInvoice passes freeAmount for amountless invoices', async () => {
@@ -388,6 +445,75 @@ describe('SparkWallet', () => {
     assert.strictEqual(txs[1].payment_request, 'a');
   });
 
+  it('getTransactions lists a receive present in both source lists only once', () => {
+    const wallet = SparkWallet.create('dedup-pk');
+    const receive = {
+      payment_request: SAMPLE_INVOICE,
+      payment_hash: 'recv-htlc',
+      timestamp: 20,
+      type: 'user_invoice',
+      amt: 20,
+      ispaid: true,
+      expire_time: 3600,
+    };
+    wallet.transactions_raw = [
+      {
+        payment_request: 'send-req',
+        payment_hash: 'send-htlc',
+        timestamp: 10,
+        type: 'paid_invoice',
+        amt: 5,
+        fee: 1,
+        ispaid: true,
+        expire_time: 3600,
+      },
+      { ...receive },
+    ];
+    wallet.user_invoices_raw = [{ ...receive }];
+    wallet.pending_transactions_raw = [];
+    const txs = wallet.getTransactions();
+    assert.strictEqual(txs.length, 2);
+    const receives = txs.filter(tx => tx.payment_hash === 'recv-htlc');
+    assert.strictEqual(receives.length, 1);
+    assert.strictEqual(receives[0].payment_request, SAMPLE_INVOICE);
+    assert.strictEqual(receives[0].amt, 20);
+    assert.strictEqual(receives[0].type, 'user_invoice');
+    assert.strictEqual(txs.filter(tx => tx.payment_hash === 'send-htlc').length, 1);
+  });
+
+  it('getTransactions keeps a send and a receive that share a payment_hash', () => {
+    const wallet = SparkWallet.create('selfpay-pk');
+    const hash = 'same-invoice-hash';
+    wallet.transactions_raw = [
+      {
+        payment_request: SAMPLE_INVOICE,
+        payment_hash: hash,
+        timestamp: 10,
+        type: 'paid_invoice',
+        amt: 20,
+        fee: 1,
+        ispaid: true,
+        expire_time: 3600,
+      },
+    ];
+    wallet.user_invoices_raw = [
+      {
+        payment_request: SAMPLE_INVOICE,
+        payment_hash: hash,
+        timestamp: 10,
+        type: 'user_invoice',
+        amt: 20,
+        ispaid: true,
+        expire_time: 3600,
+      },
+    ];
+    wallet.pending_transactions_raw = [];
+    const txs = wallet.getTransactions();
+    assert.strictEqual(txs.length, 2);
+    assert.strictEqual(txs.filter(tx => tx.type === 'paid_invoice' && tx.payment_hash === hash).length, 1);
+    assert.strictEqual(txs.filter(tx => tx.type === 'user_invoice' && tx.payment_hash === hash).length, 1);
+  });
+
   it('fetchUserInvoices keeps unpaid local invoices the network has not seen', async () => {
     mockSdk.listPayments.mockResolvedValue({ payments: [] });
     const wallet = new SparkWallet();
@@ -472,6 +598,77 @@ describe('SparkWallet', () => {
       expect.objectContaining({
         limit: 50,
         paymentDetailsFilter: [expect.objectContaining({ tag: 'Lightning' })],
+      }),
+    );
+  });
+
+  it('fetchTransactions walks listPayments pages until a short page', async () => {
+    mockSdk.listPayments.mockImplementation(async ({ offset, limit }) => {
+      assert.strictEqual(limit, 50);
+      if (offset === 0) {
+        return { payments: Array.from({ length: 50 }, (_, i) => completedSend(`p${i}`, BigInt(i))) };
+      }
+      if (offset === 50) {
+        return { payments: Array.from({ length: 7 }, (_, i) => completedSend(`p${50 + i}`, BigInt(50 + i))) };
+      }
+      return { payments: [] };
+    });
+    const wallet = new SparkWallet();
+    await wallet.fetchTransactions();
+    assert.strictEqual(wallet.transactions_raw.length, 57);
+    assert.strictEqual(wallet.transactions_raw[0].payment_hash, 'p0');
+    assert.strictEqual(wallet.transactions_raw[56].payment_hash, 'p56');
+    expect(mockSdk.listPayments).toHaveBeenCalledTimes(2);
+    assert.strictEqual(mockSdk.listPayments.mock.calls[0][0].offset, 0);
+    assert.strictEqual(mockSdk.listPayments.mock.calls[1][0].offset, 50);
+  });
+
+  it('fetchTransactions stops after 100 full pages', async () => {
+    mockSdk.listPayments.mockImplementation(async ({ offset, limit }) => {
+      assert.strictEqual(limit, 50);
+      return {
+        payments: Array.from({ length: 50 }, (_, i) => completedSend(`cap-${offset + i}`, BigInt(offset + i))),
+      };
+    });
+    const wallet = new SparkWallet();
+    await wallet.fetchTransactions();
+    expect(mockSdk.listPayments).toHaveBeenCalledTimes(100);
+    assert.strictEqual(wallet.transactions_raw.length, 5000);
+    assert.strictEqual(wallet.transactions_raw[0].payment_hash, 'cap-0');
+    assert.strictEqual(wallet.transactions_raw[4999].payment_hash, 'cap-4999');
+  });
+
+  it('getUserInvoices without a limit walks every page of Lightning receives', async () => {
+    mockSdk.listPayments.mockImplementation(async ({ offset, limit }) => {
+      assert.strictEqual(limit, 50);
+      if (offset === 0) {
+        return { payments: Array.from({ length: 50 }, (_, i) => lightningReceive(`r${i}`)) };
+      }
+      if (offset === 50) {
+        return { payments: [lightningReceive('r50')] };
+      }
+      return { payments: [] };
+    });
+    const wallet = new SparkWallet();
+    const invoices = await wallet.getUserInvoices();
+    assert.strictEqual(invoices.length, 51);
+    assert.strictEqual(invoices.find(i => i.payment_hash === 'r50')?.payment_request, 'inv-r50');
+    expect(mockSdk.listPayments).toHaveBeenCalledTimes(2);
+  });
+
+  it('getUserInvoices with a small limit fetches a single page even when that page is full', async () => {
+    mockSdk.listPayments.mockResolvedValue({ payments: [lightningReceive('only', 'inv-only')] });
+    const wallet = new SparkWallet();
+    const invoices = await wallet.getUserInvoices(1);
+    assert.strictEqual(invoices.length, 1);
+    assert.strictEqual(invoices[0].payment_hash, 'only');
+    assert.strictEqual(invoices[0].payment_request, 'inv-only');
+    expect(mockSdk.listPayments).toHaveBeenCalledTimes(1);
+    expect(mockSdk.listPayments).toHaveBeenCalledWith(
+      expect.objectContaining({
+        limit: 1,
+        offset: 0,
+        typeFilter: [PaymentType.Receive],
       }),
     );
   });

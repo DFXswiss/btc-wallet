@@ -10,6 +10,7 @@ import {
   ReceivePaymentMethod,
   SendPaymentMethod_Tags,
   SendPaymentOptions,
+  type ListPaymentsRequest,
   type Payment,
   type PrepareSendPaymentResponse,
 } from '@breeztech/breez-sdk-spark-react-native';
@@ -72,6 +73,18 @@ export type SparkInvoiceRecord = {
   received?: string;
 };
 
+/**
+ * Identity keys for merging pending, completed, and invoice lists.
+ * Type is part of the key so a self-payment (send + receive, same hash) stays two rows.
+ */
+function invoiceDedupeKeys(tx: SparkInvoiceRecord): string[] {
+  const keys: string[] = [];
+  const type = tx.type || '';
+  if (tx.payment_hash) keys.push(`h:${type}:${tx.payment_hash}`);
+  if (tx.payment_request) keys.push(`r:${type}:${tx.payment_request}`);
+  return keys;
+}
+
 export class SparkWallet extends AbstractWallet {
   static type = 'sparkWallet';
   static typeReadable = 'Lightning (Spark)';
@@ -82,12 +95,18 @@ export class SparkWallet extends AbstractWallet {
    * room to settle without blocking the UI indefinitely.
    */
   private static readonly SEND_PAYMENT_COMPLETION_TIMEOUT_SECS = 30;
+  /** Page size for a full history walk. Callers that pass a small limit keep a single page. */
+  private static readonly LIST_PAYMENTS_PAGE_SIZE = 50;
+  /** Hard stop so a stuck SDK cannot loop forever. 100 pages × 50 = 5000 records. */
+  private static readonly LIST_PAYMENTS_MAX_PAGES = 100;
 
   lnAddress?: string;
   identityPubkey?: string;
   user_invoices_raw: SparkInvoiceRecord[] = [];
   transactions_raw: SparkInvoiceRecord[] = [];
   pending_transactions_raw: SparkInvoiceRecord[] = [];
+  /** Same field LNURL pay reads (`payment_preimage`) after a successful send. */
+  last_paid_invoice_result?: { payment_preimage?: string };
 
   constructor() {
     super();
@@ -185,10 +204,24 @@ export class SparkWallet extends AbstractWallet {
     this.transactions_raw = this.transactions_raw || [];
 
     const invoicesWithoutSignInTx = this.user_invoices_raw.filter(invoice => invoice.amt !== 1 || invoice.ispaid);
-    const txs: SparkInvoiceRecord[] = this.pending_transactions_raw
+    const concatenated: SparkInvoiceRecord[] = this.pending_transactions_raw
       .slice()
       .concat(this.transactions_raw.slice())
       .concat(invoicesWithoutSignInTx);
+
+    // Both fetchTransactions (all Bitcoin types) and getUserInvoices (Lightning
+    // receives) write the same completed receive. Collapse on hash or request,
+    // keeping type so a send and a receive of the same invoice stay two rows.
+    const seen = new Set<string>();
+    const txs: SparkInvoiceRecord[] = [];
+    for (const tx of concatenated) {
+      const keys = invoiceDedupeKeys(tx);
+      if (keys.some(key => seen.has(key))) {
+        continue;
+      }
+      for (const key of keys) seen.add(key);
+      txs.push(tx);
+    }
 
     for (const tx of txs) {
       tx.walletID = this.getID();
@@ -205,24 +238,55 @@ export class SparkWallet extends AbstractWallet {
     return txs.sort((a, b) => b.timestamp - a.timestamp);
   }
 
+  /**
+   * Walk listPayments by offset. `paginate` is for a full history sync; a
+   * caller-supplied small limit stays a single request of that size.
+   */
+  private async listPaymentsPages(
+    sdk: ReturnType<SparkSessionLease['requireSdk']>,
+    request: Omit<ListPaymentsRequest, 'offset'> & { limit: number },
+    paginate: boolean,
+  ): Promise<Payment[]> {
+    const pageSize = request.limit;
+    const maxPages = paginate ? SparkWallet.LIST_PAYMENTS_MAX_PAGES : 1;
+    const payments: Payment[] = [];
+    let offset = 0;
+    for (let page = 0; page < maxPages; page++) {
+      const response = await sdk.listPayments({
+        ...request,
+        offset,
+        limit: pageSize,
+      });
+      payments.push(...response.payments);
+      if (response.payments.length < pageSize) {
+        break;
+      }
+      offset += response.payments.length;
+    }
+    return payments;
+  }
+
   async fetchTransactions(): Promise<void> {
     const lease = this.holdMatchingSession();
-    const response = await lease.requireSdk().listPayments({
-      typeFilter: undefined,
-      statusFilter: undefined,
-      assetFilter: new AssetFilter.Bitcoin(),
-      paymentDetailsFilter: undefined,
-      fromTimestamp: undefined,
-      toTimestamp: undefined,
-      offset: undefined,
-      limit: 50,
-      sortAscending: false,
-    });
+    const payments = await this.listPaymentsPages(
+      lease.requireSdk(),
+      {
+        typeFilter: undefined,
+        statusFilter: undefined,
+        assetFilter: new AssetFilter.Bitcoin(),
+        paymentDetailsFilter: undefined,
+        fromTimestamp: undefined,
+        toTimestamp: undefined,
+        sortAscending: false,
+        limit: SparkWallet.LIST_PAYMENTS_PAGE_SIZE,
+      },
+      true,
+    );
 
     const completed: SparkInvoiceRecord[] = [];
     const pending: SparkInvoiceRecord[] = [];
 
-    for (const payment of response.payments) {
+    for (const payment of payments) {
       const mapped = this.mapPayment(payment);
       if (payment.status === PaymentStatus.Pending) {
         pending.push(mapped);
@@ -246,21 +310,25 @@ export class SparkWallet extends AbstractWallet {
 
   async getUserInvoices(limit = 0): Promise<SparkInvoiceRecord[]> {
     const lease = this.holdMatchingSession();
-    const response = await lease.requireSdk().listPayments({
-      typeFilter: [PaymentType.Receive],
-      statusFilter: undefined,
-      assetFilter: undefined,
-      paymentDetailsFilter: [new PaymentDetailsFilter.Lightning({ htlcStatus: undefined })],
-      fromTimestamp: undefined,
-      toTimestamp: undefined,
-      offset: undefined,
-      limit: limit > 0 ? limit : 50,
-      sortAscending: false,
-    });
+    const paginate = !(limit > 0);
+    const payments = await this.listPaymentsPages(
+      lease.requireSdk(),
+      {
+        typeFilter: [PaymentType.Receive],
+        statusFilter: undefined,
+        assetFilter: undefined,
+        paymentDetailsFilter: [new PaymentDetailsFilter.Lightning({ htlcStatus: undefined })],
+        fromTimestamp: undefined,
+        toTimestamp: undefined,
+        sortAscending: false,
+        limit: limit > 0 ? limit : SparkWallet.LIST_PAYMENTS_PAGE_SIZE,
+      },
+      paginate,
+    );
 
     // Lightning without htlcStatus adds no SQL clause in breez-sdk 0.19.2, so
     // the request filter above is a hint, not a guarantee. Drop other kinds here.
-    const remote = response.payments
+    const remote = payments
       .filter(payment => payment.details && payment.details.tag === PaymentDetails_Tags.Lightning)
       .map(p => this.mapPayment(p));
     // Keep locally created unpaid invoices that the network has not seen yet.
@@ -382,6 +450,11 @@ export class SparkWallet extends AbstractWallet {
       // Pending is not success: the payment may still fail, and the caller must not treat it as paid.
       throw new Error(loc.wallets.lightning_spark_payment_in_transit);
     }
+
+    const lightningDetails = payment.details && payment.details.tag === PaymentDetails_Tags.Lightning ? payment.details.inner : undefined;
+    this.last_paid_invoice_result = {
+      payment_preimage: lightningDetails?.htlcDetails?.preimage,
+    };
   }
 
   /**
