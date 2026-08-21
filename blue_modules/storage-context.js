@@ -11,6 +11,7 @@ const BlueApp = require('../BlueApp');
 const BlueElectrum = require('./BlueElectrum');
 const currency = require('../blue_modules/currency');
 const A = require('../blue_modules/analytics');
+const { rollbackWalletIfSaveFailed } = require('./storage-context-helpers');
 
 const _lastTimeTriedToRefetchWallet = {}; // hashmap of timestamps we _started_ refetching some wallet
 
@@ -84,12 +85,13 @@ export const BlueStorageProvider = ({ children }) => {
   const saveToDisk = useCallback(
     async (force = false) => {
       if (BlueApp.getWallets().length === 0 && !force) {
-        return;
+        return true;
       }
       BlueApp.tx_metadata = txMetadata;
-      await BlueApp.saveToDisk();
+      const saved = await BlueApp.saveToDisk();
       setWallets([...BlueApp.getWallets()]);
       txMetadata = BlueApp.tx_metadata;
+      return saved;
     },
     [txMetadata],
   );
@@ -291,12 +293,14 @@ export const BlueStorageProvider = ({ children }) => {
     w.setUserHasSavedExport(true);
     w.setUserHasBackedUpSeed(true);
     addWallet(w);
+    let saved;
     try {
-      await saveToDisk();
+      saved = await saveToDisk();
     } catch (e) {
       deleteWallet(w);
       throw e;
     }
+    rollbackWalletIfSaveFailed(saved, () => deleteWallet(w));
     A(A.ENUM.CREATED_WALLET);
     majorTomToGroundControl(w.getAllExternalAddresses(), [], []);
     // Background (don't await) so import/add flows navigate immediately instead of freezing on a

@@ -579,7 +579,7 @@ class AppStorage {
    * If cached password is saved - finds the correct bucket
    * to save to, encrypts and then saves.
    *
-   * @returns {Promise} Result of storage save
+   * @returns {Promise<boolean>} Whether the storage save succeeded
    */
   async saveToDisk() {
     if (savingInProgress) {
@@ -675,12 +675,14 @@ class AppStorage {
       this.saveToRealmKeyValue(realmkeyValue, 'data', JSON.stringify(data));
       this.saveToRealmKeyValue(realmkeyValue, AppStorage.FLAG_ENCRYPTED, this.cachedPassword ? '1' : '');
       realmkeyValue.close();
+      return true;
     } catch (error) {
       console.error('saveToDisk: failed to persist wallet data', error);
       if (error.message.includes('Realm file decryption failed')) {
         console.warn('saveToDisk: realm file decryption failed, purging realm key-value database file');
         this.purgeRealmKeyValueFile();
       }
+      return false;
     } finally {
       savingInProgress = 0;
     }
