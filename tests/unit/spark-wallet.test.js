@@ -365,6 +365,17 @@ describe('SparkWallet', () => {
     assert.strictEqual(wallet.pending_transactions_raw[0].type, 'user_invoice');
   });
 
+  it('fetchTransactions lists payments with the Bitcoin asset filter', async () => {
+    mockSdk.listPayments.mockResolvedValue({ payments: [] });
+    const wallet = new SparkWallet();
+    await wallet.fetchTransactions();
+    expect(mockSdk.listPayments).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assetFilter: expect.objectContaining({ tag: 'Bitcoin' }),
+      }),
+    );
+  });
+
   it('getTransactions merges lists and sorts newest first', async () => {
     const wallet = SparkWallet.create('list-pk');
     wallet.transactions_raw = [

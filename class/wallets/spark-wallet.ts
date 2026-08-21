@@ -1,6 +1,7 @@
 import createHash from 'create-hash';
 import bolt11 from 'bolt11';
 import {
+  AssetFilter,
   PaymentDetails_Tags,
   PaymentDetailsFilter,
   PaymentRequest,
@@ -209,7 +210,7 @@ export class SparkWallet extends AbstractWallet {
     const response = await lease.requireSdk().listPayments({
       typeFilter: undefined,
       statusFilter: undefined,
-      assetFilter: undefined,
+      assetFilter: new AssetFilter.Bitcoin(),
       paymentDetailsFilter: undefined,
       fromTimestamp: undefined,
       toTimestamp: undefined,

@@ -19,6 +19,14 @@ const PaymentDetailsFilter = {
   Token: tagged('Token'),
   Lightning: tagged('Lightning'),
 };
+const AssetFilter_Tags = {
+  Bitcoin: 'Bitcoin',
+  Token: 'Token',
+};
+const AssetFilter = {
+  Bitcoin: tagged('Bitcoin'),
+  Token: tagged('Token'),
+};
 const SdkEvent_Tags = {
   Synced: 'Synced',
   UnclaimedDeposits: 'UnclaimedDeposits',
@@ -106,6 +114,8 @@ module.exports = {
   PaymentDetails_Tags,
   PaymentDetailsFilter_Tags,
   PaymentDetailsFilter,
+  AssetFilter_Tags,
+  AssetFilter,
   PaymentRequest,
   ReceivePaymentMethod,
   SendPaymentMethod_Tags,
