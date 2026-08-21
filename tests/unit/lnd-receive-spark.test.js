@@ -1,5 +1,7 @@
 import React from 'react';
 import assert from 'assert';
+import fs from 'fs';
+import path from 'path';
 import { ActivityIndicator } from 'react-native';
 import { fireEvent, render, act } from '@testing-library/react-native';
 import { PaymentDetails_Tags, PaymentStatus, PaymentType } from '@breeztech/breez-sdk-spark-react-native';
@@ -154,6 +156,49 @@ async function createInvoice(screen) {
   });
 }
 
+function timeoutHandlesScheduledAfter(setTimeoutSpy, fromCallCount, delay) {
+  const handles = [];
+  for (let i = fromCallCount; i < setTimeoutSpy.mock.calls.length; i++) {
+    if (setTimeoutSpy.mock.calls[i][1] === delay) {
+      handles.push(setTimeoutSpy.mock.results[i].value);
+    }
+  }
+  return handles;
+}
+
+async function assertUnmountClearsInvoicePollTimeout(wallet, getUserInvoices) {
+  const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
+  const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+  const setIntervalSpy = jest.spyOn(global, 'setInterval');
+
+  const screen = renderReceive(wallet);
+  const timeoutCallsBeforeInvoice = setTimeoutSpy.mock.calls.length;
+  await createInvoice(screen);
+
+  const handles = timeoutHandlesScheduledAfter(setTimeoutSpy, timeoutCallsBeforeInvoice, 1000);
+  assert.strictEqual(handles.length, 1, 'expected exactly one 1000ms timeout after creating an invoice');
+  const handle = handles[0];
+
+  screen.unmount();
+
+  expect(clearTimeoutSpy).toHaveBeenCalledWith(handle);
+
+  const pollerCount = () => setIntervalSpy.mock.calls.filter(([, ms]) => ms === 3000).length;
+  assert.strictEqual(pollerCount(), 0);
+
+  await act(async () => {
+    jest.advanceTimersByTime(4000);
+    await Promise.resolve();
+  });
+
+  assert.strictEqual(pollerCount(), 0);
+  expect(getUserInvoices).not.toHaveBeenCalled();
+
+  setTimeoutSpy.mockRestore();
+  clearTimeoutSpy.mockRestore();
+  setIntervalSpy.mockRestore();
+}
+
 describe('LNDReceive with SparkWallet', () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -226,6 +271,37 @@ describe('LNDReceive with SparkWallet', () => {
     const ldsScreen = renderReceive(makeLdsReceiveWallet('lds-receive-1'));
     await createInvoice(ldsScreen);
     expect(ldsScreen.getByText('Use Boltcard')).toBeTruthy();
+  });
+
+  it('clears the pending poll timeout on unmount so no poller starts (Spark)', async () => {
+    const wallet = makeSparkReceiveWallet('spark-receive-1');
+    const getUserInvoices = jest.spyOn(wallet, 'getUserInvoices');
+    await assertUnmountClearsInvoicePollTimeout(wallet, getUserInvoices);
+  });
+
+  it('clears the pending poll timeout on unmount so no poller starts (LNDHub)', async () => {
+    const wallet = makeLdsReceiveWallet('lds-receive-1');
+    await assertUnmountClearsInvoicePollTimeout(wallet, wallet.getUserInvoices);
+  });
+
+  it('shows a missing-address state instead of a QR when Spark has no lnAddress', () => {
+    const wallet = SparkWallet.create('pk-receive-1');
+    wallet.getID = () => 'spark-receive-1';
+    wallet.setLabel('Spark');
+    assert.strictEqual(wallet.lnAddress, undefined);
+
+    const screen = renderReceive(wallet);
+    expect(screen.queryByTestId('QRCode')).toBeNull();
+    expect(screen.getByText(loc.wallets.lightning_spark_address_unavailable)).toBeTruthy();
+  });
+
+  it('defines lightning_spark_address_unavailable in en, de, fr, and it', () => {
+    const repoRoot = path.join(__dirname, '..', '..');
+    for (const locale of ['en', 'de', 'fr', 'it']) {
+      const json = JSON.parse(fs.readFileSync(path.join(repoRoot, `loc/${locale}.json`), 'utf8'));
+      assert.strictEqual(typeof json.wallets.lightning_spark_address_unavailable, 'string');
+      assert.ok(json.wallets.lightning_spark_address_unavailable.length > 0);
+    }
   });
 
   it('clears the loading state and shows the error when addInvoice rejects', async () => {

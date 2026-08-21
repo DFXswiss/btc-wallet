@@ -526,6 +526,7 @@
     "lightning_spark_session_mismatch": "Questo portafoglio Lightning non corrisponde al portafoglio collegato. Non è stato modificato nulla.",
     "lightning_spark_source_missing": "Lightning appartiene a \"{label}\". Quel portafoglio non è più nell'app. Ripristinalo per usare di nuovo Lightning.",
     "lightning_spark_fee_too_high": "Questo pagamento di {amount} sats non è stato inviato. La commissione di {fee} sats supera il limite di {maxFee} sats. Non è stato pagato nulla.",
+    "lightning_spark_address_unavailable": "Nessun indirizzo di ricezione è ancora disponibile. Chiudi completamente l'app e aprila di nuovo per riprovare.",
     "multi_sig_wallet_label": "Portafoglio multi-dispositivo",
     "chf_taproot_wallet_label": "Portafoglio Taproot CHF",
     "add_lndhub_DFXswiss_not_available": "Questo servizio sarà presto disponibile",

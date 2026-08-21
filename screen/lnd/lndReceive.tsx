@@ -53,6 +53,8 @@ const LNDReceive = () => {
   const { inputProps, amountSats, formattedUnit, changeToNextUnit } = useInputAmount();
   const [invoiceRequest, setInvoiceRequest] = useState();
   const invoicePolling = useRef<NodeJS.Timeout | undefined>(undefined);
+  const invoicePollTimeout = useRef<NodeJS.Timeout | undefined>(undefined);
+  const pollGeneration = useRef(0);
   const [isPaid, setIsPaid] = useState(false);
   const inputAmountRef = useRef<TextInput | null>(null);
   const inputDescriptionRef = useRef<TextInput | null>(null);
@@ -67,6 +69,9 @@ const LNDReceive = () => {
     customAmountText: {
       color: colors.foregroundColor,
     },
+    missingAddress: {
+      color: colors.foregroundColor,
+    },
     root: {
       backgroundColor: colors.elevated,
     },
@@ -77,7 +82,8 @@ const LNDReceive = () => {
       cancelInvoicePolling();
       stopReading();
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [walletID]);
 
   useEffect(() => {
     if (wallet && wallet.getID() !== walletID) {
@@ -89,7 +95,12 @@ const LNDReceive = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletID]);
 
-  const cancelInvoicePolling = async () => {
+  const cancelInvoicePolling = () => {
+    pollGeneration.current += 1;
+    if (invoicePollTimeout.current) {
+      clearTimeout(invoicePollTimeout.current);
+      invoicePollTimeout.current = undefined;
+    }
     if (invoicePolling.current) {
       clearInterval(invoicePolling.current);
       invoicePolling.current = undefined;
@@ -98,34 +109,45 @@ const LNDReceive = () => {
 
   const initInvoicePolling = (invoice: any) => {
     cancelInvoicePolling(); // clear any previous polling
+    const generation = pollGeneration.current;
+    let isChecking = false;
     invoicePolling.current = setInterval(async () => {
-      const userInvoices = await wallet.getUserInvoices(20);
-      const updatedUserInvoice = userInvoices.find(
-        (i: { payment_request: string; ispaid: boolean; description?: string; timestamp: number; expire_time: number }) =>
-          i.payment_request === invoice,
-      );
-      if (!updatedUserInvoice) {
-        return;
-      }
-
-      if (updatedUserInvoice.ispaid) {
-        cancelInvoicePolling();
-        setInvoiceRequest(undefined);
-        if (updatedUserInvoice.description) {
-          setDescription(updatedUserInvoice.description);
+      if (isChecking) return;
+      isChecking = true;
+      try {
+        const userInvoices = await wallet.getUserInvoices(20);
+        if (generation !== pollGeneration.current) {
+          return;
         }
-        setIsPaid(true);
-        fetchAndSaveWalletTransactions(walletID);
-        return;
-      }
+        const updatedUserInvoice = userInvoices.find(
+          (i: { payment_request: string; ispaid: boolean; description?: string; timestamp: number; expire_time: number }) =>
+            i.payment_request === invoice,
+        );
+        if (!updatedUserInvoice) {
+          return;
+        }
 
-      const currentDate = new Date();
-      const now = (currentDate.getTime() / 1000) | 0; // eslint-disable-line no-bitwise
-      const invoiceExpiration = updatedUserInvoice.timestamp + updatedUserInvoice.expire_time;
-      if (now > invoiceExpiration) {
-        cancelInvoicePolling();
-        setInvoiceRequest(undefined);
-        generateInvoice(); // invoice expired, generate new one
+        if (updatedUserInvoice.ispaid) {
+          cancelInvoicePolling();
+          setInvoiceRequest(undefined);
+          if (updatedUserInvoice.description) {
+            setDescription(updatedUserInvoice.description);
+          }
+          setIsPaid(true);
+          fetchAndSaveWalletTransactions(walletID);
+          return;
+        }
+
+        const currentDate = new Date();
+        const now = (currentDate.getTime() / 1000) | 0; // eslint-disable-line no-bitwise
+        const invoiceExpiration = updatedUserInvoice.timestamp + updatedUserInvoice.expire_time;
+        if (now > invoiceExpiration) {
+          cancelInvoicePolling();
+          setInvoiceRequest(undefined);
+          generateInvoice(); // invoice expired, generate new one
+        }
+      } finally {
+        isChecking = false;
       }
     }, 3000);
   };
@@ -166,8 +188,14 @@ const LNDReceive = () => {
       await tryToObtainPermissions();
       majorTomToGroundControl([], [decoded.payment_hash], []);
 
-      setTimeout(async () => {
+      cancelInvoicePolling();
+      const generation = pollGeneration.current;
+      invoicePollTimeout.current = setTimeout(async () => {
+        invoicePollTimeout.current = undefined;
         await wallet.getUserInvoices(1);
+        if (generation !== pollGeneration.current) {
+          return;
+        }
         initInvoicePolling(invoiceRequest);
         await saveToDisk();
       }, 1000);
@@ -206,6 +234,8 @@ const LNDReceive = () => {
     Share.open({ message: invoiceRequest || wallet.lnAddress }).catch(() => {});
   };
 
+  const qrValue = invoiceRequest || wallet?.getLnurl?.() || wallet?.lnAddress;
+
   if (isPaid) {
     return (
       <View style={styles.root}>
@@ -230,9 +260,9 @@ const LNDReceive = () => {
               <View style={[styles.scrollBody, styles.flex]}>
                 {isInvoiceLoading ? (
                   <ActivityIndicator />
-                ) : (
+                ) : qrValue ? (
                   <>
-                    <QRCodeComponent value={invoiceRequest || wallet.getLnurl?.() || wallet.lnAddress} />
+                    <QRCodeComponent value={qrValue} />
                     <View style={styles.shareContainer}>
                       <BlueCopyTextToClipboard
                         text={invoiceRequest || wallet.lnAddress}
@@ -244,6 +274,8 @@ const LNDReceive = () => {
                       </TouchableOpacity>
                     </View>
                   </>
+                ) : (
+                  <Text style={[styles.missingAddress, styleHooks.missingAddress]}>{loc.wallets.lightning_spark_address_unavailable}</Text>
                 )}
               </View>
               <View style={styles.share}>
@@ -389,6 +421,12 @@ const styles = StyleSheet.create({
   },
   copyText: {
     marginVertical: 16,
+  },
+  missingAddress: {
+    textAlign: 'center',
+    paddingHorizontal: 24,
+    marginVertical: 16,
+    fontSize: 16,
   },
   iosNfcButtonContainer: {
     marginVertical: 10,
