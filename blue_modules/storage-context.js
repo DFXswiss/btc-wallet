@@ -291,7 +291,12 @@ export const BlueStorageProvider = ({ children }) => {
     w.setUserHasSavedExport(true);
     w.setUserHasBackedUpSeed(true);
     addWallet(w);
-    await saveToDisk();
+    try {
+      await saveToDisk();
+    } catch (e) {
+      deleteWallet(w);
+      throw e;
+    }
     A(A.ENUM.CREATED_WALLET);
     majorTomToGroundControl(w.getAllExternalAddresses(), [], []);
     // Background (don't await) so import/add flows navigate immediately instead of freezing on a

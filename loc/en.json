@@ -388,6 +388,7 @@
     "lightning_spark_lnurl_auth_unsupported": "This wallet cannot sign in with that code.",
     "lightning_spark_invoice_unreadable": "This invoice could not be read. Nothing was paid.",
     "lightning_spark_session_mismatch": "This Lightning wallet does not match the connected wallet. Nothing was changed.",
+    "lightning_spark_source_missing": "Lightning belongs to \"{label}\". That wallet is no longer in this app. Restore it to use Lightning again.",
     "lightning_spark_fee_too_high": "This payment of {amount} sats was not sent. The fee of {fee} sats is above the limit of {maxFee} sats. Nothing was paid.",
     "multi_sig_wallet_label": "Multi-Device Wallet",
     "chf_taproot_wallet_label": "CHF Taproot Wallet",

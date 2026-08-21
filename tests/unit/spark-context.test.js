@@ -65,10 +65,13 @@ const Probe = () => {
 };
 
 const MNEMONIC = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+const MNEMONIC_B = 'legal winner thank year wave sausage worth useful legal winner thank yellow';
 
 const hdWallet = {
   type: 'HDsegwitBech32',
   getSecret: () => MNEMONIC,
+  getID: () => 'hd-default',
+  getLabel: () => 'On-chain Wallet',
 };
 
 const createHash = require('create-hash');
@@ -88,11 +91,12 @@ function expectedUsername(identityPubkey, attempt = 0) {
 
 const addAndSaveWallet = jest.fn().mockResolvedValue(undefined);
 const saveToDisk = jest.fn().mockResolvedValue(undefined);
+const deleteWallet = jest.fn();
 
 function renderWith(wallets, walletsInitialized = true) {
   latestCtx = null;
   return render(
-    <BlueStorageContext.Provider value={{ wallets, walletsInitialized, addAndSaveWallet, saveToDisk }}>
+    <BlueStorageContext.Provider value={{ wallets, walletsInitialized, addAndSaveWallet, saveToDisk, deleteWallet }}>
       <SparkContextProvider>
         <Probe />
       </SparkContextProvider>
@@ -160,6 +164,10 @@ describe('SparkContextProvider', () => {
     assert.strictEqual(created.getSecret(), '');
     assert.strictEqual(created.identityPubkey, 'pk-1');
     assert.strictEqual(created.lnAddress, 'user@breez.blitz');
+    assert.strictEqual(created.sourceWalletId, 'hd-default');
+    assert.strictEqual(created.sourceWalletLabel, 'On-chain Wallet');
+    assert.notStrictEqual(created.sourceWalletId, MNEMONIC);
+    assert.ok(!String(created.sourceWalletId).includes('abandon'));
     expect(addAndSaveWallet).toHaveBeenCalledWith(created);
     expect(mockConnect).toHaveBeenCalled();
     expect(mockSdk.registerLightningAddress).not.toHaveBeenCalled();
@@ -602,7 +610,7 @@ describe('SparkContextProvider', () => {
 
   it('falls back to wallets[0] when no HD type is present', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    const other = { type: 'legacy', getSecret: () => MNEMONIC };
+    const other = { type: 'legacy', getSecret: () => MNEMONIC, getID: () => 'legacy-1' };
     renderWith([other]);
     await waitFor(() => assert.ok(latestCtx));
 
@@ -1323,7 +1331,7 @@ describe('SparkContextProvider', () => {
   });
 
   it('creates from an on-chain wallet that has no getPassphrase method', async () => {
-    const wallet = { type: 'HDsegwitBech32', getSecret: () => MNEMONIC };
+    const wallet = { type: 'HDsegwitBech32', getSecret: () => MNEMONIC, getID: () => 'hd-no-pass' };
     assert.strictEqual('getPassphrase' in wallet, false);
     renderWith([wallet]);
     await waitFor(() => assert.ok(latestCtx));
@@ -1375,5 +1383,173 @@ describe('SparkContextProvider', () => {
 
     alert.mockRestore();
     errorSpy.mockRestore();
+  });
+
+  it('records the source wallet id at create, not the recovery phrase', async () => {
+    const hdA = {
+      type: 'HDsegwitBech32',
+      getSecret: () => MNEMONIC,
+      getID: () => 'hd-a',
+      getLabel: () => 'Savings',
+    };
+    const hdB = {
+      type: 'HDsegwitBech32',
+      getSecret: () => MNEMONIC_B,
+      getID: () => 'hd-b',
+      getLabel: () => 'Spending',
+    };
+    renderWith([hdA, hdB]);
+    await waitFor(() => assert.ok(latestCtx));
+
+    let created;
+    await act(async () => {
+      created = await latestCtx.createSparkWallet();
+    });
+
+    assert.ok(created);
+    assert.strictEqual(created.sourceWalletId, 'hd-a');
+    assert.strictEqual(created.sourceWalletLabel, 'Savings');
+    assert.notStrictEqual(created.sourceWalletId, MNEMONIC);
+    assert.notStrictEqual(created.sourceWalletId, MNEMONIC_B);
+    assert.ok(!String(created.sourceWalletId).includes('abandon'));
+    assert.ok(!String(created.sourceWalletId).includes('winner'));
+    expect(mockConnect).toHaveBeenCalledWith(MNEMONIC, expect.any(Function), undefined);
+  });
+
+  it('connects with the bound source wallet after HD wallets are reordered', async () => {
+    const hdA = {
+      type: 'HDsegwitBech32',
+      getSecret: () => MNEMONIC,
+      getID: () => 'hd-a',
+      getLabel: () => 'Savings',
+    };
+    const hdB = {
+      type: 'HDsegwitBech32',
+      getSecret: () => MNEMONIC_B,
+      getID: () => 'hd-b',
+      getLabel: () => 'Spending',
+    };
+    const spark = stubSparkMethods(SparkWallet.create('pk-bound'));
+    spark.sourceWalletId = 'hd-a';
+    renderWith([hdB, hdA, spark]);
+    await waitFor(() => expect(mockConnect).toHaveBeenCalled());
+    expect(mockConnect).toHaveBeenCalledWith(MNEMONIC, expect.any(Function), undefined);
+    assert.strictEqual(mockConnect.mock.calls[0][0], MNEMONIC);
+    assert.notStrictEqual(mockConnect.mock.calls[0][0], MNEMONIC_B);
+  });
+
+  it('does not fall back to another HD wallet when the bound source is missing', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const hdB = {
+      type: 'HDsegwitBech32',
+      getSecret: () => MNEMONIC_B,
+      getID: () => 'hd-b',
+      getLabel: () => 'Spending',
+    };
+    const spark = stubSparkMethods(SparkWallet.create('pk-bound'));
+    spark.sourceWalletId = 'hd-deleted';
+    spark.sourceWalletLabel = 'Savings';
+    renderWith([hdB, spark]);
+    await waitFor(() => expect(alert).toHaveBeenCalled());
+    expect(mockConnect).not.toHaveBeenCalled();
+    const body = String(alert.mock.calls[0][1]);
+    assert.strictEqual(body, loc.formatString(loc.wallets.lightning_spark_source_missing, { label: 'Savings' }));
+    assert.ok(!body.includes('hd-deleted'));
+    assert.ok(!body.includes(MNEMONIC_B));
+    assert.ok(!body.includes('abandon'));
+    alert.mockRestore();
+  });
+
+  it('retries a failed initial connect on the next foreground without restarting', async () => {
+    const listeners = [];
+    const orig = AppState.addEventListener;
+    AppState.addEventListener = (event, cb) => {
+      listeners.push(cb);
+      return { remove: jest.fn() };
+    };
+    mockConnect.mockRejectedValueOnce(new Error('offline')).mockImplementation(async () => {
+      mockIsConnected.mockReturnValue(true);
+      return mockSdk;
+    });
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const existing = stubSparkMethods(SparkWallet.create('stored-pk'));
+    renderWith([hdWallet, existing]);
+    await waitFor(() => {
+      expect(alert).toHaveBeenCalled();
+      assert.strictEqual(latestCtx.isConnected, false);
+    });
+    expect(mockConnect).toHaveBeenCalledTimes(1);
+
+    mockIsConnected.mockReturnValue(false);
+    await act(async () => {
+      for (const listener of listeners) {
+        await listener('active');
+      }
+    });
+    await waitFor(() => expect(mockConnect.mock.calls.length).toBeGreaterThanOrEqual(2));
+    await waitFor(() => assert.strictEqual(latestCtx.isConnected, true));
+    expect(mockConnect.mock.calls[mockConnect.mock.calls.length - 1][0]).toBe(MNEMONIC);
+
+    alert.mockRestore();
+    AppState.addEventListener = orig;
+  });
+
+  it('removes the in-memory Spark wallet when saving it to disk fails', async () => {
+    const hd = {
+      type: 'HDsegwitBech32',
+      getSecret: () => MNEMONIC,
+      getID: () => 'hd-a',
+      getLabel: () => 'A',
+    };
+    const store = [hd];
+    const deleteWalletFromStore = jest.fn(w => {
+      const id = w.getID();
+      const idx = store.findIndex(x => {
+        try {
+          return x.getID() === id;
+        } catch {
+          return false;
+        }
+      });
+      if (idx >= 0) store.splice(idx, 1);
+    });
+    const addAndSaveMutating = jest.fn(async w => {
+      store.push(w);
+      throw new Error('disk full');
+    });
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    latestCtx = null;
+    render(
+      <BlueStorageContext.Provider
+        value={{
+          wallets: store,
+          walletsInitialized: true,
+          addAndSaveWallet: addAndSaveMutating,
+          saveToDisk,
+          deleteWallet: deleteWalletFromStore,
+        }}
+      >
+        <SparkContextProvider>
+          <Probe />
+        </SparkContextProvider>
+      </BlueStorageContext.Provider>,
+    );
+    await waitFor(() => assert.ok(latestCtx));
+
+    let result;
+    await act(async () => {
+      result = await latestCtx.createSparkWallet();
+    });
+
+    assert.strictEqual(result, null);
+    expect(addAndSaveMutating).toHaveBeenCalled();
+    expect(deleteWalletFromStore).toHaveBeenCalled();
+    assert.strictEqual(
+      store.some(w => w.type === SparkWallet.type),
+      false,
+    );
+    assert.strictEqual(store.length, 1);
+    assert.strictEqual(store[0], hd);
+    alert.mockRestore();
   });
 });

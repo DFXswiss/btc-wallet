@@ -524,6 +524,7 @@
     "lightning_spark_lnurl_auth_unsupported": "Questo portafoglio non può accedere con questo codice.",
     "lightning_spark_invoice_unreadable": "Questa fattura non può essere letta. Non è stato pagato nulla.",
     "lightning_spark_session_mismatch": "Questo portafoglio Lightning non corrisponde al portafoglio collegato. Non è stato modificato nulla.",
+    "lightning_spark_source_missing": "Lightning appartiene a \"{label}\". Quel portafoglio non è più nell'app. Ripristinalo per usare di nuovo Lightning.",
     "lightning_spark_fee_too_high": "Questo pagamento di {amount} sats non è stato inviato. La commissione di {fee} sats supera il limite di {maxFee} sats. Non è stato pagato nulla.",
     "multi_sig_wallet_label": "Portafoglio multi-dispositivo",
     "chf_taproot_wallet_label": "Portafoglio Taproot CHF",

@@ -102,6 +102,13 @@ export class SparkWallet extends AbstractWallet {
 
   lnAddress?: string;
   identityPubkey?: string;
+  /**
+   * On-chain wallet getID() this Lightning identity was derived from.
+   * A hash of type + secret + passphrase + path — not the phrase itself.
+   */
+  sourceWalletId?: string;
+  /** Label of that on-chain wallet at bind time; used only in the missing-source message. */
+  sourceWalletLabel?: string;
   user_invoices_raw: SparkInvoiceRecord[] = [];
   transactions_raw: SparkInvoiceRecord[] = [];
   pending_transactions_raw: SparkInvoiceRecord[] = [];

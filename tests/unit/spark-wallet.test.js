@@ -123,6 +123,17 @@ describe('SparkWallet', () => {
     assert.strictEqual(wallet.getSecret(), '');
     assert.strictEqual(wallet.chain, Chain.OFFCHAIN);
     assert.strictEqual(wallet.preferredBalanceUnit, BitcoinUnit.SATS);
+    assert.strictEqual(wallet.sourceWalletId, undefined);
+  });
+
+  it('keeps a source wallet binding off the secret and out of getID', () => {
+    const wallet = SparkWallet.create('pubkey-hex');
+    wallet.sourceWalletId = 'hd-not-the-seed';
+    wallet.sourceWalletLabel = 'Savings';
+    assert.strictEqual(wallet.getSecret(), '');
+    assert.strictEqual(wallet.sourceWalletId, 'hd-not-the-seed');
+    assert.notStrictEqual(wallet.getID(), 'hd-not-the-seed');
+    assert.ok(!wallet.getID().includes('hd-not-the-seed'));
   });
 
   it('never keeps key material in secret after create', () => {

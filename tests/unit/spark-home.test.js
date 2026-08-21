@@ -352,6 +352,8 @@ describe('BlueApp deserializes Spark without LNDHub init', () => {
     const spark = SparkWallet.create('pk-disk-1', 'spark@breez.blitz');
     spark.setLabel('spark-saved');
     spark.balance = 42;
+    spark.sourceWalletId = 'hd-disk-binding';
+    spark.sourceWalletLabel = 'On-chain saved';
 
     const Storage = new AppStorage();
     Storage.wallets.push(spark);
@@ -374,6 +376,8 @@ describe('BlueApp deserializes Spark without LNDHub init', () => {
     assert.strictEqual(restored.getLabel(), 'spark-saved');
     assert.strictEqual(restored.getBalance(), 42);
     assert.strictEqual(restored.getSecret(), '');
+    assert.strictEqual(restored.sourceWalletId, 'hd-disk-binding');
+    assert.strictEqual(restored.sourceWalletLabel, 'On-chain saved');
     assert.strictEqual(setBaseURI.mock.calls.length, 0);
     assert.strictEqual(init.mock.calls.length, 0);
   });
@@ -385,6 +389,7 @@ describe('loc keys for Spark label', () => {
     it(`${locale}.json defines lightning_spark_wallet_label`, () => {
       const json = JSON.parse(fs.readFileSync(path.join(repoRoot, `loc/${locale}.json`), 'utf8'));
       assert.strictEqual(json.wallets.lightning_spark_wallet_label, 'Lightning (Spark)');
+      assert.ok(json.wallets.lightning_spark_source_missing.includes('{label}'));
       assert.ok(json.wallets.lightning_wallet_label);
       assert.notStrictEqual(json.wallets.lightning_wallet_label, json.wallets.lightning_spark_wallet_label);
     });
