@@ -214,6 +214,7 @@ describe('SparkWallet', () => {
     await assert.rejects(() => wallet.getUserInvoices(), mismatch);
     await assert.rejects(() => wallet.fetchUserInvoices(), mismatch);
     await assert.rejects(() => wallet.addInvoice(1, 'x'), mismatch);
+    await assert.rejects(() => wallet.getDepositAddress(), mismatch);
     expect(mockSdk.prepareSendPayment).not.toHaveBeenCalled();
     expect(mockSdk.sendPayment).not.toHaveBeenCalled();
     expect(mockSdk.listPayments).not.toHaveBeenCalled();
@@ -1047,18 +1048,52 @@ describe('SparkWallet', () => {
     assert.strictEqual(wallet.weOwnTransaction('nope'), false);
   });
 
-  it('weOwnAddress is always false (no on-chain refill addresses)', () => {
-    assert.strictEqual(new SparkWallet().weOwnAddress('bc1qanything'), false);
+  it('weOwnAddress matches the cached deposit address and not a foreign one', () => {
+    const address = 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
+    const wallet = new SparkWallet();
+    assert.strictEqual(wallet.weOwnAddress(address), false);
+    assert.strictEqual(wallet.weOwnAddress(''), false);
+    wallet.depositAddress = address;
+    assert.strictEqual(wallet.weOwnAddress(address), true);
+    assert.strictEqual(wallet.weOwnAddress(address.toUpperCase()), true);
+    assert.strictEqual(wallet.weOwnAddress('bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq'), false);
+  });
+
+  it('getDepositAddress returns the Bitcoin deposit address and does not request it again', async () => {
+    const address = 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
+    mockSdk.receivePayment.mockResolvedValue({ paymentRequest: address, fee: 0n });
+    const wallet = new SparkWallet();
+    const first = await wallet.getDepositAddress();
+    const second = await wallet.getDepositAddress();
+    assert.strictEqual(first, address);
+    assert.strictEqual(second, address);
+    assert.strictEqual(wallet.depositAddress, address);
+    expect(mockSdk.receivePayment).toHaveBeenCalledTimes(1);
+    const method = mockSdk.receivePayment.mock.calls[0][0].paymentMethod;
+    assert.strictEqual(method.tag, 'BitcoinAddress');
+    assert.strictEqual(method.inner.newAddress, false);
+  });
+
+  it('getDepositAddress does not cache an empty SDK response', async () => {
+    mockSdk.receivePayment.mockResolvedValue({ paymentRequest: '', fee: 0n });
+    const wallet = new SparkWallet();
+    const first = await wallet.getDepositAddress();
+    assert.strictEqual(first, '');
+    assert.strictEqual(wallet.depositAddress, undefined);
+    await wallet.getDepositAddress();
+    expect(mockSdk.receivePayment).toHaveBeenCalledTimes(2);
   });
 
   it('fromJson round-trips type and identity without inventing a secret', () => {
     const wallet = SparkWallet.create('round-trip-pk', 'a@b.c');
     wallet.balance = 7;
+    wallet.depositAddress = 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
     const json = JSON.stringify(wallet);
     const restored = SparkWallet.fromJson(json);
     assert.strictEqual(restored.type, SparkWallet.type);
     assert.strictEqual(restored.identityPubkey, 'round-trip-pk');
     assert.strictEqual(restored.lnAddress, 'a@b.c');
+    assert.strictEqual(restored.depositAddress, 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
     assert.strictEqual(restored.getSecret(), '');
     assert.strictEqual(restored.getBalance(), 7);
   });
@@ -1365,6 +1400,16 @@ describe('SparkWallet', () => {
     const wallet = new SparkWallet();
     await assert.rejects(() => wallet.addInvoice(1, 'x'), new RegExp(loc.wallets.lightning_spark_session_mismatch));
     assert.strictEqual(wallet.user_invoices_raw.length, 0);
+  });
+
+  it('getDepositAddress does not write when the session is replaced during receive', async () => {
+    mockSdk.receivePayment.mockImplementation(async () => {
+      mockLeaseValid = false;
+      return { paymentRequest: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh', fee: 0n };
+    });
+    const wallet = new SparkWallet();
+    await assert.rejects(() => wallet.getDepositAddress(), new RegExp(loc.wallets.lightning_spark_session_mismatch));
+    assert.strictEqual(wallet.depositAddress, undefined);
   });
 
   it('maps a non-stale lease error through requireHeld', async () => {

@@ -112,6 +112,8 @@ export class SparkWallet extends AbstractWallet {
   private static readonly LIST_PAYMENTS_MAX_PAGES = 100;
 
   lnAddress?: string;
+  /** On-chain Bitcoin deposit address from receivePayment(BitcoinAddress). */
+  depositAddress?: string;
   identityPubkey?: string;
   /**
    * On-chain wallet getID() this Lightning identity was derived from.
@@ -384,8 +386,33 @@ export class SparkWallet extends AbstractWallet {
     return this.user_invoices_raw.some(invoice => invoice.payment_request === paymentRequest);
   }
 
-  weOwnAddress(_address: string): boolean {
-    return false;
+  weOwnAddress(address: string): boolean {
+    if (!address || !this.depositAddress) return false;
+    const normalize = (value: string) => (value.slice(0, 3).toLowerCase() === 'bc1' ? value.toLowerCase() : value);
+    return normalize(address) === normalize(this.depositAddress);
+  }
+
+  /**
+   * Bitcoin deposit address. Cached on the wallet after the first successful SDK call.
+   * `newAddress: false` reuses the existing address (the SDK creates one if none exists yet).
+   */
+  async getDepositAddress(): Promise<string> {
+    if (this.depositAddress) {
+      return this.depositAddress;
+    }
+
+    const lease = this.holdMatchingSession();
+    const response = await lease.requireSdk().receivePayment({
+      paymentMethod: new ReceivePaymentMethod.BitcoinAddress({ newAddress: false }),
+    });
+
+    this.requireHeld(lease);
+    const address = response.paymentRequest;
+    if (!address) {
+      return '';
+    }
+    this.depositAddress = address;
+    return address;
   }
 
   weOwnTransaction(txid: string): boolean {

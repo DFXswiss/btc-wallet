@@ -301,7 +301,65 @@ describe('LNDReceive with SparkWallet', () => {
       const json = JSON.parse(fs.readFileSync(path.join(repoRoot, `loc/${locale}.json`), 'utf8'));
       assert.strictEqual(typeof json.wallets.lightning_spark_address_unavailable, 'string');
       assert.ok(json.wallets.lightning_spark_address_unavailable.length > 0);
+      assert.ok(json.wallets.lightning_spark_receive_lightning);
+      assert.ok(json.wallets.lightning_spark_receive_onchain);
+      assert.ok(json.wallets.lightning_spark_onchain_confirmations);
     }
+  });
+
+  it('does not show the Lightning/On-chain switch on an LNDHub wallet', () => {
+    const screen = renderReceive(makeLdsReceiveWallet('lds-receive-1'));
+    expect(screen.queryByTestId('SparkReceiveMethodSwitch')).toBeNull();
+  });
+
+  it('shows the on-chain deposit address as QR and copyable text', async () => {
+    const address = 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
+    const wallet = makeSparkReceiveWallet('spark-receive-1');
+    wallet.depositAddress = address;
+    const screen = renderReceive(wallet);
+
+    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId('QRCode')).toBeTruthy();
+    expect(screen.getByText(address)).toBeTruthy();
+    expect(screen.getByText(loc.wallets.lightning_spark_onchain_confirmations)).toBeTruthy();
+    expect(screen.queryByPlaceholderText('Amount (optional)')).toBeNull();
+    expect(mockSdk.receivePayment).not.toHaveBeenCalled();
+  });
+
+  it('loads the deposit address through the wallet when none is cached', async () => {
+    const address = 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
+    mockSdk.receivePayment.mockResolvedValue({ paymentRequest: address, fee: 0n });
+    const wallet = makeSparkReceiveWallet('spark-receive-1');
+    assert.strictEqual(wallet.depositAddress, undefined);
+    const screen = renderReceive(wallet);
+
+    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId('QRCode')).toBeTruthy();
+    expect(screen.getByText(address)).toBeTruthy();
+    expect(mockSdk.receivePayment).toHaveBeenCalled();
+    assert.strictEqual(wallet.depositAddress, address);
+  });
+
+  it('shows a missing-address state instead of a QR when the on-chain address is absent', async () => {
+    mockSdk.receivePayment.mockResolvedValue({ paymentRequest: '', fee: 0n });
+    const wallet = makeSparkReceiveWallet('spark-receive-1');
+    const screen = renderReceive(wallet);
+
+    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByTestId('QRCode')).toBeNull();
+    expect(screen.getByText(loc.wallets.lightning_spark_address_unavailable)).toBeTruthy();
   });
 
   it('clears the loading state and shows the error when addInvoice rejects', async () => {
