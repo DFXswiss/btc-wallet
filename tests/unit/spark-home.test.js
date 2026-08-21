@@ -163,7 +163,7 @@ function HomeHarness(props) {
     </BlueStorageContext.Provider>
   );
 }
-// Test harness only — no prop-types for the temporary wrapper.
+// Test harness — eslint react/prop-types is on for tests/.
 HomeHarness.propTypes = {
   initialWallets: require('prop-types').array.isRequired,
 };

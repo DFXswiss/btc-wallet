@@ -1,6 +1,7 @@
 import React, { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, AppStateStatus } from 'react-native';
 import createHash from 'create-hash';
+import { SdkEvent_Tags, type SdkEvent } from '@breeztech/breez-sdk-spark-react-native';
 import { BlueStorageContext } from '../../../blue_modules/storage-context';
 import { HDSegwitBech32Wallet } from '../../../class';
 import { SparkWallet } from '../../../class/wallets/spark-wallet';
@@ -14,7 +15,6 @@ import {
   syncSparkWallet,
   type SparkSessionLease,
 } from '../spark-sdk';
-import { SdkEvent_Tags, type SdkEvent } from '@breeztech/breez-sdk-spark-react-native';
 
 const LIGHTNING_ADDRESS_USERNAME_LENGTH = 16;
 const LIGHTNING_ADDRESS_REGISTER_ATTEMPTS = 5;
