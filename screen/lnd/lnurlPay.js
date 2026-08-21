@@ -27,6 +27,7 @@ import { useSparkContext } from '../../api/spark/contexts/spark.context';
 import alert from '../../components/Alert';
 import { Text } from 'react-native-elements';
 import { isFreeDomain, isInternalDomain } from '../../helpers/freeLightningDomains';
+import { reportError } from '../../helpers/errors';
 const currency = require('../../blue_modules/currency');
 
 /**
@@ -102,12 +103,7 @@ const LnurlPay = () => {
     setPayButtonDisabled(isLoading);
   }, [isLoading]);
 
-  const finishLnurlSuccess = async (paymentHash, LN) => {
-    ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
-    const preimage = wallet.last_paid_invoice_result && wallet.last_paid_invoice_result.payment_preimage;
-    if (preimage && LN) {
-      await LN.storeSuccess(paymentHash, preimage);
-    }
+  const navigateLnurlSuccess = paymentHash => {
     navigate('SendDetailsRoot', {
       screen: 'LnurlPaySuccess',
       params: {
@@ -116,6 +112,15 @@ const LnurlPay = () => {
         fromWalletID: walletID,
       },
     });
+  };
+
+  const finishLnurlSuccess = async (paymentHash, LN) => {
+    ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
+    const preimage = wallet.last_paid_invoice_result && wallet.last_paid_invoice_result.payment_preimage;
+    if (preimage && LN) {
+      await LN.storeSuccess(paymentHash, preimage);
+    }
+    navigateLnurlSuccess(paymentHash);
   };
 
   const finishInvoiceSuccess = (amountSats, decoded) => {
@@ -144,7 +149,10 @@ const LnurlPay = () => {
       pendingPayRef.current = undefined;
       refreshAllWalletTransactions();
       if (watching.kind === 'lnurl') {
-        finishLnurlSuccess(watching.paymentHash, watching.LN);
+        finishLnurlSuccess(watching.paymentHash, watching.LN).catch(error => {
+          reportError('lnurlPay: failed to store LNURL success', error);
+          navigateLnurlSuccess(watching.paymentHash);
+        });
       } else {
         finishInvoiceSuccess(watching.amountSats, watching.decoded);
       }
@@ -152,6 +160,8 @@ const LnurlPay = () => {
     }
 
     if (outgoingPayment.status === 'failed') {
+      setIsPaymentPending(false);
+      setPayButtonDisabled(false);
       pendingPayRef.current = undefined;
       ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
       alert(loc.wallets.lightning_spark_payment_failed);

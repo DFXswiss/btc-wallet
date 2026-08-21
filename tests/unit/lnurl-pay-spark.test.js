@@ -1,6 +1,7 @@
 import React from 'react';
 import assert from 'assert';
 import { fireEvent, render, waitFor, act } from '@testing-library/react-native';
+import { ActivityIndicator } from 'react-native';
 import { BitcoinUnit } from '../../models/bitcoinUnits';
 
 jest.mock('../../blue_modules/BlueElectrum', () => ({ connectMain: jest.fn() }));
@@ -22,6 +23,7 @@ jest.mock('../../class/biometrics', () => ({
 }));
 jest.mock('../../components/Alert', () => jest.fn());
 jest.mock('../../components/navigationStyle', () => () => options => options);
+jest.mock('../../helpers/errors', () => ({ reportError: jest.fn() }));
 
 const mockNavigate = jest.fn();
 const mockGoBack = jest.fn();
@@ -67,8 +69,10 @@ jest.mock('../../api/spark/spark-sdk', () => {
 const { SparkWallet } = require('../../class/wallets/spark-wallet');
 const { BlueStorageContext } = require('../../blue_modules/storage-context');
 const LnurlPay = require('../../screen/lnd/lnurlPay').default;
+const Lnurl = require('../../class/lnurl').default;
 const loc = require('../../loc').default;
 const alert = require('../../components/Alert');
+const { reportError } = require('../../helpers/errors');
 
 const SAMPLE_INVOICE =
   'lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp';
@@ -97,6 +101,9 @@ function renderPay(wallet, extraParams = {}) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  for (const key of Object.keys(mockRouteParams)) {
+    delete mockRouteParams[key];
+  }
   mockUseSparkContext.mockReturnValue({
     isConnected: true,
     isConnecting: false,
@@ -162,22 +169,83 @@ describe('LnurlPay Spark pending send', () => {
     assert.strictEqual(screen.queryByText(loc.wallets.lightning_spark_payment_failed), null);
   });
 
-  it('still shows a failure when the payment has actually failed', async () => {
+  it('restores the pay button without a spinner when a pending payment later fails', async () => {
     const wallet = makeWallet();
-    wallet.payInvoice.mockRejectedValue(new Error(loc.wallets.lightning_spark_payment_failed));
+    const decoded = wallet.decodeInvoice(SAMPLE_INVOICE);
+    wallet.payInvoice.mockResolvedValue({ status: 'pending', paymentHash: decoded.payment_hash });
     const screen = renderPay(wallet);
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
     await act(async () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
+    await waitFor(() => screen.getByText(loc.wallets.lightning_spark_payment_in_transit));
+
+    mockUseSparkContext.mockReturnValue({
+      isConnected: true,
+      isConnecting: false,
+      isCreating: false,
+      createSparkWallet: jest.fn(),
+      outgoingPayment: { status: 'failed', paymentHash: decoded.payment_hash },
+    });
+    screen.rerender(
+      <BlueStorageContext.Provider value={{ wallets: [wallet], refreshAllWalletTransactions: jest.fn() }}>
+        <LnurlPay />
+      </BlueStorageContext.Provider>,
+    );
 
     await waitFor(() => expect(alert).toHaveBeenCalled());
     expect(alert).toHaveBeenCalledWith(loc.wallets.lightning_spark_payment_failed);
     expect(alert).not.toHaveBeenCalledWith(loc.wallets.lightning_spark_payment_in_transit);
     await waitFor(() => screen.getByText(loc.lnd.payButton));
+    expect(screen.UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0);
     assert.strictEqual(screen.queryByText(loc.wallets.lightning_spark_payment_in_transit), null);
     expect(wallet.payInvoice).toHaveBeenCalledTimes(1);
     expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('navigates after a pending LNURL payment succeeds even when storing the success rejects', async () => {
+    const wallet = makeWallet();
+    const decoded = wallet.decodeInvoice(SAMPLE_INVOICE);
+    const storageError = new Error('storage unavailable');
+    jest.spyOn(Lnurl.prototype, 'callLnurlPayService').mockResolvedValue({ description: 'tea', domain: 'example.com' });
+    jest.spyOn(Lnurl.prototype, 'getDomain').mockReturnValue('example.com');
+    jest.spyOn(Lnurl.prototype, 'getCommentAllowed').mockReturnValue(false);
+    jest.spyOn(Lnurl.prototype, 'requestBolt11FromLnurlPayService').mockResolvedValue({ pr: SAMPLE_INVOICE });
+    const storeSuccess = jest.spyOn(Lnurl.prototype, 'storeSuccess').mockRejectedValue(storageError);
+    wallet.payInvoice.mockResolvedValue({ status: 'pending', paymentHash: decoded.payment_hash });
+    const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST' });
+
+    await waitFor(() => screen.getByText(loc.lnd.payButton));
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+    await waitFor(() => screen.getByText(loc.wallets.lightning_spark_payment_in_transit));
+
+    mockUseSparkContext.mockReturnValue({
+      isConnected: true,
+      isConnecting: false,
+      isCreating: false,
+      createSparkWallet: jest.fn(),
+      outgoingPayment: { status: 'completed', paymentHash: decoded.payment_hash, preimage: 'pre-1' },
+    });
+    screen.rerender(
+      <BlueStorageContext.Provider value={{ wallets: [wallet], refreshAllWalletTransactions: jest.fn() }}>
+        <LnurlPay />
+      </BlueStorageContext.Provider>,
+    );
+
+    await waitFor(() => expect(reportError).toHaveBeenCalledWith('lnurlPay: failed to store LNURL success', storageError));
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalled());
+    expect(storeSuccess).toHaveBeenCalledWith(decoded.payment_hash, 'pre-1');
+    expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', {
+      screen: 'LnurlPaySuccess',
+      params: {
+        paymentHash: decoded.payment_hash,
+        justPaid: true,
+        fromWalletID: 'spark-pay-1',
+      },
+    });
+    expect(alert).not.toHaveBeenCalled();
   });
 });

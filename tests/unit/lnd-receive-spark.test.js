@@ -3,7 +3,7 @@ import assert from 'assert';
 import fs from 'fs';
 import path from 'path';
 import { ActivityIndicator } from 'react-native';
-import { fireEvent, render, act } from '@testing-library/react-native';
+import { fireEvent, render, act, waitFor } from '@testing-library/react-native';
 import { PaymentDetails_Tags, PaymentStatus, PaymentType } from '@breeztech/breez-sdk-spark-react-native';
 
 jest.mock('../../blue_modules/BlueElectrum', () => ({ connectMain: jest.fn() }));
@@ -29,10 +29,12 @@ jest.mock('../../hooks/nfc.hook', () => ({
 }));
 jest.mock('../../components/QRCodeComponent', () => {
   const RN = require('react');
-  const { View } = require('react-native');
-  return function QRCodeComponent() {
-    return RN.createElement(View, { testID: 'QRCode' });
+  const { Text, View } = require('react-native');
+  const QRCodeComponent = ({ value }) => {
+    return value ? RN.createElement(View, { testID: 'QRCode' }) : RN.createElement(Text, { testID: 'QRCode' }, 'this is a QR code');
   };
+  QRCodeComponent.propTypes = { value: require('prop-types').string };
+  return QRCodeComponent;
 });
 jest.mock('../../screen/send/success', () => {
   const RN = require('react');
@@ -47,6 +49,7 @@ const mockSetParams = jest.fn();
 const mockGetParent = jest.fn(() => ({ popToTop: jest.fn() }));
 const mockRouteParams = { walletID: 'spark-receive-1' };
 jest.mock('@react-navigation/native', () => {
+  const RN = require('react');
   const actual = jest.requireActual('@react-navigation/native');
   return {
     ...actual,
@@ -57,6 +60,12 @@ jest.mock('@react-navigation/native', () => {
       navigate: jest.fn(),
     }),
     useTheme: () => require('../../components/themes').BlueDarkTheme,
+    useFocusEffect: cb => {
+      RN.useEffect(() => {
+        const cleanup = cb();
+        return typeof cleanup === 'function' ? cleanup : undefined;
+      }, [cb]);
+    },
   };
 });
 
@@ -87,6 +96,7 @@ const SAMPLE_INVOICE =
   'lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp';
 
 const LNDReceive = require('../../screen/lnd/lndReceive').default;
+const LNDCreateInvoice = require('../../screen/lnd/lndCreateInvoice').default;
 const { SparkWallet } = require('../../class/wallets/spark-wallet');
 const { LightningLdsWallet } = require('../../class/wallets/lightning-lds-wallet');
 const { Chain } = require('../../models/bitcoinUnits');
@@ -144,6 +154,21 @@ function renderReceive(wallet) {
       }}
     >
       <LNDReceive />
+    </BlueStorageContext.Provider>,
+  );
+}
+
+function renderCreateInvoiceScreen(wallet) {
+  mockRouteParams.walletID = wallet.getID();
+  return render(
+    <BlueStorageContext.Provider
+      value={{
+        wallets: [wallet],
+        saveToDisk: jest.fn().mockResolvedValue(undefined),
+        setSelectedWallet: jest.fn(),
+      }}
+    >
+      <LNDCreateInvoice />
     </BlueStorageContext.Provider>,
   );
 }
@@ -377,5 +402,27 @@ describe('LNDReceive with SparkWallet', () => {
     expect(screen.getByTestId('QRCode')).toBeTruthy();
     expect(screen.UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0);
     alertSpy.mockRestore();
+  });
+});
+
+describe('LNDCreateInvoice with SparkWallet', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockRouteParams.walletID = 'spark-create-invoice-1';
+    delete mockRouteParams.uri;
+  });
+
+  it('does not render the QR placeholder when the wallet has no Lightning address', async () => {
+    const wallet = SparkWallet.create('pk-receive-1');
+    wallet.getID = () => 'spark-create-invoice-1';
+    wallet.setLabel('Spark');
+    wallet.setUserHasSavedExport(true);
+    assert.strictEqual(wallet.lnAddress, undefined);
+
+    const screen = renderCreateInvoiceScreen(wallet);
+    await waitFor(() => screen.getByText(loc.receive.details_setAmount));
+
+    expect(screen.queryByTestId('QRCode')).toBeNull();
+    expect(screen.queryByText('this is a QR code')).toBeNull();
   });
 });

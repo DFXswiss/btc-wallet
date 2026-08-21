@@ -341,8 +341,13 @@ async function connectLocked(
       throw e;
     }
   } finally {
-    pendingNativeConnect = false;
-    inFlightInstance = null;
+    // A timed-out connect keeps running natively. In the meantime a newer
+    // lifecycle may have claimed these globals, so only release state that
+    // still belongs to this attempt.
+    if (epoch === lifecycleEpoch) {
+      pendingNativeConnect = false;
+      inFlightInstance = null;
+    }
   }
 }
 
