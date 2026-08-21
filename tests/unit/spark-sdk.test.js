@@ -6,8 +6,10 @@ import {
   disconnectSparkSdk,
   isSparkSdkConnected,
   SparkSessionStaleError,
+  SparkLifecycleHungError,
   syncSparkWallet,
   __resetSparkSdkForTests,
+  __setLifecycleTimeoutMsForTests,
   BREEZ_API_KEY_MISSING,
 } from '../../api/spark/spark-sdk';
 
@@ -712,5 +714,118 @@ describe('spark-sdk', () => {
     }
     warn.mockRestore();
     error.mockRestore();
+  });
+
+  describe('lifecycle timeout', () => {
+    const seed = 'one two three four five six seven eight nine ten eleven about';
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      __setLifecycleTimeoutMsForTests(50);
+    });
+
+    afterEach(() => {
+      jest.clearAllTimers();
+      __setLifecycleTimeoutMsForTests();
+      jest.useRealTimers();
+    });
+
+    async function expectHungLifecycle(pending) {
+      const assertion = assert.rejects(pending, err => err instanceof SparkLifecycleHungError);
+      await Promise.resolve();
+      await Promise.resolve();
+      await jest.advanceTimersByTimeAsync(50);
+      await assertion;
+    }
+
+    it('unblocks the queue when connect hangs and leaves Lightning in a defined unusable state', async () => {
+      breez.connect.mockImplementation(() => new Promise(() => {}));
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const pending = connectSparkSdk(seed);
+      await expectHungLifecycle(pending);
+      assert.strictEqual(isSparkSdkConnected(), false);
+      assert.throws(() => acquireSparkSessionLease(), /not connected/);
+
+      breez.connect.mockResolvedValue(mockInstance);
+      await assert.rejects(connectSparkSdk(seed), /previous session is still open/);
+      warn.mockRestore();
+    });
+
+    it('poisons a hung getInfo instance so the next connect rebuilds instead of waiting forever', async () => {
+      const hung = makeSdkInstance('hung');
+      let markGetInfoStarted;
+      const getInfoStarted = new Promise(resolve => {
+        markGetInfoStarted = resolve;
+      });
+      hung.getInfo.mockImplementation(
+        () =>
+          new Promise(() => {
+            markGetInfoStarted();
+          }),
+      );
+      breez.connect.mockResolvedValueOnce(hung);
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const pending = connectSparkSdk(seed);
+      const hungAssertion = assert.rejects(pending, err => err instanceof SparkLifecycleHungError);
+      await getInfoStarted;
+      await jest.advanceTimersByTimeAsync(50);
+      await hungAssertion;
+      assert.strictEqual(isSparkSdkConnected(), false);
+
+      const nextInst = makeSdkInstance('next');
+      hung.disconnect.mockResolvedValue(undefined);
+      breez.connect.mockResolvedValueOnce(nextInst);
+      const next = await connectSparkSdk(seed);
+      assert.strictEqual(next, nextInst);
+      assert.strictEqual(isSparkSdkConnected(), true);
+      expect(hung.disconnect).toHaveBeenCalled();
+      assert.strictEqual(acquireSparkSessionLease().requireSdk(), nextInst);
+      warn.mockRestore();
+    });
+
+    it('unblocks a hung disconnect and lets the next connect rebuild from the poisoned instance', async () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      await connectSparkSdk(seed);
+      mockInstance.disconnect.mockImplementation(() => new Promise(() => {}));
+      const pending = disconnectSparkSdk();
+      await expectHungLifecycle(pending);
+      assert.strictEqual(isSparkSdkConnected(), false);
+
+      const nextInst = makeSdkInstance('after-hang');
+      mockInstance.disconnect.mockResolvedValue(undefined);
+      breez.connect.mockResolvedValueOnce(nextInst);
+      const next = await connectSparkSdk(seed);
+      assert.strictEqual(next, nextInst);
+      assert.strictEqual(isSparkSdkConnected(), true);
+      warn.mockRestore();
+    });
+
+    it('does not commit a native connect that returns after the transition timed out', async () => {
+      let resolveConnect;
+      breez.connect.mockImplementation(
+        () =>
+          new Promise(resolve => {
+            resolveConnect = resolve;
+          }),
+      );
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const pending = connectSparkSdk(seed);
+      await expectHungLifecycle(pending);
+
+      const late = makeSdkInstance('late');
+      resolveConnect(late);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      assert.strictEqual(isSparkSdkConnected(), false);
+      assert.throws(() => acquireSparkSessionLease(), /not connected/);
+
+      late.disconnect.mockResolvedValue(undefined);
+      breez.connect.mockResolvedValueOnce(mockInstance);
+      const next = await connectSparkSdk(seed);
+      assert.strictEqual(next, mockInstance);
+      expect(late.disconnect).toHaveBeenCalled();
+      warn.mockRestore();
+    });
   });
 });

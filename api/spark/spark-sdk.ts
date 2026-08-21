@@ -26,11 +26,30 @@ let connectedIdentityPubkey: string | null = null;
 let poisonedSdk: BreezSdkInterface | null = null;
 /** Tail of the connect/disconnect queue. Always settles so a failed transition cannot stall the next. */
 let lifecycleTail: Promise<void> = Promise.resolve();
+/** Bumped when a transition times out so a late native return cannot commit the session. */
+let lifecycleEpoch = 0;
+/** Native instance of a connect that has returned but is not yet committed. */
+let inFlightInstance: BreezSdkInterface | null = null;
+/** True from the native connect() call until that connectLocked attempt exits. */
+let pendingNativeConnect = false;
+/** True while teardownInstance is awaiting a native remove/disconnect. */
+let teardownInFlight = false;
+
+/** Bound on each lifecycle transition. A hang poisons the session instead of wedging the queue. */
+export const SPARK_LIFECYCLE_TIMEOUT_MS = 60_000;
+let lifecycleTimeoutMs = SPARK_LIFECYCLE_TIMEOUT_MS;
 
 export class SparkSessionStaleError extends Error {
   constructor() {
     super('Spark session is no longer the one this call started with');
     this.name = 'SparkSessionStaleError';
+  }
+}
+
+export class SparkLifecycleHungError extends Error {
+  constructor() {
+    super('Spark SDK lifecycle transition timed out');
+    this.name = 'SparkLifecycleHungError';
   }
 }
 
@@ -57,8 +76,79 @@ function errorKind(e: unknown): string {
   return e instanceof Error ? e.name : typeof e;
 }
 
+function abandonOnTimeout(): void {
+  lifecycleEpoch += 1;
+  const instance = sdk ?? inFlightInstance;
+  connectedSeedFingerprint = null;
+  connectedIdentityPubkey = null;
+  sdk = null;
+  if (instance) {
+    poisonedSdk = instance;
+  }
+  inFlightInstance = null;
+  // The queue has moved on. A later native teardown finally must not keep
+  // blocking a rebuild against the poisoned instance.
+  teardownInFlight = false;
+  console.warn('spark-sdk: lifecycle transition timed out', 'SparkLifecycleHungError');
+}
+
+/**
+ * A timed-out connect must not commit, and must not clobber a session that
+ * a later connect already built. sdk and poisonedSdk stay mutually exclusive.
+ */
+function discardStaleInstance(instance: BreezSdkInterface): void {
+  if (sdk === instance) {
+    sdk = null;
+    connectedSeedFingerprint = null;
+    connectedIdentityPubkey = null;
+    listenerId = null;
+    poisonedSdk = instance;
+    return;
+  }
+  if (!sdk) {
+    poisonedSdk = instance;
+    return;
+  }
+  instance.disconnect().catch((cleanupErr: unknown) => {
+    console.warn('connectSparkSdk: disconnect failed', errorKind(cleanupErr));
+  });
+}
+
+async function runLifecycle<T>(op: () => Promise<T>): Promise<T> {
+  const work = op();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      abandonOnTimeout();
+      reject(new SparkLifecycleHungError());
+    }, lifecycleTimeoutMs);
+  });
+  // Race observes this reject. The extra handler keeps it from becoming an
+  // unhandled rejection when the race consumer attaches after a timer flush.
+  void timeout.then(
+    () => undefined,
+    () => undefined,
+  );
+  try {
+    return await Promise.race([work, timeout]);
+  } finally {
+    if (timer !== undefined) {
+      clearTimeout(timer);
+    }
+    // The native call is not cancelled. Swallow a late settle so it cannot
+    // reject unhandled after the queue has already moved on.
+    void work.then(
+      () => undefined,
+      () => undefined,
+    );
+  }
+}
+
 function enqueueLifecycle<T>(op: () => Promise<T>): Promise<T> {
-  const run = lifecycleTail.then(op, op);
+  const run = lifecycleTail.then(
+    () => runLifecycle(op),
+    () => runLifecycle(op),
+  );
   lifecycleTail = run.then(
     () => undefined,
     () => undefined,
@@ -96,26 +186,31 @@ export function acquireSparkSessionLease(): SparkSessionLease {
 }
 
 async function teardownInstance(instance: BreezSdkInterface, id: string | null): Promise<void> {
-  if (id) {
-    try {
-      await instance.removeEventListener(id);
-    } catch (e) {
-      // Best-effort: the SDK may already have dropped the listener during disconnect.
-      // Log class only — this SDK instance was built with seed + API key;
-      // Sentry breadcrumbs ride along with later issues.
-      console.warn('disconnectSparkSdk: removeEventListener failed', errorKind(e));
-    }
-  }
-
+  teardownInFlight = true;
   try {
-    await instance.disconnect();
-    poisonedSdk = null;
-    listenerId = null;
-  } catch (e) {
-    // Native session may still hold storageDir. Keep the instance and listener id
-    // so the next connect can retry both teardown steps against the same directory.
-    console.warn('disconnectSparkSdk: disconnect failed', errorKind(e));
-    poisonedSdk = instance;
+    if (id) {
+      try {
+        await instance.removeEventListener(id);
+      } catch (e) {
+        // Best-effort: the SDK may already have dropped the listener during disconnect.
+        // Log class only — this SDK instance was built with seed + API key;
+        // Sentry breadcrumbs ride along with later issues.
+        console.warn('disconnectSparkSdk: removeEventListener failed', errorKind(e));
+      }
+    }
+
+    try {
+      await instance.disconnect();
+      poisonedSdk = null;
+      listenerId = null;
+    } catch (e) {
+      // Native session may still hold storageDir. Keep the instance and listener id
+      // so the next connect can retry both teardown steps against the same directory.
+      console.warn('disconnectSparkSdk: disconnect failed', errorKind(e));
+      poisonedSdk = instance;
+    }
+  } finally {
+    teardownInFlight = false;
   }
 }
 
@@ -126,13 +221,21 @@ async function disconnectLocked(): Promise<void> {
   const instance = sdk ?? poisonedSdk;
   const id = listenerId;
   sdk = null;
+  inFlightInstance = instance;
 
   if (!instance) {
     listenerId = null;
+    inFlightInstance = null;
     return;
   }
 
-  await teardownInstance(instance, id);
+  try {
+    await teardownInstance(instance, id);
+  } finally {
+    if (inFlightInstance === instance) {
+      inFlightInstance = null;
+    }
+  }
 }
 
 export async function disconnectSparkSdk(): Promise<void> {
@@ -144,6 +247,13 @@ async function connectLocked(
   onEvent?: (event: SdkEvent) => Promise<void>,
   passphrase?: string,
 ): Promise<BreezSdkInterface> {
+  // A hang with no instance yet cannot be torn down; fail closed instead of opening a second native session.
+  // A hang that already produced an instance is poisoned so this connect can rebuild.
+  if (teardownInFlight || (pendingNativeConnect && !sdk && !poisonedSdk && !inFlightInstance)) {
+    throw new Error('Spark SDK previous session is still open');
+  }
+
+  const epoch = lifecycleEpoch;
   const resolvedPassphrase = seedPassphrase(passphrase);
   const fingerprint = fingerprintSeed(mnemonic, resolvedPassphrase);
 
@@ -155,6 +265,9 @@ async function connectLocked(
     await disconnectLocked();
     if (poisonedSdk) {
       throw new Error('Spark SDK previous session is still open');
+    }
+    if (epoch !== lifecycleEpoch) {
+      throw new SparkLifecycleHungError();
     }
   }
 
@@ -169,40 +282,67 @@ async function connectLocked(
   config.maxDepositClaimFee = new MaxFee.Rate({ satPerVbyte: MAX_DEPOSIT_CLAIM_FEE_SAT_PER_VBYTE });
 
   const seed = new Seed.Mnemonic({ mnemonic, passphrase: resolvedPassphrase });
-  const instance = await connect({
-    config,
-    seed,
-    storageDir: `${RNFS.DocumentDirectoryPath}/breezSdkSpark`,
-  });
-
-  let newListenerId: string | null = null;
+  pendingNativeConnect = true;
   try {
-    const info = await instance.getInfo({ ensureSynced: false });
-
-    if (onEvent) {
-      const listener: EventListener = {
-        onEvent: async (event: SdkEvent) => {
-          await onEvent(event);
-        },
-      };
-      newListenerId = await instance.addEventListener(listener);
+    const instance = await connect({
+      config,
+      seed,
+      storageDir: `${RNFS.DocumentDirectoryPath}/breezSdkSpark`,
+    });
+    if (epoch !== lifecycleEpoch) {
+      discardStaleInstance(instance);
+      throw new SparkLifecycleHungError();
     }
+    inFlightInstance = instance;
 
-    sdk = instance;
-    listenerId = newListenerId;
-    connectedSeedFingerprint = fingerprint;
-    connectedIdentityPubkey = info.identityPubkey;
-    return instance;
-  } catch (e) {
-    // Native connect() succeeded but setup did not. Drop the instance; a failed
-    // disconnect is remembered so the next connect does not open a second session.
+    let newListenerId: string | null = null;
     try {
-      await instance.disconnect();
-    } catch (cleanupErr) {
-      console.warn('connectSparkSdk: disconnect failed', errorKind(cleanupErr));
-      poisonedSdk = instance;
+      const info = await instance.getInfo({ ensureSynced: false });
+      if (epoch !== lifecycleEpoch) {
+        discardStaleInstance(instance);
+        throw new SparkLifecycleHungError();
+      }
+
+      if (onEvent) {
+        const listener: EventListener = {
+          onEvent: async (event: SdkEvent) => {
+            await onEvent(event);
+          },
+        };
+        newListenerId = await instance.addEventListener(listener);
+        if (epoch !== lifecycleEpoch) {
+          discardStaleInstance(instance);
+          throw new SparkLifecycleHungError();
+        }
+      }
+
+      if (epoch !== lifecycleEpoch) {
+        discardStaleInstance(instance);
+        throw new SparkLifecycleHungError();
+      }
+      sdk = instance;
+      listenerId = newListenerId;
+      connectedSeedFingerprint = fingerprint;
+      connectedIdentityPubkey = info.identityPubkey;
+      return instance;
+    } catch (e) {
+      if (epoch !== lifecycleEpoch) {
+        discardStaleInstance(instance);
+        throw e instanceof SparkLifecycleHungError ? e : new SparkLifecycleHungError();
+      }
+      // Native connect() succeeded but setup did not. Drop the instance; a failed
+      // disconnect is remembered so the next connect does not open a second session.
+      try {
+        await instance.disconnect();
+      } catch (cleanupErr) {
+        console.warn('connectSparkSdk: disconnect failed', errorKind(cleanupErr));
+        poisonedSdk = instance;
+      }
+      throw e;
     }
-    throw e;
+  } finally {
+    pendingNativeConnect = false;
+    inFlightInstance = null;
   }
 }
 
@@ -233,4 +373,14 @@ export function __resetSparkSdkForTests(): void {
   connectedIdentityPubkey = null;
   poisonedSdk = null;
   lifecycleTail = Promise.resolve();
+  lifecycleEpoch = 0;
+  inFlightInstance = null;
+  pendingNativeConnect = false;
+  teardownInFlight = false;
+  lifecycleTimeoutMs = SPARK_LIFECYCLE_TIMEOUT_MS;
+}
+
+/** Test-only: shorten the lifecycle hang bound. Omit to restore the default. */
+export function __setLifecycleTimeoutMsForTests(ms?: number): void {
+  lifecycleTimeoutMs = ms === undefined ? SPARK_LIFECYCLE_TIMEOUT_MS : ms;
 }

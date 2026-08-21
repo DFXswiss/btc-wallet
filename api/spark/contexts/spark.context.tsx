@@ -15,6 +15,7 @@ import {
   syncSparkWallet,
   type SparkSessionLease,
 } from '../spark-sdk';
+import { applyOutgoingSdkEvent, getOutgoingPayment, subscribeOutgoingPayment, type OutgoingPayment } from '../outgoing-payment';
 
 const LIGHTNING_ADDRESS_USERNAME_LENGTH = 16;
 const LIGHTNING_ADDRESS_REGISTER_ATTEMPTS = 5;
@@ -58,6 +59,7 @@ export interface SparkContextInterface {
   isConnecting: boolean;
   isCreating: boolean;
   createSparkWallet: () => Promise<SparkWallet | null>;
+  outgoingPayment: OutgoingPayment | null;
 }
 
 const SparkContext = createContext<SparkContextInterface | undefined>(undefined);
@@ -155,6 +157,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [outgoingPayment, setOutgoingPayment] = useState<OutgoingPayment | null>(getOutgoingPayment);
   const connectingCountRef = useRef(0);
   const isCreatingRef = useRef(false);
   const sparkWalletRef = useRef<SparkWallet | undefined>(undefined);
@@ -204,8 +207,11 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
     [saveToDisk],
   );
 
+  useEffect(() => subscribeOutgoingPayment(setOutgoingPayment), []);
+
   const onSdkEvent = useCallback(
     async (event: SdkEvent) => {
+      applyOutgoingSdkEvent(event);
       if (
         event.tag === SdkEvent_Tags.Synced ||
         event.tag === SdkEvent_Tags.PaymentSucceeded ||
@@ -448,8 +454,9 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
       isConnecting,
       isCreating,
       createSparkWallet,
+      outgoingPayment,
     }),
-    [isConnected, isConnecting, isCreating, createSparkWallet],
+    [isConnected, isConnecting, isCreating, createSparkWallet, outgoingPayment],
   );
 
   return <SparkContext.Provider value={value}>{props.children}</SparkContext.Provider>;

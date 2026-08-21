@@ -1,0 +1,218 @@
+import {
+  PaymentDetails_Tags,
+  PaymentStatus,
+  PaymentType,
+  SdkEvent_Tags,
+  type Payment,
+  type SdkEvent,
+} from '@breeztech/breez-sdk-spark-react-native';
+
+export type OutgoingPaymentStatus = 'pending' | 'completed' | 'failed';
+
+export type OutgoingPayment = {
+  status: OutgoingPaymentStatus;
+  paymentHash: string;
+  paymentId?: string;
+  invoice?: string;
+  preimage?: string;
+};
+
+export type OutgoingPaymentIdentity = {
+  paymentHash: string;
+  paymentId?: string;
+  invoice?: string;
+};
+
+type Listener = (payment: OutgoingPayment | null) => void;
+
+let current: OutgoingPayment | null = null;
+/** Terminal events that arrived before the matching send was registered. */
+let unclaimed: OutgoingPayment[] = [];
+const listeners = new Set<Listener>();
+
+function present(value?: string): value is string {
+  return Boolean(value);
+}
+
+function samePayment(a: OutgoingPaymentIdentity | OutgoingPayment, b: OutgoingPaymentIdentity | OutgoingPayment): boolean {
+  if (present(a.paymentId) && present(b.paymentId) && a.paymentId === b.paymentId) return true;
+  if (present(a.paymentHash) && present(b.paymentHash) && a.paymentHash === b.paymentHash) return true;
+  if (present(a.invoice) && present(b.invoice) && a.invoice === b.invoice) return true;
+  return false;
+}
+
+function notify(): void {
+  for (const listener of listeners) {
+    listener(current);
+  }
+}
+
+function paymentFromEvent(event: SdkEvent): Payment | undefined {
+  if (
+    event.tag !== SdkEvent_Tags.PaymentSucceeded &&
+    event.tag !== SdkEvent_Tags.PaymentFailed &&
+    event.tag !== SdkEvent_Tags.PaymentPending
+  ) {
+    return undefined;
+  }
+  const inner = (event as { inner?: { payment?: Payment } }).inner;
+  return inner?.payment;
+}
+
+function identityFromPayment(payment: Payment): OutgoingPaymentIdentity & { preimage?: string } {
+  let paymentHash: string | undefined;
+  let invoice: string | undefined;
+  let preimage: string | undefined;
+  if (payment.details && payment.details.tag === PaymentDetails_Tags.Lightning) {
+    invoice = payment.details.inner.invoice;
+    paymentHash = payment.details.inner.htlcDetails?.paymentHash;
+    preimage = payment.details.inner.htlcDetails?.preimage;
+  }
+  return {
+    paymentId: payment.id,
+    paymentHash: paymentHash || '',
+    invoice,
+    preimage,
+  };
+}
+
+function statusFrom(event: SdkEvent, payment: Payment): OutgoingPaymentStatus {
+  if (payment.status === PaymentStatus.Completed) return 'completed';
+  if (payment.status === PaymentStatus.Failed) return 'failed';
+  if (event.tag === SdkEvent_Tags.PaymentSucceeded) return 'completed';
+  if (event.tag === SdkEvent_Tags.PaymentFailed) return 'failed';
+  return 'pending';
+}
+
+function takeUnclaimed(identity: OutgoingPaymentIdentity): OutgoingPayment | undefined {
+  const index = unclaimed.findIndex(item => samePayment(item, identity));
+  if (index < 0) return undefined;
+  const [found] = unclaimed.splice(index, 1);
+  return found;
+}
+
+export function getOutgoingPayment(): OutgoingPayment | null {
+  return current;
+}
+
+export function subscribeOutgoingPayment(listener: Listener): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+/**
+ * Registers an outgoing payment so a later SDK event can settle it.
+ * A terminal event that already arrived for the same identity is claimed immediately.
+ */
+export function beginOutgoingPayment(identity: OutgoingPaymentIdentity): OutgoingPayment {
+  const claimed = takeUnclaimed(identity);
+  if (current && samePayment(current, identity)) {
+    current = {
+      ...current,
+      paymentId: identity.paymentId || current.paymentId,
+      paymentHash: identity.paymentHash || current.paymentHash,
+      invoice: identity.invoice || current.invoice,
+      preimage: claimed?.preimage || current.preimage,
+      status: claimed && claimed.status !== 'pending' ? claimed.status : current.status,
+    };
+    notify();
+    return current;
+  }
+
+  current = claimed
+    ? {
+        ...claimed,
+        paymentId: identity.paymentId || claimed.paymentId,
+        paymentHash: identity.paymentHash || claimed.paymentHash,
+        invoice: identity.invoice || claimed.invoice,
+      }
+    : {
+        status: 'pending',
+        paymentHash: identity.paymentHash,
+        paymentId: identity.paymentId,
+        invoice: identity.invoice,
+      };
+  notify();
+  return current;
+}
+
+export function settleOutgoingPayment(update: {
+  status: 'completed' | 'failed';
+  paymentHash?: string;
+  paymentId?: string;
+  preimage?: string;
+}): OutgoingPayment | null {
+  if (!current) {
+    if (!update.paymentHash) return current;
+    current = {
+      status: update.status,
+      paymentHash: update.paymentHash,
+      paymentId: update.paymentId,
+      preimage: update.preimage,
+    };
+    notify();
+    return current;
+  }
+  current = {
+    ...current,
+    status: update.status,
+    paymentId: update.paymentId || current.paymentId,
+    paymentHash: update.paymentHash || current.paymentHash,
+    preimage: update.preimage || current.preimage,
+  };
+  notify();
+  return current;
+}
+
+export function applyOutgoingSdkEvent(event: SdkEvent): OutgoingPayment | null {
+  const payment = paymentFromEvent(event);
+  if (!payment) return current;
+  if (payment.paymentType === PaymentType.Receive) return current;
+
+  const extracted = identityFromPayment(payment);
+  const status = statusFrom(event, payment);
+  const next: OutgoingPayment = {
+    status,
+    paymentHash: extracted.paymentHash || current?.paymentHash || '',
+    paymentId: extracted.paymentId,
+    invoice: extracted.invoice,
+    preimage: extracted.preimage,
+  };
+
+  if (current && samePayment(current, { paymentHash: next.paymentHash, paymentId: next.paymentId, invoice: next.invoice })) {
+    if (current.status !== 'pending' && status === 'pending') {
+      return current;
+    }
+    current = {
+      ...current,
+      ...next,
+      paymentHash: next.paymentHash || current.paymentHash,
+      paymentId: next.paymentId || current.paymentId,
+      invoice: next.invoice || current.invoice,
+      preimage: next.preimage || current.preimage,
+    };
+    notify();
+    return current;
+  }
+
+  if (status === 'completed' || status === 'failed') {
+    unclaimed.push(next);
+    if (unclaimed.length > 20) {
+      unclaimed.shift();
+    }
+  }
+  return current;
+}
+
+export function clearOutgoingPayment(): void {
+  current = null;
+  notify();
+}
+
+export function __resetOutgoingPaymentForTests(): void {
+  current = null;
+  unclaimed = [];
+  listeners.clear();
+}

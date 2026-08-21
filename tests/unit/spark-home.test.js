@@ -90,6 +90,7 @@ const { LightningLdsWallet } = require('../../class/wallets/lightning-lds-wallet
 const loc = require('../../loc').default;
 const BlueApp = require('../../BlueApp');
 const AppStorage = BlueApp.AppStorage;
+const { __resetOutgoingPaymentForTests } = require('../../api/spark/outgoing-payment');
 
 const MNEMONIC = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
 
@@ -180,6 +181,7 @@ function pressLightningAdd(screen) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  __resetOutgoingPaymentForTests();
   mockDisconnect.mockImplementation(() => Promise.resolve());
   mockSync.mockImplementation(() => Promise.resolve());
   mockIsConnected.mockReturnValue(false);

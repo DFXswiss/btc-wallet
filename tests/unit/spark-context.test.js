@@ -2,7 +2,7 @@ import React from 'react';
 import assert from 'assert';
 import { Alert, AppState, Text } from 'react-native';
 import { act, render, waitFor } from '@testing-library/react-native';
-import { SdkEvent_Tags } from '@breeztech/breez-sdk-spark-react-native';
+import { PaymentDetails_Tags, PaymentStatus, PaymentType, SdkEvent_Tags } from '@breeztech/breez-sdk-spark-react-native';
 
 const mockConnect = jest.fn();
 const mockDisconnect = jest.fn(() => Promise.resolve());
@@ -47,6 +47,7 @@ jest.mock('../../class', () => ({
 const { SparkWallet } = require('../../class/wallets/spark-wallet');
 const { BlueStorageContext } = require('../../blue_modules/storage-context');
 const { SparkContextProvider, useSparkContext } = require('../../api/spark/contexts/spark.context');
+const { beginOutgoingPayment, __resetOutgoingPaymentForTests } = require('../../api/spark/outgoing-payment');
 const loc = require('../../loc').default;
 
 function expectedUserFacingError(e) {
@@ -114,6 +115,7 @@ function stubSparkMethods(wallet) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  __resetOutgoingPaymentForTests();
   mockIsConnected.mockReturnValue(false);
   mockConnect.mockImplementation(async (_mnemonic, onEvent) => {
     mockIsConnected.mockReturnValue(true);
@@ -772,6 +774,45 @@ describe('SparkContextProvider', () => {
 
     await waitFor(() => expect(mockConnect).toHaveBeenCalled());
     expect(mockConnect.mock.calls[0][0]).toBe(seedB);
+  });
+
+  it('resolves a pending outgoing payment from a PaymentSucceeded event, not from a wait loop', async () => {
+    const existing = stubSparkMethods(SparkWallet.create('out-pk'));
+    renderWith([hdWallet, existing]);
+    await waitFor(() => expect(mockConnect).toHaveBeenCalled());
+
+    await act(async () => {
+      beginOutgoingPayment({ paymentHash: 'h-out', paymentId: 'p-out' });
+    });
+    await waitFor(() => assert.strictEqual(latestCtx.outgoingPayment && latestCtx.outgoingPayment.status, 'pending'));
+
+    const onEvent = mockConnect.lastOnEvent;
+    await act(async () => {
+      await onEvent({
+        tag: SdkEvent_Tags.PaymentSucceeded,
+        inner: {
+          payment: {
+            id: 'p-out',
+            paymentType: PaymentType.Send,
+            status: PaymentStatus.Completed,
+            details: {
+              tag: PaymentDetails_Tags.Lightning,
+              inner: {
+                invoice: 'inv-out',
+                description: '',
+                destinationPubkey: 'x',
+                htlcDetails: { paymentHash: 'h-out', preimage: 'pre-out' },
+              },
+            },
+          },
+        },
+      });
+    });
+
+    assert.strictEqual(latestCtx.outgoingPayment.status, 'completed');
+    assert.strictEqual(latestCtx.outgoingPayment.preimage, 'pre-out');
+    assert.notStrictEqual(latestCtx.outgoingPayment.status, 'pending');
+    assert.notStrictEqual(latestCtx.outgoingPayment.status, 'failed');
   });
 
   it('refreshes on relevant SDK events and ignores others', async () => {

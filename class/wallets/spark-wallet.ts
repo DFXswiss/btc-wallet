@@ -16,8 +16,20 @@ import {
 } from '@breeztech/breez-sdk-spark-react-native';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import { acquireSparkSessionLease, SparkSessionStaleError, type SparkSessionLease } from '../../api/spark/spark-sdk';
+import { beginOutgoingPayment, clearOutgoingPayment, getOutgoingPayment, settleOutgoingPayment } from '../../api/spark/outgoing-payment';
 import loc from '../../loc';
 import { AbstractWallet } from './abstract-wallet';
+
+export const SparkPayInvoiceStatus = {
+  Completed: 'completed',
+  Pending: 'pending',
+} as const;
+
+export type SparkPayInvoiceResult = {
+  status: (typeof SparkPayInvoiceStatus)[keyof typeof SparkPayInvoiceStatus];
+  paymentHash: string;
+  paymentId?: string;
+};
 
 /**
  * Fixed 16-byte namespace so the same invoice always maps to the same UUID.
@@ -89,10 +101,9 @@ export class SparkWallet extends AbstractWallet {
   static type = 'sparkWallet';
   static typeReadable = 'Lightning (Spark)';
   /**
-   * Without a timeout the SDK returns as soon as the payment is initiated,
-   * before Lightning settlement completes -- payInvoice would then report
-   * success for a payment that may still fail. 30s gives real LN routing
-   * room to settle without blocking the UI indefinitely.
+   * Wait this long for Lightning to settle before returning a pending result.
+   * Pending is not failure: the SDK may still complete the payment afterwards
+   * via PaymentSucceeded / PaymentFailed events.
    */
   private static readonly SEND_PAYMENT_COMPLETION_TIMEOUT_SECS = 30;
   /** Page size for a full history walk. Callers that pass a small limit keep a single page. */
@@ -421,7 +432,27 @@ export class SparkWallet extends AbstractWallet {
     return paymentRequest;
   }
 
-  async payInvoice(invoice: string, freeAmount = 0): Promise<void> {
+  private sessionGone(lease: SparkSessionLease): boolean {
+    try {
+      lease.requireSdk();
+      return false;
+    } catch (e) {
+      return e instanceof SparkSessionStaleError;
+    }
+  }
+
+  private recordPaidInvoice(payment?: Payment, preimage?: string): void {
+    const lightningDetails = payment?.details && payment.details.tag === PaymentDetails_Tags.Lightning ? payment.details.inner : undefined;
+    this.last_paid_invoice_result = {
+      payment_preimage: preimage || lightningDetails?.htlcDetails?.preimage,
+    };
+  }
+
+  /**
+   * Completed and pending both resolve. Only a definite Failed status throws.
+   * A still-open payment is tracked so SDK payment events can settle it.
+   */
+  async payInvoice(invoice: string, freeAmount = 0): Promise<SparkPayInvoiceResult> {
     const decoded = this.decodeInvoice(invoice);
     if (!decoded.payment_hash) {
       throw new Error(loc.wallets.lightning_spark_invoice_unreadable);
@@ -429,6 +460,7 @@ export class SparkWallet extends AbstractWallet {
 
     const lease = this.holdMatchingSession();
     const amount = freeAmount && freeAmount > 0 ? BigInt(freeAmount) : undefined;
+    const paymentHash = decoded.payment_hash;
 
     const prepareResponse = await lease.requireSdk().prepareSendPayment({
       paymentRequest: new PaymentRequest.Input({ input: invoice }),
@@ -441,27 +473,57 @@ export class SparkWallet extends AbstractWallet {
     const sdk = this.requireHeld(lease);
     assertSendFeeWithinLimit(prepareResponse);
 
-    const { payment } = await sdk.sendPayment({
-      prepareResponse,
-      options: new SendPaymentOptions.Bolt11Invoice({
-        preferSpark: false,
-        completionTimeoutSecs: SparkWallet.SEND_PAYMENT_COMPLETION_TIMEOUT_SECS,
-      }),
-      idempotencyKey: invoiceIdempotencyKey(decoded.payment_hash),
-    });
+    beginOutgoingPayment({ paymentHash, invoice });
+
+    // The lease is not held for the duration of sendPayment: blocking
+    // disconnect until every business call settles would grow the queue
+    // back into serialising those calls. A teardown during send is pending.
+    let payment: Payment | undefined;
+    try {
+      const sent = await sdk.sendPayment({
+        prepareResponse,
+        options: new SendPaymentOptions.Bolt11Invoice({
+          preferSpark: false,
+          completionTimeoutSecs: SparkWallet.SEND_PAYMENT_COMPLETION_TIMEOUT_SECS,
+        }),
+        idempotencyKey: invoiceIdempotencyKey(paymentHash),
+      });
+      payment = sent.payment;
+    } catch (e) {
+      if (e instanceof SparkSessionStaleError || this.sessionGone(lease)) {
+        return { status: SparkPayInvoiceStatus.Pending, paymentHash };
+      }
+      clearOutgoingPayment();
+      throw e;
+    }
 
     if (payment.status === PaymentStatus.Failed) {
+      settleOutgoingPayment({ status: 'failed', paymentHash, paymentId: payment.id });
       throw new Error(loc.wallets.lightning_spark_payment_failed);
     }
-    if (payment.status !== PaymentStatus.Completed) {
-      // Pending is not success: the payment may still fail, and the caller must not treat it as paid.
-      throw new Error(loc.wallets.lightning_spark_payment_in_transit);
+
+    if (payment.status === PaymentStatus.Completed) {
+      this.recordPaidInvoice(payment);
+      settleOutgoingPayment({
+        status: 'completed',
+        paymentHash,
+        paymentId: payment.id,
+        preimage: this.last_paid_invoice_result?.payment_preimage,
+      });
+      return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: payment.id };
     }
 
-    const lightningDetails = payment.details && payment.details.tag === PaymentDetails_Tags.Lightning ? payment.details.inner : undefined;
-    this.last_paid_invoice_result = {
-      payment_preimage: lightningDetails?.htlcDetails?.preimage,
-    };
+    beginOutgoingPayment({ paymentHash, paymentId: payment.id, invoice });
+    const tracked = getOutgoingPayment();
+    if (tracked?.status === 'completed') {
+      this.recordPaidInvoice(payment, tracked.preimage);
+      return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: payment.id };
+    }
+    if (tracked?.status === 'failed') {
+      settleOutgoingPayment({ status: 'failed', paymentHash, paymentId: payment.id });
+      throw new Error(loc.wallets.lightning_spark_payment_failed);
+    }
+    return { status: SparkPayInvoiceStatus.Pending, paymentHash, paymentId: payment.id };
   }
 
   /**

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image, ScrollView, StyleSheet, View } from 'react-native';
@@ -23,6 +23,7 @@ import { BitcoinUnit } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 import Biometric from '../../class/biometrics';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
+import { useSparkContext } from '../../api/spark/contexts/spark.context';
 import alert from '../../components/Alert';
 import { Text } from 'react-native-elements';
 import { isFreeDomain, isInternalDomain } from '../../helpers/freeLightningDomains';
@@ -37,6 +38,7 @@ const _cacheFiatToSat = {};
 
 const LnurlPay = () => {
   const { wallets, refreshAllWalletTransactions } = useContext(BlueStorageContext);
+  const { outgoingPayment } = useSparkContext();
   const { walletID, lnurl, amountSat, destination, invoice, amountUnit, description, free } = useRoute().params;
   /** @type {LightningCustodianWallet} */
   const wallet = wallets.find(w => w.getID() === walletID);
@@ -44,6 +46,8 @@ const LnurlPay = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [_LN, setLN] = useState();
   const [payButtonDisabled, setPayButtonDisabled] = useState(true);
+  const [isPaymentPending, setIsPaymentPending] = useState(false);
+  const pendingPayRef = useRef();
   const [payload, setPayload] = useState();
   const { pop, navigate, goBack } = useNavigation();
   const [amount, setAmount] = useState();
@@ -75,10 +79,15 @@ const LnurlPay = () => {
           pop();
         });
       setLN(ln);
-      setDesc(description);
       setIsLoading(false);
     }
-  }, [lnurl, pop]);
+  }, [lnurl, destination, pop]);
+
+  useEffect(() => {
+    if (lnurl || (destination && Lnurl.isLightningAddress(destination))) {
+      setDesc(description);
+    }
+  }, [description, lnurl, destination]);
 
   useEffect(() => {
     if (invoice) {
@@ -92,6 +101,64 @@ const LnurlPay = () => {
   useEffect(() => {
     setPayButtonDisabled(isLoading);
   }, [isLoading]);
+
+  const finishLnurlSuccess = async (paymentHash, LN) => {
+    ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
+    const preimage = wallet.last_paid_invoice_result && wallet.last_paid_invoice_result.payment_preimage;
+    if (preimage && LN) {
+      await LN.storeSuccess(paymentHash, preimage);
+    }
+    navigate('SendDetailsRoot', {
+      screen: 'LnurlPaySuccess',
+      params: {
+        paymentHash,
+        justPaid: true,
+        fromWalletID: walletID,
+      },
+    });
+  };
+
+  const finishInvoiceSuccess = (amountSats, decoded) => {
+    ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
+    navigate('Success', {
+      amount: amountSats,
+      amountUnit: BitcoinUnit.SATS,
+      invoiceDescription: decoded.description,
+    });
+  };
+
+  const showPending = isPaymentPending && outgoingPayment?.status !== 'completed' && outgoingPayment?.status !== 'failed';
+
+  useEffect(() => {
+    if (!outgoingPayment || outgoingPayment.status === 'pending') return;
+    const watching = pendingPayRef.current;
+    if (!watching) return;
+    if (watching.paymentHash && outgoingPayment.paymentHash && watching.paymentHash !== outgoingPayment.paymentHash) {
+      return;
+    }
+
+    if (outgoingPayment.status === 'completed') {
+      if (outgoingPayment.preimage) {
+        wallet.last_paid_invoice_result = { payment_preimage: outgoingPayment.preimage };
+      }
+      pendingPayRef.current = undefined;
+      refreshAllWalletTransactions();
+      if (watching.kind === 'lnurl') {
+        finishLnurlSuccess(watching.paymentHash, watching.LN);
+      } else {
+        finishInvoiceSuccess(watching.amountSats, watching.decoded);
+      }
+      return;
+    }
+
+    if (outgoingPayment.status === 'failed') {
+      pendingPayRef.current = undefined;
+      ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
+      alert(loc.wallets.lightning_spark_payment_failed);
+    }
+    // finish helpers close over navigation and wallet; they are stable for this screen instance.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outgoingPayment]);
 
   useEffect(() => {
     if (payload) {
@@ -128,34 +195,29 @@ const LnurlPay = () => {
     }
 
     const bolt11payload = await LN.requestBolt11FromLnurlPayService(amountSats, comment);
-    await wallet.payInvoice(bolt11payload.pr);
+    const result = await wallet.payInvoice(bolt11payload.pr);
     const decoded = wallet.decodeInvoice(bolt11payload.pr);
-    setPayButtonDisabled(false);
-
-    // success, probably
-    ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
-    if (wallet.last_paid_invoice_result && wallet.last_paid_invoice_result.payment_preimage) {
-      await LN.storeSuccess(decoded.payment_hash, wallet.last_paid_invoice_result.payment_preimage);
+    if (result && result.status === 'pending') {
+      pendingPayRef.current = { kind: 'lnurl', paymentHash: result.paymentHash || decoded.payment_hash, LN };
+      setIsPaymentPending(true);
+      setPayButtonDisabled(true);
+      return;
     }
 
-    navigate('SendDetailsRoot', {
-      screen: 'LnurlPaySuccess',
-      params: {
-        paymentHash: decoded.payment_hash,
-        justPaid: true,
-        fromWalletID: walletID,
-      },
-    });
+    await finishLnurlSuccess(decoded.payment_hash, LN);
   };
 
   const handleLnInvoice = async amountSats => {
-    await wallet.payInvoice(invoice, amountSats);
+    const result = await wallet.payInvoice(invoice, amountSats);
     const decoded = wallet.decodeInvoice(invoice);
-    navigate('Success', {
-      amount: amountSats,
-      amountUnit: BitcoinUnit.SATS,
-      invoiceDescription: decoded.description,
-    });
+    if (result && result.status === 'pending') {
+      pendingPayRef.current = { kind: 'invoice', paymentHash: result.paymentHash || decoded.payment_hash, amountSats, decoded };
+      setIsPaymentPending(true);
+      setPayButtonDisabled(true);
+      return;
+    }
+
+    finishInvoiceSuccess(amountSats, decoded);
   };
 
   const pay = async () => {
@@ -190,6 +252,11 @@ const LnurlPay = () => {
         await handleLnInvoice(amountSats);
       } else {
         await handleBolt11Invoice(amountSats);
+      }
+
+      if (pendingPayRef.current) {
+        setIsLoading(false);
+        return;
       }
 
       refreshAllWalletTransactions();
@@ -258,7 +325,9 @@ const LnurlPay = () => {
           </BlueCard>
         </ScrollView>
         <View style={styles.buttonContainer}>
-          {payButtonDisabled ? (
+          {showPending ? (
+            <BlueText style={styles.pending}>{loc.wallets.lightning_spark_payment_in_transit}</BlueText>
+          ) : payButtonDisabled ? (
             <BlueLoading />
           ) : (
             <>
@@ -324,6 +393,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginVertical: 8,
     marginHorizontal: 24,
+    alignSelf: 'center',
+  },
+  pending: {
+    color: '#37c0a1',
+    fontSize: 14,
+    marginVertical: 8,
+    marginHorizontal: 24,
+    paddingBottom: 6,
+    fontWeight: '500',
+    textAlign: 'center',
     alignSelf: 'center',
   },
 });
