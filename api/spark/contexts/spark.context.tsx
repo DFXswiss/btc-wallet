@@ -114,7 +114,7 @@ function mnemonicFromWallet(hd: OnChainMnemonicWallet): { mnemonic: string; pass
     throw new Error('On-chain recovery phrase is not available');
   }
   const rawPassphrase = hd.getPassphrase?.();
-  return { mnemonic: secret, passphrase: rawPassphrase ? rawPassphrase : undefined };
+  return { mnemonic: secret, passphrase: rawPassphrase || undefined };
 }
 
 function resolveOnChainWallet(
@@ -166,9 +166,8 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
   const createSparkWalletRef = useRef<(() => Promise<SparkWallet | null>) | undefined>(undefined);
   const connectExistingSparkRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
-  walletsRef.current = wallets;
-
   useEffect(() => {
+    walletsRef.current = wallets;
     sparkWalletRef.current = getSparkWallet(wallets);
   }, [wallets]);
 

@@ -69,7 +69,7 @@ function fingerprintSeed(mnemonic: string, passphrase?: string): string {
 }
 
 function seedPassphrase(passphrase?: string): string | undefined {
-  return passphrase ? passphrase : undefined;
+  return passphrase || undefined;
 }
 
 function errorKind(e: unknown): string {
@@ -117,7 +117,7 @@ function discardStaleInstance(instance: BreezSdkInterface): void {
 async function runLifecycle<T>(op: () => Promise<T>): Promise<T> {
   const work = op();
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
+  const timeout = new Promise<never>((resolve, reject) => {
     timer = setTimeout(() => {
       abandonOnTimeout();
       reject(new SparkLifecycleHungError());
@@ -125,7 +125,7 @@ async function runLifecycle<T>(op: () => Promise<T>): Promise<T> {
   });
   // Race observes this reject. The extra handler keeps it from becoming an
   // unhandled rejection when the race consumer attaches after a timer flush.
-  void timeout.then(
+  timeout.then(
     () => undefined,
     () => undefined,
   );
@@ -137,7 +137,7 @@ async function runLifecycle<T>(op: () => Promise<T>): Promise<T> {
     }
     // The native call is not cancelled. Swallow a late settle so it cannot
     // reject unhandled after the queue has already moved on.
-    void work.then(
+    work.then(
       () => undefined,
       () => undefined,
     );
