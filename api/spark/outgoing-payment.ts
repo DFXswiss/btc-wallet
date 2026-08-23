@@ -34,6 +34,15 @@ function present(value?: string): value is string {
   return Boolean(value);
 }
 
+function isTerminal(status: OutgoingPaymentStatus): boolean {
+  return status === 'completed' || status === 'failed';
+}
+
+/** The first completed or failed status for a payment is kept. Later disagreements are ignored. */
+function firstTerminalWins(currentStatus: OutgoingPaymentStatus, incoming: OutgoingPaymentStatus): OutgoingPaymentStatus {
+  return isTerminal(currentStatus) ? currentStatus : incoming;
+}
+
 function samePayment(a: OutgoingPaymentIdentity | OutgoingPayment, b: OutgoingPaymentIdentity | OutgoingPayment): boolean {
   if (present(a.paymentId) && present(b.paymentId) && a.paymentId === b.paymentId) return true;
   if (present(a.paymentHash) && present(b.paymentHash) && a.paymentHash === b.paymentHash) return true;
@@ -130,7 +139,7 @@ export function beginOutgoingPayment(identity: OutgoingPaymentIdentity): Outgoin
       paymentHash: identity.paymentHash || current.paymentHash,
       invoice: identity.invoice || current.invoice,
       preimage: claimed?.preimage || current.preimage,
-      status: claimed ? claimed.status : current.status,
+      status: claimed ? firstTerminalWins(current.status, claimed.status) : current.status,
     };
     notify();
     return current;
@@ -163,7 +172,7 @@ export function settleOutgoingPayment(update: {
   if (current && samePayment(current, identity)) {
     current = {
       ...current,
-      status: update.status,
+      status: firstTerminalWins(current.status, update.status),
       paymentId: update.paymentId || current.paymentId,
       paymentHash: update.paymentHash || current.paymentHash,
       preimage: update.preimage || current.preimage,
@@ -207,12 +216,12 @@ export function applyOutgoingSdkEvent(event: SdkEvent): OutgoingPayment | null {
   const extractedIdentity = identityOf(extracted);
 
   if (current && samePayment(current, extractedIdentity)) {
-    if (current.status !== 'pending' && status === 'pending') {
+    if (isTerminal(current.status) && status === 'pending') {
       return current;
     }
     current = {
       ...current,
-      status,
+      status: firstTerminalWins(current.status, status),
       paymentHash: extracted.paymentHash || current.paymentHash,
       paymentId: extracted.paymentId || current.paymentId,
       invoice: extracted.invoice || current.invoice,

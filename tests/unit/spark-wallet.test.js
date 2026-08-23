@@ -401,6 +401,84 @@ describe('SparkWallet', () => {
     assert.strictEqual(getOutgoingPayment().paymentId, 'pay-failed-event-first');
   });
 
+  it('payInvoice keeps a success event when sendPayment later returns failed', async () => {
+    const wallet = new SparkWallet();
+    const paymentHash = wallet.decodeInvoice(SAMPLE_INVOICE).payment_hash;
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
+    mockSdk.sendPayment.mockImplementation(async () => {
+      applyOutgoingSdkEvent({
+        tag: SdkEvent_Tags.PaymentSucceeded,
+        inner: {
+          payment: {
+            id: 'pay-win',
+            paymentType: PaymentType.Send,
+            status: PaymentStatus.Completed,
+            amount: 1n,
+            fees: 0n,
+            timestamp: 1n,
+            method: {},
+            details: {
+              tag: PaymentDetails_Tags.Lightning,
+              inner: {
+                description: '',
+                invoice: SAMPLE_INVOICE,
+                destinationPubkey: 'x',
+                htlcDetails: { paymentHash, preimage: 'pre-win' },
+              },
+            },
+          },
+        },
+      });
+      return { payment: { id: 'pay-win', status: PaymentStatus.Failed } };
+    });
+
+    const result = await wallet.payInvoice(SAMPLE_INVOICE, 0);
+
+    assert.deepStrictEqual(result, {
+      status: SparkPayInvoiceStatus.Completed,
+      paymentHash,
+      paymentId: 'pay-win',
+    });
+    assert.strictEqual(wallet.last_paid_invoice_result.payment_preimage, 'pre-win');
+    assert.strictEqual(getOutgoingPayment().status, 'completed');
+  });
+
+  it('payInvoice keeps a failure event when sendPayment later returns completed', async () => {
+    const wallet = new SparkWallet();
+    const paymentHash = wallet.decodeInvoice(SAMPLE_INVOICE).payment_hash;
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
+    mockSdk.sendPayment.mockImplementation(async () => {
+      applyOutgoingSdkEvent({
+        tag: SdkEvent_Tags.PaymentFailed,
+        inner: {
+          payment: {
+            id: 'pay-lose',
+            paymentType: PaymentType.Send,
+            status: PaymentStatus.Failed,
+            amount: 1n,
+            fees: 0n,
+            timestamp: 1n,
+            method: {},
+            details: {
+              tag: PaymentDetails_Tags.Lightning,
+              inner: {
+                description: '',
+                invoice: SAMPLE_INVOICE,
+                destinationPubkey: 'x',
+                htlcDetails: { paymentHash },
+              },
+            },
+          },
+        },
+      });
+      return { payment: { id: 'pay-lose', status: PaymentStatus.Completed } };
+    });
+
+    await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, 0), new RegExp(loc.wallets.lightning_spark_payment_failed));
+    assert.strictEqual(getOutgoingPayment().status, 'failed');
+    assert.strictEqual(wallet.last_paid_invoice_result, undefined);
+  });
+
   it('payInvoice treats a teardown during send as pending, not failed', async () => {
     mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
     mockSdk.sendPayment.mockImplementation(async () => {
@@ -429,6 +507,118 @@ describe('SparkWallet', () => {
     assert.strictEqual(getOutgoingPayment().status, 'pending');
   });
 
+  it('payInvoice reports a completed tracker when sendPayment fails with a stale session', async () => {
+    const { SparkSessionStaleError } = require('../../api/spark/spark-sdk');
+    const wallet = new SparkWallet();
+    const paymentHash = wallet.decodeInvoice(SAMPLE_INVOICE).payment_hash;
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
+    mockSdk.sendPayment.mockImplementation(async () => {
+      applyOutgoingSdkEvent({
+        tag: SdkEvent_Tags.PaymentSucceeded,
+        inner: {
+          payment: {
+            id: 'pay-stale-win',
+            paymentType: PaymentType.Send,
+            status: PaymentStatus.Completed,
+            amount: 1n,
+            fees: 0n,
+            timestamp: 1n,
+            method: {},
+            details: {
+              tag: PaymentDetails_Tags.Lightning,
+              inner: {
+                description: '',
+                invoice: SAMPLE_INVOICE,
+                destinationPubkey: 'x',
+                htlcDetails: { paymentHash, preimage: 'pre-stale-win' },
+              },
+            },
+          },
+        },
+      });
+      throw new SparkSessionStaleError();
+    });
+
+    const result = await wallet.payInvoice(SAMPLE_INVOICE, 0);
+
+    assert.deepStrictEqual(result, {
+      status: SparkPayInvoiceStatus.Completed,
+      paymentHash,
+      paymentId: 'pay-stale-win',
+    });
+    assert.strictEqual(wallet.last_paid_invoice_result.payment_preimage, 'pre-stale-win');
+    assert.strictEqual(getOutgoingPayment().status, 'completed');
+  });
+
+  it('payInvoice reports a failed tracker when sendPayment fails with a stale session', async () => {
+    const { SparkSessionStaleError } = require('../../api/spark/spark-sdk');
+    const wallet = new SparkWallet();
+    const paymentHash = wallet.decodeInvoice(SAMPLE_INVOICE).payment_hash;
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
+    mockSdk.sendPayment.mockImplementation(async () => {
+      applyOutgoingSdkEvent({
+        tag: SdkEvent_Tags.PaymentFailed,
+        inner: {
+          payment: {
+            id: 'pay-stale-lose',
+            paymentType: PaymentType.Send,
+            status: PaymentStatus.Failed,
+            amount: 1n,
+            fees: 0n,
+            timestamp: 1n,
+            method: {},
+            details: {
+              tag: PaymentDetails_Tags.Lightning,
+              inner: {
+                description: '',
+                invoice: SAMPLE_INVOICE,
+                destinationPubkey: 'x',
+                htlcDetails: { paymentHash },
+              },
+            },
+          },
+        },
+      });
+      throw new SparkSessionStaleError();
+    });
+
+    await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, 0), new RegExp(loc.wallets.lightning_spark_payment_failed));
+    assert.strictEqual(getOutgoingPayment().status, 'failed');
+    assert.strictEqual(getOutgoingPayment().paymentId, 'pay-stale-lose');
+  });
+
+  it('payInvoice treats a stale-session send error as pending when the tracker is a different payment', async () => {
+    const { SparkSessionStaleError } = require('../../api/spark/spark-sdk');
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
+    mockSdk.sendPayment.mockImplementation(async () => {
+      beginOutgoingPayment({ paymentHash: 'other-payment', paymentId: 'other-id', invoice: 'other-invoice' });
+      throw new SparkSessionStaleError();
+    });
+    const wallet = new SparkWallet();
+
+    const result = await wallet.payInvoice(SAMPLE_INVOICE, 0);
+
+    assert.strictEqual(result.status, SparkPayInvoiceStatus.Pending);
+    assert.deepStrictEqual(getOutgoingPayment(), {
+      status: 'pending',
+      paymentHash: 'other-payment',
+      paymentId: 'other-id',
+      invoice: 'other-invoice',
+    });
+  });
+
+  it('payInvoice treats a teardown during send as pending when the tracker is a different payment', async () => {
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
+    mockSdk.sendPayment.mockImplementation(async () => {
+      beginOutgoingPayment({ paymentHash: 'other-payment', paymentId: 'other-id', invoice: 'other-invoice' });
+      mockLeaseValid = false;
+      throw new Error('native session dropped');
+    });
+    const wallet = new SparkWallet();
+    const result = await wallet.payInvoice(SAMPLE_INVOICE, 0);
+    assert.strictEqual(result.status, SparkPayInvoiceStatus.Pending);
+  });
+
   it('payInvoice treats a send as pending when a lease probe fails for a non-stale reason', async () => {
     const sendError = new Error('network error');
     let leaseChecks = 0;
@@ -448,6 +638,35 @@ describe('SparkWallet', () => {
     const outgoing = getOutgoingPayment();
     assert.ok(outgoing);
     assert.strictEqual(outgoing.status, 'pending');
+  });
+
+  it('payInvoice surfaces a send error when a lease probe fails for a non-stale reason and the tracker is a different payment', async () => {
+    const sendError = new Error('first payment failed to send');
+    let leaseChecks = 0;
+    mockLeaseSdkOverride = () => {
+      leaseChecks += 1;
+      if (leaseChecks === 3) {
+        throw new TypeError('lease implementation failed');
+      }
+      return mockSdk;
+    };
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
+    mockSdk.sendPayment.mockImplementation(async () => {
+      beginOutgoingPayment({ paymentHash: 'other-payment', paymentId: 'other-id', invoice: 'other-invoice' });
+      throw sendError;
+    });
+    const wallet = new SparkWallet();
+
+    await assert.rejects(
+      () => wallet.payInvoice(SAMPLE_INVOICE, 0),
+      error => error === sendError,
+    );
+    assert.deepStrictEqual(getOutgoingPayment(), {
+      status: 'pending',
+      paymentHash: 'other-payment',
+      paymentId: 'other-id',
+      invoice: 'other-invoice',
+    });
   });
 
   it('payInvoice returns completed when a PaymentSucceeded event beats a sendPayment network error', async () => {
@@ -551,7 +770,6 @@ describe('SparkWallet', () => {
 
     const result = await wallet.payInvoice(SAMPLE_INVOICE, 0);
     assert.strictEqual(result.status, SparkPayInvoiceStatus.Pending);
-    assert.notStrictEqual(result.status, SparkPayInvoiceStatus.Completed);
 
     applyOutgoingSdkEvent({
       tag: SdkEvent_Tags.PaymentSucceeded,
@@ -582,7 +800,6 @@ describe('SparkWallet', () => {
     assert.strictEqual(outgoing.paymentHash, paymentHash);
     assert.strictEqual(outgoing.paymentId, 'pay-after-network');
     assert.strictEqual(outgoing.preimage, 'pre-after-reject');
-    assert.notStrictEqual(outgoing.status, 'failed');
   });
 
   it('payInvoice does not clear a different payment that starts before its send error returns', async () => {
@@ -600,6 +817,69 @@ describe('SparkWallet', () => {
       paymentHash: 'other-payment',
       paymentId: 'other-id',
       invoice: 'other-invoice',
+    });
+  });
+
+  it('payInvoice returns completed without replacing a different payment that starts before sendPayment returns', async () => {
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
+    mockSdk.sendPayment.mockImplementation(async () => {
+      beginOutgoingPayment({ paymentHash: 'other-payment', paymentId: 'other-id', invoice: 'other-invoice' });
+      applyOutgoingSdkEvent({
+        tag: SdkEvent_Tags.PaymentSucceeded,
+        inner: {
+          payment: {
+            id: 'other-id',
+            paymentType: PaymentType.Send,
+            status: PaymentStatus.Completed,
+            amount: 1n,
+            fees: 0n,
+            timestamp: 1n,
+            method: {},
+            details: {
+              tag: PaymentDetails_Tags.Lightning,
+              inner: {
+                description: '',
+                invoice: 'other-invoice',
+                destinationPubkey: 'x',
+                htlcDetails: { paymentHash: 'other-payment', preimage: 'other-preimage' },
+              },
+            },
+          },
+        },
+      });
+      return {
+        payment: {
+          id: 'pay-us',
+          status: PaymentStatus.Completed,
+          details: {
+            tag: PaymentDetails_Tags.Lightning,
+            inner: {
+              description: '',
+              invoice: SAMPLE_INVOICE,
+              destinationPubkey: 'x',
+              htlcDetails: { preimage: 'pre-from-sdk' },
+            },
+          },
+        },
+      };
+    });
+    const wallet = new SparkWallet();
+    const paymentHash = wallet.decodeInvoice(SAMPLE_INVOICE).payment_hash;
+
+    const result = await wallet.payInvoice(SAMPLE_INVOICE, 0);
+
+    assert.deepStrictEqual(result, {
+      status: SparkPayInvoiceStatus.Completed,
+      paymentHash,
+      paymentId: 'pay-us',
+    });
+    assert.strictEqual(wallet.last_paid_invoice_result.payment_preimage, 'pre-from-sdk');
+    assert.deepStrictEqual(getOutgoingPayment(), {
+      status: 'completed',
+      paymentHash: 'other-payment',
+      paymentId: 'other-id',
+      invoice: 'other-invoice',
+      preimage: 'other-preimage',
     });
   });
 

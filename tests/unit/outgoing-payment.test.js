@@ -177,7 +177,6 @@ describe('outgoing payment tracker', () => {
     const dropped = beginOutgoingPayment({ paymentHash: hashes[0] });
     assert.strictEqual(dropped.status, 'pending');
     assert.strictEqual(dropped.preimage, undefined);
-    assert.notStrictEqual(dropped.status, 'completed');
 
     for (let i = 1; i < 21; i++) {
       const claimed = beginOutgoingPayment({ paymentHash: hashes[i] });
@@ -348,7 +347,6 @@ describe('outgoing payment tracker', () => {
     const later = beginOutgoingPayment({ paymentHash: 'h-other' });
     assert.strictEqual(later.status, 'pending');
     assert.strictEqual(later.preimage, undefined);
-    assert.notStrictEqual(later.status, 'completed');
   });
 
   it('an event without lightning details keeps the hash and invoice already on the tracker', () => {
@@ -409,6 +407,78 @@ describe('outgoing payment tracker', () => {
     const started = beginOutgoingPayment({ paymentHash: 'h1' });
     assert.strictEqual(started.status, 'pending');
     assert.strictEqual(started.invoice, undefined);
-    assert.notStrictEqual(started.invoice, 'lnbc-early');
+  });
+
+  it('does not let a later failed settlement overwrite a completed payment', () => {
+    beginOutgoingPayment({ paymentHash: 'h1', paymentId: 'p1' });
+    settleOutgoingPayment({ status: 'completed', paymentHash: 'h1', preimage: 'pre-1' });
+    const settled = settleOutgoingPayment({ status: 'failed', paymentHash: 'h1', paymentId: 'p-late' });
+    assert.strictEqual(settled.status, 'completed');
+    assert.strictEqual(settled.preimage, 'pre-1');
+    assert.strictEqual(settled.paymentId, 'p-late');
+    assert.strictEqual(getOutgoingPayment().status, 'completed');
+  });
+
+  it('does not let a later completed settlement overwrite a failed payment', () => {
+    beginOutgoingPayment({ paymentHash: 'h1', paymentId: 'p1' });
+    settleOutgoingPayment({ status: 'failed', paymentHash: 'h1' });
+    const settled = settleOutgoingPayment({
+      status: 'completed',
+      paymentHash: 'h1',
+      paymentId: 'p-late',
+      preimage: 'pre-late',
+    });
+    assert.strictEqual(settled.status, 'failed');
+    assert.strictEqual(settled.paymentId, 'p-late');
+    assert.strictEqual(settled.preimage, 'pre-late');
+    assert.strictEqual(getOutgoingPayment().status, 'failed');
+  });
+
+  it('does not let a later PaymentFailed event overwrite a completed payment', () => {
+    beginOutgoingPayment({ paymentHash: 'h1', paymentId: 'p1' });
+    applyOutgoingSdkEvent({
+      tag: SdkEvent_Tags.PaymentSucceeded,
+      inner: { payment: sendPayment('p1', PaymentStatus.Completed, { paymentHash: 'h1', preimage: 'pre-1' }) },
+    });
+    applyOutgoingSdkEvent({
+      tag: SdkEvent_Tags.PaymentFailed,
+      inner: { payment: sendPayment('p1', PaymentStatus.Failed, { paymentHash: 'h1' }) },
+    });
+    const outgoing = getOutgoingPayment();
+    assert.strictEqual(outgoing.status, 'completed');
+    assert.strictEqual(outgoing.preimage, 'pre-1');
+  });
+
+  it('does not let a later PaymentSucceeded event overwrite a failed payment', () => {
+    beginOutgoingPayment({ paymentHash: 'h1', paymentId: 'p1' });
+    applyOutgoingSdkEvent({
+      tag: SdkEvent_Tags.PaymentFailed,
+      inner: { payment: sendPayment('p1', PaymentStatus.Failed, { paymentHash: 'h1' }) },
+    });
+    applyOutgoingSdkEvent({
+      tag: SdkEvent_Tags.PaymentSucceeded,
+      inner: { payment: sendPayment('p1', PaymentStatus.Completed, { paymentHash: 'h1', preimage: 'pre-late' }) },
+    });
+    const outgoing = getOutgoingPayment();
+    assert.strictEqual(outgoing.status, 'failed');
+    assert.strictEqual(outgoing.preimage, 'pre-late');
+  });
+
+  it('does not let an unclaimed failure overwrite a completed payment on re-registration', () => {
+    beginOutgoingPayment({ paymentHash: 'h1' });
+    settleOutgoingPayment({ status: 'completed', paymentHash: 'h1', preimage: 'pre-1' });
+    const lateFail = sendPayment('p-late', PaymentStatus.Failed, { invoice: 'lnbc1same' });
+    lateFail.details.inner.htlcDetails = {};
+    delete lateFail.id;
+    applyOutgoingSdkEvent({
+      tag: SdkEvent_Tags.PaymentFailed,
+      inner: { payment: lateFail },
+    });
+    assert.strictEqual(getOutgoingPayment().status, 'completed');
+
+    const again = beginOutgoingPayment({ paymentHash: 'h1', invoice: 'lnbc1same' });
+    assert.strictEqual(again.status, 'completed');
+    assert.strictEqual(again.preimage, 'pre-1');
+    assert.strictEqual(again.invoice, 'lnbc1same');
   });
 });

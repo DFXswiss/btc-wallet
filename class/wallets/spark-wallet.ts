@@ -517,9 +517,6 @@ export class SparkWallet extends AbstractWallet {
       });
       payment = sent.payment;
     } catch (e) {
-      if (e instanceof SparkSessionStaleError || this.sessionGone(lease)) {
-        return { status: SparkPayInvoiceStatus.Pending, paymentHash };
-      }
       const tracked = getOutgoingPayment();
       if (tracked?.paymentHash === paymentHash) {
         if (tracked.status === 'completed') {
@@ -532,22 +529,33 @@ export class SparkWallet extends AbstractWallet {
         // Undetermined send error: keep the tracker so a later SDK event can settle it.
         return { status: SparkPayInvoiceStatus.Pending, paymentHash };
       }
+      if (e instanceof SparkSessionStaleError || this.sessionGone(lease)) {
+        return { status: SparkPayInvoiceStatus.Pending, paymentHash };
+      }
       throw e;
     }
 
     if (payment.status === PaymentStatus.Failed) {
-      settleOutgoingPayment({ status: 'failed', paymentHash, paymentId: payment.id });
+      const settled = settleOutgoingPayment({ status: 'failed', paymentHash, paymentId: payment.id });
+      if (settled?.paymentHash === paymentHash && settled.status === 'completed') {
+        this.recordPaidInvoice(payment, settled.preimage);
+        return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: settled.paymentId };
+      }
       throw new Error(loc.wallets.lightning_spark_payment_failed);
     }
 
     if (payment.status === PaymentStatus.Completed) {
-      this.recordPaidInvoice(payment);
-      settleOutgoingPayment({
+      const lightningDetails = payment.details && payment.details.tag === PaymentDetails_Tags.Lightning ? payment.details.inner : undefined;
+      const settled = settleOutgoingPayment({
         status: 'completed',
         paymentHash,
         paymentId: payment.id,
-        preimage: this.last_paid_invoice_result?.payment_preimage,
+        preimage: lightningDetails?.htlcDetails?.preimage,
       });
+      if (settled?.paymentHash === paymentHash && settled.status === 'failed') {
+        throw new Error(loc.wallets.lightning_spark_payment_failed);
+      }
+      this.recordPaidInvoice(payment, settled?.paymentHash === paymentHash ? settled.preimage : undefined);
       return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: payment.id };
     }
 
