@@ -137,7 +137,10 @@ function WatchConnectivity() {
             // either sleep expired or getAddressAsync threw an exception
             try {
               receiveAddress = wallet.getAddress();
-            } catch (_) {}
+            } catch (_) {
+              // SparkWallet inherits AbstractWallet.getAddress(), which throws.
+              // Leave receiveAddress unset so this wallet still reaches the watch.
+            }
           }
         }
         const transactions = wallet.getTransactions(10);
@@ -210,7 +213,10 @@ function WatchConnectivity() {
           walletInformation.xpub = wallet.getXpub() ? wallet.getXpub() : wallet.getSecret();
         }
         walletsToProcess.push(walletInformation);
-      } catch (_) {}
+      } catch (e) {
+        // Skip this wallet so the remaining ones still reach the watch.
+        console.warn('WatchConnectivity: skipped wallet for watch sync', wallet.type, e instanceof Error ? e.name : typeof e);
+      }
     }
     updateApplicationContext({ wallets: walletsToProcess, randomID: Math.floor(Math.random() * 11) });
   };
