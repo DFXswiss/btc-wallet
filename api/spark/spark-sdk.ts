@@ -125,10 +125,7 @@ async function runLifecycle<T>(op: () => Promise<T>): Promise<T> {
   });
   // Race observes this reject. The extra handler keeps it from becoming an
   // unhandled rejection when the race consumer attaches after a timer flush.
-  timeout.then(
-    () => undefined,
-    () => undefined,
-  );
+  timeout.catch(() => undefined);
   try {
     return await Promise.race([work, timeout]);
   } finally {
@@ -145,10 +142,7 @@ async function runLifecycle<T>(op: () => Promise<T>): Promise<T> {
 }
 
 function enqueueLifecycle<T>(op: () => Promise<T>): Promise<T> {
-  const run = lifecycleTail.then(
-    () => runLifecycle(op),
-    () => runLifecycle(op),
-  );
+  const run = lifecycleTail.then(() => runLifecycle(op));
   lifecycleTail = run.then(
     () => undefined,
     () => undefined,
@@ -316,10 +310,6 @@ async function connectLocked(
         }
       }
 
-      if (epoch !== lifecycleEpoch) {
-        discardStaleInstance(instance);
-        throw new SparkLifecycleHungError();
-      }
       sdk = instance;
       listenerId = newListenerId;
       connectedSeedFingerprint = fingerprint;
