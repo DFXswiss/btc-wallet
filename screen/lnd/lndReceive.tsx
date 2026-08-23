@@ -268,7 +268,9 @@ const LNDReceive = () => {
       }, 1000);
 
       setInvoiceRequest(invoiceRequest);
-      if (Platform.OS === 'android') startReading(handleNfcRead(invoiceRequest));
+      if (Platform.OS === 'android' && wallet.type === LightningLdsWallet.type) {
+        startReading(handleNfcRead(invoiceRequest));
+      }
     } catch (error) {
       ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
       alert(error instanceof Error ? error.message : String(error));

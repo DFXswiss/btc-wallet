@@ -20,13 +20,18 @@ jest.mock('../../blue_modules/notifications', () => ({
   majorTomToGroundControl: jest.fn(),
   tryToObtainPermissions: jest.fn().mockResolvedValue(true),
 }));
-jest.mock('../../hooks/nfc.hook', () => ({
-  useNFC: () => ({
-    isNfcActive: false,
-    startReading: jest.fn(),
-    stopReading: jest.fn(),
-  }),
-}));
+jest.mock('../../hooks/nfc.hook', () => {
+  const startReading = jest.fn();
+  const stopReading = jest.fn();
+  return {
+    useNFC: () => ({
+      isNfcActive: false,
+      startReading,
+      stopReading,
+    }),
+    __nfc: { startReading, stopReading },
+  };
+});
 jest.mock('../../components/QRCodeComponent', () => {
   const RN = require('react');
   const { Text, View } = require('react-native');
@@ -104,6 +109,8 @@ const { Chain } = require('../../models/bitcoinUnits');
 const { BlueStorageContext } = require('../../blue_modules/storage-context');
 const loc = require('../../loc').default;
 const { reportError } = require('../../helpers/errors');
+const { __nfc } = require('../../hooks/nfc.hook');
+const { Platform } = require('react-native');
 
 function paidUserInvoice() {
   return {
@@ -316,6 +323,40 @@ describe('LNDReceive with SparkWallet', () => {
     const ldsScreen = renderReceive(makeLdsReceiveWallet('lds-receive-1'));
     await createInvoice(ldsScreen);
     expect(ldsScreen.getByText('Use Boltcard')).toBeTruthy();
+  });
+
+  it('does not start the NFC reader for a Spark wallet on Android', async () => {
+    const previousOS = Platform.OS;
+    Platform.OS = 'android';
+    try {
+      const wallet = makeSparkReceiveWallet('spark-receive-nfc');
+      const screen = renderReceive(wallet);
+      await createInvoice(screen);
+      await waitFor(() => expect(mockSdk.receivePayment).toHaveBeenCalled());
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(__nfc.startReading).not.toHaveBeenCalled();
+      screen.unmount();
+    } finally {
+      Platform.OS = previousOS;
+    }
+  });
+
+  it('starts the NFC reader for an LDS wallet on Android', async () => {
+    const previousOS = Platform.OS;
+    Platform.OS = 'android';
+    try {
+      const wallet = makeLdsReceiveWallet('lds-receive-nfc');
+      const screen = renderReceive(wallet);
+      await createInvoice(screen);
+      await waitFor(() => expect(wallet.addInvoice).toHaveBeenCalled());
+      await waitFor(() => expect(__nfc.startReading).toHaveBeenCalledTimes(1));
+      screen.unmount();
+    } finally {
+      Platform.OS = previousOS;
+    }
   });
 
   it('clears the pending poll timeout on unmount so no poller starts (Spark)', async () => {
