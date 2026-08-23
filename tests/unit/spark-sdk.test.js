@@ -108,14 +108,15 @@ describe('spark-sdk', () => {
     await connectSparkSdk('one two three four five six seven eight nine ten eleven about', async () => {});
     await disconnectSparkSdk();
     assert.strictEqual(isSparkSdkConnected(), false);
-    expect(warn).toHaveBeenCalled();
     // Class/name only — not full Error.message (seed/key may appear there).
-    for (const args of warn.mock.calls) {
-      assert.ok(!String(args[1] || '').includes('listener gone'));
-      assert.ok(!String(args[1] || '').includes('native down'));
-      if (args[0] && String(args[0]).includes('disconnectSparkSdk')) {
-        assert.strictEqual(args[1], 'Error');
-      }
+    const teardownWarns = warn.mock.calls.filter(
+      args => args[0] === 'disconnectSparkSdk: removeEventListener failed' || args[0] === 'disconnectSparkSdk: disconnect failed',
+    );
+    assert.strictEqual(teardownWarns.length, 2);
+    for (const args of teardownWarns) {
+      assert.strictEqual(args[1], 'Error');
+      assert.ok(!args.some(arg => String(arg).includes('listener gone')));
+      assert.ok(!args.some(arg => String(arg).includes('native down')));
     }
     warn.mockRestore();
   });
@@ -126,8 +127,15 @@ describe('spark-sdk', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     await connectSparkSdk('one two three four five six seven eight nine ten eleven about', async () => {});
     await disconnectSparkSdk();
-    const kinds = warn.mock.calls.filter(args => String(args[0]).includes('disconnectSparkSdk')).map(args => args[1]);
-    assert.ok(kinds.includes('string'));
+    const teardownWarns = warn.mock.calls.filter(
+      args => args[0] === 'disconnectSparkSdk: removeEventListener failed' || args[0] === 'disconnectSparkSdk: disconnect failed',
+    );
+    assert.strictEqual(teardownWarns.length, 2);
+    for (const args of teardownWarns) {
+      assert.strictEqual(args[1], 'string');
+      assert.ok(!args.some(arg => String(arg).includes('listener gone')));
+      assert.ok(!args.some(arg => String(arg).includes('native down')));
+    }
     warn.mockRestore();
   });
 
@@ -171,11 +179,11 @@ describe('spark-sdk', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     await assert.rejects(() => connectSparkSdk('one two three four five six seven eight nine ten eleven about'), /info down/);
     expect(mockInstance.disconnect).toHaveBeenCalled();
-    const connectWarns = warn.mock.calls.filter(args => String(args[0]).includes('connectSparkSdk: disconnect failed'));
+    const connectWarns = warn.mock.calls.filter(args => args[0] === 'connectSparkSdk: disconnect failed');
     assert.strictEqual(connectWarns.length, 1);
     assert.strictEqual(connectWarns[0][1], 'Error');
-    assert.ok(!String(connectWarns[0][1]).includes('teardown down'));
-    assert.ok(!String(connectWarns[0][1]).includes('info down'));
+    assert.ok(!connectWarns[0].some(arg => String(arg).includes('teardown down')));
+    assert.ok(!connectWarns[0].some(arg => String(arg).includes('info down')));
     warn.mockRestore();
   });
 
@@ -184,8 +192,10 @@ describe('spark-sdk', () => {
     mockInstance.disconnect.mockRejectedValueOnce('teardown down');
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     await assert.rejects(() => connectSparkSdk('one two three four five six seven eight nine ten eleven about'), /info down/);
-    const kinds = warn.mock.calls.filter(args => String(args[0]).includes('connectSparkSdk: disconnect failed')).map(args => args[1]);
-    assert.ok(kinds.includes('string'));
+    const connectWarns = warn.mock.calls.filter(args => args[0] === 'connectSparkSdk: disconnect failed');
+    assert.strictEqual(connectWarns.length, 1);
+    assert.strictEqual(connectWarns[0][1], 'string');
+    assert.ok(!connectWarns[0].some(arg => String(arg).includes('teardown down')));
     warn.mockRestore();
   });
 
@@ -195,9 +205,10 @@ describe('spark-sdk', () => {
     await connectSparkSdk('one two three four five six seven eight nine ten eleven about', async () => {});
     await disconnectSparkSdk();
     expect(mockInstance.removeEventListener).toHaveBeenCalledWith('listener-1');
-    const listenerWarns = warn.mock.calls.filter(args => String(args[0]).includes('disconnectSparkSdk: removeEventListener failed'));
+    const listenerWarns = warn.mock.calls.filter(args => args[0] === 'disconnectSparkSdk: removeEventListener failed');
     assert.strictEqual(listenerWarns.length, 1);
     assert.strictEqual(listenerWarns[0][1], 'Error');
+    assert.ok(!listenerWarns[0].some(arg => String(arg).includes('listener gone')));
     warn.mockRestore();
   });
 
@@ -1193,11 +1204,12 @@ describe('spark-sdk', () => {
         assert.strictEqual(lease.requireSdk(), instanceB);
         assert.strictEqual(acquireSparkSessionLease().requireSdk(), instanceB);
         expect(instanceB.disconnect).not.toHaveBeenCalled();
-        const staleWarns = warn.mock.calls.filter(args => String(args[0]).includes('connectSparkSdk: disconnect failed'));
-        assert.ok(staleWarns.length >= 1);
+        const staleWarns = warn.mock.calls.filter(args => args[0] === 'connectSparkSdk: disconnect failed');
+        // Two calls: stale getInfo hits discardStaleInstance, then the catch hits it again.
+        assert.strictEqual(staleWarns.length, 2);
         for (const args of staleWarns) {
           assert.strictEqual(args[1], 'Error');
-          assert.ok(!String(args[1]).includes('native down'));
+          assert.ok(!args.some(arg => String(arg).includes('native down')));
         }
         warn.mockRestore();
       });

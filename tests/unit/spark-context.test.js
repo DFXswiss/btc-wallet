@@ -250,11 +250,11 @@ describe('SparkContextProvider', () => {
       username: expectedUsername('pk-1', 1),
       description: loc.wallets.lightning_spark_wallet_label,
     });
-    expect(warn.mock.calls.some(c => c[0] === 'SparkContext: registerLightningAddress failed' && c[1] === 'Error')).toBe(true);
-    for (const args of warn.mock.calls) {
-      if (args[0] === 'SparkContext: registerLightningAddress failed') {
-        assert.ok(!String(args[1]).includes('name taken'));
-      }
+    const registerCalls = warn.mock.calls.filter(c => c[0] === 'SparkContext: registerLightningAddress failed');
+    assert.strictEqual(registerCalls.length, 1);
+    for (const args of registerCalls) {
+      assert.strictEqual(args[1], 'Error');
+      assert.ok(!args.some(arg => String(arg).includes('name taken')));
     }
     warn.mockRestore();
   });
@@ -527,9 +527,9 @@ describe('SparkContextProvider', () => {
     assert.strictEqual(lnCalls.length, 1);
     for (const args of lnCalls) {
       assert.strictEqual(args[1], 'Error');
-      assert.ok(!String(args[1]).includes('lnaddr down'));
-      assert.ok(!String(args[1]).includes('API_KEY'));
-      assert.ok(!String(args[1]).includes('secret'));
+      assert.ok(!args.some(arg => String(arg).includes('lnaddr down')));
+      assert.ok(!args.some(arg => String(arg).includes('API_KEY')));
+      assert.ok(!args.some(arg => String(arg).includes('secret')));
     }
     alert.mockRestore();
     warn.mockRestore();
@@ -1163,8 +1163,9 @@ describe('SparkContextProvider', () => {
     assert.strictEqual(syncCalls.length, 1);
     for (const args of syncCalls) {
       assert.strictEqual(args[1], 'Error');
-      assert.ok(!String(args[1]).includes('sync fail'));
-      assert.ok(!String(args[1]).includes('SEED_MARKER'));
+      // The log tag is '…sync failed'; a bare 'sync fail' would match it.
+      assert.ok(!args.some(arg => String(arg).includes('sync fail SEED_MARKER')));
+      assert.ok(!args.some(arg => String(arg).includes('SEED_MARKER')));
     }
     warn.mockRestore();
     AppState.addEventListener = orig;
@@ -1212,9 +1213,11 @@ describe('SparkContextProvider', () => {
 
     const reconnectCalls = warn.mock.calls.filter(c => c[0] === 'SparkContext: foreground reconnect failed');
     assert.strictEqual(reconnectCalls.length, 1);
-    assert.strictEqual(reconnectCalls[0][1], 'Error');
-    assert.ok(!String(reconnectCalls[0][1]).includes('offline'));
-    assert.ok(!String(reconnectCalls[0][1]).includes('SEED_MARKER'));
+    for (const args of reconnectCalls) {
+      assert.strictEqual(args[1], 'Error');
+      assert.ok(!args.some(arg => String(arg).includes('offline')));
+      assert.ok(!args.some(arg => String(arg).includes('SEED_MARKER')));
+    }
     expect(mockSync).not.toHaveBeenCalled();
     warn.mockRestore();
     AppState.addEventListener = orig;
