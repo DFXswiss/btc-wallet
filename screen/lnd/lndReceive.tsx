@@ -39,6 +39,8 @@ import useInputAmount from '../../hooks/useInputAmount';
 import { SuccessView } from '../send/success';
 import { useNFC } from '../../hooks/nfc.hook';
 import BoltCard from '../../class/boltcard';
+import { reportError } from '../../helpers/errors';
+
 interface RouteParams {
   walletID: string;
 }
@@ -243,7 +245,11 @@ const LNDReceive = () => {
       const generation = pollGeneration.current;
       invoicePollTimeout.current = setTimeout(async () => {
         invoicePollTimeout.current = undefined;
-        await wallet.getUserInvoices(1);
+        try {
+          await wallet.getUserInvoices(1);
+        } catch (error) {
+          reportError('lndReceive: prefetch invoices failed', error);
+        }
         if (generation !== pollGeneration.current) {
           return;
         }

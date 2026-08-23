@@ -46,17 +46,18 @@ secure_delete() {
 }
 
 # ── keystores + breez overlay: write to temp files, guarantee cleanup ─────────
+# Trap before the second mktemp: if a later mktemp or chmod fails, set -e would
+# otherwise exit with the already-created files still in /tmp.
 KEYSTORE="$(mktemp /tmp/app-signing.XXXXXX.keystore)"
+cleanup() {
+  secure_delete "${KEYSTORE:-}"
+  secure_delete "${TRANSPARENCY_KEYSTORE:-}"
+  secure_delete "${BREEZ_ENVFILE:-}"
+}
+trap cleanup EXIT INT TERM
 TRANSPARENCY_KEYSTORE="$(mktemp /tmp/transparency.XXXXXX.keystore)"
 BREEZ_ENVFILE="$(mktemp /tmp/breez-env.XXXXXX)"
 chmod 600 "$KEYSTORE" "$TRANSPARENCY_KEYSTORE" "$BREEZ_ENVFILE"
-
-cleanup() {
-  secure_delete "$KEYSTORE"
-  secure_delete "$TRANSPARENCY_KEYSTORE"
-  secure_delete "$BREEZ_ENVFILE"
-}
-trap cleanup EXIT INT TERM
 
 printf '%s' "$KEYSTORE_FILE_HEX"         | xxd -plain -revert > "$KEYSTORE"
 printf '%s' "$TRANSPARENCY_KEYSTORE_HEX" | xxd -plain -revert > "$TRANSPARENCY_KEYSTORE"
