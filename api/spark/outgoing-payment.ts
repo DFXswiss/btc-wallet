@@ -130,7 +130,7 @@ export function beginOutgoingPayment(identity: OutgoingPaymentIdentity): Outgoin
       paymentHash: identity.paymentHash || current.paymentHash,
       invoice: identity.invoice || current.invoice,
       preimage: claimed?.preimage || current.preimage,
-      status: claimed && claimed.status !== 'pending' ? claimed.status : current.status,
+      status: claimed ? claimed.status : current.status,
     };
     notify();
     return current;
@@ -232,11 +232,6 @@ export function applyOutgoingSdkEvent(event: SdkEvent): OutgoingPayment | null {
     });
   }
   return current;
-}
-
-export function clearOutgoingPayment(): void {
-  current = null;
-  notify();
 }
 
 export function __resetOutgoingPaymentForTests(): void {
