@@ -869,6 +869,29 @@ describe('spark-sdk', () => {
       warn.mockRestore();
     });
 
+    it('lets the next connect proceed after a timed-out native connect rejects', async () => {
+      let rejectConnect;
+      breez.connect.mockImplementation(
+        () =>
+          new Promise((_resolve, reject) => {
+            rejectConnect = reject;
+          }),
+      );
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const pending = connectSparkSdk(seed);
+      await expectHungLifecycle(pending);
+      assert.ok(typeof rejectConnect === 'function');
+
+      rejectConnect(new Error('network down'));
+      await flush();
+
+      breez.connect.mockResolvedValueOnce(mockInstance);
+      const next = await connectSparkSdk(seed);
+      assert.strictEqual(next, mockInstance);
+      assert.strictEqual(isSparkSdkConnected(), true);
+      warn.mockRestore();
+    });
+
     describe('epoch guards', () => {
       it('keeps a newer in-flight connect owned when the timed-out predecessor returns late', async () => {
         const instanceA = makeSdkInstance('a');

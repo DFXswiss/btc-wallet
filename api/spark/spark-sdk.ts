@@ -30,8 +30,8 @@ let lifecycleTail: Promise<void> = Promise.resolve();
 let lifecycleEpoch = 0;
 /** Native instance of a connect that has returned but is not yet committed. */
 let inFlightInstance: BreezSdkInterface | null = null;
-/** True from the native connect() call until that connectLocked attempt exits. */
-let pendingNativeConnect = false;
+/** Connect attempt currently holding the fail-closed lock, or null. */
+let pendingNativeConnect: { readonly nativeConnect: true } | null = null;
 /** True while teardownInstance is awaiting a native remove/disconnect. */
 let teardownInFlight = false;
 
@@ -248,36 +248,37 @@ async function connectLocked(
   }
 
   const epoch = lifecycleEpoch;
-  const resolvedPassphrase = seedPassphrase(passphrase);
-  const fingerprint = fingerprintSeed(mnemonic, resolvedPassphrase);
-
-  if (sdk && connectedSeedFingerprint === fingerprint) {
-    return sdk;
-  }
-
-  if (sdk || poisonedSdk) {
-    await disconnectLocked();
-    if (poisonedSdk) {
-      throw new Error('Spark SDK previous session is still open');
-    }
-    if (epoch !== lifecycleEpoch) {
-      throw new SparkLifecycleHungError();
-    }
-  }
-
-  const apiKey = Config.BREEZ_API_KEY;
-  if (!apiKey) {
-    throw new Error(BREEZ_API_KEY_MISSING);
-  }
-
-  const config = defaultConfig(Network.Mainnet);
-  config.apiKey = apiKey;
-  // A cap, not "always claim": expensive blocks must not spend unbounded sats for the user.
-  config.maxDepositClaimFee = new MaxFee.Rate({ satPerVbyte: MAX_DEPOSIT_CLAIM_FEE_SAT_PER_VBYTE });
-
-  const seed = new Seed.Mnemonic({ mnemonic, passphrase: resolvedPassphrase });
-  pendingNativeConnect = true;
+  const nativeConnectAttempt = { nativeConnect: true as const };
+  pendingNativeConnect = nativeConnectAttempt;
   try {
+    const resolvedPassphrase = seedPassphrase(passphrase);
+    const fingerprint = fingerprintSeed(mnemonic, resolvedPassphrase);
+
+    if (sdk && connectedSeedFingerprint === fingerprint) {
+      return sdk;
+    }
+
+    if (sdk || poisonedSdk) {
+      await disconnectLocked();
+      if (poisonedSdk) {
+        throw new Error('Spark SDK previous session is still open');
+      }
+      if (epoch !== lifecycleEpoch) {
+        throw new SparkLifecycleHungError();
+      }
+    }
+
+    const apiKey = Config.BREEZ_API_KEY;
+    if (!apiKey) {
+      throw new Error(BREEZ_API_KEY_MISSING);
+    }
+
+    const config = defaultConfig(Network.Mainnet);
+    config.apiKey = apiKey;
+    // A cap, not "always claim": expensive blocks must not spend unbounded sats for the user.
+    config.maxDepositClaimFee = new MaxFee.Rate({ satPerVbyte: MAX_DEPOSIT_CLAIM_FEE_SAT_PER_VBYTE });
+
+    const seed = new Seed.Mnemonic({ mnemonic, passphrase: resolvedPassphrase });
     const instance = await connect({
       config,
       seed,
@@ -331,11 +332,12 @@ async function connectLocked(
       throw e;
     }
   } finally {
-    // A timed-out connect keeps running natively. In the meantime a newer
-    // lifecycle may have claimed these globals, so only release state that
-    // still belongs to this attempt.
-    if (epoch === lifecycleEpoch) {
-      pendingNativeConnect = false;
+    // A timed-out connect keeps running natively. A later attempt may have
+    // claimed these globals, so only release state that still belongs here.
+    // Identity, not epoch: a hang (no settle) keeps the lock; a settle —
+    // instance or error — releases it even after the epoch moved on.
+    if (pendingNativeConnect === nativeConnectAttempt) {
+      pendingNativeConnect = null;
       inFlightInstance = null;
     }
   }
@@ -370,7 +372,7 @@ export function __resetSparkSdkForTests(): void {
   lifecycleTail = Promise.resolve();
   lifecycleEpoch = 0;
   inFlightInstance = null;
-  pendingNativeConnect = false;
+  pendingNativeConnect = null;
   teardownInFlight = false;
   lifecycleTimeoutMs = SPARK_LIFECYCLE_TIMEOUT_MS;
 }
