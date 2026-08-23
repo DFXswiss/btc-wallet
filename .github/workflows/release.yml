@@ -112,6 +112,7 @@ jobs:
           echo "FASTLANE_APPLE_API_ISSUER_ID=${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}" >> "$GITHUB_ENV"
           echo "MATCH_PASSWORD=${{ secrets.MATCH_PASSWORD }}" >> "$GITHUB_ENV"
       - name: Build + upload to TestFlight + stage listing
+        working-directory: ios
         env:
           NEW_VERSION: ${{ github.ref_name }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -119,26 +120,7 @@ jobs:
           SENTRY_ORG: sentry
           SENTRY_PROJECT: btc-taro
           BREEZ_API_KEY: ${{ secrets.BREEZ_API_KEY }}
-        run: |
-          set -euo pipefail
-          for var in BREEZ_API_KEY; do
-            [ -n "${!var:-}" ] || { echo "Missing required env: $var" >&2; exit 1; }
-          done
-          BREEZ_ENVFILE="$(mktemp /tmp/breez-env.XXXXXX)"
-          chmod 600 "$BREEZ_ENVFILE"
-          cleanup() {
-            for f in "$BREEZ_ENVFILE" /tmp/envfile /tmp/breez-ci-envfile-marker; do
-              [ -f "$f" ] || continue
-              if command -v shred &>/dev/null; then shred -u "$f"; else rm -Pf "$f"; fi
-            done
-          }
-          trap cleanup EXIT INT TERM
-          # .env.prd has no trailing newline; leading \n keeps BREEZ_API_KEY on its own line.
-          cp .env.prd "$BREEZ_ENVFILE"
-          printf '\nBREEZ_API_KEY=%s\n' "$BREEZ_API_KEY" >> "$BREEZ_ENVFILE"
-          echo "$BREEZ_ENVFILE" > /tmp/envfile
-          touch /tmp/breez-ci-envfile-marker
-          (cd ios && bundle exec fastlane release)
+        run: bundle exec fastlane release
 
   android-deploy:
     name: Android -> Play internal + listing
