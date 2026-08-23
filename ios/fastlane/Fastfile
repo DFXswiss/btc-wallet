@@ -43,15 +43,26 @@ def breez_overlay_ready?(path)
 end
 
 def remove_file_if_present(path)
-  File.open(path, "r+b") do |f|
-    size = f.size
-    f.write(SecureRandom.random_bytes(size)) if size > 0
-    f.flush
-    f.fsync
+  begin
+    File.open(path, "r+b") do |f|
+      size = f.size
+      f.write(SecureRandom.random_bytes(size)) if size > 0
+      f.flush
+      f.fsync
+    end
+  rescue Errno::ENOENT
+    nil
+  rescue StandardError => e
+    UI.error("overwrite failed: #{e.class}")
   end
-  File.delete(path)
-rescue Errno::ENOENT
-  nil
+
+  begin
+    File.delete(path)
+  rescue Errno::ENOENT
+    nil
+  rescue StandardError => e
+    UI.error("delete failed: #{e.class}")
+  end
 end
 
 def with_breez_overlay
