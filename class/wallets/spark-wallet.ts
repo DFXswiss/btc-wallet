@@ -16,7 +16,7 @@ import {
 } from '@breeztech/breez-sdk-spark-react-native';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import { acquireSparkSessionLease, SparkSessionStaleError, type SparkSessionLease } from '../../api/spark/spark-sdk';
-import { beginOutgoingPayment, clearOutgoingPayment, getOutgoingPayment, settleOutgoingPayment } from '../../api/spark/outgoing-payment';
+import { beginOutgoingPayment, getOutgoingPayment, settleOutgoingPayment } from '../../api/spark/outgoing-payment';
 import loc from '../../loc';
 import { AbstractWallet } from './abstract-wallet';
 
@@ -529,7 +529,8 @@ export class SparkWallet extends AbstractWallet {
         if (tracked.status === 'failed') {
           throw new Error(loc.wallets.lightning_spark_payment_failed);
         }
-        clearOutgoingPayment();
+        // Undetermined send error: keep the tracker so a later SDK event can settle it.
+        return { status: SparkPayInvoiceStatus.Pending, paymentHash };
       }
       throw e;
     }

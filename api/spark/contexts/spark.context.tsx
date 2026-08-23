@@ -189,10 +189,18 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
           writeLightningAddress(target, lnInfo.lightningAddress);
         } else if (!target.lnAddress && !lnAddressRegisterAttemptedRef.current && target.identityPubkey) {
           lnAddressRegisterAttemptedRef.current = true;
-          const registered = await registerLightningAddressOnce(target.identityPubkey, loc.wallets.lightning_spark_wallet_label, lease);
-          lease.requireSdk();
-          if (registered) {
-            writeLightningAddress(target, registered);
+          try {
+            const registered = await registerLightningAddressOnce(target.identityPubkey, loc.wallets.lightning_spark_wallet_label, lease);
+            lease.requireSdk();
+            if (registered) {
+              writeLightningAddress(target, registered);
+            }
+          } catch (e) {
+            if (e instanceof SparkSessionStaleError) {
+              // Same wallet identity: the connect effect does not re-run, so retry must be re-enabled here.
+              lnAddressRegisterAttemptedRef.current = false;
+            }
+            throw e;
           }
         }
         await saveToDisk();

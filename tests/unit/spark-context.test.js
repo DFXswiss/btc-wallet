@@ -317,6 +317,28 @@ describe('SparkContextProvider', () => {
     warn.mockRestore();
   });
 
+  it('retries Lightning address registration after a stale session on the same wallet', async () => {
+    const { SparkSessionStaleError } = require('../../api/spark/spark-sdk');
+    mockSdk.getLightningAddress.mockResolvedValue(undefined);
+    mockSdk.registerLightningAddress.mockRejectedValueOnce(new SparkSessionStaleError());
+    const existing = stubSparkMethods(SparkWallet.create('stale-pk'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    renderWith([hdWallet, existing]);
+    await waitFor(() => expect(mockSdk.registerLightningAddress).toHaveBeenCalledTimes(1));
+    assert.strictEqual(existing.lnAddress, undefined);
+
+    mockSdk.registerLightningAddress.mockClear();
+    mockSdk.registerLightningAddress.mockResolvedValue({ lightningAddress: 'late@breez.blitz' });
+    const onEvent = mockConnect.lastOnEvent;
+    await act(async () => {
+      await onEvent({ tag: SdkEvent_Tags.Synced });
+    });
+    await waitFor(() => expect(mockSdk.registerLightningAddress).toHaveBeenCalledTimes(1));
+    assert.strictEqual(existing.lnAddress, 'late@breez.blitz');
+    expect(saveToDisk).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   it('does not retry registration on later refreshes when the first retry failed', async () => {
     mockSdk.getLightningAddress.mockResolvedValue(undefined);
     mockSdk.registerLightningAddress.mockRejectedValue(new Error('register down'));
