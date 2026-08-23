@@ -16,6 +16,9 @@ import {
 import navigationStyle from '../../components/navigationStyle';
 import AmountInput from '../../components/AmountInput';
 import Lnurl from '../../class/lnurl';
+import { LightningCustodianWallet } from '../../class/wallets/lightning-custodian-wallet';
+import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
+import { SparkWallet, sparkMaxSendFeeSats } from '../../class/wallets/spark-wallet';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
@@ -23,6 +26,12 @@ import alert from '../../components/Alert';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import { isFreeDomain, isInternalDomain } from '../../helpers/freeLightningDomains';
 const currency = require('../../blue_modules/currency');
+
+/** LNDHub (custodian / LDS) waives fees for listed domains. Spark does not. */
+function walletWaivesDomainFees(fromWallet) {
+  if (!fromWallet) return false;
+  return fromWallet.type === LightningCustodianWallet.type || fromWallet.type === LightningLdsWallet.type;
+}
 
 const ScanLndInvoice = () => {
   const { wallets } = useContext(BlueStorageContext);
@@ -45,7 +54,6 @@ const ScanLndInvoice = () => {
   const [desc, setDesc] = useState();
   const [isDescDisabled, setIsDescDisabled] = useState(false);
   const [expiresIn, setExpiresIn] = useState();
-  const [domain, setDomain] = useState('');
   const [isTxFree, setIsTxFree] = useState(false);
 
   const stylesHook = StyleSheet.create({
@@ -98,10 +106,8 @@ const ScanLndInvoice = () => {
     setIsAmountInputDisabled(false);
     setDesc(ln.getDescription());
     setIsDescDisabled(Boolean(ln.getDescription()));
-    setDomain(ln.getDomain());
-    if (isFreeDomain(ln.getDomain())) {
-      setIsTxFree(true);
-    }
+    const lnurlDomain = ln.getDomain();
+    setIsTxFree(walletWaivesDomainFees(wallet) && (isInternalDomain(lnurlDomain) || isFreeDomain(lnurlDomain)));
     setIsLoading(false);
   };
 
@@ -109,11 +115,8 @@ const ScanLndInvoice = () => {
     setDestination(destinationString);
     setIsAmountInputDisabled(false);
     setIsDescDisabled(false);
-    const domain = Lnurl.getDomainFromLightningAddress(destinationString);
-    setDomain(domain);
-    if (isFreeDomain(domain)) {
-      setIsTxFree(true);
-    }
+    const addressDomain = Lnurl.getDomainFromLightningAddress(destinationString);
+    setIsTxFree(walletWaivesDomainFees(wallet) && (isInternalDomain(addressDomain) || isFreeDomain(addressDomain)));
   };
 
   const setLightningInvoiceDestination = destinationString => {
@@ -191,7 +194,10 @@ const ScanLndInvoice = () => {
     if (amountSat <= 0) return showError(loc.send.details_amount_field_is_not_valid);
 
     const isMax = amountSat === wallet.getBalance();
-    const maxFee = isTxFree ? 0 : Math.round(amountSat * 0.03);
+    let maxFee = 0;
+    if (!isTxFree) {
+      maxFee = wallet.type === SparkWallet.type ? sparkMaxSendFeeSats(amountSat) : Math.round(amountSat * 0.03);
+    }
     const remainingBalance = wallet.getBalance() - amountSat;
     if (!isMax && !isTxFree && maxFee > remainingBalance) return showError(loc.lnd.error_balance_for_insuficient_fee);
     const maxMultiplier = isTxFree ? 1 : 0.97; // max 3% fee set by LNBits
@@ -243,10 +249,10 @@ const ScanLndInvoice = () => {
   };
 
   const getFees = () => {
-    if (isTxFree || isInternalDomain(domain)) return loc._.free;
+    if (isTxFree) return loc._.free;
 
     const min = 0;
-    const max = Math.floor(amountSat * 0.03);
+    const max = wallet.type === SparkWallet.type ? sparkMaxSendFeeSats(amountSat) : Math.round(amountSat * 0.03);
     return `${min} ${BitcoinUnit.SATS} - ${max} ${BitcoinUnit.SATS}`;
   };
 

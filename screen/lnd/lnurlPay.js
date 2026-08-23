@@ -19,6 +19,9 @@ import {
 import navigationStyle from '../../components/navigationStyle';
 import AmountInput from '../../components/AmountInput';
 import Lnurl from '../../class/lnurl';
+import { LightningCustodianWallet } from '../../class/wallets/lightning-custodian-wallet';
+import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
+import { SparkWallet, sparkMaxSendFeeSats } from '../../class/wallets/spark-wallet';
 import { BitcoinUnit } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 import Biometric from '../../class/biometrics';
@@ -29,6 +32,12 @@ import { Text } from 'react-native-elements';
 import { isFreeDomain, isInternalDomain } from '../../helpers/freeLightningDomains';
 import { reportError } from '../../helpers/errors';
 const currency = require('../../blue_modules/currency');
+
+/** LNDHub (custodian / LDS) waives fees for listed domains. Spark does not. */
+function walletWaivesDomainFees(fromWallet) {
+  if (!fromWallet) return false;
+  return fromWallet.type === LightningCustodianWallet.type || fromWallet.type === LightningLdsWallet.type;
+}
 
 /**
  * if user has default currency - fiat, attempting to pay will trigger conversion from entered in input field fiat value
@@ -72,7 +81,7 @@ const LnurlPay = () => {
       ln.callLnurlPayService()
         .then(p => {
           const domain = ln.getDomain();
-          setIsTxFree(isInternalDomain(domain) || isFreeDomain(domain));
+          setIsTxFree(walletWaivesDomainFees(wallet) && (isInternalDomain(domain) || isFreeDomain(domain)));
           setPayload(p);
         })
         .catch(error => {
@@ -82,7 +91,7 @@ const LnurlPay = () => {
       setLN(ln);
       setIsLoading(false);
     }
-  }, [lnurl, destination, pop]);
+  }, [lnurl, destination, pop, wallet]);
 
   useEffect(() => {
     if (lnurl || (destination && Lnurl.isLightningAddress(destination))) {
@@ -95,9 +104,9 @@ const LnurlPay = () => {
       setAmount(amountSat);
       setUnit(amountUnit);
       setIsLoading(false);
-      setIsTxFree(free);
+      setIsTxFree(Boolean(free) && walletWaivesDomainFees(wallet));
     }
-  }, [invoice]);
+  }, [invoice, amountSat, amountUnit, free, wallet]);
 
   useEffect(() => {
     setPayButtonDisabled(isLoading);
@@ -282,7 +291,7 @@ const LnurlPay = () => {
 
   const getFees = () => {
     const min = 0;
-    const max = Math.round(amountSat * 0.03);
+    const max = wallet.type === SparkWallet.type ? sparkMaxSendFeeSats(amountSat) : Math.round(amountSat * 0.03);
     return `${min} ${BitcoinUnit.SATS} - ${max} ${BitcoinUnit.SATS}`;
   };
 

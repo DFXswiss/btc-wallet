@@ -100,7 +100,7 @@ function lightningReceive(id, invoice = `inv-${id}`) {
   };
 }
 
-const { SparkWallet, SparkPayInvoiceStatus } = require('../../class/wallets/spark-wallet');
+const { SparkWallet, SparkPayInvoiceStatus, sparkMaxSendFeeSats } = require('../../class/wallets/spark-wallet');
 const { BitcoinUnit, Chain } = require('../../models/bitcoinUnits');
 const loc = require('../../loc').default;
 const {
@@ -963,6 +963,13 @@ describe('SparkWallet', () => {
     const wallet = new SparkWallet();
     await wallet.payInvoice(SAMPLE_INVOICE, 0);
     expect(mockSdk.sendPayment).toHaveBeenCalledTimes(1);
+  });
+
+  it('sparkMaxSendFeeSats floors 3% and never goes below 1 sat', () => {
+    assert.strictEqual(sparkMaxSendFeeSats(10), 1);
+    assert.strictEqual(sparkMaxSendFeeSats(50), 1);
+    assert.strictEqual(sparkMaxSendFeeSats(100), 3);
+    assert.notStrictEqual(sparkMaxSendFeeSats(50), Math.round(50 * 0.03));
   });
 
   it('payInvoice does not send when prepare is not a bolt11 invoice', async () => {

@@ -24,6 +24,27 @@ jest.mock('../../class/biometrics', () => ({
 jest.mock('../../components/Alert', () => jest.fn());
 jest.mock('../../components/navigationStyle', () => () => options => options);
 jest.mock('../../helpers/errors', () => ({ reportError: jest.fn() }));
+// A Spark wallet that mounts "Fee: Free" never finishes in this renderer.
+// Record the line and skip the node so the case fails by name, not by hang.
+jest.mock('react-native-elements', () => {
+  const R = require('react');
+  const { Text: RNText } = require('react-native');
+  const actual = jest.requireActual('react-native-elements');
+  /* eslint-disable react/prop-types */
+  function Text(props) {
+    if (global.__forbidSparkFreeFee) {
+      const loc = require('../../loc').default;
+      const text = R.Children.toArray(props.children).join('');
+      if (text === `${loc.send.create_fee}: ${loc._.free}`) {
+        global.__sparkFreeFeeShown = true;
+        return null;
+      }
+    }
+    return R.createElement(RNText, props, props.children);
+  }
+  /* eslint-enable react/prop-types */
+  return { ...actual, Text };
+});
 
 const mockNavigate = jest.fn();
 const mockGoBack = jest.fn();
@@ -66,8 +87,9 @@ jest.mock('../../api/spark/spark-sdk', () => {
   };
 });
 
-const { SparkWallet } = require('../../class/wallets/spark-wallet');
+const { SparkWallet, sparkMaxSendFeeSats } = require('../../class/wallets/spark-wallet');
 const { BlueStorageContext } = require('../../blue_modules/storage-context');
+const { LightningCustodianWallet } = require('../../class');
 const LnurlPay = require('../../screen/lnd/lnurlPay').default;
 const Lnurl = require('../../class/lnurl').default;
 const loc = require('../../loc').default;
@@ -85,8 +107,31 @@ function makeWallet() {
   return wallet;
 }
 
+function makeLndhubWallet() {
+  return {
+    type: LightningCustodianWallet.type,
+    getID: () => 'lndhub-pay-1',
+    getBalance: () => 1_000_000,
+    getPreferredBalanceUnit: () => BitcoinUnit.SATS,
+    payInvoice: jest.fn(),
+  };
+}
+
+function mockLnurlDomain(domain) {
+  jest.spyOn(Lnurl.prototype, 'callLnurlPayService').mockResolvedValue({ description: 'tea', domain });
+  jest.spyOn(Lnurl.prototype, 'getDomain').mockReturnValue(domain);
+}
+
+function feeRangeText(max) {
+  return `${loc.send.create_fee}: 0 ${BitcoinUnit.SATS} - ${max} ${BitcoinUnit.SATS}`;
+}
+
+function freeFeeText() {
+  return `${loc.send.create_fee}: ${loc._.free}`;
+}
+
 function renderPay(wallet, extraParams = {}) {
-  mockRouteParams.walletID = 'spark-pay-1';
+  mockRouteParams.walletID = wallet.getID();
   mockRouteParams.invoice = SAMPLE_INVOICE;
   mockRouteParams.amountSat = 1000;
   mockRouteParams.amountUnit = BitcoinUnit.SATS;
@@ -247,5 +292,70 @@ describe('LnurlPay Spark pending send', () => {
       },
     });
     expect(alert).not.toHaveBeenCalled();
+  });
+});
+
+describe('LnurlPay fee mark', () => {
+  afterEach(() => {
+    global.__forbidSparkFreeFee = false;
+    global.__sparkFreeFeeShown = false;
+    jest.restoreAllMocks();
+  });
+
+  async function renderSparkFeeScreen(wallet, extraParams) {
+    global.__forbidSparkFreeFee = true;
+    global.__sparkFreeFeeShown = false;
+    const amountSat = extraParams.amountSat || 1000;
+    try {
+      const screen = renderPay(wallet, extraParams);
+      await waitFor(() => screen.getByText(feeRangeText(sparkMaxSendFeeSats(amountSat))));
+      return screen;
+    } catch (e) {
+      if (global.__sparkFreeFeeShown) {
+        throw new Error('fee line showed Free for a Spark payment');
+      }
+      throw e;
+    }
+  }
+
+  it('does not show Free for a Spark payment to a listed free domain', async () => {
+    mockLnurlDomain('lightning.space');
+    const screen = await renderSparkFeeScreen(makeWallet(), { invoice: undefined, lnurl: 'LNURL1TEST' });
+    assert.strictEqual(screen.queryByText(freeFeeText()), null);
+  });
+
+  it('still shows Free for an LNDHub payment to a listed free domain', async () => {
+    mockLnurlDomain('lightning.space');
+    const wallet = makeLndhubWallet();
+    const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST', walletID: wallet.getID() });
+
+    await waitFor(() => screen.getByText(freeFeeText()));
+    assert.strictEqual(screen.queryByText(loc.lnd.payButton) === null, false);
+  });
+
+  it('does not show Free for a Spark payment of an invoice marked free', async () => {
+    const screen = await renderSparkFeeScreen(makeWallet(), { free: true });
+    assert.strictEqual(screen.queryByText(freeFeeText()), null);
+  });
+
+  it('still shows Free for an LNDHub payment of an invoice marked free', async () => {
+    const wallet = makeLndhubWallet();
+    const screen = renderPay(wallet, { free: true });
+
+    await waitFor(() => screen.getByText(freeFeeText()));
+    assert.strictEqual(screen.queryByText(feeRangeText(sparkMaxSendFeeSats(1000))), null);
+  });
+
+  it('shows the Spark-enforced fee cap for a small amount, not a rounded 0', async () => {
+    mockLnurlDomain('example.com');
+    const amountSat = 10;
+    const wallet = makeWallet();
+    const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST', amountSat });
+
+    await waitFor(() => screen.getByText(feeRangeText(sparkMaxSendFeeSats(amountSat))));
+    assert.strictEqual(sparkMaxSendFeeSats(amountSat), 1);
+    assert.strictEqual(Math.round(amountSat * 0.03), 0);
+    assert.strictEqual(screen.queryByText(feeRangeText(0)), null);
+    assert.strictEqual(screen.queryByText(freeFeeText()), null);
   });
 });

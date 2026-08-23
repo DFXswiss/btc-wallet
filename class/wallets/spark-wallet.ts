@@ -49,14 +49,19 @@ function invoiceIdempotencyKey(paymentHash: string): string {
 /**
  * 3% of the prepared amount, at least 1 sat. Without the floor,
  * Math.floor(n * 0.03) is 0 for every payment under 34 sats.
+ * Shared with the LNURL pay screen so the shown cap matches the check.
  */
+export function sparkMaxSendFeeSats(amount: number): number {
+  return Math.max(Math.floor(Number(amount) * 0.03), 1);
+}
+
 function assertSendFeeWithinLimit(prepareResponse: PrepareSendPaymentResponse): void {
   const { paymentMethod, amount } = prepareResponse;
   if (paymentMethod.tag !== SendPaymentMethod_Tags.Bolt11Invoice) {
     throw new Error(loc.wallets.lightning_spark_invoice_unreadable);
   }
   const feeSats = paymentMethod.inner.lightningFeeSats + (paymentMethod.inner.sparkTransferFeeSats ?? 0n);
-  const maxFeeSats = Math.max(Math.floor(Number(amount) * 0.03), 1);
+  const maxFeeSats = sparkMaxSendFeeSats(Number(amount));
   if (feeSats > BigInt(maxFeeSats)) {
     throw new Error(
       loc.formatString(loc.wallets.lightning_spark_fee_too_high, {
