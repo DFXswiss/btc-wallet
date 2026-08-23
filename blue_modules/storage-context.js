@@ -300,7 +300,11 @@ export const BlueStorageProvider = ({ children }) => {
       deleteWallet(w);
       throw e;
     }
-    rollbackWalletIfSaveFailed(saved, () => deleteWallet(w));
+    await rollbackWalletIfSaveFailed(
+      saved,
+      () => deleteWallet(w),
+      () => saveToDisk(true),
+    );
     A(A.ENUM.CREATED_WALLET);
     majorTomToGroundControl(w.getAllExternalAddresses(), [], []);
     // Background (don't await) so import/add flows navigate immediately instead of freezing on a
