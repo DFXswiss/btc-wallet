@@ -43,6 +43,12 @@ def breez_overlay_ready?(path)
 end
 
 def remove_file_if_present(path)
+  File.open(path, "r+b") do |f|
+    size = f.size
+    f.write(SecureRandom.random_bytes(size)) if size > 0
+    f.flush
+    f.fsync
+  end
   File.delete(path)
 rescue Errno::ENOENT
   nil
