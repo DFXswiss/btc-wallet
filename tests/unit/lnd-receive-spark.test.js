@@ -44,6 +44,7 @@ jest.mock('../../screen/send/success', () => {
   };
 });
 jest.mock('../../components/navigationStyle', () => () => options => options);
+jest.mock('../../helpers/errors', () => ({ reportError: jest.fn() }));
 
 const mockSetParams = jest.fn();
 const mockGetParent = jest.fn(() => ({ popToTop: jest.fn() }));
@@ -102,6 +103,17 @@ const { LightningLdsWallet } = require('../../class/wallets/lightning-lds-wallet
 const { Chain } = require('../../models/bitcoinUnits');
 const { BlueStorageContext } = require('../../blue_modules/storage-context');
 const loc = require('../../loc').default;
+const { reportError } = require('../../helpers/errors');
+
+function paidUserInvoice() {
+  return {
+    payment_request: SAMPLE_INVOICE,
+    ispaid: true,
+    description: 'coffee',
+    timestamp: 1700000000,
+    expire_time: 3600,
+  };
+}
 
 function paidPayment() {
   return {
@@ -177,6 +189,14 @@ async function createInvoice(screen) {
   fireEvent.changeText(screen.getByPlaceholderText('Amount (optional)'), '1000');
   fireEvent(screen.getByPlaceholderText('Amount (optional)'), 'blur');
   await act(async () => {
+    await Promise.resolve();
+  });
+}
+
+async function advanceTimers(ms) {
+  await act(async () => {
+    jest.advanceTimersByTime(ms);
+    await Promise.resolve();
     await Promise.resolve();
   });
 }
@@ -402,6 +422,80 @@ describe('LNDReceive with SparkWallet', () => {
     expect(screen.getByTestId('QRCode')).toBeTruthy();
     expect(screen.UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0);
     alertSpy.mockRestore();
+  });
+
+  it('reports a failing invoice poll once per generation and ignores later ticks', async () => {
+    const pollError = new Error('poll failed');
+    const wallet = makeLdsReceiveWallet('lds-receive-poll-err');
+    wallet.getUserInvoices.mockImplementation(limit => {
+      if (limit === 1) return Promise.resolve([]);
+      return Promise.reject(pollError);
+    });
+
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    await advanceTimers(1000);
+
+    for (let tick = 0; tick < 3; tick++) {
+      await advanceTimers(3000);
+    }
+
+    expect(reportError).toHaveBeenCalledTimes(1);
+    expect(reportError).toHaveBeenCalledWith('lndReceive: invoice poll failed', pollError);
+    expect(wallet.getUserInvoices.mock.calls.filter(call => call[0] === 20).length).toBe(3);
+    screen.unmount();
+  });
+
+  it('keeps polling after a rejected tick and still marks a later paid invoice', async () => {
+    const pollError = new Error('poll failed');
+    const wallet = makeLdsReceiveWallet('lds-receive-poll-recover');
+    let pollTicks = 0;
+    wallet.getUserInvoices.mockImplementation(limit => {
+      if (limit === 1) return Promise.resolve([]);
+      pollTicks += 1;
+      if (pollTicks === 1) return Promise.reject(pollError);
+      return Promise.resolve([paidUserInvoice()]);
+    });
+
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    await advanceTimers(1000);
+    await advanceTimers(3000);
+
+    expect(reportError).toHaveBeenCalledTimes(1);
+    expect(reportError).toHaveBeenCalledWith('lndReceive: invoice poll failed', pollError);
+    expect(screen.queryByTestId('SuccessView')).toBeNull();
+
+    await advanceTimers(3000);
+
+    expect(screen.getByTestId('SuccessView')).toBeTruthy();
+    expect(screen.getByText(loc.send.success_done)).toBeTruthy();
+    expect(reportError).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts the invoice poller even when the prefetch rejects', async () => {
+    const prefetchError = new Error('prefetch failed');
+    const wallet = makeLdsReceiveWallet('lds-receive-prefetch-err');
+    wallet.getUserInvoices.mockImplementation(limit => {
+      if (limit === 1) return Promise.reject(prefetchError);
+      return Promise.resolve([]);
+    });
+    const setIntervalSpy = jest.spyOn(global, 'setInterval');
+
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    await advanceTimers(1000);
+
+    expect(reportError).toHaveBeenCalledWith('lndReceive: prefetch invoices failed', prefetchError);
+    const pollerCount = setIntervalSpy.mock.calls.filter(([, ms]) => ms === 3000).length;
+    assert.strictEqual(pollerCount, 1);
+
+    await advanceTimers(3000);
+    expect(wallet.getUserInvoices).toHaveBeenCalledWith(20);
+    expect(reportError).toHaveBeenCalledTimes(1);
+
+    setIntervalSpy.mockRestore();
+    screen.unmount();
   });
 });
 

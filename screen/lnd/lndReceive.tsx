@@ -164,6 +164,7 @@ const LNDReceive = () => {
     cancelInvoicePolling(); // clear any previous polling
     const generation = pollGeneration.current;
     let isChecking = false;
+    let hasReportedPollError = false;
     invoicePolling.current = setInterval(async () => {
       if (isChecking) return;
       isChecking = true;
@@ -199,6 +200,15 @@ const LNDReceive = () => {
           setInvoiceRequest(undefined);
           generateInvoice(); // invoice expired, generate new one
         }
+      } catch (error) {
+        if (generation !== pollGeneration.current) {
+          return;
+        }
+        if (hasReportedPollError) {
+          return;
+        }
+        hasReportedPollError = true;
+        reportError('lndReceive: invoice poll failed', error);
       } finally {
         isChecking = false;
       }
