@@ -5,18 +5,23 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 const mockReactFlags = { bip47Backdoor: false, zeroCount: 0 };
 jest.mock('react', () => {
   const actual = jest.requireActual('react');
-  return {
-    ...actual,
-    useState: init => {
-      if (mockReactFlags.bip47Backdoor && init === 0) {
-        mockReactFlags.zeroCount += 1;
-        if (mockReactFlags.zeroCount === 2) {
-          return actual.useState(10);
-        }
+  const realUseState = actual.useState;
+  const wrappedUseState = function useState(init) {
+    if (mockReactFlags.bip47Backdoor && init === 0) {
+      mockReactFlags.zeroCount += 1;
+      if (mockReactFlags.zeroCount === 2) {
+        return realUseState(10);
       }
-      return actual.useState(init);
-    },
+    }
+    return realUseState(init);
   };
+  // Keep the real module object. A spread copy drops React 19 `act` internals.
+  return new Proxy(actual, {
+    get(target, prop, receiver) {
+      if (prop === 'useState') return wrappedUseState;
+      return Reflect.get(target, prop, receiver);
+    },
+  });
 });
 
 jest.mock('../../blue_modules/BlueElectrum', () => ({ connectMain: jest.fn() }));
@@ -167,6 +172,7 @@ function renderDetails(wallet, extras = {}) {
 }
 
 beforeEach(() => {
+  jest.useRealTimers();
   jest.clearAllMocks();
   mockReactFlags.bip47Backdoor = false;
   mockReactFlags.zeroCount = 0;
@@ -177,6 +183,17 @@ beforeEach(() => {
   prompt.mockReset();
   writeFileAndExport.mockReset();
   I18nManager.isRTL = false;
+  jest.spyOn(InteractionManager, 'runAfterInteractions').mockImplementation(cb => {
+    if (typeof cb === 'function') cb();
+    return { then: fn => fn && fn(), done: jest.fn(), cancel: jest.fn() };
+  });
+});
+
+afterEach(() => {
+  jest.useRealTimers();
+  if (InteractionManager.runAfterInteractions.mockRestore) {
+    InteractionManager.runAfterInteractions.mockRestore();
+  }
 });
 
 describe('WalletDetails Spark vs LNDHub blocks', () => {
@@ -543,20 +560,29 @@ describe('WalletDetails POS toggle', () => {
 
 describe('WalletDetails ownership proof copy', () => {
   it('copies the proof and then restores the proof text after two seconds', async () => {
-    jest.useFakeTimers();
+    const realSetTimeout = global.setTimeout;
+    const scheduled = [];
+    const setTimeoutSpy = jest.spyOn(global, 'setTimeout').mockImplementation((cb, ms, ...rest) => {
+      if (ms === 2000) {
+        scheduled.push(cb);
+        return 2000;
+      }
+      return realSetTimeout(cb, ms, ...rest);
+    });
     try {
       const wallet = makeWallet('lightningLdsWallet', { id: 'copy-1', proof: 'proof-placeholder' });
       const screen = renderDetails(wallet);
-      expect(screen.getByText('proof-placeholder')).toBeTruthy();
+      await waitFor(() => expect(screen.getByText('proof-placeholder')).toBeTruthy());
       fireEvent.press(screen.getByText('proof-placeholder'));
       expect(Clipboard.setString).toHaveBeenCalledWith('proof-placeholder');
       expect(screen.getByText(loc.wallets.xpub_copiedToClipboard)).toBeTruthy();
+      expect(scheduled).toHaveLength(1);
       await act(async () => {
-        jest.advanceTimersByTime(2000);
+        scheduled[0]();
       });
       expect(screen.getByText('proof-placeholder')).toBeTruthy();
     } finally {
-      jest.useRealTimers();
+      setTimeoutSpy.mockRestore();
     }
   });
 
@@ -978,9 +1004,14 @@ describe('WalletDetails keyboard, selected wallet and options', () => {
   it('loads details styles under RTL', () => {
     let loaded;
     jest.isolateModules(() => {
-      require('react-native').I18nManager.isRTL = true;
-      loaded = require('../../screen/wallets/details').default;
-      require('react-native').I18nManager.isRTL = false;
+      const RN = require('react-native');
+      const previousRtl = RN.I18nManager.isRTL;
+      RN.I18nManager.isRTL = true;
+      try {
+        loaded = require('../../screen/wallets/details').default;
+      } finally {
+        RN.I18nManager.isRTL = previousRtl;
+      }
     });
     expect(typeof loaded).toBe('function');
   });

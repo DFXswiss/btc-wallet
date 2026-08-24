@@ -1,20 +1,25 @@
 import React from 'react';
-import { ActivityIndicator, FlatList, Platform, I18nManager } from 'react-native';
+import { ActivityIndicator, FlatList, InteractionManager, Platform, I18nManager } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
 const mockReactFlags = { startLoading: false };
 jest.mock('react', () => {
   const actual = jest.requireActual('react');
-  return {
-    ...actual,
-    useState: init => {
-      if (mockReactFlags.startLoading && init === false) {
-        mockReactFlags.startLoading = false;
-        return actual.useState(true);
-      }
-      return actual.useState(init);
-    },
+  const realUseState = actual.useState;
+  const wrappedUseState = function useState(init) {
+    if (mockReactFlags.startLoading && init === false) {
+      mockReactFlags.startLoading = false;
+      return realUseState(true);
+    }
+    return realUseState(init);
   };
+  // Keep the real module object. A spread copy drops React 19 `act` internals.
+  return new Proxy(actual, {
+    get(target, prop, receiver) {
+      if (prop === 'useState') return wrappedUseState;
+      return Reflect.get(target, prop, receiver);
+    },
+  });
 });
 
 jest.mock('../../blue_modules/BlueElectrum', () => ({ connectMain: jest.fn() }));
@@ -147,6 +152,14 @@ jest.mock('../../api/dfx/contexts/session.context', () => ({
   DfxService: { BUY: 'buy', SELL: 'sell', SWAP: 'swap' },
   useDfxSessionContext: () => ({ isAvailable: true, openServices: jest.fn() }),
 }));
+jest.mock('../../components/DfxServicesButtons', () => {
+  const ReactModule = require('react');
+  const { Text } = require('react-native');
+  function DfxServicesButtons() {
+    return ReactModule.createElement(Text, null, require('../../loc').default.wallets.external_services);
+  }
+  return DfxServicesButtons;
+});
 jest.mock('../../contexts/wallet.context', () => ({
   useWalletContext: () => ({ wallet: null }),
 }));
@@ -242,14 +255,25 @@ function makeWallet(overrides = {}) {
 }
 
 async function longPressSend(screen) {
-  const send = screen.getByTestId('SendButton');
+  await waitFor(() => expect(screen.getByTestId('SendButton')).toBeTruthy());
   await act(async () => {
-    if (typeof send.props.onLongPress === 'function') {
-      await send.props.onLongPress();
-    } else {
-      fireEvent(send, 'onLongPress');
+    fireEvent(screen.getByTestId('SendButton'), 'onLongPress');
+  });
+}
+
+function loadAssetWithWindowWidth(width) {
+  let loaded;
+  jest.isolateModules(() => {
+    const RN = require('react-native');
+    const originalGet = RN.Dimensions.get;
+    RN.Dimensions.get = () => ({ width, height: 800, scale: 1, fontScale: 1 });
+    try {
+      loaded = require('../../screen/wallets/asset').default;
+    } finally {
+      RN.Dimensions.get = originalGet;
     }
   });
+  return loaded;
 }
 
 function lastActionSheetCall() {
@@ -292,6 +316,7 @@ function renderAsset(wallet, extraWallets = [], contextExtras = {}) {
 }
 
 beforeEach(() => {
+  jest.useRealTimers();
   jest.clearAllMocks();
   mockScanQr.mockResolvedValue('');
   mockIsBoltcard.mockReturnValue(false);
@@ -309,6 +334,17 @@ beforeEach(() => {
   I18nManager.isRTL = false;
   mockRoute.name = 'WalletTransactions';
   mockRoute.params = { walletID: '' };
+  jest.spyOn(InteractionManager, 'runAfterInteractions').mockImplementation(cb => {
+    if (typeof cb === 'function') cb();
+    return { then: fn => fn && fn(), done: jest.fn(), cancel: jest.fn() };
+  });
+});
+
+afterEach(() => {
+  jest.useRealTimers();
+  if (InteractionManager.runAfterInteractions.mockRestore) {
+    InteractionManager.runAfterInteractions.mockRestore();
+  }
 });
 
 describe('wallet asset DFX services', () => {
@@ -517,7 +553,15 @@ describe('wallet asset transactions list', () => {
   });
 
   it('increments the transaction list extra elapsed time on each 60-second tick', async () => {
-    jest.useFakeTimers();
+    const realSetInterval = global.setInterval;
+    let tick = () => {};
+    const setIntervalSpy = jest.spyOn(global, 'setInterval').mockImplementation((cb, ms, ...rest) => {
+      if (ms === 60000) {
+        tick = cb;
+        return 60000;
+      }
+      return realSetInterval(cb, ms, ...rest);
+    });
     let screen;
     try {
       screen = renderAsset(
@@ -528,18 +572,16 @@ describe('wallet asset transactions list', () => {
       );
       const before = screen.UNSAFE_getByType(FlatList).props.extraData[0];
       await act(async () => {
-        jest.advanceTimersByTime(60000);
-        await Promise.resolve();
+        tick();
       });
       expect(screen.UNSAFE_getByType(FlatList).props.extraData[0]).toBe(before + 1);
       await act(async () => {
-        jest.advanceTimersByTime(60000);
-        await Promise.resolve();
+        tick();
       });
       expect(screen.UNSAFE_getByType(FlatList).props.extraData[0]).toBe(before + 2);
     } finally {
       if (screen) screen.unmount();
-      jest.useRealTimers();
+      setIntervalSpy.mockRestore();
     }
   });
 });
@@ -1030,39 +1072,26 @@ describe('wallet asset navigationOptions', () => {
 
 describe('wallet asset module-level branches', () => {
   it('loads with a window whose width/26 is at most 22', () => {
-    let loaded;
-    jest.isolateModules(() => {
-      const RN = require('react-native');
-      const spy = jest.spyOn(RN.Dimensions, 'get').mockReturnValue({ width: 260, height: 800, scale: 1, fontScale: 1 });
-      try {
-        loaded = require('../../screen/wallets/asset').default;
-      } finally {
-        spy.mockRestore();
-      }
-    });
+    const loaded = loadAssetWithWindowWidth(260);
     expect(typeof loaded).toBe('function');
   });
 
   it('loads with a window whose width/26 is above 22', () => {
-    let loaded;
-    jest.isolateModules(() => {
-      const RN = require('react-native');
-      const spy = jest.spyOn(RN.Dimensions, 'get').mockReturnValue({ width: 2000, height: 800, scale: 1, fontScale: 1 });
-      try {
-        loaded = require('../../screen/wallets/asset').default;
-      } finally {
-        spy.mockRestore();
-      }
-    });
+    const loaded = loadAssetWithWindowWidth(2000);
     expect(typeof loaded).toBe('function');
   });
 
   it('loads with RTL writing direction', () => {
     let loaded;
     jest.isolateModules(() => {
-      require('react-native').I18nManager.isRTL = true;
-      loaded = require('../../screen/wallets/asset').default;
-      require('react-native').I18nManager.isRTL = false;
+      const RN = require('react-native');
+      const previousRtl = RN.I18nManager.isRTL;
+      RN.I18nManager.isRTL = true;
+      try {
+        loaded = require('../../screen/wallets/asset').default;
+      } finally {
+        RN.I18nManager.isRTL = previousRtl;
+      }
     });
     expect(typeof loaded).toBe('function');
   });
