@@ -445,6 +445,21 @@ describe('LNDReceive with SparkWallet', () => {
     screen.unmount();
   });
 
+  it('stops invoice polling when the receive amount is cleared', async () => {
+    const wallet = makeSparkReceiveWallet('spark-receive-1');
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    await advanceTimers(1000);
+    assert.strictEqual(invoiceIntervalCount(), 1);
+    fireEvent.changeText(screen.getByPlaceholderText('Amount (optional)'), '');
+    fireEvent(screen.getByPlaceholderText('Amount (optional)'), 'blur');
+    await act(async () => {
+      await Promise.resolve();
+    });
+    assert.strictEqual(invoiceIntervalCount(), 0);
+    screen.unmount();
+  });
+
   it('hides Use Boltcard for Spark and keeps it for an LNDHub invoice', async () => {
     const sparkScreen = renderReceive(makeSparkReceiveWallet('spark-receive-1'));
     await createInvoice(sparkScreen);

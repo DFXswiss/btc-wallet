@@ -1649,6 +1649,7 @@ describe('SparkWallet', () => {
     assert.strictEqual(invoices[0].payment_hash, localHash);
     assert.notStrictEqual(invoices[0].payment_hash, 'counterparty-payment-id');
     assert.strictEqual(invoices[0].ispaid, true);
+    assert.strictEqual(invoices[0].payment_request, SAMPLE_INVOICE);
   });
 
   it('getUserInvoices matches a local unpaid invoice by payment request when it has no hash', async () => {

@@ -160,7 +160,7 @@ const LNDReceive = () => {
     }
   };
 
-  const initInvoicePolling = (invoice: any) => {
+  const initInvoicePolling = (invoice: any, paymentHash?: string) => {
     cancelInvoicePolling(); // clear any previous polling
     const generation = pollGeneration.current;
     let isChecking = false;
@@ -174,8 +174,14 @@ const LNDReceive = () => {
           return;
         }
         const updatedUserInvoice = userInvoices.find(
-          (i: { payment_request: string; ispaid: boolean; description?: string; timestamp: number; expire_time: number }) =>
-            i.payment_request === invoice,
+          (i: {
+            payment_request: string;
+            payment_hash?: string;
+            ispaid: boolean;
+            description?: string;
+            timestamp: number;
+            expire_time: number;
+          }) => i.payment_request === invoice || (Boolean(paymentHash) && i.payment_hash === paymentHash),
         );
         if (!updatedUserInvoice) {
           return;
@@ -242,6 +248,7 @@ const LNDReceive = () => {
 
     try {
       if (amountSats === 0 || isNaN(amountSats)) {
+        cancelInvoicePolling();
         setInvoiceRequest(undefined);
         return;
       }
@@ -263,7 +270,7 @@ const LNDReceive = () => {
         if (generation !== pollGeneration.current) {
           return;
         }
-        initInvoicePolling(invoiceRequest);
+        initInvoicePolling(invoiceRequest, decoded.payment_hash);
         await saveToDisk();
       }, 1000);
 

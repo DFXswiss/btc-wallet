@@ -377,15 +377,20 @@ export class SparkWallet extends AbstractWallet {
       if (!hasKey) {
         continue;
       }
-      if (
-        !remote.some(
-          r =>
-            (Boolean(r.payment_hash) && r.payment_hash === old.payment_hash) ||
-            (Boolean(r.payment_request) && r.payment_request === old.payment_request),
-        )
-      ) {
-        remote.push(old);
+      const match = remote.find(
+        r =>
+          (Boolean(r.payment_hash) && r.payment_hash === old.payment_hash) ||
+          (Boolean(r.payment_request) && r.payment_request === old.payment_request),
+      );
+      if (match) {
+        // Spark listPayments can omit details.inner.invoice. Keep the bolt11
+        // the receive poller matches on, or a paid invoice never looks paid.
+        if (!match.payment_request && old.payment_request) {
+          match.payment_request = old.payment_request;
+        }
+        continue;
       }
+      remote.push(old);
     }
     this.requireHeld(lease);
     this.user_invoices_raw = remote.sort((a, b) => a.timestamp - b.timestamp);
