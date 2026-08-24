@@ -62,14 +62,14 @@ jobs:
           for var in SENTRY_AUTH_TOKEN SENTRY_URL SENTRY_ORG SENTRY_PROJECT BREEZ_API_KEY; do
             [ -n "${!var:-}" ] || { echo "Missing required env: $var" >&2; exit 1; }
           done
-          KS="$(mktemp /tmp/app-signing.XXXXXX.keystore)"; chmod 600 "$KS"
           cleanup() {
-            for f in "$KS" "${BREEZ_ENVFILE:-}"; do
+            for f in "${KS:-}" "${BREEZ_ENVFILE:-}"; do
               [ -n "$f" ] && [ -f "$f" ] || continue
               if command -v shred &>/dev/null; then shred -u "$f"; else rm -Pf "$f"; fi
             done
           }
           trap cleanup EXIT INT TERM
+          KS="$(mktemp /tmp/app-signing.XXXXXX.keystore)"; chmod 600 "$KS"
           BREEZ_ENVFILE="$(mktemp /tmp/breez-env.XXXXXX)"; chmod 600 "$BREEZ_ENVFILE"
           # .env.prd has no trailing newline; leading \n keeps BREEZ_API_KEY on its own line.
           cp .env.prd "$BREEZ_ENVFILE"
