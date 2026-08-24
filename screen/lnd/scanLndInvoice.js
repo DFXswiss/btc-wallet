@@ -1,5 +1,5 @@
 import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, View, StatusBar, Keyboard, ScrollView, StyleSheet } from 'react-native';
+import { KeyboardAvoidingView, View, StatusBar, Keyboard, ScrollView, StyleSheet } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { useFocusEffect, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -29,7 +29,6 @@ const currency = require('../../blue_modules/currency');
 
 /** LNDHub (custodian / LDS) waives fees for listed domains. Spark does not. */
 function walletWaivesDomainFees(fromWallet) {
-  if (!fromWallet) return false;
   return fromWallet.type === LightningCustodianWallet.type || fromWallet.type === LightningLdsWallet.type;
 }
 
@@ -337,15 +336,9 @@ const ScanLndInvoice = () => {
             </View>
           </KeyboardAvoidingView>
           <BlueCard>
-            {isLoading ? (
-              <View>
-                <ActivityIndicator />
-              </View>
-            ) : (
-              <View>
-                <BlueButton title={loc.lnd.next} onPress={next} />
-              </View>
-            )}
+            <View>
+              <BlueButton title={loc.lnd.next} onPress={next} />
+            </View>
           </BlueCard>
         </ScrollView>
       </View>

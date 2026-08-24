@@ -212,11 +212,6 @@ const LNDCreateInvoice = () => {
 
   const processLnurl = async data => {
     setIsLoading(true);
-    if (!wallet.current) {
-      ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
-      alert(loc.wallets.no_ln_wallet_error);
-      return goBack();
-    }
 
     // decoding the lnurl
     const url = Lnurl.getUrlFromLnurl(data);
