@@ -112,9 +112,6 @@ function WatchConnectivity() {
     if (!Array.isArray(wallets)) {
       return;
     }
-    if (!walletsInitialized) {
-      return;
-    }
     const walletsToProcess = [];
 
     for (const wallet of wallets) {
