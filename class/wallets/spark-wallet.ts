@@ -15,7 +15,7 @@ import {
   type PrepareSendPaymentResponse,
 } from '@breeztech/breez-sdk-spark-react-native';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
-import { acquireSparkSessionLease, SparkSessionStaleError, type SparkSessionLease } from '../../api/spark/spark-sdk';
+import { acquireSparkSessionLease, isSparkSdkConnected, SparkSessionStaleError, type SparkSessionLease } from '../../api/spark/spark-sdk';
 import { beginOutgoingPayment, getOutgoingPayment, settleOutgoingPayment } from '../../api/spark/outgoing-payment';
 import loc from '../../loc';
 import { AbstractWallet } from './abstract-wallet';
@@ -207,6 +207,9 @@ export class SparkWallet extends AbstractWallet {
   }
 
   async fetchBalance(): Promise<void> {
+    if (!isSparkSdkConnected()) {
+      return;
+    }
     const lease = acquireSparkSessionLease();
     const info = await lease.requireSdk().getInfo({ ensureSynced: false });
     this.requireHeld(lease);
@@ -292,6 +295,9 @@ export class SparkWallet extends AbstractWallet {
   }
 
   async fetchTransactions(): Promise<void> {
+    if (!isSparkSdkConnected()) {
+      return;
+    }
     const lease = this.holdMatchingSession();
     const payments = await this.listPaymentsPages(
       lease.requireSdk(),
@@ -334,6 +340,9 @@ export class SparkWallet extends AbstractWallet {
   }
 
   async getUserInvoices(limit = 0): Promise<SparkInvoiceRecord[]> {
+    if (!isSparkSdkConnected()) {
+      return this.user_invoices_raw || [];
+    }
     const lease = this.holdMatchingSession();
     const paginate = !(limit > 0);
     const payments = await this.listPaymentsPages(

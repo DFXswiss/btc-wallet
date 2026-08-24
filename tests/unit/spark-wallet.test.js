@@ -20,6 +20,7 @@ const mockSdk = {
 let mockSessionIdentity = null;
 let mockLeaseValid = true;
 let mockLeaseSdkOverride = null;
+let mockSdkConnected = true;
 
 jest.mock('../../api/spark/spark-sdk', () => {
   class SparkSessionStaleError extends Error {
@@ -29,7 +30,7 @@ jest.mock('../../api/spark/spark-sdk', () => {
     }
   }
   return {
-    isSparkSdkConnected: () => true,
+    isSparkSdkConnected: () => mockSdkConnected,
     SparkSessionStaleError,
     acquireSparkSessionLease: () => ({
       get identity() {
@@ -114,6 +115,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockSessionIdentity = null;
   mockLeaseValid = true;
+  mockSdkConnected = true;
   mockLeaseSdkOverride = null;
   __resetOutgoingPaymentForTests();
 });
@@ -196,6 +198,32 @@ describe('SparkWallet', () => {
     await wallet.fetchBalance();
     assert.strictEqual(wallet.identityPubkey, 'id-pk');
     assert.strictEqual(wallet.getBalance(), 99);
+  });
+
+  it('fetchBalance is a no-op when the Spark SDK is not connected', async () => {
+    mockSdkConnected = false;
+    const wallet = SparkWallet.create('id-pk');
+    wallet.balance = 3;
+    await wallet.fetchBalance();
+    expect(mockSdk.getInfo).not.toHaveBeenCalled();
+    assert.strictEqual(wallet.getBalance(), 3);
+  });
+
+  it('fetchTransactions is a no-op when the Spark SDK is not connected', async () => {
+    mockSdkConnected = false;
+    const wallet = SparkWallet.create('id-pk');
+    await wallet.fetchTransactions();
+    expect(mockSdk.listPayments).not.toHaveBeenCalled();
+  });
+
+  it('getUserInvoices returns the stored list when the Spark SDK is not connected', async () => {
+    mockSdkConnected = false;
+    const wallet = SparkWallet.create('id-pk');
+    const stored = [{ payment_request: 'lnbc1', ispaid: false, timestamp: 1 }];
+    wallet.user_invoices_raw = stored;
+    const out = await wallet.getUserInvoices();
+    expect(mockSdk.listPayments).not.toHaveBeenCalled();
+    assert.strictEqual(out, stored);
   });
 
   it('fetchBalance throws and leaves the wallet unchanged when the session identity differs', async () => {

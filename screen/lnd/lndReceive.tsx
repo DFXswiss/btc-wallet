@@ -354,6 +354,8 @@ const LNDReceive = () => {
                     accessibilityState={{ selected: receiveMethod === 'onchain' }}
                     testID="SparkReceiveOnchain"
                     onPress={() => {
+                      cancelInvoicePolling();
+                      setInvoiceRequest(undefined);
                       if (!(typeof wallet?.depositAddress === 'string' && wallet.depositAddress)) {
                         setIsOnchainLoading(true);
                       }

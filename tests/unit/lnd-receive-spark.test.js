@@ -432,6 +432,19 @@ describe('LNDReceive with SparkWallet', () => {
     assert.ok(typeof wallet.getUserInvoices === 'function');
   });
 
+  it('stops invoice polling when switching to on-chain receive', async () => {
+    const wallet = makeSparkReceiveWallet('spark-receive-1');
+    wallet.depositAddress = 'bc1qtestonchain';
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    await advanceTimers(1000);
+    assert.strictEqual(invoiceIntervalCount(), 1);
+    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
+    assert.strictEqual(invoiceIntervalCount(), 0);
+    await advanceTimers(3000);
+    screen.unmount();
+  });
+
   it('hides Use Boltcard for Spark and keeps it for an LNDHub invoice', async () => {
     const sparkScreen = renderReceive(makeSparkReceiveWallet('spark-receive-1'));
     await createInvoice(sparkScreen);
