@@ -23,13 +23,16 @@ jest.mock('../../blue_modules/notifications', () => ({
 jest.mock('../../hooks/nfc.hook', () => {
   const startReading = jest.fn();
   const stopReading = jest.fn();
+  const state = { isNfcActive: false };
   return {
     useNFC: () => ({
-      isNfcActive: false,
+      get isNfcActive() {
+        return state.isNfcActive;
+      },
       startReading,
       stopReading,
     }),
-    __nfc: { startReading, stopReading },
+    __nfc: { startReading, stopReading, state },
   };
 });
 jest.mock('../../components/QRCodeComponent', () => {
@@ -48,11 +51,51 @@ jest.mock('../../screen/send/success', () => {
     SuccessView: () => RN.createElement(Text, { testID: 'SuccessView' }, 'paid'),
   };
 });
-jest.mock('../../components/navigationStyle', () => () => options => options);
 jest.mock('../../helpers/errors', () => ({ reportError: jest.fn() }));
 
+jest.mock('../../BlueComponents', () => {
+  const React = require('react');
+  const { TouchableOpacity, View } = require('react-native');
+  const actual = jest.requireActual('../../BlueComponents');
+  /* eslint-disable react/prop-types */
+  function BlueWalletSelect({ wallets, value, onChange }) {
+    return React.createElement(
+      View,
+      { testID: 'WalletSelect' },
+      React.createElement(TouchableOpacity, {
+        testID: 'WalletSelectSame',
+        accessibilityRole: 'button',
+        onPress: () => {
+          global.__walletSelectResult = onChange(value);
+        },
+      }),
+      React.createElement(TouchableOpacity, {
+        testID: 'WalletSelectMissing',
+        accessibilityRole: 'button',
+        onPress: () => {
+          global.__walletSelectResult = onChange('missing-wallet-id');
+        },
+      }),
+      wallets.map(w =>
+        React.createElement(TouchableOpacity, {
+          key: w.getID(),
+          testID: `WalletSelect-${w.getID()}`,
+          accessibilityRole: 'button',
+          onPress: () => {
+            global.__walletSelectResult = onChange(w.getID());
+          },
+        }),
+      ),
+    );
+  }
+  /* eslint-enable react/prop-types */
+  return { ...actual, BlueWalletSelect };
+});
+
 const mockSetParams = jest.fn();
-const mockGetParent = jest.fn(() => ({ popToTop: jest.fn() }));
+const mockPopToTop = jest.fn();
+const mockGetParent = jest.fn(() => ({ popToTop: mockPopToTop }));
+const mockNavigate = jest.fn();
 const mockRouteParams = { walletID: 'spark-receive-1' };
 jest.mock('@react-navigation/native', () => {
   const RN = require('react');
@@ -63,7 +106,7 @@ jest.mock('@react-navigation/native', () => {
     useNavigation: () => ({
       setParams: mockSetParams,
       getParent: mockGetParent,
-      navigate: jest.fn(),
+      navigate: mockNavigate,
     }),
     useTheme: () => require('../../components/themes').BlueDarkTheme,
     useFocusEffect: cb => {
@@ -110,7 +153,10 @@ const { BlueStorageContext } = require('../../blue_modules/storage-context');
 const loc = require('../../loc').default;
 const { reportError } = require('../../helpers/errors');
 const { __nfc } = require('../../hooks/nfc.hook');
-const { Platform } = require('react-native');
+const { Platform, Image, Keyboard, TouchableWithoutFeedback } = require('react-native');
+const Share = require('react-native-share');
+const BoltCard = require('../../class/boltcard').default;
+const { BlueDarkTheme } = require('../../components/themes');
 
 function paidUserInvoice() {
   return {
@@ -255,9 +301,13 @@ describe('LNDReceive with SparkWallet', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    __nfc.state.isNfcActive = false;
+    global.__walletSelectResult = undefined;
     mockRouteParams.walletID = 'spark-receive-1';
     mockSdk.receivePayment.mockResolvedValue({ paymentRequest: SAMPLE_INVOICE, fee: 0n });
     mockSdk.listPayments.mockResolvedValue({ payments: [] });
+    Share.open.mockReset();
+    Share.open.mockResolvedValue({});
   });
 
   afterEach(() => {
@@ -537,6 +587,704 @@ describe('LNDReceive with SparkWallet', () => {
 
     setIntervalSpy.mockRestore();
     screen.unmount();
+  });
+
+  it('pops to the top of the parent stack from the paid Done button', async () => {
+    const wallet = SparkWallet.create('pk-receive-1');
+    wallet.getID = () => 'spark-receive-1';
+    wallet.lnAddress = 'spark@test';
+    wallet.setLabel('Spark');
+
+    const screen = render(
+      <BlueStorageContext.Provider
+        value={{
+          wallets: [wallet],
+          saveToDisk: jest.fn().mockResolvedValue(undefined),
+          setSelectedWallet: jest.fn(),
+          fetchAndSaveWalletTransactions: jest.fn(),
+        }}
+      >
+        <LNDReceive />
+      </BlueStorageContext.Provider>,
+    );
+
+    fireEvent.changeText(screen.getByPlaceholderText('Amount (optional)'), '1000');
+    fireEvent(screen.getByPlaceholderText('Amount (optional)'), 'blur');
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+    mockSdk.listPayments.mockResolvedValue({ payments: [paidPayment()] });
+    await act(async () => {
+      jest.advanceTimersByTime(3000);
+      await Promise.resolve();
+    });
+
+    fireEvent.press(screen.getByText(loc.send.success_done));
+    expect(mockPopToTop).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call popToTop when the parent navigator is missing', async () => {
+    mockGetParent.mockReturnValueOnce(undefined);
+    const wallet = SparkWallet.create('pk-receive-1');
+    wallet.getID = () => 'spark-receive-1';
+    wallet.lnAddress = 'spark@test';
+    wallet.setLabel('Spark');
+    const screen = renderReceive(wallet);
+
+    fireEvent.changeText(screen.getByPlaceholderText('Amount (optional)'), '1000');
+    fireEvent(screen.getByPlaceholderText('Amount (optional)'), 'blur');
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+    mockSdk.listPayments.mockResolvedValue({ payments: [paidPayment()] });
+    await act(async () => {
+      jest.advanceTimersByTime(3000);
+      await Promise.resolve();
+    });
+
+    fireEvent.press(screen.getByText(loc.send.success_done));
+    expect(mockPopToTop).not.toHaveBeenCalled();
+  });
+
+  it('marks an invoice paid even when the paid invoice has no description', async () => {
+    const wallet = makeLdsReceiveWallet('lds-receive-nodesc');
+    wallet.getUserInvoices.mockImplementation(limit => {
+      if (limit === 1) return Promise.resolve([]);
+      return Promise.resolve([{ ...paidUserInvoice(), description: undefined }]);
+    });
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    await advanceTimers(1000);
+    await advanceTimers(3000);
+
+    expect(screen.getByTestId('SuccessView')).toBeTruthy();
+    expect(screen.getByText(loc.send.success_done)).toBeTruthy();
+  });
+
+  it('creates a new invoice when the polled invoice has expired', async () => {
+    const wallet = makeLdsReceiveWallet('lds-receive-expired');
+    let addCalls = 0;
+    wallet.addInvoice.mockImplementation(async () => {
+      addCalls += 1;
+      return addCalls === 1 ? SAMPLE_INVOICE : 'lnbc-replacement';
+    });
+    wallet.getUserInvoices.mockImplementation(limit => {
+      if (limit === 1) return Promise.resolve([]);
+      return Promise.resolve([
+        {
+          payment_request: SAMPLE_INVOICE,
+          ispaid: false,
+          timestamp: 1,
+          expire_time: 1,
+        },
+      ]);
+    });
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    await advanceTimers(1000);
+    await advanceTimers(3000);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(wallet.addInvoice).toHaveBeenCalledTimes(2);
+    expect(screen.queryByTestId('SuccessView')).toBeNull();
+  });
+
+  it('ignores a poll result after the poller generation has been cancelled', async () => {
+    const wallet = makeLdsReceiveWallet('lds-receive-stale-poll');
+    let resolvePoll;
+    wallet.getUserInvoices.mockImplementation(limit => {
+      if (limit === 1) return Promise.resolve([]);
+      return new Promise(resolve => {
+        resolvePoll = resolve;
+      });
+    });
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    await advanceTimers(1000);
+    await advanceTimers(3000);
+
+    screen.unmount();
+    await act(async () => {
+      resolvePoll([paidUserInvoice()]);
+      await Promise.resolve();
+    });
+
+    expect(reportError).not.toHaveBeenCalled();
+  });
+
+  it('ignores a poll error after the poller generation has been cancelled', async () => {
+    const wallet = makeLdsReceiveWallet('lds-receive-stale-err');
+    let rejectPoll;
+    wallet.getUserInvoices.mockImplementation(limit => {
+      if (limit === 1) return Promise.resolve([]);
+      return new Promise((_resolve, reject) => {
+        rejectPoll = reject;
+      });
+    });
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    await advanceTimers(1000);
+    await advanceTimers(3000);
+
+    screen.unmount();
+    await act(async () => {
+      rejectPoll(new Error('late poll'));
+      await Promise.resolve();
+    });
+
+    expect(reportError).not.toHaveBeenCalled();
+  });
+
+  it('skips a poll tick while a previous tick is still in flight', async () => {
+    const wallet = makeLdsReceiveWallet('lds-receive-overlap');
+    let resolvePoll;
+    let pollStarts = 0;
+    wallet.getUserInvoices.mockImplementation(limit => {
+      if (limit === 1) return Promise.resolve([]);
+      pollStarts += 1;
+      return new Promise(resolve => {
+        resolvePoll = resolve;
+      });
+    });
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    await advanceTimers(1000);
+    await advanceTimers(3000);
+    expect(pollStarts).toBe(1);
+
+    await advanceTimers(3000);
+    expect(pollStarts).toBe(1);
+
+    await act(async () => {
+      resolvePoll([]);
+      await Promise.resolve();
+    });
+    await advanceTimers(3000);
+    expect(pollStarts).toBe(2);
+    screen.unmount();
+  });
+
+  it('ignores a prefetch that finishes after unmount', async () => {
+    const wallet = makeLdsReceiveWallet('lds-receive-stale-prefetch');
+    let resolvePrefetch;
+    wallet.getUserInvoices.mockImplementation(limit => {
+      if (limit === 1) {
+        return new Promise(resolve => {
+          resolvePrefetch = resolve;
+        });
+      }
+      return Promise.resolve([]);
+    });
+    const setIntervalSpy = jest.spyOn(global, 'setInterval');
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    await advanceTimers(1000);
+    screen.unmount();
+
+    await act(async () => {
+      resolvePrefetch([]);
+      await Promise.resolve();
+    });
+
+    const pollerCount = setIntervalSpy.mock.calls.filter(([, ms]) => ms === 3000).length;
+    assert.strictEqual(pollerCount, 0);
+    setIntervalSpy.mockRestore();
+  });
+
+  it('creates an invoice with the typed description when the description field blurs', async () => {
+    const wallet = makeLdsReceiveWallet('lds-receive-desc-blur');
+    const screen = renderReceive(wallet);
+    fireEvent.changeText(screen.getByPlaceholderText('Amount (optional)'), '1000');
+    fireEvent.changeText(screen.getByPlaceholderText(`${loc.receive.details_label} (optional)`), 'coffee');
+    fireEvent(screen.getByPlaceholderText(`${loc.receive.details_label} (optional)`), 'blur');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(wallet.addInvoice).toHaveBeenCalledWith(1000, 'coffee');
+  });
+
+  it('does not create an invoice when the amount is empty', async () => {
+    const wallet = makeLdsReceiveWallet('lds-receive-zero');
+    const screen = renderReceive(wallet);
+    fireEvent(screen.getByPlaceholderText('Amount (optional)'), 'blur');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(wallet.addInvoice).not.toHaveBeenCalled();
+    expect(screen.UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0);
+  });
+
+  it('does not start a second invoice create while one is already in flight', async () => {
+    const wallet = makeLdsReceiveWallet('lds-receive-inflight');
+    let resolveInvoice;
+    wallet.addInvoice.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveInvoice = resolve;
+        }),
+    );
+    const screen = renderReceive(wallet);
+    fireEvent.changeText(screen.getByPlaceholderText('Amount (optional)'), '1000');
+    fireEvent(screen.getByPlaceholderText('Amount (optional)'), 'blur');
+    fireEvent.press(screen.getByText(loc.send.input_done));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(wallet.addInvoice).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      resolveInvoice(SAMPLE_INVOICE);
+      await Promise.resolve();
+    });
+  });
+
+  it('alerts the string form of a non-Error addInvoice rejection', async () => {
+    const wallet = makeLdsReceiveWallet('lds-receive-string-err');
+    wallet.addInvoice.mockRejectedValue('nope');
+    const alertSpy = jest.spyOn(global, 'alert').mockImplementation(() => {});
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(alertSpy).toHaveBeenCalledWith('nope');
+    alertSpy.mockRestore();
+  });
+
+  it('stops an active NFC reader before creating an invoice', async () => {
+    __nfc.state.isNfcActive = true;
+    const wallet = makeLdsReceiveWallet('lds-receive-nfc-stop');
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(__nfc.stopReading).toHaveBeenCalled();
+  });
+
+  it('alerts when a Boltcard withdraw reports an error', async () => {
+    const previousOS = Platform.OS;
+    Platform.OS = 'android';
+    const alertSpy = jest.spyOn(global, 'alert').mockImplementation(() => {});
+    const widthdraw = jest.spyOn(BoltCard, 'widthdraw').mockResolvedValue({ isError: true, reason: 'card failed' });
+    try {
+      const wallet = makeLdsReceiveWallet('lds-receive-nfc-err');
+      const screen = renderReceive(wallet);
+      await createInvoice(screen);
+      await waitFor(() => expect(__nfc.startReading).toHaveBeenCalledTimes(1));
+      const onRead = __nfc.startReading.mock.calls[0][0];
+      await act(async () => {
+        await onRead('lnurlw://card.example/withdraw');
+      });
+      expect(widthdraw).toHaveBeenCalledWith('lnurlw://card.example/withdraw', SAMPLE_INVOICE);
+      expect(alertSpy).toHaveBeenCalledWith('card failed');
+      expect(__nfc.stopReading).toHaveBeenCalled();
+      screen.unmount();
+    } finally {
+      widthdraw.mockRestore();
+      alertSpy.mockRestore();
+      Platform.OS = previousOS;
+    }
+  });
+
+  it('does not alert when a Boltcard withdraw succeeds', async () => {
+    const previousOS = Platform.OS;
+    Platform.OS = 'android';
+    const alertSpy = jest.spyOn(global, 'alert').mockImplementation(() => {});
+    const widthdraw = jest.spyOn(BoltCard, 'widthdraw').mockResolvedValue({ isError: false, reason: undefined });
+    try {
+      const wallet = makeLdsReceiveWallet('lds-receive-nfc-ok');
+      const screen = renderReceive(wallet);
+      await createInvoice(screen);
+      await waitFor(() => expect(__nfc.startReading).toHaveBeenCalledTimes(1));
+      const onRead = __nfc.startReading.mock.calls[0][0];
+      await act(async () => {
+        await onRead('lnurlw://card.example/withdraw');
+      });
+      expect(widthdraw).toHaveBeenCalled();
+      expect(alertSpy).not.toHaveBeenCalled();
+      screen.unmount();
+    } finally {
+      widthdraw.mockRestore();
+      alertSpy.mockRestore();
+      Platform.OS = previousOS;
+    }
+  });
+
+  it('ignores an NFC payload that is not a Boltcard withdraw URL', async () => {
+    const previousOS = Platform.OS;
+    Platform.OS = 'android';
+    const alertSpy = jest.spyOn(global, 'alert').mockImplementation(() => {});
+    const widthdraw = jest.spyOn(BoltCard, 'widthdraw').mockResolvedValue({ isError: false });
+    try {
+      const wallet = makeLdsReceiveWallet('lds-receive-nfc-skip');
+      const screen = renderReceive(wallet);
+      await createInvoice(screen);
+      await waitFor(() => expect(__nfc.startReading).toHaveBeenCalledTimes(1));
+      const onRead = __nfc.startReading.mock.calls[0][0];
+      await act(async () => {
+        await onRead('https://example.com/not-a-card');
+      });
+      expect(widthdraw).not.toHaveBeenCalled();
+      expect(alertSpy).not.toHaveBeenCalled();
+      screen.unmount();
+    } finally {
+      widthdraw.mockRestore();
+      alertSpy.mockRestore();
+      Platform.OS = previousOS;
+    }
+  });
+
+  it('starts the iOS NFC reader from Use Boltcard and stops a previous session first', async () => {
+    const wallet = makeLdsReceiveWallet('lds-receive-ios-nfc');
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    expect(screen.getByText('Use Boltcard')).toBeTruthy();
+
+    __nfc.state.isNfcActive = true;
+    screen.rerender(
+      <BlueStorageContext.Provider
+        value={{
+          wallets: [wallet],
+          saveToDisk: jest.fn().mockResolvedValue(undefined),
+          setSelectedWallet: jest.fn(),
+          fetchAndSaveWalletTransactions: jest.fn(),
+        }}
+      >
+        <LNDReceive />
+      </BlueStorageContext.Provider>,
+    );
+
+    fireEvent.press(screen.getByText('Use Boltcard'));
+    expect(__nfc.stopReading).toHaveBeenCalled();
+    expect(__nfc.startReading).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the on-chain spinner while the deposit address is loading', async () => {
+    const wallet = makeSparkReceiveWallet('spark-receive-1');
+    let resolveAddress;
+    wallet.getDepositAddress = jest.fn(
+      () =>
+        new Promise(resolve => {
+          resolveAddress = resolve;
+        }),
+    );
+    const screen = renderReceive(wallet);
+    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.UNSAFE_queryAllByType(ActivityIndicator).length).toBeGreaterThan(0);
+    await act(async () => {
+      resolveAddress('bc1qloaded');
+      await Promise.resolve();
+    });
+    await waitFor(() => screen.getByText('bc1qloaded'));
+  });
+
+  it('does not apply a deposit address that arrives after leaving on-chain receive', async () => {
+    const wallet = makeSparkReceiveWallet('spark-receive-1');
+    let resolveAddress;
+    wallet.getDepositAddress = jest.fn(
+      () =>
+        new Promise(resolve => {
+          resolveAddress = resolve;
+        }),
+    );
+    const screen = renderReceive(wallet);
+    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    fireEvent.press(screen.getByTestId('SparkReceiveLightning'));
+    await act(async () => {
+      resolveAddress('bc1qlate');
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText('bc1qlate')).toBeNull();
+    expect(screen.getByPlaceholderText('Amount (optional)')).toBeTruthy();
+  });
+
+  it('shows a missing-address state when getDepositAddress rejects', async () => {
+    const wallet = makeSparkReceiveWallet('spark-receive-1');
+    wallet.getDepositAddress = jest.fn().mockRejectedValue(new Error('no address'));
+    const screen = renderReceive(wallet);
+    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByTestId('QRCode')).toBeNull();
+    expect(screen.getByText(loc.wallets.lightning_spark_address_unavailable)).toBeTruthy();
+    expect(screen.UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0);
+  });
+
+  it('does not apply a rejected deposit address after leaving on-chain receive', async () => {
+    const wallet = makeSparkReceiveWallet('spark-receive-1');
+    let rejectAddress;
+    wallet.getDepositAddress = jest.fn(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectAddress = reject;
+        }),
+    );
+    const screen = renderReceive(wallet);
+    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    fireEvent.press(screen.getByTestId('SparkReceiveLightning'));
+    await act(async () => {
+      rejectAddress(new Error('late fail'));
+      await Promise.resolve();
+    });
+
+    expect(screen.getByPlaceholderText('Amount (optional)')).toBeTruthy();
+    expect(screen.queryByText(loc.wallets.lightning_spark_address_unavailable)).toBeNull();
+  });
+
+  it('shares the on-chain address and swallows a rejected share', async () => {
+    const address = 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
+    const wallet = makeSparkReceiveWallet('spark-receive-1');
+    wallet.depositAddress = address;
+    const screen = renderReceive(wallet);
+    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const shareIcon = screen.UNSAFE_getAllByType(Image).find(node => node.props.resizeMode === 'stretch');
+    Share.open.mockRejectedValueOnce(new Error('share cancelled'));
+    fireEvent.press(shareIcon.parent);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(Share.open).toHaveBeenCalledWith({ message: address });
+  });
+
+  it('shares an empty message when the Lightning copy text is missing', async () => {
+    const wallet = makeLdsReceiveWallet('lds-receive-noshare');
+    wallet.lnAddress = undefined;
+    const screen = renderReceive(wallet);
+    expect(screen.getByTestId('QRCode')).toBeTruthy();
+
+    const shareIcon = screen.UNSAFE_getAllByType(Image).find(node => node.props.resizeMode === 'stretch');
+    fireEvent.press(shareIcon.parent);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(Share.open).toHaveBeenCalledWith({ message: '' });
+  });
+
+  it('shares the invoice once one has been created', async () => {
+    const wallet = makeLdsReceiveWallet('lds-receive-share-inv');
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const shareIcon = screen.UNSAFE_getAllByType(Image).find(node => node.props.resizeMode === 'stretch');
+    fireEvent.press(shareIcon.parent);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(Share.open).toHaveBeenCalledWith({ message: SAMPLE_INVOICE });
+  });
+
+  it('returns ReceiveDetails when the selected wallet is on-chain', () => {
+    const spark = makeSparkReceiveWallet('spark-receive-1');
+    const onchain = {
+      type: 'HDsegwitBech32',
+      chain: Chain.ONCHAIN,
+      getID: () => 'onchain-1',
+      getLabel: () => 'Onchain',
+    };
+    mockRouteParams.walletID = spark.getID();
+    const screen = render(
+      <BlueStorageContext.Provider
+        value={{
+          wallets: [spark, onchain],
+          saveToDisk: jest.fn().mockResolvedValue(undefined),
+          setSelectedWallet: jest.fn(),
+          fetchAndSaveWalletTransactions: jest.fn(),
+        }}
+      >
+        <LNDReceive />
+      </BlueStorageContext.Provider>,
+    );
+
+    fireEvent.press(screen.getByTestId('WalletSelect-onchain-1'));
+    expect(global.__walletSelectResult).toEqual({ name: 'ReceiveDetails', params: { walletID: 'onchain-1' } });
+    expect(mockSetParams).not.toHaveBeenCalled();
+  });
+
+  it('updates the route when switching to another Lightning wallet', () => {
+    const spark = makeSparkReceiveWallet('spark-receive-1');
+    const other = makeLdsReceiveWallet('lds-other');
+    mockRouteParams.walletID = spark.getID();
+    const screen = render(
+      <BlueStorageContext.Provider
+        value={{
+          wallets: [spark, other],
+          saveToDisk: jest.fn().mockResolvedValue(undefined),
+          setSelectedWallet: jest.fn(),
+          fetchAndSaveWalletTransactions: jest.fn(),
+        }}
+      >
+        <LNDReceive />
+      </BlueStorageContext.Provider>,
+    );
+
+    fireEvent.press(screen.getByTestId('WalletSelect-lds-other'));
+    expect(mockSetParams).toHaveBeenCalledWith({ walletID: 'lds-other' });
+    expect(global.__walletSelectResult).toBeUndefined();
+  });
+
+  it('does nothing when the selected wallet is the current one', () => {
+    const screen = renderReceive(makeSparkReceiveWallet('spark-receive-1'));
+    fireEvent.press(screen.getByTestId('WalletSelectSame'));
+    expect(mockSetParams).not.toHaveBeenCalled();
+    expect(global.__walletSelectResult).toBeUndefined();
+  });
+
+  it('does nothing when the selected wallet id is not in the wallet list', () => {
+    const screen = renderReceive(makeSparkReceiveWallet('spark-receive-1'));
+    fireEvent.press(screen.getByTestId('WalletSelectMissing'));
+    expect(mockSetParams).not.toHaveBeenCalled();
+    expect(global.__walletSelectResult).toBeUndefined();
+  });
+
+  it('does nothing when the current wallet is missing and the same undefined id is selected again', () => {
+    mockRouteParams.walletID = 'absent';
+    const screen = render(
+      <BlueStorageContext.Provider
+        value={{
+          wallets: [makeSparkReceiveWallet('spark-receive-1')],
+          saveToDisk: jest.fn().mockResolvedValue(undefined),
+          setSelectedWallet: jest.fn(),
+          fetchAndSaveWalletTransactions: jest.fn(),
+        }}
+      >
+        <LNDReceive />
+      </BlueStorageContext.Provider>,
+    );
+    fireEvent.press(screen.getByTestId('WalletSelectSame'));
+    expect(mockSetParams).not.toHaveBeenCalled();
+  });
+
+  it('cycles the amount unit from sats to the local currency symbol', () => {
+    const screen = renderReceive(makeSparkReceiveWallet('spark-receive-1'));
+    expect(screen.queryByText('$')).toBeNull();
+    fireEvent.press(screen.getByLabelText(loc._.change_input_currency));
+    expect(screen.getByText('$')).toBeTruthy();
+  });
+
+  it('dismisses the keyboard when the screen background is pressed', () => {
+    const dismiss = jest.spyOn(Keyboard, 'dismiss');
+    const screen = renderReceive(makeSparkReceiveWallet('spark-receive-1'));
+    fireEvent.press(screen.UNSAFE_getByType(TouchableWithoutFeedback));
+    expect(dismiss).toHaveBeenCalled();
+    dismiss.mockRestore();
+  });
+
+  it('fetches a deposit address when the cached value is not a string', async () => {
+    const address = 'bc1qfromfetch';
+    mockSdk.receivePayment.mockResolvedValue({ paymentRequest: address, fee: 0n });
+    const wallet = makeSparkReceiveWallet('spark-receive-1');
+    wallet.depositAddress = null;
+    const screen = renderReceive(wallet);
+    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(mockSdk.receivePayment).toHaveBeenCalled();
+    expect(screen.getByText(address)).toBeTruthy();
+  });
+
+  it('titles the navigation header Receive and goes back from the close button', () => {
+    const goBack = jest.fn();
+    const options = LNDReceive.navigationOptions(BlueDarkTheme)({
+      navigation: { goBack, getParent: () => ({ popToTop: jest.fn() }) },
+      route: {},
+    });
+    expect(options.title).toBe(loc.receive.header);
+    const close = render(options.headerRight());
+    fireEvent.press(close.getByTestId('NavigationCloseButton'));
+    expect(goBack).toHaveBeenCalled();
+    close.unmount();
+  });
+
+  it('exposes LNDReceive as the route name', () => {
+    expect(LNDReceive.routeName).toBe('LNDReceive');
+  });
+
+  it('selects the route wallet when the displayed wallet reports a different id', () => {
+    let calls = 0;
+    const displayed = makeSparkReceiveWallet('displayed');
+    displayed.getID = () => {
+      calls += 1;
+      return calls === 1 ? 'spark-receive-1' : 'stale-id';
+    };
+    const matching = makeSparkReceiveWallet('spark-receive-1');
+    const setSelectedWallet = jest.fn();
+    mockRouteParams.walletID = 'spark-receive-1';
+    render(
+      <BlueStorageContext.Provider
+        value={{
+          wallets: [displayed, matching],
+          saveToDisk: jest.fn().mockResolvedValue(undefined),
+          setSelectedWallet,
+          fetchAndSaveWalletTransactions: jest.fn(),
+        }}
+      >
+        <LNDReceive />
+      </BlueStorageContext.Provider>,
+    );
+
+    expect(setSelectedWallet).toHaveBeenCalledWith('spark-receive-1');
+  });
+
+  it('does not select a wallet when the route id is missing after a stale displayed wallet', () => {
+    let calls = 0;
+    const displayed = makeSparkReceiveWallet('displayed');
+    displayed.getID = () => {
+      calls += 1;
+      return calls === 1 ? 'spark-receive-1' : 'stale-id';
+    };
+    const setSelectedWallet = jest.fn();
+    mockRouteParams.walletID = 'spark-receive-1';
+    render(
+      <BlueStorageContext.Provider
+        value={{
+          wallets: [displayed],
+          saveToDisk: jest.fn().mockResolvedValue(undefined),
+          setSelectedWallet,
+          fetchAndSaveWalletTransactions: jest.fn(),
+        }}
+      >
+        <LNDReceive />
+      </BlueStorageContext.Provider>,
+    );
+
+    expect(setSelectedWallet).not.toHaveBeenCalled();
   });
 });
 
