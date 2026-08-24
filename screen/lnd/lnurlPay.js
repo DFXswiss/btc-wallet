@@ -35,7 +35,6 @@ const currency = require('../../blue_modules/currency');
 
 /** LNDHub (custodian / LDS) waives fees for listed domains. Spark does not. */
 function walletWaivesDomainFees(fromWallet) {
-  if (!fromWallet) return false;
   return fromWallet.type === LightningCustodianWallet.type || fromWallet.type === LightningLdsWallet.type;
 }
 
