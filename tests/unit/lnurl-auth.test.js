@@ -90,17 +90,27 @@ const HOSTLESS_LNURL = Lnurl.encode('not-a-url');
 const renderScreen = () =>
   render(React.createElement(BlueStorageContext.Provider, { value: { wallets: mockWallets } }, React.createElement(LnurlAuth)));
 
+const realSetTimeout = global.setTimeout.bind(global);
+let scheduledAlertTimeouts = [];
+
 describe('LnurlAuth without Lightning wallet', () => {
   beforeEach(() => {
-    jest.useFakeTimers();
+    scheduledAlertTimeouts = [];
     mockGoBack.mockClear();
     jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     mockParams = { walletID: undefined, lnurl: SAMPLE_LNURL };
+    jest.spyOn(global, 'setTimeout').mockImplementation((cb, ms, ...rest) => {
+      if (typeof cb === 'function' && ms === 500) {
+        scheduledAlertTimeouts.push(cb);
+        return 500;
+      }
+      return realSetTimeout(cb, ms, ...rest);
+    });
   });
 
   afterEach(() => {
+    if (global.setTimeout.mockRestore) global.setTimeout.mockRestore();
     Alert.alert.mockRestore();
-    jest.useRealTimers();
   });
 
   it('goes back and alerts when no Lightning wallet is available', () => {
@@ -108,9 +118,9 @@ describe('LnurlAuth without Lightning wallet', () => {
     renderScreen();
 
     expect(mockGoBack).toHaveBeenCalledTimes(1);
-
+    expect(scheduledAlertTimeouts).toHaveLength(1);
     act(() => {
-      jest.advanceTimersByTime(500);
+      scheduledAlertTimeouts[0]();
     });
 
     expect(Alert.alert).toHaveBeenCalledWith(expect.any(String), loc.wallets.add_ln_wallet_first);
@@ -148,9 +158,9 @@ describe('LnurlAuth without Lightning wallet', () => {
     renderScreen();
 
     expect(mockGoBack).toHaveBeenCalledTimes(1);
-
+    expect(scheduledAlertTimeouts).toHaveLength(1);
     act(() => {
-      jest.advanceTimersByTime(500);
+      scheduledAlertTimeouts[0]();
     });
 
     expect(Alert.alert).toHaveBeenCalledWith(expect.any(String), loc.wallets.add_ln_wallet_first);

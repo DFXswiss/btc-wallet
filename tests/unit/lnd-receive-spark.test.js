@@ -263,61 +263,118 @@ async function createInvoice(screen) {
   });
 }
 
-async function advanceTimers(ms) {
-  await act(async () => {
-    jest.advanceTimersByTime(ms);
-    await Promise.resolve();
-    await Promise.resolve();
+const realSetTimeout = global.setTimeout.bind(global);
+const realClearTimeout = global.clearTimeout.bind(global);
+const realSetInterval = global.setInterval.bind(global);
+const realClearInterval = global.clearInterval.bind(global);
+
+const invoiceTimers = {
+  now: 0,
+  nextHandle: 1,
+  timeouts: [],
+  intervals: [],
+};
+
+function restoreInvoiceTimers() {
+  if (global.setTimeout.mockRestore) global.setTimeout.mockRestore();
+  if (global.clearTimeout.mockRestore) global.clearTimeout.mockRestore();
+  if (global.setInterval.mockRestore) global.setInterval.mockRestore();
+  if (global.clearInterval.mockRestore) global.clearInterval.mockRestore();
+  invoiceTimers.timeouts = [];
+  invoiceTimers.intervals = [];
+  invoiceTimers.now = 0;
+  invoiceTimers.nextHandle = 1;
+}
+
+function installInvoiceTimers() {
+  restoreInvoiceTimers();
+  jest.spyOn(global, 'setTimeout').mockImplementation((cb, ms = 0, ...args) => {
+    if (typeof cb !== 'function' || ms !== 1000) {
+      return realSetTimeout(cb, ms, ...args);
+    }
+    const handle = invoiceTimers.nextHandle++;
+    invoiceTimers.timeouts.push({ handle, cb, ms, args, due: invoiceTimers.now + ms });
+    return handle;
+  });
+  jest.spyOn(global, 'clearTimeout').mockImplementation(handle => {
+    const before = invoiceTimers.timeouts.length;
+    invoiceTimers.timeouts = invoiceTimers.timeouts.filter(t => t.handle !== handle);
+    if (invoiceTimers.timeouts.length === before) {
+      return realClearTimeout(handle);
+    }
+  });
+  jest.spyOn(global, 'setInterval').mockImplementation((cb, ms = 0, ...args) => {
+    if (typeof cb !== 'function' || ms !== 3000) {
+      return realSetInterval(cb, ms, ...args);
+    }
+    const handle = invoiceTimers.nextHandle++;
+    invoiceTimers.intervals.push({ handle, cb, ms, args, due: invoiceTimers.now + ms });
+    return handle;
+  });
+  jest.spyOn(global, 'clearInterval').mockImplementation(handle => {
+    const before = invoiceTimers.intervals.length;
+    invoiceTimers.intervals = invoiceTimers.intervals.filter(t => t.handle !== handle);
+    if (invoiceTimers.intervals.length === before) {
+      return realClearInterval(handle);
+    }
   });
 }
 
-function timeoutHandlesScheduledAfter(setTimeoutSpy, fromCallCount, delay) {
-  const handles = [];
-  for (let i = fromCallCount; i < setTimeoutSpy.mock.calls.length; i++) {
-    if (setTimeoutSpy.mock.calls[i][1] === delay) {
-      handles.push(setTimeoutSpy.mock.results[i].value);
+function invoiceIntervalCount() {
+  return invoiceTimers.intervals.length;
+}
+
+async function advanceTimers(ms) {
+  const target = invoiceTimers.now + ms;
+  await act(async () => {
+    let steps = 0;
+    while (steps < 100) {
+      steps += 1;
+      const dueTimeouts = invoiceTimers.timeouts.filter(t => t.due <= target);
+      const dueIntervals = invoiceTimers.intervals.filter(t => t.due <= target);
+      if (dueTimeouts.length === 0 && dueIntervals.length === 0) {
+        break;
+      }
+      invoiceTimers.now = Math.min(...dueTimeouts.concat(dueIntervals).map(t => t.due));
+      for (const t of dueTimeouts) {
+        invoiceTimers.timeouts = invoiceTimers.timeouts.filter(x => x.handle !== t.handle);
+        t.cb(...t.args);
+      }
+      for (const t of dueIntervals) {
+        t.due += t.ms;
+        t.cb(...t.args);
+      }
+      await Promise.resolve();
+      await Promise.resolve();
     }
-  }
-  return handles;
+    invoiceTimers.now = target;
+    await Promise.resolve();
+    await Promise.resolve();
+  });
 }
 
 async function assertUnmountClearsInvoicePollTimeout(wallet, getUserInvoices) {
-  const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
-  const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
-  const setIntervalSpy = jest.spyOn(global, 'setInterval');
-
   const screen = renderReceive(wallet);
-  const timeoutCallsBeforeInvoice = setTimeoutSpy.mock.calls.length;
   await createInvoice(screen);
 
-  const handles = timeoutHandlesScheduledAfter(setTimeoutSpy, timeoutCallsBeforeInvoice, 1000);
-  assert.strictEqual(handles.length, 1, 'expected exactly one 1000ms timeout after creating an invoice');
-  const handle = handles[0];
+  const timeoutHandles = invoiceTimers.timeouts.filter(t => t.ms === 1000);
+  assert.strictEqual(timeoutHandles.length, 1, 'expected exactly one 1000ms timeout after creating an invoice');
 
   screen.unmount();
 
-  expect(clearTimeoutSpy).toHaveBeenCalledWith(handle);
+  assert.strictEqual(invoiceTimers.timeouts.filter(t => t.ms === 1000).length, 0);
+  assert.strictEqual(invoiceIntervalCount(), 0);
 
-  const pollerCount = () => setIntervalSpy.mock.calls.filter(([, ms]) => ms === 3000).length;
-  assert.strictEqual(pollerCount(), 0);
+  await advanceTimers(4000);
 
-  await act(async () => {
-    jest.advanceTimersByTime(4000);
-    await Promise.resolve();
-  });
-
-  assert.strictEqual(pollerCount(), 0);
+  assert.strictEqual(invoiceIntervalCount(), 0);
   expect(getUserInvoices).not.toHaveBeenCalled();
-
-  setTimeoutSpy.mockRestore();
-  clearTimeoutSpy.mockRestore();
-  setIntervalSpy.mockRestore();
 }
 
 describe('LNDReceive with SparkWallet', () => {
   beforeEach(() => {
-    jest.useFakeTimers();
     jest.clearAllMocks();
+    installInvoiceTimers();
     __nfc.state.isNfcActive = false;
     global.__walletSelectResult = undefined;
     mockRouteParams.walletID = 'spark-receive-1';
@@ -328,7 +385,7 @@ describe('LNDReceive with SparkWallet', () => {
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    restoreInvoiceTimers();
   });
 
   it('starts invoice polling after creating a Spark invoice and marks it paid', async () => {
@@ -362,18 +419,12 @@ describe('LNDReceive with SparkWallet', () => {
     });
     expect(mockSdk.receivePayment).toHaveBeenCalled();
 
-    await act(async () => {
-      jest.advanceTimersByTime(1000);
-      await Promise.resolve();
-    });
+    await advanceTimers(1000);
     expect(mockSdk.listPayments).toHaveBeenCalled();
 
     mockSdk.listPayments.mockResolvedValue({ payments: [paidPayment()] });
 
-    await act(async () => {
-      jest.advanceTimersByTime(3000);
-      await Promise.resolve();
-    });
+    await advanceTimers(3000);
 
     expect(screen.getByTestId('SuccessView')).toBeTruthy();
     expect(screen.getByText(loc.send.success_done)).toBeTruthy();
@@ -588,21 +639,17 @@ describe('LNDReceive with SparkWallet', () => {
       if (limit === 1) return Promise.reject(prefetchError);
       return Promise.resolve([]);
     });
-    const setIntervalSpy = jest.spyOn(global, 'setInterval');
-
     const screen = renderReceive(wallet);
     await createInvoice(screen);
     await advanceTimers(1000);
 
     expect(reportError).toHaveBeenCalledWith('lndReceive: prefetch invoices failed', prefetchError);
-    const pollerCount = setIntervalSpy.mock.calls.filter(([, ms]) => ms === 3000).length;
-    assert.strictEqual(pollerCount, 1);
+    assert.strictEqual(invoiceIntervalCount(), 1);
 
     await advanceTimers(3000);
     expect(wallet.getUserInvoices).toHaveBeenCalledWith(20);
     expect(reportError).toHaveBeenCalledTimes(1);
 
-    setIntervalSpy.mockRestore();
     screen.unmount();
   });
 
@@ -630,15 +677,9 @@ describe('LNDReceive with SparkWallet', () => {
     await act(async () => {
       await Promise.resolve();
     });
-    await act(async () => {
-      jest.advanceTimersByTime(1000);
-      await Promise.resolve();
-    });
+    await advanceTimers(1000);
     mockSdk.listPayments.mockResolvedValue({ payments: [paidPayment()] });
-    await act(async () => {
-      jest.advanceTimersByTime(3000);
-      await Promise.resolve();
-    });
+    await advanceTimers(3000);
 
     fireEvent.press(screen.getByText(loc.send.success_done));
     expect(mockPopToTop).toHaveBeenCalledTimes(1);
@@ -657,15 +698,9 @@ describe('LNDReceive with SparkWallet', () => {
     await act(async () => {
       await Promise.resolve();
     });
-    await act(async () => {
-      jest.advanceTimersByTime(1000);
-      await Promise.resolve();
-    });
+    await advanceTimers(1000);
     mockSdk.listPayments.mockResolvedValue({ payments: [paidPayment()] });
-    await act(async () => {
-      jest.advanceTimersByTime(3000);
-      await Promise.resolve();
-    });
+    await advanceTimers(3000);
 
     fireEvent.press(screen.getByText(loc.send.success_done));
     expect(mockPopToTop).not.toHaveBeenCalled();
@@ -802,7 +837,6 @@ describe('LNDReceive with SparkWallet', () => {
       }
       return Promise.resolve([]);
     });
-    const setIntervalSpy = jest.spyOn(global, 'setInterval');
     const screen = renderReceive(wallet);
     await createInvoice(screen);
     await advanceTimers(1000);
@@ -813,9 +847,7 @@ describe('LNDReceive with SparkWallet', () => {
       await Promise.resolve();
     });
 
-    const pollerCount = setIntervalSpy.mock.calls.filter(([, ms]) => ms === 3000).length;
-    assert.strictEqual(pollerCount, 0);
-    setIntervalSpy.mockRestore();
+    assert.strictEqual(invoiceIntervalCount(), 0);
   });
 
   it('creates an invoice with the typed description when the description field blurs', async () => {
@@ -1504,18 +1536,28 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     await waitFor(() => screen.getByTestId('SetCustomAmountButton'));
     fireEvent.press(screen.getByTestId('SetCustomAmountButton'));
     fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '1000');
-    jest.useFakeTimers();
-    await act(async () => {
-      fireEvent.press(screen.getByTestId('CustomAmountSaveButton'));
-      await Promise.resolve();
+    const scheduled = [];
+    const setTimeoutSpy = jest.spyOn(global, 'setTimeout').mockImplementation((cb, ms, ...rest) => {
+      if (typeof cb === 'function' && ms === 1000) {
+        scheduled.push(cb);
+        return 1000;
+      }
+      return realSetTimeout(cb, ms, ...rest);
     });
-    await act(async () => {
-      jest.advanceTimersByTime(1000);
-      await Promise.resolve();
-    });
-
-    expect(wallet.fetchUserInvoices).toHaveBeenCalledWith(1);
-    expect(saveToDisk.mock.calls.length).toBeGreaterThan(1);
+    try {
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('CustomAmountSaveButton'));
+        await Promise.resolve();
+      });
+      expect(scheduled).toHaveLength(1);
+      await act(async () => {
+        await scheduled[0]();
+      });
+      expect(wallet.fetchUserInvoices).toHaveBeenCalledWith(1);
+      expect(saveToDisk.mock.calls.length).toBeGreaterThan(1);
+    } finally {
+      setTimeoutSpy.mockRestore();
+    }
   });
 
   it('shares the Lightning address and swallows a share rejection', async () => {
