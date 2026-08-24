@@ -172,7 +172,6 @@ function WatchConnectivity() {
             type = 'received';
           }
           if (transaction.type === 'user_invoice' || transaction.type === 'payment_request') {
-            amount = isNaN(transaction.value) ? '0' : amount;
             const currentDate = new Date();
             const now = (currentDate.getTime() / 1000) | 0; // eslint-disable-line no-bitwise
             const invoiceExpiration = transaction.timestamp + transaction.expire_time;
