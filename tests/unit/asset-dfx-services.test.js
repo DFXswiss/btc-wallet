@@ -515,6 +515,33 @@ describe('wallet asset transactions list', () => {
     expect(list.props.getItemLayout(null, 3)).toEqual({ length: 64, offset: 192, index: 3 });
     expect(list.props.keyExtractor({ hash: 'x' }, 4)).toBe('4');
   });
+
+  it('increments the transaction list extra elapsed time on each 60-second tick', async () => {
+    jest.useFakeTimers();
+    let screen;
+    try {
+      screen = renderAsset(
+        makeWallet({
+          id: 'elapsed-tick',
+          txs: [{ hash: 'tick-tx', received: '2024-01-01T00:00:00.000Z' }],
+        }),
+      );
+      const before = screen.UNSAFE_getByType(FlatList).props.extraData[0];
+      await act(async () => {
+        jest.advanceTimersByTime(60000);
+        await Promise.resolve();
+      });
+      expect(screen.UNSAFE_getByType(FlatList).props.extraData[0]).toBe(before + 1);
+      await act(async () => {
+        jest.advanceTimersByTime(60000);
+        await Promise.resolve();
+      });
+      expect(screen.UNSAFE_getByType(FlatList).props.extraData[0]).toBe(before + 2);
+    } finally {
+      if (screen) screen.unmount();
+      jest.useRealTimers();
+    }
+  });
 });
 
 describe('wallet asset receive and send', () => {
