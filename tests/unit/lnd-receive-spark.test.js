@@ -10,7 +10,10 @@ jest.mock('../../blue_modules/BlueElectrum', () => ({ connectMain: jest.fn() }))
 jest.mock('../../blue_modules/currency', () => ({
   init: jest.fn(),
   mostRecentFetchedRate: jest.fn(() => Promise.resolve({})),
+  isRateOutdated: jest.fn(() => Promise.resolve(false)),
+  updateExchangeRate: jest.fn(() => Promise.resolve()),
   fiatToBTC: jest.fn(() => 0),
+  btcToSatoshi: jest.fn(v => Math.round(Number(v) * 1e8)),
   satoshiToBTC: jest.fn(() => 0),
   getCurrencySymbol: jest.fn(() => '$'),
   satoshiToLocalCurrency: () => '0',
@@ -52,6 +55,7 @@ jest.mock('../../screen/send/success', () => {
   };
 });
 jest.mock('../../helpers/errors', () => ({ reportError: jest.fn() }));
+jest.mock('react-native-haptic-feedback', () => ({ trigger: jest.fn() }));
 
 jest.mock('../../BlueComponents', () => {
   const React = require('react');
@@ -94,8 +98,11 @@ jest.mock('../../BlueComponents', () => {
 
 const mockSetParams = jest.fn();
 const mockPopToTop = jest.fn();
-const mockGetParent = jest.fn(() => ({ popToTop: mockPopToTop }));
+const mockPop = jest.fn();
+const mockGetParent = jest.fn(() => ({ popToTop: mockPopToTop, pop: mockPop }));
 const mockNavigate = jest.fn();
+const mockGoBack = jest.fn();
+const mockReplace = jest.fn();
 const mockRouteParams = { walletID: 'spark-receive-1' };
 jest.mock('@react-navigation/native', () => {
   const RN = require('react');
@@ -107,6 +114,8 @@ jest.mock('@react-navigation/native', () => {
       setParams: mockSetParams,
       getParent: mockGetParent,
       navigate: mockNavigate,
+      goBack: mockGoBack,
+      replace: mockReplace,
     }),
     useTheme: () => require('../../components/themes').BlueDarkTheme,
     useFocusEffect: cb => {
@@ -148,13 +157,19 @@ const LNDReceive = require('../../screen/lnd/lndReceive').default;
 const LNDCreateInvoice = require('../../screen/lnd/lndCreateInvoice').default;
 const { SparkWallet } = require('../../class/wallets/spark-wallet');
 const { LightningLdsWallet } = require('../../class/wallets/lightning-lds-wallet');
-const { Chain } = require('../../models/bitcoinUnits');
+const { BitcoinUnit, Chain } = require('../../models/bitcoinUnits');
 const { BlueStorageContext } = require('../../blue_modules/storage-context');
 const loc = require('../../loc').default;
+const { formatBalance } = require('../../loc');
 const { reportError } = require('../../helpers/errors');
 const { __nfc } = require('../../hooks/nfc.hook');
-const { Platform, Image, Keyboard, TouchableWithoutFeedback } = require('react-native');
+const { Platform, Image, Keyboard, TouchableWithoutFeedback, Alert, Modal } = require('react-native');
 const Share = require('react-native-share');
+const Lnurl = require('../../class/lnurl').default;
+const haptic = require('react-native-haptic-feedback');
+const NavigationService = require('../../NavigationService');
+const AmountInput = require('../../components/AmountInput').default;
+const { majorTomToGroundControl, tryToObtainPermissions } = require('../../blue_modules/notifications');
 const BoltCard = require('../../class/boltcard').default;
 const { BlueDarkTheme } = require('../../components/themes');
 
@@ -223,14 +238,16 @@ function renderReceive(wallet) {
   );
 }
 
-function renderCreateInvoiceScreen(wallet) {
-  mockRouteParams.walletID = wallet.getID();
+function renderCreateInvoiceScreen(wallet, extra = {}) {
+  const { wallets, saveToDisk, setSelectedWallet, ...routeParams } = extra;
+  mockRouteParams.walletID = wallet ? wallet.getID() : extra.walletID;
+  Object.assign(mockRouteParams, routeParams);
   return render(
     <BlueStorageContext.Provider
       value={{
-        wallets: [wallet],
-        saveToDisk: jest.fn().mockResolvedValue(undefined),
-        setSelectedWallet: jest.fn(),
+        wallets: wallets || (wallet ? [wallet] : []),
+        saveToDisk: saveToDisk || jest.fn().mockResolvedValue(undefined),
+        setSelectedWallet: setSelectedWallet || jest.fn(),
       }}
     >
       <LNDCreateInvoice />
@@ -1289,10 +1306,53 @@ describe('LNDReceive with SparkWallet', () => {
 });
 
 describe('LNDCreateInvoice with SparkWallet', () => {
+  const WITHDRAW_URL = 'https://lnurl.example.com/withdraw';
+
+  function makeCreateWallet(id = 'spark-create-invoice-1') {
+    const wallet = SparkWallet.create('pk-receive-1');
+    wallet.getID = () => id;
+    wallet.setLabel('Spark');
+    wallet.setUserHasSavedExport(true);
+    wallet.lnAddress = 'spark@test';
+    wallet.addInvoice = jest.fn().mockResolvedValue(SAMPLE_INVOICE);
+    wallet.decodeInvoice = jest.fn().mockResolvedValue({ payment_hash: 'ph-1' });
+    wallet.fetchUserInvoices = jest.fn().mockResolvedValue(undefined);
+    return wallet;
+  }
+
+  function withdrawPayload(overrides = {}) {
+    return {
+      tag: Lnurl.TAG_WITHDRAW_REQUEST,
+      k1: 'k1-secret',
+      callback: 'https://lnurl.example.com/cb',
+      minWithdrawable: 100_000,
+      maxWithdrawable: 5_000_000,
+      defaultDescription: 'withdraw',
+      ...overrides,
+    };
+  }
+
+  function jsonResponse(body, status = 200) {
+    return {
+      status,
+      json: async () => body,
+      text: async () => (typeof body === 'string' ? body : JSON.stringify(body)),
+    };
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
+    global.__walletSelectResult = undefined;
     mockRouteParams.walletID = 'spark-create-invoice-1';
     delete mockRouteParams.uri;
+    AmountInput.conversionCache = {};
+    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    jest.spyOn(NavigationService, 'navigate').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.useRealTimers();
   });
 
   it('does not render the QR placeholder when the wallet has no Lightning address', async () => {
@@ -1307,5 +1367,652 @@ describe('LNDCreateInvoice with SparkWallet', () => {
 
     expect(screen.queryByTestId('QRCode')).toBeNull();
     expect(screen.queryByText('this is a QR code')).toBeNull();
+  });
+
+  it('renders the Lightning address QR and copyable text', async () => {
+    const wallet = makeCreateWallet();
+    const screen = renderCreateInvoiceScreen(wallet);
+
+    await waitFor(() => screen.getByTestId('QRCode'));
+    expect(screen.getByText('spark@test')).toBeTruthy();
+  });
+
+  it('goes back and alerts when no Lightning wallet is available', () => {
+    renderCreateInvoiceScreen(null, { walletID: 'missing', wallets: [] });
+
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
+    expect(haptic.trigger).toHaveBeenCalledWith('notificationError', { ignoreAndroidSystemSettings: false });
+    expect(Alert.alert).toHaveBeenCalledWith(loc.alert.default, loc.wallets.add_ln_wallet_first);
+  });
+
+  it('falls back to BTC when the wallet has no preferred unit', async () => {
+    const wallet = makeCreateWallet();
+    wallet.getPreferredBalanceUnit = () => undefined;
+    const screen = renderCreateInvoiceScreen(wallet);
+
+    await waitFor(() => screen.getByText(loc.receive.details_setAmount));
+    fireEvent.press(screen.getByTestId('SetCustomAmountButton'));
+    expect(screen.getByText(' ' + loc.units[BitcoinUnit.BTC])).toBeTruthy();
+  });
+
+  it('reports when preparing receive details fails', async () => {
+    const wallet = makeCreateWallet();
+    const saveError = new Error('disk full');
+    const saveToDisk = jest.fn().mockRejectedValue(saveError);
+    renderCreateInvoiceScreen(wallet, { saveToDisk });
+
+    await waitFor(() => expect(reportError).toHaveBeenCalledWith('lndCreateInvoice: failed to prepare receive details', saveError));
+  });
+
+  it('creates a SATS invoice from the custom amount modal and subscribes to the payment hash', async () => {
+    const wallet = makeCreateWallet();
+    const screen = renderCreateInvoiceScreen(wallet);
+
+    await waitFor(() => screen.getByTestId('SetCustomAmountButton'));
+    fireEvent.press(screen.getByTestId('SetCustomAmountButton'));
+    fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '1000');
+    fireEvent.changeText(screen.getByPlaceholderText(loc.receive.details_label), 'coffee');
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('CustomAmountSaveButton'));
+      await Promise.resolve();
+    });
+
+    expect(wallet.addInvoice).toHaveBeenCalledWith(1000, 'coffee');
+    expect(tryToObtainPermissions).toHaveBeenCalled();
+    expect(majorTomToGroundControl).toHaveBeenCalledWith([], ['ph-1'], []);
+    expect(haptic.trigger).toHaveBeenCalledWith('notificationSuccess', { ignoreAndroidSystemSettings: false });
+    expect(mockNavigate).toHaveBeenCalledWith('LNDViewInvoice', { invoice: SAMPLE_INVOICE, walletID: wallet.getID() });
+  });
+
+  it('converts a BTC custom amount to sats before creating the invoice', async () => {
+    const wallet = makeCreateWallet();
+    const screen = renderCreateInvoiceScreen(wallet);
+
+    await waitFor(() => screen.getByTestId('SetCustomAmountButton'));
+    fireEvent.press(screen.getByTestId('SetCustomAmountButton'));
+    fireEvent.press(screen.getByTestId('changeAmountUnitButton'));
+    fireEvent.press(screen.getByTestId('changeAmountUnitButton'));
+    fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '0.001');
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('CustomAmountSaveButton'));
+      await Promise.resolve();
+    });
+
+    expect(wallet.addInvoice).toHaveBeenCalledWith(100000, '');
+  });
+
+  it('uses cached sats for a LOCAL_CURRENCY custom amount when the cache hits', async () => {
+    AmountInput.setCachedSatoshis('12.34', 2500);
+    const wallet = makeCreateWallet();
+    const screen = renderCreateInvoiceScreen(wallet);
+
+    await waitFor(() => screen.getByTestId('SetCustomAmountButton'));
+    fireEvent.press(screen.getByTestId('SetCustomAmountButton'));
+    fireEvent.press(screen.getByTestId('changeAmountUnitButton'));
+    fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '12.34');
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('CustomAmountSaveButton'));
+      await Promise.resolve();
+    });
+
+    expect(wallet.addInvoice).toHaveBeenCalledWith(2500, '');
+  });
+
+  it('falls back to fiatToBTC when a LOCAL_CURRENCY amount is not cached', async () => {
+    const wallet = makeCreateWallet();
+    const screen = renderCreateInvoiceScreen(wallet);
+
+    await waitFor(() => screen.getByTestId('SetCustomAmountButton'));
+    fireEvent.press(screen.getByTestId('SetCustomAmountButton'));
+    fireEvent.press(screen.getByTestId('changeAmountUnitButton'));
+    fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '9.99');
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('CustomAmountSaveButton'));
+      await Promise.resolve();
+    });
+
+    expect(wallet.addInvoice).toHaveBeenCalledWith(0, '');
+  });
+
+  it('alerts the addInvoice error and leaves the custom-amount modal usable', async () => {
+    const wallet = makeCreateWallet();
+    wallet.addInvoice.mockImplementation(() => Promise.reject(new Error('node down')));
+    const screen = renderCreateInvoiceScreen(wallet);
+
+    await waitFor(() => screen.getByText(loc.receive.details_setAmount));
+    fireEvent.press(screen.getByText(loc.receive.details_setAmount));
+    fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '1000');
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('CustomAmountSaveButton'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(wallet.addInvoice).toHaveBeenCalled());
+    await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith(loc.alert.default, 'node down'));
+    expect(haptic.trigger).toHaveBeenCalledWith('notificationError', { ignoreAndroidSystemSettings: false });
+    // createInvoice does not dismiss the modal on error; SetCustomAmountButton sits
+    // behind the open Modal and is not queryable. The Create button in the modal is.
+    expect(screen.getByTestId('CustomAmountSaveButton')).toBeTruthy();
+  });
+
+  it('refetches user invoices after creating one', async () => {
+    const wallet = makeCreateWallet();
+    const saveToDisk = jest.fn().mockResolvedValue(undefined);
+    const screen = renderCreateInvoiceScreen(wallet, { saveToDisk });
+
+    await waitFor(() => screen.getByTestId('SetCustomAmountButton'));
+    fireEvent.press(screen.getByTestId('SetCustomAmountButton'));
+    fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '1000');
+    jest.useFakeTimers();
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('CustomAmountSaveButton'));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+
+    expect(wallet.fetchUserInvoices).toHaveBeenCalledWith(1);
+    expect(saveToDisk.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it('shares the Lightning address and swallows a share rejection', async () => {
+    Share.open.mockRejectedValueOnce(new Error('share cancelled'));
+    const wallet = makeCreateWallet();
+    const screen = renderCreateInvoiceScreen(wallet);
+
+    await waitFor(() => screen.getByText(loc.receive.details_share));
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.receive.details_share));
+      await Promise.resolve();
+    });
+
+    expect(Share.open).toHaveBeenCalledWith({ message: 'spark@test' });
+    expect(screen.getByText(loc.receive.details_share)).toBeTruthy();
+  });
+
+  it('shares the Lightning address when Share.open resolves', async () => {
+    Share.open.mockResolvedValueOnce({});
+    const wallet = makeCreateWallet();
+    const screen = renderCreateInvoiceScreen(wallet);
+
+    await waitFor(() => screen.getByText(loc.receive.details_share));
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.receive.details_share));
+      await Promise.resolve();
+    });
+
+    expect(Share.open).toHaveBeenCalledWith({ message: 'spark@test' });
+  });
+
+  it('dismisses the custom amount modal from the Android back handler', async () => {
+    const dismiss = jest.spyOn(Keyboard, 'dismiss');
+    const wallet = makeCreateWallet();
+    const screen = renderCreateInvoiceScreen(wallet);
+
+    await waitFor(() => screen.getByTestId('SetCustomAmountButton'));
+    fireEvent.press(screen.getByTestId('SetCustomAmountButton'));
+    expect(screen.getByTestId('CustomAmountSaveButton')).toBeTruthy();
+    fireEvent(screen.UNSAFE_getByType(Modal), 'requestClose');
+    expect(dismiss).toHaveBeenCalled();
+  });
+
+  it('dismisses the keyboard from the description field submit', async () => {
+    const dismiss = jest.spyOn(Keyboard, 'dismiss');
+    const wallet = makeCreateWallet();
+    const screen = renderCreateInvoiceScreen(wallet);
+
+    await waitFor(() => screen.getByTestId('SetCustomAmountButton'));
+    fireEvent.press(screen.getByTestId('SetCustomAmountButton'));
+    fireEvent(screen.getByPlaceholderText(loc.receive.details_label), 'submitEditing');
+    expect(dismiss).toHaveBeenCalled();
+  });
+
+  it('renders the custom amount modal with android KeyboardAvoidingView and iPad disabled', async () => {
+    const previousOS = Platform.OS;
+    const previousIsPad = Platform.isPad;
+    Platform.OS = 'android';
+    Platform.isPad = true;
+    try {
+      const wallet = makeCreateWallet();
+      const screen = renderCreateInvoiceScreen(wallet);
+      await waitFor(() => screen.getByTestId('SetCustomAmountButton'));
+      fireEvent.press(screen.getByTestId('SetCustomAmountButton'));
+      expect(screen.getByTestId('CustomAmountSaveButton')).toBeTruthy();
+    } finally {
+      Platform.OS = previousOS;
+      Platform.isPad = previousIsPad;
+    }
+  });
+
+  it('prompts to save the export and continues on yes', async () => {
+    Alert.alert.mockImplementation((title, message, buttons) => {
+      if (buttons && buttons[0]) buttons[0].onPress();
+    });
+    const wallet = makeCreateWallet();
+    wallet.setUserHasSavedExport(false);
+    const screen = renderCreateInvoiceScreen(wallet);
+
+    await waitFor(() => screen.getByText(loc.receive.details_setAmount));
+    expect(Alert.alert).toHaveBeenCalled();
+    expect(wallet.getUserHasSavedExport()).toBe(true);
+  });
+
+  it('opens wallet export when the backup reminder is declined', () => {
+    Alert.alert.mockImplementation((title, message, buttons) => {
+      if (buttons && buttons[1]) buttons[1].onPress();
+    });
+    const wallet = makeCreateWallet();
+    wallet.setUserHasSavedExport(false);
+    renderCreateInvoiceScreen(wallet);
+
+    expect(mockPop).toHaveBeenCalled();
+    expect(NavigationService.navigate).toHaveBeenCalledWith('WalletExportRoot', {
+      screen: 'WalletExport',
+      params: { walletID: wallet.getID() },
+    });
+  });
+
+  it('switches the ref to the route wallet when the displayed wallet reports a different id', async () => {
+    const displayed = makeCreateWallet('displayed');
+    const matching = makeCreateWallet('spark-create-invoice-1');
+    const setSelectedWallet = jest.fn();
+    mockRouteParams.walletID = 'displayed';
+    const screen = render(
+      <BlueStorageContext.Provider
+        value={{
+          wallets: [displayed, matching],
+          saveToDisk: jest.fn().mockResolvedValue(undefined),
+          setSelectedWallet,
+        }}
+      >
+        <LNDCreateInvoice />
+      </BlueStorageContext.Provider>,
+    );
+    await waitFor(() => screen.getByText(loc.receive.details_setAmount));
+
+    mockRouteParams.walletID = 'spark-create-invoice-1';
+    screen.rerender(
+      <BlueStorageContext.Provider
+        value={{
+          wallets: [displayed, matching],
+          saveToDisk: jest.fn().mockResolvedValue(undefined),
+          setSelectedWallet,
+        }}
+      >
+        <LNDCreateInvoice />
+      </BlueStorageContext.Provider>,
+    );
+
+    await waitFor(() => expect(setSelectedWallet).toHaveBeenCalledWith('spark-create-invoice-1'));
+  });
+
+  it('leaves the current wallet in place when the new route id cannot be found', async () => {
+    const wallet = makeCreateWallet();
+    const setSelectedWallet = jest.fn();
+    mockRouteParams.walletID = wallet.getID();
+    const screen = renderCreateInvoiceScreen(wallet, { setSelectedWallet });
+    await waitFor(() => screen.getByText(loc.receive.details_setAmount));
+    setSelectedWallet.mockClear();
+
+    mockRouteParams.walletID = 'missing-wallet';
+    screen.rerender(
+      <BlueStorageContext.Provider
+        value={{
+          wallets: [wallet],
+          saveToDisk: jest.fn().mockResolvedValue(undefined),
+          setSelectedWallet,
+        }}
+      >
+        <LNDCreateInvoice />
+      </BlueStorageContext.Provider>,
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(setSelectedWallet).not.toHaveBeenCalledWith('missing-wallet');
+  });
+
+  it('ignores a missing wallet pick and hands an on-chain pick to ReceiveDetails', async () => {
+    const lightning = makeCreateWallet();
+    const onchain = {
+      getID: () => 'onchain-1',
+      chain: Chain.ONCHAIN,
+      getLabel: () => 'Onchain',
+    };
+    const other = makeCreateWallet('spark-create-2');
+    const screen = renderCreateInvoiceScreen(lightning, { wallets: [lightning, other, onchain] });
+
+    await waitFor(() => screen.getByTestId('WalletSelect'));
+    fireEvent.press(screen.getByTestId('WalletSelectMissing'));
+    assert.strictEqual(global.__walletSelectResult, undefined);
+
+    fireEvent.press(screen.getByTestId('WalletSelect-onchain-1'));
+    assert.deepStrictEqual(global.__walletSelectResult, { name: 'ReceiveDetails', params: { walletID: 'onchain-1' } });
+  });
+
+  it('updates the route when the picker chooses another Lightning wallet', async () => {
+    const lightning = makeCreateWallet();
+    const other = makeCreateWallet('spark-create-2');
+    const screen = renderCreateInvoiceScreen(lightning, { wallets: [lightning, other] });
+
+    await waitFor(() => screen.getByTestId('WalletSelect-spark-create-2'));
+    fireEvent.press(screen.getByTestId('WalletSelect-spark-create-2'));
+    expect(mockSetParams).toHaveBeenCalledWith({ walletID: 'spark-create-2' });
+  });
+
+  it('navigates to LNURL auth when the scanned tag is login', async () => {
+    const loginLnurl = Lnurl.encode('https://example.com/lnurl?tag=login&k1=aa');
+    const wallet = makeCreateWallet();
+    renderCreateInvoiceScreen(wallet, { uri: loginLnurl, walletID: undefined, wallets: [wallet] });
+
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith('LnurlAuth', {
+        lnurl: loginLnurl,
+        walletID: wallet.getID(),
+      }),
+    );
+  });
+
+  it('replaces the screen with ScanLndInvoice when the LNURL is a pay request', async () => {
+    const payLnurl = Lnurl.encode(WITHDRAW_URL);
+    jest.spyOn(global, 'fetch').mockResolvedValue(jsonResponse({ tag: Lnurl.TAG_PAY_REQUEST }));
+    const wallet = makeCreateWallet();
+    renderCreateInvoiceScreen(wallet, { uri: payLnurl, walletID: wallet.getID() });
+
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith('SendDetailsRoot', {
+        screen: 'ScanLndInvoice',
+        params: { uri: payLnurl, walletID: wallet.getID() },
+      }),
+    );
+  });
+
+  it('passes the route walletID to ScanLndInvoice when the LNURL is a pay request', async () => {
+    const payLnurl = Lnurl.encode(WITHDRAW_URL);
+    jest.spyOn(global, 'fetch').mockResolvedValue(jsonResponse({ tag: Lnurl.TAG_PAY_REQUEST }));
+    const wallet = makeCreateWallet();
+    renderCreateInvoiceScreen(wallet, { uri: payLnurl, walletID: 'route-wallet-id', wallets: [wallet] });
+
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith('SendDetailsRoot', {
+        screen: 'ScanLndInvoice',
+        params: { uri: payLnurl, walletID: 'route-wallet-id' },
+      }),
+    );
+  });
+
+  it('falls back to wallet.current.getID for ScanLndInvoice when the route walletID is missing', async () => {
+    const payLnurl = Lnurl.encode(WITHDRAW_URL);
+    jest.spyOn(global, 'fetch').mockResolvedValue(jsonResponse({ tag: Lnurl.TAG_PAY_REQUEST }));
+    const wallet = makeCreateWallet();
+    renderCreateInvoiceScreen(wallet, { uri: payLnurl, walletID: undefined, wallets: [wallet] });
+
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith('SendDetailsRoot', {
+        screen: 'ScanLndInvoice',
+        params: { uri: payLnurl, walletID: wallet.getID() },
+      }),
+    );
+  });
+
+  it('alerts when the LNURL is an onion URL', async () => {
+    const onionLnurl = Lnurl.encode('http://abc.onion/withdraw');
+    const wallet = makeCreateWallet();
+    const screen = renderCreateInvoiceScreen(wallet, { uri: onionLnurl });
+
+    await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith(loc.alert.default, loc.settings.tor_unsupported));
+    expect(haptic.trigger).toHaveBeenCalledWith('notificationError', { ignoreAndroidSystemSettings: false });
+    await waitFor(() => screen.getByText(loc.receive.details_setAmount));
+  });
+
+  it('alerts when the LNURL server returns a non-success status', async () => {
+    const lnurl = Lnurl.encode(WITHDRAW_URL);
+    jest.spyOn(global, 'fetch').mockResolvedValue(jsonResponse('Bad response from server', 500));
+    const wallet = makeCreateWallet();
+    renderCreateInvoiceScreen(wallet, { uri: lnurl });
+
+    await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith(loc.alert.default, 'Bad response from server'));
+  });
+
+  it('alerts when the LNURL server replies with status ERROR', async () => {
+    const lnurl = Lnurl.encode(WITHDRAW_URL);
+    jest.spyOn(global, 'fetch').mockResolvedValue(jsonResponse({ status: 'ERROR', reason: 'nope' }));
+    const wallet = makeCreateWallet();
+    renderCreateInvoiceScreen(wallet, { uri: lnurl });
+
+    await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith(loc.alert.default, 'Reply from server: nope'));
+  });
+
+  it('alerts when the LNURL tag is not a withdraw request', async () => {
+    const lnurl = Lnurl.encode(WITHDRAW_URL);
+    jest.spyOn(global, 'fetch').mockResolvedValue(jsonResponse({ tag: 'channelRequest' }));
+    const wallet = makeCreateWallet();
+    renderCreateInvoiceScreen(wallet, { uri: lnurl });
+
+    await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith(loc.alert.default, 'Unsupported lnurl'));
+  });
+
+  it('creates a withdraw invoice and appends k1 to a callback without a query string', async () => {
+    const lnurl = Lnurl.encode(WITHDRAW_URL);
+    const payload = withdrawPayload();
+    jest.spyOn(global, 'fetch').mockImplementation(async url => {
+      if (String(url).includes('k1=')) {
+        return jsonResponse({ status: 'OK' });
+      }
+      return jsonResponse(payload);
+    });
+    const wallet = makeCreateWallet();
+    renderCreateInvoiceScreen(wallet, { uri: lnurl });
+
+    await waitFor(() => expect(wallet.addInvoice).toHaveBeenCalledWith(5000, 'withdraw'));
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('LNDViewInvoice', expect.any(Object)));
+    const callbackUrl = global.fetch.mock.calls.find(call => String(call[0]).includes('k1='))[0];
+    assert.ok(String(callbackUrl).startsWith('https://lnurl.example.com/cb?k1=k1-secret&pr='));
+  });
+
+  it('appends k1 with an ampersand when the withdraw callback already has a query', async () => {
+    const lnurl = Lnurl.encode(WITHDRAW_URL);
+    const payload = withdrawPayload({ callback: 'https://lnurl.example.com/cb?foo=1' });
+    jest.spyOn(global, 'fetch').mockImplementation(async url => {
+      if (String(url).includes('k1=')) {
+        return jsonResponse({ status: 'OK' });
+      }
+      return jsonResponse(payload);
+    });
+    const wallet = makeCreateWallet();
+    renderCreateInvoiceScreen(wallet, { uri: lnurl });
+
+    await waitFor(() => expect(wallet.addInvoice).toHaveBeenCalled());
+    const callbackUrl = global.fetch.mock.calls.find(call => String(call[0]).includes('k1='))[0];
+    assert.ok(String(callbackUrl).startsWith('https://lnurl.example.com/cb?foo=1&k1=k1-secret&pr='));
+  });
+
+  it('alerts the callback body when the withdraw callback returns a non-success status', async () => {
+    const lnurl = Lnurl.encode(WITHDRAW_URL);
+    jest.spyOn(global, 'fetch').mockImplementation(async url => {
+      if (String(url).includes('k1=')) {
+        return jsonResponse('callback failed', 400);
+      }
+      return jsonResponse(withdrawPayload());
+    });
+    const wallet = makeCreateWallet();
+    renderCreateInvoiceScreen(wallet, { uri: lnurl });
+
+    await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith(loc.alert.default, 'callback failed'));
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('alerts when the withdraw callback JSON has status ERROR', async () => {
+    const lnurl = Lnurl.encode(WITHDRAW_URL);
+    jest.spyOn(global, 'fetch').mockImplementation(async url => {
+      if (String(url).includes('k1=')) {
+        return jsonResponse({ status: 'ERROR', reason: 'empty' });
+      }
+      return jsonResponse(withdrawPayload());
+    });
+    const wallet = makeCreateWallet();
+    renderCreateInvoiceScreen(wallet, { uri: lnurl });
+
+    await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith(loc.alert.default, 'Reply from server: empty'));
+  });
+
+  it('alerts the SATS minimum when the custom amount is below the withdraw min', async () => {
+    const lnurl = Lnurl.encode(WITHDRAW_URL);
+    jest.spyOn(global, 'fetch').mockResolvedValue(jsonResponse(withdrawPayload()));
+    const wallet = makeCreateWallet();
+    wallet.addInvoice.mockRejectedValue(new Error('skip auto create'));
+    const screen = renderCreateInvoiceScreen(wallet, { uri: lnurl });
+
+    await waitFor(() => screen.getByText(loc.receive.details_setAmount));
+    fireEvent.press(screen.getByTestId('SetCustomAmountButton'));
+    expect(screen.getByTestId('BitcoinAmountInput').props.editable).not.toBe(false);
+    fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '1');
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('CustomAmountSaveButton'));
+      await Promise.resolve();
+    });
+
+    expect(Alert.alert).toHaveBeenCalledWith(loc.alert.default, loc.formatString(loc.receive.minSats, { min: 100 }));
+    expect(haptic.trigger).toHaveBeenCalledWith('notificationError', { ignoreAndroidSystemSettings: false });
+  });
+
+  it('alerts the SATS maximum when the custom amount is above the withdraw max', async () => {
+    const lnurl = Lnurl.encode(WITHDRAW_URL);
+    jest.spyOn(global, 'fetch').mockResolvedValue(jsonResponse(withdrawPayload()));
+    const wallet = makeCreateWallet();
+    wallet.addInvoice.mockRejectedValue(new Error('skip auto create'));
+    const screen = renderCreateInvoiceScreen(wallet, { uri: lnurl });
+
+    await waitFor(() => screen.getByText(loc.receive.details_setAmount));
+    fireEvent.press(screen.getByTestId('SetCustomAmountButton'));
+    fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '9000');
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('CustomAmountSaveButton'));
+      await Promise.resolve();
+    });
+
+    expect(Alert.alert).toHaveBeenCalledWith(loc.alert.default, loc.formatString(loc.receive.maxSats, { max: 5000 }));
+  });
+
+  it('alerts the converted minimum when the unit is not SATS', async () => {
+    const lnurl = Lnurl.encode(WITHDRAW_URL);
+    const wallet = makeCreateWallet();
+    wallet.getPreferredBalanceUnit = () => BitcoinUnit.BTC;
+    jest.spyOn(global, 'fetch').mockResolvedValue(jsonResponse(withdrawPayload()));
+    renderCreateInvoiceScreen(wallet, { uri: lnurl });
+
+    await waitFor(() =>
+      expect(Alert.alert).toHaveBeenCalledWith(
+        loc.alert.default,
+        loc.formatString(loc.receive.minSatsFull, { min: 100, currency: formatBalance(100, BitcoinUnit.BTC) }),
+      ),
+    );
+  });
+
+  it('alerts the converted maximum when a BTC amount is above the withdraw max', async () => {
+    const lnurl = Lnurl.encode(WITHDRAW_URL);
+    jest.spyOn(global, 'fetch').mockResolvedValue(jsonResponse(withdrawPayload()));
+    const wallet = makeCreateWallet();
+    wallet.addInvoice.mockRejectedValue(new Error('skip auto create'));
+    const screen = renderCreateInvoiceScreen(wallet, { uri: lnurl });
+
+    await waitFor(() => screen.getByText(loc.receive.details_setAmount));
+    fireEvent.press(screen.getByTestId('SetCustomAmountButton'));
+    fireEvent.press(screen.getByTestId('changeAmountUnitButton'));
+    fireEvent.press(screen.getByTestId('changeAmountUnitButton'));
+    fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '1');
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('CustomAmountSaveButton'));
+      await Promise.resolve();
+    });
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      loc.alert.default,
+      loc.formatString(loc.receive.maxSatsFull, { max: 5000, currency: formatBalance(5000, BitcoinUnit.BTC) }),
+    );
+  });
+
+  it('runs the BTC branch when converting a withdraw amount out of sats', async () => {
+    const lnurl = Lnurl.encode(WITHDRAW_URL);
+    const wallet = makeCreateWallet();
+    wallet.getPreferredBalanceUnit = () => BitcoinUnit.BTC;
+    jest.spyOn(global, 'fetch').mockImplementation(async url => {
+      if (String(url).includes('k1=')) return jsonResponse({ status: 'OK' });
+      return jsonResponse(withdrawPayload({ minWithdrawable: 0, maxWithdrawable: 5_000_000 }));
+    });
+    renderCreateInvoiceScreen(wallet, { uri: lnurl });
+
+    await waitFor(() => expect(wallet.addInvoice).toHaveBeenCalled());
+    const amountArg = wallet.addInvoice.mock.calls[0][0];
+    assert.strictEqual(amountArg, 0);
+  });
+
+  it('converts the withdraw amount to local currency and caches the sats', async () => {
+    const lnurl = Lnurl.encode(WITHDRAW_URL);
+    const wallet = makeCreateWallet();
+    wallet.getPreferredBalanceUnit = () => BitcoinUnit.LOCAL_CURRENCY;
+    jest.spyOn(global, 'fetch').mockImplementation(async url => {
+      if (String(url).includes('k1=')) return jsonResponse({ status: 'OK' });
+      return jsonResponse(withdrawPayload({ minWithdrawable: 0 }));
+    });
+    renderCreateInvoiceScreen(wallet, { uri: lnurl });
+
+    await waitFor(() => expect(wallet.addInvoice).toHaveBeenCalled());
+    // Default export is the styled wrapper; conversionCache lives on the class.
+    // setCachedSatoshis writes there — assert through the same helper the screen uses.
+    assert.strictEqual(AmountInput.getCachedSatoshis('0'), '5000');
+    expect(wallet.addInvoice).toHaveBeenCalledWith('5000', 'withdraw');
+  });
+
+  it('treats a missing minWithdrawable as zero so the max amount is still accepted', async () => {
+    const lnurl = Lnurl.encode(WITHDRAW_URL);
+    jest.spyOn(global, 'fetch').mockImplementation(async url => {
+      if (String(url).includes('k1=')) return jsonResponse({ status: 'OK' });
+      return jsonResponse(withdrawPayload({ minWithdrawable: undefined, maxWithdrawable: 5_000_000 }));
+    });
+    const wallet = makeCreateWallet();
+    renderCreateInvoiceScreen(wallet, { uri: lnurl });
+
+    await waitFor(() => expect(wallet.addInvoice).toHaveBeenCalledWith(5000, 'withdraw'));
+    expect(mockNavigate).toHaveBeenCalledWith('LNDViewInvoice', expect.any(Object));
+  });
+
+  it('disables the amount field when the withdraw amount is fixed', async () => {
+    const lnurl = Lnurl.encode(WITHDRAW_URL);
+    const wallet = makeCreateWallet();
+    wallet.addInvoice.mockRejectedValue(new Error('skip auto create'));
+    jest.spyOn(global, 'fetch').mockResolvedValue(
+      jsonResponse(
+        withdrawPayload({
+          minWithdrawable: 5_000_000,
+          maxWithdrawable: 5_000_000,
+        }),
+      ),
+    );
+    const screen = renderCreateInvoiceScreen(wallet, { uri: lnurl });
+    await waitFor(() => screen.getByText(loc.receive.details_setAmount));
+    fireEvent.press(screen.getByTestId('SetCustomAmountButton'));
+    expect(screen.getByTestId('BitcoinAmountInput').props.editable).toBe(false);
+  });
+
+  it('titles the navigation header Receive and goes back from the close button', () => {
+    const goBack = jest.fn();
+    const options = LNDCreateInvoice.navigationOptions(BlueDarkTheme)({
+      navigation: { goBack },
+      route: {},
+    });
+    expect(options.title).toBe(loc.receive.header);
+    const close = render(options.headerRight());
+    fireEvent.press(close.getByTestId('NavigationCloseButton'));
+    expect(goBack).toHaveBeenCalled();
+    close.unmount();
+  });
+
+  it('exposes LNDCreateInvoice as the route name', () => {
+    expect(LNDCreateInvoice.routeName).toBe('LNDCreateInvoice');
   });
 });

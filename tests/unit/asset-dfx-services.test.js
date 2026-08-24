@@ -373,6 +373,39 @@ describe('wallet asset missing wallet', () => {
     expect(screen.toJSON()).toBeNull();
     expect(screen.queryByTestId('tx-stay')).toBeNull();
   });
+
+  it('keeps the transaction list empty and does not throw when getTransactionsSliced runs without a matching wallet', async () => {
+    const foreign = makeWallet({
+      id: 'foreign-1',
+      txs: [{ hash: 'foreign-tx', received: '2024-01-01T00:00:00.000Z' }],
+    });
+    mockRoute.params = { walletID: 'absent-wallet' };
+    const base = {
+      saveToDisk: jest.fn(),
+      setSelectedWallet: jest.fn(),
+      walletTransactionUpdateStatus: '',
+      revalidateBalancesInterval: jest.fn(),
+      isDfxPos: false,
+      isDfxSwap: false,
+    };
+    let screen;
+    expect(() => {
+      screen = render(
+        <BlueStorageContext.Provider value={{ ...base, wallets: [foreign] }}>
+          <Asset navigation={{ navigate: mockNavigate }} />
+        </BlueStorageContext.Provider>,
+      );
+    }).not.toThrow();
+    await act(async () => {
+      screen.rerender(
+        <BlueStorageContext.Provider value={{ ...base, wallets: [foreign, makeWallet({ id: 'another-foreign' })] }}>
+          <Asset navigation={{ navigate: mockNavigate }} />
+        </BlueStorageContext.Provider>,
+      );
+    });
+    expect(screen.queryByTestId('tx-foreign-tx')).toBeNull();
+    expect(screen.toJSON()).toBeNull();
+  });
 });
 
 describe('wallet asset empty list copy', () => {
@@ -788,6 +821,28 @@ describe('wallet asset send long-press action sheet', () => {
     expect(opts.buttons[1].text).toBe(loc.wallets.list_long_choose);
     expect(opts.buttons[2].text).toBe(loc.wallets.list_long_scan);
     expect(opts.buttons[3].text).toBe(loc.wallets.list_long_clipboard);
+  });
+
+  it('shows the Android send long-press button list with cancel, choose, scan and clipboard', async () => {
+    Platform.OS = 'android';
+    mockGetClipboardContent.mockResolvedValue('send-long-press-clip');
+    const screen = renderAsset(makeWallet({ id: 'android-send-long-press' }));
+    await longPressSend(screen);
+    const { opts } = lastActionSheetCall();
+    expect(opts.buttons.map(b => b.text)).toEqual([
+      loc._.cancel,
+      loc.wallets.list_long_choose,
+      loc.wallets.list_long_scan,
+      loc.wallets.list_long_clipboard,
+    ]);
+  });
+
+  it('does not open an action sheet on send long-press when the platform is neither iOS nor Android', async () => {
+    Platform.OS = 'macos';
+    mockGetClipboardContent.mockResolvedValue('ignored');
+    const screen = renderAsset(makeWallet({ id: 'macos-send-long-press' }));
+    await longPressSend(screen);
+    expect(mockShowActionSheet).not.toHaveBeenCalled();
   });
 });
 

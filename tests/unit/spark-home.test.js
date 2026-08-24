@@ -986,6 +986,17 @@ describe('home screen setParams, focus and header wallet change', () => {
     await waitFor(() => expect(setSelectedWallet).toHaveBeenCalledWith('sel-home'));
   });
 
+  it('does not select a wallet when storage has no wallet', async () => {
+    const setSelectedWallet = jest.fn();
+    // home.js:52 sets walletID from wallets[0]?.getID(), so a non-empty list always
+    // produces a matching `wallet` for the select effect at :104. The only falsy
+    // case is an empty list — but displayWallets then crashes at :297
+    // (`onChainWallet.getID`) and the header would crash at :324 (`wallet.allowRBF`)
+    // before the effect runs. Assert the crash and that selection never happened.
+    expect(() => render(<HomeHarness initialWallets={[]} setSelectedWallet={setSelectedWallet} />)).toThrow();
+    expect(setSelectedWallet).not.toHaveBeenCalled();
+  });
+
   it('skips writing backup params when the aggregated total wallet is missing', async () => {
     mockReactFlags.hideTotalWallet = true;
     const screen = renderHome([makeOnChain('no-total')]);
@@ -1105,4 +1116,3 @@ describe('home screen module-level branches', () => {
     expect(typeof loaded).toBe('function');
   });
 });
-
