@@ -381,28 +381,24 @@ const LNDCreateInvoice = () => {
           <BlueWalletSelect wallets={wallets} value={wallet.current?.getID()} onChange={onWalletChange} />
         </View>
 
-        {wallet.current ? (
-          <ScrollView contentContainerStyle={styles.root} keyboardShouldPersistTaps="always">
-            <View style={styles.scrollBody}>
-              {wallet.current.lnAddress ? <QRCodeComponent value={wallet.current.lnAddress} /> : null}
-              <BlueCopyTextToClipboard text={wallet.current.lnAddress} />
-            </View>
-            <View style={styles.share}>
-              <BlueCard>
-                <BlueButtonLink
-                  style={styles.link}
-                  testID="SetCustomAmountButton"
-                  title={loc.receive.details_setAmount}
-                  onPress={showCustomAmountModal}
-                />
-                <BlueButton onPress={handleShareButtonPressed} title={loc.receive.details_share} />
-              </BlueCard>
-            </View>
-            {renderCustomAmountModal()}
-          </ScrollView>
-        ) : (
-          <BlueLoading />
-        )}
+        <ScrollView contentContainerStyle={styles.root} keyboardShouldPersistTaps="always">
+          <View style={styles.scrollBody}>
+            {wallet.current.lnAddress ? <QRCodeComponent value={wallet.current.lnAddress} /> : null}
+            <BlueCopyTextToClipboard text={wallet.current.lnAddress} />
+          </View>
+          <View style={styles.share}>
+            <BlueCard>
+              <BlueButtonLink
+                style={styles.link}
+                testID="SetCustomAmountButton"
+                title={loc.receive.details_setAmount}
+                onPress={showCustomAmountModal}
+              />
+              <BlueButton onPress={handleShareButtonPressed} title={loc.receive.details_share} />
+            </BlueCard>
+          </View>
+          {renderCustomAmountModal()}
+        </ScrollView>
       </View>
     </TouchableWithoutFeedback>
   );

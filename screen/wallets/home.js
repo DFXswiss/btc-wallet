@@ -101,7 +101,7 @@ const WalletHome = ({ navigation }) => {
   useEffect(() => {
     setIsLoading(true);
     setIsLoading(false);
-    if (wallet) setSelectedWallet(wallet.getID());
+    setSelectedWallet(wallet.getID());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletID]);
 
