@@ -66,6 +66,8 @@ describe('Settings Lightning wallet entry', () => {
     const item = screen.getByTestId('WalletDetailsLnd');
 
     expect(item).not.toBeDisabled();
+    expect(screen.getByText(loc.wallets.lightning_spark_wallet_label)).toBeTruthy();
+    expect(screen.queryByText(loc.wallets.lightning_wallet_label)).toBeNull();
     fireEvent.press(item);
     expect(mockNavigate).toHaveBeenCalledWith('WalletDetails', { walletID: 'spark-wallet-id' });
   });
@@ -103,6 +105,8 @@ describe('Settings Lightning wallet entry', () => {
     const item = screen.getByTestId('WalletDetailsLnd');
 
     expect(item).not.toBeDisabled();
+    expect(screen.getByText(loc.wallets.lightning_wallet_label)).toBeTruthy();
+    expect(screen.queryByText(loc.wallets.lightning_spark_wallet_label)).toBeNull();
     fireEvent.press(item);
     expect(mockNavigate).toHaveBeenCalledWith('WalletDetails', { walletID: 'lds-only-id' });
   });

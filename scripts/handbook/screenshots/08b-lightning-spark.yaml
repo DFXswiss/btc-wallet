@@ -21,11 +21,10 @@ appId: swiss.dfx.bitcoin
 - tapOn: 'Beschreibung (optional)'
 - inputText: 'Handbuch'
 # Fertig loest die Rechnungserzeugung aus; hideKeyboard als Rueckfall.
-- runFlow:
-    when:
-      visible: 'Fertig'
-    commands:
-      - tapOn: 'Fertig'
+- extendedWaitUntil:
+    visible: 'Fertig'
+    timeout: 30000
+- tapOn: 'Fertig'
 - hideKeyboard
 - waitForAnimationToEnd:
     timeout: 30000

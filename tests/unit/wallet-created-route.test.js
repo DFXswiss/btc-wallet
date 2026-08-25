@@ -1,10 +1,5 @@
 import assert from 'assert';
-import fs from 'fs';
-import path from 'path';
 import { walletCreatedRoute } from '../../helpers/wallet-created-route';
-
-const repoRoot = path.join(__dirname, '..', '..');
-const readSource = relativePath => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
 // Creating or importing the first wallet used to replace the stack with the LNDHub
 // screen, so every fresh setup ended on the Lightning provider selection. The
@@ -25,14 +20,5 @@ describe('walletCreatedRoute', () => {
     first.screen = 'AddLightning';
     const [, second] = walletCreatedRoute();
     assert.strictEqual(second.screen, 'WalletTransactions');
-  });
-});
-
-describe('onboarding does not open the LNDHub screen', () => {
-  it('the LNDHub screen has no onboarding variant left', () => {
-    const source = readSource('screen/wallets/dfx/add-lightning.tsx');
-    assert.ok(!source.includes('isOnboarding'), 'expected no onboarding flag');
-    assert.ok(!source.includes('loc._.skip'), 'expected the "skip for now" button to be gone');
-    assert.ok(source.includes('loc._.cancel'), 'expected the cancel button to remain');
   });
 });

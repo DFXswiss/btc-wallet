@@ -49,7 +49,7 @@ const Settings = () => {
           chevron
         />
         <BlueListItem
-          title={loc.wallets.lightning_wallet_label}
+          title={lndWallet?.type === SparkWallet.type ? loc.wallets.lightning_spark_wallet_label : loc.wallets.lightning_wallet_label}
           disabled={!lndWallet}
           onPress={() => navigateToWalletDetails(lndWallet?.getID())}
           testID="WalletDetailsLnd"
