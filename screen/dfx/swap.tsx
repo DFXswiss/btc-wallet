@@ -14,6 +14,7 @@ import { Chain } from '../../models/bitcoinUnits';
 import { useSwap } from '../../api/dfx/hooks/swap.hook';
 import { useWalletContext } from '../../contexts/wallet.context';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
+import { SparkWallet } from '../../class/wallets/spark-wallet';
 import { SwapInfo } from '../../api/dfx/definitions/swap';
 import { Utils } from '../../helpers/utils';
 import { DfxService } from '../../api/dfx/contexts/session.context';

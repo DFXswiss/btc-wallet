@@ -24,6 +24,7 @@ import { AbstractHDElectrumWallet } from '../class/wallets/abstract-hd-electrum-
 import { Utxo } from '../class/wallets/types';
 import { BlueText } from '../BlueComponents';
 import { LightningLdsWallet } from '../class/wallets/lightning-lds-wallet';
+import { SparkWallet } from '../class/wallets/spark-wallet';
 import { useWalletContext } from '../contexts/wallet.context';
 import { DfxMaxAmount } from '../helpers/dfxMaxAmount';
 import { Utils } from '../helpers/utils';
