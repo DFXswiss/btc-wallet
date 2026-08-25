@@ -365,7 +365,7 @@ describe('WatchConnectivity', () => {
     expect(majorTomToGroundControl).not.toHaveBeenCalled();
   });
 
-  it('replies with the addInvoice error when addInvoice throws', async () => {
+  it('replies with an empty object when addInvoice throws', async () => {
     pairWatch();
     const invoiceError = new Error('invoice failed');
     const wallet = makeOffchain({
@@ -376,7 +376,7 @@ describe('WatchConnectivity', () => {
     await act(async () => {
       onMessage({ request: 'createInvoice', walletIndex: 0, amount: 1, description: 'x' }, reply);
     });
-    await waitFor(() => expect(reply).toHaveBeenCalledWith({ invoicePaymentRequest: invoiceError }));
+    await waitFor(() => expect(reply).toHaveBeenCalledWith({}));
   });
 
   it('replies with an empty object when createInvoice reads a missing wallet', async () => {
@@ -729,6 +729,32 @@ describe('WatchConnectivity', () => {
     expect(payload.wallets[0].transactions).toEqual([
       { type: 'sent', amount: loc.lnd.expired, memo: '', time: transactionTimeToReadable(received) },
     ]);
+  });
+
+  it('maps a paid unexpired user_invoice to received', async () => {
+    pairWatch();
+    const received = FIXED_NOW.getTime();
+    const wallet = makeOffchain({
+      getTransactions: () => [
+        {
+          type: 'user_invoice',
+          value: 3333,
+          hash: 'inv-paid-live',
+          timestamp: FIXED_NOW_SEC,
+          expire_time: 60,
+          ispaid: true,
+          received,
+        },
+      ],
+    });
+    renderWatch(storage({ wallets: [wallet] }));
+    const payload = await lastWalletsPayload();
+    expect(payload.wallets[0].transactions[0]).toEqual({
+      type: 'received',
+      amount: formatted(3333),
+      memo: '',
+      time: transactionTimeToReadable(received),
+    });
   });
 
   it('maps a paid expired payment_request to received with a formatted amount', async () => {

@@ -90,21 +90,17 @@ function WatchConnectivity() {
   const handleLightningInvoiceCreateRequest = async (walletIndex, amount, description = loc.lnd.placeholder) => {
     const wallet = wallets[walletIndex];
     if (wallet.allowReceive() && amount > 0) {
-      try {
-        const invoiceRequest = await wallet.addInvoice(amount, description);
+      const invoiceRequest = await wallet.addInvoice(amount, description);
 
-        // lets decode payreq and subscribe groundcontrol so we can receive push notification when our invoice is paid
-        try {
-          // Let's verify if notifications are already configured. Otherwise the watch app will freeze waiting for user approval in iOS app
-          if (await isNotificationsEnabled()) {
-            const decoded = await wallet.decodeInvoice(invoiceRequest);
-            majorTomToGroundControl([], [decoded.payment_hash], []);
-          }
-        } catch (_) {}
-        return invoiceRequest;
-      } catch (error) {
-        return error;
-      }
+      // lets decode payreq and subscribe groundcontrol so we can receive push notification when our invoice is paid
+      try {
+        // Let's verify if notifications are already configured. Otherwise the watch app will freeze waiting for user approval in iOS app
+        if (await isNotificationsEnabled()) {
+          const decoded = await wallet.decodeInvoice(invoiceRequest);
+          majorTomToGroundControl([], [decoded.payment_hash], []);
+        }
+      } catch (_) {}
+      return invoiceRequest;
     }
   };
 
@@ -154,14 +150,12 @@ function WatchConnectivity() {
             const now = (currentDate.getTime() / 1000) | 0; // eslint-disable-line no-bitwise
             const invoiceExpiration = transaction.timestamp + transaction.expire_time;
 
-            if (invoiceExpiration > now) {
+            if (transaction.ispaid) {
+              type = 'received';
+            } else if (invoiceExpiration > now) {
               type = 'pendingConfirmation';
             } else if (invoiceExpiration < now) {
-              if (transaction.ispaid) {
-                type = 'received';
-              } else {
-                type = 'sent';
-              }
+              type = 'sent';
             }
           } else if (transaction.value / 100000000 < 0) {
             type = 'sent';
