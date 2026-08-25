@@ -18,13 +18,10 @@ appId: swiss.dfx.bitcoin
     timeout: 15000
 - tapOn: 'Amount (optional)'
 - inputText: '1000'
+# Fertig sitzt am Amount-Accessory (iOS); Beschreibung hat keine Accessory-ID.
+- tapOn: 'Fertig'
 - tapOn: 'Beschreibung (optional)'
 - inputText: 'Handbuch'
-# Fertig loest die Rechnungserzeugung aus; hideKeyboard als Rueckfall.
-- extendedWaitUntil:
-    visible: 'Fertig'
-    timeout: 30000
-- tapOn: 'Fertig'
 - hideKeyboard
 - waitForAnimationToEnd:
     timeout: 30000
