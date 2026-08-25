@@ -1,0 +1,39 @@
+name: Reclaim Actions storage
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "27 4 * * *"
+  push:
+    branches: [develop]
+    paths:
+      - ".github/workflows/reclaim-artifact-storage.yml"
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  reclaim:
+    name: Delete stored Actions artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Delete every Actions artifact in this repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          deleted=0
+          while :; do
+            json=$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100")
+            count=$(printf '%s' "$json" | jq '.artifacts | length')
+            if [ "$count" -eq 0 ]; then
+              echo "Deleted ${deleted} artifacts."
+              break
+            fi
+            printf '%s' "$json" | jq -r '.artifacts[].id' | while read -r id; do
+              gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${id}" --silent
+            done
+            deleted=$((deleted + count))
+          done

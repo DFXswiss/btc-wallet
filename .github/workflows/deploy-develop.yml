@@ -1,7 +1,7 @@
 name: Deploy (develop)
 
-# On every merge to develop: build a signed Android APK and upload it as a
-# workflow artifact for quick install/testing. iOS TestFlight and the versioned
+# On every merge to develop: build a signed Android APK so the assemble path
+# stays green. iOS TestFlight and the versioned
 # store releases are owned by the tag flow (auto-tag.yml -> release.yml); this
 # workflow intentionally does not build iOS to avoid a duplicate TestFlight upload.
 #
@@ -70,8 +70,3 @@ jobs:
             -PMYAPP_UPLOAD_STORE_PASSWORD="$KEYSTORE_PASSWORD" \
             -PMYAPP_UPLOAD_KEY_PASSWORD="$KEYSTORE_KEY_PASSWORD" \
             -PMYAPP_VERSION_CODE="$BUILD_NUMBER"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dfx-bitcoin-develop-${{ github.run_number }}
-          path: android/app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: error
