@@ -210,15 +210,22 @@ export class SparkWallet extends AbstractWallet {
     if (!isSparkSdkConnected()) {
       return;
     }
-    const lease = acquireSparkSessionLease();
-    const info = await lease.requireSdk().getInfo({ ensureSynced: false });
-    this.requireHeld(lease);
-    if (this.identityPubkey && this.identityPubkey !== info.identityPubkey) {
-      throw new Error(loc.wallets.lightning_spark_session_mismatch);
+    try {
+      const lease = acquireSparkSessionLease();
+      const info = await lease.requireSdk().getInfo({ ensureSynced: false });
+      this.requireHeld(lease);
+      if (this.identityPubkey && this.identityPubkey !== info.identityPubkey) {
+        throw new Error(loc.wallets.lightning_spark_session_mismatch);
+      }
+      this.identityPubkey = info.identityPubkey;
+      this.balance = Number(info.balanceSats);
+      this._lastBalanceFetch = +new Date();
+    } catch (e) {
+      if (e instanceof SparkSessionStaleError || !isSparkSdkConnected()) {
+        return;
+      }
+      throw e;
     }
-    this.identityPubkey = info.identityPubkey;
-    this.balance = Number(info.balanceSats);
-    this._lastBalanceFetch = +new Date();
   }
 
   /**
@@ -298,6 +305,7 @@ export class SparkWallet extends AbstractWallet {
     if (!isSparkSdkConnected()) {
       return;
     }
+    try {
     const lease = this.holdMatchingSession();
     const payments = await this.listPaymentsPages(
       lease.requireSdk(),
@@ -330,6 +338,12 @@ export class SparkWallet extends AbstractWallet {
     this.transactions_raw = completed;
     this.pending_transactions_raw = pending;
     this._lastTxFetch = +new Date();
+    } catch (e) {
+      if (e instanceof SparkSessionStaleError || !isSparkSdkConnected()) {
+        return;
+      }
+      throw e;
+    }
   }
 
   async fetchPendingTransactions(): Promise<void> {
@@ -343,6 +357,7 @@ export class SparkWallet extends AbstractWallet {
     if (!isSparkSdkConnected()) {
       return this.user_invoices_raw || [];
     }
+    try {
     const lease = this.holdMatchingSession();
     const paginate = !(limit > 0);
     const payments = await this.listPaymentsPages(
@@ -395,6 +410,12 @@ export class SparkWallet extends AbstractWallet {
     this.requireHeld(lease);
     this.user_invoices_raw = remote.sort((a, b) => a.timestamp - b.timestamp);
     return this.user_invoices_raw;
+    } catch (e) {
+      if (e instanceof SparkSessionStaleError || !isSparkSdkConnected()) {
+        return this.user_invoices_raw || [];
+      }
+      throw e;
+    }
   }
 
   async fetchUserInvoices(): Promise<void> {

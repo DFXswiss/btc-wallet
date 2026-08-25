@@ -226,6 +226,34 @@ describe('SparkWallet', () => {
     assert.strictEqual(out, stored);
   });
 
+  it('fetchBalance is a no-op when the session goes stale after the connected check', async () => {
+    mockLeaseValid = false;
+    const wallet = SparkWallet.create('id-pk');
+    wallet.balance = 3;
+    await wallet.fetchBalance();
+    expect(mockSdk.getInfo).not.toHaveBeenCalled();
+    assert.strictEqual(wallet.getBalance(), 3);
+  });
+
+  it('fetchTransactions is a no-op when the session goes stale after the connected check', async () => {
+    mockLeaseValid = false;
+    mockSessionIdentity = 'id-pk';
+    const wallet = SparkWallet.create('id-pk');
+    await wallet.fetchTransactions();
+    expect(mockSdk.listPayments).not.toHaveBeenCalled();
+  });
+
+  it('getUserInvoices returns the stored list when the session goes stale after the connected check', async () => {
+    mockLeaseValid = false;
+    mockSessionIdentity = 'id-pk';
+    const wallet = SparkWallet.create('id-pk');
+    const stored = [{ payment_request: 'lnbc1', ispaid: false, timestamp: 1 }];
+    wallet.user_invoices_raw = stored;
+    const out = await wallet.getUserInvoices();
+    expect(mockSdk.listPayments).not.toHaveBeenCalled();
+    assert.strictEqual(out, stored);
+  });
+
   it('fetchBalance throws and leaves the wallet unchanged when the session identity differs', async () => {
     mockSdk.getInfo.mockResolvedValue({ identityPubkey: 'other-pk', balanceSats: 99n, tokenBalances: new Map() });
     const wallet = SparkWallet.create('stored-pk');
