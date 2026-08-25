@@ -1,8 +1,9 @@
 name: BuildReleaseApk
 
-# Manual-only. The tag-driven store release is owned by release.yml, whose
-# android-deploy job runs this same attested build (scripts/build-release-apk.sh)
-# at the tag-derived version. Kept here as a standalone on-demand APK/AAB builder.
+# Manual-only. Builds attested APK/AAB assets and attaches them to an existing
+# GitHub Release for the current tag (gh release upload). The tag-driven store
+# release is owned by release.yml, whose android-deploy job runs this same
+# attested build (scripts/build-release-apk.sh) at the tag-derived version.
 on:
   workflow_dispatch:
 

@@ -206,7 +206,7 @@ jobs:
           FLAG=""
           [ "$PRERELEASE" = "true" ] && FLAG="--prerelease"
           if ! gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes $FLAG
+            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --draft --generate-notes $FLAG
           fi
           gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber "$RELEASE_ASSETS_DIR"/*
 
@@ -224,10 +224,14 @@ jobs:
           PRERELEASE: ${{ needs.guard.outputs.is_prerelease }}
         run: |
           set -euo pipefail
-          FLAG=""
-          [ "$PRERELEASE" = "true" ] && FLAG="--prerelease"
+          if [ "$PRERELEASE" = "true" ]; then
+            FLAG="--prerelease"
+          else
+            FLAG="--prerelease=false"
+          fi
           if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release edit "$TAG" --repo "${{ github.repository }}" $FLAG
           else
             gh release create "$TAG" --repo "${{ github.repository }}" --title "$TAG" --generate-notes $FLAG
           fi
+          gh release edit "$TAG" --repo "${{ github.repository }}" $FLAG --draft=false
