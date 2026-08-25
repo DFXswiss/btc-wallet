@@ -160,7 +160,7 @@ const LNDReceive = () => {
     }
   };
 
-  const initInvoicePolling = (invoice: any, paymentHash?: string) => {
+  const initInvoicePolling = (invoice: string, paymentHash?: string) => {
     cancelInvoicePolling(); // clear any previous polling
     const generation = pollGeneration.current;
     let isChecking = false;
