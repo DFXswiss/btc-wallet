@@ -445,6 +445,45 @@ describe('LNDReceive with SparkWallet', () => {
     screen.unmount();
   });
 
+  it('rebuilds the Lightning invoice when returning from on-chain with an amount', async () => {
+    const wallet = makeSparkReceiveWallet('spark-receive-1');
+    wallet.depositAddress = 'bc1qtestonchain';
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    expect(mockSdk.receivePayment).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(SAMPLE_INVOICE)).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
+    expect(screen.getByText('bc1qtestonchain')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('SparkReceiveLightning'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(mockSdk.receivePayment).toHaveBeenCalledTimes(2);
+    expect(screen.getByText(SAMPLE_INVOICE)).toBeTruthy();
+    expect(screen.queryByText('spark@test')).toBeNull();
+    screen.unmount();
+  });
+
+  it('does not create an invoice when returning to Lightning with no amount', async () => {
+    const wallet = makeSparkReceiveWallet('spark-receive-1');
+    wallet.depositAddress = 'bc1qtestonchain';
+    const screen = renderReceive(wallet);
+    expect(screen.getByText('spark@test')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
+    fireEvent.press(screen.getByTestId('SparkReceiveLightning'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(mockSdk.receivePayment).not.toHaveBeenCalled();
+    expect(screen.getByText('spark@test')).toBeTruthy();
+    screen.unmount();
+  });
+
   it('stops invoice polling when the receive amount is cleared', async () => {
     const wallet = makeSparkReceiveWallet('spark-receive-1');
     const screen = renderReceive(wallet);

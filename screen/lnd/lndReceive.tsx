@@ -343,7 +343,12 @@ const LNDReceive = () => {
                     accessibilityRole="button"
                     accessibilityState={{ selected: receiveMethod === 'lightning' }}
                     testID="SparkReceiveLightning"
-                    onPress={() => setReceiveMethod('lightning')}
+                    onPress={() => {
+                      setReceiveMethod('lightning');
+                      if (amountSats > 0) {
+                        generateInvoice();
+                      }
+                    }}
                     style={[styles.methodSwitchTab, receiveMethod === 'lightning' && styleHooks.methodSwitchTabActive]}
                   >
                     <Text
