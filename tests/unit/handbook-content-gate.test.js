@@ -100,6 +100,15 @@ describe('unit - handbook content gate', () => {
       assert.match(problems[0], /pointless QR allowlist entry/);
     });
 
+    it('names both allowlisted screens and payload shapes in the module header', function () {
+      const src = require('fs').readFileSync(path.resolve(__dirname, '../../scripts/handbook/content-gate.js'), 'utf8');
+      const header = src.slice(0, src.indexOf('const fs = require'));
+      assert.match(header, /04-empfangen-senden\/01-erhalten\.png/);
+      assert.match(header, /08-lightning\/03-rechnung-erstellen\.png/);
+      assert.match(header, /BOLT11/);
+      assert.doesNotMatch(header, /Only the receive-address screen may carry one/);
+    });
+
     it('accepts a bolt11 invoice only in the Spark receive screenshot and rejects other payloads there', function () {
       // Both production entries must be declared, or the other one reports stale
       // and this case would no longer isolate the invoice rule.

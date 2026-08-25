@@ -30,8 +30,12 @@
  * Three checks run over that set, plus one check on the checking:
  *
  *   QR — a decodable QR in a screenshot is an address, a payment request or,
- *   worst case, an encoded seed. Only the receive-address screen may carry one,
- *   and only with a payload shaped like a receive address.
+ *   worst case, an encoded seed. Exactly two screens may carry one, each with
+ *   its own payload shape: the on-chain receive screen
+ *   (`screenshots/04-empfangen-senden/01-erhalten.png`, a Bitcoin receive
+ *   address) and the Spark receive screen with an amount
+ *   (`screenshots/08-lightning/03-rechnung-erstellen.png`, a mainnet BOLT11
+ *   invoice).
  *
  *   Seed phrase — a QR gate is blind to the higher risk: a recovery phrase
  *   printed as plain text on a backup screen. OCR every image and look for a
