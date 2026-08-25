@@ -214,7 +214,7 @@ const ScanLndInvoice = () => {
 
   const processInvoicePay = async () => {
     if (!decoded) return null;
-    if (amountSat === 0) return showError(loc.lnd.error_tip_invoice_not_supported);
+    if (!Number.isInteger(amountSat) || amountSat === 0) return showError(loc.lnd.error_tip_invoice_not_supported);
 
     const newExpiresIn = (decoded.timestamp * 1 + decoded.expiry * 1) * 1000; // ms
     if (+new Date() > newExpiresIn) return showError(loc.lnd.errorInvoiceExpired);
@@ -272,9 +272,11 @@ const ScanLndInvoice = () => {
       case BitcoinUnit.LOCAL_CURRENCY:
         sats = AmountInput.getCachedSatoshis(text) || currency.btcToSatoshi(currency.fiatToBTC(text));
         break;
-      case BitcoinUnit.SATS:
-        sats = parseInt(text, 10);
+      case BitcoinUnit.SATS: {
+        const parsed = Number(text);
+        sats = Number.isInteger(parsed) ? parsed : NaN;
         break;
+      }
     }
     setAmountSat(sats);
   };

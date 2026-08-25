@@ -251,7 +251,11 @@ const LnurlPay = () => {
     let amountSats = amount;
     switch (unit) {
       case BitcoinUnit.SATS:
-        amountSats = parseInt(amountSats, 10); // nop
+        amountSats = Number(amountSats);
+        if (!Number.isInteger(amountSats)) {
+          setPayButtonDisabled(false);
+          return alert(loc.lnd.error_tip_invoice_not_supported);
+        }
         break;
       case BitcoinUnit.BTC:
         amountSats = currency.btcToSatoshi(amountSats);
