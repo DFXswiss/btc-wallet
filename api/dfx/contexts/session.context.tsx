@@ -18,6 +18,7 @@ import { Auth } from '../definitions/auth';
 import { useLanguageContext } from './language.context';
 import { MultisigHDWallet } from '../../../class';
 import { TaprootLdsWallet } from '../../../class/wallets/taproot-lds-wallet';
+import { SparkWallet } from '../../../class/wallets/spark-wallet';
 
 export enum DfxService {
   BUY = 'buy',
@@ -120,6 +121,12 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
         if (!address) throw new Error('Address is not defined');
 
         return await createSession(address.toUpperCase(), wallet.addressOwnershipProof);
+      }
+      if (wallet.type === SparkWallet.type) {
+        const address = await wallet.getSparkAddress();
+        if (!address) throw new Error('Address is not defined');
+        const signature = await wallet.signCompactMessage(getSignMessage(address));
+        return await createSession(address, signature);
       }
     }
 

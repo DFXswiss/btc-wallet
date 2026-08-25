@@ -119,6 +119,8 @@ export class SparkWallet extends AbstractWallet {
   lnAddress?: string;
   /** On-chain Bitcoin deposit address from receivePayment(BitcoinAddress). */
   depositAddress?: string;
+  /** Spark address (spark1…) from receivePayment(SparkAddress). Used for DFX session auth. */
+  sparkAddress?: string;
   identityPubkey?: string;
   /**
    * On-chain wallet getID() this Lightning identity was derived from.
@@ -453,6 +455,38 @@ export class SparkWallet extends AbstractWallet {
     }
     this.depositAddress = address;
     return address;
+  }
+
+  /**
+   * Static Spark identity address (spark1…). Cached after the first successful SDK call.
+   */
+  async getSparkAddress(): Promise<string> {
+    if (this.sparkAddress) {
+      return this.sparkAddress;
+    }
+
+    const lease = this.holdMatchingSession();
+    const response = await lease.requireSdk().receivePayment({
+      paymentMethod: new ReceivePaymentMethod.SparkAddress(),
+    });
+
+    this.requireHeld(lease);
+    const address = response.paymentRequest;
+    if (!address) {
+      return "";
+    }
+    this.sparkAddress = address;
+    return address;
+  }
+
+  /**
+   * Compact 64-byte hex ECDSA signature over `message`. DER fails DFX Spark auth.
+   */
+  async signCompactMessage(message: string): Promise<string> {
+    const lease = this.holdMatchingSession();
+    const response = await lease.requireSdk().signMessage({ message, compact: true });
+    this.requireHeld(lease);
+    return response.signature;
   }
 
   weOwnTransaction(txid: string): boolean {

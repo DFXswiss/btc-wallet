@@ -41,7 +41,9 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
 
   const wallet = useMemo(() => {
     const selectedWallet = wallets.find((w: AbstractHDElectrumWallet) => w.getID() === walletID);
-    const lndWallet = wallets.find((w: AbstractHDElectrumWallet) => w.type === LightningLdsWallet.type);
+    const lndWallet =
+      wallets.find((w: AbstractHDElectrumWallet) => w.type === LightningLdsWallet.type) ||
+      wallets.find((w: AbstractHDElectrumWallet) => w.type === SparkWallet.type);
     return selectedWallet || lndWallet || mainWallet;
   }, [wallets, walletID]);
 

@@ -1785,6 +1785,42 @@ describe('SparkWallet', () => {
     expect(mockSdk.receivePayment).toHaveBeenCalledTimes(2);
   });
 
+
+  it("getSparkAddress returns the Spark address and does not request it again", async () => {
+    const wallet = SparkWallet.create("id-pk");
+    mockSessionIdentity = "id-pk";
+    mockSdk.receivePayment.mockResolvedValue({ paymentRequest: "spark1abcdefghijklmnopqrstuvwxyz", fee: 0n });
+    const first = await wallet.getSparkAddress();
+    const second = await wallet.getSparkAddress();
+    assert.strictEqual(first, "spark1abcdefghijklmnopqrstuvwxyz");
+    assert.strictEqual(second, first);
+    expect(mockSdk.receivePayment).toHaveBeenCalledTimes(1);
+    const method = mockSdk.receivePayment.mock.calls[0][0].paymentMethod;
+    assert.strictEqual(method.tag, "SparkAddress");
+  });
+
+  it("getSparkAddress does not cache an empty SDK response", async () => {
+    const wallet = SparkWallet.create("id-pk");
+    mockSessionIdentity = "id-pk";
+    mockSdk.receivePayment.mockResolvedValue({ paymentRequest: "", fee: 0n });
+    const first = await wallet.getSparkAddress();
+    assert.strictEqual(first, "");
+    await wallet.getSparkAddress();
+    expect(mockSdk.receivePayment).toHaveBeenCalledTimes(2);
+  });
+
+  it("signCompactMessage signs with compact true", async () => {
+    const wallet = SparkWallet.create("id-pk");
+    mockSessionIdentity = "id-pk";
+    mockSdk.signMessage = jest.fn().mockResolvedValue({ pubkey: "pk", signature: "ab".repeat(64) });
+    const sig = await wallet.signCompactMessage("By_signing_this_message,_you_confirm_spark1abc");
+    assert.strictEqual(sig, "ab".repeat(64));
+    expect(mockSdk.signMessage).toHaveBeenCalledWith({
+      message: "By_signing_this_message,_you_confirm_spark1abc",
+      compact: true,
+    });
+  });
+
   it('fromJson round-trips type and identity without inventing a secret', () => {
     const wallet = SparkWallet.create('round-trip-pk', 'a@b.c');
     wallet.balance = 7;

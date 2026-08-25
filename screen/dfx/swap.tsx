@@ -43,7 +43,7 @@ const Swap = () => {
   const [changeAddress, setChangeAddress] = useState<string>();
 
   const { walletID: onchainWalletId } = useWalletContext();
-  const lnWallet = useMemo(() => wallets.find((w: AbstractWallet) => w.type === LightningLdsWallet.type), [wallets]);
+  const lnWallet = useMemo(() => wallets.find((w: AbstractWallet) => w.type === LightningLdsWallet.type || w.type === SparkWallet.type), [wallets]);
 
   const stylesHook = StyleSheet.create({
     container: {
@@ -117,7 +117,7 @@ const Swap = () => {
         payjoinUrl: undefined,
         psbt,
       });
-    } else if (wallet.type === LightningLdsWallet.type) {
+    } else if (wallet.type === LightningLdsWallet.type || wallet.type === SparkWallet.type) {
       navigation.navigate('LnurlPay', {
         lnurl: swapInfo?.deposit.address,
         walletID: wallet.getID(),

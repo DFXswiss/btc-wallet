@@ -348,9 +348,9 @@ afterEach(() => {
 });
 
 describe('wallet asset DFX services', () => {
-  it('shows External services for an LNDHub wallet and hides them for Spark', () => {
+  it('shows External services for an LNDHub wallet and for Spark', () => {
     const sparkScreen = renderAsset(makeSpark('spark-asset-1'));
-    expect(sparkScreen.queryByText(loc.wallets.external_services)).toBeNull();
+    expect(sparkScreen.getByText(loc.wallets.external_services)).toBeTruthy();
     sparkScreen.unmount();
 
     const ldsScreen = renderAsset(makeLds('lds-asset-1'));

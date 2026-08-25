@@ -37,7 +37,6 @@ import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import Config from 'react-native-config';
 
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
-import { SparkWallet } from '../../class/wallets/spark-wallet';
 import BoltCard from '../../class/boltcard';
 import scanqrHelper from '../../helpers/scan-qr';
 import DfxServicesButtons from '../../components/DfxServicesButtons';
@@ -183,8 +182,6 @@ const Asset = ({ navigation }) => {
   };
 
   const isMultiSig = () => wallet.type === MultisigHDWallet.type;
-
-  const canUseDfxServices = () => wallet.type !== SparkWallet.type;
 
   const _keyExtractor = (_item, index) => index.toString();
 
@@ -417,7 +414,7 @@ const Asset = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       )}
-      {!isMultiSig() && canUseDfxServices() && <DfxServicesButtons walletID={wallet.getID()} />}
+      {!isMultiSig() && <DfxServicesButtons walletID={wallet.getID()} />}
       {isLightningTestnet() && (
         <View style={styles.testnetBanner}>
           <Text>Testnet</Text>
