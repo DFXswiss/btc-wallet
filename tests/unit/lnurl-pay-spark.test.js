@@ -855,7 +855,8 @@ describe('LnurlPay remaining payment paths', () => {
     await waitFor(() => expect(Biometric.unlockWithBiometrics).toHaveBeenCalled());
     expect(wallet.payInvoice).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
-    expect(screen.UNSAFE_queryAllByType(ActivityIndicator).length).toBeGreaterThan(0);
+    expect(screen.getByText(loc.lnd.payButton)).toBeTruthy();
+    expect(screen.UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0);
   });
 
   it('pays after a successful biometric unlock', async () => {

@@ -244,6 +244,7 @@ const LnurlPay = () => {
     const isBiometricsEnabled = await Biometric.isBiometricUseCapableAndEnabled();
     if (isBiometricsEnabled) {
       if (!(await Biometric.unlockWithBiometrics())) {
+        setPayButtonDisabled(false);
         return;
       }
     }
