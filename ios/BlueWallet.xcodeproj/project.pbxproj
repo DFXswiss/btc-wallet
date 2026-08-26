@@ -281,6 +281,7 @@
 				C18D00A61007A84C9887DEDE /* [CP] Copy Pods Resources */,
 				68CD4C52AC5B27E333599B5C /* [CP] Embed Pods Frameworks */,
 				B8C9D0E12F3A4567890BCDEF012 /* [BW] Generate hermesvm dSYM */,
+				67FA2AB96E734BD69471087C /* Upload Debug Symbols to Sentry */,
 			);
 			buildRules = (
 			);
@@ -382,7 +383,21 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "export EXTRA_PACKAGER_ARGS=\"--sourcemap-output $TMPDIR/$(md5 -qs \"$CONFIGURATION_BUILD_DIR\")-main.jsbundle.map\"\nexport NODE_BINARY=$(which node)\n../node_modules/react-native/scripts/react-native-xcode.sh\n";
+			shellScript = "export NODE_BINARY=$(which node)\n/bin/sh `\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('@sentry/react-native/package.json')) + '/scripts/sentry-xcode.sh'\"` ../node_modules/react-native/scripts/react-native-xcode.sh\n";
+		};
+		67FA2AB96E734BD69471087C /* Upload Debug Symbols to Sentry */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Upload Debug Symbols to Sentry";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh ../node_modules/@sentry/react-native/scripts/sentry-xcode-debug-files.sh";
 		};
 		68CD4C52AC5B27E333599B5C /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -400,22 +415,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-BlueWallet/Pods-BlueWallet-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		B8C9D0E12F3A4567890BCDEF012 /* [BW] Generate hermesvm dSYM */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermesvm.framework/hermesvm",
-			);
-			name = "[BW] Generate hermesvm dSYM";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if [ \"${CONFIGURATION}\" != \"Release\" ]; then\n  exit 0\nfi\nEMBEDDED=\"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermesvm.framework/hermesvm\"\nHERMES_BIN=\"\"\nif [ -f \"$EMBEDDED\" ]; then\n  HERMES_BIN=\"$EMBEDDED\"\nelse\n  XCFR=\"${PODS_ROOT}/hermes-engine/destroot/Library/Frameworks/universal/hermesvm.xcframework/ios-arm64/hermesvm.framework/hermesvm\"\n  if [ -f \"$XCFR\" ]; then\n    HERMES_BIN=\"$XCFR\"\n  else\n    HERMES_BIN=$(find \"${PODS_ROOT}/hermes-engine\" -path \"*hermesvm.framework/hermesvm\" -type f 2>/dev/null | head -n 1)\n  fi\nfi\nif [ -z \"$HERMES_BIN\" ] || [ ! -f \"$HERMES_BIN\" ]; then\n  echo \"[BW] Hermes binary not found; skip dSYM\"\n  exit 0\nfi\nif [ -z \"${DWARF_DSYM_FOLDER_PATH}\" ]; then\n  echo \"[BW] warning: DWARF_DSYM_FOLDER_PATH unset; skip Hermes dSYM\"\n  exit 0\nfi\nOUT=\"${DWARF_DSYM_FOLDER_PATH}/hermesvm.framework.dSYM\"\necho \"[BW] Hermes dSYM: dsymutil -> $OUT\"\nrm -rf \"$OUT\"\n/usr/bin/xcrun dsymutil \"$HERMES_BIN\" -o \"$OUT\"\nexit 0\n";
 			showEnvVarsInLog = 0;
 		};
 		6F7747C31A9EE6DDC5108476 /* [CP] Check Pods Manifest.lock */ = {
@@ -438,6 +437,22 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		B8C9D0E12F3A4567890BCDEF012 /* [BW] Generate hermesvm dSYM */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermesvm.framework/hermesvm",
+			);
+			name = "[BW] Generate hermesvm dSYM";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"${CONFIGURATION}\" != \"Release\" ]; then\n  exit 0\nfi\nEMBEDDED=\"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermesvm.framework/hermesvm\"\nHERMES_BIN=\"\"\nif [ -f \"$EMBEDDED\" ]; then\n  HERMES_BIN=\"$EMBEDDED\"\nelse\n  XCFR=\"${PODS_ROOT}/hermes-engine/destroot/Library/Frameworks/universal/hermesvm.xcframework/ios-arm64/hermesvm.framework/hermesvm\"\n  if [ -f \"$XCFR\" ]; then\n    HERMES_BIN=\"$XCFR\"\n  else\n    HERMES_BIN=$(find \"${PODS_ROOT}/hermes-engine\" -path \"*hermesvm.framework/hermesvm\" -type f 2>/dev/null | head -n 1)\n  fi\nfi\nif [ -z \"$HERMES_BIN\" ] || [ ! -f \"$HERMES_BIN\" ]; then\n  echo \"[BW] Hermes binary not found; skip dSYM\"\n  exit 0\nfi\nif [ -z \"${DWARF_DSYM_FOLDER_PATH}\" ]; then\n  echo \"[BW] warning: DWARF_DSYM_FOLDER_PATH unset; skip Hermes dSYM\"\n  exit 0\nfi\nOUT=\"${DWARF_DSYM_FOLDER_PATH}/hermesvm.framework.dSYM\"\necho \"[BW] Hermes dSYM: dsymutil -> $OUT\"\nrm -rf \"$OUT\"\n/usr/bin/xcrun dsymutil \"$HERMES_BIN\" -o \"$OUT\"\nexit 0\n";
 			showEnvVarsInLog = 0;
 		};
 		C18D00A61007A84C9887DEDE /* [CP] Copy Pods Resources */ = {
@@ -559,7 +574,7 @@
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				INFOPLIST_FILE = BlueWallet/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "BTC Taro";
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -605,7 +620,7 @@
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				INFOPLIST_FILE = BlueWallet/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "BTC Taro";
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -682,7 +697,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 11.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -730,6 +745,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = i386;
@@ -745,7 +761,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 11.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_CFLAGS = "$(inherited)";
@@ -760,7 +776,6 @@
 				SWIFT_VERSION = 4.2;
 				USE_HERMES = true;
 				VALIDATE_PRODUCT = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 			};
 			name = Release;
 		};

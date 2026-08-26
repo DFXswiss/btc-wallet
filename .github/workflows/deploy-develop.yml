@@ -1,12 +1,15 @@
 name: Deploy (develop)
 
-# On every merge to develop: build a signed Android APK and upload it as a
-# workflow artifact for quick install/testing. iOS TestFlight and the versioned
+# On every merge to develop: build a signed Android APK so the assemble path
+# stays green. iOS TestFlight and the versioned
 # store releases are owned by the tag flow (auto-tag.yml -> release.yml); this
 # workflow intentionally does not build iOS to avoid a duplicate TestFlight upload.
 #
 # Required repository secrets:
 #   KEYSTORE_FILE_HEX, KEYSTORE_PASSWORD, KEYSTORE_KEY_PASSWORD, KEYSTORE_ALIAS
+#   SENTRY_AUTH_TOKEN (required: a missing token fails this build intentionally,
+#   rather than silently shipping without crash symbolication). SENTRY_URL/ORG/
+#   PROJECT aren't secrets (see below) but sentry-cli needs all of it together.
 
 on:
   push:
@@ -48,8 +51,15 @@ jobs:
           KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
           KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
           BUILD_NUMBER: ${{ github.run_number }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_URL: https://sentry.dfxserve.com/
+          SENTRY_ORG: sentry
+          SENTRY_PROJECT: btc-taro
         run: |
           set -euo pipefail
+          for var in SENTRY_AUTH_TOKEN SENTRY_URL SENTRY_ORG SENTRY_PROJECT; do
+            [ -n "${!var:-}" ] || { echo "Missing required env: $var" >&2; exit 1; }
+          done
           KS="$(mktemp /tmp/app-signing.XXXXXX.keystore)"; chmod 600 "$KS"
           trap 'shred -u "$KS" 2>/dev/null || rm -f "$KS"' EXIT
           printf '%s' "$KEYSTORE_FILE_HEX" | xxd -plain -revert > "$KS"
@@ -60,8 +70,3 @@ jobs:
             -PMYAPP_UPLOAD_STORE_PASSWORD="$KEYSTORE_PASSWORD" \
             -PMYAPP_UPLOAD_KEY_PASSWORD="$KEYSTORE_KEY_PASSWORD" \
             -PMYAPP_VERSION_CODE="$BUILD_NUMBER"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dfx-bitcoin-develop-${{ github.run_number }}
-          path: android/app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: error

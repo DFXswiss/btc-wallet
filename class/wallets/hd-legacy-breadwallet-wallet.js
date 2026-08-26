@@ -92,7 +92,7 @@ export class HDLegacyBreadwalletWallet extends HDLegacyP2PKHWallet {
       // finally fetching balance
       await this._fetchBalance();
     } catch (err) {
-      console.warn(err);
+      console.warn('HDLegacyBreadwalletWallet.fetchBalance: failed during rescan, keeping stale balance', err);
     }
   }
 

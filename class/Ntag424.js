@@ -164,7 +164,6 @@ Ntag424.AuthEv2First = async function (keyNo, pKey) {
 
     const bytes = hexToBytes('9071000005' + keyNo + '0300000000');
     const Result = await Ntag424.sendAPDUCommand(bytes);
-    console.log('Result: ', bytesToHex([Result.sw1, Result.sw2]));
     const resultData = bytesToHex(Result.response);
     // 91AF is the successful code
     const resultCode = bytesToHex([Result.sw1, Result.sw2]);
@@ -190,7 +189,6 @@ Ntag424.AuthEv2First = async function (keyNo, pKey) {
 
       const secondAuthBytes = hexToBytes('90AF000020' + RndARndBEnc + '00');
       const secondAuthRes = await Ntag424.sendAPDUCommand(secondAuthBytes);
-      console.log('Result: ', bytesToHex([secondAuthRes.sw1, secondAuthRes.sw2]));
       // 9100 is the successful code
       const secondAuthResultCode = bytesToHex([secondAuthRes.sw1, secondAuthRes.sw2]);
       if (secondAuthResultCode == '9100') {
@@ -260,7 +258,6 @@ Ntag424.AuthEv2First = async function (keyNo, pKey) {
 Ntag424.AuthEv2NonFirst = async (keyNo, pKey) => {
   const bytes = hexToBytes('9077000001' + keyNo + '00');
   const Result = await Ntag424.sendAPDUCommand(bytes);
-  console.log('auth ev2 non first part 1 Result: ', bytesToHex([Result.sw1, Result.sw2]));
   const resultData = bytesToHex(Result.response);
   // 91AF is the successful code
   const resultCode = bytesToHex([Result.sw1, Result.sw2]);
@@ -286,7 +283,6 @@ Ntag424.AuthEv2NonFirst = async (keyNo, pKey) => {
 
     const secondAuthBytes = hexToBytes('90AF000020' + RndARndBEnc + '00');
     const secondAuthRes = await Ntag424.sendAPDUCommand(secondAuthBytes);
-    console.log('auth ev2 non first part 2 Result: ', bytesToHex([secondAuthRes.sw1, secondAuthRes.sw2]));
     // 9100 is the successful code
     const secondAuthResultCode = bytesToHex([secondAuthRes.sw1, secondAuthRes.sw2]);
     if (secondAuthResultCode == '9100') {
@@ -440,7 +436,6 @@ Ntag424.changeFileSettings = async cmdData => {
 
   const changeFileSettingsRes = await Ntag424.sendAPDUCommand(hexToBytes(changeFileSettingsHex));
   const resCode = bytesToHex([changeFileSettingsRes.sw1, changeFileSettingsRes.sw2]);
-  console.log('changeFileSettingsRes Result: ', resCode);
   if (resCode == '9100') {
     return Promise.resolve('Successful');
   } else {
@@ -502,7 +497,6 @@ Ntag424.changeKey = async (keyNo, key, newKey, keyVersion) => {
   const changeKeyRes = await Ntag424.sendAPDUCommand(hexToBytes(changeKeyHex));
 
   const resCode = bytesToHex([changeKeyRes.sw1, changeKeyRes.sw2]);
-  console.log('changeKeyRes Result: ', resCode);
   if (resCode == '9100') {
     return Promise.resolve('Successful');
   } else {
@@ -632,7 +626,6 @@ Ntag424.readData = async offset => {
   const readDataRes = await Ntag424.sendAPDUCommand(hexToBytes(readDataHex));
   const resData = readDataRes.response;
   const resCode = bytesToHex([readDataRes.sw1, readDataRes.sw2]);
-  console.log('readData Res: ', resCode, resData);
   if (resCode == '9100') {
     return Promise.resolve(resData);
   } else {
@@ -658,7 +651,6 @@ Ntag424.isoReadBinary = async offset => {
 
   const isoSelectFileBytes = hexToBytes('00A4000002E10400');
   const isoSelectRes = await Ntag424.sendAPDUCommand(isoSelectFileBytes);
-  console.log('isoSelectRes: ', bytesToHex([isoSelectRes.sw1, isoSelectRes.sw2]));
   const resultHex = bytesToHex([isoSelectRes.sw1, isoSelectRes.sw2]);
   if (resultHex == '9000') {
   } else {
@@ -675,7 +667,6 @@ Ntag424.isoReadBinary = async offset => {
   const res = await Ntag424.sendAPDUCommand(hexToBytes(cmdHex));
   const resData = res.response;
   const resCode = bytesToHex([res.sw1, res.sw2]);
-  console.log('isoReadBinary Res: ', resCode, resData);
   if (resCode == '9000') {
     return Promise.resolve(resData);
   } else {
@@ -818,7 +809,6 @@ Ntag424.setConfiguration = async (option, configData) => {
 
   const res = await Ntag424.sendAPDUCommand(hexToBytes(apduHex));
   const resCode = bytesToHex([res.sw1, res.sw2]);
-  console.log('setConfiguration Result: ', resCode);
   if (resCode == '9100') {
     return Promise.resolve('Successful');
   } else {

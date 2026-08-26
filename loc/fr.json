@@ -30,7 +30,6 @@
     "pick_image": "Choisir une image dans la bibliothèque",
     "qr_custom_input_button": "Tapez 10 fois pour entrer des données personnalisées",
     "loading": "Chargement",
-    "skip": "Passer pour l'instant",
     "free": "Gratuit"
   },
   "alert": {
@@ -179,6 +178,7 @@
     "details_adv_import_qr": "Importer Transaction (QR)",
     "details_amount_field_is_not_valid": "Champ montant invalide",
     "details_amount_field_is_less_than_minimum_amount_sat": "Le montant spécifié est trop petit. Veuillez entrer un montant supérieur à 500 sats.",
+    "details_coin_control_utxo_spent": "L'une des pièces sélectionnées n'est plus disponible. Veuillez vérifier votre sélection de pièces.",
     "details_create": "Créer la requête",
     "details_error_decode": "Impossible de décoder l'adresse bitcoin",
     "details_fee_field_is_not_valid": "Champ frais invalide",
@@ -190,6 +190,8 @@
     "details_scan_hint": "tapez deux fois pour scanner ou importer une destination",
     "details_total_exceeds_balance": "Le montant à envoyer excède le montant disponible.",
     "details_total_exceeds_balance_frozen": "Le montant d'envoi excède le montant disponible. Veuillez noter que les pièces gelées sont exclues.",
+    "details_utxo_refresh_failed": "Impossible d'actualiser votre solde. Veuillez vérifier votre connexion et réessayer.",
+    "details_utxo_refresh_unsupported_server": "Votre serveur Electrum ne prend pas en charge les requêtes de solde nécessaires à l'envoi. Veuillez vous connecter à un autre serveur Electrum et réessayer.",
     "details_unrecognized_file_format": "Format fichier inconnu",
     "details_wallet_before_tx": "Avant de créer une transaction, vous devez d'abord importer un ajouter un portefeuille Bitcoin.",
     "dynamic_init": "Initialisation",
@@ -327,6 +329,8 @@
     "passwords_do_not_match": "Les mots de passe ne correspondent pas",
     "plausible_deniability": "Déni plausible...",
     "privacy": "Vie privée",
+    "privacy_prevent_screenshots": "Empêcher les captures d'écran",
+    "privacy_prevent_screenshots_explanation": "Bloque les captures et l'enregistrement d'écran sur les écrans sensibles, comme votre phrase de récupération, vos clés et vos adresses. Désactivé par défaut.",
     "privacy_read_clipboard": "Lecture du presse-papier ",
     "privacy_system_settings": "Paramètres système",
     "privacy_quickactions": "Raccourci Portefeuille",

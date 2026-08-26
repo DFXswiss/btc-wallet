@@ -6,7 +6,6 @@ import {
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
-  LayoutAnimation,
   Platform,
   ScrollView,
   StatusBar,
@@ -43,6 +42,7 @@ import { AbstractHDElectrumWallet } from '../../class/wallets/abstract-hd-electr
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 const currency = require('../../blue_modules/currency');
 const prompt = require('../../helpers/prompt');
+const { Utils } = require('../../helpers/utils');
 
 const SendDetails = () => {
   const { wallets, setSelectedWallet, sleep, txMetadata, saveToDisk } = useContext(BlueStorageContext);
@@ -50,6 +50,11 @@ const SendDetails = () => {
   const { params: routeParams } = useRoute();
   const scrollView = useRef();
   const scrollIndex = useRef(0);
+  // De-dupes concurrent fetchUtxo() calls: the mount-time refresh (for balance/fee display)
+  // and the authoritative pre-sign refresh in createTransaction() must never run as two
+  // independent, unsynchronized calls against the same wallet - a slow first one resolving
+  // after a faster second one would silently overwrite the just-verified fresh UTXO set.
+  const utxoFetchRef = useRef(null);
   const { colors } = useTheme();
 
   // state
@@ -77,6 +82,22 @@ const SendDetails = () => {
   // if utxo is limited we use it to calculate available balance
   const balance = utxo ? utxo.reduce((prev, curr) => prev + curr.value, 0) : wallet?.getBalance();
   const allBalance = formatBalanceWithoutSuffix(balance, BitcoinUnit.BTC, true);
+
+  // Single-flight fetchUtxo(): if one is already in progress, join it instead of starting
+  // a second, unsynchronized one against the same wallet.
+  const refreshUtxo = () => {
+    if (!utxoFetchRef.current) {
+      const fetchPromise = Utils.withRetry(() => wallet.fetchUtxo()).finally(() => {
+        // only clear if we're still the current fetch - an abandoned one (e.g. from a
+        // wallet switch) must not clobber a newer one that's since taken its place
+        if (utxoFetchRef.current === fetchPromise) {
+          utxoFetchRef.current = null;
+        }
+      });
+      utxoFetchRef.current = fetchPromise;
+    }
+    return utxoFetchRef.current;
+  };
 
   // if cutomFee is not set, we need to choose highest possible fee for wallet balance
   // if there are no funds for even Slow option, use 1 sat/vbyte fee
@@ -146,7 +167,7 @@ const SendDetails = () => {
         setAmountUnit(BitcoinUnit.BTC);
         setPayjoinUrl(pjUrl);
       } catch (error) {
-        console.log(error);
+        console.error('send/details: failed to parse incoming payment request', error);
         Alert.alert(loc.errors.error, loc.send.details_error_decode);
       }
     } else if (routeParams.address) {
@@ -200,7 +221,7 @@ const SendDetails = () => {
         if (!fees?.fastestFee) return;
         setNetworkTransactionFees(fees);
       })
-      .catch(e => console.log('loading cached recommendedFees error', e));
+      .catch(e => console.warn('send/details: loading cached recommendedFees failed', e));
 
     // load fresh fees from servers
 
@@ -211,9 +232,8 @@ const SendDetails = () => {
         setNetworkTransactionFees(fees);
         await AsyncStorage.setItem(NetworkTransactionFee.StorageKey, JSON.stringify(fees));
       })
-      .catch(e => console.log('loading recommendedFees error', e))
+      .catch(e => console.warn('send/details: loading recommendedFees failed', e))
       .finally(() => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setNetworkTransactionFeesIsLoading(false);
       });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -228,14 +248,16 @@ const SendDetails = () => {
     setChangeAddress(null);
     setIsTransactionReplaceable(wallet.type === HDSegwitBech32Wallet.type && !routeParams.noRbf);
 
-    // update wallet UTXO
-    wallet
-      .fetchUtxo()
+    // update wallet UTXO (best-effort, for balance/fee display; the authoritative
+    // refresh that gates signing happens again in createTransaction(), sharing this
+    // same in-flight fetch via refreshUtxo()/utxoFetchRef so the two never race)
+    utxoFetchRef.current = null;
+    refreshUtxo()
       .then(() => {
         // we need to re-calculate fees
         setDumb(v => !v);
       })
-      .catch(e => console.log('fetchUtxo error', e));
+      .catch(e => console.warn('send/details: fetchUtxo failed after retries', e));
   }, [wallet]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // recalc fees in effect so we don't block render
@@ -323,7 +345,6 @@ const SendDetails = () => {
   // we need to re-calculate fees if user opens-closes coin control
   useFocusEffect(
     useCallback(() => {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setDumb(v => !v);
     }, []),
   );
@@ -385,40 +406,72 @@ const SendDetails = () => {
     return change;
   };
 
-
   const createTransaction = async () => {
     Keyboard.dismiss();
     setIsLoading(true);
+
+    // authoritative refresh right before signing — the mount-time fetch above is
+    // only for the initial balance/fee display and can be arbitrarily stale by
+    // the time the user actually taps Next. Goes through refreshUtxo() so it joins
+    // rather than races an already-in-flight mount-time fetch.
+    let freshUtxo;
+    let coinControlUtxoSpent = false;
+    try {
+      await refreshUtxo();
+      // capture right here, before any further await - wallet.utxo is a shared, mutable
+      // field on a singleton wallet instance (also touched independently by e.g.
+      // coinControl.js), so reading it later (e.g. after createPsbtTransaction()'s own
+      // await for the change address) could pick up someone else's concurrent write
+      // instead of the fetch we just authoritatively waited for
+      if (utxo) {
+        // Coin Control restricts signing to a specific, earlier-selected set of coins - the array
+        // itself predates this refresh, so re-validate it against what's still actually unspent
+        // rather than trusting it outright (a selected coin could have been spent meanwhile).
+        // Coin Control's own list is frozen-inclusive (wallet.getUtxo(true) in coinControl.js),
+        // since it's the one place a user can deliberately choose to spend a frozen coin - validate
+        // against that same frozen-inclusive set, not the frozen-excluding default.
+        const stillUnspent = new Set(wallet.getUtxo(true).map(({ txid, vout }) => `${txid}:${vout}`));
+        freshUtxo = utxo.filter(({ txid, vout }) => stillUnspent.has(`${txid}:${vout}`));
+        if (freshUtxo.length !== utxo.length) {
+          coinControlUtxoSpent = true;
+          throw new Error('Selected coin is no longer available');
+        }
+      } else {
+        freshUtxo = wallet.getUtxo();
+      }
+    } catch (e) {
+      setIsLoading(false);
+      let message = loc.send.details_utxo_refresh_failed;
+      if (coinControlUtxoSpent) message = loc.send.details_coin_control_utxo_spent;
+      else if (e?.code === 'ELECTRUM_BATCHING_UNSUPPORTED') message = loc.send.details_utxo_refresh_unsupported_server;
+      Alert.alert(loc.errors.error, message);
+      ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
+      return;
+    }
+
     const requestedSatPerByte = feeRate;
     for (const [index, transaction] of addresses.entries()) {
       let error;
       if (!transaction.amount || transaction.amount < 0 || parseFloat(transaction.amount) === 0) {
         error = loc.send.details_amount_field_is_not_valid;
-        console.log('validation error');
       } else if (parseFloat(transaction.amountSats) <= 500) {
         error = loc.send.details_amount_field_is_less_than_minimum_amount_sat;
-        console.log('validation error');
       } else if (!requestedSatPerByte || parseFloat(requestedSatPerByte) < 1) {
         error = loc.send.details_fee_field_is_not_valid;
-        console.log('validation error');
       } else if (!transaction.address) {
         error = loc.send.details_address_field_is_not_valid;
-        console.log('validation error');
       } else if (balance - transaction.amountSats < 0) {
         // first sanity check is that sending amount is not bigger than available balance
         error = frozenBalance > 0 ? loc.send.details_total_exceeds_balance_frozen : loc.send.details_total_exceeds_balance;
-        console.log('validation error');
       } else if (transaction.address) {
         const address = transaction.address.trim().toLowerCase();
         if (address.startsWith('lnb') || address.startsWith('lightning:lnb')) {
           error = loc.send.provided_address_is_invoice;
-          console.log('validation error');
         }
       }
 
       if (!error) {
         if (!wallet.isAddressValid(transaction.address)) {
-          console.log('validation error');
           error = loc.send.details_address_field_is_not_valid;
         }
       }
@@ -433,7 +486,7 @@ const SendDetails = () => {
     }
 
     try {
-      await createPsbtTransaction();
+      await createPsbtTransaction(freshUtxo);
     } catch (Err) {
       setIsLoading(false);
       Alert.alert(loc.errors.error, Err.message);
@@ -441,16 +494,16 @@ const SendDetails = () => {
     }
   };
 
-  const createPsbtTransaction = async () => {
+  const createPsbtTransaction = async lutxo => {
     const change = await getChangeAddressAsync();
     const requestedSatPerByte = Number(feeRate);
-    const lutxo = utxo || wallet.getUtxo();
-    console.log({ requestedSatPerByte, lutxo: lutxo.length });
 
     const targets = [];
     for (const transaction of addresses) {
-      if (transaction.amountSats === wallet.getBalance()) {
-        // output with MAX, a target with no value signals to send all funds
+      if (Utils.shouldSendMax(transaction.amountSats, wallet.getBalance(), Utils.sumUtxoValue(lutxo))) {
+        // output with MAX, a target with no value signals to send all funds - but only when the
+        // freshly fetched UTXO total doesn't exceed the balance the user saw when tapping MAX
+        // (funds landing between tap and sign must not be swept silently)
         targets.push({ address: transaction.address });
         continue;
       }
@@ -473,7 +526,6 @@ const SendDetails = () => {
     );
 
     if (tx && routeParams.launchedBy && psbt) {
-      console.warn('navigating back to ', routeParams.launchedBy);
       navigation.navigate(routeParams.launchedBy, { psbt });
     }
 

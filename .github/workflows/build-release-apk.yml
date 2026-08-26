@@ -1,8 +1,9 @@
 name: BuildReleaseApk
 
-# Manual-only. The tag-driven store release is owned by release.yml, whose
-# android-deploy job runs this same attested build (scripts/build-release-apk.sh)
-# at the tag-derived version. Kept here as a standalone on-demand APK/AAB builder.
+# Manual-only. Builds attested APK/AAB assets and attaches them to an existing
+# GitHub Release for the current tag (gh release upload). The tag-driven store
+# release is owned by release.yml, whose android-deploy job runs this same
+# attested build (scripts/build-release-apk.sh) at the tag-derived version.
 on:
   workflow_dispatch:
 
@@ -15,7 +16,6 @@ jobs:
 
     permissions:
       contents: write
-      actions: read
       id-token: write
       attestations: write
 
@@ -65,6 +65,10 @@ jobs:
           TRANSPARENCY_KEYSTORE_HEX: ${{ secrets.TRANSPARENCY_KEYSTORE_HEX }}
           TRANSPARENCY_PASSWORD: ${{ secrets.TRANSPARENCY_PASSWORD }}
           TRANSPARENCY_ALIAS: ${{ secrets.TRANSPARENCY_ALIAS }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_URL: https://sentry.dfxserve.com/
+          SENTRY_ORG: sentry
+          SENTRY_PROJECT: btc-taro
         run: ./scripts/build-release-apk.sh
 
       - name: Prepare release assets and checksums
@@ -95,13 +99,20 @@ jobs:
         with:
           subject-path: ${{ env.RELEASE_ASSETS_DIR }}/SHA256SUMS
 
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        if: success()
-        with:
-          name: DFX-Btc-Wallet-${{ env.VERSION_NAME }}.apk
-          path: ./android/app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: error
+      - name: Guard existing draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "Refusing: release ${GITHUB_REF_NAME} does not exist (this workflow attaches to an existing release; it does not create one)."
+            exit 1
+          fi
+          IS_DRAFT=$(gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq .isDraft)
+          if [ "$IS_DRAFT" != "true" ]; then
+            echo "Refusing: release $GITHUB_REF_NAME is not a draft (would clobber a published release)."
+            exit 1
+          fi
 
       - name: Add build pipeline link to release body
         uses: actions/github-script@v7
@@ -115,6 +126,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+          if ! gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "Refusing to upload: release ${GITHUB_REF_NAME} does not exist (this workflow attaches to an existing release; it does not create one)."
+            exit 1
+          fi
+          IS_DRAFT=$(gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq .isDraft)
+          if [ "$IS_DRAFT" != "true" ]; then
+            echo "Refusing to upload: release $GITHUB_REF_NAME is not a draft (would clobber a published release)."
+            exit 1
+          fi
           gh release upload "${GITHUB_REF_NAME}" \
             "${RELEASE_ASSETS_DIR}/DFX-Btc-Wallet-${GITHUB_REF_NAME}.apk" \
             "${RELEASE_ASSETS_DIR}/DFX-Btc-Wallet-${GITHUB_REF_NAME}.apk.idsig" \

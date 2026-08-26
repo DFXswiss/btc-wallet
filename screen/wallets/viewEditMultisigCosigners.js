@@ -5,7 +5,6 @@ import {
   InteractionManager,
   Keyboard,
   KeyboardAvoidingView,
-  LayoutAnimation,
   Platform,
   StatusBar,
   StyleSheet,
@@ -322,11 +321,10 @@ const ViewEditMultisigCosigners = () => {
     try {
       wallet.replaceCosignerXpubWithSeed(currentlyEditingCosignerNum, hd.getSecret(), passphrase);
     } catch (e) {
-      console.log(e);
+      console.error('viewEditMultisigCosigners: failed to replace cosigner xpub with seed', e);
       return alert(e.message);
     }
 
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setWallet(wallet);
     setIsProvideMnemonicsModalVisible(false);
     setImportText('');

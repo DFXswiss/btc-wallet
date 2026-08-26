@@ -47,13 +47,13 @@ const storageKey = 'ELECTRUM_PEERS';
 const defaultPeer = { host: 'electrum1.bluewallet.io', ssl: '443' };
 const hardcodedPeers = [
   { host: 'mainnet.foundationdevices.com', ssl: '50002' },
-  { host: 'electrum.jochen-hoenicke.de', ssl: '50006' },
+  { host: 'bitcoin.lu.ke', ssl: '50002' },
   { host: 'electrum1.bluewallet.io', ssl: '443' },
   { host: 'electrum.acinq.co', ssl: '50002' },
   { host: 'electrum.bitaroo.net', ssl: '50002' },
-  { host: 'VPS.hsmiths.com', tcp: '50001', ssl: '50002' },
-  { host: 'helicarrier.bauerj.eu', tcp: '50001', ssl: '50002' },
-  { host: 'kirsche.emzy.de', tcp: '50001', ssl: '50002' },
+  { host: 'VPS.hsmiths.com', ssl: '50002' },
+  { host: 'helicarrier.bauerj.eu', ssl: '50002' },
+  { host: 'kirsche.emzy.de', ssl: '50002' },
 ];
 
 /** @type {ElectrumClient} */
@@ -75,6 +75,42 @@ let flushTillConnectedPromise = null;
 let rotatePeerTimeout = null;
 
 let networkConnected = true;
+
+// Substrings safe to report for a user-configured peer: they describe the failure
+// mode without carrying the host or IP the native error string embeds. Matched
+// case-insensitively against the strings Android (SocketException/SSLHandshake)
+// and iOS (localizedDescription) actually produce - including the errno names
+// those strings embed verbatim, e.g. "connect failed: ECONNREFUSED".
+//
+// ORDER MATTERS. The text being matched still contains the hostname, so a short
+// token can match from inside it: a DNS failure against "electrum-ssl.example.com"
+// would report 'ssl' if that token came first. Unambiguous multi-word tokens are
+// listed before short generic ones for that reason.
+const SAFE_ERROR_TOKENS = [
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'ETIMEDOUT',
+  'EPIPE',
+  'unable to resolve host',
+  'no address associated',
+  'trust anchor',
+  'broken pipe',
+  'no route',
+  'failed to connect',
+  'handshake',
+  'timed out',
+  'timeout',
+  'unreachable',
+  'refused',
+  'osstatus',
+  // Short and liable to appear inside a hostname - last resort only.
+  'certif',
+  'reset',
+  'ssl',
+  'tls',
+];
 
 async function isDisabled() {
   if (isDisabledCache !== undefined) return isDisabledCache;
@@ -102,12 +138,10 @@ async function setDisabled(disabled = true) {
 
 async function connectMain() {
   if (await isDisabled()) {
-    console.log('Electrum connection disabled by user. Skipping connectMain call');
     return;
   }
 
   if (!networkConnected) {
-    console.warn('Network is not connected, skipping Electrum connection');
     return;
   }
 
@@ -115,7 +149,6 @@ async function connectMain() {
 
   connectionPromise = _initConnection().finally(() => {
     if (isMainClientConnected()) {
-      console.log('Electrum connection established, rotating peer in 30 minutes');
       connectionAttempt = 0;
       clearTimeout(rotatePeerTimeout);
       rotatePeerTimeout = setTimeout(
@@ -128,7 +161,6 @@ async function connectMain() {
     } else if (connectionAttempt++ > hardcodedPeers.length * 2) {
       mainClient?.close?.();
     } else {
-      console.log('Electrum connection not established, trying again');
       connectMain();
     }
 
@@ -139,7 +171,6 @@ async function connectMain() {
 
 async function _initConnection() {
   if (await isDisabled()) {
-    console.log('Electrum connection disabled by user. Skipping _initConnection call');
     return;
   }
 
@@ -147,12 +178,25 @@ async function _initConnection() {
 
   let usingPeer = await getNextPeer();
   const savedPeer = await getSavedPeer();
+  let isCustomPeer = false;
   if (savedPeer && savedPeer.host && (savedPeer.tcp || savedPeer.ssl)) {
     usingPeer = savedPeer;
+    isCustomPeer = true;
   }
+  const peerLabel = isCustomPeer ? 'user-configured server' : usingPeer.host;
+  // Native socket errors embed the host/IP ("failed to connect to <host>/<ip>",
+  // "Unable to resolve host ..."), which would leak a user-configured server's
+  // address past the peerLabel masking above. react-native-tcp-socket emits the
+  // error as a plain string, so match against an allowlist rather than reading
+  // .code - only allowlisted tokens can ever be emitted for a custom peer.
+  const scrubPeer = e => {
+    if (!isCustomPeer) return e;
+    const text = String(e?.code ?? e?.message ?? e ?? '').toLowerCase();
+    return SAFE_ERROR_TOKENS.find(token => text.includes(token.toLowerCase())) ?? 'connection error';
+  };
 
-  await DefaultPreference.setName('group.swiss.dfx.bitcoin');
   try {
+    await DefaultPreference.setName('group.swiss.dfx.bitcoin');
     if (usingPeer.host.endsWith('onion')) {
       const randomPeer = await getCurrentPeer();
       await DefaultPreference.set(ELECTRUM_HOST, randomPeer.host);
@@ -165,17 +209,16 @@ async function _initConnection() {
     }
 
     WidgetCommunication.reloadAllTimelines();
-  } catch (e) {
+  } catch (_) {
     // Must be running on Android
-    console.log(e);
   }
 
+  const connectStartedAt = Date.now();
   try {
-    console.log('begin connection:', JSON.stringify(usingPeer));
     mainClient = new ElectrumClient(net, tls, usingPeer.ssl || usingPeer.tcp, usingPeer.host, usingPeer.ssl ? 'tls' : 'tcp');
 
     mainClient.onError = function (e) {
-      console.log('electrum mainClient.onError():', e.message);
+      console.warn(`_initConnection: socket error on ${peerLabel}, reconnecting`, scrubPeer(e));
       mainClient.close();
       connectMain();
     };
@@ -198,14 +241,19 @@ async function _initConnection() {
       throw new Error('Electrum connection timed out');
     }
 
-    console.log('connected to ', ver);
+    console.log(`_initConnection: connected to ${peerLabel} in ${Date.now() - connectStartedAt}ms - ${ver[0]}`);
     serverName = ver[0];
 
+    // re-derive from the current server's banner on every connection - the flag would otherwise
+    // stay stuck from a previous connection to a differently-capable server (the reconnect logic
+    // rotates servers mid-session), and the fetchUtxo() non-batching guard builds a send block on it
+    disableBatching = false;
     if (ver[0].startsWith('ElectrumPersonalServer') || ver[0].startsWith('electrs') || ver[0].startsWith('Fulcrum')) {
       disableBatching = true;
 
       // exeptions for versions:
-      const [electrumImplementation, electrumVersion] = ver[0].split(' ');
+      // electrs reports "electrs/x.y.z" (slash), Fulcrum "Fulcrum x.y.z" (space) - accept both
+      const [electrumImplementation, electrumVersion] = ver[0].split(/[ /]/);
       switch (electrumImplementation) {
         case 'electrs':
           if (semVerToInt(electrumVersion) >= semVerToInt('0.9.0')) {
@@ -230,7 +278,12 @@ async function _initConnection() {
     }
     // AsyncStorage.setItem(storageKey, JSON.stringify(peers));  TODO: refactor
   } catch (e) {
-    console.log('bad connection:', JSON.stringify(usingPeer), e);
+    // Duration separates "server is slow" (~10s, the initElectrum race timed out)
+    // from "server refused / DNS failed" (fast). Attempt number shows cascade depth.
+    console.warn(
+      `_initConnection: connect to ${peerLabel} failed after ${Date.now() - connectStartedAt}ms (attempt ${connectionAttempt + 1})`,
+      scrubPeer(e),
+    );
   }
 }
 
@@ -465,8 +518,14 @@ module.exports.multiGetBalanceByAddress = async function (addresses, batchsize) 
       balances = await mainClient.blockchainScripthash_getBalanceBatch(scripthashes);
     }
 
+    const balanceErrors = balances.filter(bal => bal.error);
+    if (balanceErrors.length) {
+      console.warn(
+        `multiGetBalanceByAddress: ${balanceErrors.length} of ${balances.length} addresses returned errors`,
+        balanceErrors[0].error,
+      );
+    }
     for (const bal of balances) {
-      if (bal.error) console.warn('multiGetBalanceByAddress():', bal.error);
       ret.balance += +bal.result.confirmed;
       ret.unconfirmed_balance += +bal.result.unconfirmed;
       ret.addresses[scripthash2addr[bal.param]] = bal.result;
@@ -554,8 +613,14 @@ module.exports.multiGetHistoryByAddress = async function (addresses, batchsize) 
       results = await mainClient.blockchainScripthash_getHistoryBatch(scripthashes);
     }
 
+    const historyErrors = results.filter(history => history.error);
+    if (historyErrors.length) {
+      console.warn(
+        `multiGetHistoryByAddress: ${historyErrors.length} of ${results.length} addresses returned errors`,
+        historyErrors[0].error,
+      );
+    }
     for (const history of results) {
-      if (history.error) console.warn('multiGetHistoryByAddress():', history.error);
       ret[scripthash2addr[history.param]] = history.result || [];
       for (const result of history.result || []) {
         if (result.tx_hash) txhashHeightCache[result.tx_hash] = result.height; // cache tx height
@@ -588,7 +653,7 @@ module.exports.multiGetTransactionByTxid = async function (txids, batchsize, ver
       try {
         ret[txid] = JSON.parse(jsonString.cache_value);
       } catch (error) {
-        console.log(error, 'cache failed to parse', jsonString.cache_value);
+        console.warn('multiGetTransactionByTxid: cached transaction failed to parse, refetching', error);
       }
     }
 
@@ -632,18 +697,26 @@ module.exports.multiGetTransactionByTxid = async function (txids, batchsize, ver
       } catch (_) {
         if (String(_?.message ?? _).startsWith('verbose transactions are currently unsupported')) {
           // electrs-esplora. cant use verbose, so fetching txs one by one and decoding locally
+          let failed = 0;
+          let lastError;
           for (const txid of chunk) {
             try {
               let tx = await mainClient.blockchainTransaction_get(txid, false);
               tx = txhexToElectrumTransaction(tx);
               results.push({ result: tx, param: txid });
             } catch (error) {
-              console.log(error);
+              failed++;
+              lastError = error;
             }
+          }
+          if (failed) {
+            console.warn(`multiGetTransactionByTxid: ${failed} of ${chunk.length} single fetches failed (non-verbose fallback)`, lastError);
           }
         } else {
           // fallback. pretty sure we are connected to EPS.  we try getting transactions one-by-one. this way we wont
           // fail and only non-tracked by EPS transactions will be omitted
+          let failed = 0;
+          let lastError;
           for (const txid of chunk) {
             try {
               let tx = await mainClient.blockchainTransaction_get(txid, verbose);
@@ -654,8 +727,12 @@ module.exports.multiGetTransactionByTxid = async function (txids, batchsize, ver
               }
               results.push({ result: tx, param: txid });
             } catch (error) {
-              console.log(error);
+              failed++;
+              lastError = error;
             }
+          }
+          if (failed) {
+            console.warn(`multiGetTransactionByTxid: ${failed} of ${chunk.length} single fetches failed (EPS fallback)`, lastError);
           }
         }
       }
@@ -711,7 +788,6 @@ module.exports.multiGetTransactionByTxid = async function (txids, batchsize, ver
  */
 module.exports.waitTillConnected = async function () {
   if (await isDisabled()) {
-    console.warn('Electrum connections disabled by user. waitTillConnected skipping...');
     return;
   }
 
@@ -931,6 +1007,8 @@ module.exports.setBatchingDisabled = () => {
 module.exports.setBatchingEnabled = () => {
   disableBatching = false;
 };
+
+module.exports.isBatchingDisabled = () => disableBatching;
 module.exports.connectMain = connectMain;
 module.exports.isDisabled = isDisabled;
 module.exports.setDisabled = setDisabled;

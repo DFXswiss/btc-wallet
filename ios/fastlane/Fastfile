@@ -10,6 +10,16 @@ def get_api_key
   )
 end
 
+# Every lane that builds the Release configuration hits the Xcode "Upload Debug
+# Symbols to Sentry" build phase unconditionally. Fail fast with a clear message
+# here instead of deep inside that build phase, which fails the whole build on
+# any of these missing anyway but with a much less obvious error.
+def require_sentry_env!
+  %w[SENTRY_AUTH_TOKEN SENTRY_URL SENTRY_ORG SENTRY_PROJECT].each do |var|
+    UI.user_error!("#{var} is required for a Release-configuration build") if ENV.fetch(var, "").empty?
+  end
+end
+
 # Run `deliver` (App Store listing push) as best-effort: a failure is logged
 # loudly but does NOT fail the lane. While the app has no editable App Store
 # version yet (TestFlight-only), `deliver` cannot create the first version via
@@ -51,6 +61,8 @@ platform :ios do
   # never mutates them. The ASC API key authorises match + the TestFlight upload.
   desc "Build and upload an internal build to TestFlight"
   lane :beta do
+    require_sentry_env!
+
     # Required fastlane CI signing prep (not a stopgap): makes a dedicated, unlocked
     # keychain the session default so match installs the cert there and sets its
     # key-partition-list — codesign then reads the key without the GUI prompt that
@@ -111,6 +123,8 @@ platform :ios do
   # the App Store listing staged alongside the TestFlight build.
   desc "Tag-driven store release: TestFlight + stage the App Store listing"
   lane :release do
+    require_sentry_env!
+
     setup_ci
     info = resolve_release_info(ENV["NEW_VERSION"] || "dev")
     api_key = get_api_key

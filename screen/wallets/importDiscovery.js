@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState, useRef, useMemo } from 'react';
-import { ActivityIndicator, Alert, FlatList, LayoutAnimation, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, StyleSheet, View } from 'react-native';
 import { StackActions, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { BlueButton, BlueButtonLink, BlueFormLabel, BlueSpacing10, BlueSpacing20, SafeBlueArea } from '../../BlueComponents';
@@ -10,6 +10,7 @@ import { HDSegwitBech32Wallet, MultisigHDWallet, WatchOnlyWallet } from '../../c
 import startImport from '../../class/wallet-import';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import prompt from '../../helpers/prompt';
+import { walletCreatedRoute } from '../../helpers/wallet-created-route';
 
 const ImportWalletDiscovery = () => {
   const navigation = useNavigation();
@@ -42,22 +43,16 @@ const ImportWalletDiscovery = () => {
   const saveWallet = async (mainWallet, multisigWallet) => {
     if (importing.current) return;
     importing.current = true;
-
-    await addAndSaveWallet(mainWallet);
-
-    if (multisigWallet) {
-      await addAndSaveWallet(multisigWallet);
+    try {
+      await addAndSaveWallet(mainWallet);
+      if (multisigWallet) {
+        await addAndSaveWallet(multisigWallet);
+      }
+      navigation.dispatch(StackActions.replace(...walletCreatedRoute()));
+    } catch (e) {
+      Alert.alert(e.message);
+      importing.current = false;
     }
-
-    navigation.dispatch(
-      StackActions.replace('WalletsRoot', {
-        screen: 'AddLightning',
-        params: {
-          walletID: mainWallet.getID(),
-          isOnboarding: true,
-        },
-      }),
-    );
   };
 
   const tryMultisigBackup = backupText => {
@@ -75,7 +70,6 @@ const ImportWalletDiscovery = () => {
     const onWallet = wallet => {
       if (wallet.type === WatchOnlyWallet.type) return;
 
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       const id = wallet.getID();
       let subtitle;
       try {
@@ -121,7 +115,6 @@ const ImportWalletDiscovery = () => {
         Alert.alert('import error', e.message);
       })
       .finally(() => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setLoading(false);
       });
 

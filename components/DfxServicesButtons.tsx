@@ -21,9 +21,12 @@ import SellIt from '../img/dfx/buttons/sell_it.png';
 import SwapEn from '../img/dfx/buttons/swap.png';
 import NetworkTransactionFees, { NetworkTransactionFee } from '../models/networkTransactionFees';
 import { AbstractHDElectrumWallet } from '../class/wallets/abstract-hd-electrum-wallet';
+import { Utxo } from '../class/wallets/types';
 import { BlueText } from '../BlueComponents';
 import { LightningLdsWallet } from '../class/wallets/lightning-lds-wallet';
 import { useWalletContext } from '../contexts/wallet.context';
+import { DfxMaxAmount } from '../helpers/dfxMaxAmount';
+import { Utils } from '../helpers/utils';
 
 const currency = require('../blue_modules/currency');
 
@@ -86,8 +89,7 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
     return change;
   };
 
-  const getEstimatedOnChainFee = async () => {
-    const lutxo = wallet.getUtxo();
+  const getEstimatedOnChainFee = async (lutxo: Utxo[]) => {
     const changeAddress = await getChangeAddressAsync(wallet);
     const dustTarget = [{ address: '36JxaUrpDzkEerkTf1FzwHNE1Hb7cCjgJV' }];
     const networkTransactionFees = await NetworkTransactionFees.recommendedFees();
@@ -97,26 +99,45 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
     return fee;
   };
 
-  const getBalanceByDfxService = async (service: DfxService) => {
-    const balance = wallet.getBalance();
-    if (service === DfxService.SELL || service === DfxService.SWAP) {
+  // For onchain Sell/Swap this fetches a fresh UTXO set and sizes the estimate off its actual
+  // total value, rather than the separately-cached wallet.getBalance() - that cache is only
+  // updated by a background poll that's suspended while the DFX widget has the app backgrounded,
+  // so it can't be trusted as the "what did we actually propose" baseline DfxMaxAmount relies on.
+  // Returns the sweepable total alongside the estimate so the caller can hand DfxMaxAmount the
+  // exact same snapshot the estimate was computed from, instead of re-reading wallet.getUtxo()
+  // later (wallet.utxo is a shared, mutable field - a second, later read isn't guaranteed to
+  // still match, e.g. if an unrelated fetchUtxo() elsewhere resolves in between).
+  const getBalanceByDfxService = async (service: DfxService): Promise<{ maxBalance: number; sweepableBalance: number }> => {
+    if (wallet.chain === Chain.ONCHAIN && (service === DfxService.SELL || service === DfxService.SWAP)) {
+      await Utils.withRetry(() => wallet.fetchUtxo());
+      const lutxo: Utxo[] = wallet.getUtxo();
+      const sweepableBalance = Utils.sumUtxoValue(lutxo);
       try {
-        const fee = wallet.chain === Chain.ONCHAIN ? await getEstimatedOnChainFee() : balance * 0.03;
-        return balance - fee;
+        const fee = await getEstimatedOnChainFee(lutxo);
+        return { maxBalance: sweepableBalance - fee, sweepableBalance };
       } catch (_) {
-        return 0;
+        return { maxBalance: 0, sweepableBalance };
       }
     }
-    return balance;
+
+    const balance = wallet.getBalance();
+    const maxBalance = service === DfxService.SELL || service === DfxService.SWAP ? balance - balance * 0.03 : balance;
+    return { maxBalance, sweepableBalance: balance };
   };
 
   const handleOpenServices = async (service: DfxService) => {
     setIsHandlingOpenServices(true);
     try {
-      const maxBalance = await getBalanceByDfxService(service);
+      const { maxBalance, sweepableBalance } = await getBalanceByDfxService(service);
+      if (wallet.chain === Chain.ONCHAIN && (service === DfxService.SELL || service === DfxService.SWAP)) {
+        await DfxMaxAmount.remember(wallet.getID(), service, maxBalance, sweepableBalance);
+      }
       await openServices(wallet.getID(), new BigNumber(currency.satoshiToBTC(maxBalance)).toString(), service);
     } catch (e: any) {
-      Alert.alert('Something went wrong', e.message?.toString(), [
+      // same actionable copy Send/Sell/Swap use for this structural condition
+      const message =
+        e?.code === 'ELECTRUM_BATCHING_UNSUPPORTED' ? loc.send.details_utxo_refresh_unsupported_server : e.message?.toString();
+      Alert.alert('Something went wrong', message, [
         {
           text: loc._.ok,
           onPress: () => {},
@@ -218,7 +239,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: 10,
+    marginVertical: 6,
     gap: 10,
   },
 });

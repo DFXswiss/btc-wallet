@@ -245,6 +245,9 @@ export class MultisigHDWallet extends AbstractHDElectrumWallet {
    */
   _getXpubFromCosigner(cosigner) {
     const index = this._cosigners.indexOf(cosigner);
+    if (!cosigner || index === -1) {
+      throw new Error('Invalid cosigner or cosigners not initialized');
+    }
     if (this._cosignersXpubs[index]) return this._cosignersXpubs[index];
 
     if (MultisigHDWallet.isXprvString(cosigner)) cosigner = MultisigHDWallet.convertXprvToXpub(cosigner);

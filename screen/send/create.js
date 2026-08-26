@@ -13,7 +13,7 @@ import { BitcoinUnit } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 import { DynamicQRCode } from '../../components/DynamicQRCode';
 import { isDesktop } from '../../blue_modules/environment';
-import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import alert from '../../components/Alert';
 const bitcoin = require('bitcoinjs-lib');
 const currency = require('../../blue_modules/currency');
@@ -43,14 +43,17 @@ const SendCreate = () => {
     },
   });
 
-  useEffect(() => {
-    Privacy.enableBlur();
+  // on focus, not on mount: the setting can change while this screen sits in the stack, and
+  // enableBlur() reads it at call time - a mount-only call would keep the stale decision
+  useFocusEffect(
+    useCallback(() => {
+      Privacy.enableBlur();
 
-    console.log('send/create - useEffect');
-    return () => {
-      Privacy.disableBlur();
-    };
-  }, []);
+      return () => {
+        Privacy.disableBlur();
+      };
+    }, []),
+  );
 
   const exportTXN = useCallback(async () => {
     const fileName = `${Date.now()}.txn`;
@@ -61,9 +64,7 @@ const SendCreate = () => {
         url: 'file://' + filePath,
         saveToFiles: isDesktop,
       })
-        .catch(error => {
-          console.log(error);
-        })
+        .catch(() => {})
         .finally(() => {
           RNFS.unlink(filePath);
         });
@@ -77,17 +78,15 @@ const SendCreate = () => {
       });
 
       if (granted === PermissionsAndroid.RESULTS.GRANTED || Platform.Version >= 33) {
-        console.log('Storage Permission: Granted');
         const filePath = RNFS.DownloadDirectoryPath + `/${fileName}`;
         try {
           await RNFS.writeFile(filePath, tx);
           alert(loc.formatString(loc.send.txSaved, { filePath }));
         } catch (e) {
-          console.log(e);
+          console.error('send/create: failed to write transaction file to downloads', e);
           alert(e.message);
         }
       } else {
-        console.log('Storage Permission: Denied');
         Alert.alert(loc.send.permission_storage_title, loc.send.permission_storage_denied_message, [
           {
             text: loc.send.open_settings,

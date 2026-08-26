@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import BigNumber from 'bignumber.js';
 import { Badge, Icon, Text } from 'react-native-elements';
-import { Image, LayoutAnimation, StyleSheet, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { Image, StyleSheet, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import confirm from '../helpers/confirm';
 import { BitcoinUnit } from '../models/bitcoinUnits';
@@ -90,7 +90,6 @@ class AmountInput extends Component {
    */
   onAmountUnitChange(previousUnit, newUnit) {
     const amount = this.props.amount || 0;
-    const log = `${amount}(${previousUnit}) ->`;
     let sats = 0;
     switch (previousUnit) {
       case BitcoinUnit.BTC:
@@ -109,7 +108,6 @@ class AmountInput extends Component {
     }
 
     const newInputValue = formatBalancePlain(sats, newUnit, false);
-    console.log(`${log} ${sats}(sats) -> ${newInputValue}(${newUnit})`);
 
     if (newUnit === BitcoinUnit.LOCAL_CURRENCY && previousUnit === BitcoinUnit.SATS) {
       // we cache conversion, so when we will need reverse conversion there wont be a rounding error
@@ -152,7 +150,7 @@ class AmountInput extends Component {
   textInput = React.createRef();
 
   handleTextInputOnPress = () => {
-    this.textInput.current.focus();
+    this.textInput.current?.focus();
   };
 
   handleChangeText = text => {
@@ -203,16 +201,13 @@ class AmountInput extends Component {
   };
 
   updateRate = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     this.setState({ isRateBeingUpdated: true }, async () => {
       try {
         await currency.updateExchangeRate();
         currency.mostRecentFetchedRate().then(mostRecentFetchedRate => {
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
           this.setState({ mostRecentFetchedRate });
         });
       } finally {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         this.setState({ isRateBeingUpdated: false, isRateOutdated: await currency.isRateOutdated() });
       }
     });
@@ -269,7 +264,7 @@ class AmountInput extends Component {
         accessibilityRole="button"
         accessibilityLabel={loc._.enter_amount}
         disabled={this.props.pointerEvents === 'none'}
-        onPress={() => this.textInput.focus()}
+        onPress={() => this.textInput.current?.focus()}
       >
         <>
           <View style={styles.root}>
@@ -303,7 +298,7 @@ class AmountInput extends Component {
                     placeholder="0"
                     textAlign="center"
                     maxLength={this.maxLength()}
-                    ref={textInput => (this.textInput = textInput)}
+                    ref={this.textInput}
                     editable={!this.props.isLoading && !disabled}
                     value={parseFloat(amount) >= 0 ? String(amount) : undefined}
                     placeholderTextColor={disabled ? colors.buttonDisabledTextColor : colors.alternativeTextColor2}

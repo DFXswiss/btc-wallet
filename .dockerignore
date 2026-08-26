@@ -1,0 +1,11 @@
+.git
+node_modules
+_handbook-deps
+docs/handbook/build
+ios/build
+ios/Pods
+android/build
+android/app/build
+audit
+**/*.apk
+**/*.ipa

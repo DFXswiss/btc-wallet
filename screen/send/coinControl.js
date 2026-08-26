@@ -6,7 +6,6 @@ import {
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
-  LayoutAnimation,
   PixelRatio,
   Platform,
   StyleSheet,
@@ -359,11 +358,9 @@ const CoinControl = () => {
         selected={selected.includes(`${p.item.txid}:${p.item.vout}`)}
         selectionStarted={selectionStarted}
         onSelect={() => {
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); // animate buttons show
           setSelected(s => [...s, `${p.item.txid}:${p.item.vout}`]);
         }}
         onDeSelect={() => {
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); // animate buttons show
           setSelected(s => s.filter(i => i !== `${p.item.txid}:${p.item.vout}`));
         }}
       />

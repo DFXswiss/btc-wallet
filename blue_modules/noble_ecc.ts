@@ -20,6 +20,8 @@ export interface TinySecp256k1InterfaceExtended {
   isXOnlyPoint(p: Uint8Array): boolean;
 
   xOnlyPointAddTweak(p: Uint8Array, tweak: Uint8Array): XOnlyPointAddTweakResult | null;
+
+  privateNegate(d: Uint8Array): Uint8Array;
 }
 
 necc.utils.sha256Sync = (...messages: Uint8Array[]): Uint8Array => {
@@ -39,7 +41,6 @@ type Hex = string | Uint8Array;
 type PrivKey = Hex | bigint | number;
 
 necc.utils.privateAdd = (privateKey: PrivKey, tweak: Hex) => {
-  console.log({ privateKey, tweak });
   const p = normal(privateKey);
   const t = normal(tweak);
   return necc.utils.privateAdd(necc.utils.mod(p + t, necc.CURVE.n));
@@ -119,7 +120,7 @@ const ecc: TinySecp256k1InterfaceExtended & TinySecp256k1Interface & TinySecp256
       return ret;
     }),
 
-  // privateNegate: (d: Uint8Array): Uint8Array => necc.utils.privateNegate(d),
+  privateNegate: (d: Uint8Array): Uint8Array => necc.utils.privateNegate(d),
 
   sign: (h: Uint8Array, d: Uint8Array, e?: Uint8Array): Uint8Array => {
     return necc.signSync(h, d, { der: false, extraEntropy: e });

@@ -41,6 +41,38 @@ import useInputAmount from '../../hooks/useInputAmount';
 import NetworkTransactionFees from '../../models/networkTransactionFees';
 const currency = require('../../blue_modules/currency');
 
+// Pure decision for a wallet switch on the receive screen. Kept at module
+// scope (no component state) so it is unit-testable without rendering.
+// Returns { action: 'none' | 'navigate' | 'reset', target? }.
+export const resolveWalletChange = (newWallet, currentWalletId) => {
+  if (!newWallet || newWallet.getID() === currentWalletId) return { action: 'none' };
+  if (newWallet.chain !== Chain.ONCHAIN) {
+    return {
+      action: 'navigate',
+      target: { name: newWallet.isPosMode ? 'PosReceive' : 'LNDReceive', params: { walletID: newWallet.getID() } },
+    };
+  }
+  return { action: 'reset' };
+};
+
+// Resets the whole pending-payment watcher + input state so nothing (view
+// flags, balance baselines, eta, poll cadence, stale bip21 string, custom
+// amount/label) leaks across wallets. Setters are injected so it can be
+// unit-tested in isolation.
+export const resetReceiveState = setters => {
+  setters.setShowAddress(false);
+  setters.setShowPendingBalance(false);
+  setters.setShowConfirmedBalance(false);
+  setters.setDisplayBalance('');
+  setters.setEta('');
+  setters.setInitialConfirmed(0);
+  setters.setInitialUnconfirmed(0);
+  setters.setIntervalMs(5000);
+  setters.setBip21encoded(undefined);
+  setters.setCustomLabel('');
+  setters.resetInput();
+};
+
 const ReceiveDetails = () => {
   const { walletID, address } = useRoute().params;
   const { wallets, saveToDisk, sleep, isElectrumDisabled, refreshAllWalletTransactions, revalidateBalancesInterval } =
@@ -60,7 +92,7 @@ const ReceiveDetails = () => {
   const [initialUnconfirmed, setInitialUnconfirmed] = useState(0);
   const [displayBalance, setDisplayBalance] = useState('');
   const fetchAddressInterval = useRef();
-  const { inputProps, amountSats, formattedUnit, changeToNextUnit } = useInputAmount();
+  const { inputProps, amountSats, formattedUnit, changeToNextUnit, resetInput } = useInputAmount();
 
   const stylesHook = StyleSheet.create({
     customAmount: {
@@ -94,8 +126,6 @@ const ReceiveDetails = () => {
 
   // re-fetching address balance periodically
   useEffect(() => {
-    console.log('receive/defails - useEffect');
-
     if (fetchAddressInterval.current) {
       // interval already exists, lets cleanup it and recreate, so theres no duplicate intervals
       clearInterval(fetchAddressInterval.current);
@@ -108,9 +138,7 @@ const ReceiveDetails = () => {
         const address2use = address || decoded.address;
         if (!address2use) return;
 
-        console.log('checking address', address2use, 'for balance...');
         const balance = await BlueElectrum.getBalanceByAddress(address2use);
-        console.log('...got', balance);
 
         if (balance.unconfirmed > 0) {
           if (initialConfirmed === 0 && initialUnconfirmed === 0) {
@@ -179,7 +207,7 @@ const ReceiveDetails = () => {
           }
         }
       } catch (error) {
-        console.log(error);
+        console.warn('receiveDetails: balance poll tick failed, retrying next tick', error);
       }
     }, intervalMs);
   }, [bip21encoded, address, initialConfirmed, initialUnconfirmed, intervalMs, refreshAllWalletTransactions, walletID]);
@@ -294,7 +322,6 @@ const ReceiveDetails = () => {
   };
 
   const obtainWalletAddress = useCallback(async () => {
-    console.log('receive/details - componentDidMount');
     wallet.setUserHasSavedExport(true);
     let newAddress;
     if (address) {
@@ -364,19 +391,28 @@ const ReceiveDetails = () => {
   }, [amountSats, customLabel]);
 
   const handleShareButtonPressed = () => {
-    Share.open({ message: bip21encoded }).catch(error => console.log(error));
+    Share.open({ message: bip21encoded }).catch(() => {});
   };
 
   const onWalletChange = id => {
-    if (id === wallet?.getID()) return;
-
     const newWallet = wallets.find(w => w.getID() === id);
-    if (!newWallet) return;
+    const decision = resolveWalletChange(newWallet, wallet?.getID());
+    if (decision.action === 'none') return;
+    if (decision.action === 'navigate') return decision.target;
 
-    if (newWallet.chain !== Chain.ONCHAIN) {
-      return { name: newWallet.isPosMode ? 'PosReceive' : 'LNDReceive', params: { walletID: id } };
-    }
-
+    resetReceiveState({
+      setShowAddress,
+      setShowPendingBalance,
+      setShowConfirmedBalance,
+      setDisplayBalance,
+      setEta,
+      setInitialConfirmed,
+      setInitialUnconfirmed,
+      setIntervalMs,
+      setBip21encoded,
+      setCustomLabel,
+      resetInput,
+    });
     setParams({ walletID: id, address: null });
   };
 

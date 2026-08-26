@@ -111,6 +111,8 @@ All implemented in one PR ([#181](https://github.com/DFXswiss/btc-wallet/pull/18
 | `PLAY_STORE_JSON_BASE64`      | Android  | Play Console service-account JSON (base64)                 |
 | `KEYSTORE_*`                  | Android  | app signing (already present)                              |
 | `TRANSPARENCY_*`              | Android  | code-transparency signing (already present)                |
+| `SENTRY_AUTH_TOKEN`           | both     | crash-symbol/sourcemap upload auth (see `docs/release-pipeline-setup.md`) |
+| `SENTRY_URL`, `SENTRY_ORG`, `SENTRY_PROJECT` | both | not secrets, but required alongside the token — same doc |
 
 No secret **values** live in this repo — only names. Provision them in repo/org settings.
 
