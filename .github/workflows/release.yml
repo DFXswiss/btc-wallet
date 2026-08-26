@@ -218,7 +218,7 @@ jobs:
   github-release:
     name: GitHub release
     needs: [guard, ios-deploy, android-deploy]
-    if: needs.guard.outputs.proceed == 'true'
+    if: needs.guard.outputs.proceed == 'true' && needs.ios-deploy.result == 'success' && needs.android-deploy.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

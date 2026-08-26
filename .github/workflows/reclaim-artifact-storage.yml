@@ -24,23 +24,52 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          deleted=0
           cutoff=$(date -u -d '24 hours ago' +%s)
-          while read -r id created; do
-            [ -z "${id:-}" ] && continue
-            created_epoch=$(date -u -d "$created" +%s)
-            if [ "$created_epoch" -ge "$cutoff" ]; then
-              continue
-            fi
-            if ! err=$(gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${id}" --silent 2>&1); then
-              if printf '%s' "$err" | grep -Eqi '404|not found'; then
-                :
-              else
-                printf '%s\n' "$err" >&2
-                exit 1
+          while true; do
+            ids_file=$(mktemp)
+            page=1
+            while true; do
+              response=$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100&page=${page}")
+              count=$(printf '%s' "$response" | jq '.artifacts | length')
+              if [ "$count" -eq 0 ]; then
+                break
               fi
+              page_file=$(mktemp)
+              printf '%s' "$response" | jq -r '.artifacts[] | "\(.id)\t\(.created_at)"' > "$page_file"
+              if [ -s "$page_file" ]; then
+                while IFS=$'\t' read -r id created; do
+                  [ -z "${id:-}" ] && continue
+                  created_epoch=$(date -u -d "$created" +%s)
+                  if [ "$created_epoch" -lt "$cutoff" ]; then
+                    printf '%s\n' "$id" >> "$ids_file"
+                  fi
+                done < "$page_file"
+              fi
+              rm -f "$page_file"
+              total=$(printf '%s' "$response" | jq -r '.total_count')
+              if [ "$((page * 100))" -ge "$total" ] || [ "$count" -lt 100 ]; then
+                break
+              fi
+              page=$((page + 1))
+            done
+            deleted=0
+            if [ -s "$ids_file" ]; then
+              while read -r id; do
+                [ -z "${id:-}" ] && continue
+                if ! err=$(gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${id}" --silent 2>&1); then
+                  if printf '%s' "$err" | grep -Eqi '404|not found'; then
+                    continue
+                  fi
+                  printf '%s\n' "$err" >&2
+                  rm -f "$ids_file"
+                  exit 1
+                fi
+                deleted=$((deleted + 1))
+              done < "$ids_file"
             fi
-            deleted=$((deleted + 1))
-          done < <(gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
-            --jq '.artifacts[] | "\(.id)\t\(.created_at)"')
-          echo "Deleted ${deleted} artifacts older than 24 hours."
+            rm -f "$ids_file"
+            echo "Deleted ${deleted} artifacts older than 24 hours."
+            if [ "$deleted" -eq 0 ]; then
+              break
+            fi
+          done

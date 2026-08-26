@@ -112,6 +112,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+          if ! gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "Refusing to upload: release ${GITHUB_REF_NAME} does not exist (this workflow attaches to an existing release; it does not create one)."
+            exit 1
+          fi
+          IS_DRAFT=$(gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq .isDraft)
+          if [ "$IS_DRAFT" != "true" ]; then
+            echo "Refusing to upload: release $GITHUB_REF_NAME is not a draft (would clobber a published release)."
+            exit 1
+          fi
           gh release upload "${GITHUB_REF_NAME}" \
             "${RELEASE_ASSETS_DIR}/DFX-Btc-Wallet-${GITHUB_REF_NAME}.apk" \
             "${RELEASE_ASSETS_DIR}/DFX-Btc-Wallet-${GITHUB_REF_NAME}.apk.idsig" \
