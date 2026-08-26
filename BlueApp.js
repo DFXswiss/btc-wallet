@@ -934,7 +934,7 @@ class AppStorage {
 
   getCameraPermissionLastAskedTime = async () => {
     const time = await AsyncStorage.getItem(AppStorage.CAMERA_PERMISSION_LAST_ASKED_TIME);
-    return time ? parseInt(time) : 0;
+    return time ? parseInt(time, 10) : 0;
   };
 
   setCameraPermissionLastAskedTime = async value => {
