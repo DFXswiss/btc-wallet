@@ -128,7 +128,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
-      contents: read
+      contents: write
       id-token: write # actions/attest: request the OIDC signing token
       attestations: write # actions/attest: write provenance to the attestation store
     env:
@@ -197,37 +197,56 @@ jobs:
         uses: actions/attest@v4
         with:
           subject-path: ${{ env.RELEASE_ASSETS_DIR }}/SHA256SUMS
-      - name: Upload attested assets for the github-release job
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-release-assets
-          path: ${{ env.RELEASE_ASSETS_DIR }}
-          if-no-files-found: error
+      - name: Attach attested assets to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRERELEASE: ${{ needs.guard.outputs.is_prerelease }}
+        run: |
+          set -euo pipefail
+          FLAG=""
+          [ "$PRERELEASE" = "true" ] && FLAG="--prerelease"
+          if ! gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --draft --generate-notes $FLAG
+          fi
+          IS_DRAFT=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)
+          if [ "$IS_DRAFT" != "true" ]; then
+            echo "Refusing to upload: release $GITHUB_REF_NAME is not a draft (would clobber a published release)."
+            exit 1
+          fi
+          gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber "$RELEASE_ASSETS_DIR"/*
 
   github-release:
     name: GitHub release
     needs: [guard, ios-deploy, android-deploy]
-    if: needs.guard.outputs.proceed == 'true'
+    if: needs.guard.outputs.proceed == 'true' && needs.ios-deploy.result == 'success' && needs.android-deploy.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Download attested release assets
-        uses: actions/download-artifact@v4
-        with:
-          name: android-release-assets
-          path: release-assets
-      - name: Create / update release + attach attested assets
+      - name: Create / update release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
           PRERELEASE: ${{ needs.guard.outputs.is_prerelease }}
         run: |
           set -euo pipefail
-          FLAG=""
-          [ "$PRERELEASE" = "true" ] && FLAG="--prerelease"
+          if [ "$PRERELEASE" = "true" ]; then
+            FLAG="--prerelease"
+          else
+            FLAG="--prerelease=false"
+          fi
           if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            IS_DRAFT=$(gh release view "$TAG" --repo "${{ github.repository }}" --json isDraft --jq .isDraft)
+            if [ "$IS_DRAFT" != "true" ]; then
+              echo "Refusing to edit a published release $TAG (draft-only writes)."
+              exit 1
+            fi
             gh release edit "$TAG" --repo "${{ github.repository }}" $FLAG
           else
-            gh release create "$TAG" --repo "${{ github.repository }}" --title "$TAG" --generate-notes $FLAG
+            gh release create "$TAG" --repo "${{ github.repository }}" --title "$TAG" --draft --generate-notes $FLAG
           fi
-          gh release upload "$TAG" --repo "${{ github.repository }}" --clobber release-assets/*
+          IS_DRAFT=$(gh release view "$TAG" --repo "${{ github.repository }}" --json isDraft --jq .isDraft)
+          if [ "$IS_DRAFT" != "true" ]; then
+            echo "Refusing to publish a non-draft release $TAG."
+            exit 1
+          fi
+          gh release edit "$TAG" --repo "${{ github.repository }}" $FLAG --draft=false
