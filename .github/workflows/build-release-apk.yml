@@ -16,7 +16,6 @@ jobs:
 
     permissions:
       contents: write
-      actions: read
       id-token: write
       attestations: write
 
@@ -99,6 +98,21 @@ jobs:
         uses: actions/attest@v4
         with:
           subject-path: ${{ env.RELEASE_ASSETS_DIR }}/SHA256SUMS
+
+      - name: Guard existing draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "Refusing: release ${GITHUB_REF_NAME} does not exist (this workflow attaches to an existing release; it does not create one)."
+            exit 1
+          fi
+          IS_DRAFT=$(gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" --json isDraft --jq .isDraft)
+          if [ "$IS_DRAFT" != "true" ]; then
+            echo "Refusing: release $GITHUB_REF_NAME is not a draft (would clobber a published release)."
+            exit 1
+          fi
 
       - name: Add build pipeline link to release body
         uses: actions/github-script@v7
