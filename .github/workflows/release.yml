@@ -235,8 +235,18 @@ jobs:
             FLAG="--prerelease=false"
           fi
           if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            IS_DRAFT=$(gh release view "$TAG" --repo "${{ github.repository }}" --json isDraft --jq .isDraft)
+            if [ "$IS_DRAFT" != "true" ]; then
+              echo "Refusing to edit a published release $TAG (draft-only writes)."
+              exit 1
+            fi
             gh release edit "$TAG" --repo "${{ github.repository }}" $FLAG
           else
             gh release create "$TAG" --repo "${{ github.repository }}" --title "$TAG" --draft --generate-notes $FLAG
+          fi
+          IS_DRAFT=$(gh release view "$TAG" --repo "${{ github.repository }}" --json isDraft --jq .isDraft)
+          if [ "$IS_DRAFT" != "true" ]; then
+            echo "Refusing to publish a non-draft release $TAG."
+            exit 1
           fi
           gh release edit "$TAG" --repo "${{ github.repository }}" $FLAG --draft=false
