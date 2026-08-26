@@ -208,6 +208,11 @@ jobs:
           if ! gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --draft --generate-notes $FLAG
           fi
+          IS_DRAFT=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)
+          if [ "$IS_DRAFT" != "true" ]; then
+            echo "Refusing to upload: release $GITHUB_REF_NAME is not a draft (would clobber a published release)."
+            exit 1
+          fi
           gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber "$RELEASE_ASSETS_DIR"/*
 
   github-release:
@@ -232,6 +237,6 @@ jobs:
           if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release edit "$TAG" --repo "${{ github.repository }}" $FLAG
           else
-            gh release create "$TAG" --repo "${{ github.repository }}" --title "$TAG" --generate-notes $FLAG
+            gh release create "$TAG" --repo "${{ github.repository }}" --title "$TAG" --draft --generate-notes $FLAG
           fi
           gh release edit "$TAG" --repo "${{ github.repository }}" $FLAG --draft=false
