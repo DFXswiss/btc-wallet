@@ -83,7 +83,7 @@
       "id": "lightning",
       "title": "Lightning",
       "summary": "Kleine Beträge sofort und mit sehr geringen Gebühren.",
-      "intro": "Lightning ist eine zweite Ebene auf Bitcoin für kleine, schnelle Zahlungen. Neue Nutzer legen Lightning (Spark) mit einem Tipp auf die Zeile in der Übersicht an. Kaufen und Verkaufen gibt es dort wie bei den anderen Wallets; eine Bezahlkarte gibt es nicht. Die Lightning-Adresse liegt bei Breez. Für grössere Beträge ist die Wallet auf der Blockchain der richtige Ort.",
+      "intro": "Lightning ist eine zweite Ebene auf Bitcoin für kleine, schnelle Zahlungen. Neue Nutzer legen Lightning (Spark) mit einem Tipp auf die Zeile in der Übersicht an. Kaufen und Verkaufen gibt es dort wie bei den anderen Wallets; eine Bezahlkarte gibt es nicht. Beim Verkaufen öffnet sich der DFX-Dienst im Browser und führt danach zurück in die App, wo der Betrag noch einmal zu bestätigen ist. Die Lightning-Adresse liegt bei Breez. Für grössere Beträge ist die Wallet auf der Blockchain der richtige Ort.",
       "groups": [
         "08-lightning"
       ]

@@ -83,7 +83,7 @@
       "id": "lightning",
       "title": "Lightning",
       "summary": "Piccoli importi, subito e a costi molto bassi.",
-      "intro": "Lightning è un secondo livello su bitcoin per pagamenti piccoli e veloci. I nuovi utenti creano Lightning (Spark) con un tocco sulla riga della panoramica. Acquisto e vendita ci sono come negli altri portafogli; non c'è una carta di pagamento. L'indirizzo Lightning si trova presso Breez. Per importi maggiori il portafoglio sulla blockchain resta il posto giusto.",
+      "intro": "Lightning è un secondo livello su bitcoin per pagamenti piccoli e veloci. I nuovi utenti creano Lightning (Spark) con un tocco sulla riga della panoramica. Acquisto e vendita ci sono come negli altri portafogli; non c'è una carta di pagamento. La vendita apre il servizio DFX nel browser e poi riporta nell'app, dove l'importo va confermato ancora una volta. L'indirizzo Lightning si trova presso Breez. Per importi maggiori il portafoglio sulla blockchain resta il posto giusto.",
       "groups": [
         "08-lightning"
       ]

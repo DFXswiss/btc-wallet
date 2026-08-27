@@ -422,8 +422,15 @@ hat. Ebenso die POS-Strecke (`PosReceive`, `CashierPos`, `CashierDfxPos`,
 Multi-Device-Wallet voraus, also drei parallel laufende Instanzen. Abgebildet ist
 nur der erste Einrichtungsschritt.
 
-Ausserdem kein App-Screen und deshalb bewusst nicht im Satz: die Kacheln
-„Kaufen"/„Verkaufen" oeffnen einen externen Browser.
+Die Kacheln „Kaufen"/„Verkaufen" oeffnen einen externen Browser; der
+Einstieg ist deshalb kein App-Screen. Der **Rueckweg** ist einer: Nach dem
+Verkauf fuehrt der Dienst per Deeplink zurueck in die App, und bezahlt wird
+dort über `Sell` und `LnurlPay` — bei einer Lightning-(Spark)-Wallet seit
+`ebad19b68f` über deren Spark-Invoice-Modus, weil die Deposit-Adresse eines
+Spark-Verkaufs eine Spark-Invoice ist und kein LNURL. Beide sind
+registrierte Routen (`navigation/DeeplinkStack.tsx:22` und `:23`) und fehlen
+im Satz; sie fallen unter Ursache 1, denn sie brauchen einen echten
+Verkaufsvorgang mit Guthaben.
 
 Wer die Luecke schliessen will, braucht in dieser Reihenfolge: eine Wallet mit
 einem kleinen Betrag on-chain und ein paar Sats auf Lightning (deckt Ursache 1

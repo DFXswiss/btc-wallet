@@ -83,7 +83,7 @@
       "id": "lightning",
       "title": "Lightning",
       "summary": "Small amounts, instantly and at very low cost.",
-      "intro": "Lightning is a second layer on top of bitcoin for small, fast payments. New users create Lightning (Spark) with a tap on the row in the overview. Buying and selling are there as on the other wallets; there is no payment card. The Lightning address lives on Breez. For larger amounts the wallet on the blockchain is the right place.",
+      "intro": "Lightning is a second layer on top of bitcoin for small, fast payments. New users create Lightning (Spark) with a tap on the row in the overview. Buying and selling are there as on the other wallets; there is no payment card. Selling opens the DFX service in the browser and then returns to the app, where the amount is confirmed once more. The Lightning address lives on Breez. For larger amounts the wallet on the blockchain is the right place.",
       "groups": [
         "08-lightning"
       ]
