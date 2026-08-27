@@ -48,7 +48,8 @@ const _cacheFiatToSat = {};
 const LnurlPay = () => {
   const { wallets, refreshAllWalletTransactions } = useContext(BlueStorageContext);
   const { outgoingPayment } = useSparkContext();
-  const { walletID, lnurl, amountSat, destination, invoice, amountUnit, description, free } = useRoute().params;
+  const { params, key: sparkPaymentSeed } = useRoute();
+  const { walletID, lnurl, amountSat, destination, invoice, sparkInvoice, amountUnit, description, free } = params;
   /** @type {LightningCustodianWallet} */
   const wallet = wallets.find(w => w.getID() === walletID);
   const [unit, setUnit] = useState(wallet.getPreferredBalanceUnit());
@@ -106,6 +107,15 @@ const LnurlPay = () => {
       setIsTxFree(Boolean(free) && walletWaivesDomainFees(wallet));
     }
   }, [invoice, amountSat, amountUnit, free, wallet]);
+
+  useEffect(() => {
+    if (sparkInvoice) {
+      setAmount(amountSat);
+      setUnit(BitcoinUnit.SATS);
+      setIsLoading(false);
+      setIsTxFree(false);
+    }
+  }, [sparkInvoice, amountSat]);
 
   useEffect(() => {
     setPayButtonDisabled(isLoading);
@@ -238,6 +248,19 @@ const LnurlPay = () => {
     finishInvoiceSuccess(amountSats, decoded);
   };
 
+  const handleSparkInvoice = async amountSats => {
+    const result = await wallet.paySparkInvoice(sparkInvoice, amountSats, sparkPaymentSeed);
+    const decoded = {};
+    if (result && result.status === 'pending') {
+      pendingPayRef.current = { kind: 'sparkInvoice', paymentHash: result.paymentHash, amountSats, decoded };
+      setIsPaymentPending(true);
+      setPayButtonDisabled(true);
+      return;
+    }
+
+    finishInvoiceSuccess(amountSats, decoded);
+  };
+
   const pay = async () => {
     setPayButtonDisabled(true);
 
@@ -271,7 +294,9 @@ const LnurlPay = () => {
     }
 
     try {
-      if (invoice) {
+      if (sparkInvoice) {
+        await handleSparkInvoice(amountSats);
+      } else if (invoice) {
         await handleLnInvoice(amountSats);
       } else {
         await handleBolt11Invoice(amountSats);
@@ -344,7 +369,7 @@ const LnurlPay = () => {
                 <BlueSpacing10 />
               </>
             )}
-            {invoice && <BlueCopyTextToClipboard text={invoice} truncated />}
+            {(invoice || sparkInvoice) && <BlueCopyTextToClipboard text={invoice || sparkInvoice} truncated />}
           </BlueCard>
         </ScrollView>
         <View style={styles.buttonContainer}>

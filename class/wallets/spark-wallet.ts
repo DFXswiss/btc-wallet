@@ -1,5 +1,6 @@
 import createHash from 'create-hash';
 import bolt11 from 'bolt11';
+import { bech32m } from 'bech32';
 import {
   AssetFilter,
   PaymentDetails_Tags,
@@ -37,8 +38,8 @@ export type SparkPayInvoiceResult = {
  */
 const IDEMPOTENCY_NAMESPACE = Buffer.from('6b8f3c2a1d9e0475b3c8a0f4e21769d1', 'hex');
 
-function invoiceIdempotencyKey(paymentHash: string): string {
-  const digest = createHash('sha1').update(IDEMPOTENCY_NAMESPACE).update(paymentHash).digest();
+function invoiceIdempotencyKey(paymentIdentity: string): string {
+  const digest = createHash('sha1').update(IDEMPOTENCY_NAMESPACE).update(paymentIdentity).digest();
   const bytes = Buffer.from(digest.subarray(0, 16));
   bytes[6] = (bytes[6] & 0x0f) | 0x50; // eslint-disable-line no-bitwise
   bytes[8] = (bytes[8] & 0x3f) | 0x80; // eslint-disable-line no-bitwise
@@ -55,12 +56,23 @@ export function sparkMaxSendFeeSats(amount: number): number {
   return Math.max(Math.floor(Number(amount) * 0.03), 1);
 }
 
-function assertSendFeeWithinLimit(prepareResponse: PrepareSendPaymentResponse): void {
+function assertSendFeeWithinLimit(
+  prepareResponse: PrepareSendPaymentResponse,
+  expectedMethod: SendPaymentMethod_Tags.Bolt11Invoice | SendPaymentMethod_Tags.SparkInvoice = SendPaymentMethod_Tags.Bolt11Invoice,
+): void {
   const { paymentMethod, amount } = prepareResponse;
-  if (paymentMethod.tag !== SendPaymentMethod_Tags.Bolt11Invoice) {
-    throw new Error(loc.wallets.lightning_spark_invoice_unreadable);
+  let feeSats: bigint;
+  if (expectedMethod === SendPaymentMethod_Tags.Bolt11Invoice) {
+    if (paymentMethod.tag !== SendPaymentMethod_Tags.Bolt11Invoice) {
+      throw new Error(loc.wallets.lightning_spark_invoice_unreadable);
+    }
+    feeSats = paymentMethod.inner.lightningFeeSats + (paymentMethod.inner.sparkTransferFeeSats ?? 0n);
+  } else {
+    if (paymentMethod.tag !== SendPaymentMethod_Tags.SparkInvoice) {
+      throw new Error(loc.wallets.lightning_spark_invoice_unreadable);
+    }
+    feeSats = paymentMethod.inner.fee;
   }
-  const feeSats = paymentMethod.inner.lightningFeeSats + (paymentMethod.inner.sparkTransferFeeSats ?? 0n);
   const maxFeeSats = sparkMaxSendFeeSats(Number(amount));
   if (feeSats > BigInt(maxFeeSats)) {
     throw new Error(
@@ -141,6 +153,55 @@ export class SparkWallet extends AbstractWallet {
     this.chain = Chain.OFFCHAIN;
     // Seed lives only in the on-chain wallet; never persist it here.
     this.secret = '';
+  }
+
+  static parseSparkPaymentUri(input: string): { invoice: string; amountSats?: number } {
+    const trimmed = typeof input === 'string' ? input.trim() : '';
+    const withoutScheme = /^spark:/i.test(trimmed) ? trimmed.slice(trimmed.indexOf(':') + 1) : trimmed;
+    const queryStart = withoutScheme.indexOf('?');
+    const invoice = (queryStart >= 0 ? withoutScheme.slice(0, queryStart) : withoutScheme).trim();
+    if (queryStart < 0) {
+      return { invoice };
+    }
+
+    const query = withoutScheme.slice(queryStart + 1);
+    for (const part of query.split('&')) {
+      const separator = part.indexOf('=');
+      const rawKey = separator >= 0 ? part.slice(0, separator) : part;
+      if (rawKey.toLowerCase() !== 'amount') continue;
+
+      const rawValue = separator >= 0 ? part.slice(separator + 1) : '';
+      let value: string;
+      try {
+        value = decodeURIComponent(rawValue);
+      } catch (_) {
+        break;
+      }
+      const match = /^(\d+)(?:\.(\d+))?$/.exec(value);
+      if (!match) break;
+
+      const wholeSats = BigInt(match[1]) * 100_000_000n;
+      const fraction = match[2] || '';
+      const fractionSats = BigInt((fraction.slice(0, 8) + '00000000').slice(0, 8));
+      const roundedSats = wholeSats + fractionSats + (fraction.length > 8 && Number(fraction[8]) >= 5 ? 1n : 0n);
+      const amountSats = Number(roundedSats);
+      if (Number.isSafeInteger(amountSats)) {
+        return { invoice, amountSats };
+      }
+      break;
+    }
+
+    return { invoice };
+  }
+
+  static isSparkInvoice(input: string): boolean {
+    const { invoice } = SparkWallet.parseSparkPaymentUri(input);
+    if (!invoice) return false;
+    try {
+      return bech32m.decode(invoice, 10000).prefix.toLowerCase() === 'spark';
+    } catch (_) {
+      return false;
+    }
   }
 
   static create(identityPubkey: string, lnAddress?: string): SparkWallet {
@@ -640,6 +701,99 @@ export class SparkWallet extends AbstractWallet {
       return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: payment.id };
     }
     if (tracked?.status === 'failed') {
+      settleOutgoingPayment({ status: 'failed', paymentHash, paymentId: payment.id });
+      throw new Error(loc.wallets.lightning_spark_payment_failed);
+    }
+    return { status: SparkPayInvoiceStatus.Pending, paymentHash, paymentId: payment.id };
+  }
+
+  async paySparkInvoice(invoice: string, amountSats: number, idempotencySeed: string): Promise<SparkPayInvoiceResult> {
+    if (!Number.isSafeInteger(amountSats) || amountSats <= 0) {
+      throw new Error(loc.lnd.error_tip_invoice_not_supported);
+    }
+
+    const lease = this.holdMatchingSession();
+    const trackingHash = createHash('sha256')
+      .update(invoice)
+      .update('\0')
+      .update(String(amountSats))
+      .update('\0')
+      .update(idempotencySeed)
+      .digest('hex');
+    const prepareResponse = await lease.requireSdk().prepareSendPayment({
+      paymentRequest: new PaymentRequest.Input({ input: invoice }),
+      amount: BigInt(amountSats),
+      tokenIdentifier: undefined,
+      conversionOptions: undefined,
+      feePolicy: undefined,
+    });
+
+    const sdk = this.requireHeld(lease);
+    assertSendFeeWithinLimit(prepareResponse, SendPaymentMethod_Tags.SparkInvoice);
+    // The raw invoice is reusable, so tracking it directly would collapse a later sale into the old payment.
+    beginOutgoingPayment({ paymentHash: trackingHash });
+
+    // A reusable deposit invoice may receive the same amount more than once. The per-payment
+    // seed keeps separate payments distinct while preserving SDK deduplication for retries.
+    const idempotencyKey = invoiceIdempotencyKey(`${invoice}\0${amountSats}\0${idempotencySeed}`);
+
+    let payment: Payment | undefined;
+    try {
+      const sent = await sdk.sendPayment({
+        prepareResponse,
+        options: undefined,
+        idempotencyKey,
+      });
+      payment = sent.payment;
+    } catch (e) {
+      const tracked = getOutgoingPayment();
+      if (tracked?.paymentHash === trackingHash) {
+        if (tracked.status === 'completed') {
+          this.recordPaidInvoice(undefined, tracked.preimage);
+          return { status: SparkPayInvoiceStatus.Completed, paymentHash: trackingHash, paymentId: tracked.paymentId };
+        }
+        if (tracked.status === 'failed') {
+          throw new Error(loc.wallets.lightning_spark_payment_failed);
+        }
+        return { status: SparkPayInvoiceStatus.Pending, paymentHash: trackingHash };
+      }
+      if (e instanceof SparkSessionStaleError || this.sessionGone(lease)) {
+        return { status: SparkPayInvoiceStatus.Pending, paymentHash: trackingHash };
+      }
+      throw e;
+    }
+
+    const paymentHash = payment.id || trackingHash;
+    const trackedAfterSend = getOutgoingPayment();
+    if (payment.id && trackedAfterSend?.paymentHash === trackingHash) {
+      beginOutgoingPayment({ paymentHash: trackingHash, paymentId: payment.id });
+      beginOutgoingPayment({ paymentHash, paymentId: payment.id });
+    }
+
+    if (payment.status === PaymentStatus.Failed) {
+      const settled = settleOutgoingPayment({ status: 'failed', paymentHash, paymentId: payment.id });
+      if (settled?.paymentHash === paymentHash && settled.status === 'completed') {
+        this.recordPaidInvoice(payment, settled.preimage);
+        return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: settled.paymentId };
+      }
+      throw new Error(loc.wallets.lightning_spark_payment_failed);
+    }
+
+    if (payment.status === PaymentStatus.Completed) {
+      const settled = settleOutgoingPayment({ status: 'completed', paymentHash, paymentId: payment.id });
+      if (settled?.paymentHash === paymentHash && settled.status === 'failed') {
+        throw new Error(loc.wallets.lightning_spark_payment_failed);
+      }
+      this.recordPaidInvoice(payment, settled?.paymentHash === paymentHash ? settled.preimage : undefined);
+      return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: payment.id };
+    }
+
+    const tracked = getOutgoingPayment();
+    if (tracked?.paymentHash === paymentHash && tracked.status === 'completed') {
+      this.recordPaidInvoice(payment, tracked.preimage);
+      return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: payment.id };
+    }
+    if (tracked?.paymentHash === paymentHash && tracked.status === 'failed') {
       settleOutgoingPayment({ status: 'failed', paymentHash, paymentId: payment.id });
       throw new Error(loc.wallets.lightning_spark_payment_failed);
     }

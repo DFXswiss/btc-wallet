@@ -119,11 +119,21 @@ const Swap = () => {
         psbt,
       });
     } else if (wallet.type === LightningLdsWallet.type || wallet.type === SparkWallet.type) {
-      navigation.navigate('LnurlPay', {
-        lnurl: swapInfo?.deposit.address,
-        walletID: wallet.getID(),
-        amountSat: currency.btcToSatoshi(amount),
-      });
+      const depositAddress = swapInfo?.deposit.address;
+      if (wallet.type === SparkWallet.type && depositAddress && SparkWallet.isSparkInvoice(depositAddress)) {
+        const parsed = SparkWallet.parseSparkPaymentUri(depositAddress);
+        navigation.navigate('LnurlPay', {
+          sparkInvoice: parsed.invoice,
+          walletID: wallet.getID(),
+          amountSat: parsed.amountSats ?? currency.btcToSatoshi(amount),
+        });
+      } else {
+        navigation.navigate('LnurlPay', {
+          lnurl: depositAddress,
+          walletID: wallet.getID(),
+          amountSat: currency.btcToSatoshi(amount),
+        });
+      }
     } else {
       Alert.alert('Unsupported wallet type');
     }

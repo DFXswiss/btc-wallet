@@ -1,5 +1,6 @@
 import React from 'react';
 import assert from 'assert';
+import { bech32m } from 'bech32';
 import { fireEvent, render, waitFor, act } from '@testing-library/react-native';
 import { ActivityIndicator } from 'react-native';
 import { BitcoinUnit } from '../../models/bitcoinUnits';
@@ -50,11 +51,12 @@ const mockNavigate = jest.fn();
 const mockGoBack = jest.fn();
 const mockPop = jest.fn();
 const mockRouteParams = {};
+let mockRouteKey = 'lnurl-pay-test-route-1';
 jest.mock('@react-navigation/native', () => {
   const actual = jest.requireActual('@react-navigation/native');
   return {
     ...actual,
-    useRoute: () => ({ params: mockRouteParams }),
+    useRoute: () => ({ key: mockRouteKey, params: mockRouteParams }),
     useNavigation: () => ({
       navigate: mockNavigate,
       goBack: mockGoBack,
@@ -102,12 +104,14 @@ const { BlueDarkTheme } = require('../../components/themes');
 
 const SAMPLE_INVOICE =
   'lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp';
+const SPARK_INVOICE = bech32m.encode('spark', bech32m.toWords(Buffer.from('dfx reusable sats invoice')), 10000);
 
 function makeWallet() {
   const wallet = SparkWallet.create('pk-pay');
   wallet.getID = () => 'spark-pay-1';
   wallet.balance = 1_000_000;
   wallet.payInvoice = jest.fn();
+  wallet.paySparkInvoice = jest.fn();
   return wallet;
 }
 
@@ -162,6 +166,7 @@ function renderPay(wallet, extraParams = {}) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockRouteKey = 'lnurl-pay-test-route-1';
   for (const key of Object.keys(mockRouteParams)) {
     delete mockRouteParams[key];
   }
@@ -171,6 +176,95 @@ beforeEach(() => {
     isCreating: false,
     createSparkWallet: jest.fn(),
     outgoingPayment: null,
+  });
+});
+
+describe('LnurlPay Spark invoice mode', () => {
+  afterEach(() => {
+    Biometric.isBiometricUseCapableAndEnabled.mockResolvedValue(false);
+    Biometric.unlockWithBiometrics.mockResolvedValue(true);
+    jest.restoreAllMocks();
+  });
+
+  it('pays a fixed Spark invoice without creating or querying an LNURL', async () => {
+    const wallet = makeWallet();
+    wallet.paySparkInvoice.mockResolvedValue({ status: 'completed', paymentHash: 'spark-payment-1' });
+    const callLnurlPayService = jest.spyOn(Lnurl.prototype, 'callLnurlPayService');
+    const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
+
+    await waitFor(() => screen.getByText(loc.lnd.payButton));
+    expect(screen.getByText(feeRangeText(sparkMaxSendFeeSats(1000)))).toBeTruthy();
+    assert.strictEqual(screen.queryByText(freeFeeText()), null);
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+
+    await waitFor(() => expect(wallet.paySparkInvoice).toHaveBeenCalledTimes(1));
+    const [paidInvoice, paidAmount, seed] = wallet.paySparkInvoice.mock.calls[0];
+    assert.strictEqual(paidInvoice, SPARK_INVOICE);
+    assert.strictEqual(paidAmount, 1000);
+    assert.strictEqual(seed, mockRouteKey);
+    expect(wallet.payInvoice).not.toHaveBeenCalled();
+    expect(callLnurlPayService).not.toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith('Success', {
+      amount: 1000,
+      amountUnit: BitcoinUnit.SATS,
+      invoiceDescription: undefined,
+    });
+  });
+
+  it('keeps one Spark idempotency seed when the same mounted payment is retried', async () => {
+    const wallet = makeWallet();
+    wallet.paySparkInvoice.mockRejectedValueOnce(new Error('temporary send error')).mockResolvedValueOnce({
+      status: 'completed',
+      paymentHash: 'spark-payment-retry',
+    });
+    const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
+
+    await waitFor(() => screen.getByText(loc.lnd.payButton));
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+    await waitFor(() => expect(alert).toHaveBeenCalledWith('temporary send error'));
+    await waitFor(() => screen.getByText(loc.lnd.payButton));
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+
+    await waitFor(() => expect(wallet.paySparkInvoice).toHaveBeenCalledTimes(2));
+    assert.strictEqual(wallet.paySparkInvoice.mock.calls[0][2], wallet.paySparkInvoice.mock.calls[1][2]);
+
+    screen.unmount();
+    mockRouteKey = 'lnurl-pay-test-route-2';
+    const nextWallet = makeWallet();
+    nextWallet.paySparkInvoice.mockResolvedValue({ status: 'completed', paymentHash: 'spark-payment-next-sale' });
+    const nextScreen = renderPay(nextWallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
+
+    await waitFor(() => nextScreen.getByText(loc.lnd.payButton));
+    await act(async () => {
+      fireEvent.press(nextScreen.getByText(loc.lnd.payButton));
+    });
+
+    await waitFor(() => expect(nextWallet.paySparkInvoice).toHaveBeenCalledTimes(1));
+    assert.notStrictEqual(wallet.paySparkInvoice.mock.calls[0][2], nextWallet.paySparkInvoice.mock.calls[0][2]);
+  });
+
+  it('shows Spark invoice payments as pending and applies the existing biometric gate', async () => {
+    Biometric.isBiometricUseCapableAndEnabled.mockResolvedValue(true);
+    Biometric.unlockWithBiometrics.mockResolvedValue(true);
+    const wallet = makeWallet();
+    wallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'spark-payment-pending' });
+    const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
+
+    await waitFor(() => screen.getByText(loc.lnd.payButton));
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+
+    await waitFor(() => screen.getByText(loc.wallets.lightning_spark_payment_in_transit));
+    expect(Biometric.unlockWithBiometrics).toHaveBeenCalledTimes(1);
+    expect(wallet.paySparkInvoice).toHaveBeenCalledTimes(1);
+    assert.strictEqual(screen.queryByText(loc.lnd.payButton), null);
   });
 });
 
