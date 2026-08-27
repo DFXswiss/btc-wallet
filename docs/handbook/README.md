@@ -294,14 +294,34 @@ iOS-Simulator-Lauf, nicht aus einer CI-Visual-Regression. Die verwendeten
 Maestro-Flows liegen unter `scripts/handbook/screenshots/` und sind damit
 nachvollziehbar und wiederholbar.
 
+Fuer die Lightning-(Spark)-Wallet braucht der Build zusaetzlich `BREEZ_API_KEY`
+in der `.env`-Datei, die `/tmp/envfile` benennt. Der Schluessel ist das
+Repository-Secret; er gehoert **nicht** in eine getrackte `.env`-Datei und wird
+nach dem Build wieder entfernt. Beim Anhaengen darauf achten, dass die Datei mit
+einem Zeilenumbruch endet — sonst klebt der Schluessel an der letzten Variablen
+(`DFX_ENV=prdBREEZ_API_KEY=...`), und `Config.BREEZ_API_KEY` bleibt leer, ohne
+dass der Build es meldet.
+
 ```bash
 # App fuer den Simulator bauen (Sentry-Upload braucht Credentials, die es
 # lokal nicht gibt -> abschalten, sonst scheitert die Bundling-Phase)
+# Die beiden Scheme-Pre-Actions von Hand — xcodebuild fuehrt sie NICHT aus.
+# Ohne sie bleibt Config.BREEZ_API_KEY leer und die Lightning-(Spark)-Wallet
+# laesst sich nicht anlegen ("Lightning konnte nicht gestartet werden").
+echo ".env.prd" > /tmp/envfile   # Prod-Scheme; -dev/-loc schreiben .env.dev/.env.loc
+ruby node_modules/react-native-config/ios/ReactNativeConfig/BuildXCConfig.rb \
+  "$PWD" "$PWD/ios/tmp.xcconfig"
+
+# Signieren, nicht abschalten: eine unsignierte App hat keine Keychain-
+# Entitlements, und AppStorage#saveToDisk scheitert dann mit
+# "error saving key" — die Wallet wird gar nicht erst gespeichert.
 SENTRY_DISABLE_AUTO_UPLOAD=true xcodebuild \
   -workspace ios/BlueWallet.xcworkspace -scheme BlueWallet \
   -configuration Release -sdk iphonesimulator -derivedDataPath ios/build \
   -destination 'platform=iOS Simulator,name=iPhone 17' \
-  CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+  CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=YES CODE_SIGNING_ALLOWED=YES build
+
+rm -f /tmp/envfile ios/tmp.xcconfig   # beide tragen den Schluessel im Klartext
 
 xcrun simctl boot 'iPhone 17'
 xcrun simctl install booted ios/build/Build/Products/Release-iphonesimulator/Bitcoin.app
