@@ -772,6 +772,39 @@ export class SparkWallet extends AbstractWallet {
     return { status: SparkPayInvoiceStatus.Pending, paymentHash, paymentId: payment.id, fee };
   }
 
+  async getPaymentFeeWithoutSending(invoice: string, amountSats = 0): Promise<number> {
+    const isSparkInvoice = SparkWallet.isSparkInvoice(invoice);
+    if (isSparkInvoice && (!Number.isSafeInteger(amountSats) || amountSats <= 0)) {
+      throw new Error(loc.lnd.error_tip_invoice_not_supported);
+    }
+
+    const lease = this.holdMatchingSession();
+    const amount = amountSats && amountSats > 0 ? BigInt(amountSats) : undefined;
+    const prepareResponse = await lease.requireSdk().prepareSendPayment({
+      paymentRequest: new PaymentRequest.Input({ input: invoice }),
+      amount,
+      tokenIdentifier: undefined,
+      conversionOptions: undefined,
+      feePolicy: undefined,
+    });
+
+    this.requireHeld(lease);
+    if (isSparkInvoice) {
+      if (
+        prepareResponse.paymentMethod.tag === SendPaymentMethod_Tags.SparkInvoice &&
+        prepareResponse.paymentMethod.inner.tokenIdentifier
+      ) {
+        throw new Error(loc.wallets.lightning_spark_token_invoice_unsupported);
+      }
+      if (prepareResponse.amount !== BigInt(amountSats)) {
+        throw new Error(loc.wallets.lightning_spark_amount_mismatch);
+      }
+      return preparedSendFeeSats(prepareResponse, SendPaymentMethod_Tags.SparkInvoice);
+    }
+
+    return preparedSendFeeSats(prepareResponse);
+  }
+
   async paySparkInvoice(invoice: string, amountSats: number, idempotencySeed: string): Promise<SparkPayInvoiceResult> {
     if (!Number.isSafeInteger(amountSats) || amountSats <= 0) {
       throw new Error(loc.lnd.error_tip_invoice_not_supported);

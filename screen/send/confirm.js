@@ -139,7 +139,7 @@ const Confirm = () => {
       amount = formatBalanceWithoutSuffix(amount, BitcoinUnit.BTC, false);
       ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
       navigate('Success', {
-        fee: Number(fee),
+        fee: feeSatoshi,
         amount,
       });
 

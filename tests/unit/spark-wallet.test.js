@@ -372,6 +372,32 @@ describe('SparkWallet', () => {
     assert.strictEqual(arg.options.inner.completionTimeoutSecs, 30);
   });
 
+  it('gets a prepared BOLT11 fee without sending the payment', async () => {
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse({ lightningFeeSats: 4n }));
+    const wallet = new SparkWallet();
+
+    const fee = await wallet.getPaymentFeeWithoutSending(SAMPLE_INVOICE, 15);
+
+    assert.strictEqual(fee, 4);
+    const prepareArg = mockSdk.prepareSendPayment.mock.calls[0][0];
+    assert.strictEqual(prepareArg.paymentRequest.inner.input, SAMPLE_INVOICE);
+    assert.strictEqual(prepareArg.amount, 15n);
+    expect(mockSdk.sendPayment).not.toHaveBeenCalled();
+  });
+
+  it('gets a prepared Spark invoice fee without sending the payment', async () => {
+    mockSdk.prepareSendPayment.mockResolvedValue(sparkInvoicePrepareResponse({ amount: 15n, fee: 4n }));
+    const wallet = new SparkWallet();
+
+    const fee = await wallet.getPaymentFeeWithoutSending(SPARK_INVOICE, 15);
+
+    assert.strictEqual(fee, 4);
+    const prepareArg = mockSdk.prepareSendPayment.mock.calls[0][0];
+    assert.strictEqual(prepareArg.paymentRequest.inner.input, SPARK_INVOICE);
+    assert.strictEqual(prepareArg.amount, 15n);
+    expect(mockSdk.sendPayment).not.toHaveBeenCalled();
+  });
+
   it('paySparkInvoice prepares the raw invoice with an explicit bigint amount and sends without options', async () => {
     const prepareResponse = sparkInvoicePrepareResponse();
     mockSdk.prepareSendPayment.mockResolvedValue(prepareResponse);

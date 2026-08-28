@@ -54,6 +54,7 @@ const ScanLndInvoice = () => {
   const [isDescDisabled, setIsDescDisabled] = useState(false);
   const [expiresIn, setExpiresIn] = useState();
   const [isTxFree, setIsTxFree] = useState(false);
+  const [sparkFee, setSparkFee] = useState();
 
   const stylesHook = StyleSheet.create({
     root: {
@@ -183,6 +184,27 @@ const ScanLndInvoice = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uri]);
+
+  useEffect(() => {
+    let isCurrent = true;
+    setSparkFee(undefined);
+    if (wallet?.type !== SparkWallet.type || !decoded || !destination || !(amountSat > 0)) {
+      return () => {
+        isCurrent = false;
+      };
+    }
+
+    wallet
+      .getPaymentFeeWithoutSending(destination, amountSat)
+      .then(fee => {
+        if (isCurrent) setSparkFee(fee);
+      })
+      .catch(() => {});
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [amountSat, decoded, destination, wallet]);
 
   const showError = errMessage => {
     alert(errMessage);
@@ -330,12 +352,18 @@ const ScanLndInvoice = () => {
             <View style={styles.noteContainer}>
               <BlueFormInput value={desc} onChangeText={setDesc} editable={!isDescDisabled} color={colors.feeText} />
             </View>
-            {(!(amountSat > 0) || wallet?.type !== SparkWallet.type) && (
-              <View style={styles.fee}>
-                <BlueText style={stylesHook.fee}>{loc.send.create_fee}</BlueText>
-                <BlueText style={stylesHook.fee}>{wallet && amountSat > 0 ? getFees() : '-'}</BlueText>
-              </View>
-            )}
+            <View style={styles.fee}>
+              <BlueText style={stylesHook.fee}>{loc.send.create_fee}</BlueText>
+              <BlueText style={stylesHook.fee}>
+                {wallet?.type === SparkWallet.type
+                  ? sparkFee === undefined
+                    ? '-'
+                    : `${sparkFee} ${BitcoinUnit.SATS}`
+                  : wallet && amountSat > 0
+                    ? getFees()
+                    : '-'}
+              </BlueText>
+            </View>
           </KeyboardAvoidingView>
           <BlueCard>
             <View>

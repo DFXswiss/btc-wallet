@@ -120,6 +120,7 @@ function makeWallet() {
   wallet.payInvoice = jest.fn();
   wallet.paySparkInvoice = jest.fn();
   wallet.payLnurlMax = jest.fn();
+  wallet.getPaymentFeeWithoutSending = jest.fn().mockResolvedValue(4);
   return wallet;
 }
 
@@ -196,6 +197,27 @@ describe('LnurlPay Spark invoice mode', () => {
     Biometric.isBiometricUseCapableAndEnabled.mockResolvedValue(false);
     Biometric.unlockWithBiometrics.mockResolvedValue(true);
     jest.restoreAllMocks();
+  });
+
+  it('shows the prepared Spark fee before paying instead of a percentage range', async () => {
+    const wallet = makeWallet();
+    const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
+
+    await waitFor(() => screen.getByText(`${loc.send.create_fee}: 4 ${BitcoinUnit.SATS}`));
+    expect(wallet.getPaymentFeeWithoutSending).toHaveBeenCalledWith(SPARK_INVOICE, 1000);
+    assert.strictEqual(screen.queryByText(feeRangeText(Math.round(1000 * 0.03))), null);
+    expect(wallet.paySparkInvoice).not.toHaveBeenCalled();
+  });
+
+  it('keeps payment available without an alert when the Spark fee cannot be prepared', async () => {
+    const wallet = makeWallet();
+    wallet.getPaymentFeeWithoutSending.mockRejectedValue(new Error('fee unavailable'));
+    const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
+
+    await waitFor(() => screen.getByText(`${loc.send.create_fee}: -`));
+    const payButton = screen.getByText(loc.lnd.payButton);
+    expect(payButton).toBeTruthy();
+    expect(alert).not.toHaveBeenCalled();
   });
 
   it('pays a fixed Spark invoice without creating or querying an LNURL', async () => {

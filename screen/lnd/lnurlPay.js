@@ -89,6 +89,7 @@ const LnurlPay = () => {
   const [amount, setAmount] = useState();
   const [desc, setDesc] = useState();
   const [isTxFree, setIsTxFree] = useState(false);
+  const [sparkFee, setSparkFee] = useState();
   const { colors } = useTheme();
   const stylesHook = StyleSheet.create({
     root: {
@@ -142,6 +143,28 @@ const LnurlPay = () => {
       setIsTxFree(false);
     }
   }, [sparkInvoice, amountSat]);
+
+  useEffect(() => {
+    let isCurrent = true;
+    setSparkFee(undefined);
+    const paymentRequest = invoice || sparkInvoice;
+    if (wallet.type !== SparkWallet.type || !paymentRequest || !(amountSat > 0)) {
+      return () => {
+        isCurrent = false;
+      };
+    }
+
+    wallet
+      .getPaymentFeeWithoutSending(paymentRequest, amountSat)
+      .then(fee => {
+        if (isCurrent) setSparkFee(fee);
+      })
+      .catch(() => {});
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [amountSat, invoice, sparkInvoice, wallet]);
 
   useEffect(() => {
     setPayButtonDisabled(isLoading);
@@ -457,11 +480,16 @@ const LnurlPay = () => {
                 </>
               ) : (
                 <>
-                  {wallet.type !== SparkWallet.type && (
-                    <Text style={styles.fees}>
-                      {loc.send.create_fee}: {isTxFree ? loc._.free : getFees()}
-                    </Text>
-                  )}
+                  <Text style={styles.fees}>
+                    {loc.send.create_fee}:{' '}
+                    {wallet.type === SparkWallet.type
+                      ? sparkFee === undefined
+                        ? '-'
+                        : `${sparkFee} ${BitcoinUnit.SATS}`
+                      : isTxFree
+                        ? loc._.free
+                        : getFees()}
+                  </Text>
                   <BlueButton title={loc.lnd.payButton} onPress={pay} disabled={isInsufficientFunds()} />
                 </>
               )}

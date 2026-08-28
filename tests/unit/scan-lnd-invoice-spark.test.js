@@ -122,6 +122,7 @@ function makeSparkWallet() {
   wallet.getID = () => 'spark-scan-1';
   wallet.balance = 1_000_000;
   wallet.setLabel('Spark');
+  wallet.getPaymentFeeWithoutSending = jest.fn().mockResolvedValue(4);
   return wallet;
 }
 
@@ -228,6 +229,28 @@ describe('ScanLndInvoice fee mark', () => {
     assert.strictEqual(screen.queryByText(loc._.free), null);
   });
 
+  it('shows the SDK-prepared fee for a fixed Spark BOLT11 invoice', async () => {
+    const wallet = makeSparkWallet();
+    wallet.decodeInvoice = jest.fn().mockReturnValue(futureDecodedInvoice({ num_satoshis: '15' }));
+    const screen = renderScan(wallet, { uri: SAMPLE_INVOICE });
+
+    await waitFor(() => screen.getByText(`4 ${BitcoinUnit.SATS}`));
+    expect(wallet.getPaymentFeeWithoutSending).toHaveBeenCalledWith(SAMPLE_INVOICE, 15);
+    assert.strictEqual(screen.queryByText(feeRangeText(1)), null);
+  });
+
+  it('keeps Next available without an alert when the Spark fee cannot be prepared', async () => {
+    const wallet = makeSparkWallet();
+    wallet.decodeInvoice = jest.fn().mockReturnValue(futureDecodedInvoice({ num_satoshis: '15' }));
+    wallet.getPaymentFeeWithoutSending.mockRejectedValue(new Error('fee unavailable'));
+    const screen = renderScan(wallet, { uri: SAMPLE_INVOICE });
+
+    await waitFor(() => expect(wallet.getPaymentFeeWithoutSending).toHaveBeenCalled());
+    expect(screen.getByText('-')).toBeTruthy();
+    expect(screen.getByText(loc.lnd.next)).toBeTruthy();
+    expect(alert).not.toHaveBeenCalled();
+  });
+
   it('still shows Free for an LNDHub payment to a listed free domain', async () => {
     mockLnurl('lightning.space', 1000);
     const wallet = makeLndhubWallet();
@@ -316,7 +339,8 @@ describe('ScanLndInvoice destination and pay', () => {
     const wallet = makeSparkWallet();
     const screen = renderScan(wallet);
 
-    await waitFor(() => expect(screen.queryByText(loc.send.create_fee)).toBeNull());
+    await waitFor(() => expect(screen.getByText(loc.send.create_fee)).toBeTruthy());
+    expect(screen.getByText('-')).toBeTruthy();
     const note = screen.getByDisplayValue('');
     expect(note.props.editable).not.toBe(false);
     fireEvent.changeText(note, 'own memo');

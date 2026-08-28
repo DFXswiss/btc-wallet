@@ -174,14 +174,14 @@ const PsbtMultisig = () => {
     return result;
   };
 
-  const send = async (tx, fee) => {
+  const send = async (tx, feeSatoshi) => {
     await broadcast(tx);
     const txid = bitcoin.Transaction.fromHex(tx).getId();
     majorTomToGroundControl([], [], [txid]);
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
     const amount = formatBalanceWithoutSuffix(totalSat, BitcoinUnit.BTC, false);
     navigate('Success', {
-      fee: Number(fee),
+      fee: feeSatoshi,
       amount,
     });
     await new Promise(resolve => setTimeout(resolve, 3000)); // sleep to make sure network propagates
@@ -203,8 +203,7 @@ const PsbtMultisig = () => {
 
     try {
       const tx = psbt.extractTransaction().toHex();
-      const fee = new BigNumber(getFee()).dividedBy(100000000).toNumber();
-      send(tx, fee);
+      send(tx, getFee());
       setIsBroadcasting(false);
     } catch (error) {
       setIsBroadcasting(false);
