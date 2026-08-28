@@ -17,7 +17,7 @@ import {
 } from '@breeztech/breez-sdk-spark-react-native';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import { acquireSparkSessionLease, isSparkSdkConnected, SparkSessionStaleError, type SparkSessionLease } from '../../api/spark/spark-sdk';
-import { beginOutgoingPayment, getOutgoingPayment, settleOutgoingPayment } from '../../api/spark/outgoing-payment';
+import { attachOutgoingPaymentId, beginOutgoingPayment, getOutgoingPayment, settleOutgoingPayment } from '../../api/spark/outgoing-payment';
 import loc from '../../loc';
 import { AbstractWallet } from './abstract-wallet';
 
@@ -155,42 +155,11 @@ export class SparkWallet extends AbstractWallet {
     this.secret = '';
   }
 
-  static parseSparkPaymentUri(input: string): { invoice: string; amountSats?: number } {
+  static parseSparkPaymentUri(input: string): { invoice: string } {
     const trimmed = typeof input === 'string' ? input.trim() : '';
     const withoutScheme = /^spark:/i.test(trimmed) ? trimmed.slice(trimmed.indexOf(':') + 1) : trimmed;
     const queryStart = withoutScheme.indexOf('?');
     const invoice = (queryStart >= 0 ? withoutScheme.slice(0, queryStart) : withoutScheme).trim();
-    if (queryStart < 0) {
-      return { invoice };
-    }
-
-    const query = withoutScheme.slice(queryStart + 1);
-    for (const part of query.split('&')) {
-      const separator = part.indexOf('=');
-      const rawKey = separator >= 0 ? part.slice(0, separator) : part;
-      if (rawKey.toLowerCase() !== 'amount') continue;
-
-      const rawValue = separator >= 0 ? part.slice(separator + 1) : '';
-      let value: string;
-      try {
-        value = decodeURIComponent(rawValue);
-      } catch (_) {
-        break;
-      }
-      const match = /^(\d+)(?:\.(\d+))?$/.exec(value);
-      if (!match) break;
-
-      const wholeSats = BigInt(match[1]) * 100_000_000n;
-      const fraction = match[2] || '';
-      const fractionSats = BigInt((fraction.slice(0, 8) + '00000000').slice(0, 8));
-      const roundedSats = wholeSats + fractionSats + (fraction.length > 8 && Number(fraction[8]) >= 5 ? 1n : 0n);
-      const amountSats = Number(roundedSats);
-      if (Number.isSafeInteger(amountSats)) {
-        return { invoice, amountSats };
-      }
-      break;
-    }
-
     return { invoice };
   }
 
@@ -694,7 +663,7 @@ export class SparkWallet extends AbstractWallet {
       return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: payment.id };
     }
 
-    beginOutgoingPayment({ paymentHash, paymentId: payment.id, invoice });
+    attachOutgoingPaymentId({ paymentHash, paymentId: payment.id, invoice });
     const tracked = getOutgoingPayment();
     if (tracked?.status === 'completed') {
       this.recordPaidInvoice(payment, tracked.preimage);
@@ -728,10 +697,17 @@ export class SparkWallet extends AbstractWallet {
       feePolicy: undefined,
     });
 
+    if (
+      prepareResponse.paymentMethod.tag === SendPaymentMethod_Tags.SparkInvoice &&
+      prepareResponse.paymentMethod.inner.tokenIdentifier
+    ) {
+      throw new Error(loc.wallets.lightning_spark_token_invoice_unsupported);
+    }
+    if (prepareResponse.amount !== BigInt(amountSats)) {
+      throw new Error(loc.wallets.lightning_spark_amount_mismatch);
+    }
     const sdk = this.requireHeld(lease);
     assertSendFeeWithinLimit(prepareResponse, SendPaymentMethod_Tags.SparkInvoice);
-    // The raw invoice is reusable, so tracking it directly would collapse a later sale into the old payment.
-    beginOutgoingPayment({ paymentHash: trackingHash });
 
     // A reusable deposit invoice may receive the same amount more than once. The per-payment
     // seed keeps separate payments distinct while preserving SDK deduplication for retries.
@@ -746,28 +722,17 @@ export class SparkWallet extends AbstractWallet {
       });
       payment = sent.payment;
     } catch (e) {
-      const tracked = getOutgoingPayment();
-      if (tracked?.paymentHash === trackingHash) {
-        if (tracked.status === 'completed') {
-          this.recordPaidInvoice(undefined, tracked.preimage);
-          return { status: SparkPayInvoiceStatus.Completed, paymentHash: trackingHash, paymentId: tracked.paymentId };
-        }
-        if (tracked.status === 'failed') {
-          throw new Error(loc.wallets.lightning_spark_payment_failed);
-        }
-        return { status: SparkPayInvoiceStatus.Pending, paymentHash: trackingHash };
-      }
       if (e instanceof SparkSessionStaleError || this.sessionGone(lease)) {
+        // Without a returned payment id no SDK event can resolve this send; retrying with the same
+        // idempotency key lets the SDK return the same payment.
         return { status: SparkPayInvoiceStatus.Pending, paymentHash: trackingHash };
       }
       throw e;
     }
 
     const paymentHash = payment.id || trackingHash;
-    const trackedAfterSend = getOutgoingPayment();
-    if (payment.id && trackedAfterSend?.paymentHash === trackingHash) {
-      beginOutgoingPayment({ paymentHash: trackingHash, paymentId: payment.id });
-      beginOutgoingPayment({ paymentHash, paymentId: payment.id });
+    if (payment.id) {
+      attachOutgoingPaymentId({ paymentHash, paymentId: payment.id });
     }
 
     if (payment.status === PaymentStatus.Failed) {

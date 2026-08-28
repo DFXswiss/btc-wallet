@@ -523,6 +523,8 @@
     "lightning_spark_generic_error": "Lightning n'a pas pu être démarré. ({kind})",
     "lightning_spark_lnurl_auth_unsupported": "Ce portefeuille ne peut pas se connecter avec ce code.",
     "lightning_spark_invoice_unreadable": "Cette facture n'a pas pu être lue. Rien n'a été payé.",
+    "lightning_spark_token_invoice_unsupported": "Les factures de jetons ne sont pas prises en charge. Rien n'a été payé.",
+    "lightning_spark_amount_mismatch": "Le montant du paiement préparé ne correspond pas au montant demandé. Rien n'a été payé.",
     "lightning_spark_session_mismatch": "Ce portefeuille Lightning ne correspond pas au portefeuille connecté. Rien n'a été modifié.",
     "lightning_spark_source_missing": "Lightning appartient à « {label} ». Ce portefeuille n'est plus dans l'application. Restaurez-le pour utiliser Lightning à nouveau.",
     "lightning_spark_fee_too_high": "Ce paiement de {amount} sats n'a pas été envoyé. Les frais de {fee} sats dépassent la limite de {maxFee} sats. Rien n'a été payé.",

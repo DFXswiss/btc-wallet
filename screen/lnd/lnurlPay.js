@@ -19,6 +19,7 @@ import {
 import navigationStyle from '../../components/navigationStyle';
 import AmountInput from '../../components/AmountInput';
 import Lnurl from '../../class/lnurl';
+import { randomBytes } from '../../class/rng';
 import { LightningCustodianWallet } from '../../class/wallets/lightning-custodian-wallet';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import { SparkWallet, sparkMaxSendFeeSats } from '../../class/wallets/spark-wallet';
@@ -44,12 +45,37 @@ function walletWaivesDomainFees(fromWallet) {
  * provided by LnUrl. thats why we cache initial precise conversion rate so the reverse conversion wont be off.
  */
 const _cacheFiatToSat = {};
+const SPARK_PAYMENT_SEED_PREFIX = 'spark-pay-seed:';
+
+function sparkPaymentSeedStorageKey(walletID, routeId, invoice, amountSats) {
+  return `${SPARK_PAYMENT_SEED_PREFIX}${walletID}:${routeId}:${invoice}:${amountSats}`;
+}
+
+async function getOrCreateSparkPaymentSeed(walletID, routeId, invoice, amountSats) {
+  const storageKey = sparkPaymentSeedStorageKey(walletID, routeId, invoice, amountSats);
+  const storedSeed = await AsyncStorage.getItem(storageKey);
+  if (storedSeed) return { storageKey, seed: storedSeed };
+
+  // Pending operations deliberately keep this shared slot across restarts. Two equal sales on the
+  // same route that overlap before the first completes therefore share a seed; this is the retry-safety tradeoff.
+  const seed = (await randomBytes(16)).toString('hex');
+  await AsyncStorage.setItem(storageKey, seed);
+  return { storageKey, seed };
+}
+
+async function releaseSparkPaymentSeed(storageKey) {
+  try {
+    await AsyncStorage.removeItem(storageKey);
+  } catch (error) {
+    reportError('lnurlPay: failed to release Spark payment seed', error);
+  }
+}
 
 const LnurlPay = () => {
   const { wallets, refreshAllWalletTransactions } = useContext(BlueStorageContext);
   const { outgoingPayment } = useSparkContext();
-  const { params, key: sparkPaymentSeed } = useRoute();
-  const { walletID, lnurl, amountSat, destination, invoice, sparkInvoice, amountUnit, description, free } = params;
+  const { params } = useRoute();
+  const { walletID, lnurl, amountSat, destination, invoice, sparkInvoice, amountUnit, description, free, routeId } = params;
   /** @type {LightningCustodianWallet} */
   const wallet = wallets.find(w => w.getID() === walletID);
   const [unit, setUnit] = useState(wallet.getPreferredBalanceUnit());
@@ -171,6 +197,8 @@ const LnurlPay = () => {
           reportError('lnurlPay: failed to store LNURL success', error);
           navigateLnurlSuccess(watching.paymentHash);
         });
+      } else if (watching.kind === 'sparkInvoice') {
+        releaseSparkPaymentSeed(watching.seedStorageKey).then(() => finishInvoiceSuccess(watching.amountSats, watching.decoded));
       } else {
         finishInvoiceSuccess(watching.amountSats, watching.decoded);
       }
@@ -249,15 +277,17 @@ const LnurlPay = () => {
   };
 
   const handleSparkInvoice = async amountSats => {
-    const result = await wallet.paySparkInvoice(sparkInvoice, amountSats, sparkPaymentSeed);
+    const { storageKey, seed } = await getOrCreateSparkPaymentSeed(walletID, routeId, sparkInvoice, amountSats);
+    const result = await wallet.paySparkInvoice(sparkInvoice, amountSats, seed);
     const decoded = {};
     if (result && result.status === 'pending') {
-      pendingPayRef.current = { kind: 'sparkInvoice', paymentHash: result.paymentHash, amountSats, decoded };
+      pendingPayRef.current = { kind: 'sparkInvoice', paymentHash: result.paymentHash, amountSats, decoded, seedStorageKey: storageKey };
       setIsPaymentPending(true);
       setPayButtonDisabled(true);
       return;
     }
 
+    await releaseSparkPaymentSeed(storageKey);
     finishInvoiceSuccess(amountSats, decoded);
   };
 

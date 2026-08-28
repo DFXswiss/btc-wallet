@@ -523,6 +523,8 @@
     "lightning_spark_generic_error": "Lightning konnte nicht gestartet werden. ({kind})",
     "lightning_spark_lnurl_auth_unsupported": "Dieses Wallet kann sich mit diesem Code nicht anmelden.",
     "lightning_spark_invoice_unreadable": "Diese Rechnung lässt sich nicht lesen. Es wurde nichts bezahlt.",
+    "lightning_spark_token_invoice_unsupported": "Token-Rechnungen werden nicht unterstützt. Es wurde nichts bezahlt.",
+    "lightning_spark_amount_mismatch": "Der vorbereitete Zahlungsbetrag entspricht nicht dem angeforderten Betrag. Es wurde nichts bezahlt.",
     "lightning_spark_session_mismatch": "Diese Lightning-Wallet passt nicht zur verbundenen Wallet. Es wurde nichts geändert.",
     "lightning_spark_source_missing": "Lightning gehört zu \"{label}\". Diese Wallet ist nicht mehr in der App. Stelle sie wieder her, um Lightning zu nutzen.",
     "lightning_spark_fee_too_high": "Diese Zahlung über {amount} Sats wurde nicht gesendet. Die Gebühr von {fee} Sats liegt über der Grenze von {maxFee} Sats. Es wurde nichts bezahlt.",

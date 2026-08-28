@@ -54,6 +54,7 @@ jest.mock('../../api/spark/spark-sdk', () => {
 const SAMPLE_INVOICE =
   'lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp';
 const SPARK_INVOICE = bech32m.encode('spark', bech32m.toWords(Buffer.from('dfx reusable sats invoice')), 10000);
+const OTHER_SPARK_INVOICE = bech32m.encode('spark', bech32m.toWords(Buffer.from('another reusable sats invoice')), 10000);
 
 function bolt11PrepareResponse({ amount = 250000n, lightningFeeSats = 1n, sparkTransferFeeSats } = {}) {
   return {
@@ -69,7 +70,7 @@ function bolt11PrepareResponse({ amount = 250000n, lightningFeeSats = 1n, sparkT
   };
 }
 
-function sparkInvoicePrepareResponse({ amount = 12_345n, fee = 1n } = {}) {
+function sparkInvoicePrepareResponse({ amount = 12_345n, fee = 1n, tokenIdentifier } = {}) {
   return {
     amount,
     paymentMethod: {
@@ -77,7 +78,7 @@ function sparkInvoicePrepareResponse({ amount = 12_345n, fee = 1n } = {}) {
       inner: {
         sparkInvoiceDetails: { invoice: SPARK_INVOICE },
         fee,
-        tokenIdentifier: undefined,
+        tokenIdentifier,
       },
     },
   };
@@ -120,6 +121,7 @@ function lightningReceive(id, invoice = `inv-${id}`) {
 const { SparkWallet, SparkPayInvoiceStatus, sparkMaxSendFeeSats } = require('../../class/wallets/spark-wallet');
 const { BitcoinUnit, Chain } = require('../../models/bitcoinUnits');
 const loc = require('../../loc').default;
+const { SparkSessionStaleError } = require('../../api/spark/spark-sdk');
 const {
   applyOutgoingSdkEvent,
   beginOutgoingPayment,
@@ -153,16 +155,10 @@ describe('SparkWallet', () => {
     assert.strictEqual(SparkWallet.isSparkInvoice('spark1not-a-valid-bech32m-value'), false);
   });
 
-  it('parses a Spark payment URI and rounds its BTC amount to whole satoshis', () => {
+  it('extracts the invoice from a Spark payment URI without interpreting its query amount', () => {
     expect(SparkWallet.parseSparkPaymentUri(SPARK_INVOICE)).toEqual({ invoice: SPARK_INVOICE });
-    expect(SparkWallet.parseSparkPaymentUri(`spark:${SPARK_INVOICE}?label=DFX&amount=0.00012345`)).toEqual({
-      invoice: SPARK_INVOICE,
-      amountSats: 12_345,
-    });
-    expect(SparkWallet.parseSparkPaymentUri(`SPARK:${SPARK_INVOICE}?amount=0.000000015`)).toEqual({
-      invoice: SPARK_INVOICE,
-      amountSats: 2,
-    });
+    expect(SparkWallet.parseSparkPaymentUri(`spark:${SPARK_INVOICE}?label=DFX&amount=0.00012345`)).toEqual({ invoice: SPARK_INVOICE });
+    expect(SparkWallet.parseSparkPaymentUri(`SPARK:${SPARK_INVOICE}?amount=0.000000015`)).toEqual({ invoice: SPARK_INVOICE });
   });
 
   it('creates a wallet without storing a secret', () => {
@@ -396,7 +392,7 @@ describe('SparkWallet', () => {
   });
 
   it('paySparkInvoice includes the operation seed and amount in its stable idempotency key', async () => {
-    mockSdk.prepareSendPayment.mockResolvedValue(sparkInvoicePrepareResponse());
+    mockSdk.prepareSendPayment.mockImplementation(async request => sparkInvoicePrepareResponse({ amount: request.amount }));
     mockSdk.sendPayment.mockImplementation(async () => ({
       payment: completedSend(`spark-payment-${mockSdk.sendPayment.mock.calls.length}`),
     }));
@@ -406,11 +402,54 @@ describe('SparkWallet', () => {
     await wallet.paySparkInvoice(SPARK_INVOICE, 12_345, 'sell-1');
     await wallet.paySparkInvoice(SPARK_INVOICE, 12_345, 'sell-2');
     await wallet.paySparkInvoice(SPARK_INVOICE, 12_346, 'sell-1');
+    await wallet.paySparkInvoice(OTHER_SPARK_INVOICE, 12_345, 'sell-1');
 
     const keys = mockSdk.sendPayment.mock.calls.map(([request]) => request.idempotencyKey);
     assert.strictEqual(keys[0], keys[1]);
     assert.notStrictEqual(keys[0], keys[2]);
     assert.notStrictEqual(keys[0], keys[3]);
+    assert.notStrictEqual(keys[0], keys[4]);
+  });
+
+  it('paySparkInvoice returns pending without an eventless tracker when sendPayment reports a stale session', async () => {
+    mockSdk.prepareSendPayment.mockResolvedValue(sparkInvoicePrepareResponse());
+    mockSdk.sendPayment.mockRejectedValue(new SparkSessionStaleError());
+    const wallet = new SparkWallet();
+
+    const result = await wallet.paySparkInvoice(SPARK_INVOICE, 12_345, 'sell-stale-session');
+
+    expect(result).toEqual({
+      status: SparkPayInvoiceStatus.Pending,
+      paymentHash: expect.any(String),
+    });
+    assert.strictEqual(getOutgoingPayment(), null);
+  });
+
+  it('paySparkInvoice returns pending without an eventless tracker when the session disappears during sendPayment', async () => {
+    mockSdk.prepareSendPayment.mockResolvedValue(sparkInvoicePrepareResponse());
+    mockSdk.sendPayment.mockImplementation(async () => {
+      mockLeaseValid = false;
+      throw new Error('transport failed while the session disappeared');
+    });
+    const wallet = new SparkWallet();
+
+    const result = await wallet.paySparkInvoice(SPARK_INVOICE, 12_345, 'sell-session-gone');
+
+    expect(result).toEqual({
+      status: SparkPayInvoiceStatus.Pending,
+      paymentHash: expect.any(String),
+    });
+    assert.strictEqual(getOutgoingPayment(), null);
+  });
+
+  it('paySparkInvoice rethrows a definite sendPayment error and leaves no tracker', async () => {
+    const sendError = new Error('insufficient funds');
+    mockSdk.prepareSendPayment.mockResolvedValue(sparkInvoicePrepareResponse());
+    mockSdk.sendPayment.mockRejectedValue(sendError);
+    const wallet = new SparkWallet();
+
+    await expect(wallet.paySparkInvoice(SPARK_INVOICE, 12_345, 'sell-hard-failure')).rejects.toBe(sendError);
+    assert.strictEqual(getOutgoingPayment(), null);
   });
 
   it('paySparkInvoice tracks a pending payment by the SDK payment id', async () => {
@@ -477,6 +516,30 @@ describe('SparkWallet', () => {
     });
 
     await assert.rejects(() => wallet.paySparkInvoice(SPARK_INVOICE, 50, 'sell-over-cap'), { message: expected });
+
+    expect(mockSdk.sendPayment).not.toHaveBeenCalled();
+  });
+
+  it('paySparkInvoice rejects a token invoice before sending', async () => {
+    mockSdk.prepareSendPayment.mockResolvedValue(sparkInvoicePrepareResponse({ tokenIdentifier: 'token-1' }));
+    const wallet = new SparkWallet();
+
+    await assert.rejects(
+      () => wallet.paySparkInvoice(SPARK_INVOICE, 12_345, 'sell-token'),
+      { message: loc.wallets.lightning_spark_token_invoice_unsupported },
+    );
+
+    expect(mockSdk.sendPayment).not.toHaveBeenCalled();
+  });
+
+  it('paySparkInvoice rejects a prepared amount that differs from the requested amount before sending', async () => {
+    mockSdk.prepareSendPayment.mockResolvedValue(sparkInvoicePrepareResponse({ amount: 12_346n }));
+    const wallet = new SparkWallet();
+
+    await assert.rejects(
+      () => wallet.paySparkInvoice(SPARK_INVOICE, 12_345, 'sell-amount-mismatch'),
+      { message: loc.wallets.lightning_spark_amount_mismatch },
+    );
 
     expect(mockSdk.sendPayment).not.toHaveBeenCalled();
   });
@@ -1104,6 +1167,22 @@ describe('SparkWallet', () => {
     const outgoing = getOutgoingPayment();
     assert.ok(outgoing);
     assert.strictEqual(outgoing.status, 'failed');
+  });
+
+  it('payInvoice starts a fresh attempt after a failed payment with the same hash', async () => {
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
+    mockSdk.sendPayment
+      .mockResolvedValueOnce({ payment: { id: 'pay-first-failed', status: PaymentStatus.Failed } })
+      .mockResolvedValueOnce({ payment: { id: 'pay-second-completed', status: PaymentStatus.Completed } });
+    const wallet = new SparkWallet();
+
+    await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, 0), new RegExp(loc.wallets.lightning_spark_payment_failed));
+    const result = await wallet.payInvoice(SAMPLE_INVOICE, 0);
+
+    assert.strictEqual(result.status, SparkPayInvoiceStatus.Completed);
+    assert.strictEqual(result.paymentId, 'pay-second-completed');
+    assert.strictEqual(getOutgoingPayment().status, 'completed');
+    assert.strictEqual(getOutgoingPayment().paymentId, 'pay-second-completed');
   });
 
   it('payInvoice reuses a UUID idempotencyKey derived from the invoice', async () => {

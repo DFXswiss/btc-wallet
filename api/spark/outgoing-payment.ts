@@ -127,10 +127,32 @@ export function subscribeOutgoingPayment(listener: Listener): () => void {
 }
 
 /**
- * Registers an outgoing payment so a later SDK event can settle it.
+ * Starts a new outgoing payment attempt so a later SDK event can settle it.
  * A terminal event that already arrived for the same identity is claimed immediately.
  */
 export function beginOutgoingPayment(identity: OutgoingPaymentIdentity): OutgoingPayment {
+  const claimed = takeUnclaimed(identity);
+  // The same payment hash can be attempted more than once, so every explicit begin replaces the
+  // previous attempt instead of inheriting its terminal status.
+  current = claimed
+    ? {
+        ...claimed,
+        paymentId: identity.paymentId || claimed.paymentId,
+        paymentHash: identity.paymentHash || claimed.paymentHash,
+        invoice: identity.invoice || claimed.invoice,
+      }
+    : {
+        status: 'pending',
+        paymentHash: identity.paymentHash,
+        paymentId: identity.paymentId,
+        invoice: identity.invoice,
+      };
+  notify();
+  return current;
+}
+
+/** Adds an SDK payment id to the current attempt without resetting a status delivered during sendPayment. */
+export function attachOutgoingPaymentId(identity: OutgoingPaymentIdentity & { paymentId: string }): OutgoingPayment {
   const claimed = takeUnclaimed(identity);
   if (current && samePayment(current, identity)) {
     current = {

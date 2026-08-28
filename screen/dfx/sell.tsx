@@ -122,7 +122,8 @@ const Sell = () => {
         navigation.navigate('LnurlPay', {
           sparkInvoice: parsed.invoice,
           walletID: wallet.getID(),
-          amountSat: parsed.amountSats ?? currency.btcToSatoshi(amount),
+          amountSat: currency.btcToSatoshi(amount),
+          routeId,
         });
       } else {
         navigation.navigate('LnurlPay', {

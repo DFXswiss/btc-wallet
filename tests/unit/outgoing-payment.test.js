@@ -2,6 +2,7 @@ import assert from 'assert';
 import { PaymentDetails_Tags, PaymentStatus, PaymentType, SdkEvent_Tags } from '@breeztech/breez-sdk-spark-react-native';
 import {
   applyOutgoingSdkEvent,
+  attachOutgoingPaymentId,
   beginOutgoingPayment,
   getOutgoingPayment,
   settleOutgoingPayment,
@@ -254,17 +255,17 @@ describe('outgoing payment tracker', () => {
     assert.strictEqual(getOutgoingPayment().status, 'failed');
   });
 
-  it('a second registration without a hash keeps the hash already on the tracker', () => {
+  it('attaching a payment id without a hash keeps the hash already on the tracker', () => {
     beginOutgoingPayment({ paymentHash: 'h1', paymentId: 'p1' });
-    const again = beginOutgoingPayment({ paymentHash: '', paymentId: 'p1' });
+    const again = attachOutgoingPaymentId({ paymentHash: '', paymentId: 'p1' });
     assert.strictEqual(again.paymentHash, 'h1');
     assert.strictEqual(again.paymentId, 'p1');
     assert.strictEqual(again.status, 'pending');
   });
 
-  it('a second registration without an invoice keeps the invoice already on the tracker', () => {
+  it('attaching a payment id without an invoice keeps the invoice already on the tracker', () => {
     beginOutgoingPayment({ paymentHash: 'h1', invoice: 'lnbc1keep' });
-    const again = beginOutgoingPayment({ paymentHash: 'h1', paymentId: 'p1' });
+    const again = attachOutgoingPaymentId({ paymentHash: 'h1', paymentId: 'p1' });
     assert.strictEqual(again.invoice, 'lnbc1keep');
     assert.strictEqual(again.paymentId, 'p1');
     assert.strictEqual(again.paymentHash, 'h1');
@@ -281,7 +282,7 @@ describe('outgoing payment tracker', () => {
     assert.strictEqual(getOutgoingPayment().status, 'pending');
     assert.strictEqual(getOutgoingPayment().paymentHash, 'h1');
 
-    const claimed = beginOutgoingPayment({ paymentHash: 'h1', invoice: 'lnbc1same' });
+    const claimed = attachOutgoingPaymentId({ paymentHash: 'h1', paymentId: 'p-event', invoice: 'lnbc1same' });
     assert.strictEqual(claimed.status, 'completed');
     assert.strictEqual(claimed.paymentHash, 'h1');
     assert.strictEqual(claimed.invoice, 'lnbc1same');
@@ -293,7 +294,7 @@ describe('outgoing payment tracker', () => {
       tag: SdkEvent_Tags.PaymentSucceeded,
       inner: { payment: sendPayment('p1', PaymentStatus.Completed, { paymentHash: 'h1', preimage: 'pre-first' }) },
     });
-    const started = beginOutgoingPayment({ paymentHash: '', paymentId: 'p1' });
+    const started = attachOutgoingPaymentId({ paymentHash: '', paymentId: 'p1' });
     assert.strictEqual(started.status, 'completed');
     assert.strictEqual(started.paymentHash, 'h1');
     assert.strictEqual(started.paymentId, 'p1');
@@ -332,7 +333,7 @@ describe('outgoing payment tracker', () => {
     assert.strictEqual(running.status, 'pending');
     assert.strictEqual(running.preimage, undefined);
 
-    const claimed = beginOutgoingPayment({ paymentHash: '', paymentId: 'p-a' });
+    const claimed = attachOutgoingPaymentId({ paymentHash: '', paymentId: 'p-a' });
     assert.strictEqual(claimed.status, 'completed');
     assert.strictEqual(claimed.paymentId, 'p-a');
     assert.strictEqual(claimed.preimage, 'pre-a');
@@ -464,7 +465,7 @@ describe('outgoing payment tracker', () => {
     assert.strictEqual(outgoing.preimage, 'pre-late');
   });
 
-  it('does not let an unclaimed failure overwrite a completed payment on re-registration', () => {
+  it('claims an unclaimed failure for a fresh attempt after the previous attempt completed', () => {
     beginOutgoingPayment({ paymentHash: 'h1' });
     settleOutgoingPayment({ status: 'completed', paymentHash: 'h1', preimage: 'pre-1' });
     const lateFail = sendPayment('p-late', PaymentStatus.Failed, { invoice: 'lnbc1same' });
@@ -477,8 +478,8 @@ describe('outgoing payment tracker', () => {
     assert.strictEqual(getOutgoingPayment().status, 'completed');
 
     const again = beginOutgoingPayment({ paymentHash: 'h1', invoice: 'lnbc1same' });
-    assert.strictEqual(again.status, 'completed');
-    assert.strictEqual(again.preimage, 'pre-1');
+    assert.strictEqual(again.status, 'failed');
+    assert.strictEqual(again.preimage, undefined);
     assert.strictEqual(again.invoice, 'lnbc1same');
   });
 });

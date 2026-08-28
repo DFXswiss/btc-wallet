@@ -5,7 +5,7 @@ import { Chain } from '../../models/bitcoinUnits';
 
 jest.mock('../../blue_modules/BlueElectrum', () => ({ connectMain: jest.fn() }));
 jest.mock('../../blue_modules/currency', () => ({
-  btcToSatoshi: jest.fn(value => Math.round(Number(value) * 100_000_000)),
+  btcToSatoshi: jest.fn(value => Math.floor(Number(value) * 100_000_000)),
 }));
 jest.mock('../../class', () => ({
   AbstractWallet: class AbstractWallet {},
@@ -92,7 +92,6 @@ const LNURL = 'LNURL1TEST';
 const AMOUNT_BTC = '0.00012345';
 const AMOUNT_SATS = 12_345;
 const URI_AMOUNT_BTC = '0.00054321';
-const URI_AMOUNT_SATS = 54_321;
 
 function makeSparkWallet() {
   return {
@@ -145,7 +144,7 @@ beforeEach(() => {
 });
 
 describe('DFX Spark invoice navigation', () => {
-  it('routes a Spark sell URI to fixed Spark-invoice payment and preserves the LNURL fallback', async () => {
+  it('routes a Spark sell URI with the confirmed amount and preserves the LNURL fallback', async () => {
     mockSellGetInfo.mockResolvedValue(sellInfo(`spark:${SPARK_INVOICE}?amount=${URI_AMOUNT_BTC}`));
     let screen = renderScreen(Sell, makeSparkWallet());
 
@@ -155,7 +154,7 @@ describe('DFX Spark invoice navigation', () => {
     await waitFor(() => expect(mockNavigate).toHaveBeenCalled());
     expect(mockNavigate.mock.calls[0]).toEqual([
       'LnurlPay',
-      { sparkInvoice: SPARK_INVOICE, walletID: 'spark-dfx-wallet', amountSat: URI_AMOUNT_SATS },
+      { sparkInvoice: SPARK_INVOICE, walletID: 'spark-dfx-wallet', amountSat: AMOUNT_SATS, routeId: '1' },
     ]);
     screen.unmount();
     mockNavigate.mockClear();
@@ -186,8 +185,8 @@ describe('DFX Spark invoice navigation', () => {
     ]);
   });
 
-  it('routes a raw Spark swap invoice to fixed Spark-invoice payment and preserves the LNURL fallback', async () => {
-    mockSwapGetInfo.mockResolvedValue(swapInfo(SPARK_INVOICE));
+  it('routes a Spark swap URI with the confirmed amount and preserves the LNURL fallback', async () => {
+    mockSwapGetInfo.mockResolvedValue(swapInfo(`spark:${SPARK_INVOICE}?amount=${URI_AMOUNT_BTC}`));
     let screen = renderScreen(Swap, makeSparkWallet());
 
     await waitFor(() => screen.getByTestId(`Button-${loc.swap.confirm}`));
@@ -196,7 +195,7 @@ describe('DFX Spark invoice navigation', () => {
     await waitFor(() => expect(mockNavigate).toHaveBeenCalled());
     expect(mockNavigate.mock.calls[0]).toEqual([
       'LnurlPay',
-      { sparkInvoice: SPARK_INVOICE, walletID: 'spark-dfx-wallet', amountSat: AMOUNT_SATS },
+      { sparkInvoice: SPARK_INVOICE, walletID: 'spark-dfx-wallet', amountSat: AMOUNT_SATS, routeId: '1' },
     ]);
     screen.unmount();
     mockNavigate.mockClear();
