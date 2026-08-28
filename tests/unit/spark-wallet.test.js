@@ -422,6 +422,7 @@ describe('SparkWallet', () => {
       status: SparkPayInvoiceStatus.Pending,
       paymentHash: expect.any(String),
     });
+    expect(mockSdk.sendPayment).toHaveBeenCalledTimes(1);
     assert.strictEqual(getOutgoingPayment(), null);
   });
 
@@ -442,14 +443,49 @@ describe('SparkWallet', () => {
     assert.strictEqual(getOutgoingPayment(), null);
   });
 
-  it('paySparkInvoice rethrows a definite sendPayment error and leaves no tracker', async () => {
+  it('paySparkInvoice retries a definite sendPayment error once, then rethrows the original error and leaves no tracker', async () => {
     const sendError = new Error('insufficient funds');
+    const retryError = new Error('retry failed');
     mockSdk.prepareSendPayment.mockResolvedValue(sparkInvoicePrepareResponse());
-    mockSdk.sendPayment.mockRejectedValue(sendError);
+    mockSdk.sendPayment.mockRejectedValueOnce(sendError).mockRejectedValueOnce(retryError);
     const wallet = new SparkWallet();
 
     await expect(wallet.paySparkInvoice(SPARK_INVOICE, 12_345, 'sell-hard-failure')).rejects.toBe(sendError);
+    expect(mockSdk.sendPayment).toHaveBeenCalledTimes(2);
     assert.strictEqual(getOutgoingPayment(), null);
+  });
+
+  it('paySparkInvoice returns completed when a success event beats a sendPayment error and the retry returns the payment', async () => {
+    const prepareResponse = sparkInvoicePrepareResponse();
+    const payment = { ...completedSend('spark-payment-race'), status: PaymentStatus.Pending };
+    mockSdk.prepareSendPayment.mockResolvedValue(prepareResponse);
+    mockSdk.sendPayment
+      .mockImplementationOnce(async () => {
+        applyOutgoingSdkEvent({
+          tag: SdkEvent_Tags.PaymentSucceeded,
+          inner: { payment: completedSend('spark-payment-race') },
+        });
+        throw new Error('network error');
+      })
+      .mockResolvedValueOnce({ payment });
+    const wallet = new SparkWallet();
+
+    const result = await wallet.paySparkInvoice(SPARK_INVOICE, 12_345, 'sell-event-error-race');
+
+    expect(result).toEqual({
+      status: SparkPayInvoiceStatus.Completed,
+      paymentHash: 'spark-payment-race',
+      paymentId: 'spark-payment-race',
+    });
+    expect(mockSdk.sendPayment).toHaveBeenCalledTimes(2);
+    assert.strictEqual(mockSdk.sendPayment.mock.calls[0][0].prepareResponse, prepareResponse);
+    assert.strictEqual(mockSdk.sendPayment.mock.calls[1][0].prepareResponse, prepareResponse);
+    assert.strictEqual(
+      mockSdk.sendPayment.mock.calls[1][0].idempotencyKey,
+      mockSdk.sendPayment.mock.calls[0][0].idempotencyKey,
+    );
+    assert.strictEqual(getOutgoingPayment().paymentId, 'spark-payment-race');
+    assert.strictEqual(getOutgoingPayment().status, 'completed');
   });
 
   it('paySparkInvoice tracks a pending payment by the SDK payment id', async () => {

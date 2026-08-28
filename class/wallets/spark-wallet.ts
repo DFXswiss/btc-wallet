@@ -712,14 +712,15 @@ export class SparkWallet extends AbstractWallet {
     // A reusable deposit invoice may receive the same amount more than once. The per-payment
     // seed keeps separate payments distinct while preserving SDK deduplication for retries.
     const idempotencyKey = invoiceIdempotencyKey(`${invoice}\0${amountSats}\0${idempotencySeed}`);
+    const sendRequest = {
+      prepareResponse,
+      options: undefined,
+      idempotencyKey,
+    };
 
     let payment: Payment | undefined;
     try {
-      const sent = await sdk.sendPayment({
-        prepareResponse,
-        options: undefined,
-        idempotencyKey,
-      });
+      const sent = await sdk.sendPayment(sendRequest);
       payment = sent.payment;
     } catch (e) {
       if (e instanceof SparkSessionStaleError || this.sessionGone(lease)) {
@@ -727,7 +728,14 @@ export class SparkWallet extends AbstractWallet {
         // idempotency key lets the SDK return the same payment.
         return { status: SparkPayInvoiceStatus.Pending, paymentHash: trackingHash };
       }
-      throw e;
+      // Reusing the idempotency key returns the existing payment instead of creating a second payment.
+      // If the first call never reached the server, this retry becomes the first real send, matching the user's intent to pay.
+      try {
+        const sent = await sdk.sendPayment(sendRequest);
+        payment = sent.payment;
+      } catch {
+        throw e;
+      }
     }
 
     const paymentHash = payment.id || trackingHash;
