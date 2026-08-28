@@ -167,7 +167,7 @@ export function attachOutgoingPaymentId(identity: OutgoingPaymentIdentity & { pa
     return current;
   }
 
-  current = claimed
+  const attached: OutgoingPayment = claimed
     ? {
         ...claimed,
         paymentId: identity.paymentId || claimed.paymentId,
@@ -180,8 +180,12 @@ export function attachOutgoingPaymentId(identity: OutgoingPaymentIdentity & { pa
         paymentId: identity.paymentId,
         invoice: identity.invoice,
       };
+
+  if (current) return attached;
+
+  current = attached;
   notify();
-  return current;
+  return attached;
 }
 
 export function settleOutgoingPayment(update: {

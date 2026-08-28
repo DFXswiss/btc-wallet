@@ -565,6 +565,28 @@ describe('SparkWallet', () => {
     assert.strictEqual(getOutgoingPayment().status, 'completed');
   });
 
+  it('paySparkInvoice returns its claimed completion while another payment remains current', async () => {
+    mockSdk.prepareSendPayment.mockResolvedValue(sparkInvoicePrepareResponse());
+    mockSdk.sendPayment.mockImplementation(async () => {
+      beginOutgoingPayment({ paymentHash: 'other-payment', paymentId: 'other-id' });
+      applyOutgoingSdkEvent({
+        tag: SdkEvent_Tags.PaymentSucceeded,
+        inner: { payment: completedSend('spark-payment-claimed') },
+      });
+      return {
+        payment: { ...completedSend('spark-payment-claimed'), status: PaymentStatus.Pending },
+      };
+    });
+    const wallet = new SparkWallet();
+
+    const result = await wallet.paySparkInvoice(SPARK_INVOICE, 12_345, 'sell-claimed');
+
+    assert.strictEqual(result.status, SparkPayInvoiceStatus.Completed);
+    assert.strictEqual(result.paymentId, 'spark-payment-claimed');
+    assert.strictEqual(getOutgoingPayment().paymentHash, 'other-payment');
+    assert.strictEqual(getOutgoingPayment().status, 'pending');
+  });
+
   it('paySparkInvoice returns the prepared Spark fee', async () => {
     mockSdk.prepareSendPayment.mockResolvedValue(sparkInvoicePrepareResponse({ amount: 50n, fee: 1n }));
     mockSdk.sendPayment.mockResolvedValue({ payment: completedSend('spark-payment-at-cap') });
@@ -719,6 +741,28 @@ describe('SparkWallet', () => {
     });
     assert.strictEqual(wallet.last_paid_invoice_result.payment_preimage, 'event-first-preimage');
     assert.strictEqual(getOutgoingPayment().status, 'completed');
+  });
+
+  it('payInvoice returns its claimed completion while another payment remains current', async () => {
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
+    mockSdk.sendPayment.mockImplementation(async () => {
+      beginOutgoingPayment({ paymentHash: 'other-payment', paymentId: 'other-id' });
+      applyOutgoingSdkEvent({
+        tag: SdkEvent_Tags.PaymentSucceeded,
+        inner: { payment: completedSend('pay-invoice-claimed') },
+      });
+      return {
+        payment: { ...completedSend('pay-invoice-claimed'), status: PaymentStatus.Pending },
+      };
+    });
+    const wallet = new SparkWallet();
+
+    const result = await wallet.payInvoice(SAMPLE_INVOICE, 0);
+
+    assert.strictEqual(result.status, SparkPayInvoiceStatus.Completed);
+    assert.strictEqual(result.paymentId, 'pay-invoice-claimed');
+    assert.strictEqual(getOutgoingPayment().paymentHash, 'other-payment');
+    assert.strictEqual(getOutgoingPayment().status, 'pending');
   });
 
   it('payInvoice keeps a failure event that arrives before sendPayment returns pending', async () => {
@@ -1366,6 +1410,49 @@ describe('SparkWallet', () => {
       prepareResponse,
       idempotencyKey: expect.stringMatching(/^[0-9a-f-]{36}$/),
     });
+  });
+
+  it('payLnurlMax returns its claimed completion while another payment remains current', async () => {
+    const payRequest = {
+      callback: 'https://example.com/callback',
+      minSendable: 1_000n,
+      maxSendable: 1_000_000n,
+      metadataStr: '[["text/plain","tea"]]',
+      commentAllowed: 32,
+      domain: 'example.com',
+      url: 'https://example.com/lnurl',
+      address: undefined,
+      allowsNostr: undefined,
+      nostrPubkey: undefined,
+    };
+    mockSdk.prepareLnurlPay.mockResolvedValue({
+      amountSats: 10n,
+      feeSats: 2n,
+      feePolicy: FeePolicy.FeesIncluded,
+      invoiceDetails: {
+        paymentHash: 'lnurl-max-claimed-hash',
+        invoice: { bolt11: SAMPLE_INVOICE },
+      },
+      successAction: undefined,
+    });
+    mockSdk.lnurlPay.mockImplementation(async () => {
+      beginOutgoingPayment({ paymentHash: 'other-payment', paymentId: 'other-id' });
+      applyOutgoingSdkEvent({
+        tag: SdkEvent_Tags.PaymentSucceeded,
+        inner: { payment: completedSend('lnurl-max-claimed-id') },
+      });
+      return {
+        payment: { ...completedSend('lnurl-max-claimed-id'), status: PaymentStatus.Pending },
+      };
+    });
+    const wallet = new SparkWallet();
+
+    const result = await wallet.payLnurlMax(payRequest, 10, 'tea please');
+
+    assert.strictEqual(result.status, SparkPayInvoiceStatus.Completed);
+    assert.strictEqual(result.paymentId, 'lnurl-max-claimed-id');
+    assert.strictEqual(getOutgoingPayment().paymentHash, 'other-payment');
+    assert.strictEqual(getOutgoingPayment().status, 'pending');
   });
 
   it('payInvoice sends when the prepared fee exceeds 3 percent of the amount', async () => {

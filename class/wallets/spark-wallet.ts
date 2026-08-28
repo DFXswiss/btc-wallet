@@ -662,8 +662,7 @@ export class SparkWallet extends AbstractWallet {
       return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: payment.id, fee, lnurlSuccessAction };
     }
 
-    attachOutgoingPaymentId({ paymentHash, paymentId: payment.id, invoice });
-    const tracked = getOutgoingPayment();
+    const tracked = attachOutgoingPaymentId({ paymentHash, paymentId: payment.id, invoice });
     if (tracked?.status === 'completed') {
       this.recordPaidInvoice(payment, tracked.preimage);
       return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: payment.id, fee, lnurlSuccessAction };
@@ -759,8 +758,7 @@ export class SparkWallet extends AbstractWallet {
       return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: payment.id, fee };
     }
 
-    attachOutgoingPaymentId({ paymentHash, paymentId: payment.id, invoice });
-    const tracked = getOutgoingPayment();
+    const tracked = attachOutgoingPaymentId({ paymentHash, paymentId: payment.id, invoice });
     if (tracked?.status === 'completed') {
       this.recordPaidInvoice(payment, tracked.preimage);
       return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: payment.id, fee };
@@ -868,9 +866,9 @@ export class SparkWallet extends AbstractWallet {
     }
 
     const paymentHash = payment.id || trackingHash;
-    if (payment.id) {
-      attachOutgoingPaymentId({ paymentHash, paymentId: payment.id });
-    }
+    const tracked = payment.id
+      ? attachOutgoingPaymentId({ paymentHash, paymentId: payment.id })
+      : getOutgoingPayment();
 
     if (payment.status === PaymentStatus.Failed) {
       const settled = settleOutgoingPayment({ status: 'failed', paymentHash, paymentId: payment.id });
@@ -890,7 +888,6 @@ export class SparkWallet extends AbstractWallet {
       return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: payment.id, fee };
     }
 
-    const tracked = getOutgoingPayment();
     if (tracked?.paymentHash === paymentHash && tracked.status === 'completed') {
       this.recordPaidInvoice(payment, tracked.preimage);
       return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: payment.id, fee };

@@ -339,6 +339,21 @@ describe('outgoing payment tracker', () => {
     assert.strictEqual(claimed.preimage, 'pre-a');
   });
 
+  it('keeps the current attempt when a foreign payment id is attached and returns the attached payment', () => {
+    beginOutgoingPayment({ paymentHash: 'h-a' });
+    beginOutgoingPayment({ paymentHash: 'h-b', paymentId: 'p-b' });
+
+    const attached = attachOutgoingPaymentId({ paymentHash: 'h-a', paymentId: 'p-a' });
+    assert.strictEqual(attached.paymentHash, 'h-a');
+    assert.strictEqual(attached.paymentId, 'p-a');
+    assert.strictEqual(attached.status, 'pending');
+
+    const running = getOutgoingPayment();
+    assert.strictEqual(running.paymentHash, 'h-b');
+    assert.strictEqual(running.paymentId, 'p-b');
+    assert.strictEqual(running.status, 'pending');
+  });
+
   it('does not keep a settlement that has no hash and no payment id', () => {
     beginOutgoingPayment({ paymentHash: 'h-b', paymentId: 'p-b' });
     settleOutgoingPayment({ status: 'completed', preimage: 'pre-orphan' });
