@@ -98,7 +98,7 @@ jest.mock('../../api/spark/spark-sdk', () => ({
   }),
 }));
 
-const { SparkWallet, sparkMaxSendFeeSats } = require('../../class/wallets/spark-wallet');
+const { SparkWallet } = require('../../class/wallets/spark-wallet');
 const { BlueStorageContext } = require('../../blue_modules/storage-context');
 const { LightningCustodianWallet } = require('../../class');
 const { LightningLdsWallet } = require('../../class/wallets/lightning-lds-wallet');
@@ -218,12 +218,13 @@ describe('ScanLndInvoice fee mark', () => {
     jest.restoreAllMocks();
   });
 
-  it('does not show Free for a Spark payment to a listed free domain', async () => {
+  it('does not show a guessed fee range or Free for a Spark payment to a listed free domain', async () => {
     mockLnurl('lightning.space', 1000);
     const wallet = makeSparkWallet();
     const screen = renderScan(wallet);
 
-    await waitFor(() => screen.getByText(feeRangeText(sparkMaxSendFeeSats(1000))));
+    await waitFor(() => screen.getByText(loc.lnd.next));
+    assert.strictEqual(screen.queryByText(feeRangeText(Math.round(1000 * 0.03))), null);
     assert.strictEqual(screen.queryByText(loc._.free), null);
   });
 
@@ -233,19 +234,17 @@ describe('ScanLndInvoice fee mark', () => {
     const screen = renderScan(wallet);
 
     await waitFor(() => screen.getByText(loc._.free));
-    assert.strictEqual(screen.queryByText(feeRangeText(sparkMaxSendFeeSats(1000))), null);
+    assert.strictEqual(screen.queryByText(feeRangeText(Math.round(1000 * 0.03))), null);
   });
 
-  it('shows the Spark-enforced fee cap for a small amount, not a rounded 0', async () => {
+  it('does not show a guessed fee range for a small Spark payment', async () => {
     const amountSat = 10;
     mockLnurl('example.com', amountSat);
     const wallet = makeSparkWallet();
     const screen = renderScan(wallet);
 
-    await waitFor(() => screen.getByText(feeRangeText(sparkMaxSendFeeSats(amountSat))));
-    assert.strictEqual(sparkMaxSendFeeSats(amountSat), 1);
-    assert.strictEqual(Math.round(amountSat * 0.03), 0);
-    assert.strictEqual(Math.floor(amountSat * 0.03), 0);
+    await waitFor(() => screen.getByText(loc.lnd.next));
+    assert.strictEqual(screen.queryByText(feeRangeText(1)), null);
     assert.strictEqual(screen.queryByText(feeRangeText(0)), null);
     assert.strictEqual(screen.queryByText(loc._.free), null);
   });
@@ -317,7 +316,7 @@ describe('ScanLndInvoice destination and pay', () => {
     const wallet = makeSparkWallet();
     const screen = renderScan(wallet);
 
-    await waitFor(() => screen.getByText(feeRangeText(sparkMaxSendFeeSats(1))));
+    await waitFor(() => expect(screen.queryByText(loc.send.create_fee)).toBeNull());
     const note = screen.getByDisplayValue('');
     expect(note.props.editable).not.toBe(false);
     fireEvent.changeText(note, 'own memo');
@@ -343,13 +342,13 @@ describe('ScanLndInvoice destination and pay', () => {
     });
   });
 
-  it('shows the Spark fee range for a Lightning address on a free domain', async () => {
+  it('does not show a guessed Spark fee range for a Lightning address on a free domain', async () => {
     const wallet = makeSparkWallet();
     const screen = renderScan(wallet, { uri: 'tea@lightning.space' });
 
     await waitFor(() => screen.getByText('tea@lightning.space'));
     fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '1000');
-    expect(screen.getByText(feeRangeText(sparkMaxSendFeeSats(1000)))).toBeTruthy();
+    assert.strictEqual(screen.queryByText(feeRangeText(Math.round(1000 * 0.03))), null);
     assert.strictEqual(screen.queryByText(loc._.free), null);
   });
 
@@ -484,7 +483,7 @@ describe('ScanLndInvoice destination and pay', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it('alerts when the remaining Spark balance cannot cover the send fee', async () => {
+  it('does not guess a Spark fee when checking the remaining balance', async () => {
     mockLnurl('example.com', 1000);
     const wallet = makeSparkWallet();
     const screen = renderScan(wallet);
@@ -492,8 +491,11 @@ describe('ScanLndInvoice destination and pay', () => {
     await waitFor(() => screen.getByText(loc.lnd.next));
     fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '990000');
     fireEvent.press(screen.getByText(loc.lnd.next));
-    expect(alert).toHaveBeenCalledWith(loc.lnd.error_balance_for_insuficient_fee);
-    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(alert).not.toHaveBeenCalledWith(loc.lnd.error_balance_for_insuficient_fee);
+    expect(mockNavigate).toHaveBeenCalledWith(
+      'SendDetailsRoot',
+      expect.objectContaining({ params: expect.objectContaining({ amountSat: 990000 }) }),
+    );
   });
 
   it('alerts when the remaining LNDHub balance cannot cover the 3-percent fee', async () => {
@@ -541,7 +543,7 @@ describe('ScanLndInvoice destination and pay', () => {
     );
   });
 
-  it('reduces MAX by the 3-percent fee cap for a Spark LNURL pay', async () => {
+  it('marks a full-balance Spark LNURL payment for SDK fee preparation', async () => {
     mockLnurl('example.com', 1000);
     const wallet = makeSparkWallet();
     const screen = renderScan(wallet);
@@ -552,12 +554,12 @@ describe('ScanLndInvoice destination and pay', () => {
     expect(mockNavigate).toHaveBeenCalledWith(
       'SendDetailsRoot',
       expect.objectContaining({
-        params: expect.objectContaining({ amountSat: Math.floor(1_000_000 * 0.97) }),
+        params: expect.objectContaining({ amountSat: 1_000_000, isMax: true }),
       }),
     );
   });
 
-  it('navigates LNURL pay with the typed amount when fees fit the remaining Spark balance', async () => {
+  it('navigates LNURL pay with the typed Spark amount', async () => {
     mockLnurl('example.com', 1000);
     const wallet = makeSparkWallet();
     const screen = renderScan(wallet, { walletID: undefined });

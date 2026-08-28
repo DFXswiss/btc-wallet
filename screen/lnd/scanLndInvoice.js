@@ -18,7 +18,7 @@ import AmountInput from '../../components/AmountInput';
 import Lnurl from '../../class/lnurl';
 import { LightningCustodianWallet } from '../../class/wallets/lightning-custodian-wallet';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
-import { SparkWallet, sparkMaxSendFeeSats } from '../../class/wallets/spark-wallet';
+import { SparkWallet } from '../../class/wallets/spark-wallet';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
@@ -193,13 +193,10 @@ const ScanLndInvoice = () => {
     if (amountSat <= 0) return showError(loc.send.details_amount_field_is_not_valid);
 
     const isMax = amountSat === wallet.getBalance();
-    let maxFee = 0;
-    if (!isTxFree) {
-      maxFee = wallet.type === SparkWallet.type ? sparkMaxSendFeeSats(amountSat) : Math.round(amountSat * 0.03);
-    }
+    const maxFee = isTxFree || wallet.type === SparkWallet.type ? 0 : Math.round(amountSat * 0.03);
     const remainingBalance = wallet.getBalance() - amountSat;
-    if (!isMax && !isTxFree && maxFee > remainingBalance) return showError(loc.lnd.error_balance_for_insuficient_fee);
-    const maxMultiplier = isTxFree ? 1 : 0.97; // max 3% fee set by LNBits
+    if (!isMax && maxFee > remainingBalance) return showError(loc.lnd.error_balance_for_insuficient_fee);
+    const maxMultiplier = isTxFree || wallet.type === SparkWallet.type ? 1 : 0.97; // max 3% fee set by LNBits
 
     navigate('SendDetailsRoot', {
       screen: 'LnurlPay',
@@ -207,6 +204,7 @@ const ScanLndInvoice = () => {
         lnurl: destination,
         amountSat: isMax ? Math.floor(amountSat * maxMultiplier) : amountSat,
         description: desc,
+        ...(isMax && wallet.type === SparkWallet.type ? { isMax: true } : {}),
         walletID: walletID || wallet.getID(),
       },
     });
@@ -251,7 +249,7 @@ const ScanLndInvoice = () => {
     if (isTxFree) return loc._.free;
 
     const min = 0;
-    const max = wallet.type === SparkWallet.type ? sparkMaxSendFeeSats(amountSat) : Math.round(amountSat * 0.03);
+    const max = Math.round(amountSat * 0.03);
     return `${min} ${BitcoinUnit.SATS} - ${max} ${BitcoinUnit.SATS}`;
   };
 
@@ -332,10 +330,12 @@ const ScanLndInvoice = () => {
             <View style={styles.noteContainer}>
               <BlueFormInput value={desc} onChangeText={setDesc} editable={!isDescDisabled} color={colors.feeText} />
             </View>
-            <View style={styles.fee}>
-              <BlueText style={stylesHook.fee}>{loc.send.create_fee}</BlueText>
-              <BlueText style={stylesHook.fee}>{amountSat > 0 ? getFees() : '-'}</BlueText>
-            </View>
+            {(!(amountSat > 0) || wallet?.type !== SparkWallet.type) && (
+              <View style={styles.fee}>
+                <BlueText style={stylesHook.fee}>{loc.send.create_fee}</BlueText>
+                <BlueText style={stylesHook.fee}>{wallet && amountSat > 0 ? getFees() : '-'}</BlueText>
+              </View>
+            )}
           </KeyboardAvoidingView>
           <BlueCard>
             <View>

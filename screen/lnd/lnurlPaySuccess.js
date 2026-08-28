@@ -24,12 +24,14 @@ export default class LnurlPaySuccess extends Component {
 
     const paymentHash = props.route.params.paymentHash;
     const fromWalletID = props.route.params.fromWalletID;
+    const fee = props.route.params.fee;
     const justPaid = !!props.route.params.justPaid;
 
     this.state = {
       paymentHash,
       isLoading: true,
       fromWalletID,
+      fee,
       justPaid,
     };
   }
@@ -78,12 +80,12 @@ export default class LnurlPaySuccess extends Component {
     const lnurl = LN.getLnurl();
     const description = LN.getDescription();
     const image = LN.getImage();
-    const { preamble, message, url, justPaid } = this.state;
+    const { preamble, message, url, justPaid, fee } = this.state;
 
     return (
       <SafeBlueArea style={styles.root}>
         <ScrollView style={styles.container}>
-          {justPaid && <SuccessView />}
+          {justPaid && <SuccessView fee={fee} />}
 
           <BlueSpacing40 />
           <BlueText style={styles.alignSelfCenter}>{domain}</BlueText>
@@ -152,6 +154,7 @@ LnurlPaySuccess.propTypes = {
     params: PropTypes.shape({
       paymentHash: PropTypes.string.isRequired,
       fromWalletID: PropTypes.string.isRequired,
+      fee: PropTypes.number,
       justPaid: PropTypes.bool.isRequired,
     }),
   }),

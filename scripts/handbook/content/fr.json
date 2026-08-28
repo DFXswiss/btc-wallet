@@ -82,7 +82,7 @@
     {
       "id": "lightning",
       "title": "Lightning",
-      "summary": "De petits montants, instantanément et à très faible coût.",
+      "summary": "De petits paiements instantanés ; comme les frais ne dépendent pas du montant, leur poids relatif est plus important pour les très petits paiements.",
       "intro": "Lightning est une seconde couche sur bitcoin pour les petits paiements rapides. Les nouveaux utilisateurs créent Lightning (Spark) d'un tap sur la ligne de l'aperçu. Achat et vente sont là comme pour les autres portefeuilles ; il n'y a pas de carte de paiement. La vente ouvre le service DFX dans le navigateur, puis ramène dans l'application, où le montant est confirmé une dernière fois. L'adresse Lightning se trouve chez Breez. Pour des montants plus élevés, le portefeuille sur la blockchain reste le bon endroit.",
       "groups": [
         "08-lightning"

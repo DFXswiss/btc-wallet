@@ -391,7 +391,6 @@
     "lightning_spark_amount_mismatch": "The prepared payment amount does not match the requested amount. Nothing was paid.",
     "lightning_spark_session_mismatch": "This Lightning wallet does not match the connected wallet. Nothing was changed.",
     "lightning_spark_source_missing": "Lightning belongs to \"{label}\". That wallet is no longer in this app. Restore it to use Lightning again.",
-    "lightning_spark_fee_too_high": "This payment of {amount} sats was not sent. The fee of {fee} sats is above the limit of {maxFee} sats. Nothing was paid.",
     "lightning_spark_address_unavailable": "No receive address is available yet. Close the app completely and open it again to try once more.",
     "lightning_spark_receive_lightning": "Lightning",
     "lightning_spark_receive_onchain": "On-chain",

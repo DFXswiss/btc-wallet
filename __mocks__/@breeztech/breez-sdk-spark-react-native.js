@@ -2,6 +2,7 @@
 
 const PaymentType = { Send: 0, Receive: 1 };
 const PaymentStatus = { Completed: 0, Pending: 1, Failed: 2 };
+const FeePolicy = { FeesExcluded: 0, FeesIncluded: 1 };
 const PaymentDetails_Tags = {
   Spark: 'Spark',
   Token: 'Token',
@@ -111,6 +112,7 @@ module.exports = {
   Seed,
   PaymentType,
   PaymentStatus,
+  FeePolicy,
   PaymentDetails_Tags,
   PaymentDetailsFilter_Tags,
   PaymentDetailsFilter,
