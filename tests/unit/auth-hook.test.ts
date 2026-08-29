@@ -7,8 +7,10 @@ jest.mock('react-native-config', () => ({
   default: {},
 }));
 
+const mockCall = jest.fn();
+
 jest.mock('../../api/dfx/hooks/api.hook', () => ({
-  useApi: () => ({ call: jest.fn() }),
+  useApi: () => ({ call: mockCall }),
 }));
 
 describe('useAuth getSignMessage', () => {
@@ -48,5 +50,38 @@ describe('useAuth getSignMessage', () => {
       expect(result.current.getSignMessage('bc1qtestaddress')).toBe(expected);
       unmount();
     }
+  });
+});
+
+describe('useAuth auth', () => {
+  beforeEach(() => {
+    mockCall.mockClear();
+  });
+
+  it('includes the provided key in the auth request body', async () => {
+    const { result } = renderHook(() => useAuth());
+
+    await result.current.auth('lnurl-address', 'compact-signature', 'identity-public-key');
+
+    expect(mockCall.mock.calls[0][0].data).toEqual({
+      address: 'lnurl-address',
+      signature: 'compact-signature',
+      key: 'identity-public-key',
+      wallet: 'DFX Bitcoin',
+    });
+  });
+
+  it('omits key from the auth request body when none is provided', async () => {
+    const { result } = renderHook(() => useAuth());
+
+    await result.current.auth('lnurl-address', 'compact-signature');
+
+    const body = mockCall.mock.calls[0][0].data;
+    expect(body).toEqual({
+      address: 'lnurl-address',
+      signature: 'compact-signature',
+      wallet: 'DFX Bitcoin',
+    });
+    expect('key' in body).toBe(false);
   });
 });

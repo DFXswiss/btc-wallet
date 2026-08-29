@@ -104,8 +104,8 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
     return token;
   }
 
-  async function createSession(address: string, signature: string): Promise<string> {
-    return await auth(address, signature)
+  async function createSession(address: string, signature: string, key?: string): Promise<string> {
+    return await auth(address, signature, key)
       .then(updateLanguage)
       .then(r => r.accessToken);
   }
@@ -124,10 +124,14 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
         return await createSession(address.toUpperCase(), wallet.addressOwnershipProof);
       }
       if (wallet.type === SparkWallet.type) {
-        const address = await wallet.getSparkAddress();
-        if (!address) throw new Error('Address is not defined');
-        const signature = await wallet.signCompactMessage(getSignMessage(address));
-        return await createSession(address, signature);
+        if (!wallet.lnAddress) throw new Error(loc.wallets.lightning_spark_address_unavailable);
+        if (!wallet.identityPubkey) throw new Error(loc.wallets.lightning_spark_address_unavailable);
+        const address = Lnurl.getLnurlFromAddress(wallet.lnAddress);
+        if (!address) throw new Error(loc.wallets.lightning_spark_address_unavailable);
+
+        const normalizedAddress = address.toUpperCase();
+        const signature = await wallet.signCompactMessage(getSignMessage(normalizedAddress));
+        return await createSession(normalizedAddress, signature, wallet.identityPubkey);
       }
     }
 

@@ -5,7 +5,7 @@ import { useApi } from './api.hook';
 
 export interface AuthInterface {
   getSignMessage: (address: string) => string;
-  auth: (address: string, signature: string) => Promise<Auth>;
+  auth: (address: string, signature: string, key?: string) => Promise<Auth>;
 }
 
 export function useAuth(): AuthInterface {
@@ -18,8 +18,14 @@ export function useAuth(): AuthInterface {
     return `${messagePrefix}${message}${address}`;
   }
 
-  async function auth(address: string, signature: string): Promise<Auth> {
-    return await call({ url: AuthUrl.auth, method: 'POST', data: { address, signature, wallet: 'DFX Bitcoin' } });
+  async function auth(address: string, signature: string, key?: string): Promise<Auth> {
+    // A Lightning address carries no public key; the server binds the supplied key at sign-up
+    // and verifies later logins against the stored key.
+    return await call({
+      url: AuthUrl.auth,
+      method: 'POST',
+      data: { address, signature, ...(key ? { key } : {}), wallet: 'DFX Bitcoin' },
+    });
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
