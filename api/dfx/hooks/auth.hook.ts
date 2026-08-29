@@ -11,8 +11,8 @@ export interface AuthInterface {
 export function useAuth(): AuthInterface {
   const { call } = useApi();
   const message = 'By_signing_this_message,_you_confirm_that_you_are_the_sole_owner_of_the_provided_Blockchain_address._Your_ID:_';
-  // Keep this derivation aligned with DFXswiss/backend src/config/config.ts (signMessagePrefix).
-  const messagePrefix = Config.DFX_ENV && Config.DFX_ENV !== 'prd' ? `[${Config.DFX_ENV}]_` : '';
+  // Keep this PRD whitelist aligned with DFXswiss/backend src/config/config.ts (signMessagePrefix).
+  const messagePrefix = Config.DFX_ENV === 'prd' ? '' : `[${Config.DFX_ENV}]_`;
 
   function getSignMessage(address: string): string {
     return `${messagePrefix}${message}${address}`;

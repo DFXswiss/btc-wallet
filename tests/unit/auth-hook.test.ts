@@ -34,7 +34,7 @@ describe('useAuth getSignMessage', () => {
       },
       {
         environment: undefined,
-        expected: 'By_signing_this_message,_you_confirm_that_you_are_the_sole_owner_of_the_provided_Blockchain_address._Your_ID:_bc1qtestaddress',
+        expected: '[undefined]_By_signing_this_message,_you_confirm_that_you_are_the_sole_owner_of_the_provided_Blockchain_address._Your_ID:_bc1qtestaddress',
       },
     ];
 
