@@ -58,24 +58,12 @@ describe('useAuth auth', () => {
     mockCall.mockClear();
   });
 
-  it('includes the provided key in the auth request body', async () => {
-    const { result } = renderHook(() => useAuth());
-
-    await result.current.auth('lnurl-address', 'compact-signature', 'identity-public-key');
-
-    expect(mockCall.mock.calls[0][0].data).toEqual({
-      address: 'lnurl-address',
-      signature: 'compact-signature',
-      key: 'identity-public-key',
-      wallet: 'DFX Bitcoin',
-    });
-  });
-
-  it('omits key from the auth request body when none is provided', async () => {
+  it('sends the exact request body without a key', async () => {
     const { result } = renderHook(() => useAuth());
 
     await result.current.auth('lnurl-address', 'compact-signature');
 
+    expect(mockCall).toHaveBeenCalledTimes(1);
     const body = mockCall.mock.calls[0][0].data;
     expect(body).toEqual({
       address: 'lnurl-address',
