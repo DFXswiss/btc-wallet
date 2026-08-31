@@ -1,0 +1,25 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: ../_setup.yaml
+- tapOn:
+    point: '85%,58%'
+- waitForAnimationToEnd:
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Externe Services'
+    timeout: 90000
+# Die Verkaufen-Kachel ist ein Bitmap ohne semantischen Selektor. Bei zwei
+# sichtbaren DFX-Kacheln liegt ihr gemessener Mittelpunkt hier.
+- tapOn:
+    point: '61%,34%'
+- waitForAnimationToEnd:
+    timeout: 30000
+# Nur die externe DFX-Verkaufsoberflaeche kann diese positive Ziel-Assertion
+# erfuellen. Der derzeit beobachtete Invalid-signature-Dialog bleibt rot.
+- extendedWaitUntil:
+    visible: '.*(Verkaufen|Sell).*'
+    timeout: 30000
+- assertVisible: '.*(Verkaufen|Sell).*'

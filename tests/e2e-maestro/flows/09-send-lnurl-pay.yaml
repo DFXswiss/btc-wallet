@@ -1,0 +1,55 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: ../_setup.yaml
+- tapOn:
+    point: '85%,58%'
+- waitForAnimationToEnd:
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    timeout: 90000
+- tapOn:
+    point: '50%,58%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- tapOn:
+    point: '16%,93%'
+- extendedWaitUntil:
+    visible: '.*@breez\.tips.*'
+    timeout: 30000
+# Die App kopiert ihre soeben registrierte Lightning-Adresse selbst. Dadurch
+# braucht der Flow keinen langlebigen fremden LNURL-Testdienst.
+- tapOn: '.*@breez\.tips.*'
+- extendedWaitUntil:
+    visible: 'In die Zwischenablage kopiert.'
+    timeout: 10000
+- tapOn: 'Schließen'
+- waitForAnimationToEnd:
+    timeout: 15000
+- tapOn:
+    point: '84%,93%'
+- extendedWaitUntil:
+    visible: 'Einen Bitcoin-QR-Code scannen'
+    timeout: 20000
+- tapOn:
+    point: '50%,89%'
+- extendedWaitUntil:
+    visible: 'Textadresse oder Rechnung'
+    timeout: 10000
+- tapOn:
+    below: 'Textadresse oder Rechnung'
+- pasteText
+- assertVisible: '.*@breez\.tips.*'
+- assertVisible:
+    text: 'Fortsetzen'
+    enabled: true
+# Fortsetzen liegt im KeyboardAvoidingView; der folgende Screen-Wechsel
+# unmountet das Textfeld und schliesst die Tastatur.
+- tapOn: 'Fortsetzen'
+- extendedWaitUntil:
+    visible: 'Betrag eingeben'
+    timeout: 30000
+- assertNotVisible: 'Delete'
+- assertVisible: '.*@breez\.tips.*'
+- assertVisible: 'Betrag eingeben'
+- assertVisible: 'Weiter'

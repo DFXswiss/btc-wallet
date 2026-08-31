@@ -1,0 +1,47 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: ../_setup.yaml
+- tapOn:
+    point: '85%,58%'
+- waitForAnimationToEnd:
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    timeout: 90000
+- tapOn:
+    point: '50%,58%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- tapOn:
+    point: '84%,93%'
+- extendedWaitUntil:
+    visible: 'Einen Bitcoin-QR-Code scannen'
+    timeout: 20000
+# Die drei Scanner-Aktionen sind reine Icon-Buttons ohne Label; die mittlere
+# Schaltflaeche ist die manuelle Eingabe.
+- tapOn:
+    point: '50%,89%'
+- extendedWaitUntil:
+    visible: 'Textadresse oder Rechnung'
+    timeout: 10000
+- tapOn:
+    below: 'Textadresse oder Rechnung'
+# BOLT-11-Referenzvektor aus tests/unit/spark-wallet.test.js. Er ist absichtlich
+# statisch und daher abgelaufen: so ist die Fehlergrenze ohne Zahlung stabil.
+- inputText: 'lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp'
+- assertVisible: 'lnbc2500u1pvjluez.*'
+- assertVisible:
+    text: 'Fortsetzen'
+    enabled: true
+# Fortsetzen liegt im KeyboardAvoidingView. Der Screen-Wechsel entfernt das
+# Eingabefeld und damit die Tastatur unabhaengig vom verwendeten Keyboard-Typ.
+- tapOn: 'Fortsetzen'
+- extendedWaitUntil:
+    visible: 'Abgelaufen'
+    timeout: 20000
+- assertNotVisible: 'Delete'
+- assertVisible: '250000'
+- assertVisible: '.*lnbc2500u.*'
+- assertVisible: 'Abgelaufen'
+- tapOn: 'Weiter'
+- assertVisible: 'Rechnung verfallen'

@@ -1,0 +1,25 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: ../_setup.yaml
+- tapOn:
+    point: '85%,58%'
+- waitForAnimationToEnd:
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Externe Services'
+    timeout: 90000
+# Die Kaufen-Kachel ist ein Bitmap in ImageButton ohne testID oder
+# accessibilityLabel. Der Punkt wurde am gerenderten Handbuchbild gemessen.
+- tapOn:
+    point: '38%,34%'
+- waitForAnimationToEnd:
+    timeout: 30000
+# Nur die externe DFX-Kaufoberflaeche kann diese positive Ziel-Assertion
+# erfuellen. Der derzeit beobachtete Invalid-signature-Dialog bleibt rot.
+- extendedWaitUntil:
+    visible: '.*(Kaufen|Buy).*'
+    timeout: 30000
+- assertVisible: '.*(Kaufen|Buy).*'

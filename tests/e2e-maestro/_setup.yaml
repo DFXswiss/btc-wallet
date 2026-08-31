@@ -1,0 +1,41 @@
+appId: swiss.dfx.bitcoin
+---
+# Jeder Top-Level-Flow ruft diesen Vorlauf auf. clearState ist notwendig, weil
+# der Simulator-Build den Wallet-Zustand ohne Keychain-Entitlements nicht
+# verlaesslich ueber einen App-Neustart behaelt.
+- launchApp:
+    clearState: true
+- runFlow:
+    when:
+      visible: 'Nicht erlauben'
+    commands:
+      - tapOn: 'Nicht erlauben'
+- extendedWaitUntil:
+    visible: 'Erstellen'
+    timeout: 60000
+- tapOn: 'Erstellen'
+- extendedWaitUntil:
+    visible: 'Wallet Backup'
+    timeout: 60000
+# Den Mitteilungsdialog jetzt provozieren und entfernen. Andernfalls kann er
+# beim ersten Spark-Empfang eine Assertion oder Eingabe verdecken.
+# Der RN-Footer liefert fuer die Icon-Schaltflaeche accessibilityText mit
+# fuehrendem Icon-Anteil; der gemessene Punkt stammt aus dem bestehenden,
+# real gefahrenen Handbuch-Flow.
+- tapOn:
+    point: '16%,93%'
+- waitForAnimationToEnd:
+    timeout: 12000
+- runFlow:
+    when:
+      visible: 'Nicht erlauben'
+    commands:
+      - tapOn: 'Nicht erlauben'
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn: 'Schließen'
+- extendedWaitUntil:
+    visible: 'Wallet Backup'
+    timeout: 30000
+- assertVisible: '.*On-Chain-Wallet.*'
+

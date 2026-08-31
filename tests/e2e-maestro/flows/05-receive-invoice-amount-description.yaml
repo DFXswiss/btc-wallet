@@ -1,0 +1,40 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: ../_setup.yaml
+- tapOn:
+    point: '85%,58%'
+- waitForAnimationToEnd:
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    timeout: 90000
+- tapOn:
+    point: '50%,58%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- tapOn:
+    point: '16%,93%'
+- extendedWaitUntil:
+    visible: 'Amount (optional)'
+    timeout: 20000
+- tapOn: 'Amount (optional)'
+- inputText: '1000'
+# Der Ziffernblock hat weder Return noch "Fertig". "sats" ist ein sichtbarer,
+# nicht interaktiver Text innerhalb des Keyboard.dismiss-Containers.
+- tapOn: 'sats'
+- extendedWaitUntil:
+    visible: '.*lnbc.*'
+    timeout: 30000
+- tapOn: 'Beschreibung (optional)'
+- inputText: 'Maestro-E2E'
+- tapOn: 'sats'
+- assertNotVisible: 'Delete'
+- extendedWaitUntil:
+    visible: '.*lnbc.*'
+    timeout: 30000
+# Der sichtbare BOLT11-Text wird nur im QR-Zweig gerendert. Das QR-Canvas
+# selbst hat im Produktionscode weder testID noch accessibilityLabel.
+- assertVisible: '.*lnbc.*'
+- assertVisible: '1000'
+- assertVisible: 'Maestro-E2E'
+- assertNotVisible: 'Eine Empfangsadresse ist noch nicht vorhanden.*'
