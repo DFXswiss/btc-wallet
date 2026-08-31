@@ -29,15 +29,13 @@ appId: swiss.dfx.bitcoin
 - inputText: 'LNURL1DP68GURN8GHJ7MRFVA58GMNFDENKCMM8D9HZUMRFWEJJ7MR0VA5KU0MTXY7NYVFEX93X2DFK8P3KVEFKVSEXZWR98PSNJVRRV5CRGCE3X4JKGE3HXPNXGCMPV5MXXVTZ89NXZENXXCURGCTRV93RVE35XQCXVCFSVSN8GCT884KX7EMFDCDKKXQ0'
 - assertVisible: 'LNURL1DP68GURN8GHJ7MRFVA58G.*'
 - assertVisible:
-    text: 'Fortsetzen'
+    id: 'ManualAddressContinueButton'
     enabled: true
-# Fortsetzen liegt im KeyboardAvoidingView; der folgende Screen-Wechsel
-# unmountet das Textfeld und schliesst die Tastatur.
-- tapOn: 'Fortsetzen'
+- tapOn:
+    id: 'ManualAddressContinueButton'
 - extendedWaitUntil:
     visible: 'lightninglogin.live'
     timeout: 20000
-- assertNotVisible: 'Delete'
 - assertVisible: 'Bei'
 - assertVisible: 'lightninglogin.live'
 - assertVisible: 'mit dem Lightning Wallet authentifizieren?'

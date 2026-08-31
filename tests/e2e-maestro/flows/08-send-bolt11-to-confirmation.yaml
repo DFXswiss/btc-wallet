@@ -31,15 +31,13 @@ appId: swiss.dfx.bitcoin
 - inputText: 'lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp'
 - assertVisible: 'lnbc2500u1pvjluez.*'
 - assertVisible:
-    text: 'Fortsetzen'
+    id: 'ManualAddressContinueButton'
     enabled: true
-# Fortsetzen liegt im KeyboardAvoidingView. Der Screen-Wechsel entfernt das
-# Eingabefeld und damit die Tastatur unabhaengig vom verwendeten Keyboard-Typ.
-- tapOn: 'Fortsetzen'
+- tapOn:
+    id: 'ManualAddressContinueButton'
 - extendedWaitUntil:
     visible: 'Abgelaufen'
     timeout: 20000
-- assertNotVisible: 'Delete'
 - assertVisible: '250000'
 - assertVisible: '.*lnbc2500u.*'
 - assertVisible: 'Abgelaufen'

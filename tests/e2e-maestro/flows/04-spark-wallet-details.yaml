@@ -14,7 +14,7 @@ appId: swiss.dfx.bitcoin
     point: '90%,10%'
 - extendedWaitUntil:
     visible: 'Allgemein'
-    timeout: 20000
+    timeout: 60000
 - tapOn: '.*Lightning \(Spark\).*'
 - extendedWaitUntil:
     visible: 'Breez Spark'

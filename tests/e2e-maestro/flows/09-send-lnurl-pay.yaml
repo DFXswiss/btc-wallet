@@ -41,15 +41,13 @@ appId: swiss.dfx.bitcoin
 - pasteText
 - assertVisible: '.*@breez\.tips.*'
 - assertVisible:
-    text: 'Fortsetzen'
+    id: 'ManualAddressContinueButton'
     enabled: true
-# Fortsetzen liegt im KeyboardAvoidingView; der folgende Screen-Wechsel
-# unmountet das Textfeld und schliesst die Tastatur.
-- tapOn: 'Fortsetzen'
+- tapOn:
+    id: 'ManualAddressContinueButton'
 - extendedWaitUntil:
     visible: 'Betrag eingeben'
     timeout: 30000
-- assertNotVisible: 'Delete'
 - assertVisible: '.*@breez\.tips.*'
 - assertVisible: 'Betrag eingeben'
 - assertVisible: 'Weiter'

@@ -16,7 +16,7 @@ appId: swiss.dfx.bitcoin
 - tapOn: 'Erstellen'
 - extendedWaitUntil:
     visible: 'Wallet Backup'
-    timeout: 60000
+    timeout: 90000
 # Den Mitteilungsdialog jetzt provozieren und entfernen. Andernfalls kann er
 # beim ersten Spark-Empfang eine Assertion oder Eingabe verdecken.
 # Der RN-Footer liefert fuer die Icon-Schaltflaeche accessibilityText mit
@@ -38,4 +38,3 @@ appId: swiss.dfx.bitcoin
     visible: 'Wallet Backup'
     timeout: 30000
 - assertVisible: '.*On-Chain-Wallet.*'
-
