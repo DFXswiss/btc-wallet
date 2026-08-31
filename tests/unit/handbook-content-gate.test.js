@@ -8,9 +8,25 @@
  * missing is the exact failure mode this gate exists to prevent.
  */
 const assert = require('assert');
+const fs = require('fs');
+const Module = require('module');
+const os = require('os');
 const path = require('path');
 
 const gate = require(path.resolve(__dirname, '../../scripts/handbook/content-gate.js'));
+const handbookBuildPath = path.resolve(__dirname, '../../scripts/handbook/build.js');
+
+function loadListMarkdownFiles() {
+  const source = fs.readFileSync(handbookBuildPath, 'utf8');
+  const withoutMain = source.replace(/\nmain\(\);\s*$/, '\nmodule.exports = { listMarkdownFiles };\n');
+  assert.notStrictEqual(withoutMain, source, 'handbook build main() marker not found');
+
+  const buildModule = new Module(handbookBuildPath, module);
+  buildModule.filename = handbookBuildPath;
+  buildModule.paths = Module._nodeModulePaths(path.dirname(handbookBuildPath));
+  buildModule._compile(withoutMain, handbookBuildPath);
+  return buildModule.exports.listMarkdownFiles;
+}
 
 const WORDS = new Set(['abandon', 'ability', 'able', 'about', 'above', 'absent', 'zoo']);
 
@@ -19,6 +35,25 @@ function manifestOf(...outputPaths) {
 }
 
 describe('unit - handbook content gate', () => {
+  describe('markdown discovery', () => {
+    it('excludes markdown below tests directories from the published doc list', function () {
+      const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'handbook-markdown-discovery-'));
+      try {
+        fs.mkdirSync(path.join(fixtureRoot, 'docs'), { recursive: true });
+        fs.mkdirSync(path.join(fixtureRoot, 'tests', 'e2e'), { recursive: true });
+        fs.mkdirSync(path.join(fixtureRoot, 'packages', 'wallet', 'tests'), { recursive: true });
+        fs.writeFileSync(path.join(fixtureRoot, 'docs', 'product.md'), '# Product\n');
+        fs.writeFileSync(path.join(fixtureRoot, 'tests', 'e2e', 'internal.md'), '# Internal test\n');
+        fs.writeFileSync(path.join(fixtureRoot, 'packages', 'wallet', 'tests', 'fixture.md'), '# Test fixture\n');
+
+        const listMarkdownFiles = loadListMarkdownFiles();
+        assert.deepStrictEqual([...listMarkdownFiles(fixtureRoot)], ['docs/product.md']);
+      } finally {
+        fs.rmSync(fixtureRoot, { recursive: true, force: true });
+      }
+    });
+  });
+
   describe('scan set', () => {
     it('declares PNGs regardless of extension case and ignores other artifacts', function () {
       // build.js discovers PNGs with toLowerCase().endsWith('.png'), so an
