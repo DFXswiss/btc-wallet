@@ -48,11 +48,24 @@ Die Werte werden auch positional als `UDID APP_BUNDLE [FLOW_GLOB]` akzeptiert.
 UDID und App-Pfad sind Pflicht; ohne sie bricht der Runner ab, weil der
 Frischzustand sonst nicht garantiert werden kann. Der Runner setzt den
 Simulator vor jedem Treffer zurueck, installiert das Bundle und startet danach
-einen eigenen `maestro test`. Nach Fehlern faehrt er mit den restlichen Flows
-fort. Ein fehlgeschlagener Reset wird als Flow-Exit 125 aufgezeichnet. Danach
-schreibt er `tests/e2e-maestro/last-run.json` mit Name, Exit-Code und Dauer jedes
-Flows. Er endet mit Exit 1, wenn mindestens ein Flow fehlgeschlagen ist, und
-mit Exit 2 bei einem Konfigurationsfehler oder leerem Filter.
+einen eigenen `maestro test`. Zwischen zwei Flows wartet er 12 Sekunden, damit
+die wiederholten Simulator-Resets die CoreSimulator-Dienste nicht ueberlasten.
+Vor und nach jedem Reset prueft `simctl bootstatus -b`, ob das Geraet gebootet
+und bereit ist, und bootet einen abgestuerzten Simulator wieder; diese beiden
+Schutzschritte duerfen wegen der reproduzierten Serienabstuerze nicht entfernt
+werden.
+
+Nach Fehlern faehrt der Runner mit den restlichen Flows fort. Ein
+fehlgeschlagener Reset oder Bereitschaftscheck wird als Flow-Exit 125 und
+`run-aborted` aufgezeichnet. Fuer jeden Flow enthaelt
+`tests/e2e-maestro/last-run.json` Name, Exit-Code, Dauer und eines der Ergebnisse
+`passed`, `assertion-failed` oder `run-aborted`. Das Manifest und die
+Schlusszeile zaehlen erfolgreiche Flows, fehlgeschlagene Assertions und
+abgebrochene Laeufe getrennt. Sind alle Fehlschlaege Abbrueche, lautet das
+Suite-Ergebnis ausdruecklich `environment-error`; Assertions und Abbrueche
+zusammen ergeben `mixed-failure`. Der Runner endet mit Exit 1, sobald ein Flow
+nicht erfolgreich war, und mit Exit 2 bei einem Konfigurationsfehler oder
+leerem Filter.
 
 ## Bewusste Grenzen
 
@@ -98,12 +111,13 @@ mit Exit 2 bei einem Konfigurationsfehler oder leerem Filter.
 
 ## Letzter gemessener Stand
 
-Der Lauf vom 2026-08-31 gegen Head `9cde627127` war mit 10 von 13 Flows gruen.
-P8 und P10 erreichten ueber `openLink` ihre Zielassertions. P9 blieb rot bei
-`Assert that "Betrag eingeben" is visible`, obwohl der Hierarchie-Dump den
-LNURL-Pay-Screen belegte; die korrigierte Zustandsassertion ist noch ungefahren.
-P11/P12 bleiben gegen Produktion rot, waren aber mit `DFX_ENV=loc` einzeln gegen
-die lokale API auf Stand DFXswiss/backend#5179 gruen. Details und Grenzen stehen
-in `coverage.md`.
+Einzeln, mit jeweils 12 Sekunden Abstand, wurden alle 13 Flows gruen gemessen.
+Ein gruener Serienlauf mit dem Runner liegt noch nicht vor: Drei Serienlaeufe
+brachen ohne fehlgeschlagene Assertions im Vorlauf zusammen, einer davon liess
+den Simulator heruntergefahren und 428 Simulator-Prozesse zurueck. Die
+13-von-13-Messung ist deshalb ein Nachweis fuer die Flows, noch nicht fuer die
+Serienfestigkeit des geaenderten Runners. P11/P12 bleiben gegen Produktion rot,
+waren aber mit `DFX_ENV=loc` einzeln gegen die lokale API auf Stand
+DFXswiss/backend#5179 gruen. Details und Grenzen stehen in `coverage.md`.
 
 Die genaue Zuordnung von Pfad, Flow und Assertion steht in `coverage.md`.

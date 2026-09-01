@@ -11,6 +11,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 FLOW_DIR="$REPO_ROOT/tests/e2e-maestro/flows"
 MANIFEST="$REPO_ROOT/tests/e2e-maestro/last-run.json"
 APP_ID='swiss.dfx.bitcoin'
+readonly INTER_FLOW_PAUSE_SECONDS=12
 
 SIMULATOR_UDID=''
 APP_BUNDLE_PATH=''
@@ -104,7 +105,11 @@ printf '  "flows": [\n' >>"$manifest_tmp"
 
 if ((${#FLOWS[@]} == 0)); then
   printf '  ],\n' >>"$manifest_tmp"
+  printf '  "passed": 0,\n' >>"$manifest_tmp"
+  printf '  "assertionFailures": 0,\n' >>"$manifest_tmp"
+  printf '  "aborted": 0,\n' >>"$manifest_tmp"
   printf '  "failed": 0,\n' >>"$manifest_tmp"
+  printf '  "suiteOutcome": "configuration-error",\n' >>"$manifest_tmp"
   printf '  "suiteExitCode": 2\n' >>"$manifest_tmp"
   printf '}\n' >>"$manifest_tmp"
   mv "$manifest_tmp" "$MANIFEST"
@@ -113,7 +118,19 @@ if ((${#FLOWS[@]} == 0)); then
 fi
 
 failed=0
+passed=0
+assertion_failures=0
+aborted=0
 first=1
+
+ensure_simulator_ready() {
+  printf 'Checking simulator %s readiness\n' "$SIMULATOR_UDID"
+  if ! xcrun simctl bootstatus "$SIMULATOR_UDID" -b; then
+    printf 'ERROR: simulator %s could not be booted or did not become ready\n' \
+      "$SIMULATOR_UDID" >&2
+    return 1
+  fi
+}
 
 reset_simulator_app() {
   printf 'Resetting %s on simulator %s\n' "$APP_ID" "$SIMULATOR_UDID"
@@ -142,42 +159,75 @@ reset_simulator_app() {
 
 for flow in "${FLOWS[@]}"; do
   name="$(basename "$flow")"
+
+  if ((first == 0)); then
+    printf '\nWaiting %d seconds before the next simulator reset\n' \
+      "$INTER_FLOW_PAUSE_SECONDS"
+    sleep "$INTER_FLOW_PAUSE_SECONDS"
+  fi
+
   started_seconds="$(date +%s)"
+  flow_log="$(mktemp "${TMPDIR:-/tmp}/maestro-flow.XXXXXX")" || \
+    fail "cannot create temporary Maestro log for $name"
 
   printf '\n==> %s\n' "$name"
-  if reset_simulator_app; then
-    "$MAESTRO_BIN" --device "$SIMULATOR_UDID" test "$flow"
-    flow_exit=$?
+  if ensure_simulator_ready && reset_simulator_app && ensure_simulator_ready; then
+    "$MAESTRO_BIN" --device "$SIMULATOR_UDID" test "$flow" 2>&1 | tee "$flow_log"
+    flow_exit=${PIPESTATUS[0]}
   else
     flow_exit=125
   fi
 
   finished_seconds="$(date +%s)"
   duration_seconds=$((finished_seconds - started_seconds))
-  if ((flow_exit != 0)); then
+  if ((flow_exit == 0)); then
+    outcome='passed'
+    passed=$((passed + 1))
+  elif grep -Eq 'Assert.*FAILED' "$flow_log"; then
+    outcome='assertion-failed'
+    assertion_failures=$((assertion_failures + 1))
+    failed=$((failed + 1))
+  else
+    outcome='run-aborted'
+    aborted=$((aborted + 1))
     failed=$((failed + 1))
   fi
+  rm -f "$flow_log"
 
   if ((first == 0)); then
     printf ',\n' >>"$manifest_tmp"
   fi
   first=0
-  printf '    {"name":"%s","exitCode":%d,"durationSeconds":%d}' \
-    "$(json_escape "$name")" "$flow_exit" "$duration_seconds" >>"$manifest_tmp"
+  printf '    {"name":"%s","exitCode":%d,"durationSeconds":%d,"outcome":"%s"}' \
+    "$(json_escape "$name")" "$flow_exit" "$duration_seconds" "$outcome" >>"$manifest_tmp"
 done
 
 suite_exit=0
-if ((failed > 0)); then
+suite_outcome='passed'
+if ((assertion_failures > 0 && aborted > 0)); then
   suite_exit=1
+  suite_outcome='mixed-failure'
+elif ((assertion_failures > 0)); then
+  suite_exit=1
+  suite_outcome='assertion-failed'
+elif ((aborted > 0)); then
+  suite_exit=1
+  suite_outcome='environment-error'
 fi
 
 printf '\n  ],\n' >>"$manifest_tmp"
+printf '  "passed": %d,\n' "$passed" >>"$manifest_tmp"
+printf '  "assertionFailures": %d,\n' "$assertion_failures" >>"$manifest_tmp"
+printf '  "aborted": %d,\n' "$aborted" >>"$manifest_tmp"
 printf '  "failed": %d,\n' "$failed" >>"$manifest_tmp"
+printf '  "suiteOutcome": "%s",\n' "$suite_outcome" >>"$manifest_tmp"
 printf '  "suiteExitCode": %d\n' "$suite_exit" >>"$manifest_tmp"
 printf '}\n' >>"$manifest_tmp"
 mv "$manifest_tmp" "$MANIFEST"
 trap - EXIT
 
 printf '\nManifest: %s\n' "$MANIFEST"
-printf 'Flows: %d, failed: %d\n' "${#FLOWS[@]}" "$failed"
+printf 'Flows: %d, passed: %d, assertion failures: %d, aborted: %d\n' \
+  "${#FLOWS[@]}" "$passed" "$assertion_failures" "$aborted"
+printf 'Suite outcome: %s\n' "$suite_outcome"
 exit "$suite_exit"
