@@ -84,11 +84,13 @@ leerem Filter.
   schliesst Testausfuehrungen auf physischen iOS-Geraeten aus; diese Messung ist
   daher kein automatisiertes Suite-Ergebnis.
 - Die DFX-Weboberflaeche und ihre API sind nicht Teil dieses Repositories. P11
-  und P12 pruefen positiv die sichtbare Kaufen- beziehungsweise
-  Verkaufen-Oberflaeche. Produktion antwortet bei der Spark-Anmeldung mit
-  `400 Invalid signature`. Mit `DFX_ENV=loc` waren beide Flows einzeln gegen
-  eine lokale API auf Stand DFXswiss/backend#5179 gruen; die Logs enthalten
-  fuenfmal `POST /v1/auth 201`, und P12 erreichte die Verkaufen-Oberflaeche.
+  und P12 pruefen den Wechsel von der App zur externen DFX-Oberflaeche, belegt
+  durch `Zurück zu BTC Taro` und den exakten DFX-Seitentitel. Produktion
+  antwortet bei der Spark-Anmeldung mit `400 Invalid signature`. Mit
+  `DFX_ENV=loc` gelingt die Anmeldung gegen eine lokale API auf Stand
+  DFXswiss/backend#5179 (`POST /v1/auth/ 201`), und Safari oeffnet die
+  DFX-Oberflaeche. Diese steht bei `Login bei DFX Services`; Web-Login, Kauf-
+  und Verkaufsformular sowie Abschluss werden nicht geprueft.
   Ein `DFX_ENV=prd`-Build scheitert gegen diese lokale API schon bei der
   On-Chain-Anmeldung, weil die Nicht-Produktions-API der signierten Nachricht
   ein `[env]_` voranstellt. Dann erhalten nicht alle Wallets einen Token und
@@ -111,15 +113,16 @@ leerem Filter.
 
 ## Letzter gemessener Stand
 
-Einzeln, mit jeweils 12 Sekunden Abstand, wurden alle 13 Flows gruen gemessen.
-Danach wurden die Zielassertionen von P3, P6, P11 und P12 verschaerft; diese
-vier aktuellen Fassungen sind noch nicht erneut gefahren. Ein gruener
+Einzeln, mit jeweils 12 Sekunden Abstand, meldeten alle 13 Flows gruen. P11 und
+P12 waren dabei jedoch vakuum-wahr: Ihre Regexe trafen den DFX-Seitentitel und
+nicht ein Kauf- oder Verkaufsformular. Danach wurden die Zielassertionen von
+P3, P6, P11 und P12 verschaerft; diese vier aktuellen Fassungen sind noch nicht
+erneut gefahren. Ein gruener
 Serienlauf mit dem Runner liegt ebenfalls noch nicht vor: Drei Serienlaeufe
 brachen ohne fehlgeschlagene Assertions im Vorlauf zusammen, einer davon liess
 den Simulator heruntergefahren und 428 Simulator-Prozesse zurueck. Die
-13-von-13-Messung ist deshalb ein Nachweis fuer die Flows, noch nicht fuer die
-Serienfestigkeit des geaenderten Runners. P11/P12 bleiben gegen Produktion rot,
-waren aber mit `DFX_ENV=loc` einzeln gegen die lokale API auf Stand
-DFXswiss/backend#5179 gruen. Details und Grenzen stehen in `coverage.md`.
+13-von-13-Messung ist deshalb weder ein gueltiger Nachweis fuer P11/P12 noch
+fuer die Serienfestigkeit des geaenderten Runners. Details und Grenzen stehen
+in `coverage.md`.
 
 Die genaue Zuordnung von Pfad, Flow und Assertion steht in `coverage.md`.

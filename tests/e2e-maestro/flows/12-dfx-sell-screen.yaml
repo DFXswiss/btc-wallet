@@ -17,11 +17,11 @@ appId: swiss.dfx.bitcoin
     point: '61%,34%'
 - waitForAnimationToEnd:
     timeout: 30000
-# Exakter Seitentitel und KYC-Aktion belegen gemeinsam die externe
-# DFX-Verkaufsoberflaeche; der bekannte Fehlerdialog darf nicht sichtbar sein.
+# App-spezifischer Ruecksprung und exakter Seitentitel belegen gemeinsam den
+# Wechsel zu DFX. Login, Verkaufsformular und Abschluss sind nicht Ziel des Flows.
 - extendedWaitUntil:
-    visible: 'KYC VERVOLLSTÄNDIGEN'
+    visible: '^Zurück zu BTC Taro$'
     timeout: 30000
-- assertVisible: 'Verkaufen'
-- assertVisible: 'KYC VERVOLLSTÄNDIGEN'
+- assertVisible: '^Zurück zu BTC Taro$'
+- assertVisible: '^DFX\.swiss \| Buy & Sell directly into your wallet$'
 - assertNotVisible: 'Invalid signature'

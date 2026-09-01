@@ -1,15 +1,18 @@
 # Abdeckungsnachweis
 
-Alle 13 Flows wurden einzeln gruen gemessen, mit jeweils 12 Sekunden Pause
-zwischen den Laeufen. Danach wurden die zuvor zu breiten Zielassertionen in
-P3, P6, P11 und P12 verschaerft; diese vier aktuellen Flow-Fassungen sind noch
-nicht erneut gefahren. Einen gruenen Serienlauf gibt es ebenfalls noch nicht. Drei
+Alle 13 Flows meldeten in Einzellaeufen gruen, mit jeweils 12 Sekunden Pause
+zwischen den Laeufen. P11 und P12 waren dabei jedoch vakuum-wahr: Ihre alten
+Regexe trafen den DFX-Seitentitel statt eines Kauf- oder Verkaufszustands. Die
+13-von-13-Zahl ist deshalb kein gueltiger Nachweis fuer alle Pfade. Danach
+wurden die zu breiten Zielassertionen in P3, P6, P11 und P12 verschaerft; diese
+vier aktuellen Flow-Fassungen sind noch nicht erneut gefahren. Einen gruenen
+Serienlauf gibt es ebenfalls noch nicht. Drei
 Serienlaeufe brachen ohne `FAILED`-Assertionen im Vorlauf zusammen; im dritten
 war der Simulator danach nicht mehr gebootet und es lagen 428
-Simulator-Prozesse vor. Die Einzelmessung belegt daher die 13 Flow-Ergebnisse,
-nicht die Serienfestigkeit des geaenderten Runners. P11/P12 bleiben gegen
-Produktion rot, wurden aber einzeln gegen eine lokale API auf Stand
-DFXswiss/backend#5179 mit `DFX_ENV=loc` gruen gefahren.
+Simulator-Prozesse vor. Die Einzelmessung belegt daher weder P11/P12 noch die
+Serienfestigkeit des geaenderten Runners. Gegen eine lokale API auf Stand
+DFXswiss/backend#5179 mit `DFX_ENV=loc` gelingt die API-Anmeldung, und Safari
+oeffnet die DFX-Oberflaeche; die Weboberflaeche bleibt am Login stehen.
 
 Der uebermittelte Gesamtlauf enthaelt keine Dauern. Die lokale `last-run.json`
 wurde danach durch einen gefilterten P11/P12-Lauf ueberschrieben. Deshalb werden
@@ -32,8 +35,8 @@ Die Kamera und die optische QR-Erkennung selbst sind im Simulator nicht geprueft
 | P8 BOLT11 senden | `flows/08-send-bolt11-to-confirmation.yaml` | `dfxtaro:lightning:` erreicht fuer den abgelaufenen BOLT11 `250000`, Empfaenger, `Abgelaufen` und danach `Rechnung verfallen` | **gruen**, 2026-08-31, `9cde627127`; Dauer im uebermittelten Gesamtlauf nicht enthalten | Der `openLink`-Pfad und alle genannten Zielassertions wurden erreicht. Eine Zahlung wird mit dem absichtlich abgelaufenen Vektor nicht ausgefuehrt. |
 | P9 LNURL-Pay | `flows/09-send-lnurl-pay.yaml` | Gekuerztes Ziel `lnurl1dp68gurn8ghj…`, `Lightning (Spark)`, `Senden`, `Gebühr`, `MAX`, `Note` und `Weiter` gemeinsam sichtbar | **gruen im Einzellauf**; Dauer und Datum nicht uebermittelt | Der Flow endet in der Betragseingabe des LNURL-Pay-Screens; die Zahlung selbst wird nicht ausgefuehrt. Ein gruener Serienlauf fehlt noch. |
 | P10 LNURL-Auth | `flows/10-lnurl-auth.yaml` | `dfxtaro:lightning:` erreicht Domain, Authentifizierungsfrage und definierte Spark-Ablehnung | **gruen**, 2026-08-31, `9cde627127`; Dauer im uebermittelten Gesamtlauf nicht enthalten | Der `openLink`-Pfad, der Authentifizierungs-Prompt und die definierte Spark-Ablehnung wurden erreicht. Erfolgreiche Authentifizierung bleibt ungeprueft. |
-| P11 DFX Kaufen / Uebergang | `flows/11-dfx-buy-transition.yaml` | Exaktes `Kaufen` und `KYC VERVOLLSTÄNDIGEN` sichtbar; `Invalid signature` nicht sichtbar | **zuletzt rot gegen Produktion**, 2026-08-31, `9cde627127`; **vor Selektorverschaerfung gruen gegen lokale API DFXswiss/backend#5179 mit `DFX_ENV=loc`** | Die aktuelle kombinierte Zielassertion ist noch ungefahren. Produktion antwortet weiter `400 Invalid signature`, bis #5179 ausgeliefert ist. Ein Kontrolllauf gegen `develop` ohne den Fix fehlt. |
-| P12 DFX Verkaufen | `flows/12-dfx-sell-screen.yaml` | Exaktes `Verkaufen` und `KYC VERVOLLSTÄNDIGEN` sichtbar; `Invalid signature` nicht sichtbar | **zuletzt rot gegen Produktion**, 2026-08-31, `9cde627127`; **vor Selektorverschaerfung gruen gegen lokale API DFXswiss/backend#5179 mit `DFX_ENV=loc`** | Die aktuelle kombinierte Zielassertion ist noch ungefahren. Produktion bleibt bis zur Auslieferung von #5179 rot; ein Kontrolllauf gegen `develop` ohne den Fix fehlt. |
+| P11 DFX Kaufen / Uebergang | `flows/11-dfx-buy-transition.yaml` | `Zurück zu BTC Taro` und exakter DFX-Seitentitel sichtbar; `Invalid signature` nicht sichtbar | **alte Fassung vakuum-wahr**; die aktuelle Uebergangsassertion ist noch ungefahren | Geprueft wird der Wechsel zur DFX-Oberflaeche bei gemessen erfolgreicher API-Anmeldung (`POST /v1/auth/ 201`). Web-Login, Kaufformular und Abschluss liegen ausserhalb. |
+| P12 DFX Verkaufen / Uebergang | `flows/12-dfx-sell-screen.yaml` | `Zurück zu BTC Taro` und exakter DFX-Seitentitel sichtbar; `Invalid signature` nicht sichtbar | **alte Fassung vakuum-wahr**; die aktuelle Uebergangsassertion ist noch ungefahren | Geprueft wird der Wechsel zur DFX-Oberflaeche bei gemessen erfolgreicher API-Anmeldung (`POST /v1/auth/ 201`). Web-Login, Verkaufsformular und Abschluss liegen ausserhalb. |
 | P13 Lightning-Eintrag in Einstellungen | `flows/13-settings-lightning-entry.yaml` | Zielscreen zeigt `Wallet` und `Breez Spark` | **gruen**, 32 s — 2026-08-31, `9cde627127` | Endet im zugeordneten Wallet-Detail-Screen. |
 
 ## DFX-Vergleichsmessungen fuer P11/P12
@@ -45,11 +48,19 @@ Die Kamera und die optische QR-Erkennung selbst sind im Simulator nicht geprueft
 - Auf dem Eltern-Commit `c9a67d9d8d` tritt der Spark-Fehler ebenfalls auf. Der
   letzte Commit von Head `9cde627127` ist damit nicht seine Ursache.
 - Gegen eine lokal betriebene API auf Stand DFXswiss/backend#5179 und mit
-  `DFX_ENV=loc` gebauter App waren P11 und P12 einzeln gruen. Die API-Logs
-  enthalten fuenfmal `POST /v1/auth 201`; im mitgeschnittenen Verkehr meldet
+  `DFX_ENV=loc` gebauter App gelingt die Wallet-Anmeldung; die API-Logs
+  enthalten mehrfach `POST /v1/auth/ 201`. Im mitgeschnittenen Verkehr meldet
   sich die Spark-Wallet mit ihrer LNURL-Adresse
-  (`LNURL1DP68GURN8GHJ7CNJV4JH5…`) neben der On-Chain-Adresse an. P12 erreichte
-  die Verkaufen-Oberflaeche.
+  (`LNURL1DP68GURN8GHJ7CNJV4JH5…`) neben der On-Chain-Adresse an.
+- Nach dem Tap oeffnet Safari die externe Seite mit `Zurück zu BTC Taro` und
+  dem Titel `DFX.swiss | Buy & Sell directly into your wallet`. Sie steht bei
+  `Login bei DFX Services`; ein automatischer Web-Login findet nicht statt.
+  Kauf- und Verkaufsformular wurden daher nicht erreicht.
+- Die frueheren Regexe `.*(Kaufen|Buy).*` und `.*(Verkaufen|Sell).*` trafen
+  beide den Seitentitel `Buy & Sell directly into your wallet`. Die alten
+  gruenen P11/P12-Ergebnisse waren damit vakuum-wahr. Nach dem Spark-Dialogtitel
+  `Lightning (Spark)` und der Adresse `.*@.*` ist dies der dritte dokumentierte
+  Fall derselben Fehlerklasse in dieser Suite.
 - Ein `DFX_ENV=prd`-Build ist gegen dieselbe lokale API kein valider Gegenlauf:
   Schon die On-Chain-Anmeldung scheitert. `auth.hook.ts` stellt der signierten
   Nachricht ausserhalb von `prd` ein `[env]_` voran; App und API pruefen dann
