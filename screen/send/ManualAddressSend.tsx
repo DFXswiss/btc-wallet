@@ -75,7 +75,7 @@ const ManualAddressSend: React.FC & { navigationOptions?: ReturnType<typeof navi
       </View>
       <KeyboardAvoidingView behavior={Platform.select({ ios: 'position' })} keyboardVerticalOffset={80}>
         <ScrollView style={styles.actionsContainer}>
-          <BlueButton testID="ManualAddressContinueButton" title={loc._.continue} onPress={onContinue} disabled={disableContinue} />
+          <BlueButton title={loc._.continue} onPress={onContinue} disabled={disableContinue} />
           <BlueSpacing40 />
         </ScrollView>
       </KeyboardAvoidingView>

@@ -17,7 +17,7 @@ appId: swiss.dfx.bitcoin
 - tapOn:
     point: '16%,93%'
 - extendedWaitUntil:
-    visible: '.*@.*'
+    visible: '.*@breez\.tips.*'
     timeout: 30000
-- assertVisible: '.*@.*'
+- assertVisible: '.*@breez\.tips.*'
 - assertNotVisible: 'Eine Empfangsadresse ist noch nicht vorhanden.*'

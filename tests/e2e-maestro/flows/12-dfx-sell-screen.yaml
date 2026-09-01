@@ -17,9 +17,11 @@ appId: swiss.dfx.bitcoin
     point: '61%,34%'
 - waitForAnimationToEnd:
     timeout: 30000
-# Nur die externe DFX-Verkaufsoberflaeche kann diese positive Ziel-Assertion
-# erfuellen. Der derzeit beobachtete Invalid-signature-Dialog bleibt rot.
+# Exakter Seitentitel und KYC-Aktion belegen gemeinsam die externe
+# DFX-Verkaufsoberflaeche; der bekannte Fehlerdialog darf nicht sichtbar sein.
 - extendedWaitUntil:
-    visible: '.*(Verkaufen|Sell).*'
+    visible: 'KYC VERVOLLSTÄNDIGEN'
     timeout: 30000
-- assertVisible: '.*(Verkaufen|Sell).*'
+- assertVisible: 'Verkaufen'
+- assertVisible: 'KYC VERVOLLSTÄNDIGEN'
+- assertNotVisible: 'Invalid signature'

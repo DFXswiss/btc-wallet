@@ -112,7 +112,9 @@ leerem Filter.
 ## Letzter gemessener Stand
 
 Einzeln, mit jeweils 12 Sekunden Abstand, wurden alle 13 Flows gruen gemessen.
-Ein gruener Serienlauf mit dem Runner liegt noch nicht vor: Drei Serienlaeufe
+Danach wurden die Zielassertionen von P3, P6, P11 und P12 verschaerft; diese
+vier aktuellen Fassungen sind noch nicht erneut gefahren. Ein gruener
+Serienlauf mit dem Runner liegt ebenfalls noch nicht vor: Drei Serienlaeufe
 brachen ohne fehlgeschlagene Assertions im Vorlauf zusammen, einer davon liess
 den Simulator heruntergefahren und 428 Simulator-Prozesse zurueck. Die
 13-von-13-Messung ist deshalb ein Nachweis fuer die Flows, noch nicht fuer die
