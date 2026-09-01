@@ -186,7 +186,11 @@ const LnurlPay = () => {
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
     const preimage = wallet.last_paid_invoice_result && wallet.last_paid_invoice_result.payment_preimage;
     if (preimage && LN) {
-      await LN.storeSuccess(paymentHash, preimage);
+      try {
+        await LN.storeSuccess(paymentHash, preimage);
+      } catch (error) {
+        reportError('lnurlPay: failed to store LNURL success', error);
+      }
     }
     navigateLnurlSuccess(paymentHash, fee);
   };

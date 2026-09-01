@@ -331,6 +331,18 @@ describe('ScanLndInvoice destination and pay', () => {
     expect(screen.queryByText(loc.lnd.next)).toBeNull();
   });
 
+  it('clears the loading state and alerts when the LNURL pay service rejects', async () => {
+    jest.spyOn(Lnurl.prototype, 'callLnurlPayService').mockRejectedValue(new Error('lnurl down'));
+    const wallet = makeSparkWallet();
+    const screen = renderScan(wallet);
+
+    await waitFor(() => expect(alert).toHaveBeenCalledWith('lnurl down'));
+    expect(haptic.trigger).toHaveBeenCalledWith('notificationError', { ignoreAndroidSystemSettings: false });
+    expect(screen.getByText(loc.lnd.next)).toBeTruthy();
+    expect(screen.UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0);
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
   it('uses 1 sat and leaves the note editable when LNURL omits amount and description', async () => {
     jest.spyOn(Lnurl.prototype, 'callLnurlPayService').mockResolvedValue({ description: '', domain: 'example.com' });
     jest.spyOn(Lnurl.prototype, 'getDomain').mockReturnValue('example.com');

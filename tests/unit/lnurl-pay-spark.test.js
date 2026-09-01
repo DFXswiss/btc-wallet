@@ -883,6 +883,39 @@ describe('LnurlPay remaining payment paths', () => {
     expect(refreshAllWalletTransactions).toHaveBeenCalled();
   });
 
+  it('navigates to LNURL success after an immediate pay even when storing the success rejects', async () => {
+    const wallet = makeWallet();
+    const decoded = wallet.decodeInvoice(SAMPLE_INVOICE);
+    const storageError = new Error('storage unavailable');
+    const storeSuccess = mockLnurlPay();
+    storeSuccess.mockRejectedValue(storageError);
+    wallet.payInvoice.mockResolvedValue({ status: 'complete', fee: 2 });
+    wallet.last_paid_invoice_result = { payment_preimage: 'pre-now' };
+    const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST' });
+
+    await waitFor(() => screen.getByText(loc.lnd.payButton));
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+
+    await waitFor(() => expect(reportError).toHaveBeenCalledWith('lnurlPay: failed to store LNURL success', storageError));
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', {
+        screen: 'LnurlPaySuccess',
+        params: {
+          paymentHash: decoded.payment_hash,
+          fee: 2,
+          justPaid: true,
+          fromWalletID: 'spark-pay-1',
+        },
+      }),
+    );
+    expect(storeSuccess).toHaveBeenCalledWith(decoded.payment_hash, 'pre-now');
+    expect(wallet.payInvoice).toHaveBeenCalledTimes(1);
+    expect(alert).not.toHaveBeenCalled();
+    assert.strictEqual(screen.queryByText(loc.lnd.payButton), null);
+  });
+
   it('navigates to LNURL success without storing when there is no preimage', async () => {
     const storeSuccess = mockLnurlPay();
     const wallet = makeWallet();

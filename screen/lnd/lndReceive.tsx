@@ -55,6 +55,7 @@ const LNDReceive = () => {
   const [description, setDescription] = useState('');
   const { inputProps, amountSats, formattedUnit, changeToNextUnit } = useInputAmount();
   const [invoiceRequest, setInvoiceRequest] = useState();
+  const [invoiceAmountSats, setInvoiceAmountSats] = useState<number | undefined>();
   const invoicePolling = useRef<NodeJS.Timeout | undefined>(undefined);
   const invoicePollTimeout = useRef<NodeJS.Timeout | undefined>(undefined);
   const pollGeneration = useRef(0);
@@ -252,7 +253,8 @@ const LNDReceive = () => {
         setInvoiceRequest(undefined);
         return;
       }
-      const invoiceRequest = await wallet.addInvoice(amountSats, description);
+      const invoiceAmount = amountSats;
+      const invoiceRequest = await wallet.addInvoice(invoiceAmount, description);
       ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
       const decoded = await wallet.decodeInvoice(invoiceRequest);
       await tryToObtainPermissions();
@@ -275,6 +277,7 @@ const LNDReceive = () => {
       }, 1000);
 
       setInvoiceRequest(invoiceRequest);
+      setInvoiceAmountSats(invoiceAmount);
       if (Platform.OS === 'android' && wallet.type === LightningLdsWallet.type) {
         startReading(handleNfcRead(invoiceRequest));
       }
@@ -319,7 +322,7 @@ const LNDReceive = () => {
   if (isPaid) {
     return (
       <View style={styles.root}>
-        <SuccessView amount={amountSats} amountUnit={BitcoinUnit.SATS} invoiceDescription={description} shouldAnimate={true} />
+        <SuccessView amount={invoiceAmountSats} amountUnit={BitcoinUnit.SATS} invoiceDescription={description} shouldAnimate={true} />
         <View style={styles.doneButton}>
           <BlueButton onPress={() => getParent<NativeStackNavigationProp<ParamListBase>>()?.popToTop()} title={loc.send.success_done} />
           <BlueSpacing40 />
@@ -344,6 +347,7 @@ const LNDReceive = () => {
                     accessibilityState={{ selected: receiveMethod === 'lightning' }}
                     testID="SparkReceiveLightning"
                     onPress={() => {
+                      if (receiveMethod === 'lightning') return;
                       setReceiveMethod('lightning');
                       if (amountSats > 0) {
                         generateInvoice();
@@ -366,8 +370,6 @@ const LNDReceive = () => {
                     accessibilityState={{ selected: receiveMethod === 'onchain' }}
                     testID="SparkReceiveOnchain"
                     onPress={() => {
-                      cancelInvoicePolling();
-                      setInvoiceRequest(undefined);
                       if (!(typeof wallet?.depositAddress === 'string' && wallet.depositAddress)) {
                         setIsOnchainLoading(true);
                       }

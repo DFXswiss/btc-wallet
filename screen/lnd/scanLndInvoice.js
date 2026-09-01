@@ -173,13 +173,16 @@ const ScanLndInvoice = () => {
 
   useEffect(() => {
     if (wallet && uri) {
-      try {
-        processDestination(uri);
-      } catch (Err) {
+      const handleDestinationError = Err => {
         ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
         setTimeout(() => alert(Err.message), 10);
         Keyboard.dismiss();
         clearAllInputs();
+      };
+      try {
+        Promise.resolve(processDestination(uri)).catch(handleDestinationError);
+      } catch (Err) {
+        handleDestinationError(Err);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

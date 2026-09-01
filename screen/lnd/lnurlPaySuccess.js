@@ -17,6 +17,8 @@ import navigationStyle from '../../components/navigationStyle';
 import Lnurl from '../../class/lnurl';
 import loc from '../../loc';
 import { SuccessView } from '../send/success';
+import alert from '../../components/Alert';
+import { reportError } from '../../helpers/errors';
 
 export default class LnurlPaySuccess extends Component {
   constructor(props) {
@@ -37,40 +39,69 @@ export default class LnurlPaySuccess extends Component {
   }
 
   async componentDidMount() {
-    const LN = new Lnurl(false, AsyncStorage);
-    await LN.loadSuccessfulPayment(this.state.paymentHash);
-
-    const successAction = LN.getSuccessAction();
-    if (!successAction) {
-      this.setState({ isLoading: false, LN });
-      return;
-    }
-
-    const newState = { LN, isLoading: false };
-
-    switch (successAction.tag) {
-      case 'aes': {
-        const preimage = LN.getPreimage();
-        newState.message = Lnurl.decipherAES(successAction.ciphertext, preimage, successAction.iv);
-        newState.preamble = successAction.description;
-        break;
+    try {
+      const LN = new Lnurl(false, AsyncStorage);
+      const loaded = await LN.loadSuccessfulPayment(this.state.paymentHash);
+      if (!loaded) {
+        this.setState({ isLoading: false });
+        return;
       }
-      case 'url':
-        newState.url = successAction.url;
-        newState.preamble = successAction.description;
-        break;
-      case 'message':
-        this.setState({ message: successAction.message });
-        newState.message = successAction.message;
-        break;
-    }
 
-    this.setState(newState);
+      const successAction = LN.getSuccessAction();
+      if (!successAction) {
+        this.setState({ isLoading: false, LN });
+        return;
+      }
+
+      const newState = { LN, isLoading: false };
+
+      switch (successAction.tag) {
+        case 'aes': {
+          const preimage = LN.getPreimage();
+          newState.message = Lnurl.decipherAES(successAction.ciphertext, preimage, successAction.iv);
+          newState.preamble = successAction.description;
+          break;
+        }
+        case 'url':
+          newState.url = successAction.url;
+          newState.preamble = successAction.description;
+          break;
+        case 'message':
+          this.setState({ message: successAction.message });
+          newState.message = successAction.message;
+          break;
+      }
+
+      this.setState(newState);
+    } catch (error) {
+      reportError('lnurlPaySuccess: failed to load successful payment', error);
+      alert(error.message);
+      this.setState({ isLoading: false });
+    }
   }
 
   render() {
-    if (this.state.isLoading || !this.state.LN) {
+    if (this.state.isLoading) {
       return <BlueLoading />;
+    }
+
+    if (!this.state.LN) {
+      const { justPaid, fee } = this.state;
+      return (
+        <SafeBlueArea style={styles.root}>
+          <ScrollView style={styles.container}>
+            {justPaid && <SuccessView fee={fee} />}
+            <BlueCard>
+              <BlueButton
+                onPress={() => {
+                  this.props.navigation.getParent().popToTop();
+                }}
+                title={loc.send.success_done}
+              />
+            </BlueCard>
+          </ScrollView>
+        </SafeBlueArea>
+      );
     }
 
     /** @type {Lnurl} */

@@ -50,9 +50,11 @@ jest.mock('../../components/QRCodeComponent', () => {
 jest.mock('../../screen/send/success', () => {
   const RN = require('react');
   const { Text } = require('react-native');
-  return {
-    SuccessView: () => RN.createElement(Text, { testID: 'SuccessView' }, 'paid'),
-  };
+  /* eslint-disable react/prop-types */
+  const SuccessView = ({ amount }) =>
+    RN.createElement(Text, { testID: 'SuccessView' }, amount == null ? 'paid' : String(amount));
+  /* eslint-enable react/prop-types */
+  return { SuccessView };
 });
 jest.mock('../../helpers/errors', () => ({ reportError: jest.fn() }));
 jest.mock('react-native-haptic-feedback', () => ({ trigger: jest.fn() }));
@@ -432,7 +434,23 @@ describe('LNDReceive with SparkWallet', () => {
     assert.ok(typeof wallet.getUserInvoices === 'function');
   });
 
-  it('stops invoice polling when switching to on-chain receive', async () => {
+  it('shows the invoice amount on success even if the editor was changed after creating it', async () => {
+    const wallet = makeSparkReceiveWallet('spark-receive-1');
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    fireEvent.changeText(screen.getByPlaceholderText('Amount (optional)'), '2000');
+    await advanceTimers(1000);
+    mockSdk.listPayments.mockResolvedValue({ payments: [paidPayment()] });
+    await advanceTimers(3000);
+
+    expect(screen.getByTestId('SuccessView')).toBeTruthy();
+    expect(screen.getByText('1000')).toBeTruthy();
+    expect(screen.queryByText('2000')).toBeNull();
+    expect(screen.getByText(loc.send.success_done)).toBeTruthy();
+    screen.unmount();
+  });
+
+  it('keeps watching the Lightning invoice after switching to on-chain and shows success when it is paid', async () => {
     const wallet = makeSparkReceiveWallet('spark-receive-1');
     wallet.depositAddress = 'bc1qtestonchain';
     const screen = renderReceive(wallet);
@@ -440,8 +458,15 @@ describe('LNDReceive with SparkWallet', () => {
     await advanceTimers(1000);
     assert.strictEqual(invoiceIntervalCount(), 1);
     fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
-    assert.strictEqual(invoiceIntervalCount(), 0);
+    expect(screen.getByText('bc1qtestonchain')).toBeTruthy();
+    assert.strictEqual(invoiceIntervalCount(), 1);
+
+    mockSdk.listPayments.mockResolvedValue({ payments: [paidPayment()] });
     await advanceTimers(3000);
+
+    expect(screen.getByTestId('SuccessView')).toBeTruthy();
+    expect(screen.getByText('1000')).toBeTruthy();
+    expect(screen.getByText(loc.send.success_done)).toBeTruthy();
     screen.unmount();
   });
 
@@ -464,6 +489,23 @@ describe('LNDReceive with SparkWallet', () => {
     expect(mockSdk.receivePayment).toHaveBeenCalledTimes(2);
     expect(screen.getByText(SAMPLE_INVOICE)).toBeTruthy();
     expect(screen.queryByText('spark@test')).toBeNull();
+    screen.unmount();
+  });
+
+  it('does not create another invoice when the Lightning tab is pressed while already selected', async () => {
+    const wallet = makeSparkReceiveWallet('spark-receive-1');
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    expect(mockSdk.receivePayment).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(SAMPLE_INVOICE)).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('SparkReceiveLightning'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(mockSdk.receivePayment).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(SAMPLE_INVOICE)).toBeTruthy();
     screen.unmount();
   });
 
