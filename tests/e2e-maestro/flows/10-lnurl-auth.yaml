@@ -12,27 +12,21 @@ appId: swiss.dfx.bitcoin
     point: '50%,58%'
 - waitForAnimationToEnd:
     timeout: 15000
-- tapOn:
-    point: '84%,93%'
-- extendedWaitUntil:
-    visible: 'Einen Bitcoin-QR-Code scannen'
-    timeout: 20000
-- tapOn:
-    point: '50%,89%'
-- extendedWaitUntil:
-    visible: 'Textadresse oder Rechnung'
-    timeout: 10000
-- tapOn:
-    below: 'Textadresse oder Rechnung'
 # Statischer LNURL-Auth-Vektor aus tests/unit/lnurl.test.js. Der Prompt wird
-# lokal aus dem LNURL dekodiert; Spark lehnt das Signieren danach definiert ab.
-- inputText: 'LNURL1DP68GURN8GHJ7MRFVA58GMNFDENKCMM8D9HZUMRFWEJJ7MR0VA5KU0MTXY7NYVFEX93X2DFK8P3KVEFKVSEXZWR98PSNJVRRV5CRGCE3X4JKGE3HXPNXGCMPV5MXXVTZ89NXZENXXCURGCTRV93RVE35XQCXVCFSVSN8GCT884KX7EMFDCDKKXQ0'
-- assertVisible: 'LNURL1DP68GURN8GHJ7MRFVA58G.*'
-- assertVisible:
-    id: 'ManualAddressContinueButton'
-    enabled: true
-- tapOn:
-    id: 'ManualAddressContinueButton'
+# lokal aus dem LNURL dekodiert; das registrierte dfxtaro-Schema fuehrt ihn
+# wie einen gescannten QR-Payload dem zentralen Deeplink-Router zu.
+- openLink:
+    link: 'dfxtaro:lightning:LNURL1DP68GURN8GHJ7MRFVA58GMNFDENKCMM8D9HZUMRFWEJJ7MR0VA5KU0MTXY7NYVFEX93X2DFK8P3KVEFKVSEXZWR98PSNJVRRV5CRGCE3X4JKGE3HXPNXGCMPV5MXXVTZ89NXZENXXCURGCTRV93RVE35XQCXVCFSVSN8GCT884KX7EMFDCDKKXQ0'
+- runFlow:
+    when:
+      visible: 'Öffnen'
+    commands:
+      - tapOn: 'Öffnen'
+- runFlow:
+    when:
+      visible: 'Open'
+    commands:
+      - tapOn: 'Open'
 - extendedWaitUntil:
     visible: 'lightninglogin.live'
     timeout: 20000

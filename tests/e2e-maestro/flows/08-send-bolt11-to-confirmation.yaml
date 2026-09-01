@@ -12,29 +12,21 @@ appId: swiss.dfx.bitcoin
     point: '50%,58%'
 - waitForAnimationToEnd:
     timeout: 15000
-- tapOn:
-    point: '84%,93%'
-- extendedWaitUntil:
-    visible: 'Einen Bitcoin-QR-Code scannen'
-    timeout: 20000
-# Die drei Scanner-Aktionen sind reine Icon-Buttons ohne Label; die mittlere
-# Schaltflaeche ist die manuelle Eingabe.
-- tapOn:
-    point: '50%,89%'
-- extendedWaitUntil:
-    visible: 'Textadresse oder Rechnung'
-    timeout: 10000
-- tapOn:
-    below: 'Textadresse oder Rechnung'
 # BOLT-11-Referenzvektor aus tests/unit/spark-wallet.test.js. Er ist absichtlich
-# statisch und daher abgelaufen: so ist die Fehlergrenze ohne Zahlung stabil.
-- inputText: 'lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp'
-- assertVisible: 'lnbc2500u1pvjluez.*'
-- assertVisible:
-    id: 'ManualAddressContinueButton'
-    enabled: true
-- tapOn:
-    id: 'ManualAddressContinueButton'
+# statisch und daher abgelaufen. Das registrierte dfxtaro-Schema landet wie
+# ein gescannter QR-Payload direkt in DeeplinkSchemaMatch.navigationRouteFor.
+- openLink:
+    link: 'dfxtaro:lightning:lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp'
+- runFlow:
+    when:
+      visible: 'Öffnen'
+    commands:
+      - tapOn: 'Öffnen'
+- runFlow:
+    when:
+      visible: 'Open'
+    commands:
+      - tapOn: 'Open'
 - extendedWaitUntil:
     visible: 'Abgelaufen'
     timeout: 20000

@@ -58,13 +58,32 @@ mit Exit 2 bei einem Konfigurationsfehler oder leerem Filter.
 
 - P8–P10 senden kein Geld. P8 prueft mit einem reproduzierbaren, abgelaufenen
   BOLT11-Vektor Parsing, Betrag, Empfaengerdarstellung und den erwarteten
-  Ablauf-Fehler. P9 kopiert die in demselben Flow erzeugte Lightning-Adresse,
-  fuegt sie als LNURL-Pay-Ziel ein und endet bei der Betragseingabe. P10 prueft
-  den Authentifizierungs-Prompt und die fuer Spark erwartete Ablehnung.
+  Ablauf-Fehler. P9 erfasst die in demselben Flow erzeugte Lightning-Adresse,
+  kodiert ihr LNURL-Pay-Ziel und endet bei der Betragseingabe. P10 prueft
+  den Authentifizierungs-Prompt und die fuer Spark erwartete Ablehnung. Alle
+  drei uebergeben den QR-Inhalt per `openLink` an den registrierten Deeplink;
+  Kamera und optische QR-Erkennung werden im Simulator nicht getestet.
+- Der Sendepfad wurde zusaetzlich manuell auf einem physischen iPhone mit
+  iOS 26.6.1 und echtem Breez-Key belegt: Eine gescannte 10-sats-Rechnung wurde
+  bezahlt; die Empfaenger-Wallet zeigte `10`, `sats`, `Erhalten` und
+  `Geraetetest`. Die
+  [Maestro-Dokumentation](https://docs.maestro.dev/platform-support/ios-uikit)
+  schliesst Testausfuehrungen auf physischen iOS-Geraeten aus; diese Messung ist
+  daher kein automatisiertes Suite-Ergebnis.
 - Die DFX-Weboberflaeche und ihre API sind nicht Teil dieses Repositories. P11
   und P12 pruefen positiv die sichtbare Kaufen- beziehungsweise
-  Verkaufen-Oberflaeche. Im Lauf vom 2026-08-31 erreichten beide stattdessen
-  `Something went wrong` / `Invalid signature` und bleiben deshalb rot.
+  Verkaufen-Oberflaeche. Produktion antwortet bei der Spark-Anmeldung mit
+  `400 Invalid signature`. Mit `DFX_ENV=loc` waren beide Flows einzeln gegen
+  eine lokale API auf Stand DFXswiss/backend#5179 gruen; die Logs enthalten
+  fuenfmal `POST /v1/auth 201`, und P12 erreichte die Verkaufen-Oberflaeche.
+  Ein `DFX_ENV=prd`-Build scheitert gegen diese lokale API schon bei der
+  On-Chain-Anmeldung, weil die Nicht-Produktions-API der signierten Nachricht
+  ein `[env]_` voranstellt. Dann erhalten nicht alle Wallets einen Token und
+  `session.context.tsx` blendet den gesamten Block `Externe Services` aus.
+  Die lokale Datenbank besitzt 233 Assets, einschliesslich der kauf- und
+  verkaufbaren Assets `BTC/Lightning` (id 236) und `BTC/Bitcoin` (id 113); der
+  fruehere Seed-Verdacht ist widerlegt. Ein Kontrolllauf gegen `develop` ohne
+  #5179 fehlt weiterhin. Produktion bleibt bis zur Auslieferung von #5179 rot.
   Bankauszahlung, Kauf, Swap-Abschluss und der Deep-Link mit einer echten
   DFX-Route bleiben ausserhalb der Suite.
 - Die QR-Komponente besitzt weder `testID` noch `accessibilityLabel`. Deshalb
@@ -79,12 +98,12 @@ mit Exit 2 bei einem Konfigurationsfehler oder leerem Filter.
 
 ## Letzter gemessener Stand
 
-Der Lauf vom 2026-08-31 gegen Head `9cde627127` war mit 8 von 13 Flows gruen.
-P8–P10 scheiterten, weil der alte Koordinaten-Tap das manuelle Textfeld nicht
-fokussierte. Die danach eingebaute relative Adressierung unter
-`Textadresse oder Rechnung`, die Aktivierungs- und Eingabeassertionen sowie das neue
-app-eigene Ziel von P9 sind noch nicht ausgefuehrt. P11/P12 bleiben wegen des
-gemessenen Spark-Fehlers `Invalid signature` bewusst rot auf dem korrekten
-Zielzustand. Details und Vergleichsmessungen stehen in `coverage.md`.
+Der Lauf vom 2026-08-31 gegen Head `9cde627127` war mit 10 von 13 Flows gruen.
+P8 und P10 erreichten ueber `openLink` ihre Zielassertions. P9 blieb rot bei
+`Assert that "Betrag eingeben" is visible`, obwohl der Hierarchie-Dump den
+LNURL-Pay-Screen belegte; die korrigierte Zustandsassertion ist noch ungefahren.
+P11/P12 bleiben gegen Produktion rot, waren aber mit `DFX_ENV=loc` einzeln gegen
+die lokale API auf Stand DFXswiss/backend#5179 gruen. Details und Grenzen stehen
+in `coverage.md`.
 
 Die genaue Zuordnung von Pfad, Flow und Assertion steht in `coverage.md`.
