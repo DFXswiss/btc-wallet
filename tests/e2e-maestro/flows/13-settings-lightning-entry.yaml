@@ -17,5 +17,5 @@ appId: swiss.dfx.bitcoin
 - extendedWaitUntil:
     visible: 'Breez Spark'
     timeout: 20000
-- assertVisible: 'Wallet'
+- assertVisible: 'Typ'
 - assertVisible: 'Breez Spark'

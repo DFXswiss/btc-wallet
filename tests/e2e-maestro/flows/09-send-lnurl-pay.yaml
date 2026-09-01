@@ -38,10 +38,12 @@ appId: swiss.dfx.bitcoin
       visible: 'Open'
     commands:
       - tapOn: 'Open'
+# Die Sendemaske zeigt nur die ersten und letzten 18 Zeichen. Der Prefix
+# lnurl1dp68gurn8ghj ist jeder https-LNURL gemeinsam; der Suffix nicht.
 - extendedWaitUntil:
-    visible: 'lnurl1dp68gurn8ghj.*'
+    visible: ${'.*' + output.lnurlPay.toLowerCase().slice(-18)}
     timeout: 30000
-- assertVisible: 'lnurl1dp68gurn8ghj.*'
+- assertVisible: ${'.*' + output.lnurlPay.toLowerCase().slice(-18)}
 - assertVisible: 'Lightning \(Spark\)'
 - assertVisible: 'Senden'
 - assertVisible: 'Gebühr'

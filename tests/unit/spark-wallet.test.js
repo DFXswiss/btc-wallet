@@ -186,8 +186,7 @@ describe('SparkWallet', () => {
 
   it('never keeps key material in secret after create', () => {
     const wallet = SparkWallet.create('pk');
-    wallet.secret = '';
-    assert.strictEqual(wallet.secret, '');
+    assert.strictEqual(wallet.getSecret(), '');
     // getID must not require a seed
     assert.ok(wallet.getID().length === 64);
   });

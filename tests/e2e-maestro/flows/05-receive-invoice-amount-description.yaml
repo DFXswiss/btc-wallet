@@ -34,7 +34,8 @@ appId: swiss.dfx.bitcoin
     timeout: 30000
 # Der sichtbare BOLT11-Text wird nur im QR-Zweig gerendert. Das QR-Canvas
 # selbst hat im Produktionscode weder testID noch accessibilityLabel.
-- assertVisible: '.*lnbc.*'
+# 1000 Sat stehen im HRP als lnbc10u (Fixture tests/unit/deeplink-schema-match.test.js).
+- assertVisible: '.*lnbc10u1.*'
 - assertVisible: '1000'
 - assertVisible: 'Maestro-E2E'
 - assertNotVisible: 'Eine Empfangsadresse ist noch nicht vorhanden.*'
