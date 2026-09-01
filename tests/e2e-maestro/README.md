@@ -25,6 +25,23 @@ Zustand. Ein vorheriger Flow liefert keinen Zustand fuer den naechsten.
   setzt die Simulator-Keychain zurueck und installiert das angegebene Bundle
   neu. Zusaetzlich verwendet jeder Flow `clearState: true`.
 
+## Lokaler DFX-Stack fuer P11/P12
+
+Die unterscheidbaren Kauf- und Verkaufsmasken setzen einen vollstaendigen
+lokalen Stack voraus. Der App-Build verwendet:
+
+```text
+REACT_APP_API_URL=http://127.0.0.1:3000/v1
+REACT_APP_SRV_URL=http://127.0.0.1:3001
+DFX_ENV=loc
+```
+
+Die Backend-Umgebung muss `FAUCET_LOW_BALANCE_THRESHOLD` setzen; der aktuelle
+Backend-Stand verlangt die Variable beim Boot, waehrend die Harness in
+DFXswiss/services sie nicht setzt. Fuer den Frontend-Build muessen Docker mehr
+als 8 GB Speicher zur Verfuegung stehen, andernfalls kann der Build mit
+`cannot allocate memory` abbrechen.
+
 ## Ausfuehren
 
 Alle Flows auf einem bestimmten gebooteten Simulator:
@@ -84,18 +101,17 @@ leerem Filter.
   schliesst Testausfuehrungen auf physischen iOS-Geraeten aus; diese Messung ist
   daher kein automatisiertes Suite-Ergebnis.
 - Die DFX-Weboberflaeche und ihre API sind nicht Teil dieses Repositories. P11
-  und P12 pruefen den Wechsel von der App zur externen DFX-Oberflaeche, belegt
-  durch `Zurück zu BTC Taro` und den exakten DFX-Seitentitel. Produktion
+  und P12 pruefen mit disjunkten Markern die erreichte Kauf- beziehungsweise
+  Verkaufsmaske; der exakte DFX-Seitentitel belegt zusaetzlich den externen
+  Uebergang. Produktion
   antwortet bei der Spark-Anmeldung mit `400 Invalid signature`. Mit
   `DFX_ENV=loc` gelingt die Anmeldung gegen eine lokale API auf Stand
-  DFXswiss/backend#5179 (`POST /v1/auth/ 201`), und Safari oeffnet die
-  DFX-Oberflaeche. Diese steht bei `Login bei DFX Services`; Web-Login, Kauf-
-  und Verkaufsformular sowie Abschluss werden nicht geprueft.
-  Beide Flows besitzen dieselbe Zielassertion: Der Unterschied `/buy` gegen
-  `/sell` steckt nur im URL-Pfad, der im gemessenen Safari-Zustand nicht als
-  Accessibility-Text sichtbar ist. Die Flows belegen daher nicht die Wahl des
-  Modus; vertauschte Kacheln oder zwei Einstiege in denselben Modus blieben
-  unentdeckt.
+  DFXswiss/backend#5179 (`POST /v1/auth/ 201`) und einer lokalen
+  Services-Instanz wird die Session durchgereicht: P11 erreicht `Kaufen` und
+  `Formular`, P12 `Deine IBAN hinzufügen oder auswählen`. Eingaben und
+  Abschluesse werden nicht geprueft. Gegen Produktion bleibt die Seite im
+  Schritt `Login bei DFX Services`, und die Spark-Anmeldung scheitert bis zur
+  Auslieferung von #5179 weiterhin mit `400 Invalid signature`.
   Ein `DFX_ENV=prd`-Build scheitert gegen diese lokale API schon bei der
   On-Chain-Anmeldung, weil die Nicht-Produktions-API der signierten Nachricht
   ein `[env]_` voranstellt. Dann erhalten nicht alle Wallets einen Token und
@@ -104,7 +120,7 @@ leerem Filter.
   verkaufbaren Assets `BTC/Lightning` (id 236) und `BTC/Bitcoin` (id 113); der
   fruehere Seed-Verdacht ist widerlegt. Ein Kontrolllauf gegen `develop` ohne
   #5179 fehlt weiterhin. Produktion bleibt bis zur Auslieferung von #5179 rot.
-  Bankauszahlung, Kauf, Swap-Abschluss und der Deep-Link mit einer echten
+  Bankauszahlung, Kaufabschluss, Swap-Abschluss und der Deep-Link mit einer echten
   DFX-Route bleiben ausserhalb der Suite.
 - Die QR-Komponente besitzt weder `testID` noch `accessibilityLabel`. Deshalb
   pruefen P5–P7 den sichtbaren Payload, der im gleichen Render-Zweig wie der QR
@@ -118,13 +134,14 @@ leerem Filter.
 
 ## Letzter gemessener Stand
 
-Die aktuellen Fassungen aller 13 Flows wurden einzeln gruen gemessen. Auch der
-vollstaendige Serienlauf gegen die lokale API auf Stand DFXswiss/backend#5179
-mit `DFX_ENV=loc` war gruen: `Flows: 13, passed: 13, assertion failures: 0,
-aborted: 0` und `Suite outcome: passed`. P3 und P6 bestanden mit ihren engen
-Adressassertionen; P11 und P12 bestanden mit der aktuellen, identischen
-Uebergangsassertion. Gegen Produktion bleiben P11/P12 wegen
-`400 Invalid signature` rot. Der Kontrolllauf gegen einen Serverstand ohne
-#5179 fehlt weiterhin. Details und Grenzen stehen in `coverage.md`.
+Vor der modusspezifischen Verschaerfung von P11/P12 wurden alle 13 Flows einzeln
+gruen gemessen. Auch der vollstaendige Serienlauf gegen die lokale API auf Stand
+DFXswiss/backend#5179 und die lokale Services-Instanz mit `DFX_ENV=loc` war
+gruen: `Flows: 13, passed: 13, assertion failures: 0, aborted: 0` und
+`Suite outcome: passed`. Die Hierarchie belegte anschliessend die Kauf- und
+Verkaufsmaske; die neuen disjunkten Assertions sind noch nicht gefahren. Gegen
+Produktion bleiben P11/P12 wegen `400 Invalid signature` rot. Der Kontrolllauf
+gegen einen Serverstand ohne #5179 fehlt weiterhin. Details und Grenzen stehen
+in `coverage.md`.
 
 Die genaue Zuordnung von Pfad, Flow und Assertion steht in `coverage.md`.

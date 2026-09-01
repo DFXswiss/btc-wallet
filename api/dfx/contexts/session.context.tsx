@@ -1,5 +1,5 @@
 import React, { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
-import { Linking, Alert } from 'react-native';
+import { Linking } from 'react-native';
 import { reportError } from '../../../helpers/errors';
 import { useWalletContext } from '../../../contexts/wallet.context';
 import Config from 'react-native-config';

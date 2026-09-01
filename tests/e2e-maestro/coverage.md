@@ -1,19 +1,24 @@
 # Abdeckungsnachweis
 
-Die aktuellen Fassungen aller 13 Flows wurden einzeln gruen gemessen. Danach
-lief auch die vollstaendige Serie gegen eine lokale API auf Stand
-DFXswiss/backend#5179 mit einem `DFX_ENV=loc`-Build gruen durch:
+Die vor der modusspezifischen Verschaerfung von P11/P12 aktuellen Fassungen
+aller 13 Flows wurden einzeln gruen gemessen. Danach lief auch die vollstaendige
+Serie gegen eine lokale API auf Stand DFXswiss/backend#5179 und eine lokale
+Services-Instanz mit einem `DFX_ENV=loc`-Build gruen durch:
 `Flows: 13, passed: 13, assertion failures: 0, aborted: 0` und
 `Suite outcome: passed`. Die API-Anmeldung ist mit mehrfach
 `POST /v1/auth/ 201` in den Logs belegt. Gegen Produktion bleiben P11/P12 rot,
 weil dieselbe Anmeldung dort `400 Invalid signature` liefert.
 
-P11 und P12 haben bewusst dieselbe Zielassertion. `openServices` unterscheidet
-Kaufen und Verkaufen zwar im nicht sichtbar exponierten URL-Pfad (`/buy` oder
-`/sell`); der gemessene Safari-Zustand zeigt fuer beide nur den gemeinsamen
-DFX-Seitentitel und `Zurück zu BTC Taro`. Damit belegen beide Flows den externen
-Uebergang, nicht die korrekte Wahl des Modus. Vertauschte Kacheln oder zwei
-Einstiege in denselben Modus wuerden von diesen Assertions nicht erkannt.
+Die Hierarchie zeigte im selben Stack fuer P11 die Kaufmaske mit `Kaufen` und
+`Formular`, fuer P12 die Verkaufsmaske mit
+`Deine IBAN hinzufügen oder auswählen`. P11 und P12 assertieren diese
+disjunkten Modusmarker jetzt zusaetzlich zum gemeinsamen DFX-Seitentitel. Diese
+neuen Assertions sind noch nicht gefahren; ein neues 13-von-13-Ergebnis wird
+damit nicht vorweggenommen.
+
+Der reproduzierbare App-Build verwendet
+`REACT_APP_API_URL=http://127.0.0.1:3000/v1`,
+`REACT_APP_SRV_URL=http://127.0.0.1:3001` und `DFX_ENV=loc`.
 
 Vor der Runner-Haertung waren drei Serienlaeufe ohne `FAILED`-Assertionen im
 Vorlauf zusammengebrochen; im dritten war der Simulator danach nicht mehr
@@ -41,8 +46,8 @@ Die Kamera und die optische QR-Erkennung selbst sind im Simulator nicht geprueft
 | P8 BOLT11 senden | `flows/08-send-bolt11-to-confirmation.yaml` | `dfxtaro:lightning:` erreicht fuer den abgelaufenen BOLT11 `250000`, Empfaenger, `Abgelaufen` und danach `Rechnung verfallen` | **gruen**, 2026-08-31, `9cde627127`; Dauer im uebermittelten Gesamtlauf nicht enthalten | Der `openLink`-Pfad und alle genannten Zielassertions wurden erreicht. Eine Zahlung wird mit dem absichtlich abgelaufenen Vektor nicht ausgefuehrt. |
 | P9 LNURL-Pay | `flows/09-send-lnurl-pay.yaml` | Gekuerztes Ziel `lnurl1dp68gurn8ghj…`, `Lightning (Spark)`, `Senden`, `Gebühr`, `MAX`, `Note` und `Weiter` gemeinsam sichtbar | **gruen im Einzellauf und im aktuellen Serienlauf**; Dauer und Datum nicht uebermittelt | Der Flow endet in der Betragseingabe des LNURL-Pay-Screens; die Zahlung selbst wird nicht ausgefuehrt. |
 | P10 LNURL-Auth | `flows/10-lnurl-auth.yaml` | `dfxtaro:lightning:` erreicht Domain, Authentifizierungsfrage und definierte Spark-Ablehnung | **gruen**, 2026-08-31, `9cde627127`; Dauer im uebermittelten Gesamtlauf nicht enthalten | Der `openLink`-Pfad, der Authentifizierungs-Prompt und die definierte Spark-Ablehnung wurden erreicht. Erfolgreiche Authentifizierung bleibt ungeprueft. |
-| P11 DFX Kaufen / Uebergang | `flows/11-dfx-buy-transition.yaml` | `Zurück zu BTC Taro` und exakter DFX-Seitentitel sichtbar; `Invalid signature` nicht sichtbar | **gruen mit aktueller Assertion**, einzeln und im Serienlauf gegen lokalen 5179-Stack; Dauer nicht uebermittelt | Zielassertion ist identisch mit P12: Geprueft wird nur der externe Uebergang bei erfolgreicher API-Anmeldung. Kaufmodus, Web-Login, Formular und Abschluss bleiben ungeprueft; ein vertauschter Einstieg wird nicht erkannt. Gegen Produktion rot (`400 Invalid signature`). |
-| P12 DFX Verkaufen / Uebergang | `flows/12-dfx-sell-screen.yaml` | `Zurück zu BTC Taro` und exakter DFX-Seitentitel sichtbar; `Invalid signature` nicht sichtbar | **gruen mit aktueller Assertion**, einzeln und im Serienlauf gegen lokalen 5179-Stack; Dauer nicht uebermittelt | Zielassertion ist identisch mit P11: Geprueft wird nur der externe Uebergang bei erfolgreicher API-Anmeldung. Verkaufsmodus, Web-Login, Formular und Abschluss bleiben ungeprueft; ein vertauschter Einstieg wird nicht erkannt. Gegen Produktion rot (`400 Invalid signature`). |
+| P11 DFX Kaufen / Kaufmaske | `flows/11-dfx-buy-transition.yaml` | Exakter DFX-Seitentitel, `Kaufen` und `Formular` sichtbar; Login und `Invalid signature` nicht sichtbar | **Kaufmaske im Hierarchie-Dump gemessen**; die neue modusspezifische Assertion ist noch ungefahren | Belegt nach dem naechsten Lauf die erreichte Kaufmaske im lokalen Stack. Eingabe und Kaufabschluss bleiben ungeprueft. Gegen Produktion bleibt der Login-Schritt beziehungsweise `400 Invalid signature`. |
+| P12 DFX Verkaufen / Verkaufsmaske | `flows/12-dfx-sell-transition.yaml` | Exakter DFX-Seitentitel und `Deine IBAN hinzufügen oder auswählen` sichtbar; Login und `Invalid signature` nicht sichtbar | **Verkaufsmaske im Hierarchie-Dump gemessen**; die neue modusspezifische Assertion ist noch ungefahren | Belegt nach dem naechsten Lauf die erreichte Verkaufsmaske im lokalen Stack. IBAN-Auswahl und Verkaufsabschluss bleiben ungeprueft. Gegen Produktion bleibt der Login-Schritt beziehungsweise `400 Invalid signature`. |
 | P13 Lightning-Eintrag in Einstellungen | `flows/13-settings-lightning-entry.yaml` | Zielscreen zeigt `Wallet` und `Breez Spark` | **gruen**, 32 s — 2026-08-31, `9cde627127` | Endet im zugeordneten Wallet-Detail-Screen. |
 
 ## DFX-Vergleichsmessungen fuer P11/P12
@@ -53,15 +58,20 @@ Die Kamera und die optische QR-Erkennung selbst sind im Simulator nicht geprueft
   `Kaufen`, eine `bc1q…`-Adresse und `KYC VERVOLLSTÄNDIGEN` sind sichtbar.
 - Auf dem Eltern-Commit `c9a67d9d8d` tritt der Spark-Fehler ebenfalls auf. Der
   letzte Commit von Head `9cde627127` ist damit nicht seine Ursache.
-- Gegen eine lokal betriebene API auf Stand DFXswiss/backend#5179 und mit
-  `DFX_ENV=loc` gebauter App gelingt die Wallet-Anmeldung; die API-Logs
+- Gegen eine lokal betriebene API auf Stand DFXswiss/backend#5179, eine lokale
+  Services-Instanz und mit `DFX_ENV=loc` gebaute App gelingt die
+  Wallet-Anmeldung; die API-Logs
   enthalten mehrfach `POST /v1/auth/ 201`. Im mitgeschnittenen Verkehr meldet
   sich die Spark-Wallet mit ihrer LNURL-Adresse
   (`LNURL1DP68GURN8GHJ7CNJV4JH5…`) neben der On-Chain-Adresse an.
-- Nach dem Tap oeffnet Safari die externe Seite mit `Zurück zu BTC Taro` und
-  dem Titel `DFX.swiss | Buy & Sell directly into your wallet`. Sie steht bei
-  `Login bei DFX Services`; ein automatischer Web-Login findet nicht statt.
-  Kauf- und Verkaufsformular wurden daher nicht erreicht.
+- Mit lokaler API und lokaler Services-Instanz wird die Session durchgereicht.
+  P11 erreicht die Kaufmaske mit `Kaufen`, `Formular`, `Du zahlst` und
+  `Du erhältst ungefähr`. P12 erreicht die Verkaufsmaske mit
+  `Deine IBAN hinzufügen oder auswählen`, `Du zahlst` und
+  `Du erhältst ungefähr`.
+- Gegen Produktion bleibt die Seite dagegen bei `Login bei DFX Services`; die
+  Formulare werden dort nicht erreicht. Die Spark-Anmeldung endet weiterhin
+  mit `400 Invalid signature`, solange backend#5179 nicht ausgeliefert ist.
 - Die frueheren Regexe `.*(Kaufen|Buy).*` und `.*(Verkaufen|Sell).*` trafen
   beide den Seitentitel `Buy & Sell directly into your wallet`. Die alten
   gruenen P11/P12-Ergebnisse waren damit vakuum-wahr. Nach dem Spark-Dialogtitel

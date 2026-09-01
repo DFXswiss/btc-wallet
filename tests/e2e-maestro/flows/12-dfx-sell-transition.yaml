@@ -17,11 +17,12 @@ appId: swiss.dfx.bitcoin
     point: '61%,34%'
 - waitForAnimationToEnd:
     timeout: 30000
-# App-spezifischer Ruecksprung und exakter Seitentitel belegen gemeinsam den
-# Wechsel zu DFX. Login, Verkaufsformular und Abschluss sind nicht Ziel des Flows.
+# Die IBAN-Aktion unterscheidet die Verkaufsmaske vom Login und von der
+# Kaufmaske; der exakte Seitentitel belegt den externen Uebergang.
 - extendedWaitUntil:
-    visible: '^Zurück zu BTC Taro$'
+    visible: '^Deine IBAN hinzufügen oder auswählen$'
     timeout: 30000
-- assertVisible: '^Zurück zu BTC Taro$'
 - assertVisible: '^DFX\.swiss \| Buy & Sell directly into your wallet$'
+- assertVisible: '^Deine IBAN hinzufügen oder auswählen$'
+- assertNotVisible: '^Login bei DFX Services$'
 - assertNotVisible: 'Invalid signature'

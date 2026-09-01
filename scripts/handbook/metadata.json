@@ -69,7 +69,7 @@
       }
     },
     "08-lightning": {
-      "title": "Lightning-Wallet",
+      "title": "Lightning (Spark)",
       "description": "Übersicht mit angelegter Lightning (Spark)-Wallet, Wallet-Seite mit Kaufen und Verkaufen aber ohne Bezahlkarte, Empfangsseite mit erzeugter Rechnung. Die Lightning-Adresse liegt bei Breez.",
       "captions": {
         "01-uebersicht-mit-lightning": "Übersicht mit Lightning (Spark)",
