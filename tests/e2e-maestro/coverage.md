@@ -1,23 +1,29 @@
 # Abdeckungsnachweis
 
-Alle 13 Flows meldeten in Einzellaeufen gruen, mit jeweils 12 Sekunden Pause
-zwischen den Laeufen. P11 und P12 waren dabei jedoch vakuum-wahr: Ihre alten
-Regexe trafen den DFX-Seitentitel statt eines Kauf- oder Verkaufszustands. Die
-13-von-13-Zahl ist deshalb kein gueltiger Nachweis fuer alle Pfade. Danach
-wurden die zu breiten Zielassertionen in P3, P6, P11 und P12 verschaerft; diese
-vier aktuellen Flow-Fassungen sind noch nicht erneut gefahren. Einen gruenen
-Serienlauf gibt es ebenfalls noch nicht. Drei
-Serienlaeufe brachen ohne `FAILED`-Assertionen im Vorlauf zusammen; im dritten
-war der Simulator danach nicht mehr gebootet und es lagen 428
-Simulator-Prozesse vor. Die Einzelmessung belegt daher weder P11/P12 noch die
-Serienfestigkeit des geaenderten Runners. Gegen eine lokale API auf Stand
-DFXswiss/backend#5179 mit `DFX_ENV=loc` gelingt die API-Anmeldung, und Safari
-oeffnet die DFX-Oberflaeche; die Weboberflaeche bleibt am Login stehen.
+Die aktuellen Fassungen aller 13 Flows wurden einzeln gruen gemessen. Danach
+lief auch die vollstaendige Serie gegen eine lokale API auf Stand
+DFXswiss/backend#5179 mit einem `DFX_ENV=loc`-Build gruen durch:
+`Flows: 13, passed: 13, assertion failures: 0, aborted: 0` und
+`Suite outcome: passed`. Die API-Anmeldung ist mit mehrfach
+`POST /v1/auth/ 201` in den Logs belegt. Gegen Produktion bleiben P11/P12 rot,
+weil dieselbe Anmeldung dort `400 Invalid signature` liefert.
 
-Der uebermittelte Gesamtlauf enthaelt keine Dauern. Die lokale `last-run.json`
-wurde danach durch einen gefilterten P11/P12-Lauf ueberschrieben. Deshalb werden
-fuer P8–P10 keine alten Dauern als Werte des neuen Laufs ausgegeben. Die bei
-P1–P7 und P13 genannten Zeiten stammen aus den zuvor dokumentierten Laeufen.
+P11 und P12 haben bewusst dieselbe Zielassertion. `openServices` unterscheidet
+Kaufen und Verkaufen zwar im nicht sichtbar exponierten URL-Pfad (`/buy` oder
+`/sell`); der gemessene Safari-Zustand zeigt fuer beide nur den gemeinsamen
+DFX-Seitentitel und `Zurück zu BTC Taro`. Damit belegen beide Flows den externen
+Uebergang, nicht die korrekte Wahl des Modus. Vertauschte Kacheln oder zwei
+Einstiege in denselben Modus wuerden von diesen Assertions nicht erkannt.
+
+Vor der Runner-Haertung waren drei Serienlaeufe ohne `FAILED`-Assertionen im
+Vorlauf zusammengebrochen; im dritten war der Simulator danach nicht mehr
+gebootet und es lagen 428 Simulator-Prozesse vor. Der neue gruene Serienlauf
+belegt nun auch die Serienfestigkeit unter den Bedingungen dieses lokalen
+Laufs.
+
+Die Dauern des aktuellen Gesamtlaufs wurden nicht uebermittelt. Deshalb werden
+keine alten Dauern als Werte dieses Laufs ausgegeben. Die bei P1, P2, P4, P5,
+P7 und P13 genannten Zeiten stammen aus zuvor dokumentierten Laeufen.
 
 P8–P10 pruefen ueber das registrierte Schema `dfxtaro:lightning:` die Verarbeitung
 des Inhalts, den ein QR-Scan an `DeeplinkSchemaMatch.navigationRouteFor` uebergibt.
@@ -27,16 +33,16 @@ Die Kamera und die optische QR-Erkennung selbst sind im Simulator nicht geprueft
 |---|---|---|---|---|
 | P1 Onboarding bis On-Chain-Wallet | `flows/01-onboarding-onchain-wallet.yaml` | `Wallet Backup`, `On-Chain-Wallet` und `Lightning-Wallet` sichtbar | **gruen**, 25 s — 2026-08-31, `9cde627127` | Endet in der Wallet-Liste. Keine Persistenzpruefung nach Neustart. |
 | P2 Spark-Wallet anlegen | `flows/02-create-spark-wallet.yaml` | Vollstaendige Wallet-Zeile `Bitcoin, Lightning (Spark), 0 sats, …` sichtbar; alte Hinzufuegen-Zeile nicht sichtbar | **gruen**, 25 s — 2026-08-31, `9cde627127` | Endet nach der Spark-Anlage. Die dialogfeste Positiv-Assertion ist im gemessenen Lauf gruen. |
-| P3 Lightning-Adresse registriert | `flows/03-spark-lightning-address.yaml` | Adresse `…@breez.tips` sichtbar; Meldung fuer fehlende Adresse nicht sichtbar | **zuletzt gruen vor Selektorverschaerfung**, 30 s — 2026-08-31, `9cde627127`; eine Adresse `…@breez.tips` war sichtbar | Die aktuelle enge Adressassertion ist noch ungefahren. Das konkrete Konto ist dynamisch. |
+| P3 Lightning-Adresse registriert | `flows/03-spark-lightning-address.yaml` | Adresse `…@breez.tips` sichtbar; Meldung fuer fehlende Adresse nicht sichtbar | **gruen mit aktueller enger Assertion**, einzeln und im Serienlauf; Dauer nicht uebermittelt | Das konkrete Konto ist dynamisch. Die Registrierung wird ueber ihr UI-Ergebnis beobachtet. |
 | P4 Spark-Wallet-Details aus Einstellungen | `flows/04-spark-wallet-details.yaml` | `Typ` und `Breez Spark` sichtbar | **gruen**, 29 s — 2026-08-31, `9cde627127`; `Breez Spark` war sichtbar | Endet im Wallet-Detail-Screen. |
 | P5 Invoice mit Betrag und Beschreibung | `flows/05-receive-invoice-amount-description.yaml` | BOLT11-Payload, `1000` und `Maestro-E2E` sichtbar; Tastatur nicht sichtbar; kein Adressfehler | **gruen**, 41 s — 2026-08-31, `9cde627127` | Der Tap auf `sats` schloss den Ziffernblock erfolgreich. QR-Pixel werden mangels semantischem Selektor nicht dekodiert. |
-| P6 Empfang ohne Betrag | `flows/06-receive-lightning-address.yaml` | Adresse `…@breez.tips` sichtbar, kein BOLT11 und kein Adressfehler | **zuletzt gruen vor Selektorverschaerfung**, 35 s — 2026-08-31, `9cde627127` | Die aktuelle enge Adressassertion ist noch ungefahren. QR-Pixel werden nicht dekodiert. |
+| P6 Empfang ohne Betrag | `flows/06-receive-lightning-address.yaml` | Adresse `…@breez.tips` sichtbar, kein BOLT11 und kein Adressfehler | **gruen mit aktueller enger Assertion**, einzeln und im Serienlauf; Dauer nicht uebermittelt | Die Adresse ist zugleich Quelle des gerenderten QR; die QR-Pixel werden nicht dekodiert. |
 | P7 Spark-On-Chain-Empfang (#261) | `flows/07-receive-spark-onchain-address.yaml` | `bc1`-Adresse und Bestaetigungshinweis sichtbar; kein Adressfehler | **gruen**, 32 s — 2026-08-31, `9cde627127`; die On-Chain-Deposit-Adresse erschien | QR-Pixel und die spaetere Gutschrift nach Bestaetigungen werden nicht geprueft. |
 | P8 BOLT11 senden | `flows/08-send-bolt11-to-confirmation.yaml` | `dfxtaro:lightning:` erreicht fuer den abgelaufenen BOLT11 `250000`, Empfaenger, `Abgelaufen` und danach `Rechnung verfallen` | **gruen**, 2026-08-31, `9cde627127`; Dauer im uebermittelten Gesamtlauf nicht enthalten | Der `openLink`-Pfad und alle genannten Zielassertions wurden erreicht. Eine Zahlung wird mit dem absichtlich abgelaufenen Vektor nicht ausgefuehrt. |
-| P9 LNURL-Pay | `flows/09-send-lnurl-pay.yaml` | Gekuerztes Ziel `lnurl1dp68gurn8ghj…`, `Lightning (Spark)`, `Senden`, `Gebühr`, `MAX`, `Note` und `Weiter` gemeinsam sichtbar | **gruen im Einzellauf**; Dauer und Datum nicht uebermittelt | Der Flow endet in der Betragseingabe des LNURL-Pay-Screens; die Zahlung selbst wird nicht ausgefuehrt. Ein gruener Serienlauf fehlt noch. |
+| P9 LNURL-Pay | `flows/09-send-lnurl-pay.yaml` | Gekuerztes Ziel `lnurl1dp68gurn8ghj…`, `Lightning (Spark)`, `Senden`, `Gebühr`, `MAX`, `Note` und `Weiter` gemeinsam sichtbar | **gruen im Einzellauf und im aktuellen Serienlauf**; Dauer und Datum nicht uebermittelt | Der Flow endet in der Betragseingabe des LNURL-Pay-Screens; die Zahlung selbst wird nicht ausgefuehrt. |
 | P10 LNURL-Auth | `flows/10-lnurl-auth.yaml` | `dfxtaro:lightning:` erreicht Domain, Authentifizierungsfrage und definierte Spark-Ablehnung | **gruen**, 2026-08-31, `9cde627127`; Dauer im uebermittelten Gesamtlauf nicht enthalten | Der `openLink`-Pfad, der Authentifizierungs-Prompt und die definierte Spark-Ablehnung wurden erreicht. Erfolgreiche Authentifizierung bleibt ungeprueft. |
-| P11 DFX Kaufen / Uebergang | `flows/11-dfx-buy-transition.yaml` | `Zurück zu BTC Taro` und exakter DFX-Seitentitel sichtbar; `Invalid signature` nicht sichtbar | **alte Fassung vakuum-wahr**; die aktuelle Uebergangsassertion ist noch ungefahren | Geprueft wird der Wechsel zur DFX-Oberflaeche bei gemessen erfolgreicher API-Anmeldung (`POST /v1/auth/ 201`). Web-Login, Kaufformular und Abschluss liegen ausserhalb. |
-| P12 DFX Verkaufen / Uebergang | `flows/12-dfx-sell-screen.yaml` | `Zurück zu BTC Taro` und exakter DFX-Seitentitel sichtbar; `Invalid signature` nicht sichtbar | **alte Fassung vakuum-wahr**; die aktuelle Uebergangsassertion ist noch ungefahren | Geprueft wird der Wechsel zur DFX-Oberflaeche bei gemessen erfolgreicher API-Anmeldung (`POST /v1/auth/ 201`). Web-Login, Verkaufsformular und Abschluss liegen ausserhalb. |
+| P11 DFX Kaufen / Uebergang | `flows/11-dfx-buy-transition.yaml` | `Zurück zu BTC Taro` und exakter DFX-Seitentitel sichtbar; `Invalid signature` nicht sichtbar | **gruen mit aktueller Assertion**, einzeln und im Serienlauf gegen lokalen 5179-Stack; Dauer nicht uebermittelt | Zielassertion ist identisch mit P12: Geprueft wird nur der externe Uebergang bei erfolgreicher API-Anmeldung. Kaufmodus, Web-Login, Formular und Abschluss bleiben ungeprueft; ein vertauschter Einstieg wird nicht erkannt. Gegen Produktion rot (`400 Invalid signature`). |
+| P12 DFX Verkaufen / Uebergang | `flows/12-dfx-sell-screen.yaml` | `Zurück zu BTC Taro` und exakter DFX-Seitentitel sichtbar; `Invalid signature` nicht sichtbar | **gruen mit aktueller Assertion**, einzeln und im Serienlauf gegen lokalen 5179-Stack; Dauer nicht uebermittelt | Zielassertion ist identisch mit P11: Geprueft wird nur der externe Uebergang bei erfolgreicher API-Anmeldung. Verkaufsmodus, Web-Login, Formular und Abschluss bleiben ungeprueft; ein vertauschter Einstieg wird nicht erkannt. Gegen Produktion rot (`400 Invalid signature`). |
 | P13 Lightning-Eintrag in Einstellungen | `flows/13-settings-lightning-entry.yaml` | Zielscreen zeigt `Wallet` und `Breez Spark` | **gruen**, 32 s — 2026-08-31, `9cde627127` | Endet im zugeordneten Wallet-Detail-Screen. |
 
 ## DFX-Vergleichsmessungen fuer P11/P12

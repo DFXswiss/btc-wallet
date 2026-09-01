@@ -91,6 +91,11 @@ leerem Filter.
   DFXswiss/backend#5179 (`POST /v1/auth/ 201`), und Safari oeffnet die
   DFX-Oberflaeche. Diese steht bei `Login bei DFX Services`; Web-Login, Kauf-
   und Verkaufsformular sowie Abschluss werden nicht geprueft.
+  Beide Flows besitzen dieselbe Zielassertion: Der Unterschied `/buy` gegen
+  `/sell` steckt nur im URL-Pfad, der im gemessenen Safari-Zustand nicht als
+  Accessibility-Text sichtbar ist. Die Flows belegen daher nicht die Wahl des
+  Modus; vertauschte Kacheln oder zwei Einstiege in denselben Modus blieben
+  unentdeckt.
   Ein `DFX_ENV=prd`-Build scheitert gegen diese lokale API schon bei der
   On-Chain-Anmeldung, weil die Nicht-Produktions-API der signierten Nachricht
   ein `[env]_` voranstellt. Dann erhalten nicht alle Wallets einen Token und
@@ -113,16 +118,13 @@ leerem Filter.
 
 ## Letzter gemessener Stand
 
-Einzeln, mit jeweils 12 Sekunden Abstand, meldeten alle 13 Flows gruen. P11 und
-P12 waren dabei jedoch vakuum-wahr: Ihre Regexe trafen den DFX-Seitentitel und
-nicht ein Kauf- oder Verkaufsformular. Danach wurden die Zielassertionen von
-P3, P6, P11 und P12 verschaerft; diese vier aktuellen Fassungen sind noch nicht
-erneut gefahren. Ein gruener
-Serienlauf mit dem Runner liegt ebenfalls noch nicht vor: Drei Serienlaeufe
-brachen ohne fehlgeschlagene Assertions im Vorlauf zusammen, einer davon liess
-den Simulator heruntergefahren und 428 Simulator-Prozesse zurueck. Die
-13-von-13-Messung ist deshalb weder ein gueltiger Nachweis fuer P11/P12 noch
-fuer die Serienfestigkeit des geaenderten Runners. Details und Grenzen stehen
-in `coverage.md`.
+Die aktuellen Fassungen aller 13 Flows wurden einzeln gruen gemessen. Auch der
+vollstaendige Serienlauf gegen die lokale API auf Stand DFXswiss/backend#5179
+mit `DFX_ENV=loc` war gruen: `Flows: 13, passed: 13, assertion failures: 0,
+aborted: 0` und `Suite outcome: passed`. P3 und P6 bestanden mit ihren engen
+Adressassertionen; P11 und P12 bestanden mit der aktuellen, identischen
+Uebergangsassertion. Gegen Produktion bleiben P11/P12 wegen
+`400 Invalid signature` rot. Der Kontrolllauf gegen einen Serverstand ohne
+#5179 fehlt weiterhin. Details und Grenzen stehen in `coverage.md`.
 
 Die genaue Zuordnung von Pfad, Flow und Assertion steht in `coverage.md`.
