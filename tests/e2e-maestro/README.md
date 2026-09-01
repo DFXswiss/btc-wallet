@@ -76,7 +76,11 @@ Nach Fehlern faehrt der Runner mit den restlichen Flows fort. Ein
 fehlgeschlagener Reset oder Bereitschaftscheck wird als Flow-Exit 125 und
 `run-aborted` aufgezeichnet. Fuer jeden Flow enthaelt
 `tests/e2e-maestro/last-run.json` Name, Exit-Code, Dauer und eines der Ergebnisse
-`passed`, `assertion-failed` oder `run-aborted`. Das Manifest und die
+`passed`, `assertion-failed` oder `run-aborted`. Die Unterscheidung der
+beiden Fehlerarten liest das Flow-Log und ist damit eine Heuristik: Sie ordnet
+den Fehler ein, entscheidet aber nicht ueber Erfolg. Beide Arten zaehlen als
+Fehlschlag und setzen den Suite-Exit auf 1, eine Fehlklassifikation kann einen
+roten Lauf also nicht gruen machen. Das Manifest und die
 Schlusszeile zaehlen erfolgreiche Flows, fehlgeschlagene Assertions und
 abgebrochene Laeufe getrennt. Sind alle Fehlschlaege Abbrueche, lautet das
 Suite-Ergebnis ausdruecklich `environment-error`; Assertions und Abbrueche
@@ -134,12 +138,12 @@ leerem Filter.
 
 ## Letzter gemessener Stand
 
-Vor der modusspezifischen Verschaerfung von P11/P12 wurden alle 13 Flows einzeln
-gruen gemessen. Auch der vollstaendige Serienlauf gegen die lokale API auf Stand
-DFXswiss/backend#5179 und die lokale Services-Instanz mit `DFX_ENV=loc` war
-gruen: `Flows: 13, passed: 13, assertion failures: 0, aborted: 0` und
-`Suite outcome: passed`. Die Hierarchie belegte anschliessend die Kauf- und
-Verkaufsmaske; die neuen disjunkten Assertions sind noch nicht gefahren. Gegen
+Die Fassungen dieses Stands - einschliesslich der modusspezifisch
+verschaerften P11/P12 - wurden als vollstaendige Serie gegen die lokale API auf
+Stand DFXswiss/backend#5179 und die lokale Services-Instanz mit `DFX_ENV=loc`
+gemessen: `Flows: 13, passed: 13, assertion failures: 0, aborted: 0` und
+`Suite outcome: passed`, jeder Flow einzeln `passed`. P11 erreicht dabei die
+Kaufmaske, P12 die Verkaufsmaske mit der IBAN-Zeile. Gegen
 Produktion bleiben P11/P12 wegen `400 Invalid signature` rot. Der Kontrolllauf
 gegen einen Serverstand ohne #5179 fehlt weiterhin. Details und Grenzen stehen
 in `coverage.md`.

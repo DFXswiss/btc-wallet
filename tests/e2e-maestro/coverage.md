@@ -1,20 +1,19 @@
 # Abdeckungsnachweis
 
-Die vor der modusspezifischen Verschaerfung von P11/P12 aktuellen Fassungen
-aller 13 Flows wurden einzeln gruen gemessen. Danach lief auch die vollstaendige
-Serie gegen eine lokale API auf Stand DFXswiss/backend#5179 und eine lokale
-Services-Instanz mit einem `DFX_ENV=loc`-Build gruen durch:
+Die hier beschriebenen Fassungen aller 13 Flows - einschliesslich der
+modusspezifisch verschaerften P11/P12 - wurden als vollstaendige Serie gegen eine
+lokale API auf Stand DFXswiss/backend#5179 und eine lokale Services-Instanz mit
+einem `DFX_ENV=loc`-Build gemessen:
 `Flows: 13, passed: 13, assertion failures: 0, aborted: 0` und
-`Suite outcome: passed`. Die API-Anmeldung ist mit mehrfach
+`Suite outcome: passed`, jeder Flow einzeln `passed`. Die API-Anmeldung ist mit mehrfach
 `POST /v1/auth/ 201` in den Logs belegt. Gegen Produktion bleiben P11/P12 rot,
 weil dieselbe Anmeldung dort `400 Invalid signature` liefert.
 
 Die Hierarchie zeigte im selben Stack fuer P11 die Kaufmaske mit `Kaufen` und
 `Formular`, fuer P12 die Verkaufsmaske mit
 `Deine IBAN hinzufügen oder auswählen`. P11 und P12 assertieren diese
-disjunkten Modusmarker jetzt zusaetzlich zum gemeinsamen DFX-Seitentitel. Diese
-neuen Assertions sind noch nicht gefahren; ein neues 13-von-13-Ergebnis wird
-damit nicht vorweggenommen.
+disjunkten Modusmarker zusaetzlich zum gemeinsamen DFX-Seitentitel; in dieser
+Fassung sind sie Teil des oben genannten Serienlaufs.
 
 Der reproduzierbare App-Build verwendet
 `REACT_APP_API_URL=http://127.0.0.1:3000/v1`,
@@ -46,8 +45,8 @@ Die Kamera und die optische QR-Erkennung selbst sind im Simulator nicht geprueft
 | P8 BOLT11 senden | `flows/08-send-bolt11-to-confirmation.yaml` | `dfxtaro:lightning:` erreicht fuer den abgelaufenen BOLT11 `250000`, Empfaenger, `Abgelaufen` und danach `Rechnung verfallen` | **gruen**, 2026-08-31, `9cde627127`; Dauer im uebermittelten Gesamtlauf nicht enthalten | Der `openLink`-Pfad und alle genannten Zielassertions wurden erreicht. Eine Zahlung wird mit dem absichtlich abgelaufenen Vektor nicht ausgefuehrt. |
 | P9 LNURL-Pay | `flows/09-send-lnurl-pay.yaml` | Gekuerztes Ziel `lnurl1dp68gurn8ghj…`, `Lightning (Spark)`, `Senden`, `Gebühr`, `MAX`, `Note` und `Weiter` gemeinsam sichtbar | **gruen im Einzellauf und im aktuellen Serienlauf**; Dauer und Datum nicht uebermittelt | Der Flow endet in der Betragseingabe des LNURL-Pay-Screens; die Zahlung selbst wird nicht ausgefuehrt. |
 | P10 LNURL-Auth | `flows/10-lnurl-auth.yaml` | `dfxtaro:lightning:` erreicht Domain, Authentifizierungsfrage und definierte Spark-Ablehnung | **gruen**, 2026-08-31, `9cde627127`; Dauer im uebermittelten Gesamtlauf nicht enthalten | Der `openLink`-Pfad, der Authentifizierungs-Prompt und die definierte Spark-Ablehnung wurden erreicht. Erfolgreiche Authentifizierung bleibt ungeprueft. |
-| P11 DFX Kaufen / Kaufmaske | `flows/11-dfx-buy-transition.yaml` | Exakter DFX-Seitentitel, `Kaufen` und `Formular` sichtbar; Login und `Invalid signature` nicht sichtbar | **Kaufmaske im Hierarchie-Dump gemessen**; die neue modusspezifische Assertion ist noch ungefahren | Belegt nach dem naechsten Lauf die erreichte Kaufmaske im lokalen Stack. Eingabe und Kaufabschluss bleiben ungeprueft. Gegen Produktion bleibt der Login-Schritt beziehungsweise `400 Invalid signature`. |
-| P12 DFX Verkaufen / Verkaufsmaske | `flows/12-dfx-sell-transition.yaml` | Exakter DFX-Seitentitel und `Deine IBAN hinzufügen oder auswählen` sichtbar; Login und `Invalid signature` nicht sichtbar | **Verkaufsmaske im Hierarchie-Dump gemessen**; die neue modusspezifische Assertion ist noch ungefahren | Belegt nach dem naechsten Lauf die erreichte Verkaufsmaske im lokalen Stack. IBAN-Auswahl und Verkaufsabschluss bleiben ungeprueft. Gegen Produktion bleibt der Login-Schritt beziehungsweise `400 Invalid signature`. |
+| P11 DFX Kaufen / Kaufmaske | `flows/11-dfx-buy-transition.yaml` | Exakter DFX-Seitentitel, `Kaufen` und `Formular` sichtbar; Login und `Invalid signature` nicht sichtbar | **Gruen im Serienlauf gegen den lokalen Stack** | Belegt die erreichte Kaufmaske im lokalen Stack. Eingabe und Kaufabschluss bleiben ungeprueft. Gegen Produktion bleibt der Login-Schritt beziehungsweise `400 Invalid signature`. |
+| P12 DFX Verkaufen / Verkaufsmaske | `flows/12-dfx-sell-transition.yaml` | Exakter DFX-Seitentitel und `Deine IBAN hinzufügen oder auswählen` sichtbar; Login und `Invalid signature` nicht sichtbar | **Gruen im Serienlauf gegen den lokalen Stack** | Belegt die erreichte Verkaufsmaske im lokalen Stack. IBAN-Auswahl und Verkaufsabschluss bleiben ungeprueft. Gegen Produktion bleibt der Login-Schritt beziehungsweise `400 Invalid signature`. |
 | P13 Lightning-Eintrag in Einstellungen | `flows/13-settings-lightning-entry.yaml` | Zielscreen zeigt `Wallet` und `Breez Spark` | **gruen**, 32 s — 2026-08-31, `9cde627127` | Endet im zugeordneten Wallet-Detail-Screen. |
 
 ## DFX-Vergleichsmessungen fuer P11/P12
