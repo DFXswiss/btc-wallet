@@ -91,8 +91,8 @@ leerem Filter.
 ## Bewusste Grenzen
 
 - P8–P10 senden kein Geld. P8 prueft mit einem reproduzierbaren, abgelaufenen
-  BOLT11-Vektor Parsing, Betrag, Empfaengerdarstellung und den erwarteten
-  Ablauf-Fehler. P9 erfasst die in demselben Flow erzeugte Lightning-Adresse,
+  BOLT11-Vektor Parsing, Betrag, die Darstellung der Rechnung selbst
+  (`lnbc2500u`) und den erwarteten Ablauf-Fehler. P9 erfasst die in demselben Flow erzeugte Lightning-Adresse,
   kodiert ihr LNURL-Pay-Ziel und endet bei der Betragseingabe. P10 prueft
   den Authentifizierungs-Prompt und die fuer Spark erwartete Ablehnung. Alle
   drei uebergeben den QR-Inhalt per `openLink` an den registrierten Deeplink;

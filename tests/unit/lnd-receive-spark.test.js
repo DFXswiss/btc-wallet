@@ -506,6 +506,44 @@ describe('LNDReceive with SparkWallet', () => {
     screen.unmount();
   });
 
+  it('does not create a Lightning invoice when an in-flight poll tick expires after switching to on-chain', async () => {
+    const wallet = makeSparkReceiveWallet('spark-receive-1');
+    wallet.depositAddress = 'bc1qtestonchain';
+    let resolvePoll;
+    jest.spyOn(wallet, 'getUserInvoices').mockImplementation(limit => {
+      if (limit === 1) return Promise.resolve([]);
+      return new Promise(resolve => {
+        resolvePoll = resolve;
+      });
+    });
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    expect(mockSdk.receivePayment).toHaveBeenCalledTimes(1);
+    await advanceTimers(1000);
+    assert.strictEqual(invoiceIntervalCount(), 1);
+    await advanceTimers(3000);
+    expect(typeof resolvePoll).toBe('function');
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
+      resolvePoll([
+        {
+          payment_request: SAMPLE_INVOICE,
+          ispaid: false,
+          timestamp: 1,
+          expire_time: 1,
+        },
+      ]);
+      await Promise.resolve();
+    });
+
+    expect(mockSdk.receivePayment).toHaveBeenCalledTimes(1);
+    assert.strictEqual(invoiceIntervalCount(), 0);
+    expect(screen.getByText('bc1qtestonchain')).toBeTruthy();
+    expect(screen.queryByTestId('SuccessView')).toBeNull();
+    screen.unmount();
+  });
+
   it('rebuilds the Lightning invoice when returning from on-chain with an amount', async () => {
     const wallet = makeSparkReceiveWallet('spark-receive-1');
     wallet.depositAddress = 'bc1qtestonchain';

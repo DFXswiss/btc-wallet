@@ -357,6 +357,7 @@ const LNDReceive = () => {
                     testID="SparkReceiveLightning"
                     onPress={() => {
                       if (receiveMethod === 'lightning') return;
+                      receiveMethodRef.current = 'lightning';
                       setReceiveMethod('lightning');
                       if (amountSats > 0) {
                         generateInvoice();
@@ -382,6 +383,7 @@ const LNDReceive = () => {
                       if (!(typeof wallet?.depositAddress === 'string' && wallet.depositAddress)) {
                         setIsOnchainLoading(true);
                       }
+                      receiveMethodRef.current = 'onchain';
                       setReceiveMethod('onchain');
                     }}
                     style={[styles.methodSwitchTab, receiveMethod === 'onchain' && styleHooks.methodSwitchTabActive]}

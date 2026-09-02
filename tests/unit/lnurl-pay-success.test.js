@@ -76,7 +76,7 @@ describe('LnurlPaySuccess', () => {
     expect(mockPopToTop).toHaveBeenCalledTimes(1);
   });
 
-  it('uses the passed LNURL when storage has no successful payment', async () => {
+  it('uses the passed LNURL pay display object when storage has no successful payment', async () => {
     jest.spyOn(Lnurl.prototype, 'loadSuccessfulPayment').mockResolvedValue(false);
     const screen = renderSuccess({
       lnurlPay: {
