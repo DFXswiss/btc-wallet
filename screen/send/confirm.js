@@ -111,7 +111,11 @@ const Confirm = () => {
     try {
       const txids2watch = [];
       if (!isPayjoinEnabled) {
-        await broadcast(tx);
+        const didBroadcast = await broadcast(tx);
+        if (!didBroadcast) {
+          setIsLoading(false);
+          return;
+        }
       } else {
         const payJoinWallet = new PayjoinTransaction(psbt, txHex => broadcast(txHex), wallet);
         const paymentScript = getPaymentScript();
@@ -162,7 +166,7 @@ const Confirm = () => {
 
     if (isBiometricUseCapableAndEnabled) {
       if (!(await Biometric.unlockWithBiometrics())) {
-        return;
+        return false;
       }
     }
 

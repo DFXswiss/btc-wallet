@@ -28,13 +28,13 @@ const PsbtMultisig = () => {
   const { colors } = useTheme();
   const [flatListHeight, setFlatListHeight] = useState(0);
   const { walletID, psbtBase64, receivedPSBTBase64, launchedBy } = useRoute().params;
-  const [hasSigned, setHasSigned] = useState(isTxSigned);
-  const [isSignign, setIsSigning] = useState(false);
-  const [isBroadcasting, setIsBroadcasting] = useState(false);
-  const [isBiometricUseCapableAndEnabled, setIsBiometricUseCapableAndEnabled] = useState(false);
   /** @type MultisigHDWallet */
   const wallet = wallets.find(w => w.getID() === walletID);
   const [psbt, setPsbt] = useState(bitcoin.Psbt.fromBase64(psbtBase64));
+  const [hasSigned, setHasSigned] = useState(Boolean(psbt && wallet.hasCosignerSignedPSBT(psbt)));
+  const [isSignign, setIsSigning] = useState(false);
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [isBiometricUseCapableAndEnabled, setIsBiometricUseCapableAndEnabled] = useState(false);
   const data = new Array(wallet.getM());
   const stylesHook = StyleSheet.create({
     root: {
@@ -162,7 +162,7 @@ const PsbtMultisig = () => {
 
     if (isBiometricUseCapableAndEnabled) {
       if (!(await Biometric.unlockWithBiometrics())) {
-        return;
+        return false;
       }
     }
 
@@ -175,7 +175,10 @@ const PsbtMultisig = () => {
   };
 
   const send = async (tx, fee) => {
-    await broadcast(tx);
+    const didBroadcast = await broadcast(tx);
+    if (!didBroadcast) {
+      return;
+    }
     const txid = bitcoin.Transaction.fromHex(tx).getId();
     majorTomToGroundControl([], [], [txid]);
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
