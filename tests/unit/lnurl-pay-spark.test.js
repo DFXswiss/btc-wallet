@@ -112,6 +112,12 @@ const { BlueDarkTheme } = require('../../components/themes');
 const SAMPLE_INVOICE =
   'lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp';
 const SPARK_INVOICE = bech32m.encode('spark', bech32m.toWords(Buffer.from('dfx reusable sats invoice')), 10000);
+const LNURL_PAY_SUCCESS_DISPLAY = {
+  domain: 'example.com',
+  description: 'tea',
+  lnurl: 'LNURL1TEST',
+  repeatable: false,
+};
 
 function makeWallet() {
   const wallet = SparkWallet.create('pk-pay');
@@ -523,6 +529,10 @@ describe('LnurlPay Spark pending send', () => {
     const storageError = new Error('storage unavailable');
     jest.spyOn(Lnurl.prototype, 'callLnurlPayService').mockResolvedValue({ description: 'tea', domain: 'example.com' });
     jest.spyOn(Lnurl.prototype, 'getDomain').mockReturnValue('example.com');
+    jest.spyOn(Lnurl.prototype, 'getDescription').mockReturnValue('tea');
+    jest.spyOn(Lnurl.prototype, 'getImage').mockReturnValue(undefined);
+    jest.spyOn(Lnurl.prototype, 'getDisposable').mockReturnValue(true);
+    jest.spyOn(Lnurl.prototype, 'getSuccessAction').mockReturnValue(undefined);
     jest.spyOn(Lnurl.prototype, 'getCommentAllowed').mockReturnValue(false);
     jest.spyOn(Lnurl.prototype, 'requestBolt11FromLnurlPayService').mockResolvedValue({ pr: SAMPLE_INVOICE });
     const storeSuccess = jest.spyOn(Lnurl.prototype, 'storeSuccess').mockRejectedValue(storageError);
@@ -557,7 +567,7 @@ describe('LnurlPay Spark pending send', () => {
         paymentHash: decoded.payment_hash,
         justPaid: true,
         fromWalletID: 'spark-pay-1',
-        lnurlPay: expect.any(Lnurl),
+        lnurlPay: LNURL_PAY_SUCCESS_DISPLAY,
       },
     });
     expect(alert).not.toHaveBeenCalled();
@@ -657,6 +667,10 @@ describe('LnurlPay remaining payment paths', () => {
   function mockLnurlPay({ domain = 'example.com', description = 'tea', image, getMin, getCommentAllowed } = {}) {
     jest.spyOn(Lnurl.prototype, 'callLnurlPayService').mockResolvedValue({ description, domain, image });
     jest.spyOn(Lnurl.prototype, 'getDomain').mockReturnValue(domain);
+    jest.spyOn(Lnurl.prototype, 'getDescription').mockReturnValue(description);
+    jest.spyOn(Lnurl.prototype, 'getImage').mockReturnValue(image);
+    jest.spyOn(Lnurl.prototype, 'getDisposable').mockReturnValue(true);
+    jest.spyOn(Lnurl.prototype, 'getSuccessAction').mockReturnValue(undefined);
     jest.spyOn(Lnurl.prototype, 'getCommentAllowed').mockReturnValue(getCommentAllowed ?? false);
     jest.spyOn(Lnurl.prototype, 'getMin').mockReturnValue(getMin ?? 1);
     jest.spyOn(Lnurl.prototype, 'requestBolt11FromLnurlPayService').mockResolvedValue({ pr: SAMPLE_INVOICE });
@@ -841,7 +855,7 @@ describe('LnurlPay remaining payment paths', () => {
         fee: 2,
         justPaid: true,
         fromWalletID: 'spark-pay-1',
-        lnurlPay: expect.any(Lnurl),
+        lnurlPay: LNURL_PAY_SUCCESS_DISPLAY,
       },
     });
   });
@@ -878,7 +892,7 @@ describe('LnurlPay remaining payment paths', () => {
           fee: 2,
           justPaid: true,
           fromWalletID: 'spark-pay-1',
-          lnurlPay: expect.any(Lnurl),
+          lnurlPay: LNURL_PAY_SUCCESS_DISPLAY,
         },
       }),
     );
@@ -910,7 +924,7 @@ describe('LnurlPay remaining payment paths', () => {
           fee: 2,
           justPaid: true,
           fromWalletID: 'spark-pay-1',
-          lnurlPay: expect.any(Lnurl),
+          lnurlPay: LNURL_PAY_SUCCESS_DISPLAY,
         },
       }),
     );
@@ -1135,7 +1149,7 @@ describe('LnurlPay remaining payment paths', () => {
         paymentHash: decoded.payment_hash,
         justPaid: true,
         fromWalletID: 'spark-pay-1',
-        lnurlPay: expect.any(Lnurl),
+        lnurlPay: LNURL_PAY_SUCCESS_DISPLAY,
       },
     });
     expect(reportError).not.toHaveBeenCalled();

@@ -19,6 +19,7 @@ import {
 import navigationStyle from '../../components/navigationStyle';
 import AmountInput from '../../components/AmountInput';
 import Lnurl from '../../class/lnurl';
+import { lnurlPaySuccessDisplay } from './lnurlPaySuccess';
 import { randomBytes } from '../../class/rng';
 import { LightningCustodianWallet } from '../../class/wallets/lightning-custodian-wallet';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
@@ -178,7 +179,7 @@ const LnurlPay = () => {
         ...(fee === undefined ? {} : { fee }),
         justPaid: true,
         fromWalletID: walletID,
-        ...(LN ? { lnurlPay: LN } : {}),
+        ...(LN ? { lnurlPay: lnurlPaySuccessDisplay(LN) } : {}),
       },
     });
   };

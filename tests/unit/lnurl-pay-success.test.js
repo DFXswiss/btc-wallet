@@ -27,6 +27,7 @@ jest.mock('@react-navigation/native', () => {
 });
 
 const LnurlPaySuccess = require('../../screen/lnd/lnurlPaySuccess').default;
+const { lnurlPaySuccessDisplay } = require('../../screen/lnd/lnurlPaySuccess');
 const Lnurl = require('../../class/lnurl').default;
 const loc = require('../../loc').default;
 const alert = require('../../components/Alert');
@@ -77,6 +78,27 @@ describe('LnurlPaySuccess', () => {
 
   it('uses the passed LNURL when storage has no successful payment', async () => {
     jest.spyOn(Lnurl.prototype, 'loadSuccessfulPayment').mockResolvedValue(false);
+    const screen = renderSuccess({
+      lnurlPay: {
+        domain: 'merchant.example',
+        description: 'tea for two',
+        preamble: 'your code',
+        message: '1234',
+        repeatable: false,
+      },
+    });
+
+    await waitFor(() => expect(screen.getByText('merchant.example')).toBeTruthy());
+    expect(Lnurl.prototype.loadSuccessfulPayment).toHaveBeenCalledWith('hash-1');
+    expect(screen.getByText('tea for two')).toBeTruthy();
+    expect(screen.getByText('your code')).toBeTruthy();
+    expect(screen.getByText('1234')).toBeTruthy();
+    expect(screen.getByTestId('SuccessView')).toBeTruthy();
+    expect(screen.UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0);
+  });
+
+  it('does not put the preimage on the fallback LNURL payload', () => {
+    const preimage = 'bf62911aa53c017c27ba34391f694bc8bf8aaf59b4ebfd9020e66ac0412e189b';
     const lnurlPay = new Lnurl('LNURL1TEST');
     lnurlPay._lnurlPayServicePayload = {
       domain: 'merchant.example',
@@ -91,16 +113,23 @@ describe('LnurlPaySuccess', () => {
       },
       disposable: true,
     };
-    lnurlPay._preimage = 'bf62911aa53c017c27ba34391f694bc8bf8aaf59b4ebfd9020e66ac0412e189b';
+    lnurlPay._preimage = preimage;
+    lnurlPay._AsyncStorage = function fakeStorage() {};
 
-    const screen = renderSuccess({ lnurlPay });
+    const payload = lnurlPaySuccessDisplay(lnurlPay);
 
-    await waitFor(() => expect(screen.getByText('merchant.example')).toBeTruthy());
-    expect(Lnurl.prototype.loadSuccessfulPayment).toHaveBeenCalledWith('hash-1');
-    expect(screen.getByText('tea for two')).toBeTruthy();
-    expect(screen.getByText('your code')).toBeTruthy();
-    expect(screen.getByText('1234')).toBeTruthy();
-    expect(screen.getByTestId('SuccessView')).toBeTruthy();
-    expect(screen.UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0);
+    expect(payload).not.toBeInstanceOf(Lnurl);
+    expect(payload).not.toHaveProperty('_preimage');
+    expect(payload).not.toHaveProperty('preimage');
+    expect(payload).not.toHaveProperty('_AsyncStorage');
+    expect(JSON.stringify(payload)).not.toContain(preimage);
+    expect(payload).toEqual({
+      domain: 'merchant.example',
+      description: 'tea for two',
+      lnurl: 'LNURL1TEST',
+      repeatable: false,
+      preamble: 'your code',
+      message: '1234',
+    });
   });
 });

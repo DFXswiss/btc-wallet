@@ -20,6 +20,44 @@ import { SuccessView } from '../send/success';
 import alert from '../../components/Alert';
 import { reportError } from '../../helpers/errors';
 
+/** Serializable success-screen fields. AES actions are decrypted here so the preimage never enters navigation params. */
+export function lnurlPaySuccessDisplay(LN) {
+  const display = {
+    repeatable: !LN.getDisposable(),
+  };
+
+  const domain = LN.getDomain();
+  if (domain) display.domain = domain;
+
+  const description = LN.getDescription();
+  if (description) display.description = description;
+
+  const image = LN.getImage();
+  if (image) display.image = image;
+
+  const lnurl = LN.getLnurl();
+  if (typeof lnurl === 'string' && lnurl) display.lnurl = lnurl;
+
+  const successAction = LN.getSuccessAction();
+  if (!successAction) return display;
+
+  switch (successAction.tag) {
+    case 'aes':
+      display.preamble = successAction.description;
+      display.message = Lnurl.decipherAES(successAction.ciphertext, LN.getPreimage(), successAction.iv);
+      break;
+    case 'url':
+      display.preamble = successAction.description;
+      display.url = successAction.url;
+      break;
+    case 'message':
+      display.message = successAction.message;
+      break;
+  }
+
+  return display;
+}
+
 export default class LnurlPaySuccess extends Component {
   constructor(props) {
     super(props);
@@ -39,32 +77,22 @@ export default class LnurlPaySuccess extends Component {
   }
 
   applySuccessfulPayment(LN) {
-    const successAction = LN.getSuccessAction();
-    if (!successAction) {
-      this.setState({ isLoading: false, LN });
-      return;
-    }
+    this.setState({ isLoading: false, hasDisplay: true, ...lnurlPaySuccessDisplay(LN) });
+  }
 
-    const newState = { LN, isLoading: false };
-
-    switch (successAction.tag) {
-      case 'aes': {
-        const preimage = LN.getPreimage();
-        newState.message = Lnurl.decipherAES(successAction.ciphertext, preimage, successAction.iv);
-        newState.preamble = successAction.description;
-        break;
-      }
-      case 'url':
-        newState.url = successAction.url;
-        newState.preamble = successAction.description;
-        break;
-      case 'message':
-        this.setState({ message: successAction.message });
-        newState.message = successAction.message;
-        break;
-    }
-
-    this.setState(newState);
+  applyFallbackDisplay(display) {
+    this.setState({
+      isLoading: false,
+      hasDisplay: true,
+      domain: display.domain,
+      description: display.description,
+      image: display.image,
+      lnurl: display.lnurl,
+      repeatable: display.repeatable,
+      preamble: display.preamble,
+      message: display.message,
+      url: display.url,
+    });
   }
 
   async componentDidMount() {
@@ -76,9 +104,9 @@ export default class LnurlPaySuccess extends Component {
         return;
       }
 
-      const fallbackLnurl = this.props.route.params.lnurlPay;
-      if (fallbackLnurl) {
-        this.applySuccessfulPayment(fallbackLnurl);
+      const fallbackDisplay = this.props.route.params.lnurlPay;
+      if (fallbackDisplay) {
+        this.applyFallbackDisplay(fallbackDisplay);
         return;
       }
 
@@ -95,7 +123,7 @@ export default class LnurlPaySuccess extends Component {
       return <BlueLoading />;
     }
 
-    if (!this.state.LN) {
+    if (!this.state.hasDisplay) {
       const { justPaid, fee } = this.state;
       return (
         <SafeBlueArea style={styles.root}>
@@ -114,14 +142,7 @@ export default class LnurlPaySuccess extends Component {
       );
     }
 
-    /** @type {Lnurl} */
-    const LN = this.state.LN;
-    const domain = LN.getDomain();
-    const repeatable = !LN.getDisposable();
-    const lnurl = LN.getLnurl();
-    const description = LN.getDescription();
-    const image = LN.getImage();
-    const { preamble, message, url, justPaid, fee } = this.state;
+    const { domain, description, image, lnurl, repeatable, preamble, message, url, justPaid, fee } = this.state;
 
     return (
       <SafeBlueArea style={styles.root}>
@@ -197,7 +218,16 @@ LnurlPaySuccess.propTypes = {
       fromWalletID: PropTypes.string.isRequired,
       fee: PropTypes.number,
       justPaid: PropTypes.bool.isRequired,
-      lnurlPay: PropTypes.object,
+      lnurlPay: PropTypes.shape({
+        domain: PropTypes.string,
+        description: PropTypes.string,
+        image: PropTypes.string,
+        lnurl: PropTypes.string,
+        repeatable: PropTypes.bool,
+        preamble: PropTypes.string,
+        message: PropTypes.string,
+        url: PropTypes.string,
+      }),
     }),
   }),
 };
