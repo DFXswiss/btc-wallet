@@ -128,9 +128,10 @@ function swapInfo(address) {
   };
 }
 
-function renderScreen(Component, wallet) {
+function renderScreen(Component, walletOrWallets) {
+  const wallets = Array.isArray(walletOrWallets) ? walletOrWallets : [walletOrWallets];
   return render(
-    <BlueStorageContext.Provider value={{ wallets: [wallet], sleep: jest.fn() }}>
+    <BlueStorageContext.Provider value={{ wallets, sleep: jest.fn() }}>
       <Component />
     </BlueStorageContext.Provider>,
   );
@@ -224,5 +225,27 @@ describe('DFX Spark invoice navigation', () => {
       'LnurlPay',
       { lnurl: SPARK_INVOICE, walletID: 'lds-dfx-wallet', amountSat: AMOUNT_SATS },
     ]);
+  });
+});
+
+describe('DFX swap Lightning wallet selection', () => {
+  it('prefers the LDS wallet over Spark when both are present, even if Spark is listed first', async () => {
+    const ldsDeposit = 'LNURL-LDS-DEPOSIT';
+    const sparkDeposit = 'LNURL-SPARK-DEPOSIT';
+    mockSwapGetInfo.mockImplementation(async walletId => {
+      if (walletId === 'lds-dfx-wallet') return swapInfo(ldsDeposit);
+      if (walletId === 'spark-dfx-wallet') return swapInfo(sparkDeposit);
+      return null;
+    });
+    mockRouteParams['wallet-id'] = 'lds-dfx-wallet';
+
+    const screen = renderScreen(Swap, [makeSparkWallet(), makeLdsWallet()]);
+
+    await waitFor(() => screen.getByTestId(`Button-${loc.swap.confirm}`));
+    expect(screen.getByText(ldsDeposit)).toBeTruthy();
+    expect(screen.queryByText(sparkDeposit)).toBeNull();
+    const requestedWalletIds = mockSwapGetInfo.mock.calls.map(call => call[0]);
+    expect(requestedWalletIds).toContain('lds-dfx-wallet');
+    expect(requestedWalletIds).not.toContain('spark-dfx-wallet');
   });
 });

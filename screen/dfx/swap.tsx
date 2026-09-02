@@ -44,7 +44,12 @@ const Swap = () => {
   const [changeAddress, setChangeAddress] = useState<string>();
 
   const { walletID: onchainWalletId } = useWalletContext();
-  const lnWallet = useMemo(() => wallets.find((w: AbstractWallet) => w.type === LightningLdsWallet.type || w.type === SparkWallet.type), [wallets]);
+  const lnWallet = useMemo(
+    () =>
+      wallets.find((w: AbstractWallet) => w.type === LightningLdsWallet.type) ||
+      wallets.find((w: AbstractWallet) => w.type === SparkWallet.type),
+    [wallets],
+  );
 
   const stylesHook = StyleSheet.create({
     container: {
