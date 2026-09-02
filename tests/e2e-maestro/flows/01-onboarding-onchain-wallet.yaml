@@ -4,4 +4,3 @@ appId: swiss.dfx.bitcoin
 - assertVisible: 'Wallet Backup'
 - assertVisible: '.*On-Chain-Wallet.*'
 - assertVisible: '.*Lightning-Wallet.*'
-
