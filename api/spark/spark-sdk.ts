@@ -180,6 +180,7 @@ export function acquireSparkSessionLease(): SparkSessionLease {
 }
 
 async function teardownInstance(instance: BreezSdkInterface, id: string | null): Promise<void> {
+  const epoch = lifecycleEpoch;
   teardownInFlight = true;
   try {
     if (id) {
@@ -193,18 +194,37 @@ async function teardownInstance(instance: BreezSdkInterface, id: string | null):
       }
     }
 
+    if (epoch !== lifecycleEpoch) {
+      discardStaleInstance(instance);
+      return;
+    }
+
     try {
       await instance.disconnect();
+      if (epoch !== lifecycleEpoch) {
+        discardStaleInstance(instance);
+        return;
+      }
       poisonedSdk = null;
       listenerId = null;
     } catch (e) {
       // Native session may still hold storageDir. Keep the instance and listener id
       // so the next connect can retry both teardown steps against the same directory.
       console.warn('disconnectSparkSdk: disconnect failed', errorKind(e));
+      if (epoch !== lifecycleEpoch) {
+        discardStaleInstance(instance);
+        return;
+      }
       poisonedSdk = instance;
     }
   } finally {
-    teardownInFlight = false;
+    // A timed-out teardown keeps running natively. abandonOnTimeout already
+    // released this flag; a later session may have set it again. Clearing it
+    // here on a stale epoch would unblock a connect while that session is
+    // still tearing down.
+    if (epoch === lifecycleEpoch) {
+      teardownInFlight = false;
+    }
   }
 }
 
