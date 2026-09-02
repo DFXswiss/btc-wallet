@@ -282,7 +282,11 @@ const LNDReceive = () => {
           return;
         }
         initInvoicePolling(invoiceRequest, decoded.payment_hash);
-        await saveToDisk();
+        try {
+          await saveToDisk();
+        } catch (error) {
+          reportError('lndReceive: failed to persist invoice', error);
+        }
       }, 1000);
 
       setInvoiceRequest(invoiceRequest);

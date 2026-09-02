@@ -224,13 +224,13 @@ function makeLdsReceiveWallet(id) {
   };
 }
 
-function renderReceive(wallet) {
+function renderReceive(wallet, extra = {}) {
   mockRouteParams.walletID = wallet.getID();
   return render(
     <BlueStorageContext.Provider
       value={{
         wallets: [wallet],
-        saveToDisk: jest.fn().mockResolvedValue(undefined),
+        saveToDisk: extra.saveToDisk || jest.fn().mockResolvedValue(undefined),
         setSelectedWallet: jest.fn(),
         fetchAndSaveWalletTransactions: jest.fn(),
       }}
@@ -836,6 +836,36 @@ describe('LNDReceive with SparkWallet', () => {
     screen.unmount();
   });
 
+  it('reports when persisting the created invoice from the timer fails', async () => {
+    const wallet = makeLdsReceiveWallet('lds-receive-save-err');
+    const saveError = new Error('disk full');
+    const saveToDisk = jest.fn().mockRejectedValue(saveError);
+    const alertSpy = jest.spyOn(global, 'alert').mockImplementation(() => {});
+    const scheduled = [];
+    const setTimeoutSpy = jest.spyOn(global, 'setTimeout').mockImplementation((cb, ms, ...rest) => {
+      if (typeof cb === 'function' && ms === 1000) {
+        scheduled.push(cb);
+        return 1000;
+      }
+      return realSetTimeout(cb, ms, ...rest);
+    });
+    try {
+      const screen = renderReceive(wallet, { saveToDisk });
+      await createInvoice(screen);
+      expect(scheduled).toHaveLength(1);
+      await act(async () => {
+        await scheduled[0]();
+      });
+      expect(reportError).toHaveBeenCalledWith('lndReceive: failed to persist invoice', saveError);
+      expect(alertSpy).not.toHaveBeenCalled();
+      assert.strictEqual(invoiceIntervalCount(), 1);
+      screen.unmount();
+    } finally {
+      setTimeoutSpy.mockRestore();
+      alertSpy.mockRestore();
+    }
+  });
+
   it('pops to the top of the parent stack from the paid Done button', async () => {
     const wallet = SparkWallet.create('pk-receive-1');
     wallet.getID = () => 'spark-receive-1';
@@ -1011,6 +1041,7 @@ describe('LNDReceive with SparkWallet', () => {
 
   it('ignores a prefetch that finishes after unmount', async () => {
     const wallet = makeLdsReceiveWallet('lds-receive-stale-prefetch');
+    const saveToDisk = jest.fn().mockResolvedValue(undefined);
     let resolvePrefetch;
     wallet.getUserInvoices.mockImplementation(limit => {
       if (limit === 1) {
@@ -1020,7 +1051,7 @@ describe('LNDReceive with SparkWallet', () => {
       }
       return Promise.resolve([]);
     });
-    const screen = renderReceive(wallet);
+    const screen = renderReceive(wallet, { saveToDisk });
     await createInvoice(screen);
     await advanceTimers(1000);
     screen.unmount();
@@ -1031,6 +1062,7 @@ describe('LNDReceive with SparkWallet', () => {
     });
 
     assert.strictEqual(invoiceIntervalCount(), 0);
+    expect(saveToDisk).not.toHaveBeenCalled();
   });
 
   it('creates an invoice with the typed description when the description field blurs', async () => {
@@ -1738,6 +1770,40 @@ describe('LNDCreateInvoice with SparkWallet', () => {
       });
       expect(wallet.fetchUserInvoices).toHaveBeenCalledWith(1);
       expect(saveToDisk.mock.calls.length).toBeGreaterThan(1);
+    } finally {
+      setTimeoutSpy.mockRestore();
+    }
+  });
+
+  it('reports when refetching the created invoice from the timer fails', async () => {
+    const wallet = makeCreateWallet();
+    const fetchError = new Error('lndhub down');
+    wallet.fetchUserInvoices.mockRejectedValue(fetchError);
+    const screen = renderCreateInvoiceScreen(wallet);
+
+    await waitFor(() => screen.getByTestId('SetCustomAmountButton'));
+    fireEvent.press(screen.getByTestId('SetCustomAmountButton'));
+    fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '1000');
+    const scheduled = [];
+    const setTimeoutSpy = jest.spyOn(global, 'setTimeout').mockImplementation((cb, ms, ...rest) => {
+      if (typeof cb === 'function' && ms === 1000) {
+        scheduled.push(cb);
+        return 1000;
+      }
+      return realSetTimeout(cb, ms, ...rest);
+    });
+    try {
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('CustomAmountSaveButton'));
+        await Promise.resolve();
+      });
+      expect(scheduled).toHaveLength(1);
+      await act(async () => {
+        await scheduled[0]();
+      });
+      expect(reportError).toHaveBeenCalledWith('lndCreateInvoice: failed to persist invoice', fetchError);
+      expect(Alert.alert).not.toHaveBeenCalled();
+      expect(mockNavigate).toHaveBeenCalledWith('LNDViewInvoice', { invoice: SAMPLE_INVOICE, walletID: wallet.getID() });
     } finally {
       setTimeoutSpy.mockRestore();
     }

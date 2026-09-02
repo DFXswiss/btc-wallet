@@ -193,8 +193,12 @@ const LNDCreateInvoice = () => {
 
       setTimeout(async () => {
         // wallet object doesnt have this fresh invoice in its internals, so we refetch it and only then save
-        await wallet.current.fetchUserInvoices(1);
-        await saveToDisk();
+        try {
+          await wallet.current.fetchUserInvoices(1);
+          await saveToDisk();
+        } catch (e) {
+          reportError('lndCreateInvoice: failed to persist invoice', e);
+        }
       }, 1000);
 
       dismissCustomAmountModal();
