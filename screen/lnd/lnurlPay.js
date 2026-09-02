@@ -170,7 +170,7 @@ const LnurlPay = () => {
     setPayButtonDisabled(isLoading);
   }, [isLoading]);
 
-  const navigateLnurlSuccess = (paymentHash, fee) => {
+  const navigateLnurlSuccess = (paymentHash, fee, LN) => {
     navigate('SendDetailsRoot', {
       screen: 'LnurlPaySuccess',
       params: {
@@ -178,6 +178,7 @@ const LnurlPay = () => {
         ...(fee === undefined ? {} : { fee }),
         justPaid: true,
         fromWalletID: walletID,
+        ...(LN ? { lnurlPay: LN } : {}),
       },
     });
   };
@@ -192,7 +193,7 @@ const LnurlPay = () => {
         reportError('lnurlPay: failed to store LNURL success', error);
       }
     }
-    navigateLnurlSuccess(paymentHash, fee);
+    navigateLnurlSuccess(paymentHash, fee, LN);
   };
 
   const finishInvoiceSuccess = (amountSats, fee, decoded) => {
@@ -224,7 +225,7 @@ const LnurlPay = () => {
       if (watching.kind === 'lnurl') {
         finishLnurlSuccess(watching.paymentHash, watching.fee, watching.LN).catch(error => {
           reportError('lnurlPay: failed to store LNURL success', error);
-          navigateLnurlSuccess(watching.paymentHash, watching.fee);
+          navigateLnurlSuccess(watching.paymentHash, watching.fee, watching.LN);
         });
       } else if (watching.kind === 'sparkInvoice') {
         releaseSparkPaymentSeed(watching.seedStorageKey).then(() =>

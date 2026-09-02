@@ -34,7 +34,11 @@ appId: swiss.dfx.bitcoin
     timeout: 30000
 # Der sichtbare BOLT11-Text wird nur im QR-Zweig gerendert. Das QR-Canvas
 # selbst hat im Produktionscode weder testID noch accessibilityLabel.
-# 1000 Sat stehen im HRP als lnbc10u (Fixture tests/unit/deeplink-schema-match.test.js).
+# Die App übergibt dem SDK nur amountSats (class/wallets/spark-wallet.ts);
+# die HRP-Notation (1000 Sat → lnbc10u) setzt das SDK, nicht die App
+# (Fixture tests/unit/deeplink-schema-match.test.js). Wechselt das SDK die
+# Kodierung, diese Assertion und die Fixture nachziehen — der Flow selbst
+# bleibt gültig.
 - assertVisible: '.*lnbc10u1.*'
 - assertVisible: '1000'
 - assertVisible: 'Maestro-E2E'

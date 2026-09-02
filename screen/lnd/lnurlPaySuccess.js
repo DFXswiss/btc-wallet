@@ -38,41 +38,51 @@ export default class LnurlPaySuccess extends Component {
     };
   }
 
+  applySuccessfulPayment(LN) {
+    const successAction = LN.getSuccessAction();
+    if (!successAction) {
+      this.setState({ isLoading: false, LN });
+      return;
+    }
+
+    const newState = { LN, isLoading: false };
+
+    switch (successAction.tag) {
+      case 'aes': {
+        const preimage = LN.getPreimage();
+        newState.message = Lnurl.decipherAES(successAction.ciphertext, preimage, successAction.iv);
+        newState.preamble = successAction.description;
+        break;
+      }
+      case 'url':
+        newState.url = successAction.url;
+        newState.preamble = successAction.description;
+        break;
+      case 'message':
+        this.setState({ message: successAction.message });
+        newState.message = successAction.message;
+        break;
+    }
+
+    this.setState(newState);
+  }
+
   async componentDidMount() {
     try {
       const LN = new Lnurl(false, AsyncStorage);
       const loaded = await LN.loadSuccessfulPayment(this.state.paymentHash);
-      if (!loaded) {
-        this.setState({ isLoading: false });
+      if (loaded) {
+        this.applySuccessfulPayment(LN);
         return;
       }
 
-      const successAction = LN.getSuccessAction();
-      if (!successAction) {
-        this.setState({ isLoading: false, LN });
+      const fallbackLnurl = this.props.route.params.lnurlPay;
+      if (fallbackLnurl) {
+        this.applySuccessfulPayment(fallbackLnurl);
         return;
       }
 
-      const newState = { LN, isLoading: false };
-
-      switch (successAction.tag) {
-        case 'aes': {
-          const preimage = LN.getPreimage();
-          newState.message = Lnurl.decipherAES(successAction.ciphertext, preimage, successAction.iv);
-          newState.preamble = successAction.description;
-          break;
-        }
-        case 'url':
-          newState.url = successAction.url;
-          newState.preamble = successAction.description;
-          break;
-        case 'message':
-          this.setState({ message: successAction.message });
-          newState.message = successAction.message;
-          break;
-      }
-
-      this.setState(newState);
+      this.setState({ isLoading: false });
     } catch (error) {
       reportError('lnurlPaySuccess: failed to load successful payment', error);
       alert(error.message);
@@ -187,6 +197,7 @@ LnurlPaySuccess.propTypes = {
       fromWalletID: PropTypes.string.isRequired,
       fee: PropTypes.number,
       justPaid: PropTypes.bool.isRequired,
+      lnurlPay: PropTypes.object,
     }),
   }),
 };

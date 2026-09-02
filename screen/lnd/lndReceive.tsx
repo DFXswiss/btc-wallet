@@ -61,6 +61,7 @@ const LNDReceive = () => {
   const pollGeneration = useRef(0);
   const [isPaid, setIsPaid] = useState(false);
   const [receiveMethod, setReceiveMethod] = useState<'lightning' | 'onchain'>('lightning');
+  const receiveMethodRef = useRef(receiveMethod);
   const [onchainAddress, setOnchainAddress] = useState<string | undefined>();
   const [isOnchainLoading, setIsOnchainLoading] = useState(false);
   const inputAmountRef = useRef<TextInput | null>(null);
@@ -97,6 +98,10 @@ const LNDReceive = () => {
       backgroundColor: colors.elevated,
     },
   });
+
+  useEffect(() => {
+    receiveMethodRef.current = receiveMethod;
+  }, [receiveMethod]);
 
   useEffect(() => {
     return () => {
@@ -205,7 +210,11 @@ const LNDReceive = () => {
         if (now > invoiceExpiration) {
           cancelInvoicePolling();
           setInvoiceRequest(undefined);
-          generateInvoice(); // invoice expired, generate new one
+          // Keep watching an open invoice on the on-chain tab; only skip
+          // creating a replacement while Lightning is not visible.
+          if (receiveMethodRef.current === 'lightning') {
+            generateInvoice();
+          }
         }
       } catch (error) {
         if (generation !== pollGeneration.current) {

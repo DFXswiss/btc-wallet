@@ -202,7 +202,6 @@ async function teardownInstance(instance: BreezSdkInterface, id: string | null):
     try {
       await instance.disconnect();
       if (epoch !== lifecycleEpoch) {
-        discardStaleInstance(instance);
         return;
       }
       poisonedSdk = null;
@@ -400,4 +399,9 @@ export function __resetSparkSdkForTests(): void {
 /** Test-only: shorten the lifecycle hang bound. Omit to restore the default. */
 export function __setLifecycleTimeoutMsForTests(ms?: number): void {
   lifecycleTimeoutMs = ms === undefined ? SPARK_LIFECYCLE_TIMEOUT_MS : ms;
+}
+
+/** Test-only: whether teardownInstance is awaiting a native remove/disconnect. */
+export function __isTeardownInFlightForTests(): boolean {
+  return teardownInFlight;
 }

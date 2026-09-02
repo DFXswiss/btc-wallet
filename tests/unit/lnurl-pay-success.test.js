@@ -74,4 +74,33 @@ describe('LnurlPaySuccess', () => {
     fireEvent.press(screen.getByText(loc.send.success_done));
     expect(mockPopToTop).toHaveBeenCalledTimes(1);
   });
+
+  it('uses the passed LNURL when storage has no successful payment', async () => {
+    jest.spyOn(Lnurl.prototype, 'loadSuccessfulPayment').mockResolvedValue(false);
+    const lnurlPay = new Lnurl('LNURL1TEST');
+    lnurlPay._lnurlPayServicePayload = {
+      domain: 'merchant.example',
+      description: 'tea for two',
+    };
+    lnurlPay._lnurlPayServiceBolt11Payload = {
+      successAction: {
+        tag: 'aes',
+        ciphertext: 'vCWn4TMhIKubUc5+aBVfvw==',
+        iv: 'eTGduB45hWTOxHj1dR+LJw==',
+        description: 'your code',
+      },
+      disposable: true,
+    };
+    lnurlPay._preimage = 'bf62911aa53c017c27ba34391f694bc8bf8aaf59b4ebfd9020e66ac0412e189b';
+
+    const screen = renderSuccess({ lnurlPay });
+
+    await waitFor(() => expect(screen.getByText('merchant.example')).toBeTruthy());
+    expect(Lnurl.prototype.loadSuccessfulPayment).toHaveBeenCalledWith('hash-1');
+    expect(screen.getByText('tea for two')).toBeTruthy();
+    expect(screen.getByText('your code')).toBeTruthy();
+    expect(screen.getByText('1234')).toBeTruthy();
+    expect(screen.getByTestId('SuccessView')).toBeTruthy();
+    expect(screen.UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0);
+  });
 });

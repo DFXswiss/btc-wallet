@@ -10,6 +10,7 @@ import {
   syncSparkWallet,
   __resetSparkSdkForTests,
   __setLifecycleTimeoutMsForTests,
+  __isTeardownInFlightForTests,
   BREEZ_API_KEY_MISSING,
 } from '../../api/spark/spark-sdk';
 
@@ -1030,6 +1031,8 @@ describe('spark-sdk', () => {
         resolveHungDisconnect();
         await flush();
 
+        expect(mockInstance.disconnect).toHaveBeenCalledTimes(2);
+
         assert.strictEqual(lease.requireSdk(), instanceB);
         assert.strictEqual(acquireSparkSessionLease().requireSdk(), instanceB);
         assert.strictEqual(acquireSparkSessionLease().identity, 'identity-b');
@@ -1040,6 +1043,46 @@ describe('spark-sdk', () => {
         await disconnectSparkSdk();
         expect(instanceB.removeEventListener).toHaveBeenCalledWith('listener-b');
         expect(instanceB.disconnect).toHaveBeenCalled();
+        warn.mockRestore();
+      });
+
+      it('does not release the teardown latch when a timed-out teardown later settles', async () => {
+        const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+        await connectSparkSdk(seed);
+        expect(breez.connect).toHaveBeenCalledTimes(1);
+
+        let resolveHungDisconnect;
+        let resolveNewerDisconnect;
+        let disconnectCount = 0;
+        mockInstance.disconnect.mockImplementation(() => {
+          disconnectCount += 1;
+          if (disconnectCount === 1) {
+            return new Promise(resolve => {
+              resolveHungDisconnect = resolve;
+            });
+          }
+          return new Promise(resolve => {
+            resolveNewerDisconnect = resolve;
+          });
+        });
+
+        const pendingDisc = disconnectSparkSdk();
+        await expectHungLifecycle(pendingDisc);
+        assert.strictEqual(isSparkSdkConnected(), false);
+        assert.ok(typeof resolveHungDisconnect === 'function');
+        assert.strictEqual(__isTeardownInFlightForTests(), false);
+
+        const pendingNewerDisc = disconnectSparkSdk();
+        await flush();
+        assert.ok(typeof resolveNewerDisconnect === 'function');
+        assert.strictEqual(__isTeardownInFlightForTests(), true);
+
+        resolveHungDisconnect();
+        await flush();
+        assert.strictEqual(__isTeardownInFlightForTests(), true);
+
+        resolveNewerDisconnect();
+        await pendingNewerDisc;
         warn.mockRestore();
       });
 

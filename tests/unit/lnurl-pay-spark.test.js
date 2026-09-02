@@ -557,6 +557,7 @@ describe('LnurlPay Spark pending send', () => {
         paymentHash: decoded.payment_hash,
         justPaid: true,
         fromWalletID: 'spark-pay-1',
+        lnurlPay: expect.any(Lnurl),
       },
     });
     expect(alert).not.toHaveBeenCalled();
@@ -840,6 +841,7 @@ describe('LnurlPay remaining payment paths', () => {
         fee: 2,
         justPaid: true,
         fromWalletID: 'spark-pay-1',
+        lnurlPay: expect.any(Lnurl),
       },
     });
   });
@@ -876,6 +878,7 @@ describe('LnurlPay remaining payment paths', () => {
           fee: 2,
           justPaid: true,
           fromWalletID: 'spark-pay-1',
+          lnurlPay: expect.any(Lnurl),
         },
       }),
     );
@@ -907,6 +910,7 @@ describe('LnurlPay remaining payment paths', () => {
           fee: 2,
           justPaid: true,
           fromWalletID: 'spark-pay-1',
+          lnurlPay: expect.any(Lnurl),
         },
       }),
     );
@@ -1131,6 +1135,7 @@ describe('LnurlPay remaining payment paths', () => {
         paymentHash: decoded.payment_hash,
         justPaid: true,
         fromWalletID: 'spark-pay-1',
+        lnurlPay: expect.any(Lnurl),
       },
     });
     expect(reportError).not.toHaveBeenCalled();
