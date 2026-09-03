@@ -14,6 +14,7 @@ import { Chain } from '../../models/bitcoinUnits';
 import { useSwap } from '../../api/dfx/hooks/swap.hook';
 import { useWalletContext } from '../../contexts/wallet.context';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
+import { SparkWallet } from '../../class/wallets/spark-wallet';
 import { SwapInfo } from '../../api/dfx/definitions/swap';
 import { Utils } from '../../helpers/utils';
 import { DfxService } from '../../api/dfx/contexts/session.context';
@@ -43,7 +44,12 @@ const Swap = () => {
   const [changeAddress, setChangeAddress] = useState<string>();
 
   const { walletID: onchainWalletId } = useWalletContext();
-  const lnWallet = useMemo(() => wallets.find((w: AbstractWallet) => w.type === LightningLdsWallet.type), [wallets]);
+  const lnWallet = useMemo(
+    () =>
+      wallets.find((w: AbstractWallet) => w.type === LightningLdsWallet.type) ||
+      wallets.find((w: AbstractWallet) => w.type === SparkWallet.type),
+    [wallets],
+  );
 
   const stylesHook = StyleSheet.create({
     container: {
@@ -117,12 +123,23 @@ const Swap = () => {
         payjoinUrl: undefined,
         psbt,
       });
-    } else if (wallet.type === LightningLdsWallet.type) {
-      navigation.navigate('LnurlPay', {
-        lnurl: swapInfo?.deposit.address,
-        walletID: wallet.getID(),
-        amountSat: currency.btcToSatoshi(amount),
-      });
+    } else if (wallet.type === LightningLdsWallet.type || wallet.type === SparkWallet.type) {
+      const depositAddress = swapInfo?.deposit.address;
+      if (wallet.type === SparkWallet.type && depositAddress && SparkWallet.isSparkInvoice(depositAddress)) {
+        const parsed = SparkWallet.parseSparkPaymentUri(depositAddress);
+        navigation.navigate('LnurlPay', {
+          sparkInvoice: parsed.invoice,
+          walletID: wallet.getID(),
+          amountSat: currency.btcToSatoshi(amount),
+          routeId,
+        });
+      } else {
+        navigation.navigate('LnurlPay', {
+          lnurl: depositAddress,
+          walletID: wallet.getID(),
+          amountSat: currency.btcToSatoshi(amount),
+        });
+      }
     } else {
       Alert.alert('Unsupported wallet type');
     }

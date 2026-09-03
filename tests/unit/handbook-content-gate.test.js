@@ -8,9 +8,25 @@
  * missing is the exact failure mode this gate exists to prevent.
  */
 const assert = require('assert');
+const fs = require('fs');
+const Module = require('module');
+const os = require('os');
 const path = require('path');
 
 const gate = require(path.resolve(__dirname, '../../scripts/handbook/content-gate.js'));
+const handbookBuildPath = path.resolve(__dirname, '../../scripts/handbook/build.js');
+
+function loadListMarkdownFiles() {
+  const source = fs.readFileSync(handbookBuildPath, 'utf8');
+  const withoutMain = source.replace(/\nmain\(\);\s*$/, '\nmodule.exports = { listMarkdownFiles };\n');
+  assert.notStrictEqual(withoutMain, source, 'handbook build main() marker not found');
+
+  const buildModule = new Module(handbookBuildPath, module);
+  buildModule.filename = handbookBuildPath;
+  buildModule.paths = Module._nodeModulePaths(path.dirname(handbookBuildPath));
+  buildModule._compile(withoutMain, handbookBuildPath);
+  return buildModule.exports.listMarkdownFiles;
+}
 
 const WORDS = new Set(['abandon', 'ability', 'able', 'about', 'above', 'absent', 'zoo']);
 
@@ -19,6 +35,25 @@ function manifestOf(...outputPaths) {
 }
 
 describe('unit - handbook content gate', () => {
+  describe('markdown discovery', () => {
+    it('excludes markdown below tests directories from the published doc list', function () {
+      const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'handbook-markdown-discovery-'));
+      try {
+        fs.mkdirSync(path.join(fixtureRoot, 'docs'), { recursive: true });
+        fs.mkdirSync(path.join(fixtureRoot, 'tests', 'e2e'), { recursive: true });
+        fs.mkdirSync(path.join(fixtureRoot, 'packages', 'wallet', 'tests'), { recursive: true });
+        fs.writeFileSync(path.join(fixtureRoot, 'docs', 'product.md'), '# Product\n');
+        fs.writeFileSync(path.join(fixtureRoot, 'tests', 'e2e', 'internal.md'), '# Internal test\n');
+        fs.writeFileSync(path.join(fixtureRoot, 'packages', 'wallet', 'tests', 'fixture.md'), '# Test fixture\n');
+
+        const listMarkdownFiles = loadListMarkdownFiles();
+        assert.deepStrictEqual([...listMarkdownFiles(fixtureRoot)], ['docs/product.md']);
+      } finally {
+        fs.rmSync(fixtureRoot, { recursive: true, force: true });
+      }
+    });
+  });
+
   describe('scan set', () => {
     it('declares PNGs regardless of extension case and ignores other artifacts', function () {
       // build.js discovers PNGs with toLowerCase().endsWith('.png'), so an
@@ -98,6 +133,51 @@ describe('unit - handbook content gate', () => {
       const problems = gate.qrProblems(new Map(), declared, allowlist);
       assert.strictEqual(problems.length, 1);
       assert.match(problems[0], /pointless QR allowlist entry/);
+    });
+
+    it('names both allowlisted screens and payload shapes in the module header', function () {
+      const src = require('fs').readFileSync(path.resolve(__dirname, '../../scripts/handbook/content-gate.js'), 'utf8');
+      const header = src.slice(0, src.indexOf('const fs = require'));
+      assert.match(header, /04-empfangen-senden\/01-erhalten\.png/);
+      assert.match(header, /08-lightning\/03-rechnung-erstellen\.png/);
+      assert.match(header, /BOLT11/);
+      assert.doesNotMatch(header, /Only the receive-address screen may carry one/);
+    });
+
+    it('accepts a bolt11 invoice only in the Spark receive screenshot and rejects other payloads there', function () {
+      // Both production entries must be declared, or the other one reports stale
+      // and this case would no longer isolate the invoice rule.
+      const receive = 'screenshots/04-empfangen-senden/01-erhalten.png';
+      const invoiceShot = 'screenshots/08-lightning/03-rechnung-erstellen.png';
+      const address = 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4';
+      const invoice =
+        'lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp';
+      const published = new Set([receive, invoiceShot]);
+
+      assert.deepStrictEqual(
+        gate.qrProblems(
+          new Map([
+            [receive, address],
+            [invoiceShot, invoice],
+          ]),
+          published,
+          gate.QR_ALLOWLIST,
+        ),
+        [],
+      );
+
+      const wrong = gate.qrProblems(
+        new Map([
+          [receive, address],
+          [invoiceShot, address],
+        ]),
+        published,
+        gate.QR_ALLOWLIST,
+      );
+      assert.strictEqual(wrong.length, 1);
+      assert.match(wrong[0], /does not match what the allowlist permits/);
+      assert.match(wrong[0], /08-lightning\/03-rechnung-erstellen\.png/);
+      assert.ok(!wrong[0].includes(address), 'the payload must not be echoed');
     });
   });
 
@@ -309,8 +389,10 @@ describe('unit - handbook content gate', () => {
     const os = require('os');
     const { spawnSync } = require('child_process');
     const SCRIPT = path.resolve(__dirname, '../../scripts/handbook/content-gate.js');
-    const ALLOWED = Object.keys(gate.QR_ALLOWLIST)[0];
+    const ALLOWED = Object.keys(gate.QR_ALLOWLIST);
     const ADDRESS = 'bitcoin:bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4';
+    const INVOICE =
+      'lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp';
 
     let tmp;
 
@@ -323,17 +405,18 @@ describe('unit - handbook content gate', () => {
     function fixture({ extraOnDisk = [], text = 'Guthaben senden und empfangen ', qrBody, ocrBody } = {}) {
       const root = fs.mkdtempSync(path.join(tmp, 'gate-'));
       const bin = fs.mkdtempSync(path.join(tmp, 'bin-'));
-      const declared = [ALLOWED, 'screenshots/plain.png'];
+      const declared = [...ALLOWED, 'screenshots/plain.png'];
       for (const rel of [...declared, ...extraOnDisk]) {
         fs.mkdirSync(path.join(root, path.dirname(rel)), { recursive: true });
         fs.writeFileSync(path.join(root, rel), '');
       }
       fs.writeFileSync(path.join(root, 'manifest.json'), JSON.stringify({ artifacts: declared.map(p => ({ outputPath: p })) }));
-      // Only the allowlisted screen carries a QR; everything else exits 4.
+      // Each allowlisted screen carries the payload its entry permits; everything else exits 4.
       stub(
         bin,
         'zbarimg',
-        qrBody || `case "$*" in *--version*) echo "zbarimg 0.23";; *01-erhalten.png*) echo '${ADDRESS}';; *) exit 4;; esac`,
+        qrBody ||
+          `case "$*" in *--version*) echo "zbarimg 0.23";; *01-erhalten.png*) echo '${ADDRESS}';; *03-rechnung-erstellen.png*) echo '${INVOICE}';; *) exit 4;; esac`,
       );
       stub(
         bin,
@@ -366,7 +449,7 @@ describe('unit - handbook content gate', () => {
     it('exits 0 on a clean payload', function () {
       const r = runScript(fixture());
       assert.strictEqual(r.status, 0, `${r.stdout}\n${r.stderr}`);
-      assert.match(r.stdout, /scanned 2 published PNGs/);
+      assert.match(r.stdout, /scanned 3 published PNGs/);
     });
 
     it('exits non-zero when an image ships without being declared', function () {
@@ -380,7 +463,7 @@ describe('unit - handbook content gate', () => {
       // passed those as clean, and nothing but this catch holds the difference.
       const r = runScript(
         fixture({
-          qrBody: `case "$*" in *--version*) echo "zbarimg 0.23";; *plain.png*) exit 1;; *01-erhalten.png*) echo '${ADDRESS}';; *) exit 4;; esac`,
+          qrBody: `case "$*" in *--version*) echo "zbarimg 0.23";; *plain.png*) exit 1;; *01-erhalten.png*) echo '${ADDRESS}';; *03-rechnung-erstellen.png*) echo '${INVOICE}';; *) exit 4;; esac`,
         }),
       );
       assert.notStrictEqual(r.status, 0, r.stdout);
@@ -521,12 +604,14 @@ describe('unit - handbook content gate', () => {
     });
 
     it('keeps the OCR floor between a blind tool and the real yield', function () {
-      // Measured: the 70 published PNGs return 1264 alphabetic tokens under
-      // tesseract 5.5.3 and 1263 under the 5.3.4 the CI runner ships.
+      // Measured: the 66 published PNGs return 1147 alphabetic tokens under
+      // tesseract 5.5.3. That is the only current yield, so it is the ceiling:
+      // a floor at or above it would report "broken tool" for a content change.
+      // The 5.3.4 the CI runner ships has not been re-run on today's images.
       assert.ok(gate.MIN_OCR_TOKENS > 0, 'a floor of 0 cannot detect a blind tool');
-      assert.ok(gate.MIN_OCR_TOKENS < 1263, `floor ${gate.MIN_OCR_TOKENS} is above the measured yield`);
+      assert.ok(gate.MIN_OCR_TOKENS < 1147, `floor ${gate.MIN_OCR_TOKENS} is above the measured yield`);
       // A floor far below reality only catches total blindness: the four most
-      // text-rich images alone return 352.
+      // text-rich images on this set return 352 under the same 5.5.3 run.
       assert.ok(gate.MIN_OCR_TOKENS > 352, `floor ${gate.MIN_OCR_TOKENS} is cleared by four images alone`);
     });
 

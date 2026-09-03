@@ -28,13 +28,13 @@ const PsbtMultisig = () => {
   const { colors } = useTheme();
   const [flatListHeight, setFlatListHeight] = useState(0);
   const { walletID, psbtBase64, receivedPSBTBase64, launchedBy } = useRoute().params;
-  const [hasSigned, setHasSigned] = useState(isTxSigned);
-  const [isSignign, setIsSigning] = useState(false);
-  const [isBroadcasting, setIsBroadcasting] = useState(false);
-  const [isBiometricUseCapableAndEnabled, setIsBiometricUseCapableAndEnabled] = useState(false);
   /** @type MultisigHDWallet */
   const wallet = wallets.find(w => w.getID() === walletID);
   const [psbt, setPsbt] = useState(bitcoin.Psbt.fromBase64(psbtBase64));
+  const [hasSigned, setHasSigned] = useState(Boolean(psbt && wallet.hasCosignerSignedPSBT(psbt)));
+  const [isSignign, setIsSigning] = useState(false);
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [isBiometricUseCapableAndEnabled, setIsBiometricUseCapableAndEnabled] = useState(false);
   const data = new Array(wallet.getM());
   const stylesHook = StyleSheet.create({
     root: {
@@ -162,7 +162,7 @@ const PsbtMultisig = () => {
 
     if (isBiometricUseCapableAndEnabled) {
       if (!(await Biometric.unlockWithBiometrics())) {
-        return;
+        return false;
       }
     }
 
@@ -174,14 +174,17 @@ const PsbtMultisig = () => {
     return result;
   };
 
-  const send = async (tx, fee) => {
-    await broadcast(tx);
+  const send = async (tx, feeSatoshi) => {
+    const didBroadcast = await broadcast(tx);
+    if (!didBroadcast) {
+      return;
+    }
     const txid = bitcoin.Transaction.fromHex(tx).getId();
     majorTomToGroundControl([], [], [txid]);
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
     const amount = formatBalanceWithoutSuffix(totalSat, BitcoinUnit.BTC, false);
     navigate('Success', {
-      fee: Number(fee),
+      fee: feeSatoshi,
       amount,
     });
     await new Promise(resolve => setTimeout(resolve, 3000)); // sleep to make sure network propagates
@@ -203,8 +206,7 @@ const PsbtMultisig = () => {
 
     try {
       const tx = psbt.extractTransaction().toHex();
-      const fee = new BigNumber(getFee()).dividedBy(100000000).toNumber();
-      send(tx, fee);
+      send(tx, getFee());
       setIsBroadcasting(false);
     } catch (error) {
       setIsBroadcasting(false);

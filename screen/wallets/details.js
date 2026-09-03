@@ -39,6 +39,7 @@ import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import { writeFileAndExport } from '../../blue_modules/fs';
 import { useDfxSessionContext } from '../../api/dfx/contexts/session.context';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
+import { SparkWallet } from '../../class/wallets/spark-wallet';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useWalletContext } from '../../contexts/wallet.context';
 
@@ -370,6 +371,7 @@ const WalletDetails = () => {
   };
 
   const showPosModeOptions = wallet.isPosMode || isPosMode;
+  const isSparkWallet = wallet.type === SparkWallet.type;
 
   return (
     <ScrollView
@@ -418,7 +420,7 @@ const WalletDetails = () => {
                 </>
               )}
 
-              {[LightningCustodianWallet.type, LightningLdsWallet.type].includes(wallet.type) && (
+              {[LightningCustodianWallet.type, LightningLdsWallet.type, SparkWallet.type].includes(wallet.type) && (
                 <>
                   <Text style={[styles.textLabel1, stylesHook.textLabel1]}>{loc.wallets.details_connected_to}</Text>
                   <BlueText>{wallet.getBaseURI()}</BlueText>
@@ -478,7 +480,7 @@ const WalletDetails = () => {
                   </View>
                 )}
               </View>
-              {wallet.type !== MultisigHDWallet.type && (
+              {wallet.type !== MultisigHDWallet.type && !isSparkWallet && (
                 <>
                   <Text style={[styles.textLabel2, stylesHook.textLabel2]}>{loc.wallets.ownership_proof}</Text>
                   <View style={styles.addressProofContainer}>
@@ -521,8 +523,12 @@ const WalletDetails = () => {
                     <SecondButton onPress={navigateToBackupPayCardDetails} title="Backup Pay Card Details" chevron />
                   </>
                 )}
-                <BlueSpacing20 />
-                <SecondButton onPress={navigateToWalletExport} testID="WalletExport" title={loc.wallets.details_export_backup} />
+                {!isSparkWallet && (
+                  <>
+                    <BlueSpacing20 />
+                    <SecondButton onPress={navigateToWalletExport} testID="WalletExport" title={loc.wallets.details_export_backup} />
+                  </>
+                )}
                 {walletTransactionsLength > 0 && (
                   <>
                     <BlueSpacing20 />

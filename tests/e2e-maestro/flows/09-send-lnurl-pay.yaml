@@ -1,0 +1,52 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: ../_setup.yaml
+- tapOn:
+    point: '85%,58%'
+- waitForAnimationToEnd:
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    timeout: 90000
+- tapOn:
+    point: '50%,58%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- tapOn:
+    point: '16%,93%'
+- extendedWaitUntil:
+    visible: '.*@breez\.tips.*'
+    timeout: 30000
+# Maestro erfasst die soeben registrierte Lightning-Adresse. Dadurch braucht
+# der Flow keinen langlebigen fremden LNURL-Testdienst.
+- copyTextFrom: '.*@breez\.tips.*'
+- runScript: ../scripts/lightning-address-to-lnurl.js
+- tapOn: 'Schließen'
+- waitForAnimationToEnd:
+    timeout: 15000
+# Das daraus abgeleitete LNURL-Pay-Ziel erreicht denselben Router wie ein Scan
+# seines QR-Codes; keine manuelle Adresseingabe ist beteiligt.
+- openLink:
+    link: ${'dfxtaro:lightning:' + output.lnurlPay}
+- runFlow:
+    when:
+      visible: 'Öffnen'
+    commands:
+      - tapOn: 'Öffnen'
+- runFlow:
+    when:
+      visible: 'Open'
+    commands:
+      - tapOn: 'Open'
+# Die Sendemaske zeigt nur die ersten und letzten 18 Zeichen. Der Prefix
+# lnurl1dp68gurn8ghj ist jeder https-LNURL gemeinsam; der Suffix nicht.
+- extendedWaitUntil:
+    visible: ${'.*' + output.lnurlPay.toLowerCase().slice(-18)}
+    timeout: 30000
+- assertVisible: ${'.*' + output.lnurlPay.toLowerCase().slice(-18)}
+- assertVisible: 'Lightning \(Spark\)'
+- assertVisible: 'Senden'
+- assertVisible: 'Gebühr'
+- assertVisible: 'MAX'
+- assertVisible: 'Note'
+- assertVisible: 'Weiter'
