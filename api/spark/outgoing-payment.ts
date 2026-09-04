@@ -26,6 +26,8 @@ export type OutgoingPaymentIdentity = {
 type Listener = (payment: OutgoingPayment | null) => void;
 
 let current: OutgoingPayment | null = null;
+/** Payments that can still receive SDK events, including attempts replaced as the current one. */
+let tracked: OutgoingPayment[] = [];
 /** Terminal events that arrived before the matching send was registered. */
 let unclaimed: OutgoingPayment[] = [];
 const listeners = new Set<Listener>();
@@ -50,9 +52,25 @@ function samePayment(a: OutgoingPaymentIdentity | OutgoingPayment, b: OutgoingPa
   return false;
 }
 
-function notify(): void {
+function notify(payment: OutgoingPayment | null = current): void {
   for (const listener of listeners) {
-    listener(current);
+    listener(payment);
+  }
+}
+
+function trackedIndex(identity: OutgoingPaymentIdentity): number {
+  for (let index = tracked.length - 1; index >= 0; index -= 1) {
+    if (samePayment(tracked[index], identity)) return index;
+  }
+  return -1;
+}
+
+function track(payment: OutgoingPayment): void {
+  const index = trackedIndex(payment);
+  if (index < 0) {
+    tracked.push(payment);
+  } else {
+    tracked[index] = payment;
   }
 }
 
@@ -147,24 +165,31 @@ export function beginOutgoingPayment(identity: OutgoingPaymentIdentity): Outgoin
         paymentId: identity.paymentId,
         invoice: identity.invoice,
       };
-  notify();
+  track(current);
+  notify(current);
   return current;
 }
 
 /** Adds an SDK payment id to the current attempt without resetting a status delivered during sendPayment. */
 export function attachOutgoingPaymentId(identity: OutgoingPaymentIdentity & { paymentId: string }): OutgoingPayment {
   const claimed = takeUnclaimed(identity);
-  if (current && samePayment(current, identity)) {
-    current = {
-      ...current,
-      paymentId: identity.paymentId || current.paymentId,
-      paymentHash: identity.paymentHash || current.paymentHash,
-      invoice: identity.invoice || current.invoice,
-      preimage: claimed?.preimage || current.preimage,
-      status: claimed ? firstTerminalWins(current.status, claimed.status) : current.status,
+  const index = trackedIndex(identity);
+  if (index >= 0) {
+    const previous = tracked[index];
+    const attached = {
+      ...previous,
+      paymentId: identity.paymentId || previous.paymentId,
+      paymentHash: identity.paymentHash || previous.paymentHash,
+      invoice: identity.invoice || previous.invoice,
+      preimage: claimed?.preimage || previous.preimage,
+      status: claimed ? firstTerminalWins(previous.status, claimed.status) : previous.status,
     };
-    notify();
-    return current;
+    tracked[index] = attached;
+    if (current === previous) {
+      current = attached;
+      notify(current);
+    }
+    return attached;
   }
 
   const attached: OutgoingPayment = claimed
@@ -181,10 +206,11 @@ export function attachOutgoingPaymentId(identity: OutgoingPaymentIdentity & { pa
         invoice: identity.invoice,
       };
 
+  track(attached);
   if (current) return attached;
 
   current = attached;
-  notify();
+  notify(current);
   return attached;
 }
 
@@ -195,16 +221,20 @@ export function settleOutgoingPayment(update: {
   preimage?: string;
 }): OutgoingPayment | null {
   const identity = identityOf(update);
-  if (current && samePayment(current, identity)) {
-    current = {
-      ...current,
-      status: firstTerminalWins(current.status, update.status),
-      paymentId: update.paymentId || current.paymentId,
-      paymentHash: update.paymentHash || current.paymentHash,
-      preimage: update.preimage || current.preimage,
+  const index = trackedIndex(identity);
+  if (index >= 0) {
+    const previous = tracked[index];
+    const settled = {
+      ...previous,
+      status: firstTerminalWins(previous.status, update.status),
+      paymentId: update.paymentId || previous.paymentId,
+      paymentHash: update.paymentHash || previous.paymentHash,
+      preimage: update.preimage || previous.preimage,
     };
-    notify();
-    return current;
+    tracked[index] = settled;
+    if (current === previous) current = settled;
+    notify(settled);
+    return settled;
   }
 
   if (current) {
@@ -226,7 +256,8 @@ export function settleOutgoingPayment(update: {
     paymentId: update.paymentId,
     preimage: update.preimage,
   };
-  notify();
+  track(current);
+  notify(current);
   return current;
 }
 
@@ -241,19 +272,23 @@ export function applyOutgoingSdkEvent(event: SdkEvent): OutgoingPayment | null {
   // `current` here would make samePayment succeed for a foreign payment.
   const extractedIdentity = identityOf(extracted);
 
-  if (current && samePayment(current, extractedIdentity)) {
-    if (isTerminal(current.status) && status === 'pending') {
+  const index = trackedIndex(extractedIdentity);
+  if (index >= 0) {
+    const previous = tracked[index];
+    if (isTerminal(previous.status) && status === 'pending') {
       return current;
     }
-    current = {
-      ...current,
-      status: firstTerminalWins(current.status, status),
-      paymentHash: extracted.paymentHash || current.paymentHash,
-      paymentId: extracted.paymentId || current.paymentId,
-      invoice: extracted.invoice || current.invoice,
-      preimage: extracted.preimage || current.preimage,
+    const updated = {
+      ...previous,
+      status: firstTerminalWins(previous.status, status),
+      paymentHash: extracted.paymentHash || previous.paymentHash,
+      paymentId: extracted.paymentId || previous.paymentId,
+      invoice: extracted.invoice || previous.invoice,
+      preimage: extracted.preimage || previous.preimage,
     };
-    notify();
+    tracked[index] = updated;
+    if (current === previous) current = updated;
+    notify(updated);
     return current;
   }
 
@@ -271,6 +306,7 @@ export function applyOutgoingSdkEvent(event: SdkEvent): OutgoingPayment | null {
 
 export function __resetOutgoingPaymentForTests(): void {
   current = null;
+  tracked = [];
   unclaimed = [];
   listeners.clear();
 }

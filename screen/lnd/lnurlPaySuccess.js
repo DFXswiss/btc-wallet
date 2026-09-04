@@ -44,7 +44,11 @@ export function lnurlPaySuccessDisplay(LN) {
   switch (successAction.tag) {
     case 'aes':
       display.preamble = successAction.description;
-      display.message = Lnurl.decipherAES(successAction.ciphertext, LN.getPreimage(), successAction.iv);
+      try {
+        display.message = Lnurl.decipherAES(successAction.ciphertext, LN.getPreimage(), successAction.iv);
+      } catch (error) {
+        reportError('lnurlPaySuccess: failed to decrypt success action', error);
+      }
       break;
     case 'url':
       display.preamble = successAction.description;

@@ -132,4 +132,37 @@ describe('LnurlPaySuccess', () => {
       message: '1234',
     });
   });
+
+  it('keeps the safe LNURL fields when an AES success action cannot be decrypted', () => {
+    const decryptError = new Error('Malformed UTF-8 data');
+    jest.spyOn(Lnurl, 'decipherAES').mockImplementation(() => {
+      throw decryptError;
+    });
+    const lnurlPay = {
+      getDisposable: () => true,
+      getDomain: () => 'merchant.example',
+      getDescription: () => 'tea for two',
+      getImage: () => 'data:image/png;base64,aaa',
+      getLnurl: () => 'LNURL1TEST',
+      getPreimage: () => 'preimage',
+      getSuccessAction: () => ({
+        tag: 'aes',
+        ciphertext: 'invalid',
+        iv: 'invalid',
+        description: 'your code',
+      }),
+    };
+
+    const payload = lnurlPaySuccessDisplay(lnurlPay);
+
+    expect(payload).toEqual({
+      repeatable: false,
+      domain: 'merchant.example',
+      description: 'tea for two',
+      image: 'data:image/png;base64,aaa',
+      lnurl: 'LNURL1TEST',
+      preamble: 'your code',
+    });
+    expect(reportError).toHaveBeenCalledWith('lnurlPaySuccess: failed to decrypt success action', decryptError);
+  });
 });

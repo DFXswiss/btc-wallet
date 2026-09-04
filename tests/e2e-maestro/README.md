@@ -104,8 +104,7 @@ on a configuration error or an empty filter.
   check the buy respectively sell screen reached, using disjoint markers; the
   exact DFX page title additionally evidences the external transition.
   Production answers the Spark login with `400 Invalid signature`. With
-  `DFX_ENV=loc` the login succeeds against a local API carrying the pending
-  sell-side change (`POST /v1/auth/ 201`), and together with a local services
+  `DFX_ENV=loc` the login succeeds against the local API (`POST /v1/auth/ 201`), and together with a local services
   instance the session is passed through, and both flows drive their transaction
   to the point where the user would act on it: P11 to the payment instructions
   (`Zahlungsinformation`, `Wechselkurs`, tabs `Text` and `QR-Code`), P12 to a
@@ -115,9 +114,9 @@ Services`, and the Spark login keeps failing with `400 Invalid signature`
   local API already at the on-chain login, because the non-production API
   prefixes the signed message with `[env]_`. Not every wallet then receives a
   token and `session.context.tsx` hides the entire `Externe Services` block. The
-  local database holds 233 assets, including the buyable and sellable
-  `BTC/Lightning` (id 236) and `BTC/Bitcoin` (id 113); the earlier seed
-  suspicion is refuted. A control run against a server state without the API
+  earlier suspicion that the local database lacked the required assets is
+  refuted: both the Lightning and the on-chain Bitcoin asset are present and
+  tradable. A control run against a server state without the API
   change is still missing. Bank payout, buy completion, swap completion and the
   deeplink with a real DFX route stay outside the suite.
 - The QR component has neither `testID` nor `accessibilityLabel`. P5–P7
@@ -132,8 +131,8 @@ Services`, and the Spark login keeps failing with `400 Invalid signature`
 ## Last measured state
 
 The versions of this state — including the mode-specific tightened P11/P12 —
-were measured as a complete series on 2026-09-04 against the local API carrying
-the pending sell-side change and the local services instance with `DFX_ENV=loc`:
+were measured as a complete series on 2026-09-04 against the local API and services
+instance with `DFX_ENV=loc`:
 `Flows: 13, passed: 13, assertion failures: 0, aborted: 0` and
 `Suite outcome: passed`, every flow individually `passed`. P11 reaches the
 payment instructions of a purchase, P12 a stored bank account for a sell. Against production P11/P12 stay

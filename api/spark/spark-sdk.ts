@@ -346,7 +346,11 @@ async function connectLocked(
         await instance.disconnect();
       } catch (cleanupErr) {
         console.warn('connectSparkSdk: disconnect failed', errorKind(cleanupErr));
-        poisonedSdk = instance;
+        if (epoch !== lifecycleEpoch) {
+          discardStaleInstance(instance);
+        } else {
+          poisonedSdk = instance;
+        }
       }
       throw e;
     }

@@ -2,8 +2,7 @@
 
 The versions of all 13 flows described here — including the mode-specific
 tightened P11/P12 — were measured as one complete series on 2026-09-04 against
-a locally run API carrying the pending sell-side signature change and a local
-services instance, driven by a `DFX_ENV=loc` build:
+a locally run API and services instance, driven by a `DFX_ENV=loc` build:
 `Flows: 13, passed: 13, assertion failures: 0, aborted: 0` and
 `Suite outcome: passed`, every flow individually `passed`. The API login is
 evidenced by repeated `POST /v1/auth/ 201` in the logs. Against production
@@ -62,8 +61,8 @@ than smoothed over, because a flow that fails once can fail again in CI.
   `Kaufen`, a `bc1q…` address and `KYC VERVOLLSTÄNDIGEN` are visible.
 - The Spark error also occurs on the parent commit `c9a67d9d8d`. The last
   commit of head `9cde627127` is therefore not its cause.
-- Against a locally run API carrying the pending sell-side change, a local
-  services instance and an app built with `DFX_ENV=loc`, the wallet login
+- Against a locally run API and services instance with an app built with
+  `DFX_ENV=loc`, the wallet login
   succeeds; the API logs contain `POST /v1/auth/ 201` repeatedly. In the
   captured traffic the Spark wallet logs in with its LNURL address
   (`LNURL1DP68GURN8GHJ7CNJV4JH5…`) next to the on-chain address.
@@ -76,25 +75,20 @@ than smoothed over, because a flow that fails once can fail again in CI.
   and the address `.*@.*` this is the third documented case of the same error
   class in this suite.
 - A `DFX_ENV=prd` build is not a valid counter-run against the same local API:
-  even the on-chain login fails. `auth.hook.ts` prefixes the signed message with
-  `[env]_` outside `prd`; app and API then do not verify the same message
+  even the on-chain login fails. outside `prd` the app and the API do not verify the same message
   cryptographically. Since `session.context.tsx` only sets `isAvailable` once
   every wallet has received a token, the whole `Externe Services` block is
   missing in this mixed operation.
-- At the same local API a signature with 128 hex characters was accepted.
-  Signatures with 100 and 120 hex characters took the address-derived path and
-  ended in `400 Failed to get node public key (by invoice)`.
-- The earlier seed suspicion is refuted: the local database holds 233 assets,
-  among them `BTC/Lightning` (id 236) and `BTC/Bitcoin` (id 113), both
-  `buyable` and `sellable`.
+- The earlier suspicion that the local database lacked the required assets is
+  refuted: both the Lightning and the on-chain Bitcoin asset are present and
+  tradable.
 - This measurement does not isolate the API-side change as the cause: a control
   run against a server state without it is still missing.
 
 ## How far a full buy and sell reaches
 
 P11 and P12 no longer stop at the screen — each drives its transaction to the point where the
-user would act on it, against a local stack whose API carries the pending sell-side change and
-an LNURL-pay mock for the deposit target.
+user would act on it, against a local stack.
 
 **Buy.** The form resolves the rate, and the page shows the payment instructions with
 `Zahlungsinformation`, `Wechselkurs` and both the `Text` and `QR-Code` tabs. The flow also

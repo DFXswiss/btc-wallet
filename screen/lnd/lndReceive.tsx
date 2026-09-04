@@ -59,6 +59,12 @@ const LNDReceive = () => {
   const invoicePolling = useRef<NodeJS.Timeout | undefined>(undefined);
   const invoicePollTimeout = useRef<NodeJS.Timeout | undefined>(undefined);
   const pollGeneration = useRef(0);
+  const blurGeneration = useRef(0);
+  const invoiceCreationInFlight = useRef(false);
+  const invoiceCreationValues = useRef<{ amountSats: number; description: string } | undefined>(undefined);
+  const invoiceCreationQueued = useRef(false);
+  const generateInvoiceRef = useRef<(() => Promise<void>) | undefined>(undefined);
+  const [invoiceGenerationRequest, setInvoiceGenerationRequest] = useState(0);
   const [isPaid, setIsPaid] = useState(false);
   const [receiveMethod, setReceiveMethod] = useState<'lightning' | 'onchain'>('lightning');
   const receiveMethodRef = useRef(receiveMethod);
@@ -69,6 +75,8 @@ const LNDReceive = () => {
   const { isNfcActive, startReading, stopReading } = useNFC();
   const isSpark = wallet?.type === SparkWallet.type;
   const isOnchainReceive = isSpark && receiveMethod === 'onchain';
+  const latestInvoiceValues = useRef({ amountSats, description });
+  latestInvoiceValues.current = { amountSats, description };
 
   const styleHooks = StyleSheet.create({
     customAmount: {
@@ -105,6 +113,7 @@ const LNDReceive = () => {
 
   useEffect(() => {
     return () => {
+      blurGeneration.current += 1;
       cancelInvoicePolling();
       stopReading();
     };
@@ -251,7 +260,13 @@ const LNDReceive = () => {
   };
 
   const generateInvoice = async () => {
+    if (invoiceCreationInFlight.current) {
+      invoiceCreationQueued.current = true;
+      return;
+    }
     if (isInvoiceLoading) return;
+    invoiceCreationInFlight.current = true;
+    invoiceCreationValues.current = { amountSats, description };
     if (isNfcActive) stopReading();
     setIsInvoiceLoading(true);
     Keyboard.dismiss();
@@ -263,7 +278,8 @@ const LNDReceive = () => {
         return;
       }
       const invoiceAmount = amountSats;
-      const invoiceRequest = await wallet.addInvoice(invoiceAmount, description);
+      const invoiceDescription = description;
+      const invoiceRequest = await wallet.addInvoice(invoiceAmount, invoiceDescription);
       ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
       const decoded = await wallet.decodeInvoice(invoiceRequest);
       await tryToObtainPermissions();
@@ -298,9 +314,28 @@ const LNDReceive = () => {
       ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
       alert(error instanceof Error ? error.message : String(error));
     } finally {
+      const completedValues = invoiceCreationValues.current;
+      invoiceCreationInFlight.current = false;
+      invoiceCreationValues.current = undefined;
       setIsInvoiceLoading(false);
+      if (
+        invoiceCreationQueued.current &&
+        completedValues &&
+        (!Object.is(latestInvoiceValues.current.amountSats, completedValues.amountSats) ||
+          latestInvoiceValues.current.description !== completedValues.description)
+      ) {
+        setInvoiceGenerationRequest(request => request + 1);
+      }
+      invoiceCreationQueued.current = false;
     }
   };
+  generateInvoiceRef.current = generateInvoice;
+
+  useEffect(() => {
+    if (invoiceGenerationRequest > 0) {
+      generateInvoiceRef.current?.();
+    }
+  }, [invoiceGenerationRequest]);
 
   const onWalletChange = (id: string) => {
     if (id === wallet?.getID()) return;
@@ -316,10 +351,14 @@ const LNDReceive = () => {
   };
 
   const handleOnBlur = () => {
-    const isFocusOnSomeInput = inputAmountRef.current?.isFocused() || inputDescriptionRef.current?.isFocused();
-    if (!isFocusOnSomeInput) {
-      generateInvoice();
-    }
+    const generation = ++blurGeneration.current;
+    Promise.resolve().then(() => {
+      if (generation !== blurGeneration.current) return;
+      const isFocusOnSomeInput = inputAmountRef.current?.isFocused() || inputDescriptionRef.current?.isFocused();
+      if (!isFocusOnSomeInput) {
+        setInvoiceGenerationRequest(request => request + 1);
+      }
+    });
   };
 
   const displayedOnchainAddress =

@@ -1439,9 +1439,7 @@ describe('spark-sdk', () => {
         assert.strictEqual(acquireSparkSessionLease().requireSdk(), instanceB);
         expect(instanceB.disconnect).not.toHaveBeenCalled();
         // Must not enter teardownInstance's disconnect(); discardStaleInstance still fire-and-forgets.
-        const teardownDisconnectWarns = warn.mock.calls.filter(
-          args => args[0] === 'disconnectSparkSdk: disconnect failed',
-        );
+        const teardownDisconnectWarns = warn.mock.calls.filter(args => args[0] === 'disconnectSparkSdk: disconnect failed');
         assert.strictEqual(teardownDisconnectWarns.length, 0);
         const staleWarns = warn.mock.calls.filter(args => args[0] === 'connectSparkSdk: disconnect failed');
         assert.strictEqual(staleWarns.length, 1);
@@ -1455,6 +1453,53 @@ describe('spark-sdk', () => {
         await disconnectSparkSdk();
         expect(instanceB.removeEventListener).toHaveBeenCalledWith('listener-b');
         expect(instanceB.disconnect).toHaveBeenCalled();
+        warn.mockRestore();
+      });
+
+      it('does not poison a newer session when failed setup cleanup rejects after the epoch moves', async () => {
+        const instanceA = makeSdkInstance('a');
+        const instanceB = makeSdkInstance('b');
+        instanceA.getInfo.mockRejectedValue(new Error('info down'));
+        let rejectCleanup;
+        let markCleanupStarted;
+        const cleanupStarted = new Promise(resolve => {
+          markCleanupStarted = resolve;
+        });
+        let disconnectCount = 0;
+        instanceA.disconnect.mockImplementation(() => {
+          disconnectCount += 1;
+          if (disconnectCount === 1) {
+            return new Promise((_resolve, reject) => {
+              rejectCleanup = reject;
+              markCleanupStarted();
+            });
+          }
+          return Promise.resolve();
+        });
+        breez.connect.mockResolvedValueOnce(instanceA).mockResolvedValueOnce(instanceB);
+
+        const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+        const pendingA = connectSparkSdk(seed);
+        const hungAssertion = assert.rejects(pendingA, err => err instanceof SparkLifecycleHungError);
+        await cleanupStarted;
+        await jest.advanceTimersByTimeAsync(50);
+        await hungAssertion;
+
+        const resultB = await connectSparkSdk(seedB);
+        assert.strictEqual(resultB, instanceB);
+        const lease = acquireSparkSessionLease();
+        assert.strictEqual(lease.requireSdk(), instanceB);
+        expect(instanceA.disconnect).toHaveBeenCalledTimes(2);
+
+        rejectCleanup(new Error('native down'));
+        await flush();
+
+        expect(instanceA.disconnect).toHaveBeenCalledTimes(3);
+        expect(instanceB.disconnect).not.toHaveBeenCalled();
+        assert.strictEqual(lease.requireSdk(), instanceB);
+        assert.strictEqual(acquireSparkSessionLease().requireSdk(), instanceB);
+        const reused = await connectSparkSdk(seedB);
+        assert.strictEqual(reused, instanceB);
         warn.mockRestore();
       });
     });

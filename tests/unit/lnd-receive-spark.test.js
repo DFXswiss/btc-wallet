@@ -51,8 +51,7 @@ jest.mock('../../screen/send/success', () => {
   const RN = require('react');
   const { Text } = require('react-native');
   /* eslint-disable react/prop-types */
-  const SuccessView = ({ amount }) =>
-    RN.createElement(Text, { testID: 'SuccessView' }, amount == null ? 'paid' : String(amount));
+  const SuccessView = ({ amount }) => RN.createElement(Text, { testID: 'SuccessView' }, amount == null ? 'paid' : String(amount));
   /* eslint-enable react/prop-types */
   return { SuccessView };
 });
@@ -1078,6 +1077,27 @@ describe('LNDReceive with SparkWallet', () => {
     expect(wallet.addInvoice).toHaveBeenCalledWith(1000, 'coffee');
   });
 
+  it('coalesces an amount-to-description field change into one invoice with the latest values', async () => {
+    const wallet = makeLdsReceiveWallet('lds-receive-field-sequence');
+    const screen = renderReceive(wallet);
+    const amountInput = screen.getByPlaceholderText('Amount (optional)');
+    const descriptionInput = screen.getByPlaceholderText(`${loc.receive.details_label} (optional)`);
+
+    await act(async () => {
+      fireEvent.changeText(amountInput, '1000');
+      fireEvent(amountInput, 'focus');
+      fireEvent(amountInput, 'blur');
+      fireEvent(descriptionInput, 'focus');
+      fireEvent.changeText(descriptionInput, 'coffee');
+      fireEvent(descriptionInput, 'blur');
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(wallet.addInvoice).toHaveBeenCalledTimes(1);
+    expect(wallet.addInvoice).toHaveBeenCalledWith(1000, 'coffee');
+  });
+
   it('does not create an invoice when the amount is empty', async () => {
     const wallet = makeLdsReceiveWallet('lds-receive-zero');
     const screen = renderReceive(wallet);
@@ -1112,6 +1132,42 @@ describe('LNDReceive with SparkWallet', () => {
       resolveInvoice(SAMPLE_INVOICE);
       await Promise.resolve();
     });
+  });
+
+  it('regenerates with the latest values after a field change while invoice creation is in flight', async () => {
+    const wallet = makeLdsReceiveWallet('lds-receive-inflight-field-change');
+    let resolveFirstInvoice;
+    wallet.addInvoice
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            resolveFirstInvoice = resolve;
+          }),
+      )
+      .mockResolvedValueOnce(SAMPLE_INVOICE);
+    const screen = renderReceive(wallet);
+    const amountInput = screen.getByPlaceholderText('Amount (optional)');
+    const descriptionInput = screen.getByPlaceholderText(`${loc.receive.details_label} (optional)`);
+
+    fireEvent.changeText(amountInput, '1000');
+    fireEvent(amountInput, 'blur');
+    await waitFor(() => expect(wallet.addInvoice).toHaveBeenCalledWith(1000, ''));
+
+    fireEvent.changeText(descriptionInput, 'coffee');
+    fireEvent(descriptionInput, 'blur');
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(wallet.addInvoice).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveFirstInvoice('first-invoice');
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(wallet.addInvoice).toHaveBeenCalledTimes(2));
+    expect(wallet.addInvoice).toHaveBeenLastCalledWith(1000, 'coffee');
+    await waitFor(() => expect(screen.getByText(SAMPLE_INVOICE)).toBeTruthy());
   });
 
   it('alerts the string form of a non-Error addInvoice rejection', async () => {

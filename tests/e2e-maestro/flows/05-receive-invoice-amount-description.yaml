@@ -25,6 +25,8 @@ appId: swiss.dfx.bitcoin
 - extendedWaitUntil:
     visible: '.*lnbc.*'
     timeout: 30000
+- copyTextFrom: '.*lnbc10u1.*'
+- runScript: ../scripts/store-first-invoice.js
 - tapOn: 'Beschreibung (optional)'
 - inputText: 'Maestro-E2E'
 - tapOn: 'sats'
@@ -32,6 +34,8 @@ appId: swiss.dfx.bitcoin
 - extendedWaitUntil:
     visible: '.*lnbc.*'
     timeout: 30000
+- copyTextFrom: '.*lnbc10u1.*'
+- assertTrue: ${maestro.copiedText !== output.firstInvoice}
 # Der sichtbare BOLT11-Text wird nur im QR-Zweig gerendert. Das QR-Canvas
 # selbst hat im Produktionscode weder testID noch accessibilityLabel.
 # Die App übergibt dem SDK nur amountSats (class/wallets/spark-wallet.ts);

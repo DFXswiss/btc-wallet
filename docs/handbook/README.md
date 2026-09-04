@@ -12,14 +12,14 @@ Owner-Entscheid 2026-08-06 / Issue #211: alles im Handbuch ist ohnehin
 Das Assembly-Script `scripts/handbook/build.js` **findet** die Artefakte selbst
 (echte Discovery — keine handgepflegte Mapping-Tabelle):
 
-| Quelle | Pfad | Inhalt |
-|--------|------|--------|
-| A | `docs/handbook/screenshots/**/*.png` | Screenshots (Discovery) |
-| B | rekursiver Scan aller `*.md` ab Repo-Root | Markdown-Doku (gerendert mit `marked`) |
-| C | `android/fastlane/metadata/android/**` und `ios/fastlane/metadata/**` | Store-Listing-Klartext |
-| D | `img/dfx/**/*.png` und `img/icon*.png` | App- und Icon-Assets |
-| E | `scripts/handbook/content/*.json` | Kapitel, UI-Texte, Captions je Sprache |
-| F | `scripts/handbook/pod/` | Design Pod (tokens.css, Logos SVG, Fonts woff2) |
+| Quelle | Pfad                                                                  | Inhalt                                          |
+| ------ | --------------------------------------------------------------------- | ----------------------------------------------- |
+| A      | `docs/handbook/screenshots/**/*.png`                                  | Screenshots (Discovery)                         |
+| B      | rekursiver Scan aller `*.md` ab Repo-Root                             | Markdown-Doku (gerendert mit `marked`)          |
+| C      | `android/fastlane/metadata/android/**` und `ios/fastlane/metadata/**` | Store-Listing-Klartext                          |
+| D      | `img/dfx/**/*.png` und `img/icon*.png`                                | App- und Icon-Assets                            |
+| E      | `scripts/handbook/content/*.json`                                     | Kapitel, UI-Texte, Captions je Sprache          |
+| F      | `scripts/handbook/pod/`                                               | Design Pod (tokens.css, Logos SVG, Fonts woff2) |
 
 Bei Markdown-Discovery werden übersprungen: Verzeichnisse mit Basename beginnend
 mit `.`, die Basenamen `node_modules`, `.git`, `_handbook-deps`, `build`, `dist`,
@@ -50,7 +50,7 @@ Ausgabe pro Build:
 
 Guards (Build bricht ab bei Verletzung):
 
-- **Floor:** mindestens `MIN_SCREENSHOTS` (35) PNGs (aktuell 38 committiert;
+- **Floor:** mindestens `MIN_SCREENSHOTS` (35) PNGs (aktuell 39 committiert;
   Boden bei Bestandszuwachs anheben)
 - **Floor:** mindestens `MIN_DOCS` (8) Markdown-Dokumente (nach Ausschlussregeln)
 - **Floor:** mindestens `MIN_STORE_FIELDS` (25) Store-Textfelder — der Boden
@@ -334,7 +334,7 @@ maestro test scripts/handbook/screenshots/01-onboarding.yaml
 Jedes committete PNG hat genau einen erzeugenden `takeScreenshot:`-Schritt, und
 kein Flow zielt auf einen Namen, den es im Satz nicht gibt — nachpruefbar, indem
 man alle `takeScreenshot: shots/<pfad>` gegen `docs/handbook/screenshots/**.png`
-abgleicht (Soll: 38 Treffer, 0 verwaist, 0 ohne Flow). Wer den Satz erweitert,
+abgleicht (Soll: 39 Treffer, 0 verwaist, 0 ohne Flow). Wer den Satz erweitert,
 haelt diese Zuordnung mit; sonst ist die Wiederholbarkeit nur behauptet.
 
 `_setup.yaml` ist der gemeinsame Vorlauf fuer die meisten Flows: frischer
@@ -476,4 +476,3 @@ nicht mehr als Weg: Der Eintrag „Lightning (Spark)" in den Einstellungen fuehr
 seit `3e799f57f` auch fuer diesen Wallet-Typ nach `WalletDetails` — der Screen
 kennt Spark und bietet dort auch das Loeschen an. Was hier fehlt, ist allein das
 Bild dazu; #269 ist geschlossen.
-

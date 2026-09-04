@@ -85,6 +85,7 @@ const LnurlPay = () => {
   const [payButtonDisabled, setPayButtonDisabled] = useState(true);
   const [isPaymentPending, setIsPaymentPending] = useState(false);
   const pendingPayRef = useRef();
+  const payInFlightRef = useRef(false);
   const [payload, setPayload] = useState();
   const { pop, navigate, goBack } = useNavigation();
   const [amount, setAmount] = useState();
@@ -172,6 +173,14 @@ const LnurlPay = () => {
   }, [isLoading]);
 
   const navigateLnurlSuccess = (paymentHash, fee, LN) => {
+    let lnurlPay;
+    if (LN) {
+      try {
+        lnurlPay = lnurlPaySuccessDisplay(LN);
+      } catch (error) {
+        reportError('lnurlPay: failed to prepare LNURL success display', error);
+      }
+    }
     navigate('SendDetailsRoot', {
       screen: 'LnurlPaySuccess',
       params: {
@@ -179,7 +188,7 @@ const LnurlPay = () => {
         ...(fee === undefined ? {} : { fee }),
         justPaid: true,
         fromWalletID: walletID,
-        ...(LN ? { lnurlPay: lnurlPaySuccessDisplay(LN) } : {}),
+        ...(lnurlPay ? { lnurlPay } : {}),
       },
     });
   };
@@ -225,8 +234,7 @@ const LnurlPay = () => {
       refreshAllWalletTransactions();
       if (watching.kind === 'lnurl') {
         finishLnurlSuccess(watching.paymentHash, watching.fee, watching.LN).catch(error => {
-          reportError('lnurlPay: failed to store LNURL success', error);
-          navigateLnurlSuccess(watching.paymentHash, watching.fee, watching.LN);
+          reportError('lnurlPay: failed to finish LNURL success', error);
         });
       } else if (watching.kind === 'sparkInvoice') {
         releaseSparkPaymentSeed(watching.seedStorageKey).then(() =>
@@ -240,6 +248,7 @@ const LnurlPay = () => {
 
     if (outgoingPayment.status === 'failed') {
       setIsPaymentPending(false);
+      payInFlightRef.current = false;
       setPayButtonDisabled(false);
       pendingPayRef.current = undefined;
       ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
@@ -285,8 +294,8 @@ const LnurlPay = () => {
 
     if (isMax && wallet.type === SparkWallet.type) {
       const result = await wallet.payLnurlMax(LN.getLnurlPayRequestDetails(), amountSats, comment);
-      LN.setSdkSuccessAction(result.lnurlSuccessAction);
-      if (result.status === 'pending') {
+      LN.setSdkSuccessAction(result?.lnurlSuccessAction);
+      if (result && result.status === 'pending') {
         pendingPayRef.current = {
           kind: 'lnurl',
           paymentHash: result.paymentHash,
@@ -297,8 +306,13 @@ const LnurlPay = () => {
         setPayButtonDisabled(true);
         return;
       }
+      if (result && result.status !== 'completed') {
+        payInFlightRef.current = false;
+        setPayButtonDisabled(false);
+        return;
+      }
 
-      await finishLnurlSuccess(result.paymentHash, result.fee, LN);
+      await finishLnurlSuccess(result?.paymentHash, result?.fee, LN);
       return;
     }
 
@@ -314,6 +328,11 @@ const LnurlPay = () => {
       };
       setIsPaymentPending(true);
       setPayButtonDisabled(true);
+      return;
+    }
+    if (result && result.status !== 'completed') {
+      payInFlightRef.current = false;
+      setPayButtonDisabled(false);
       return;
     }
 
@@ -333,6 +352,11 @@ const LnurlPay = () => {
       };
       setIsPaymentPending(true);
       setPayButtonDisabled(true);
+      return;
+    }
+    if (result && result.status !== 'completed') {
+      payInFlightRef.current = false;
+      setPayButtonDisabled(false);
       return;
     }
 
@@ -356,44 +380,53 @@ const LnurlPay = () => {
       setPayButtonDisabled(true);
       return;
     }
+    if (result && result.status !== 'completed') {
+      payInFlightRef.current = false;
+      setPayButtonDisabled(false);
+      return;
+    }
 
     await releaseSparkPaymentSeed(storageKey);
     finishInvoiceSuccess(amountSats, result?.fee, decoded);
   };
 
   const pay = async () => {
+    if (payInFlightRef.current) return;
+    payInFlightRef.current = true;
     setPayButtonDisabled(true);
 
-    const isBiometricsEnabled = await Biometric.isBiometricUseCapableAndEnabled();
-    if (isBiometricsEnabled) {
-      if (!(await Biometric.unlockWithBiometrics())) {
-        setPayButtonDisabled(false);
-        return;
-      }
-    }
-
-    let amountSats = amount;
-    switch (unit) {
-      case BitcoinUnit.SATS:
-        amountSats = Number(amountSats);
-        if (!Number.isInteger(amountSats)) {
-          setPayButtonDisabled(false);
-          return alert(loc.lnd.error_tip_invoice_not_supported);
-        }
-        break;
-      case BitcoinUnit.BTC:
-        amountSats = currency.btcToSatoshi(amountSats);
-        break;
-      case BitcoinUnit.LOCAL_CURRENCY:
-        if (_cacheFiatToSat[amount]) {
-          amountSats = _cacheFiatToSat[amount];
-        } else {
-          amountSats = currency.btcToSatoshi(currency.fiatToBTC(amountSats));
-        }
-        break;
-    }
-
     try {
+      const isBiometricsEnabled = await Biometric.isBiometricUseCapableAndEnabled();
+      if (isBiometricsEnabled) {
+        if (!(await Biometric.unlockWithBiometrics())) {
+          payInFlightRef.current = false;
+          setPayButtonDisabled(false);
+          return;
+        }
+      }
+
+      let amountSats = amount;
+      switch (unit) {
+        case BitcoinUnit.SATS:
+          amountSats = Number(amountSats);
+          if (!Number.isInteger(amountSats)) {
+            payInFlightRef.current = false;
+            setPayButtonDisabled(false);
+            return alert(loc.lnd.error_tip_invoice_not_supported);
+          }
+          break;
+        case BitcoinUnit.BTC:
+          amountSats = currency.btcToSatoshi(amountSats);
+          break;
+        case BitcoinUnit.LOCAL_CURRENCY:
+          if (_cacheFiatToSat[amount]) {
+            amountSats = _cacheFiatToSat[amount];
+          } else {
+            amountSats = currency.btcToSatoshi(currency.fiatToBTC(amountSats));
+          }
+          break;
+      }
+
       if (sparkInvoice) {
         await handleSparkInvoice(amountSats);
       } else if (invoice) {
@@ -412,6 +445,7 @@ const LnurlPay = () => {
     } catch (Err) {
       console.log(Err.message);
       setIsLoading(false);
+      payInFlightRef.current = false;
       setPayButtonDisabled(false);
       ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
       return alert(Err.message);

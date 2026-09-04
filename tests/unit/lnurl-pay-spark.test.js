@@ -108,6 +108,14 @@ const { reportError } = require('../../helpers/errors');
 const Biometric = require('../../class/biometrics');
 const currency = require('../../blue_modules/currency');
 const { BlueDarkTheme } = require('../../components/themes');
+const {
+  applyOutgoingSdkEvent,
+  beginOutgoingPayment,
+  getOutgoingPayment,
+  subscribeOutgoingPayment,
+  __resetOutgoingPaymentForTests,
+} = require('../../api/spark/outgoing-payment');
+const { PaymentDetails_Tags, PaymentStatus, PaymentType, SdkEvent_Tags } = require('@breeztech/breez-sdk-spark-react-native');
 
 const SAMPLE_INVOICE =
   'lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp';
@@ -391,10 +399,7 @@ describe('LnurlPay Spark invoice mode', () => {
 
     await waitFor(() => expect(AsyncStorage.removeItem).toHaveBeenCalledTimes(1));
     await waitFor(() =>
-      expect(mockNavigate).toHaveBeenCalledWith(
-        'Success',
-        expect.objectContaining({ amount: 1000, amountUnit: BitcoinUnit.SATS, fee: 2 }),
-      ),
+      expect(mockNavigate).toHaveBeenCalledWith('Success', expect.objectContaining({ amount: 1000, amountUnit: BitcoinUnit.SATS, fee: 2 })),
     );
   });
 });
@@ -769,7 +774,7 @@ describe('LnurlPay remaining payment paths', () => {
 
   it('converts a local-currency invoice amount through fiat when there is no cache', async () => {
     const wallet = makeWallet();
-    wallet.payInvoice.mockResolvedValue({ status: 'complete' });
+    wallet.payInvoice.mockResolvedValue({ status: 'completed' });
     const screen = renderPay(wallet, { amountUnit: BitcoinUnit.LOCAL_CURRENCY });
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
@@ -815,7 +820,7 @@ describe('LnurlPay remaining payment paths', () => {
   it('sends the route description as the LNURL comment when comments are allowed', async () => {
     mockLnurlPay({ getCommentAllowed: 32 });
     const wallet = makeWallet();
-    wallet.payInvoice.mockResolvedValue({ status: 'complete' });
+    wallet.payInvoice.mockResolvedValue({ status: 'completed' });
     const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST', description: 'please tea' });
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
@@ -864,7 +869,7 @@ describe('LnurlPay remaining payment paths', () => {
     const storeSuccess = mockLnurlPay();
     const wallet = makeWallet();
     const decoded = wallet.decodeInvoice(SAMPLE_INVOICE);
-    wallet.payInvoice.mockResolvedValue({ status: 'complete', fee: 2 });
+    wallet.payInvoice.mockResolvedValue({ status: 'completed', fee: 2 });
     wallet.last_paid_invoice_result = { payment_preimage: 'pre-now' };
     const refreshAllWalletTransactions = jest.fn();
     mockRouteParams.walletID = wallet.getID();
@@ -900,13 +905,58 @@ describe('LnurlPay remaining payment paths', () => {
     expect(refreshAllWalletTransactions).toHaveBeenCalled();
   });
 
+  it('keeps an invalid AES success action out of the paid path and still navigates once', async () => {
+    const decryptError = new Error('Malformed UTF-8 data');
+    mockLnurlPay();
+    Lnurl.prototype.getSuccessAction.mockReturnValue({
+      tag: 'aes',
+      ciphertext: 'invalid',
+      iv: 'invalid',
+      description: 'your code',
+    });
+    jest.spyOn(Lnurl, 'decipherAES').mockImplementation(() => {
+      throw decryptError;
+    });
+    const wallet = makeWallet();
+    const decoded = wallet.decodeInvoice(SAMPLE_INVOICE);
+    wallet.payInvoice.mockResolvedValue({ status: 'completed', fee: 2 });
+    wallet.last_paid_invoice_result = { payment_preimage: 'pre-now' };
+    const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST' });
+
+    await waitFor(() => screen.getByText(loc.lnd.payButton));
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', {
+        screen: 'LnurlPaySuccess',
+        params: {
+          paymentHash: decoded.payment_hash,
+          fee: 2,
+          justPaid: true,
+          fromWalletID: 'spark-pay-1',
+          lnurlPay: {
+            ...LNURL_PAY_SUCCESS_DISPLAY,
+            preamble: 'your code',
+          },
+        },
+      }),
+    );
+    expect(reportError).toHaveBeenCalledWith('lnurlPaySuccess: failed to decrypt success action', decryptError);
+    expect(wallet.payInvoice).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    expect(alert).not.toHaveBeenCalled();
+    assert.strictEqual(screen.queryByText(loc.lnd.payButton), null);
+  });
+
   it('navigates to LNURL success after an immediate pay even when storing the success rejects', async () => {
     const wallet = makeWallet();
     const decoded = wallet.decodeInvoice(SAMPLE_INVOICE);
     const storageError = new Error('storage unavailable');
     const storeSuccess = mockLnurlPay();
     storeSuccess.mockRejectedValue(storageError);
-    wallet.payInvoice.mockResolvedValue({ status: 'complete', fee: 2 });
+    wallet.payInvoice.mockResolvedValue({ status: 'completed', fee: 2 });
     wallet.last_paid_invoice_result = { payment_preimage: 'pre-now' };
     const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST' });
 
@@ -937,7 +987,7 @@ describe('LnurlPay remaining payment paths', () => {
   it('navigates to LNURL success without storing when there is no preimage', async () => {
     const storeSuccess = mockLnurlPay();
     const wallet = makeWallet();
-    wallet.payInvoice.mockResolvedValue({ status: 'complete' });
+    wallet.payInvoice.mockResolvedValue({ status: 'completed' });
     const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST' });
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
@@ -967,6 +1017,20 @@ describe('LnurlPay remaining payment paths', () => {
         invoiceDescription: decoded.description,
       }),
     );
+  });
+
+  it('does not navigate to success when an invoice payment returns an unrecognized status', async () => {
+    const wallet = makeWallet();
+    wallet.payInvoice.mockResolvedValue({ status: 'unknown' });
+    const screen = renderPay(wallet);
+
+    await waitFor(() => screen.getByText(loc.lnd.payButton));
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+
+    await waitFor(() => expect(wallet.payInvoice).toHaveBeenCalledTimes(1));
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('uses the decoded payment hash when a pending invoice result has none', async () => {
@@ -1171,13 +1235,20 @@ describe('LnurlPay remaining payment paths', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
     expect(screen.getByText(loc.lnd.payButton)).toBeTruthy();
     expect(screen.UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0);
+
+    Biometric.unlockWithBiometrics.mockResolvedValue(true);
+    wallet.payInvoice.mockResolvedValue({ status: 'completed' });
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+    await waitFor(() => expect(wallet.payInvoice).toHaveBeenCalledTimes(1));
   });
 
   it('pays after a successful biometric unlock', async () => {
     Biometric.isBiometricUseCapableAndEnabled.mockResolvedValue(true);
     Biometric.unlockWithBiometrics.mockResolvedValue(true);
     const wallet = makeWallet();
-    wallet.payInvoice.mockResolvedValue({ status: 'complete' });
+    wallet.payInvoice.mockResolvedValue({ status: 'completed' });
     const screen = renderPay(wallet);
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
@@ -1203,6 +1274,54 @@ describe('LnurlPay remaining payment paths', () => {
     await waitFor(() => expect(alert).toHaveBeenCalledWith('pay exploded'));
     await waitFor(() => screen.getByText(loc.lnd.payButton));
     expect(mockNavigate).not.toHaveBeenCalled();
+
+    wallet.payInvoice.mockResolvedValue({ status: 'completed' });
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+    await waitFor(() => expect(wallet.payInvoice).toHaveBeenCalledTimes(2));
+    expect(mockNavigate).toHaveBeenCalledWith('Success', expect.anything());
+  });
+
+  it('admits only one payment while two taps are waiting on the same biometric check', async () => {
+    let releaseBiometricCheck;
+    const biometricCheck = new Promise(resolve => {
+      releaseBiometricCheck = resolve;
+    });
+    Biometric.isBiometricUseCapableAndEnabled.mockReturnValue(biometricCheck);
+    Biometric.unlockWithBiometrics.mockResolvedValue(true);
+    const wallet = makeWallet();
+    const decoded = wallet.decodeInvoice(SAMPLE_INVOICE);
+    wallet.payInvoice.mockResolvedValue({ status: 'pending', paymentHash: decoded.payment_hash });
+    const screen = renderPay(wallet);
+
+    const payButton = await waitFor(() => screen.getByText(loc.lnd.payButton));
+    act(() => {
+      fireEvent.press(payButton);
+      fireEvent.press(payButton);
+    });
+    expect(Biometric.isBiometricUseCapableAndEnabled).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      releaseBiometricCheck(true);
+      await biometricCheck;
+    });
+    await waitFor(() => expect(wallet.payInvoice).toHaveBeenCalledTimes(1));
+    expect(Biometric.unlockWithBiometrics).toHaveBeenCalledTimes(1);
+  });
+
+  it('releases the synchronous guard after invalid satoshi input', async () => {
+    const wallet = makeWallet();
+    const screen = renderPay(wallet, { amountSat: 1000.5 });
+
+    await waitFor(() => screen.getByText(loc.lnd.payButton));
+    fireEvent.press(screen.getByText(loc.lnd.payButton));
+    await waitFor(() => expect(alert).toHaveBeenCalledWith(loc.lnd.error_tip_invoice_not_supported));
+    await waitFor(() => screen.getByText(loc.lnd.payButton));
+    fireEvent.press(screen.getByText(loc.lnd.payButton));
+
+    await waitFor(() => expect(alert).toHaveBeenCalledTimes(2));
+    expect(wallet.payInvoice).not.toHaveBeenCalled();
   });
 
   it('shows insufficient funds and goes back from cancel when the amount exceeds the balance', async () => {
@@ -1244,5 +1363,58 @@ describe('LnurlPay remaining payment paths', () => {
     fireEvent.press(close.getByTestId('NavigationCloseButton'));
     expect(popToTop).toHaveBeenCalledTimes(1);
     close.unmount();
+  });
+});
+
+describe('outgoing payment tracking across LnurlPay routes', () => {
+  beforeEach(() => {
+    __resetOutgoingPaymentForTests();
+  });
+
+  afterEach(() => {
+    __resetOutgoingPaymentForTests();
+  });
+
+  it('notifies the older route when its SDK completion arrives after a newer payment began', () => {
+    beginOutgoingPayment({ paymentHash: 'older-hash', paymentId: 'older-id', invoice: 'older-invoice' });
+    beginOutgoingPayment({ paymentHash: 'newer-hash', paymentId: 'newer-id', invoice: 'newer-invoice' });
+    const seen = [];
+    const unsubscribe = subscribeOutgoingPayment(payment => seen.push(payment));
+
+    applyOutgoingSdkEvent({
+      tag: SdkEvent_Tags.PaymentSucceeded,
+      inner: {
+        payment: {
+          id: 'older-id',
+          paymentType: PaymentType.Send,
+          status: PaymentStatus.Completed,
+          amount: 1000n,
+          fees: 2n,
+          timestamp: 1n,
+          method: {},
+          details: {
+            tag: PaymentDetails_Tags.Lightning,
+            inner: {
+              invoice: 'older-invoice',
+              destinationPubkey: 'destination',
+              description: 'tea',
+              htlcDetails: { paymentHash: 'older-hash', preimage: 'older-preimage' },
+            },
+          },
+        },
+      },
+    });
+    unsubscribe();
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toEqual(
+      expect.objectContaining({
+        status: 'completed',
+        paymentHash: 'older-hash',
+        paymentId: 'older-id',
+        preimage: 'older-preimage',
+      }),
+    );
+    expect(getOutgoingPayment()).toEqual(expect.objectContaining({ status: 'pending', paymentHash: 'newer-hash', paymentId: 'newer-id' }));
   });
 });
