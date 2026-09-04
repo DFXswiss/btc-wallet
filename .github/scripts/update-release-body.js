@@ -11,12 +11,6 @@ module.exports = async ({ github, context }) => {
     tag,
   });
 
-  if (!release.data.draft) {
-    throw new Error(
-      `Refusing to update non-draft release ${tag} (would clobber a published release).`,
-    );
-  }
-
   const body = release.data.body || '';
   const pipelineBlockRegex =
     /<!-- build-pipeline:start -->[\s\S]*?<!-- build-pipeline:end -->/m;

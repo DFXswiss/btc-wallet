@@ -1,0 +1,29 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: ../_setup.yaml
+- tapOn:
+    point: '85%,58%'
+- waitForAnimationToEnd:
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Externe Services'
+    timeout: 90000
+# Die Kaufen-Kachel ist ein Bitmap in ImageButton ohne testID oder
+# accessibilityLabel. Der Punkt wurde am gerenderten Handbuchbild gemessen.
+- tapOn:
+    point: '38%,34%'
+- waitForAnimationToEnd:
+    timeout: 30000
+# Exakter Modustitel und Formularmarker unterscheiden die Kaufmaske vom Login
+# und von der Verkaufsmaske; der Seitentitel belegt den externen Uebergang.
+- extendedWaitUntil:
+    visible: '^Kaufen$'
+    timeout: 30000
+- assertVisible: '^DFX\.swiss \| Buy & Sell directly into your wallet$'
+- assertVisible: '^Kaufen$'
+- assertVisible: '^Formular$'
+- assertNotVisible: '^Login bei DFX Services$'
+- assertNotVisible: 'Invalid signature'

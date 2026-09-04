@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useContext, useRef, useMemo } from 'react';
 import {
+  ActivityIndicator,
   Dimensions,
   InteractionManager,
   PixelRatio,
@@ -31,10 +32,12 @@ import PropTypes from 'prop-types';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
+import { SparkWallet } from '../../class/wallets/spark-wallet';
 import BoltCard from '../../class/boltcard';
 import scanqrHelper from '../../helpers/scan-qr';
 import DfxServicesButtons from '../../components/DfxServicesButtons';
 import { usePrivateText } from '../../hooks/usePrivateText';
+import { useSparkContext } from '../../api/spark/contexts/spark.context';
 
 const fs = require('../../blue_modules/fs');
 
@@ -45,9 +48,14 @@ const buttonFontSize =
 
 const WalletHome = ({ navigation }) => {
   const { wallets, saveToDisk, setSelectedWallet, revalidateBalancesInterval } = useContext(BlueStorageContext);
+  const { createSparkWallet, isCreating } = useSparkContext();
   const walletID = useMemo(() => wallets[0]?.getID(), [wallets]);
   const multisigWallet = useMemo(() => wallets.find(w => w.type === MultisigHDWallet.type), [wallets]);
-  const lnWallet = useMemo(() => wallets.find(w => w.type === LightningLdsWallet.type), [wallets]);
+  // Prefer existing LNDHub Lightning; otherwise Spark. Existing LDS users are unchanged.
+  const lnWallet = useMemo(
+    () => wallets.find(w => w.type === LightningLdsWallet.type) || wallets.find(w => w.type === SparkWallet.type),
+    [wallets],
+  );
   const [, setIsLoading] = useState(false);
   const { name, params } = useRoute();
   const { setParams, navigate } = useNavigation();
@@ -93,7 +101,7 @@ const WalletHome = ({ navigation }) => {
   useEffect(() => {
     setIsLoading(true);
     setIsLoading(false);
-    if (wallet) setSelectedWallet(wallet.getID());
+    setSelectedWallet(wallet.getID());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletID]);
 
@@ -261,22 +269,22 @@ const WalletHome = ({ navigation }) => {
     });
   };
 
-  const navigateToAddLightning = () => {
-    navigate('WalletsRoot', {
-      screen: 'AddLightning',
-    });
+  const onAddLightningPress = () => {
+    // New users create a self-custodial Spark wallet in place — no provider screen.
+    // AddLightning remains in the navigator for Taproot-asset wallets only.
+    createSparkWallet();
   };
 
   const displayWallets = useMemo(() => {
     const tmpWallets = [];
 
-    const multisigWallet = wallets.find(w => w.type === MultisigHDWallet.type);
+    const multisigWalletItem = wallets.find(w => w.type === MultisigHDWallet.type);
     tmpWallets.push({
-      wallet: multisigWallet,
+      wallet: multisigWalletItem,
       title: 'Bitcoin',
       isActivated: true,
       subtitle: loc.wallets.multi_sig_wallet_label,
-      walletID: multisigWallet?.getID?.(),
+      walletID: multisigWalletItem?.getID?.(),
       onDummyPress: navigateToAddMultisig,
     });
 
@@ -289,18 +297,21 @@ const WalletHome = ({ navigation }) => {
       walletID: onChainWallet.getID?.(),
     });
 
-    const LnWallet = wallets.find(w => w.type === LightningLdsWallet.type);
+    const LnWallet = wallets.find(w => w.type === LightningLdsWallet.type) || wallets.find(w => w.type === SparkWallet.type);
+    const lightningSubtitle =
+      LnWallet?.type === SparkWallet.type ? loc.wallets.lightning_spark_wallet_label : loc.wallets.lightning_wallet_label;
     tmpWallets.push({
       wallet: LnWallet,
       title: 'Bitcoin',
       isActivated: true,
-      subtitle: loc.wallets.lightning_wallet_label,
+      subtitle: lightningSubtitle,
       walletID: LnWallet?.getID?.(),
-      onDummyPress: navigateToAddLightning,
+      onDummyPress: onAddLightningPress,
+      isCreatingLightning: isCreating && !LnWallet,
     });
 
     return tmpWallets;
-  }, [wallets]);
+  }, [wallets, isCreating, createSparkWallet]);
 
   return (
     <View style={styles.flex}>
@@ -371,7 +382,9 @@ const WalletHome = ({ navigation }) => {
                 Component={View}
                 {...(item.isActivated
                   ? {
-                      rightElement: (
+                      rightElement: item.isCreatingLightning ? (
+                        <ActivityIndicator />
+                      ) : (
                         <SecondButton
                           title={loc._.add}
                           icon={{ name: 'plus', type: 'font-awesome', color: 'white', size: 12 }}

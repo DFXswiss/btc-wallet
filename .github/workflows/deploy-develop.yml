@@ -1,7 +1,7 @@
 name: Deploy (develop)
 
-# On every merge to develop: build a signed Android APK so the assemble path
-# stays green. iOS TestFlight and the versioned
+# On every merge to develop: build a signed Android APK and upload it as a
+# workflow artifact for quick install/testing. iOS TestFlight and the versioned
 # store releases are owned by the tag flow (auto-tag.yml -> release.yml); this
 # workflow intentionally does not build iOS to avoid a duplicate TestFlight upload.
 #
@@ -10,6 +10,7 @@ name: Deploy (develop)
 #   SENTRY_AUTH_TOKEN (required: a missing token fails this build intentionally,
 #   rather than silently shipping without crash symbolication). SENTRY_URL/ORG/
 #   PROJECT aren't secrets (see below) but sentry-cli needs all of it together.
+#   BREEZ_API_KEY (required: baked into the APK via a generated overlay .env).
 
 on:
   push:
@@ -55,18 +56,34 @@ jobs:
           SENTRY_URL: https://sentry.dfxserve.com/
           SENTRY_ORG: sentry
           SENTRY_PROJECT: btc-taro
+          BREEZ_API_KEY: ${{ secrets.BREEZ_API_KEY }}
         run: |
           set -euo pipefail
-          for var in SENTRY_AUTH_TOKEN SENTRY_URL SENTRY_ORG SENTRY_PROJECT; do
+          for var in SENTRY_AUTH_TOKEN SENTRY_URL SENTRY_ORG SENTRY_PROJECT BREEZ_API_KEY; do
             [ -n "${!var:-}" ] || { echo "Missing required env: $var" >&2; exit 1; }
           done
+          cleanup() {
+            for f in "${KS:-}" "${BREEZ_ENVFILE:-}"; do
+              [ -n "$f" ] && [ -f "$f" ] || continue
+              if command -v shred &>/dev/null; then shred -u "$f"; else rm -Pf "$f"; fi
+            done
+          }
+          trap cleanup EXIT INT TERM
           KS="$(mktemp /tmp/app-signing.XXXXXX.keystore)"; chmod 600 "$KS"
-          trap 'shred -u "$KS" 2>/dev/null || rm -f "$KS"' EXIT
+          BREEZ_ENVFILE="$(mktemp /tmp/breez-env.XXXXXX)"; chmod 600 "$BREEZ_ENVFILE"
+          # .env.prd has no trailing newline; leading \n keeps BREEZ_API_KEY on its own line.
+          cp .env.prd "$BREEZ_ENVFILE"
+          printf '\nBREEZ_API_KEY=%s\n' "$BREEZ_API_KEY" >> "$BREEZ_ENVFILE"
           printf '%s' "$KEYSTORE_FILE_HEX" | xxd -plain -revert > "$KS"
           cd android
-          ./gradlew assembleRelease \
+          ENVFILE="$BREEZ_ENVFILE" ./gradlew assembleRelease \
             -PMYAPP_UPLOAD_STORE_FILE="$KS" \
             -PMYAPP_UPLOAD_KEY_ALIAS="$KEYSTORE_ALIAS" \
             -PMYAPP_UPLOAD_STORE_PASSWORD="$KEYSTORE_PASSWORD" \
             -PMYAPP_UPLOAD_KEY_PASSWORD="$KEYSTORE_KEY_PASSWORD" \
             -PMYAPP_VERSION_CODE="$BUILD_NUMBER"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dfx-bitcoin-develop-${{ github.run_number }}
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error

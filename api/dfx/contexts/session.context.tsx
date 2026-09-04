@@ -1,6 +1,5 @@
 import React, { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
-import { Linking, Alert } from 'react-native';
-import { ApiError } from '../definitions/error';
+import { Linking } from 'react-native';
 import { reportError } from '../../../helpers/errors';
 import { useWalletContext } from '../../../contexts/wallet.context';
 import Config from 'react-native-config';
@@ -16,8 +15,9 @@ import { useApi } from '../hooks/api.hook';
 import { User, UserUrl } from '../definitions/user';
 import { Auth } from '../definitions/auth';
 import { useLanguageContext } from './language.context';
-import { MultisigHDWallet } from '../../../class';
 import { TaprootLdsWallet } from '../../../class/wallets/taproot-lds-wallet';
+import { SparkWallet } from '../../../class/wallets/spark-wallet';
+import { dfxAvailabilityFromSettled, dfxConnectAtInit } from '../dfx-connect-at-init';
 
 export enum DfxService {
   BUY = 'buy',
@@ -41,6 +41,8 @@ const DfxSessionContext = createContext<SessionInterface>(undefined as any);
 export function useDfxSessionContext(): SessionInterface {
   return useContext(DfxSessionContext);
 }
+
+type ConnectableWallet = { type: string; getID(): string };
 
 export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.JSX.Element {
   const { wallets } = useContext(BlueStorageContext);
@@ -121,6 +123,15 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
 
         return await createSession(address.toUpperCase(), wallet.addressOwnershipProof);
       }
+      if (wallet.type === SparkWallet.type) {
+        if (!wallet.lnAddress) throw new Error(loc.wallets.lightning_spark_address_unavailable);
+        const address = Lnurl.getLnurlFromAddress(wallet.lnAddress);
+        if (!address) throw new Error(loc.wallets.lightning_spark_address_unavailable);
+
+        const normalizedAddress = address.toUpperCase();
+        const signature = await wallet.signCompactMessage(getSignMessage(normalizedAddress));
+        return await createSession(normalizedAddress, signature);
+      }
     }
 
     throw new Error('TODO (david): taproot?');
@@ -149,13 +160,18 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
   }
 
   async function connect(walletIds: string[]): Promise<void> {
-    await Promise.all(walletIds.map(id => getAccessToken(id)))
-      .then(() => setIsAvailable(true))
-      .catch((e: ApiError) => {
-        if (e.statusCode === 403) return setIsAvailable(false);
-
-        throw e;
-      });
+    const results = await Promise.allSettled(walletIds.map(id => getAccessToken(id)));
+    const availability = dfxAvailabilityFromSettled(results);
+    if (availability === 'available') {
+      setIsAvailable(true);
+      return;
+    }
+    if (availability === 'forbidden') {
+      setIsAvailable(false);
+      return;
+    }
+    const first = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+    throw first?.reason;
   }
 
   async function openServices(walletId: string, balance: string, service: DfxService): Promise<void> {
@@ -193,7 +209,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
 
     !isInitialized &&
       !isProcessing &&
-      connect(wallets.filter((w: any) => w.type !== MultisigHDWallet.type).map((w: any) => w.getID()))
+      connect(wallets.filter((w: ConnectableWallet) => dfxConnectAtInit(w.type)).map((w: ConnectableWallet) => w.getID()))
         .then(() => setIsInitialized(true))
         .catch(e => {
           reportError('DFX session init failed', e);

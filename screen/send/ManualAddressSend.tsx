@@ -20,7 +20,7 @@ const ManualAddressSend: React.FC & { navigationOptions?: ReturnType<typeof navi
   const { wallets } = useContext(BlueStorageContext);
   const { wallet: mainWallet } = useWalletContext();
   const { params } = useRoute<RouteProp<{ params: SendRouteParams }, 'params'>>();
-  const { replace } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
+  const { navigate } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const [address, setAddress] = useState('');
   const [disableContinue, setDisableContinue] = useState(true);
   const { colors } = useTheme();
@@ -43,6 +43,7 @@ const ManualAddressSend: React.FC & { navigationOptions?: ReturnType<typeof navi
   };
 
   const onContinue = () => {
+    // replace does not leave ScanCodeSendStack; SendDetailsRoot is on the parent.
     if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(address)) {
       const selectedWallet = wallets.find((w: AbstractWallet) => w.getID() === params?.walletID);
       const lightningWallet = wallets.find((w: AbstractWallet) => w.chain === Chain.OFFCHAIN);
@@ -50,11 +51,11 @@ const ManualAddressSend: React.FC & { navigationOptions?: ReturnType<typeof navi
       const destinationWallet = selectedWallet || lightningWallet || mainWallet;
       const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(destinationWallet, uri) as NavigationRoute;
       ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
-      replace(...route);
+      navigate(...route);
     } else if (DeeplinkSchemaMatch.isPossiblyLightningDestination(address) || DeeplinkSchemaMatch.isPossiblyOnChainDestination(address)) {
       DeeplinkSchemaMatch.navigationRouteFor({ url: address }, (completionValue: NavigationRoute) => {
         ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
-        replace(...completionValue);
+        navigate(...completionValue);
       });
     }
   };

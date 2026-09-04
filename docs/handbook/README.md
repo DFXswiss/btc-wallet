@@ -50,7 +50,7 @@ Ausgabe pro Build:
 
 Guards (Build bricht ab bei Verletzung):
 
-- **Floor:** mindestens `MIN_SCREENSHOTS` (35) PNGs (aktuell 41 committiert;
+- **Floor:** mindestens `MIN_SCREENSHOTS` (35) PNGs (aktuell 38 committiert;
   Boden bei Bestandszuwachs anheben)
 - **Floor:** mindestens `MIN_DOCS` (8) Markdown-Dokumente (nach Ausschlussregeln)
 - **Floor:** mindestens `MIN_STORE_FIELDS` (25) Store-Textfelder — der Boden
@@ -294,14 +294,34 @@ iOS-Simulator-Lauf, nicht aus einer CI-Visual-Regression. Die verwendeten
 Maestro-Flows liegen unter `scripts/handbook/screenshots/` und sind damit
 nachvollziehbar und wiederholbar.
 
+Fuer die Lightning-(Spark)-Wallet braucht der Build zusaetzlich `BREEZ_API_KEY`
+in der `.env`-Datei, die `/tmp/envfile` benennt. Der Schluessel ist das
+Repository-Secret; er gehoert **nicht** in eine getrackte `.env`-Datei und wird
+nach dem Build wieder entfernt. Beim Anhaengen darauf achten, dass die Datei mit
+einem Zeilenumbruch endet — sonst klebt der Schluessel an der letzten Variablen
+(`DFX_ENV=prdBREEZ_API_KEY=...`), und `Config.BREEZ_API_KEY` bleibt leer, ohne
+dass der Build es meldet.
+
 ```bash
 # App fuer den Simulator bauen (Sentry-Upload braucht Credentials, die es
 # lokal nicht gibt -> abschalten, sonst scheitert die Bundling-Phase)
+# Die beiden Scheme-Pre-Actions von Hand — xcodebuild fuehrt sie NICHT aus.
+# Ohne sie bleibt Config.BREEZ_API_KEY leer und die Lightning-(Spark)-Wallet
+# laesst sich nicht anlegen ("Lightning konnte nicht gestartet werden").
+echo ".env.prd" > /tmp/envfile   # Prod-Scheme; -dev/-loc schreiben .env.dev/.env.loc
+ruby node_modules/react-native-config/ios/ReactNativeConfig/BuildXCConfig.rb \
+  "$PWD" "$PWD/ios/tmp.xcconfig"
+
+# Signieren, nicht abschalten: eine unsignierte App hat keine Keychain-
+# Entitlements, und AppStorage#saveToDisk scheitert dann mit
+# "error saving key" — die Wallet wird gar nicht erst gespeichert.
 SENTRY_DISABLE_AUTO_UPLOAD=true xcodebuild \
   -workspace ios/BlueWallet.xcworkspace -scheme BlueWallet \
   -configuration Release -sdk iphonesimulator -derivedDataPath ios/build \
   -destination 'platform=iOS Simulator,name=iPhone 17' \
-  CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+  CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=YES CODE_SIGNING_ALLOWED=YES build
+
+rm -f /tmp/envfile ios/tmp.xcconfig   # beide tragen den Schluessel im Klartext
 
 xcrun simctl boot 'iPhone 17'
 xcrun simctl install booted ios/build/Build/Products/Release-iphonesimulator/Bitcoin.app
@@ -314,15 +334,15 @@ maestro test scripts/handbook/screenshots/01-onboarding.yaml
 Jedes committete PNG hat genau einen erzeugenden `takeScreenshot:`-Schritt, und
 kein Flow zielt auf einen Namen, den es im Satz nicht gibt — nachpruefbar, indem
 man alle `takeScreenshot: shots/<pfad>` gegen `docs/handbook/screenshots/**.png`
-abgleicht (Soll: 41 Treffer, 0 verwaist, 0 ohne Flow). Wer den Satz erweitert,
+abgleicht (Soll: 38 Treffer, 0 verwaist, 0 ohne Flow). Wer den Satz erweitert,
 haelt diese Zuordnung mit; sonst ist die Wiederholbarkeit nur behauptet.
 
 `_setup.yaml` ist der gemeinsame Vorlauf fuer die meisten Flows: frischer
 App-Start, Wallet anlegen und den Mitteilungs-Dialog einmal abraeumen. Die
 Wallet-Anlage fuehrt direkt auf die Uebersicht — die Lightning-Wallet ist opt-in
-und wird ueber „Hinzufuegen" in der Lightning-Zeile angelegt; genau das macht
-`_setup-lightning.yaml`, das die Lightning-Flows einbinden. Zwei
-Flows starten selbst mit `launchApp: clearState` und ohne `_setup*`:
+und wird ueber „Hinzufuegen" in der Lightning-Zeile angelegt. Den Einstieg
+zeigt `06b-wallet-lightning.yaml`, das Ergebnis `08b-lightning-spark.yaml`.
+Zwei Flows starten selbst mit `launchApp: clearState` und ohne `_setup.yaml`:
 `01-onboarding.yaml` und `16-import.yaml` (sie brauchen den frischen
 Onboarding-/Import-Zustand). Der Simulator-Build ohne Code-Signing hat keine
 Keychain-Entitlements; die Wallet ueberlebt einen App-Neustart deshalb nicht.
@@ -362,27 +382,27 @@ Voraussetzung: `zbarimg` (zbar-tools) und `tesseract` auf dem PATH sowie
 `marked` und `bip39` unter `_handbook-deps/` — beide in EINEM `npm install`,
 sonst raeumt der zweite Aufruf den ersten weg.
 
-Erlaubt ist genau ein Treffer: die On-Chain-Empfangsadresse in
-`04-empfangen-senden/01-erhalten.png` — sie ist der Inhalt dieses Screens und eine
-einzelne Wegwerf-Adresse. Jeder weitere Treffer ist ein Fund.
+Erlaubt sind genau zwei Treffer: die On-Chain-Empfangsadresse in
+`04-empfangen-senden/01-erhalten.png` und die Lightning-Rechnung in
+`08-lightning/03-rechnung-erstellen.png`. Jeder weitere Treffer ist ein Fund.
 
 Zusaetzlich geschwaerzt, weil sie Anmeldematerial bzw. dauerhaft gueltige
 Schluessel zeigen: das Feld „DFX-Adressen-Besitznachweis" in
-`03-einstellungen/03-wallet-einstellungen.png` und `19-lightning-wallet.png` (eine
+`03-einstellungen/03-wallet-einstellungen.png` (eine
 Signatur ueber eine **statische Nachricht ohne Nonce**, siehe
 `api/dfx/hooks/auth.hook.ts` — laeuft nie ab), der Account-`zpub` in
-`02-wallet/07-xpub.png`, der Cosigner-QR in `07-multi-device/01-erstellung-qr.png`
-und die Lightning-Adresse in `08-lightning/03-rechnung-erstellen.png`.
+`02-wallet/07-xpub.png` und der Cosigner-QR in
+`07-multi-device/01-erstellung-qr.png`.
 
-Zwei der vier Klassen prueft `content-gate.js` inzwischen automatisch mit:
+Zwei der drei Klassen prueft `content-gate.js` inzwischen automatisch mit:
 erweiterte Schluessel (`xpub`/`zpub`/`xprv` und Verwandte) fuehren zum Abbruch,
 ebenso eine Folge von `SEED_RUN_LIMIT` (derzeit fuenf) aufeinanderfolgenden
 BIP39-Woertern. Der aktuelle Satz kommt auf hoechstens drei; die
 ungeschwaerzten Originale hatten zwoelf.
 
-**Signatur und Lightning-Adresse bleiben Handarbeit** — dafuer hat das Gate
-keine Regel, und es kann auch keine haben: beide sind fuer sich genommen
-unauffaelliger Text. Beim Neuaufnehmen dieser zwei Screens also weiter selbst
+**Signatur bleibt Handarbeit** — dafuer hat das Gate
+keine Regel, und es kann auch keine haben: sie ist fuer sich genommen
+unauffaelliger Text. Beim Neuaufnehmen dieses Screens also weiter selbst
 schwaerzen.
 
 ## Abdeckung — was fehlt und warum
@@ -390,11 +410,11 @@ schwaerzen.
 Das Issue verlangt „jeden Screen, in jeder Variante, in jedem Szenario". Dieser
 Stand erfuellt das **nicht**. Die Zahlen, damit die Luecke nachpruefbar ist statt
 ungefaehr: `navigation/` registriert **109** Routen, davon 17 reine
-Stack-Wrapper (Endung `Root`), bleiben **92 echte Screens**. Die **41**
-committeten PNGs bilden davon **33 verschiedene Screens** ab — sechs Screens
+Stack-Wrapper (Endung `Root`), bleiben **92 echte Screens**. Die **38**
+committeten PNGs bilden davon **32 verschiedene Screens** ab — fünf Screens
 sind mehrfach abgebildet, weil sie in mehreren Varianten vorkommen:
-`WalletTransactions` und `AddLightning` (je 3 Bilder), `ReceiveDetails`,
-`WalletAsset`, `WalletDetails` und `Tools` (je 2). **59 Screens fehlen ganz.**
+`WalletTransactions` (3 Bilder), `ReceiveDetails`,
+`WalletAsset`, `WalletDetails` und `Tools` (je 2). **60 Screens fehlen ganz.**
 
 Die Luecke ist nicht zufaellig, sondern hat drei benennbare Ursachen:
 
@@ -422,11 +442,38 @@ hat. Ebenso die POS-Strecke (`PosReceive`, `CashierPos`, `CashierDfxPos`,
 Multi-Device-Wallet voraus, also drei parallel laufende Instanzen. Abgebildet ist
 nur der erste Einrichtungsschritt.
 
-Ausserdem kein App-Screen und deshalb bewusst nicht im Satz: die Kacheln
-„Kaufen"/„Verkaufen" oeffnen einen externen Browser.
+Die Kacheln „Kaufen"/„Verkaufen" oeffnen einen externen Browser; der
+Einstieg ist deshalb kein App-Screen. Der **Rueckweg** ist einer: Nach dem
+Verkauf fuehrt der Dienst per Deeplink zurueck in die App, und bezahlt wird
+dort über `Sell` und `LnurlPay` — bei einer Lightning-(Spark)-Wallet seit
+`ebad19b68f` über deren Spark-Invoice-Modus, weil die Deposit-Adresse eines
+Spark-Verkaufs eine Spark-Invoice ist und kein LNURL. Beide sind
+registrierte Routen (`navigation/DeeplinkStack.tsx:22` und `:23`) und fehlen
+im Satz; sie fallen unter Ursache 1, denn sie brauchen einen echten
+Verkaufsvorgang mit Guthaben.
 
 Wer die Luecke schliessen will, braucht in dieser Reihenfolge: eine Wallet mit
 einem kleinen Betrag on-chain und ein paar Sats auf Lightning (deckt Ursache 1
 ab), ein echtes Geraet mit NFC und eine Boltcard (Ursache 2), drei Geraete
 (Ursache 3).
+
+### Zwei Varianten abgebildeter Screens, die trotzdem fehlen
+
+Die Zaehlung oben geht ueber Routen. Zwei **Varianten** von Screens, die im Satz
+sind, fehlen aus Gruenden, die keine der drei Ursachen trifft:
+
+Der Empfangs-Bildschirm **ohne** Betrag zeigt die Lightning-Adresse als QR und
+darunter im Klartext, und die gilt dauerhaft — anders als eine Rechnung mit
+Ablauf. Die Redaktionspruefung (`scripts/handbook/content-gate.js`) verbietet
+diesen Inhalt ausdruecklich. Eine Aufnahme mit geschwaerztem QR wurde probiert
+und verworfen: der Code nimmt die halbe Seite ein, geschwaerzt bleibt eine
+Flaeche ohne Aussage. Die Bildunterschrift zu
+`08-lightning/03-rechnung-erstellen` beschreibt den Zustand stattdessen. Das ist
+eine Redaktionsentscheidung, kein fehlendes Artefakt.
+
+Die Wallet-Einstellungen einer Lightning-(Spark)-Wallet fehlen als Aufnahme,
+nicht mehr als Weg: Der Eintrag „Lightning (Spark)" in den Einstellungen fuehrt
+seit `3e799f57f` auch fuer diesen Wallet-Typ nach `WalletDetails` — der Screen
+kennt Spark und bietet dort auch das Loeschen an. Was hier fehlt, ist allein das
+Bild dazu; #269 ist geschlossen.
 

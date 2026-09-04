@@ -125,6 +125,17 @@ describe('LNURL', function () {
       metadata: '[["text/plain","Fund @overtorment account on t.me/lntxbot."]]',
       min: 1,
     });
+    const payRequest = LN.getLnurlPayRequestDetails();
+    assert.strictEqual(payRequest.callback, 'https://lntxbot.bigsun.xyz/lnurl/pay/callback?userid=7116');
+    assert.strictEqual(payRequest.minSendable, 1000n);
+    assert.strictEqual(payRequest.maxSendable, 1000000000n);
+    assert.strictEqual(payRequest.metadataStr, '[["text/plain","Fund @overtorment account on t.me/lntxbot."]]');
+    assert.strictEqual(payRequest.commentAllowed, 0);
+    assert.strictEqual(payRequest.url, Lnurl.getUrlFromLnurl(LN.getLnurl()));
+    assert.strictEqual(payRequest.domain, new URL(payRequest.url).hostname);
+    LN.setSdkSuccessAction({ tag: 'Message', inner: { data: { message: 'paid' } } });
+    assert.deepStrictEqual(LN.getSuccessAction(), { tag: 'message', message: 'paid' });
+    assert.strictEqual(LN.getDisposable(), true);
 
     // mock:
     LN.fetchGet = () => {
@@ -152,6 +163,24 @@ describe('LNURL', function () {
     assert.strictEqual(LN.getLnurl(), 'LNURL1DP68GURN8GHJ7MRWW3UXYMM59E3XJEMNW4HZU7RE0GHKCMN4WFKZ7URP0YLH2UM9WF5KG0FHXYCNV9G9W58');
     assert.strictEqual(LN.getDisposable(), false);
     assert.strictEqual(LN.getCommentAllowed(), false);
+
+    const callbackPayload = { ...rez };
+    delete callbackPayload.disposable;
+    const callbackResponses = [
+      callbackPayload,
+      { ...callbackPayload, disposable: null },
+      { ...callbackPayload, disposable: false },
+      { ...callbackPayload, disposable: true },
+    ];
+    const observedDisposableValues = [];
+
+    for (const response of callbackResponses) {
+      LN.fetchGet = () => response;
+      await LN.requestBolt11FromLnurlPayService(2);
+      observedDisposableValues.push(LN.getDisposable());
+    }
+
+    assert.deepStrictEqual(observedDisposableValues, [true, true, false, true]);
   });
 
   it('can requestBolt11FromLnurlPayService() when the invoice has no description_hash', async () => {
