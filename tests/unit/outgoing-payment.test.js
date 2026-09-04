@@ -8,6 +8,7 @@ import {
   settleOutgoingPayment,
   subscribeOutgoingPayment,
   __resetOutgoingPaymentForTests,
+  __trackedCountForTests,
 } from '../../api/spark/outgoing-payment';
 
 function sendPayment(id, status, { paymentHash, preimage, invoice } = {}) {
@@ -496,5 +497,28 @@ describe('outgoing payment tracker', () => {
     assert.strictEqual(again.status, 'failed');
     assert.strictEqual(again.preimage, undefined);
     assert.strictEqual(again.invoice, 'lnbc1same');
+  });
+
+  it('caps the tracked list once it grows past the limit, without dropping a payment still pending', () => {
+    const watched = beginOutgoingPayment({ paymentHash: 'watched-h', paymentId: 'watched-p' });
+    assert.strictEqual(watched.status, 'pending');
+
+    for (let i = 0; i < 25; i += 1) {
+      beginOutgoingPayment({ paymentHash: `settled-h${i}`, paymentId: `settled-p${i}` });
+      settleOutgoingPayment({ status: 'completed', paymentHash: `settled-h${i}`, paymentId: `settled-p${i}` });
+    }
+    assert.ok(__trackedCountForTests() <= 20, `tracked list grew unbounded: ${__trackedCountForTests()}`);
+
+    // 'watched' is the oldest entry in the list and is no longer 'current' by this point, but it is
+    // still pending, so it must still be reachable by its identity instead of having been dropped.
+    const settled = settleOutgoingPayment({
+      status: 'completed',
+      paymentHash: 'watched-h',
+      paymentId: 'watched-p',
+      preimage: 'pre-watched',
+    });
+    assert.strictEqual(settled.status, 'completed');
+    assert.strictEqual(settled.paymentHash, 'watched-h');
+    assert.strictEqual(settled.preimage, 'pre-watched');
   });
 });

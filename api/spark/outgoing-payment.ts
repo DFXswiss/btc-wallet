@@ -65,10 +65,24 @@ function trackedIndex(identity: OutgoingPaymentIdentity): number {
   return -1;
 }
 
+/** Entries that are still pending, or are the payment currently shown to the UI, are never
+ * dropped here — only settled attempts that nothing is watching anymore. */
+const MAX_TRACKED_ENTRIES = 20;
+
+function pruneTracked(): void {
+  for (let index = 0; index < tracked.length && tracked.length > MAX_TRACKED_ENTRIES; index += 1) {
+    const entry = tracked[index];
+    if (entry === current || !isTerminal(entry.status)) continue;
+    tracked.splice(index, 1);
+    index -= 1;
+  }
+}
+
 function track(payment: OutgoingPayment): void {
   const index = trackedIndex(payment);
   if (index < 0) {
     tracked.push(payment);
+    pruneTracked();
   } else {
     tracked[index] = payment;
   }
@@ -309,4 +323,8 @@ export function __resetOutgoingPaymentForTests(): void {
   tracked = [];
   unclaimed = [];
   listeners.clear();
+}
+
+export function __trackedCountForTests(): number {
+  return tracked.length;
 }
