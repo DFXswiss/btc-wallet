@@ -103,16 +103,14 @@ on a configuration error or an empty filter.
 - The DFX web surface and its API are not part of this repository. P11 and P12
   check the buy respectively sell screen reached, using disjoint markers; the
   exact DFX page title additionally evidences the external transition.
-  Production answers the Spark login with `400 Invalid signature`. With
-  `DFX_ENV=loc` the login succeeds against the local API (`POST /v1/auth/ 201`), and together with a local services
-  instance the session is passed through, and both flows drive their transaction
+  With `DFX_ENV=loc` the login succeeds against the local API
+  (`POST /v1/auth/ 201`), and together with a local services instance the
+  session is passed through, and both flows drive their transaction
   to the point where the user would act on it: P11 to the payment instructions
   (`Zahlungsinformation`, `Wechselkurs`, tabs `Text` and `QR-Code`), P12 to a
-  stored bank account. The payout itself is not covered — see `coverage.md`. Against production the page stays at the step `Login bei DFX
-Services`, and the Spark login keeps failing with `400 Invalid signature`
-  until that API change is deployed. A `DFX_ENV=prd` build fails against this
-  local API already at the on-chain login, because the non-production API
-  prefixes the signed message with `[env]_`. Not every wallet then receives a
+  stored bank account. The payout itself is not covered — see `coverage.md`. These two flows are not hermetic: without the
+  local stack they do not run. A `DFX_ENV=prd` build does not work against the local API,
+  because the two sides then do not verify the same message. Not every wallet then receives a
   token and `session.context.tsx` hides the entire `Externe Services` block. The
   earlier suspicion that the local database lacked the required assets is
   refuted: both the Lightning and the on-chain Bitcoin asset are present and
@@ -135,8 +133,7 @@ were measured as a complete series on 2026-09-04 against the local API and servi
 instance with `DFX_ENV=loc`:
 `Flows: 13, passed: 13, assertion failures: 0, aborted: 0` and
 `Suite outcome: passed`, every flow individually `passed`. P11 reaches the
-payment instructions of a purchase, P12 a stored bank account for a sell. Against production P11/P12 stay
-red because of `400 Invalid signature`. The control run against a server state
+payment instructions of a purchase, P12 a stored bank account for a sell. They are not hermetic and need that stack. The control run against a server state
 without that API change is still missing. Details and limits are in
 `coverage.md`, including a load-timing flake seen once in P11.
 
