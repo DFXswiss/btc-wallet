@@ -27,3 +27,20 @@ appId: swiss.dfx.bitcoin
 - assertVisible: '^Formular$'
 - assertNotVisible: '^Login bei DFX Services$'
 - assertNotVisible: 'Invalid signature'
+# Dieser Abschnitt setzt extern einen lokalen DFX-Stack voraus, in dem der
+# Nutzer bereits handelsfähig ist (Kontostatus, Limit und Einzahlungsadressen).
+- waitForAnimationToEnd:
+    timeout: 8000
+# Das Neuladen-Icon des In-App-Browsers hat keinen semantischen Selektor. Der
+# Punkt wurde im Simulator am gerenderten Browser gemessen. Ohne diesen Reload
+# behaelt die Seite den verfruehten KYC-Zustand und der Flow faellt im Serienlauf.
+- tapOn:
+    point: '72%,93%'
+- extendedWaitUntil:
+    visible: '^Zahlungsinformation$'
+    timeout: 30000
+- assertVisible: '^Zahlungsinformation$'
+- assertVisible: '^Wechselkurs$'
+- assertVisible: '^Text$'
+- assertVisible: '^QR-Code$'
+- assertNotVisible: '^KYC VERVOLLSTÄNDIGEN$'

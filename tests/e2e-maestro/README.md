@@ -19,6 +19,9 @@ from a previous one.
 - Network access to Spark/Breez and to the DFX API. P9 uses the `@breez.tips`
   address registered by the freshly created Spark wallet instead of a foreign
   LNURL test service. P11/P12 need a reachable DFX web flow.
+- P11 and P12 additionally require an account that is tradable on the API side
+  (verified status, a non-zero limit, Lightning deposit addresses). That state is
+  set outside the suite; without it both flows fail rather than silently pass.
 - The given simulator must not hold any wallet state worth protecting. Before
   every flow the runner terminates and uninstalls the app, resets the simulator
   keychain and installs the given bundle anew. On top of that every flow uses
@@ -103,9 +106,10 @@ on a configuration error or an empty filter.
   Production answers the Spark login with `400 Invalid signature`. With
   `DFX_ENV=loc` the login succeeds against a local API carrying the pending
   sell-side change (`POST /v1/auth/ 201`), and together with a local services
-  instance the session is passed through: P11 reaches `Kaufen` and `Formular`,
-  P12 `Deine IBAN hinzufügen oder auswählen`. Entries and completions are not
-  checked. Against production the page stays at the step `Login bei DFX
+  instance the session is passed through, and both flows drive their transaction
+  to the point where the user would act on it: P11 to the payment instructions
+  (`Zahlungsinformation`, `Wechselkurs`, tabs `Text` and `QR-Code`), P12 to a
+  stored bank account. The payout itself is not covered — see `coverage.md`. Against production the page stays at the step `Login bei DFX
 Services`, and the Spark login keeps failing with `400 Invalid signature`
   until that API change is deployed. A `DFX_ENV=prd` build fails against this
   local API already at the on-chain login, because the non-production API
@@ -131,8 +135,8 @@ The versions of this state — including the mode-specific tightened P11/P12 —
 were measured as a complete series on 2026-09-04 against the local API carrying
 the pending sell-side change and the local services instance with `DFX_ENV=loc`:
 `Flows: 13, passed: 13, assertion failures: 0, aborted: 0` and
-`Suite outcome: passed`, every flow individually `passed`. P11 reaches the buy
-screen, P12 the sell screen with the IBAN row. Against production P11/P12 stay
+`Suite outcome: passed`, every flow individually `passed`. P11 reaches the
+payment instructions of a purchase, P12 a stored bank account for a sell. Against production P11/P12 stay
 red because of `400 Invalid signature`. The control run against a server state
 without that API change is still missing. Details and limits are in
 `coverage.md`, including a load-timing flake seen once in P11.
