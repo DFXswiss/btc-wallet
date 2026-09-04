@@ -82,8 +82,8 @@
     {
       "id": "lightning",
       "title": "Lightning",
-      "summary": "Piccoli importi, subito e a costi molto bassi.",
-      "intro": "Lightning è un secondo livello su bitcoin per pagamenti piccoli e veloci. In questa app il portafoglio per Lightning passa da un fornitore chiamato LNDHub. lightning.space è preselezionato e si può scegliere anche DFX.swiss. A differenza del portafoglio sulla blockchain, il saldo è custodito da quel fornitore. Per importi maggiori il portafoglio sulla blockchain resta il posto giusto.",
+      "summary": "Piccoli pagamenti immediati; poiché la commissione non dipende dall'importo, incide proporzionalmente di più sui pagamenti molto piccoli.",
+      "intro": "Lightning è un secondo livello su bitcoin per pagamenti piccoli e veloci. I nuovi utenti creano Lightning (Spark) con un tocco sulla riga della panoramica. Acquisto e vendita ci sono come negli altri portafogli; non c'è una carta di pagamento. La vendita apre il servizio DFX nel browser e poi riporta nell'app, dove l'importo va confermato ancora una volta. L'indirizzo Lightning si trova presso Breez. Per importi maggiori il portafoglio sulla blockchain resta il posto giusto.",
       "groups": [
         "08-lightning"
       ]
@@ -92,7 +92,7 @@
       "id": "weitere-wallets",
       "title": "Altri portafogli: aggiungere e importare",
       "summary": "Un portafoglio su tre dispositivi, un portafoglio in più per Lightning, la lettura di un portafoglio esistente.",
-      "intro": "Oltre al portafoglio del primo avvio se ne possono creare altri: un portafoglio distribuito su tre dispositivi, due dei quali approvano ogni pagamento, oppure un altro portafoglio per Lightning. Un portafoglio creato altrove si legge dalla frase di recupero, da una chiave privata o da un codice.",
+      "intro": "Oltre al portafoglio del primo avvio se ne possono creare altri: un portafoglio distribuito su tre dispositivi, due dei quali approvano ogni pagamento, oppure Lightning (Spark) con un tocco sulla riga della panoramica. Non c'è una scelta del fornitore. Un portafoglio creato altrove si legge dalla frase di recupero, da una chiave privata o da un codice.",
       "groups": [
         "06-wallet-hinzufuegen",
         "07-multi-device",
@@ -113,14 +113,6 @@
     "01-onboarding/01-start": {
       "title": "Avvertenza al primo avvio",
       "text": "Prima del primo portafoglio l'app segnala che custodisce le chiavi: restano sul dispositivo, non presso DFX."
-    },
-    "06-wallet-hinzufuegen/03-lightning-benutzerdefiniert": {
-      "title": "Un fornitore proprio",
-      "text": "Chi gestisce un LNDHub proprio ne inserisce qui l'indirizzo."
-    },
-    "06-wallet-hinzufuegen/04-lightning-dfx-swiss": {
-      "title": "Il fornitore DFX.swiss",
-      "text": "In alternativa si può scegliere il servizio gestito da DFX.swiss."
     },
     "01-onboarding/02-wallet-uebersicht": {
       "title": "La panoramica dopo la creazione",
@@ -226,10 +218,6 @@
       "title": "Pubblicare una transazione",
       "text": "Immettere nella rete una transazione firmata altrove."
     },
-    "03-einstellungen/19-lightning-wallet": {
-      "title": "Impostazioni per Lightning",
-      "text": "Impostazioni del portafoglio per Lightning, fra cui il fornitore collegato."
-    },
     "04-empfangen-senden/01-erhalten": {
       "title": "Ricevere",
       "text": "Il codice contiene l'indirizzo per ricevere. Importo e descrizione restano facoltativi."
@@ -242,25 +230,25 @@
       "title": "Creare un portafoglio su tre dispositivi",
       "text": "Un portafoglio distribuito su tre dispositivi: due di essi approvano ogni pagamento. Evita che un solo dispositivo perso costi il denaro."
     },
-    "06-wallet-hinzufuegen/02-lightning": {
-      "title": "Creare un portafoglio per Lightning",
-      "text": "Un portafoglio in più per Lightning presso un fornitore."
+    "06-wallet-hinzufuegen/02-lightning-spark": {
+      "title": "Riga Lightning con Aggiungi",
+      "text": "Un tocco su « Aggiungi » in questa riga crea Lightning (Spark). Non c'è un'altra scelta."
     },
     "07-multi-device/01-erstellung-qr": {
       "title": "Primo passo della configurazione",
       "text": "Ciascuno dei tre dispositivi mostra un codice proprio e scansiona gli altri due. L'indicatore in alto segue l'avanzamento."
     },
     "08-lightning/01-uebersicht-mit-lightning": {
-      "title": "Panoramica con Lightning",
-      "text": "La schermata iniziale quando accanto al portafoglio sulla blockchain c'è un portafoglio per Lightning."
+      "title": "Panoramica con Lightning (Spark)",
+      "text": "La schermata iniziale quando accanto al portafoglio sulla blockchain c'è Lightning (Spark)."
     },
     "08-lightning/02-lightning-wallet": {
-      "title": "Il portafoglio per Lightning",
-      "text": "Saldo, pagamenti e accesso alla carta di pagamento."
+      "title": "Lightning (Spark)",
+      "text": "Saldo e pagamenti di questo portafoglio. Acquisto e vendita stanno sotto; qui non c'è una carta di pagamento. L'indirizzo Lightning si trova presso Breez."
     },
     "08-lightning/03-rechnung-erstellen": {
       "title": "Creare una fattura",
-      "text": "Ricevere tramite Lightning significa creare una fattura, di solito con importo fisso e validità limitata."
+      "text": "Con un importo la pagina crea una fattura Lightning. Senza importo mostrerebbe l'indirizzo Lightning presso Breez, se è stato possibile registrarne uno; vale in modo permanente e non appartiene a un manuale pubblico."
     },
     "09-import/01-scanner": {
       "title": "Importare con lo scanner",

@@ -19,6 +19,7 @@ import { NetworkTransactionFee } from '../../models/networkTransactionFees';
 import BigNumber from 'bignumber.js';
 import { Chain } from '../../models/bitcoinUnits';
 import { Utils } from '../../helpers/utils';
+import { SparkWallet } from '../../class/wallets/spark-wallet';
 const currency = require('../../blue_modules/currency');
 
 type SellRouteProps = RouteProp<
@@ -115,11 +116,22 @@ const Sell = () => {
         psbt,
       });
     } else {
-      navigation.navigate('LnurlPay', {
-        lnurl: sell?.deposit.address,
-        walletID: wallet.getID(),
-        amountSat: currency.btcToSatoshi(amount),
-      });
+      const depositAddress = sell?.deposit.address;
+      if (wallet.type === SparkWallet.type && depositAddress && SparkWallet.isSparkInvoice(depositAddress)) {
+        const parsed = SparkWallet.parseSparkPaymentUri(depositAddress);
+        navigation.navigate('LnurlPay', {
+          sparkInvoice: parsed.invoice,
+          walletID: wallet.getID(),
+          amountSat: currency.btcToSatoshi(amount),
+          routeId,
+        });
+      } else {
+        navigation.navigate('LnurlPay', {
+          lnurl: depositAddress,
+          walletID: wallet.getID(),
+          amountSat: currency.btcToSatoshi(amount),
+        });
+      }
     }
   }
 

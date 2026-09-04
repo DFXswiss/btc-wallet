@@ -1,0 +1,46 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: ../_setup.yaml
+- tapOn:
+    point: '85%,58%'
+- waitForAnimationToEnd:
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Externe Services'
+    timeout: 90000
+# Die Kaufen-Kachel ist ein Bitmap in ImageButton ohne testID oder
+# accessibilityLabel. Der Punkt wurde am gerenderten Handbuchbild gemessen.
+- tapOn:
+    point: '38%,34%'
+- waitForAnimationToEnd:
+    timeout: 30000
+# Exakter Modustitel und Formularmarker unterscheiden die Kaufmaske vom Login
+# und von der Verkaufsmaske; der Seitentitel belegt den externen Uebergang.
+- extendedWaitUntil:
+    visible: '^Kaufen$'
+    timeout: 30000
+- assertVisible: '^DFX\.swiss \| Buy & Sell directly into your wallet$'
+- assertVisible: '^Kaufen$'
+- assertVisible: '^Formular$'
+- assertNotVisible: '^Login bei DFX Services$'
+- assertNotVisible: 'Invalid signature'
+# Dieser Abschnitt setzt extern einen lokalen DFX-Stack voraus, in dem der
+# Nutzer bereits handelsfähig ist (Kontostatus, Limit und Einzahlungsadressen).
+- waitForAnimationToEnd:
+    timeout: 8000
+# Das Neuladen-Icon des In-App-Browsers hat keinen semantischen Selektor. Der
+# Punkt wurde im Simulator am gerenderten Browser gemessen. Ohne diesen Reload
+# behaelt die Seite den verfruehten KYC-Zustand und der Flow faellt im Serienlauf.
+- tapOn:
+    point: '72%,93%'
+- extendedWaitUntil:
+    visible: '^Zahlungsinformation$'
+    timeout: 30000
+- assertVisible: '^Zahlungsinformation$'
+- assertVisible: '^Wechselkurs$'
+- assertVisible: '^Text$'
+- assertVisible: '^QR-Code$'
+- assertNotVisible: '^KYC VERVOLLSTÄNDIGEN$'

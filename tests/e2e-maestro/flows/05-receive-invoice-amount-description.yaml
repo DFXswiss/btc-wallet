@@ -1,0 +1,49 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: ../_setup.yaml
+- tapOn:
+    point: '85%,58%'
+- waitForAnimationToEnd:
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    timeout: 90000
+- tapOn:
+    point: '50%,58%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- tapOn:
+    point: '16%,93%'
+- extendedWaitUntil:
+    visible: 'Amount (optional)'
+    timeout: 20000
+- tapOn: 'Amount (optional)'
+- inputText: '1000'
+# Der Ziffernblock hat weder Return noch "Fertig". "sats" ist ein sichtbarer,
+# nicht interaktiver Text innerhalb des Keyboard.dismiss-Containers.
+- tapOn: 'sats'
+- extendedWaitUntil:
+    visible: '.*lnbc.*'
+    timeout: 30000
+- copyTextFrom: '.*lnbc10u1.*'
+- runScript: ../scripts/store-first-invoice.js
+- tapOn: 'Beschreibung (optional)'
+- inputText: 'Maestro-E2E'
+- tapOn: 'sats'
+- assertNotVisible: 'Delete'
+- extendedWaitUntil:
+    visible: '.*lnbc.*'
+    timeout: 30000
+- copyTextFrom: '.*lnbc10u1.*'
+- assertTrue: ${maestro.copiedText !== output.firstInvoice}
+# Der sichtbare BOLT11-Text wird nur im QR-Zweig gerendert. Das QR-Canvas
+# selbst hat im Produktionscode weder testID noch accessibilityLabel.
+# Die App übergibt dem SDK nur amountSats (class/wallets/spark-wallet.ts);
+# die HRP-Notation (1000 Sat → lnbc10u) setzt das SDK, nicht die App
+# (Fixture tests/unit/deeplink-schema-match.test.js). Wechselt das SDK die
+# Kodierung, diese Assertion und die Fixture nachziehen — der Flow selbst
+# bleibt gültig.
+- assertVisible: '.*lnbc10u1.*'
+- assertVisible: '1000'
+- assertVisible: 'Maestro-E2E'
+- assertNotVisible: 'Eine Empfangsadresse ist noch nicht vorhanden.*'

@@ -473,7 +473,8 @@ function assertValidPng(filePath, minBytes = MIN_PNG_BYTES) {
 // Directory basenames skipped at any depth during markdown discovery.
 // blue_modules holds vendored upstream READMEs (explicit issue exclusion);
 // ios/android/windows/macos/vendor hold platform and third-party docs that
-// are not product documentation for this handbook.
+// are not product documentation for this handbook; tests holds internal test
+// documentation, which must not be published as product documentation.
 const SKIP_MD_DIR_NAMES = new Set([
   'node_modules',
   '.git',
@@ -481,6 +482,7 @@ const SKIP_MD_DIR_NAMES = new Set([
   'build',
   'dist',
   'coverage',
+  'tests',
   'blue_modules',
   'ios',
   'android',

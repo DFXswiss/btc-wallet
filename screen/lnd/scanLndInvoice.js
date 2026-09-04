@@ -1,5 +1,5 @@
 import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, View, StatusBar, Keyboard, ScrollView, StyleSheet } from 'react-native';
+import { KeyboardAvoidingView, View, StatusBar, Keyboard, ScrollView, StyleSheet } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { useFocusEffect, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -16,6 +16,9 @@ import {
 import navigationStyle from '../../components/navigationStyle';
 import AmountInput from '../../components/AmountInput';
 import Lnurl from '../../class/lnurl';
+import { LightningCustodianWallet } from '../../class/wallets/lightning-custodian-wallet';
+import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
+import { SparkWallet } from '../../class/wallets/spark-wallet';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
@@ -23,6 +26,11 @@ import alert from '../../components/Alert';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import { isFreeDomain, isInternalDomain } from '../../helpers/freeLightningDomains';
 const currency = require('../../blue_modules/currency');
+
+/** LNDHub (custodian / LDS) waives fees for listed domains. Spark does not. */
+function walletWaivesDomainFees(fromWallet) {
+  return fromWallet.type === LightningCustodianWallet.type || fromWallet.type === LightningLdsWallet.type;
+}
 
 const ScanLndInvoice = () => {
   const { wallets } = useContext(BlueStorageContext);
@@ -45,8 +53,8 @@ const ScanLndInvoice = () => {
   const [desc, setDesc] = useState();
   const [isDescDisabled, setIsDescDisabled] = useState(false);
   const [expiresIn, setExpiresIn] = useState();
-  const [domain, setDomain] = useState('');
   const [isTxFree, setIsTxFree] = useState(false);
+  const [sparkFee, setSparkFee] = useState();
 
   const stylesHook = StyleSheet.create({
     root: {
@@ -98,10 +106,8 @@ const ScanLndInvoice = () => {
     setIsAmountInputDisabled(false);
     setDesc(ln.getDescription());
     setIsDescDisabled(Boolean(ln.getDescription()));
-    setDomain(ln.getDomain());
-    if (isFreeDomain(ln.getDomain())) {
-      setIsTxFree(true);
-    }
+    const lnurlDomain = ln.getDomain();
+    setIsTxFree(walletWaivesDomainFees(wallet) && (isInternalDomain(lnurlDomain) || isFreeDomain(lnurlDomain)));
     setIsLoading(false);
   };
 
@@ -109,11 +115,8 @@ const ScanLndInvoice = () => {
     setDestination(destinationString);
     setIsAmountInputDisabled(false);
     setIsDescDisabled(false);
-    const domain = Lnurl.getDomainFromLightningAddress(destinationString);
-    setDomain(domain);
-    if (isFreeDomain(domain)) {
-      setIsTxFree(true);
-    }
+    const addressDomain = Lnurl.getDomainFromLightningAddress(destinationString);
+    setIsTxFree(walletWaivesDomainFees(wallet) && (isInternalDomain(addressDomain) || isFreeDomain(addressDomain)));
   };
 
   const setLightningInvoiceDestination = destinationString => {
@@ -170,17 +173,41 @@ const ScanLndInvoice = () => {
 
   useEffect(() => {
     if (wallet && uri) {
-      try {
-        processDestination(uri);
-      } catch (Err) {
+      const handleDestinationError = Err => {
         ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
         setTimeout(() => alert(Err.message), 10);
         Keyboard.dismiss();
         clearAllInputs();
+      };
+      try {
+        Promise.resolve(processDestination(uri)).catch(handleDestinationError);
+      } catch (Err) {
+        handleDestinationError(Err);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uri]);
+
+  useEffect(() => {
+    let isCurrent = true;
+    setSparkFee(undefined);
+    if (wallet?.type !== SparkWallet.type || !decoded || !destination || !(amountSat > 0)) {
+      return () => {
+        isCurrent = false;
+      };
+    }
+
+    wallet
+      .getPaymentFeeWithoutSending(destination, amountSat)
+      .then(fee => {
+        if (isCurrent) setSparkFee(fee);
+      })
+      .catch(() => {});
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [amountSat, decoded, destination, wallet]);
 
   const showError = errMessage => {
     alert(errMessage);
@@ -191,10 +218,10 @@ const ScanLndInvoice = () => {
     if (amountSat <= 0) return showError(loc.send.details_amount_field_is_not_valid);
 
     const isMax = amountSat === wallet.getBalance();
-    const maxFee = isTxFree ? 0 : Math.round(amountSat * 0.03);
+    const maxFee = isTxFree || wallet.type === SparkWallet.type ? 0 : Math.round(amountSat * 0.03);
     const remainingBalance = wallet.getBalance() - amountSat;
-    if (!isMax && !isTxFree && maxFee > remainingBalance) return showError(loc.lnd.error_balance_for_insuficient_fee);
-    const maxMultiplier = isTxFree ? 1 : 0.97; // max 3% fee set by LNBits
+    if (!isMax && maxFee > remainingBalance) return showError(loc.lnd.error_balance_for_insuficient_fee);
+    const maxMultiplier = isTxFree || wallet.type === SparkWallet.type ? 1 : 0.97; // max 3% fee set by LNBits
 
     navigate('SendDetailsRoot', {
       screen: 'LnurlPay',
@@ -202,6 +229,7 @@ const ScanLndInvoice = () => {
         lnurl: destination,
         amountSat: isMax ? Math.floor(amountSat * maxMultiplier) : amountSat,
         description: desc,
+        ...(isMax && wallet.type === SparkWallet.type ? { isMax: true } : {}),
         walletID: walletID || wallet.getID(),
       },
     });
@@ -209,7 +237,7 @@ const ScanLndInvoice = () => {
 
   const processInvoicePay = async () => {
     if (!decoded) return null;
-    if (amountSat === 0) return showError(loc.lnd.error_tip_invoice_not_supported);
+    if (!Number.isInteger(amountSat) || amountSat === 0) return showError(loc.lnd.error_tip_invoice_not_supported);
 
     const newExpiresIn = (decoded.timestamp * 1 + decoded.expiry * 1) * 1000; // ms
     if (+new Date() > newExpiresIn) return showError(loc.lnd.errorInvoiceExpired);
@@ -243,10 +271,10 @@ const ScanLndInvoice = () => {
   };
 
   const getFees = () => {
-    if (isTxFree || isInternalDomain(domain)) return loc._.free;
+    if (isTxFree) return loc._.free;
 
     const min = 0;
-    const max = Math.floor(amountSat * 0.03);
+    const max = Math.round(amountSat * 0.03);
     return `${min} ${BitcoinUnit.SATS} - ${max} ${BitcoinUnit.SATS}`;
   };
 
@@ -267,9 +295,11 @@ const ScanLndInvoice = () => {
       case BitcoinUnit.LOCAL_CURRENCY:
         sats = AmountInput.getCachedSatoshis(text) || currency.btcToSatoshi(currency.fiatToBTC(text));
         break;
-      case BitcoinUnit.SATS:
-        sats = parseInt(text, 10);
+      case BitcoinUnit.SATS: {
+        const parsed = Number(text);
+        sats = Number.isInteger(parsed) ? parsed : NaN;
         break;
+      }
     }
     setAmountSat(sats);
   };
@@ -327,19 +357,21 @@ const ScanLndInvoice = () => {
             </View>
             <View style={styles.fee}>
               <BlueText style={stylesHook.fee}>{loc.send.create_fee}</BlueText>
-              <BlueText style={stylesHook.fee}>{amountSat > 0 ? getFees() : '-'}</BlueText>
+              <BlueText style={stylesHook.fee}>
+                {wallet?.type === SparkWallet.type
+                  ? sparkFee === undefined
+                    ? '-'
+                    : `${sparkFee} ${BitcoinUnit.SATS}`
+                  : wallet && amountSat > 0
+                    ? getFees()
+                    : '-'}
+              </BlueText>
             </View>
           </KeyboardAvoidingView>
           <BlueCard>
-            {isLoading ? (
-              <View>
-                <ActivityIndicator />
-              </View>
-            ) : (
-              <View>
-                <BlueButton title={loc.lnd.next} onPress={next} />
-              </View>
-            )}
+            <View>
+              <BlueButton title={loc.lnd.next} onPress={next} />
+            </View>
           </BlueCard>
         </ScrollView>
       </View>

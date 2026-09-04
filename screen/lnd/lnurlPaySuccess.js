@@ -17,6 +17,50 @@ import navigationStyle from '../../components/navigationStyle';
 import Lnurl from '../../class/lnurl';
 import loc from '../../loc';
 import { SuccessView } from '../send/success';
+import alert from '../../components/Alert';
+import { reportError } from '../../helpers/errors';
+
+/** Serializable success-screen fields. AES actions are decrypted here so the preimage never enters navigation params. */
+export function lnurlPaySuccessDisplay(LN) {
+  const display = {
+    repeatable: !LN.getDisposable(),
+  };
+
+  const domain = LN.getDomain();
+  if (domain) display.domain = domain;
+
+  const description = LN.getDescription();
+  if (description) display.description = description;
+
+  const image = LN.getImage();
+  if (image) display.image = image;
+
+  const lnurl = LN.getLnurl();
+  if (typeof lnurl === 'string' && lnurl) display.lnurl = lnurl;
+
+  const successAction = LN.getSuccessAction();
+  if (!successAction) return display;
+
+  switch (successAction.tag) {
+    case 'aes':
+      display.preamble = successAction.description;
+      try {
+        display.message = Lnurl.decipherAES(successAction.ciphertext, LN.getPreimage(), successAction.iv);
+      } catch (error) {
+        reportError('lnurlPaySuccess: failed to decrypt success action', error);
+      }
+      break;
+    case 'url':
+      display.preamble = successAction.description;
+      display.url = successAction.url;
+      break;
+    case 'message':
+      display.message = successAction.message;
+      break;
+  }
+
+  return display;
+}
 
 export default class LnurlPaySuccess extends Component {
   constructor(props) {
@@ -24,66 +68,90 @@ export default class LnurlPaySuccess extends Component {
 
     const paymentHash = props.route.params.paymentHash;
     const fromWalletID = props.route.params.fromWalletID;
+    const fee = props.route.params.fee;
     const justPaid = !!props.route.params.justPaid;
 
     this.state = {
       paymentHash,
       isLoading: true,
       fromWalletID,
+      fee,
       justPaid,
     };
   }
 
+  applySuccessfulPayment(LN) {
+    this.setState({ isLoading: false, hasDisplay: true, ...lnurlPaySuccessDisplay(LN) });
+  }
+
+  applyFallbackDisplay(display) {
+    this.setState({
+      isLoading: false,
+      hasDisplay: true,
+      domain: display.domain,
+      description: display.description,
+      image: display.image,
+      lnurl: display.lnurl,
+      repeatable: display.repeatable,
+      preamble: display.preamble,
+      message: display.message,
+      url: display.url,
+    });
+  }
+
   async componentDidMount() {
-    const LN = new Lnurl(false, AsyncStorage);
-    await LN.loadSuccessfulPayment(this.state.paymentHash);
-
-    const successAction = LN.getSuccessAction();
-    if (!successAction) {
-      this.setState({ isLoading: false, LN });
-      return;
-    }
-
-    const newState = { LN, isLoading: false };
-
-    switch (successAction.tag) {
-      case 'aes': {
-        const preimage = LN.getPreimage();
-        newState.message = Lnurl.decipherAES(successAction.ciphertext, preimage, successAction.iv);
-        newState.preamble = successAction.description;
-        break;
+    try {
+      const LN = new Lnurl(false, AsyncStorage);
+      const loaded = await LN.loadSuccessfulPayment(this.state.paymentHash);
+      if (loaded) {
+        this.applySuccessfulPayment(LN);
+        return;
       }
-      case 'url':
-        newState.url = successAction.url;
-        newState.preamble = successAction.description;
-        break;
-      case 'message':
-        this.setState({ message: successAction.message });
-        newState.message = successAction.message;
-        break;
-    }
 
-    this.setState(newState);
+      const fallbackDisplay = this.props.route.params.lnurlPay;
+      if (fallbackDisplay) {
+        this.applyFallbackDisplay(fallbackDisplay);
+        return;
+      }
+
+      this.setState({ isLoading: false });
+    } catch (error) {
+      reportError('lnurlPaySuccess: failed to load successful payment', error);
+      alert(error.message);
+      this.setState({ isLoading: false });
+    }
   }
 
   render() {
-    if (this.state.isLoading || !this.state.LN) {
+    if (this.state.isLoading) {
       return <BlueLoading />;
     }
 
-    /** @type {Lnurl} */
-    const LN = this.state.LN;
-    const domain = LN.getDomain();
-    const repeatable = !LN.getDisposable();
-    const lnurl = LN.getLnurl();
-    const description = LN.getDescription();
-    const image = LN.getImage();
-    const { preamble, message, url, justPaid } = this.state;
+    if (!this.state.hasDisplay) {
+      const { justPaid, fee } = this.state;
+      return (
+        <SafeBlueArea style={styles.root}>
+          <ScrollView style={styles.container}>
+            {justPaid && <SuccessView fee={fee} />}
+            <BlueCard>
+              <BlueButton
+                onPress={() => {
+                  this.props.navigation.getParent().popToTop();
+                }}
+                title={loc.send.success_done}
+              />
+            </BlueCard>
+          </ScrollView>
+        </SafeBlueArea>
+      );
+    }
+
+    const { domain, description, image, lnurl, repeatable, preamble, message, url, justPaid, fee } = this.state;
 
     return (
       <SafeBlueArea style={styles.root}>
         <ScrollView style={styles.container}>
-          {justPaid && <SuccessView />}
+          {justPaid && <SuccessView fee={fee} />}
 
           <BlueSpacing40 />
           <BlueText style={styles.alignSelfCenter}>{domain}</BlueText>
@@ -152,7 +220,18 @@ LnurlPaySuccess.propTypes = {
     params: PropTypes.shape({
       paymentHash: PropTypes.string.isRequired,
       fromWalletID: PropTypes.string.isRequired,
+      fee: PropTypes.number,
       justPaid: PropTypes.bool.isRequired,
+      lnurlPay: PropTypes.shape({
+        domain: PropTypes.string,
+        description: PropTypes.string,
+        image: PropTypes.string,
+        lnurl: PropTypes.string,
+        repeatable: PropTypes.bool,
+        preamble: PropTypes.string,
+        message: PropTypes.string,
+        url: PropTypes.string,
+      }),
     }),
   }),
 };

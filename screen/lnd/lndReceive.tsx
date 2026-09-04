@@ -32,11 +32,15 @@ import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { AbstractWallet } from '../../class';
+import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
+import { SparkWallet } from '../../class/wallets/spark-wallet';
 import { majorTomToGroundControl, tryToObtainPermissions } from '../../blue_modules/notifications';
 import useInputAmount from '../../hooks/useInputAmount';
 import { SuccessView } from '../send/success';
 import { useNFC } from '../../hooks/nfc.hook';
 import BoltCard from '../../class/boltcard';
+import { reportError } from '../../helpers/errors';
+
 interface RouteParams {
   walletID: string;
 }
@@ -51,11 +55,28 @@ const LNDReceive = () => {
   const [description, setDescription] = useState('');
   const { inputProps, amountSats, formattedUnit, changeToNextUnit } = useInputAmount();
   const [invoiceRequest, setInvoiceRequest] = useState();
+  const [invoiceAmountSats, setInvoiceAmountSats] = useState<number | undefined>();
   const invoicePolling = useRef<NodeJS.Timeout | undefined>(undefined);
+  const invoicePollTimeout = useRef<NodeJS.Timeout | undefined>(undefined);
+  const pollGeneration = useRef(0);
+  const blurGeneration = useRef(0);
+  const invoiceCreationInFlight = useRef(false);
+  const invoiceCreationValues = useRef<{ amountSats: number; description: string } | undefined>(undefined);
+  const invoiceCreationQueued = useRef(false);
+  const generateInvoiceRef = useRef<(() => Promise<void>) | undefined>(undefined);
+  const [invoiceGenerationRequest, setInvoiceGenerationRequest] = useState(0);
   const [isPaid, setIsPaid] = useState(false);
+  const [receiveMethod, setReceiveMethod] = useState<'lightning' | 'onchain'>('lightning');
+  const receiveMethodRef = useRef(receiveMethod);
+  const [onchainAddress, setOnchainAddress] = useState<string | undefined>();
+  const [isOnchainLoading, setIsOnchainLoading] = useState(false);
   const inputAmountRef = useRef<TextInput | null>(null);
   const inputDescriptionRef = useRef<TextInput | null>(null);
   const { isNfcActive, startReading, stopReading } = useNFC();
+  const isSpark = wallet?.type === SparkWallet.type;
+  const isOnchainReceive = isSpark && receiveMethod === 'onchain';
+  const latestInvoiceValues = useRef({ amountSats, description });
+  latestInvoiceValues.current = { amountSats, description };
 
   const styleHooks = StyleSheet.create({
     customAmount: {
@@ -66,17 +87,38 @@ const LNDReceive = () => {
     customAmountText: {
       color: colors.foregroundColor,
     },
+    missingAddress: {
+      color: colors.foregroundColor,
+    },
+    methodSwitchTrack: {
+      backgroundColor: colors.buttonDisabledBackgroundColor,
+    },
+    methodSwitchTabActive: {
+      backgroundColor: colors.modal,
+    },
+    methodSwitchText: {
+      color: colors.foregroundColor,
+    },
+    onchainHint: {
+      color: colors.alternativeTextColor,
+    },
     root: {
       backgroundColor: colors.elevated,
     },
   });
 
   useEffect(() => {
+    receiveMethodRef.current = receiveMethod;
+  }, [receiveMethod]);
+
+  useEffect(() => {
     return () => {
+      blurGeneration.current += 1;
       cancelInvoicePolling();
       stopReading();
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [walletID]);
 
   useEffect(() => {
     if (wallet && wallet.getID() !== walletID) {
@@ -88,43 +130,112 @@ const LNDReceive = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletID]);
 
-  const cancelInvoicePolling = async () => {
+  useEffect(() => {
+    if (!isSpark || !isOnchainReceive || !wallet) {
+      return;
+    }
+    if (typeof wallet.depositAddress === 'string' && wallet.depositAddress) {
+      setOnchainAddress(wallet.depositAddress);
+      setIsOnchainLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setIsOnchainLoading(true);
+    setOnchainAddress(undefined);
+    (async () => {
+      try {
+        const address = await wallet.getDepositAddress();
+        if (cancelled) return;
+        setOnchainAddress(address || undefined);
+        if (address) {
+          await saveToDisk();
+        }
+      } catch {
+        if (cancelled) return;
+        setOnchainAddress(undefined);
+      } finally {
+        if (!cancelled) setIsOnchainLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSpark, isOnchainReceive, walletID]);
+
+  const cancelInvoicePolling = () => {
+    pollGeneration.current += 1;
+    if (invoicePollTimeout.current) {
+      clearTimeout(invoicePollTimeout.current);
+      invoicePollTimeout.current = undefined;
+    }
     if (invoicePolling.current) {
       clearInterval(invoicePolling.current);
       invoicePolling.current = undefined;
     }
   };
 
-  const initInvoicePolling = (invoice: any) => {
+  const initInvoicePolling = (invoice: string, paymentHash?: string) => {
     cancelInvoicePolling(); // clear any previous polling
+    const generation = pollGeneration.current;
+    let isChecking = false;
+    let hasReportedPollError = false;
     invoicePolling.current = setInterval(async () => {
-      const userInvoices = await wallet.getUserInvoices(20);
-      const updatedUserInvoice = userInvoices.find(
-        (i: { payment_request: string; ispaid: boolean; description?: string; timestamp: number; expire_time: number }) =>
-          i.payment_request === invoice,
-      );
-      if (!updatedUserInvoice) {
-        return;
-      }
-
-      if (updatedUserInvoice.ispaid) {
-        cancelInvoicePolling();
-        setInvoiceRequest(undefined);
-        if (updatedUserInvoice.description) {
-          setDescription(updatedUserInvoice.description);
+      if (isChecking) return;
+      isChecking = true;
+      try {
+        const userInvoices = await wallet.getUserInvoices(20);
+        if (generation !== pollGeneration.current) {
+          return;
         }
-        setIsPaid(true);
-        fetchAndSaveWalletTransactions(walletID);
-        return;
-      }
+        const updatedUserInvoice = userInvoices.find(
+          (i: {
+            payment_request: string;
+            payment_hash?: string;
+            ispaid: boolean;
+            description?: string;
+            timestamp: number;
+            expire_time: number;
+          }) => i.payment_request === invoice || (Boolean(paymentHash) && i.payment_hash === paymentHash),
+        );
+        if (!updatedUserInvoice) {
+          return;
+        }
 
-      const currentDate = new Date();
-      const now = (currentDate.getTime() / 1000) | 0; // eslint-disable-line no-bitwise
-      const invoiceExpiration = updatedUserInvoice.timestamp + updatedUserInvoice.expire_time;
-      if (now > invoiceExpiration) {
-        cancelInvoicePolling();
-        setInvoiceRequest(undefined);
-        generateInvoice(); // invoice expired, generate new one
+        if (updatedUserInvoice.ispaid) {
+          cancelInvoicePolling();
+          setInvoiceRequest(undefined);
+          if (updatedUserInvoice.description) {
+            setDescription(updatedUserInvoice.description);
+          }
+          setIsPaid(true);
+          fetchAndSaveWalletTransactions(walletID);
+          return;
+        }
+
+        const currentDate = new Date();
+        const now = (currentDate.getTime() / 1000) | 0; // eslint-disable-line no-bitwise
+        const invoiceExpiration = updatedUserInvoice.timestamp + updatedUserInvoice.expire_time;
+        if (now > invoiceExpiration) {
+          cancelInvoicePolling();
+          setInvoiceRequest(undefined);
+          // Keep watching an open invoice on the on-chain tab; only skip
+          // creating a replacement while Lightning is not visible.
+          if (receiveMethodRef.current === 'lightning') {
+            generateInvoice();
+          }
+        }
+      } catch (error) {
+        if (generation !== pollGeneration.current) {
+          return;
+        }
+        if (hasReportedPollError) {
+          return;
+        }
+        hasReportedPollError = true;
+        reportError('lndReceive: invoice poll failed', error);
+      } finally {
+        isChecking = false;
       }
     }, 3000);
   };
@@ -149,32 +260,82 @@ const LNDReceive = () => {
   };
 
   const generateInvoice = async () => {
+    if (invoiceCreationInFlight.current) {
+      invoiceCreationQueued.current = true;
+      return;
+    }
     if (isInvoiceLoading) return;
+    invoiceCreationInFlight.current = true;
+    invoiceCreationValues.current = { amountSats, description };
     if (isNfcActive) stopReading();
     setIsInvoiceLoading(true);
     Keyboard.dismiss();
 
-    if (amountSats === 0 || isNaN(amountSats)) {
-      setInvoiceRequest(undefined);
+    try {
+      if (amountSats === 0 || isNaN(amountSats)) {
+        cancelInvoicePolling();
+        setInvoiceRequest(undefined);
+        return;
+      }
+      const invoiceAmount = amountSats;
+      const invoiceDescription = description;
+      const invoiceRequest = await wallet.addInvoice(invoiceAmount, invoiceDescription);
+      ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
+      const decoded = await wallet.decodeInvoice(invoiceRequest);
+      await tryToObtainPermissions();
+      majorTomToGroundControl([], [decoded.payment_hash], []);
+
+      cancelInvoicePolling();
+      const generation = pollGeneration.current;
+      invoicePollTimeout.current = setTimeout(async () => {
+        invoicePollTimeout.current = undefined;
+        try {
+          await wallet.getUserInvoices(1);
+        } catch (error) {
+          reportError('lndReceive: prefetch invoices failed', error);
+        }
+        if (generation !== pollGeneration.current) {
+          return;
+        }
+        initInvoicePolling(invoiceRequest, decoded.payment_hash);
+        try {
+          await saveToDisk();
+        } catch (error) {
+          reportError('lndReceive: failed to persist invoice', error);
+        }
+      }, 1000);
+
+      setInvoiceRequest(invoiceRequest);
+      setInvoiceAmountSats(invoiceAmount);
+      if (Platform.OS === 'android' && wallet.type === LightningLdsWallet.type) {
+        startReading(handleNfcRead(invoiceRequest));
+      }
+    } catch (error) {
+      ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
+      alert(error instanceof Error ? error.message : String(error));
+    } finally {
+      const completedValues = invoiceCreationValues.current;
+      invoiceCreationInFlight.current = false;
+      invoiceCreationValues.current = undefined;
       setIsInvoiceLoading(false);
-      return;
+      if (
+        invoiceCreationQueued.current &&
+        completedValues &&
+        (!Object.is(latestInvoiceValues.current.amountSats, completedValues.amountSats) ||
+          latestInvoiceValues.current.description !== completedValues.description)
+      ) {
+        setInvoiceGenerationRequest(request => request + 1);
+      }
+      invoiceCreationQueued.current = false;
     }
-    const invoiceRequest = await wallet.addInvoice(amountSats, description);
-    ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
-    const decoded = await wallet.decodeInvoice(invoiceRequest);
-    await tryToObtainPermissions();
-    majorTomToGroundControl([], [decoded.payment_hash], []);
-
-    setTimeout(async () => {
-      await wallet.getUserInvoices(1);
-      initInvoicePolling(invoiceRequest);
-      await saveToDisk();
-    }, 1000);
-
-    setInvoiceRequest(invoiceRequest);
-    if (Platform.OS === 'android') startReading(handleNfcRead(invoiceRequest));
-    setIsInvoiceLoading(false);
   };
+  generateInvoiceRef.current = generateInvoice;
+
+  useEffect(() => {
+    if (invoiceGenerationRequest > 0) {
+      generateInvoiceRef.current?.();
+    }
+  }, [invoiceGenerationRequest]);
 
   const onWalletChange = (id: string) => {
     if (id === wallet?.getID()) return;
@@ -190,20 +351,30 @@ const LNDReceive = () => {
   };
 
   const handleOnBlur = () => {
-    const isFocusOnSomeInput = inputAmountRef.current?.isFocused() || inputDescriptionRef.current?.isFocused();
-    if (!isFocusOnSomeInput) {
-      generateInvoice();
-    }
+    const generation = ++blurGeneration.current;
+    Promise.resolve().then(() => {
+      if (generation !== blurGeneration.current) return;
+      const isFocusOnSomeInput = inputAmountRef.current?.isFocused() || inputDescriptionRef.current?.isFocused();
+      if (!isFocusOnSomeInput) {
+        setInvoiceGenerationRequest(request => request + 1);
+      }
+    });
   };
 
+  const displayedOnchainAddress =
+    onchainAddress || (typeof wallet?.depositAddress === 'string' && wallet.depositAddress ? wallet.depositAddress : undefined);
+  const copyText = isOnchainReceive ? displayedOnchainAddress : invoiceRequest || wallet?.lnAddress;
+  const qrValue = isOnchainReceive ? displayedOnchainAddress : invoiceRequest || wallet?.getLnurl?.() || wallet?.lnAddress;
+  const isQrLoading = isInvoiceLoading || (isOnchainReceive && isOnchainLoading && !displayedOnchainAddress);
+
   const handleShareButtonPressed = () => {
-    Share.open({ message: invoiceRequest || wallet.lnAddress }).catch(() => {});
+    Share.open({ message: (isOnchainReceive ? displayedOnchainAddress : invoiceRequest || wallet.lnAddress) || '' }).catch(() => {});
   };
 
   if (isPaid) {
     return (
       <View style={styles.root}>
-        <SuccessView amount={amountSats} amountUnit={BitcoinUnit.SATS} invoiceDescription={description} shouldAnimate={true} />
+        <SuccessView amount={invoiceAmountSats} amountUnit={BitcoinUnit.SATS} invoiceDescription={description} shouldAnimate={true} />
         <View style={styles.doneButton}>
           <BlueButton onPress={() => getParent<NativeStackNavigationProp<ParamListBase>>()?.popToTop()} title={loc.send.success_done} />
           <BlueSpacing40 />
@@ -220,60 +391,122 @@ const LNDReceive = () => {
             <View style={styles.pickerContainer}>
               <BlueWalletSelect wallets={wallets} value={wallet?.getID()} onChange={onWalletChange} />
             </View>
+            {isSpark ? (
+              <View style={styles.methodSwitch} testID="SparkReceiveMethodSwitch">
+                <View style={[styles.methodSwitchTrack, styleHooks.methodSwitchTrack]}>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: receiveMethod === 'lightning' }}
+                    testID="SparkReceiveLightning"
+                    onPress={() => {
+                      if (receiveMethod === 'lightning') return;
+                      receiveMethodRef.current = 'lightning';
+                      setReceiveMethod('lightning');
+                      if (amountSats > 0) {
+                        generateInvoice();
+                      }
+                    }}
+                    style={[styles.methodSwitchTab, receiveMethod === 'lightning' && styleHooks.methodSwitchTabActive]}
+                  >
+                    <Text
+                      style={[
+                        styles.methodSwitchText,
+                        receiveMethod === 'lightning' && styles.methodSwitchTextActive,
+                        styleHooks.methodSwitchText,
+                      ]}
+                    >
+                      {loc.wallets.lightning_spark_receive_lightning}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: receiveMethod === 'onchain' }}
+                    testID="SparkReceiveOnchain"
+                    onPress={() => {
+                      if (!(typeof wallet?.depositAddress === 'string' && wallet.depositAddress)) {
+                        setIsOnchainLoading(true);
+                      }
+                      receiveMethodRef.current = 'onchain';
+                      setReceiveMethod('onchain');
+                    }}
+                    style={[styles.methodSwitchTab, receiveMethod === 'onchain' && styleHooks.methodSwitchTabActive]}
+                  >
+                    <Text
+                      style={[
+                        styles.methodSwitchText,
+                        receiveMethod === 'onchain' && styles.methodSwitchTextActive,
+                        styleHooks.methodSwitchText,
+                      ]}
+                    >
+                      {loc.wallets.lightning_spark_receive_onchain}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : null}
             <View style={styles.contentContainer}>
               <View style={[styles.scrollBody, styles.flex]}>
-                {isInvoiceLoading ? (
+                {isQrLoading ? (
                   <ActivityIndicator />
-                ) : (
+                ) : qrValue ? (
                   <>
-                    <QRCodeComponent value={invoiceRequest || wallet.getLnurl?.() || wallet.lnAddress} />
+                    <QRCodeComponent value={qrValue} />
                     <View style={styles.shareContainer}>
                       <BlueCopyTextToClipboard
-                        text={invoiceRequest || wallet.lnAddress}
-                        truncated={Boolean(invoiceRequest)}
+                        text={copyText || ''}
+                        truncated={Boolean(invoiceRequest) && !isOnchainReceive}
                         textStyle={styles.copyText}
                       />
                       <TouchableOpacity accessibilityRole="button" onPress={handleShareButtonPressed}>
                         <Image resizeMode="stretch" source={require('../../img/share-icon.png')} style={styles.shareIcon} />
                       </TouchableOpacity>
                     </View>
+                    {isOnchainReceive && displayedOnchainAddress ? (
+                      <Text style={[styles.onchainHint, styleHooks.onchainHint]}>{loc.wallets.lightning_spark_onchain_confirmations}</Text>
+                    ) : null}
                   </>
+                ) : (
+                  <Text style={[styles.missingAddress, styleHooks.missingAddress]}>{loc.wallets.lightning_spark_address_unavailable}</Text>
                 )}
               </View>
               <View style={styles.share}>
-                <View style={[styles.customAmount, styleHooks.customAmount]}>
-                  <TextInput
-                    ref={inputAmountRef}
-                    placeholderTextColor="#81868e"
-                    placeholder="Amount (optional)"
-                    style={[styles.customAmountText, styleHooks.customAmountText]}
-                    inputAccessoryViewID={BlueDismissKeyboardInputAccessory.InputAccessoryViewID}
-                    onBlur={handleOnBlur}
-                    {...inputProps}
-                  />
-                  <Text style={styles.inputUnit}>{formattedUnit}</Text>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityLabel={loc._.change_input_currency}
-                    style={styles.changeToNextUnitButton}
-                    onPress={changeToNextUnit}
-                  >
-                    <Image source={require('../../img/round-compare-arrows-24-px.png')} />
-                  </TouchableOpacity>
-                </View>
-                <View style={[styles.customAmount, styleHooks.customAmount]}>
-                  <TextInput
-                    ref={inputDescriptionRef}
-                    onChangeText={setDescription}
-                    placeholder={`${loc.receive.details_label} (optional)`}
-                    value={description}
-                    numberOfLines={1}
-                    placeholderTextColor="#81868e"
-                    style={[styles.customAmountText, styleHooks.customAmountText]}
-                    onBlur={handleOnBlur}
-                  />
-                </View>
-                {invoiceRequest ? (
+                {isOnchainReceive ? null : (
+                  <>
+                    <View style={[styles.customAmount, styleHooks.customAmount]}>
+                      <TextInput
+                        ref={inputAmountRef}
+                        placeholderTextColor="#81868e"
+                        placeholder="Amount (optional)"
+                        style={[styles.customAmountText, styleHooks.customAmountText]}
+                        inputAccessoryViewID={BlueDismissKeyboardInputAccessory.InputAccessoryViewID}
+                        onBlur={handleOnBlur}
+                        {...inputProps}
+                      />
+                      <Text style={styles.inputUnit}>{formattedUnit}</Text>
+                      <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel={loc._.change_input_currency}
+                        style={styles.changeToNextUnitButton}
+                        onPress={changeToNextUnit}
+                      >
+                        <Image source={require('../../img/round-compare-arrows-24-px.png')} />
+                      </TouchableOpacity>
+                    </View>
+                    <View style={[styles.customAmount, styleHooks.customAmount]}>
+                      <TextInput
+                        ref={inputDescriptionRef}
+                        onChangeText={setDescription}
+                        placeholder={`${loc.receive.details_label} (optional)`}
+                        value={description}
+                        numberOfLines={1}
+                        placeholderTextColor="#81868e"
+                        style={[styles.customAmountText, styleHooks.customAmountText]}
+                        onBlur={handleOnBlur}
+                      />
+                    </View>
+                  </>
+                )}
+                {invoiceRequest && wallet.type === LightningLdsWallet.type ? (
                   <View>
                     {Platform.select({
                       ios: (
@@ -357,6 +590,33 @@ const styles = StyleSheet.create({
     minHeight: 33,
   },
   pickerContainer: { marginHorizontal: 16 },
+  methodSwitch: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  methodSwitchTrack: {
+    flexDirection: 'row',
+    padding: 4,
+    borderRadius: 8,
+  },
+  methodSwitchTab: {
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  methodSwitchText: {
+    fontWeight: 'normal',
+  },
+  methodSwitchTextActive: {
+    fontWeight: 'bold',
+  },
+  onchainHint: {
+    textAlign: 'center',
+    paddingHorizontal: 24,
+    marginTop: 8,
+    fontSize: 14,
+  },
   inputUnit: {
     color: '#81868e',
     fontSize: 16,
@@ -383,6 +643,12 @@ const styles = StyleSheet.create({
   },
   copyText: {
     marginVertical: 16,
+  },
+  missingAddress: {
+    textAlign: 'center',
+    paddingHorizontal: 24,
+    marginVertical: 16,
+    fontSize: 16,
   },
   iosNfcButtonContainer: {
     marginVertical: 10,
