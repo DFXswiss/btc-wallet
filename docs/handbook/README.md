@@ -294,42 +294,72 @@ iOS-Simulator-Lauf, nicht aus einer CI-Visual-Regression. Die verwendeten
 Maestro-Flows liegen unter `scripts/handbook/screenshots/` und sind damit
 nachvollziehbar und wiederholbar.
 
-Fuer die Lightning-(Spark)-Wallet braucht der Build zusaetzlich `BREEZ_API_KEY`
-in der `.env`-Datei, die `/tmp/envfile` benennt. Der Schluessel ist das
-Repository-Secret; er gehoert **nicht** in eine getrackte `.env`-Datei und wird
-nach dem Build wieder entfernt. Beim Anhaengen darauf achten, dass die Datei mit
-einem Zeilenumbruch endet — sonst klebt der Schluessel an der letzten Variablen
-(`DFX_ENV=prdBREEZ_API_KEY=...`), und `Config.BREEZ_API_KEY` bleibt leer, ohne
-dass der Build es meldet.
+Fuer die Lightning-(Spark)-Wallet muss der Build einen privaten `ENVFILE`-Overlay
+erhalten. Der Overlay wird aus `.env.prd` in einem eigenen, nur fuer den
+aktuellen Benutzer lesbaren Temp-Verzeichnis erstellt; der Breez-Schluessel wird
+weder in eine getrackte Datei geschrieben noch ausgegeben. Das entspricht dem
+Release-Lane-Muster aus `ios/fastlane/Fastfile`; `patches/react-native-config+1.6.1.patch`
+ist der dafuer dokumentierte Patchpfad. Diese Schritte laufen nur in einem
+eigenen Checkout mit eigenen Abhaengigkeiten, nie gegen ein anderes Worktree.
+Der Lauf gilt erst nach erfolgreicher Patch-Anwendung und privater Log-Pruefung
+als ohne Secret-Werte in den Build-Logs. Das generierte `ios/tmp.xcconfig`
+und das gebaute Binary duerfen den Schluessel absichtlich enthalten.
 
 ```bash
-# App fuer den Simulator bauen (Sentry-Upload braucht Credentials, die es
-# lokal nicht gibt -> abschalten, sonst scheitert die Bundling-Phase)
-# Die beiden Scheme-Pre-Actions von Hand — xcodebuild fuehrt sie NICHT aus.
-# Ohne sie bleibt Config.BREEZ_API_KEY leer und die Lightning-(Spark)-Wallet
-# laesst sich nicht anlegen ("Lightning konnte nicht gestartet werden").
-echo ".env.prd" > /tmp/envfile   # Prod-Scheme; -dev/-loc schreiben .env.dev/.env.loc
-ruby node_modules/react-native-config/ios/ReactNativeConfig/BuildXCConfig.rb \
-  "$PWD" "$PWD/ios/tmp.xcconfig"
+# Subshell: ENVFILE und Trap-Zustand des Aufrufers bleiben unveraendert.
+(
+  set -e
+  umask 077
+  : "${BREEZ_API_KEY:?set BREEZ_API_KEY in this private shell}"
+  : "${UNFUNDED_SIMULATOR_UDID:?set the approved unfunded simulator UDID}"
+  private_env_dir=$(mktemp -d "${TMPDIR:-/tmp}/dfx-handbook-env.XXXXXX")
+  private_env_file="$private_env_dir/env"
+  cleanup_overlay() {
+    rm -f "$private_env_file"
+    rmdir "$private_env_dir" 2>/dev/null || true
+  }
+  on_signal() {
+    cleanup_overlay
+    exit 130
+  }
+  trap cleanup_overlay EXIT
+  trap on_signal HUP INT TERM
+  cp .env.prd "$private_env_file"
+  printf '\nBREEZ_API_KEY=%s\n' "$BREEZ_API_KEY" >> "$private_env_file"
+  unset BREEZ_API_KEY
+  export ENVFILE="$private_env_file"
 
-# Signieren, nicht abschalten: eine unsignierte App hat keine Keychain-
-# Entitlements, und AppStorage#saveToDisk scheitert dann mit
-# "error saving key" — die Wallet wird gar nicht erst gespeichert.
-SENTRY_DISABLE_AUTO_UPLOAD=true xcodebuild \
-  -workspace ios/BlueWallet.xcworkspace -scheme BlueWallet \
-  -configuration Release -sdk iphonesimulator -derivedDataPath ios/build \
-  -destination 'platform=iOS Simulator,name=iPhone 17' \
-  CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=YES CODE_SIGNING_ALLOWED=YES build
+  # Nur die vorbereiteten Abhaengigkeiten dieses eigenen Checkouts verwenden.
+  # Keine Install-/Patch-Befehle gegen node_modules eines anderen Worktrees.
 
-rm -f /tmp/envfile ios/tmp.xcconfig   # beide tragen den Schluessel im Klartext
+  # Der Guard der Scheme-Pre-Action bleibt bei gesetztem ENVFILE inaktiv;
+  # BuildXCConfig wird weiterhin ausgefuehrt.
+  xcodebuild_args=(
+    -workspace ios/BlueWallet.xcworkspace
+    -scheme BlueWallet
+    -configuration Release
+    -sdk iphonesimulator
+    -derivedDataPath ios/build
+    -destination "id=$UNFUNDED_SIMULATOR_UDID"
+    CODE_SIGN_IDENTITY=-
+    CODE_SIGNING_REQUIRED=YES
+    CODE_SIGNING_ALLOWED=YES
+    build
+  )
+  SENTRY_DISABLE_AUTO_UPLOAD=true xcodebuild "${xcodebuild_args[@]}"
 
-xcrun simctl boot 'iPhone 17'
-xcrun simctl install booted ios/build/Build/Products/Release-iphonesimulator/Bitcoin.app
-
-# Flows fahren (Maestro braucht ein JDK)
-export JAVA_HOME=/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home
-maestro test scripts/handbook/screenshots/01-onboarding.yaml
+  # Explizite Installation und ein einzelner, nachvollziehbarer Handbook-Flow.
+  export JAVA_HOME=/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home
+  command -v maestro >/dev/null 2>&1 || { echo 'maestro is required' >&2; exit 1; }
+  xcrun simctl bootstatus "$UNFUNDED_SIMULATOR_UDID" -b
+  xcrun simctl install "$UNFUNDED_SIMULATOR_UDID" \
+    "$PWD/ios/build/Build/Products/Release-iphonesimulator/Bitcoin.app"
+  maestro --device "$UNFUNDED_SIMULATOR_UDID" test \
+    scripts/handbook/screenshots/01-onboarding.yaml
+)
 ```
+
+Die beobachtete native Verifikation nutzte ein frisches Xcode-26.6-/iOS-26.5-Simulator-Artefakt. Donor- und frisches App-Bundle hatten leere Entitlements; ein unsignierter und ein linker-signierter Kontrolllauf speicherten die Wallet nicht dauerhaft, das frische Xcode-ad-hoc-signierte Artefakt dagegen schon. Eine Apple-Signing-Identity war in diesem Lauf nicht erforderlich. Das ist ein beobachtetes Signierungs-/Persistenzergebnis, keine Behauptung von Keychain-Entitlements.
 
 Jedes committete PNG hat genau einen erzeugenden `takeScreenshot:`-Schritt, und
 kein Flow zielt auf einen Namen, den es im Satz nicht gibt — nachpruefbar, indem
@@ -344,8 +374,7 @@ und wird ueber „Hinzufuegen" in der Lightning-Zeile angelegt. Den Einstieg
 zeigt `06b-wallet-lightning.yaml`, das Ergebnis `08b-lightning-spark.yaml`.
 Zwei Flows starten selbst mit `launchApp: clearState` und ohne `_setup.yaml`:
 `01-onboarding.yaml` und `16-import.yaml` (sie brauchen den frischen
-Onboarding-/Import-Zustand). Der Simulator-Build ohne Code-Signing hat keine
-Keychain-Entitlements; die Wallet ueberlebt einen App-Neustart deshalb nicht.
+Onboarding-/Import-Zustand).
 
 **Screenshot-gesperrte Seiten.** `blue_modules/Privacy.tsx` ruft auf sensiblen
 Seiten `CaptureProtection.prevent({ screenshot: true })` auf — Wiederherstellungs-

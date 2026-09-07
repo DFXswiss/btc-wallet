@@ -29,19 +29,22 @@ from a previous one.
 
 ## Local DFX stack for P11/P12
 
-The distinguishable buy and sell screens require a complete local stack. The app
-build uses:
+The distinguishable buy and sell screens require a complete local stack. The
+tracked defaults remain `3000`/`3001`. The owned verification stack uses a
+private, uncommitted `ENVFILE` overlay with:
 
 ```text
-REACT_APP_API_URL=http://127.0.0.1:3000/v1
-REACT_APP_SRV_URL=http://127.0.0.1:3001
+REACT_APP_API_URL=http://127.0.0.1:3300/v1
+REACT_APP_SRV_URL=http://127.0.0.1:3301
 DFX_ENV=loc
 ```
 
-The API environment has to set `FAUCET_LOW_BALANCE_THRESHOLD`; the current API
-requires the variable at boot while the e2e harness does not set it. The
-frontend build needs more than 8 GB of memory available to Docker, otherwise it
-can abort with `cannot allocate memory`.
+Keep that overlay private and do not print its environment values in logs.
+
+The selected local API stack must supply `FAUCET_LOW_BALANCE_THRESHOLD` at boot;
+do not silently omit this required variable. The frontend build needs sufficient
+Docker resources; `cannot allocate memory` is an environmental failure, not a
+fixed minimum established by this document.
 
 ## Running
 
@@ -94,29 +97,20 @@ on a configuration error or an empty filter.
   the authentication prompt and the rejection expected for Spark. All three hand
   the QR content to the registered deeplink through `openLink`; camera and
   optical QR recognition are not tested in the simulator.
-- The send path was additionally evidenced manually on a physical iPhone running
-  iOS 26.6.1 with a real Breez key: a scanned 10 sat invoice was paid, and the
-  receiving wallet showed `10`, `sats`, `Erhalten` and `Geraetetest`. The
-  [Maestro documentation](https://docs.maestro.dev/platform-support/ios-uikit)
-  rules out test execution on physical iOS devices, so this measurement is not
-  an automated suite result.
+- No current physical-device payment proof is claimed here. An earlier note
+  about a 10-sat payment on an iPhone is historical and unverified, so it is
+  excluded from this suite's evidence.
 - The DFX web surface and its API are not part of this repository. P11 and P12
-  check the buy respectively sell screen reached, using disjoint markers; the
-  exact DFX page title additionally evidences the external transition.
-  With `DFX_ENV=loc` the login succeeds against the local API
-  (`POST /v1/auth/ 201`), and together with a local services instance the
-  session is passed through, and both flows drive their transaction
-  to the point where the user would act on it: P11 to the payment instructions
-  (`Zahlungsinformation`, `Wechselkurs`, tabs `Text` and `QR-Code`), P12 to a
-  stored bank account. The payout itself is not covered — see `coverage.md`. These two flows are not hermetic: without the
-  local stack they do not run. A `DFX_ENV=prd` build does not work against the local API,
-  because the two sides then do not verify the same message. Not every wallet then receives a
-  token and `session.context.tsx` hides the entire `Externe Services` block. The
-  earlier suspicion that the local database lacked the required assets is
-  refuted: both the Lightning and the on-chain Bitcoin asset are present and
-  tradable. A control run against a server state without the API
-  change is still missing. Bank payout, buy completion, swap completion and the
-  deeplink with a real DFX route stay outside the suite.
+  use disjoint mode markers plus the exact DFX page title to check the external
+  transition. Later fixture-assisted observations recorded in `coverage.md`
+  were limited to a local quote/payment-information view for P11 and the IBAN
+  form for P12. Neither result proves a completed purchase, sale, settlement,
+  or payout. These flows are not hermetic: without the local stack they do not
+  reach those views. The owned verification stack uses the private `3300` API
+  and `3301` services overlay shown above; that configuration must not be
+  conflated with the dated historical series record below. Bank payout, buy
+  completion, swap completion, and a deeplink through a real DFX route stay
+  outside the suite.
 - The QR component has neither `testID` nor `accessibilityLabel`. P5–P7
   therefore check the visible payload, which sits in the same render branch as
   the QR, not the pixels or whether they decode.
@@ -126,15 +120,46 @@ on a configuration error or an empty filter.
 - Dynamic Spark and DFX responses can turn the suite red. That is intended; the
   runner does not treat missing external prerequisites as success.
 
-## Last measured state
+## Current native verification checkpoint (2026-09-06)
 
-The versions of this state — including the mode-specific tightened P11/P12 —
-were measured as a complete series on 2026-09-04 against the local API and services
-instance with `DFX_ENV=loc`:
-`Flows: 13, passed: 13, assertion failures: 0, aborted: 0` and
-`Suite outcome: passed`, every flow individually `passed`. P11 reaches the
-payment instructions of a purchase, P12 a stored bank account for a sell. They are not hermetic and need that stack. The control run against a server state
-without that API change is still missing. Details and limits are in
-`coverage.md`, including a load-timing flake seen once in P11.
+The current combined Release artifact was built on the MacBook Pro from wallet
+source `d59482e759303bda45793134c86b9452c55211b3` plus 46 local, uncommitted
+changes and exercised on simulator `7BB44EC7-9799-4EA0-B34E-DC9A3FEA3043` (iPhone 16 Pro,
+iOS 26.5, German). The selected stack heads were API
+`138286fbf0658240d535322c2f1834fb7f0e65f0` and frontend
+`42c4f875f45e6949fb032dacf34e009ee8e34fe2`. The build used Node 24.19,
+CocoaPods 1.14.3 / ActiveSupport 7.0.8.7 and Xcode 26.6; code-sign
+verification exited 0. The executable SHA-256 is
+`106a7fb3af8560c32df1362a63085edb9d5fd342422fa2104adaf8ff4d5f2b24` and
+the installed bundle JavaScript SHA-256 is
+`50a395c977e8be1cd16ba1f257402de669ba1407e83b4902dd6c124b5cd775ad`.
+
+The private `ENVFILE` overlay used the owned local API/services stack on
+ports 3300/3301. Native flows ran in separate batches: P01–P03 3/3,
+P04–P07 4/4, P08–P09 2/2, P10 1/1 and P12–P13 2/2, each exit 0. P11 was
+0/1, exit 1 at the exact `^Kaufen$` assertion. Its exact failure screenshot
+visually showed `Kaufen`, `KYC VERVOLLSTÄNDIGEN` and a Safari tooltip, while
+the associated accessibility hierarchy reported `Kaufen=false`,
+`KYC=false` and `Safari=true`; the visual/accessibility disagreement has no
+established cause. The one separately authorized unchanged retry exited 1:
+`^Kaufen$` passed but the later `^Zahlungsinformation$` assertion failed.
+The retry is not green P11 evidence. The aggregate is 12/13 across separate
+batches, not a single 13/13 run. The final unit gate reported 1,632 passed
+and 1 skipped across 87 suites; the 31 runtime files were source-map
+matched, not counted as 31 tests. No payment or settlement is evidenced.
+
+## Historical measurement
+
+The versions of these flows — including the mode-specific P11/P12 assertions —
+were measured as one complete series on 2026-09-04 against a local API and
+services instance with `DFX_ENV=loc`: `Flows: 13, passed: 13, assertion
+failures: 0, aborted: 0`, with suite outcome `passed`. This is a dated
+historical repository record, not a current native-E2E or release claim and
+not evidence that the run used the private `3300`/`3301` overlay described
+above. The current combined-app installation and exercise are documented in
+the checkpoint above; later fixture-assisted P11/P12 observations are
+described separately in `coverage.md`; neither proves settlement or payout.
+Details, flow mappings and the known P11 load-timing flake remain in
+`coverage.md`.
 
 The exact mapping of path, flow and assertion is in `coverage.md`.
