@@ -264,6 +264,58 @@ describe('outgoing payment tracker', () => {
     assert.strictEqual(again.status, 'pending');
   });
 
+  it('keeps the tracked hash when attaching an empty hash to a matching payment id', () => {
+    beginOutgoingPayment({ paymentHash: 'h-attached', paymentId: 'p-attached' });
+
+    const attached = attachOutgoingPaymentId({ paymentHash: '', paymentId: 'p-attached' });
+
+    assert.strictEqual(attached.paymentHash, 'h-attached');
+    assert.strictEqual(attached.paymentId, 'p-attached');
+    assert.strictEqual(attached.status, 'pending');
+  });
+
+  it('keeps the previously tracked payment id when attaching an empty id by hash', () => {
+    beginOutgoingPayment({ paymentHash: 'h-tracked-id', paymentId: 'p-previous' });
+
+    const attached = attachOutgoingPaymentId({ paymentHash: 'h-tracked-id', paymentId: '' });
+
+    assert.strictEqual(attached.paymentHash, 'h-tracked-id');
+    assert.strictEqual(attached.paymentId, 'p-previous');
+    assert.strictEqual(attached.status, 'pending');
+  });
+
+  it('preserves an absent tracked hash when attaching the same payment id', () => {
+    beginOutgoingPayment({ paymentHash: '', paymentId: 'p-empty-hash' });
+
+    const attached = attachOutgoingPaymentId({ paymentHash: '', paymentId: 'p-empty-hash' });
+
+    assert.strictEqual(attached.paymentHash, '');
+    assert.strictEqual(attached.paymentId, 'p-empty-hash');
+    assert.strictEqual(attached.status, 'pending');
+  });
+
+  it('starts an unattached payment id when no completion can be claimed', () => {
+    const attached = attachOutgoingPaymentId({ paymentHash: 'h-new', paymentId: 'p-new' });
+
+    assert.strictEqual(attached.status, 'pending');
+    assert.strictEqual(attached.paymentHash, 'h-new');
+    assert.strictEqual(attached.paymentId, 'p-new');
+    assert.strictEqual(getOutgoingPayment(), attached);
+  });
+
+  it('claims a completion by hash when the attached payment id is empty', () => {
+    applyOutgoingSdkEvent({
+      tag: SdkEvent_Tags.PaymentSucceeded,
+      inner: { payment: sendPayment('p-claimed', PaymentStatus.Completed, { paymentHash: 'h-claimed' }) },
+    });
+
+    const attached = attachOutgoingPaymentId({ paymentHash: 'h-claimed', paymentId: '' });
+
+    assert.strictEqual(attached.status, 'completed');
+    assert.strictEqual(attached.paymentHash, 'h-claimed');
+    assert.strictEqual(attached.paymentId, 'p-claimed');
+  });
+
   it('attaching a payment id without an invoice keeps the invoice already on the tracker', () => {
     beginOutgoingPayment({ paymentHash: 'h1', invoice: 'lnbc1keep' });
     const again = attachOutgoingPaymentId({ paymentHash: 'h1', paymentId: 'p1' });
@@ -300,6 +352,19 @@ describe('outgoing payment tracker', () => {
     assert.strictEqual(started.paymentHash, 'h1');
     assert.strictEqual(started.paymentId, 'p1');
     assert.strictEqual(started.preimage, 'pre-first');
+  });
+
+  it('claims a completion by payment id when the new attempt supplies no hash', () => {
+    applyOutgoingSdkEvent({
+      tag: SdkEvent_Tags.PaymentSucceeded,
+      inner: { payment: sendPayment('p-by-id', PaymentStatus.Completed, { paymentHash: 'h-by-id' }) },
+    });
+
+    const started = beginOutgoingPayment({ paymentHash: '', paymentId: 'p-by-id' });
+
+    assert.strictEqual(started.status, 'completed');
+    assert.strictEqual(started.paymentHash, 'h-by-id');
+    assert.strictEqual(started.paymentId, 'p-by-id');
   });
 
   it('a completion that only carries the payment id keeps the hash already on the tracker', () => {

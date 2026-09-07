@@ -933,6 +933,57 @@ describe('LNDReceive with SparkWallet', () => {
     expect(screen.getByText(loc.send.success_done)).toBeTruthy();
   });
 
+  it('matches a polled invoice by its decoded payment hash', async () => {
+    const wallet = makeLdsReceiveWallet('lds-receive-hash-match');
+    wallet.decodeInvoice.mockResolvedValue({ payment_hash: 'hash-only' });
+    wallet.getUserInvoices.mockImplementation(limit => {
+      if (limit === 1) return Promise.resolve([]);
+      return Promise.resolve([
+        {
+          payment_request: 'different-invoice',
+          payment_hash: 'hash-only',
+          ispaid: true,
+          description: 'by hash',
+          timestamp: 1700000000,
+          expire_time: 3600,
+        },
+      ]);
+    });
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    await advanceTimers(1000);
+    await advanceTimers(3000);
+
+    expect(screen.getByTestId('SuccessView')).toBeTruthy();
+  });
+
+  it('continues polling when an unrelated paid invoice is returned', async () => {
+    const wallet = makeLdsReceiveWallet('lds-receive-no-match');
+    wallet.decodeInvoice.mockResolvedValue({ payment_hash: 'expected-hash' });
+    wallet.getUserInvoices.mockImplementation(limit => {
+      if (limit === 1) return Promise.resolve([]);
+      return Promise.resolve([
+        {
+          payment_request: 'different-invoice',
+          payment_hash: 'different-hash',
+          ispaid: true,
+          timestamp: 1700000000,
+          expire_time: 3600,
+        },
+      ]);
+    });
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    await advanceTimers(1000);
+    await advanceTimers(3000);
+
+    expect(screen.queryByTestId('SuccessView')).toBeNull();
+    expect(wallet.getUserInvoices.mock.calls.filter(([limit]) => limit === 20)).toHaveLength(1);
+    await advanceTimers(3000);
+    expect(wallet.getUserInvoices.mock.calls.filter(([limit]) => limit === 20)).toHaveLength(2);
+    screen.unmount();
+  });
+
   it('creates a new invoice when the polled invoice has expired', async () => {
     const wallet = makeLdsReceiveWallet('lds-receive-expired');
     let addCalls = 0;
@@ -1134,6 +1185,61 @@ describe('LNDReceive with SparkWallet', () => {
     });
   });
 
+  it('queues the latest field values until the current invoice finishes', async () => {
+    const wallet = makeLdsReceiveWallet('lds-receive-loading-guard');
+    let resolveFirstInvoice;
+    let resolveSecondInvoice;
+    wallet.addInvoice
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            resolveFirstInvoice = resolve;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            resolveSecondInvoice = resolve;
+          }),
+      );
+    const screen = renderReceive(wallet);
+    const amountInput = screen.getByPlaceholderText('Amount (optional)');
+    const descriptionInput = screen.getByPlaceholderText(`${loc.receive.details_label} (optional)`);
+
+    fireEvent.changeText(amountInput, '1000');
+    fireEvent(amountInput, 'blur');
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(wallet.addInvoice).toHaveBeenCalledTimes(1);
+    fireEvent.changeText(descriptionInput, 'coffee');
+    fireEvent(descriptionInput, 'blur');
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(wallet.addInvoice).toHaveBeenCalledTimes(1);
+    resolveFirstInvoice(SAMPLE_INVOICE);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(wallet.addInvoice).toHaveBeenCalledTimes(2);
+    expect(wallet.addInvoice).toHaveBeenNthCalledWith(2, 1000, 'coffee');
+    resolveSecondInvoice(SAMPLE_INVOICE);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    screen.unmount();
+  });
+
   it('regenerates with the latest values after a field change while invoice creation is in flight', async () => {
     const wallet = makeLdsReceiveWallet('lds-receive-inflight-field-change');
     let resolveFirstInvoice;
@@ -1237,6 +1343,11 @@ describe('LNDReceive with SparkWallet', () => {
       });
       expect(widthdraw).toHaveBeenCalled();
       expect(alertSpy).not.toHaveBeenCalled();
+      fireEvent(screen.getByPlaceholderText('Amount (optional)'), 'blur');
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(wallet.addInvoice).toHaveBeenCalledTimes(1);
       screen.unmount();
     } finally {
       widthdraw.mockRestore();

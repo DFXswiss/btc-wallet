@@ -957,6 +957,52 @@ describe('spark-sdk', () => {
         warn.mockRestore();
       });
 
+      it('rejects a stale connect after a later session rebuilt from its poisoned teardown', async () => {
+        const instanceA = makeSdkInstance('a');
+        const instanceC = makeSdkInstance('c');
+        let resolveFirstRemove;
+        let markFirstRemoveStarted;
+        let removeCalls = 0;
+        const firstRemoveStarted = new Promise(resolve => {
+          markFirstRemoveStarted = resolve;
+        });
+        instanceA.removeEventListener.mockImplementation(() => {
+          removeCalls += 1;
+          if (removeCalls === 1) {
+            return new Promise(resolve => {
+              resolveFirstRemove = resolve;
+              markFirstRemoveStarted();
+            });
+          }
+          return Promise.resolve('listener-a-retry');
+        });
+        breez.connect.mockResolvedValueOnce(instanceA).mockResolvedValueOnce(instanceC);
+
+        const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+        await connectSparkSdk(seed, async () => {});
+
+        const pendingB = connectSparkSdk(seedB, async () => {});
+        const hungAssertion = assert.rejects(pendingB, err => err instanceof SparkLifecycleHungError);
+        await firstRemoveStarted;
+        await jest.advanceTimersByTimeAsync(50);
+        await hungAssertion;
+
+        const rebuilt = await connectSparkSdk(seedB, async () => {});
+        assert.strictEqual(rebuilt, instanceC);
+        assert.strictEqual(acquireSparkSessionLease().requireSdk(), instanceC);
+        assert.strictEqual(acquireSparkSessionLease().identity, 'identity-c');
+        expect(breez.connect).toHaveBeenCalledTimes(2);
+        expect(instanceA.removeEventListener).toHaveBeenCalledTimes(2);
+
+        resolveFirstRemove(true);
+        await flush();
+
+        assert.strictEqual(acquireSparkSessionLease().requireSdk(), instanceC);
+        assert.strictEqual(acquireSparkSessionLease().identity, 'identity-c');
+        expect(breez.connect).toHaveBeenCalledTimes(2);
+        warn.mockRestore();
+      });
+
       it('does not open a native connect after a timed-out teardown of the previous session later succeeds', async () => {
         const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
         await connectSparkSdk(seed);

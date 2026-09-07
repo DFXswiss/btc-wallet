@@ -52,7 +52,7 @@ function samePayment(a: OutgoingPaymentIdentity | OutgoingPayment, b: OutgoingPa
   return false;
 }
 
-function notify(payment: OutgoingPayment | null = current): void {
+function notify(payment: OutgoingPayment | null): void {
   for (const listener of listeners) {
     listener(payment);
   }
