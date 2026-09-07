@@ -152,7 +152,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
   async function resetAccessToken(walletId: string) {
     updateSession(walletId);
   }
-  
+
   async function refreshAccessToken(walletId: string) {
     resetAccessToken(walletId);
     const session = await getAccessToken(walletId);
@@ -207,9 +207,16 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
       return;
     }
 
+    const startupWallets = wallets.filter((w: ConnectableWallet) => dfxConnectAtInit(w.type));
+    if (!startupWallets.length) {
+      setIsAvailable(wallets.some((w: ConnectableWallet) => w.type === SparkWallet.type));
+      setIsInitialized(false);
+      return;
+    }
+
     !isInitialized &&
       !isProcessing &&
-      connect(wallets.filter((w: ConnectableWallet) => dfxConnectAtInit(w.type)).map((w: ConnectableWallet) => w.getID()))
+      connect(startupWallets.map((w: ConnectableWallet) => w.getID()))
         .then(() => setIsInitialized(true))
         .catch(e => {
           reportError('DFX session init failed', e);
