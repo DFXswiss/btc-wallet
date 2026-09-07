@@ -68,6 +68,7 @@
     "title": "Beträge verwalten",
     "error_tip_invoice_not_supported": "Rechnungen mit einem Betrag von 0 werden nicht unterstützt.",
     "error_balance_for_insuficient_fee": "Das verbleibende Guthaben reicht nicht aus, um die Gebühren zu decken; erwäge, den Höchstbetrag zu senden oder den Betrag zu reduzieren.",
+    "error_fee_quote_invalid": "Die Zahlungsgebühr hat sich geändert. Prüfe die Gebühr und bestätige erneut.",
     "next": "Weiter",
     "lnurl_loader_title": "Lnurl laden",
     "lnurl_loader_text": "LNURL-Daten decodieren",

@@ -23,7 +23,7 @@ import { lnurlPaySuccessDisplay } from './lnurlPaySuccess';
 import { randomBytes } from '../../class/rng';
 import { LightningCustodianWallet } from '../../class/wallets/lightning-custodian-wallet';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
-import { SparkWallet } from '../../class/wallets/spark-wallet';
+import { SparkPaymentFeeQuoteError, SparkWallet } from '../../class/wallets/spark-wallet';
 import { BitcoinUnit } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 import Biometric from '../../class/biometrics';
@@ -92,6 +92,11 @@ const LnurlPay = () => {
   const [desc, setDesc] = useState();
   const [isTxFree, setIsTxFree] = useState(false);
   const [sparkFee, setSparkFee] = useState();
+  const [sparkFeeQuote, setSparkFeeQuote] = useState();
+  const [sparkMaxFeeQuote, setSparkMaxFeeQuote] = useState();
+  const [sparkFeeQuoteError, setSparkFeeQuoteError] = useState();
+  const [quoteRetry, setQuoteRetry] = useState(0);
+  const [lnurlInvoiceQuote, setLnurlInvoiceQuote] = useState();
   const { colors } = useTheme();
   const stylesHook = StyleSheet.create({
     root: {
@@ -149,6 +154,10 @@ const LnurlPay = () => {
   useEffect(() => {
     let isCurrent = true;
     setSparkFee(undefined);
+    setSparkFeeQuote(undefined);
+    setSparkMaxFeeQuote(undefined);
+    setLnurlInvoiceQuote(undefined);
+    setSparkFeeQuoteError(undefined);
     const paymentRequest = invoice || sparkInvoice;
     if (wallet.type !== SparkWallet.type || !paymentRequest || !(amountSat > 0)) {
       return () => {
@@ -157,16 +166,58 @@ const LnurlPay = () => {
     }
 
     wallet
-      .getPaymentFeeWithoutSending(paymentRequest, amountSat)
-      .then(fee => {
-        if (isCurrent) setSparkFee(fee);
+      .getPaymentFeeQuote(paymentRequest, amountSat)
+      .then(quote => {
+        if (isCurrent) {
+          setSparkFeeQuote(quote);
+          setSparkFee(quote.feeSats);
+        }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (isCurrent) setSparkFeeQuoteError(loc.send.server_error);
+      });
 
     return () => {
       isCurrent = false;
     };
-  }, [amountSat, invoice, sparkInvoice, wallet]);
+  }, [amountSat, description, invoice, isMax, payload, sparkInvoice, wallet, _LN, quoteRetry]);
+
+  useEffect(() => {
+    const quoteAmountSats = amountSat ?? _LN?.getMin();
+    if (wallet.type !== SparkWallet.type || invoice || sparkInvoice || !payload || !(quoteAmountSats > 0) || !_LN) return undefined;
+    let isCurrent = true;
+    const comment = _LN.getCommentAllowed() ? description : undefined;
+    if (isMax) {
+      wallet
+        .getLnurlMaxFeeQuote(_LN.getLnurlPayRequestDetails(), quoteAmountSats, comment)
+        .then(quote => {
+          if (!isCurrent) return;
+          setSparkMaxFeeQuote(quote);
+          setSparkFee(quote.feeSats);
+        })
+        .catch(() => {
+          if (isCurrent) setSparkFeeQuoteError(loc.send.server_error);
+        });
+      return () => {
+        isCurrent = false;
+      };
+    }
+    _LN
+      .requestBolt11FromLnurlPayService(quoteAmountSats, comment)
+      .then(({ pr }) => wallet.getPaymentFeeQuote(pr, quoteAmountSats).then(quote => ({ pr, quote })))
+      .then(result => {
+        if (!isCurrent) return;
+        setLnurlInvoiceQuote({ invoice: result.pr, quote: result.quote });
+        setSparkFeeQuote(result.quote);
+        setSparkFee(result.quote.feeSats);
+      })
+      .catch(() => {
+        if (isCurrent) setSparkFeeQuoteError(loc.send.server_error);
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, [amountSat, description, invoice, isMax, payload, sparkInvoice, wallet, _LN, quoteRetry]);
 
   useEffect(() => {
     setPayButtonDisabled(isLoading);
@@ -174,12 +225,10 @@ const LnurlPay = () => {
 
   const navigateLnurlSuccess = (paymentHash, fee, LN) => {
     let lnurlPay;
-    if (LN) {
-      try {
-        lnurlPay = lnurlPaySuccessDisplay(LN);
-      } catch (error) {
-        reportError('lnurlPay: failed to prepare LNURL success display', error);
-      }
+    try {
+      lnurlPay = lnurlPaySuccessDisplay(LN);
+    } catch (error) {
+      reportError('lnurlPay: failed to prepare LNURL success display', error);
     }
     navigate('SendDetailsRoot', {
       screen: 'LnurlPaySuccess',
@@ -293,7 +342,7 @@ const LnurlPay = () => {
     }
 
     if (isMax && wallet.type === SparkWallet.type) {
-      const result = await wallet.payLnurlMax(LN.getLnurlPayRequestDetails(), amountSats, comment);
+      const result = await wallet.payLnurlMax(LN.getLnurlPayRequestDetails(), amountSats, comment, sparkMaxFeeQuote);
       LN.setSdkSuccessAction(result?.lnurlSuccessAction);
       if (result && result.status === 'pending') {
         pendingPayRef.current = {
@@ -316,8 +365,41 @@ const LnurlPay = () => {
       return;
     }
 
-    const bolt11payload = await LN.requestBolt11FromLnurlPayService(amountSats, comment);
-    const result = await wallet.payInvoice(bolt11payload.pr);
+    const bolt11payload = lnurlInvoiceQuote?.invoice
+      ? { pr: lnurlInvoiceQuote.invoice }
+      : await LN.requestBolt11FromLnurlPayService(amountSats, comment);
+    if (wallet.type !== SparkWallet.type) {
+      const result = await wallet.payInvoice(bolt11payload.pr);
+      const decoded = wallet.decodeInvoice(bolt11payload.pr);
+      if (result && result.status === 'pending') {
+        pendingPayRef.current = {
+          kind: 'lnurl',
+          paymentHash: result.paymentHash || decoded.payment_hash,
+          fee: result.fee,
+          LN,
+        };
+        setIsPaymentPending(true);
+        setPayButtonDisabled(true);
+        return;
+      }
+      if (result && result.status !== 'completed') {
+        payInFlightRef.current = false;
+        setPayButtonDisabled(false);
+        return;
+      }
+      await finishLnurlSuccess(decoded.payment_hash, result?.fee, LN);
+      return;
+    }
+    const quote = lnurlInvoiceQuote?.quote || (await wallet.getPaymentFeeQuote(bolt11payload.pr, amountSats));
+    if (!lnurlInvoiceQuote) {
+      setLnurlInvoiceQuote({ invoice: bolt11payload.pr, quote });
+      setSparkFeeQuote(quote);
+      setSparkFee(quote.feeSats);
+      payInFlightRef.current = false;
+      setPayButtonDisabled(false);
+      return;
+    }
+    const result = await wallet.payInvoice(bolt11payload.pr, amountSats, quote);
     const decoded = wallet.decodeInvoice(bolt11payload.pr);
     if (result && result.status === 'pending') {
       pendingPayRef.current = {
@@ -340,7 +422,7 @@ const LnurlPay = () => {
   };
 
   const handleLnInvoice = async amountSats => {
-    const result = await wallet.payInvoice(invoice, amountSats);
+    const result = await wallet.payInvoice(invoice, amountSats, sparkFeeQuote);
     const decoded = wallet.decodeInvoice(invoice);
     if (result && result.status === 'pending') {
       pendingPayRef.current = {
@@ -365,7 +447,7 @@ const LnurlPay = () => {
 
   const handleSparkInvoice = async amountSats => {
     const { storageKey, seed } = await getOrCreateSparkPaymentSeed(walletID, routeId, sparkInvoice, amountSats);
-    const result = await wallet.paySparkInvoice(sparkInvoice, amountSats, seed);
+    const result = await wallet.paySparkInvoice(sparkInvoice, amountSats, seed, sparkFeeQuote);
     const decoded = {};
     if (result && result.status === 'pending') {
       pendingPayRef.current = {
@@ -444,6 +526,13 @@ const LnurlPay = () => {
       setIsLoading(false);
     } catch (Err) {
       console.log(Err.message);
+      if (Err instanceof SparkPaymentFeeQuoteError) {
+        setSparkFee(undefined);
+        setSparkFeeQuote(undefined);
+        setSparkMaxFeeQuote(undefined);
+        setLnurlInvoiceQuote(undefined);
+        setQuoteRetry(retry => retry + 1);
+      }
       setIsLoading(false);
       payInFlightRef.current = false;
       setPayButtonDisabled(false);
@@ -523,14 +612,22 @@ const LnurlPay = () => {
                   <Text style={styles.fees}>
                     {loc.send.create_fee}:{' '}
                     {wallet.type === SparkWallet.type
-                      ? sparkFee === undefined
-                        ? '-'
-                        : `${sparkFee} ${BitcoinUnit.SATS}`
+                      ? sparkFeeQuoteError || (sparkFee === undefined ? '-' : `${sparkFee} ${BitcoinUnit.SATS}`)
                       : isTxFree
                         ? loc._.free
                         : getFees()}
                   </Text>
-                  <BlueButton title={loc.lnd.payButton} onPress={pay} disabled={isInsufficientFunds()} />
+                  {wallet.type === SparkWallet.type && sparkFeeQuoteError && (
+                    <SecondButton title={loc.wallets.list_tryagain} onPress={() => setQuoteRetry(value => value + 1)} />
+                  )}
+                  <BlueButton
+                    title={loc.lnd.payButton}
+                    onPress={pay}
+                    disabled={
+                      isInsufficientFunds() ||
+                      (wallet.type === SparkWallet.type && ((isMax && !sparkMaxFeeQuote) || (!isMax && !sparkFeeQuote)))
+                    }
+                  />
                 </>
               )}
             </>

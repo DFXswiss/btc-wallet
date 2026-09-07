@@ -37,6 +37,28 @@ export type SparkPayInvoiceResult = {
   lnurlSuccessAction?: SuccessAction;
 };
 
+export type SparkPaymentFeeQuote = Readonly<{
+  invoice: string;
+  amountSats: number;
+  walletIdentity: string;
+  method: SendPaymentMethod_Tags.Bolt11Invoice | SendPaymentMethod_Tags.SparkInvoice;
+  feeSats: number;
+}>;
+
+export type SparkLnurlMaxFeeQuote = Readonly<{
+  amountSats: number;
+  walletIdentity: string;
+  requestKey: string;
+  feeSats: number;
+}>;
+
+export class SparkPaymentFeeQuoteError extends Error {
+  constructor() {
+    super(loc.lnd.error_fee_quote_invalid);
+    this.name = 'SparkPaymentFeeQuoteError';
+  }
+}
+
 /**
  * Fixed 16-byte namespace so the same invoice always maps to the same UUID.
  * A fresh namespace per call would make a retry look like a new payment.
@@ -50,6 +72,12 @@ function invoiceIdempotencyKey(paymentIdentity: string): string {
   bytes[8] = (bytes[8] & 0x3f) | 0x80; // eslint-disable-line no-bitwise
   const hex = bytes.toString('hex');
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
+
+function lnurlMaxQuoteKey(payRequest: LnurlPayRequestDetails, comment?: string): string {
+  return createHash('sha256')
+    .update(JSON.stringify([payRequest, comment ?? null], (_, value) => (typeof value === 'bigint' ? `${value}n` : value)))
+    .digest('hex');
 }
 
 function preparedSendFeeSats(
@@ -116,7 +144,7 @@ export class SparkWallet extends AbstractWallet {
   lnAddress?: string;
   /** On-chain Bitcoin deposit address from receivePayment(BitcoinAddress). */
   depositAddress?: string;
-  /** Spark address (spark1…) from receivePayment(SparkAddress). Used for DFX session auth. */
+  /** Spark address (spark1…) from receivePayment(SparkAddress). */
   sparkAddress?: string;
   identityPubkey?: string;
   /**
@@ -569,6 +597,7 @@ export class SparkWallet extends AbstractWallet {
     payRequest: LnurlPayRequestDetails,
     totalAmountSats: number,
     comment?: string,
+    quote?: SparkLnurlMaxFeeQuote,
   ): Promise<SparkPayInvoiceResult> {
     if (!Number.isSafeInteger(totalAmountSats) || totalAmountSats <= 0) {
       throw new Error(loc.lnd.error_tip_invoice_not_supported);
@@ -598,6 +627,20 @@ export class SparkWallet extends AbstractWallet {
     const paymentHash = prepareResponse.invoiceDetails.paymentHash;
     const invoice = prepareResponse.invoiceDetails.invoice.bolt11;
     const fee = Number(prepareResponse.feeSats);
+    if (
+      !quote ||
+      quote.amountSats !== totalAmountSats ||
+      !this.identityPubkey ||
+      quote.walletIdentity !== this.identityPubkey ||
+      quote.requestKey !== lnurlMaxQuoteKey(payRequest, comment) ||
+      !Number.isSafeInteger(quote.feeSats) ||
+      quote.feeSats < 0 ||
+      !Number.isSafeInteger(fee) ||
+      fee < 0 ||
+      fee > quote.feeSats
+    ) {
+      throw new SparkPaymentFeeQuoteError();
+    }
     const lnurlSuccessAction = prepareResponse.successAction;
     beginOutgoingPayment({ paymentHash, invoice });
 
@@ -674,11 +717,44 @@ export class SparkWallet extends AbstractWallet {
     return { status: SparkPayInvoiceStatus.Pending, paymentHash, paymentId: payment.id, fee, lnurlSuccessAction };
   }
 
+  async getLnurlMaxFeeQuote(payRequest: LnurlPayRequestDetails, totalAmountSats: number, comment?: string): Promise<SparkLnurlMaxFeeQuote> {
+    if (!Number.isSafeInteger(totalAmountSats) || totalAmountSats <= 0) {
+      throw new Error(loc.lnd.error_tip_invoice_not_supported);
+    }
+    const lease = this.holdMatchingSession();
+    const prepareResponse = await lease.requireSdk().prepareLnurlPay({
+      amount: BigInt(totalAmountSats),
+      payRequest,
+      comment,
+      validateSuccessActionUrl: true,
+      tokenIdentifier: undefined,
+      conversionOptions: undefined,
+      feePolicy: FeePolicy.FeesIncluded,
+    });
+    this.requireHeld(lease);
+    if (
+      prepareResponse.amountSats !== BigInt(totalAmountSats) ||
+      prepareResponse.feePolicy !== FeePolicy.FeesIncluded ||
+      prepareResponse.feeSats >= BigInt(totalAmountSats)
+    ) {
+      throw new SparkPaymentFeeQuoteError();
+    }
+    return {
+      amountSats: totalAmountSats,
+      walletIdentity: this.quoteWalletIdentity(),
+      requestKey: lnurlMaxQuoteKey(payRequest, comment),
+      feeSats: this.effectiveAmountSats(prepareResponse.feeSats),
+    };
+  }
+
   /**
    * Completed and pending both resolve. Only a definite Failed status throws.
    * A still-open payment is tracked so SDK payment events can settle it.
    */
-  async payInvoice(invoice: string, freeAmount = 0): Promise<SparkPayInvoiceResult> {
+  async payInvoice(invoice: string, freeAmount = 0, quote: SparkPaymentFeeQuote): Promise<SparkPayInvoiceResult> {
+    if (!Number.isSafeInteger(freeAmount) || freeAmount < 0) {
+      throw new SparkPaymentFeeQuoteError();
+    }
     const decoded = this.decodeInvoice(invoice);
     if (!decoded.payment_hash) {
       throw new Error(loc.wallets.lightning_spark_invoice_unreadable);
@@ -698,6 +774,7 @@ export class SparkWallet extends AbstractWallet {
 
     const sdk = this.requireHeld(lease);
     const fee = preparedSendFeeSats(prepareResponse);
+    this.assertFeeQuote(quote, invoice, freeAmount, Number(prepareResponse.amount), SendPaymentMethod_Tags.Bolt11Invoice, fee);
 
     beginOutgoingPayment({ paymentHash, invoice });
 
@@ -770,7 +847,7 @@ export class SparkWallet extends AbstractWallet {
     return { status: SparkPayInvoiceStatus.Pending, paymentHash, paymentId: payment.id, fee };
   }
 
-  async getPaymentFeeWithoutSending(invoice: string, amountSats = 0): Promise<number> {
+  async getPaymentFeeQuote(invoice: string, amountSats = 0): Promise<SparkPaymentFeeQuote> {
     const isSparkInvoice = SparkWallet.isSparkInvoice(invoice);
     if (isSparkInvoice && (!Number.isSafeInteger(amountSats) || amountSats <= 0)) {
       throw new Error(loc.lnd.error_tip_invoice_not_supported);
@@ -787,6 +864,8 @@ export class SparkWallet extends AbstractWallet {
     });
 
     this.requireHeld(lease);
+    const effectiveAmountSats = this.effectiveAmountSats(prepareResponse.amount);
+    if (amountSats > 0 && effectiveAmountSats !== amountSats) throw new SparkPaymentFeeQuoteError();
     if (isSparkInvoice) {
       if (
         prepareResponse.paymentMethod.tag === SendPaymentMethod_Tags.SparkInvoice &&
@@ -797,13 +876,73 @@ export class SparkWallet extends AbstractWallet {
       if (prepareResponse.amount !== BigInt(amountSats)) {
         throw new Error(loc.wallets.lightning_spark_amount_mismatch);
       }
-      return preparedSendFeeSats(prepareResponse, SendPaymentMethod_Tags.SparkInvoice);
+      return {
+        invoice,
+        amountSats: effectiveAmountSats,
+        walletIdentity: this.quoteWalletIdentity(),
+        method: SendPaymentMethod_Tags.SparkInvoice,
+        feeSats: preparedSendFeeSats(prepareResponse, SendPaymentMethod_Tags.SparkInvoice),
+      };
     }
 
-    return preparedSendFeeSats(prepareResponse);
+    return {
+      invoice,
+      amountSats: effectiveAmountSats,
+      walletIdentity: this.quoteWalletIdentity(),
+      method: SendPaymentMethod_Tags.Bolt11Invoice,
+      feeSats: preparedSendFeeSats(prepareResponse),
+    };
   }
 
-  async paySparkInvoice(invoice: string, amountSats: number, idempotencySeed: string): Promise<SparkPayInvoiceResult> {
+  private quoteWalletIdentity(): string {
+    if (!this.identityPubkey) throw new SparkPaymentFeeQuoteError();
+    return this.identityPubkey;
+  }
+
+  private effectiveAmountSats(amount: bigint): number {
+    const amountSats = Number(amount);
+    if (!Number.isSafeInteger(amountSats) || amountSats < 0) throw new SparkPaymentFeeQuoteError();
+    return amountSats;
+  }
+
+  private assertFeeQuote(
+    quote: SparkPaymentFeeQuote,
+    invoice: string,
+    amountSats: number,
+    effectiveAmountSats: number,
+    method: SparkPaymentFeeQuote['method'],
+    feeSats: number,
+  ): void {
+    if (
+      !quote ||
+      quote.invoice !== invoice ||
+      quote.amountSats !== effectiveAmountSats ||
+      !Number.isSafeInteger(amountSats) ||
+      amountSats < 0 ||
+      (amountSats > 0 && amountSats !== effectiveAmountSats) ||
+      !this.identityPubkey ||
+      quote.walletIdentity !== this.identityPubkey ||
+      quote.method !== method ||
+      !Number.isSafeInteger(quote.feeSats) ||
+      quote.feeSats < 0 ||
+      !Number.isSafeInteger(feeSats) ||
+      feeSats < 0 ||
+      feeSats > quote.feeSats
+    ) {
+      throw new SparkPaymentFeeQuoteError();
+    }
+  }
+
+  async getPaymentFeeWithoutSending(invoice: string, amountSats = 0): Promise<number> {
+    return (await this.getPaymentFeeQuote(invoice, amountSats)).feeSats;
+  }
+
+  async paySparkInvoice(
+    invoice: string,
+    amountSats: number,
+    idempotencySeed: string,
+    quote: SparkPaymentFeeQuote,
+  ): Promise<SparkPayInvoiceResult> {
     if (!Number.isSafeInteger(amountSats) || amountSats <= 0) {
       throw new Error(loc.lnd.error_tip_invoice_not_supported);
     }
@@ -835,6 +974,14 @@ export class SparkWallet extends AbstractWallet {
     }
     const sdk = this.requireHeld(lease);
     const fee = preparedSendFeeSats(prepareResponse, SendPaymentMethod_Tags.SparkInvoice);
+    this.assertFeeQuote(
+      quote,
+      invoice,
+      amountSats,
+      this.effectiveAmountSats(prepareResponse.amount),
+      SendPaymentMethod_Tags.SparkInvoice,
+      fee,
+    );
 
     // A reusable deposit invoice may receive the same amount more than once. The per-payment
     // seed keeps separate payments distinct while preserving SDK deduplication for retries.

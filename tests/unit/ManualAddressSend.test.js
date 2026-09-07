@@ -61,10 +61,10 @@ const SendDetailsStackScreen = () => (
   </SendStack.Navigator>
 );
 
-const renderManualAddress = () => {
+const renderManualAddress = (providedWallets = [onchainWallet]) => {
   const navigationRef = createNavigationContainerRef();
   const screen = render(
-    <BlueStorageContext.Provider value={{ wallets: [onchainWallet] }}>
+    <BlueStorageContext.Provider value={{ wallets: providedWallets }}>
       <NavigationContainer ref={navigationRef} theme={BlueDarkTheme}>
         <RootStack.Navigator initialRouteName="ScanCodeSendRoot" screenOptions={{ headerShown: false }}>
           <RootStack.Screen name="ScanCodeSendRoot" component={ScanCodeSendStackScreen} />
@@ -87,6 +87,12 @@ beforeEach(() => {
 });
 
 describe('ManualAddressSend', () => {
+  it('formats its navigation options with the localized title', () => {
+    const options = ManualAddressSend.navigationOptions(BlueDarkTheme)({ navigation: {}, route: {} });
+
+    expect(options.title).toBe(loc.send.enter_address);
+  });
+
   it('leaves the address screen for SendDetails after a valid on-chain address', async () => {
     const { screen, navigationRef } = renderManualAddress();
 
@@ -107,6 +113,16 @@ describe('ManualAddressSend', () => {
 
   it('leaves the address screen for SendDetails after a combined bitcoin-and-lightning URI', async () => {
     const { screen, navigationRef } = renderManualAddress();
+
+    await typeAndContinue(screen, COMBINED_BIP21);
+
+    await waitFor(() => expect(navigationRef.getCurrentRoute().name).toBe('SendDetails'));
+    expect(screen.getByText('SendDetails')).toBeTruthy();
+  });
+
+  it('uses the main wallet when a combined URI has no matching wallet', async () => {
+    mockMainWallet = { ...onchainWallet, getID: () => 'main-wallet' };
+    const { screen, navigationRef } = renderManualAddress([]);
 
     await typeAndContinue(screen, COMBINED_BIP21);
 

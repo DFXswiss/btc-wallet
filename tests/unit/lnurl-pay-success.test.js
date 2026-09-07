@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator } from 'react-native';
+import { ActivityIndicator, Linking } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 jest.mock('../../blue_modules/BlueElectrum', () => ({ connectMain: jest.fn() }));
@@ -33,14 +33,16 @@ const loc = require('../../loc').default;
 const alert = require('../../components/Alert');
 const { reportError } = require('../../helpers/errors');
 
-function renderSuccess(extraParams = {}) {
+function renderSuccess(extraParams = {}, navigationOverrides = {}) {
+  const navigation = {
+    navigate: jest.fn(),
+    pop: jest.fn(),
+    getParent: () => ({ popToTop: mockPopToTop }),
+    ...navigationOverrides,
+  };
   return render(
     <LnurlPaySuccess
-      navigation={{
-        navigate: jest.fn(),
-        pop: jest.fn(),
-        getParent: () => ({ popToTop: mockPopToTop }),
-      }}
+      navigation={navigation}
       route={{
         name: 'LnurlPaySuccess',
         params: {
@@ -164,5 +166,109 @@ describe('LnurlPaySuccess', () => {
       preamble: 'your code',
     });
     expect(reportError).toHaveBeenCalledWith('lnurlPaySuccess: failed to decrypt success action', decryptError);
+  });
+
+  it('omits optional display fields and returns the base display without a success action', () => {
+    const lnurlPay = {
+      getDisposable: () => false,
+      getDomain: () => undefined,
+      getDescription: () => undefined,
+      getImage: () => undefined,
+      getLnurl: () => '',
+      getSuccessAction: () => undefined,
+    };
+
+    expect(lnurlPaySuccessDisplay(lnurlPay)).toEqual({ repeatable: true });
+  });
+
+  it('maps URL and message success actions into serializable display fields', () => {
+    const urlDisplay = lnurlPaySuccessDisplay({
+      getDisposable: () => true,
+      getDomain: () => 'merchant.example',
+      getDescription: () => 'tea',
+      getImage: () => undefined,
+      getLnurl: () => 'LNURL1TEST',
+      getSuccessAction: () => ({ tag: 'url', description: 'open', url: 'https://example.com' }),
+    });
+    expect(urlDisplay).toEqual({
+      repeatable: false,
+      domain: 'merchant.example',
+      description: 'tea',
+      lnurl: 'LNURL1TEST',
+      preamble: 'open',
+      url: 'https://example.com',
+    });
+
+    const messageDisplay = lnurlPaySuccessDisplay({
+      getDisposable: () => true,
+      getDomain: () => undefined,
+      getDescription: () => undefined,
+      getImage: () => undefined,
+      getLnurl: () => undefined,
+      getSuccessAction: () => ({ tag: 'message', message: 'paid' }),
+    });
+    expect(messageDisplay).toEqual({ repeatable: false, message: 'paid' });
+  });
+
+  it('applies a loaded successful payment and navigates when repeating it', async () => {
+    jest.spyOn(Lnurl.prototype, 'loadSuccessfulPayment').mockResolvedValue(true);
+    jest.spyOn(Lnurl.prototype, 'getDisposable').mockReturnValue(false);
+    jest.spyOn(Lnurl.prototype, 'getDomain').mockReturnValue('merchant.example');
+    jest.spyOn(Lnurl.prototype, 'getDescription').mockReturnValue('tea');
+    jest.spyOn(Lnurl.prototype, 'getImage').mockReturnValue(undefined);
+    jest.spyOn(Lnurl.prototype, 'getLnurl').mockReturnValue('LNURL1TEST');
+    jest.spyOn(Lnurl.prototype, 'getSuccessAction').mockReturnValue({ tag: 'message', message: 'paid' });
+    const navigate = jest.fn();
+    const screen = renderSuccess({ justPaid: false }, { navigate });
+
+    await waitFor(() => expect(screen.getByText('paid')).toBeTruthy());
+    fireEvent.press(screen.getByText(loc._.repeat));
+    expect(navigate).toHaveBeenCalledWith('SendDetailsRoot', {
+      screen: 'LnurlPay',
+      params: { lnurl: 'LNURL1TEST', walletID: 'wallet-1' },
+    });
+  });
+
+  it('renders and opens a URL success action, then closes a non-repeatable payment', async () => {
+    jest.spyOn(Lnurl.prototype, 'loadSuccessfulPayment').mockResolvedValue(true);
+    jest.spyOn(Lnurl.prototype, 'getDisposable').mockReturnValue(true);
+    jest.spyOn(Lnurl.prototype, 'getDomain').mockReturnValue('merchant.example');
+    jest.spyOn(Lnurl.prototype, 'getDescription').mockReturnValue('tea');
+    jest.spyOn(Lnurl.prototype, 'getImage').mockReturnValue('data:image/png;base64,aaa');
+    jest.spyOn(Lnurl.prototype, 'getLnurl').mockReturnValue('LNURL1TEST');
+    jest.spyOn(Lnurl.prototype, 'getSuccessAction').mockReturnValue({
+      tag: 'url',
+      description: 'open',
+      url: 'https://example.com',
+    });
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+    const screen = renderSuccess({ justPaid: true });
+
+    await waitFor(() => expect(screen.getByText('https://example.com')).toBeTruthy());
+    fireEvent.press(screen.getByText('https://example.com'));
+    expect(openURL).toHaveBeenCalledWith('https://example.com');
+    fireEvent.press(screen.getByText(loc.send.success_done));
+    expect(mockPopToTop).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the paid fallback when storage has no payment display', async () => {
+    jest.spyOn(Lnurl.prototype, 'loadSuccessfulPayment').mockResolvedValue(false);
+    const screen = renderSuccess({ justPaid: true, lnurlPay: undefined });
+
+    await waitFor(() => expect(screen.getByTestId('SuccessView')).toBeTruthy());
+    expect(screen.getByText(loc.send.success_done)).toBeTruthy();
+    fireEvent.press(screen.getByText(loc.send.success_done));
+    expect(mockPopToTop).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs the navigation close button callback through the real navigation options', () => {
+    const options = LnurlPaySuccess.navigationOptions(require('../../components/themes').BlueDarkTheme)({
+      navigation: { getParent: () => ({ popToTop: mockPopToTop }) },
+      route: {},
+    });
+    const header = render(options.headerRight());
+    fireEvent.press(header.getByTestId('NavigationCloseButton'));
+    expect(mockPopToTop).toHaveBeenCalledTimes(1);
+    header.unmount();
   });
 });

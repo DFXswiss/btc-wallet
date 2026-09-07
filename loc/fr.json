@@ -68,6 +68,7 @@
     "title": "gérer vos fonds",
     "error_tip_invoice_not_supported": "Les factures dont le montant est égal à 0 ne sont pas prises en charge.",
     "error_balance_for_insuficient_fee": "Le solde restant est insuffisant pour couvrir les frais, envisagez d'envoyer le maximum ou de réduire le montant.",
+    "error_fee_quote_invalid": "Les frais du paiement ont changé. Vérifiez-les et confirmez à nouveau.",
     "next": "Suivant",
     "lnurl_loader_title": "Chargement Lnurl",
     "lnurl_loader_text": "Décodage des données dans LNURL",

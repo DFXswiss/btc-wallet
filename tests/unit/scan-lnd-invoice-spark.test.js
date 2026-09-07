@@ -1,6 +1,6 @@
 import React from 'react';
 import assert from 'assert';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, act, waitFor } from '@testing-library/react-native';
 import { ActivityIndicator, Keyboard } from 'react-native';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 
@@ -114,8 +114,7 @@ const AmountInput = require('../../components/AmountInput').default;
 const LNURL = 'LNURL1TEST';
 const SAMPLE_INVOICE =
   'lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp';
-const BIP21_WITH_LIGHTNING =
-  'bitcoin:BC1Q3RL0MKYK0ZRTXFMQN9WPCD3GNAZ00YV9YP0HXE?amount=0.000001&lightning=' + SAMPLE_INVOICE + '&foo=bar';
+const BIP21_WITH_LIGHTNING = 'bitcoin:BC1Q3RL0MKYK0ZRTXFMQN9WPCD3GNAZ00YV9YP0HXE?amount=0.000001&lightning=' + SAMPLE_INVOICE + '&foo=bar';
 
 function makeSparkWallet() {
   const wallet = SparkWallet.create('pk-scan');
@@ -288,6 +287,56 @@ describe('ScanLndInvoice fee mark', () => {
 
     await waitFor(() => screen.getByText(feeRangeText(Math.round(1000 * 0.03))));
     assert.strictEqual(screen.queryByText(loc._.free), null);
+  });
+
+  it('uses the LNDHub amount multiplier when paying a non-free LNURL', async () => {
+    mockLnurl('example.com', 1000);
+    const wallet = makeLndhubWallet();
+    const screen = renderScan(wallet);
+
+    await waitFor(() => screen.getByText(loc.lnd.next));
+    fireEvent.press(screen.getByText(loc.lnd.next));
+    expect(mockNavigate).toHaveBeenCalledWith(
+      'SendDetailsRoot',
+      expect.objectContaining({ params: expect.objectContaining({ amountSat: 1000 }) }),
+    );
+  });
+
+  it('does not apply an older Spark fee result after the invoice changes', async () => {
+    let resolveFirstFee;
+    let resolveSecondFee;
+    const wallet = makeSparkWallet();
+    wallet.decodeInvoice = jest
+      .fn()
+      .mockImplementation(invoice => futureDecodedInvoice({ num_satoshis: invoice === SAMPLE_INVOICE ? '15' : '25' }));
+    wallet.getPaymentFeeWithoutSending.mockImplementation(
+      (_, amountSat) =>
+        new Promise(resolve => {
+          if (amountSat === 15) resolveFirstFee = resolve;
+          else resolveSecondFee = resolve;
+        }),
+    );
+    const screen = renderScan(wallet, { uri: SAMPLE_INVOICE });
+
+    await waitFor(() => expect(wallet.getPaymentFeeWithoutSending).toHaveBeenCalled());
+    mockRouteParams.uri = 'lnbc-second-invoice';
+    screen.rerender(
+      <BlueStorageContext.Provider value={{ wallets: [wallet] }}>
+        <ScanLndInvoice />
+      </BlueStorageContext.Provider>,
+    );
+    await waitFor(() => expect(wallet.getPaymentFeeWithoutSending).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      resolveSecondFee(7);
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(screen.getByText(`7 ${BitcoinUnit.SATS}`)).toBeTruthy());
+    await act(async () => {
+      resolveFirstFee(4);
+      await Promise.resolve();
+    });
+    expect(screen.getByText(`7 ${BitcoinUnit.SATS}`)).toBeTruthy();
+    screen.unmount();
   });
 });
 
