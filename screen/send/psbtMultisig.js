@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { Icon } from 'react-native-elements';
 import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
@@ -34,6 +34,7 @@ const PsbtMultisig = () => {
   const [hasSigned, setHasSigned] = useState(Boolean(psbt && wallet.hasCosignerSignedPSBT(psbt)));
   const [isSignign, setIsSigning] = useState(false);
   const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const isBroadcastingRef = useRef(false);
   const [isBiometricUseCapableAndEnabled, setIsBiometricUseCapableAndEnabled] = useState(false);
   const data = new Array(wallet.getM());
   const stylesHook = StyleSheet.create({
@@ -191,26 +192,29 @@ const PsbtMultisig = () => {
     fetchAndSaveWalletTransactions(walletID);
   };
 
-  const onConfirm = () => {
+  const onConfirm = async () => {
+    if (isBroadcastingRef.current) return;
+    isBroadcastingRef.current = true;
     setIsBroadcasting(true);
     try {
-      psbt.finalizeAllInputs();
-    } catch (_) {} // ignore if it is already finalized
+      try {
+        psbt.finalizeAllInputs();
+      } catch (_) {} // ignore if it is already finalized
 
-    if (launchedBy) {
-      // we must navigate back to the screen who requested psbt (instead of broadcasting it ourselves)
-      // most likely for LN channel opening
-      navigate(launchedBy, { psbt });
-      return;
-    }
+      if (launchedBy) {
+        // we must navigate back to the screen who requested psbt (instead of broadcasting it ourselves)
+        // most likely for LN channel opening
+        navigate(launchedBy, { psbt });
+        return;
+      }
 
-    try {
       const tx = psbt.extractTransaction().toHex();
-      send(tx, getFee());
-      setIsBroadcasting(false);
+      await send(tx, getFee());
     } catch (error) {
-      setIsBroadcasting(false);
       alert(error);
+    } finally {
+      isBroadcastingRef.current = false;
+      setIsBroadcasting(false);
     }
   };
 
@@ -329,7 +333,7 @@ const PsbtMultisig = () => {
           <BlueSpacing10 />
           <BlueButton
             disabled={!isConfirmEnabled()}
-            loading={isBroadcasting}
+            isLoading={isBroadcasting}
             title={loc.send.confirm_sendNow}
             onPress={onConfirm}
             testID="PsbtMultisigConfirmButton"
