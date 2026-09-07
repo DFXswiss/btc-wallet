@@ -1624,9 +1624,21 @@ a.name.permalink:hover {
 }
 @media (max-width: 1023px) {
   .wrap { grid-template-columns: 1fr; padding: 18px 16px 48px; gap: 20px; }
-  .sidebar { position: static; max-height: none; order: 2; display: none; }
+  .sidebar {
+    position: fixed;
+    top: var(--site-chrome-height, 0px);
+    right: 16px;
+    bottom: 16px;
+    left: 16px;
+    z-index: 99;
+    max-height: none;
+    display: none;
+    overflow-y: auto;
+    order: initial;
+    padding-right: 0;
+  }
   body.sidebar-open .sidebar { display: block; }
-  main { order: 1; }
+  main { order: initial; }
   .stats .stat { border-right: 0; border-bottom: 1px solid var(--border); }
   .store-row { grid-template-columns: 1fr; gap: 2px; }
 }
@@ -1890,9 +1902,37 @@ function buildHandbookJs() {
     "    var side = $('handbook-sidebar');",
     '    if (!btn || !side) return;',
     '    btn.hidden = false;',
+    '    function syncChromeHeight() {',
+    "      var chrome = qs('.site-chrome');",
+    '      if (!chrome) return;',
+    '      var height = chrome.getBoundingClientRect().height;',
+    '      if (height > 0) {',
+    "        document.documentElement.style.setProperty('--site-chrome-height', Math.ceil(height) + 'px');",
+    '      }',
+    '    }',
+    '    function closeSidebar() {',
+    "      document.body.classList.remove('sidebar-open');",
+    "      btn.setAttribute('aria-expanded', 'false');",
+    '    }',
+    '    syncChromeHeight();',
+    '    if (window.ResizeObserver) {',
+    "      var chrome = qs('.site-chrome');",
+    '      if (chrome) new ResizeObserver(syncChromeHeight).observe(chrome);',
+    '    }',
+    "    window.addEventListener('resize', syncChromeHeight);",
     "    btn.addEventListener('click', function () {",
     "      var open = document.body.classList.toggle('sidebar-open');",
     "      btn.setAttribute('aria-expanded', open ? 'true' : 'false');",
+    '    });',
+    "    qsa('a[href]', side).forEach(function (link) {",
+    "      link.addEventListener('click', closeSidebar);",
+    '    });',
+    "    document.addEventListener('keydown', function (ev) {",
+    "      if (ev.key === 'Escape' && document.body.classList.contains('sidebar-open')) {",
+    '        ev.preventDefault();',
+    '        closeSidebar();',
+    '        btn.focus();',
+    '      }',
     '    });',
     '  }',
     '',

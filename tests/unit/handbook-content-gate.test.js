@@ -55,6 +55,10 @@ describe('unit - handbook content gate', () => {
   });
 
   describe('scan set', () => {
+    it('rejects a manifest without an artifacts array', function () {
+      assert.throws(() => gate.collectDeclaredPngs({}), /manifest has no artifacts array/);
+    });
+
     it('declares PNGs regardless of extension case and ignores other artifacts', function () {
       // build.js discovers PNGs with toLowerCase().endsWith('.png'), so an
       // upper-case extension is published. The gate must see it too.
@@ -426,10 +430,10 @@ describe('unit - handbook content gate', () => {
       return { root, bin };
     }
 
-    function runScript({ root, bin }) {
-      return spawnSync(process.execPath, [SCRIPT, root], {
+    function runScript({ root, bin, args = [root], env = {} }) {
+      return spawnSync(process.execPath, [SCRIPT, ...args], {
         encoding: 'utf8',
-        env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, NODE_PATH: markedNodePath() },
+        env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, NODE_PATH: markedNodePath(), ...env },
         timeout: 60000,
       });
     }
@@ -478,6 +482,103 @@ describe('unit - handbook content gate', () => {
       );
       assert.notStrictEqual(r.status, 0, r.stdout);
       assert.match(r.stderr, /Cannot certify the image as seed-free/);
+    });
+
+    it('rejects a decoded QR payload that does not match the allowlist', function () {
+      const r = runScript(
+        fixture({
+          qrBody: 'case "$*" in *--version*) echo "zbarimg 0.23";; *01-erhalten.png*) echo "not-a-valid-payload";; *) exit 4;; esac',
+        }),
+      );
+      assert.notStrictEqual(r.status, 0, r.stdout);
+      assert.match(r.stderr, /does not match what the allowlist permits/);
+      assert.doesNotMatch(r.stderr, /not-a-valid-payload/);
+    });
+
+    it('fails before scanning when the manifest is absent', function () {
+      const fixtureData = fixture();
+      fs.rmSync(path.join(fixtureData.root, 'manifest.json'));
+      const r = runScript(fixtureData);
+      assert.notStrictEqual(r.status, 0, r.stdout);
+      assert.match(r.stderr, /no manifest\.json/);
+    });
+
+    it('fails before scanning when the manifest is malformed', function () {
+      const fixtureData = fixture();
+      fs.writeFileSync(path.join(fixtureData.root, 'manifest.json'), '{');
+      const r = runScript(fixtureData);
+      assert.notStrictEqual(r.status, 0, r.stdout);
+      assert.match(r.stderr, /unusable manifest\.json/);
+    });
+
+    it('fails with usage when no output directory is supplied', function () {
+      const fixtureData = fixture();
+      const r = runScript({ ...fixtureData, args: [] });
+      assert.notStrictEqual(r.status, 0, r.stdout);
+      assert.match(r.stderr, /usage: node scripts\/handbook\/content-gate\.js/);
+    });
+
+    it('fails when the output directory does not exist', function () {
+      const fixtureData = fixture();
+      const r = runScript({ ...fixtureData, args: [path.join(tmp, 'missing-output')] });
+      assert.notStrictEqual(r.status, 0, r.stdout);
+      assert.match(r.stderr, /is not a directory/);
+    });
+
+    it('fails when zbarimg is unavailable', function () {
+      const r = runScript(fixture({ qrBody: 'case "$*" in *--version*) exit 1;; *) exit 4;; esac' }));
+      assert.notStrictEqual(r.status, 0, r.stdout);
+      assert.match(r.stderr, /zbarimg is not usable/);
+    });
+
+    it('fails when tesseract is unavailable', function () {
+      const r = runScript(fixture({ ocrBody: 'case "$*" in *--version*) exit 1;; *) echo text;; esac' }));
+      assert.notStrictEqual(r.status, 0, r.stdout);
+      assert.match(r.stderr, /tesseract is not usable/);
+    });
+
+    it('fails closed when the bip39 dependency cannot be resolved', function () {
+      const fixtureData = fixture();
+      const hook = path.join(tmp, 'missing-bip39.js');
+      fs.writeFileSync(
+        hook,
+        `const Module = require('module');
+const originalLoad = Module._load;
+Module._load = function (request, parent, isMain) {
+  if (request === 'bip39') throw new Error("Cannot find module 'bip39'");
+  return originalLoad.call(this, request, parent, isMain);
+};
+`,
+      );
+      const r = runScript({
+        ...fixtureData,
+        env: { NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --require ${hook}`.trim() },
+      });
+      assert.notStrictEqual(r.status, 0, r.stdout);
+      assert.match(r.stderr, /cannot resolve the bip39 package/);
+      assert.ok(!/abandon|ability/.test(r.stderr), r.stderr);
+    });
+
+    it('fails closed when the bip39 wordlists are malformed', function () {
+      const fixtureData = fixture();
+      const hook = path.join(tmp, 'malformed-bip39.js');
+      fs.writeFileSync(
+        hook,
+        `const Module = require('module');
+const originalLoad = Module._load;
+Module._load = function (request, parent, isMain) {
+  if (request === 'bip39') return { wordlists: {} };
+  return originalLoad.call(this, request, parent, isMain);
+};
+`,
+      );
+      const r = runScript({
+        ...fixtureData,
+        env: { NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --require ${hook}`.trim() },
+      });
+      assert.notStrictEqual(r.status, 0, r.stdout);
+      assert.match(r.stderr, /bip39\.wordlists\.english is not the expected 2048-word list/);
+      assert.ok(!/abandon|ability/.test(r.stderr), r.stderr);
     });
 
     it('exits non-zero on a recovery phrase', function () {
