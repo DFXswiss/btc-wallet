@@ -3862,7 +3862,7 @@ SPEC CHECKSUMS:
   FBLazyVector: 309703e71d3f2f1ed7dc7889d58309c9d77a95a4
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
   glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
-  hermes-engine: e75869e8f8a7c7ff8e2536621f20406d82eb7db3
+  hermes-engine: 8e24f2b4edff3ccc7d9f495a0f53bfe1caf7a3d0
   lottie-ios: 8f959969761e9c45d70353667d00af0e5b9cadb3
   lottie-react-native: 983fd0489530e8d40f173de7f04e2f88b9317a15
   RCT-Folly: 846fda9475e61ec7bcbf8a3fe81edfcaeb090669
@@ -3948,7 +3948,7 @@ SPEC CHECKSUMS:
   React-utils: 8ab26781c2f5c2f7fafb2022c8ab39d39f231b80
   React-webperformancenativemodule: 7953b7fe519f76fa595111fe18ff3d5de131bfe9
   ReactAppDependencyProvider: 0eb286cc274abb059ee601b862ebddac2e681d01
-  ReactCodegen: 162f7d74b2c69d08024941b1b3169679f372d9fe
+  ReactCodegen: 3d48510bcef445f6403c0004047d4d9cbb915435
   ReactCommon: ac934cb340aee91282ecd6f273a26d24d4c55cae
   ReactNativeCameraKit: f6dff03bb7b545e868f35762e5e7d38076a1f424
   RealmJS: 1c37c6bdfe060f4caa0f9175aa0eedb962622ee1
@@ -3982,4 +3982,4 @@ SPEC CHECKSUMS:
 
 PODFILE CHECKSUM: a92df18318be23818a3e971cce0991f61d44fdb1
 
-COCOAPODS: 1.17.0
+COCOAPODS: 1.14.3

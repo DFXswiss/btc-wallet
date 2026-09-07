@@ -20,49 +20,24 @@ def require_sentry_env!
   end
 end
 
-# react-native-config reads /tmp/envfile, not the process environment. The Prod
-# scheme writes ".env.prd" there unless /tmp/breez-ci-envfile-marker exists, and
-# .env.prd has no BREEZ_API_KEY. Checking ENV alone would let a local lane pass
-# and still bake an empty key. The overlay is written via File I/O only — never
-# interpolated into a Fastlane `sh` command or UI message — then always removed.
+# react-native-config reads ENVFILE when supplied. The release overlay keeps the
+# Breez key out of tracked files and process output; it is written via File I/O
+# only — never interpolated into a Fastlane `sh` command or UI message — then
+# removed from an owned private directory after the lane restores its caller's
+# ENVFILE value.
 require "fileutils"
 require "securerandom"
-
-BREEZ_CI_MARKER = "/tmp/breez-ci-envfile-marker"
-ENVFILE_POINTER = "/tmp/envfile"
+require "tmpdir"
 
 def require_breez_env!
   UI.user_error!("BREEZ_API_KEY is required for a Release-configuration build") if ENV.fetch("BREEZ_API_KEY", "").empty?
 end
 
 def breez_overlay_ready?(path)
-  return false unless path && File.file?(path)
-  return false unless (File.stat(path).mode & 0o777) == 0o600
+  return false unless path && File.lstat(path).file?
+  return false unless (File.lstat(path).mode & 0o777) == 0o600
   File.foreach(path) { |line| return true if line.match?(/\ABREEZ_API_KEY=[^\s#]+/) }
   false
-end
-
-def remove_file_if_present(path)
-  begin
-    File.open(path, "r+b") do |f|
-      size = f.size
-      f.write(SecureRandom.random_bytes(size)) if size > 0
-      f.flush
-      f.fsync
-    end
-  rescue Errno::ENOENT
-    nil
-  rescue StandardError => e
-    UI.error("overwrite failed: #{e.class}")
-  end
-
-  begin
-    File.delete(path)
-  rescue Errno::ENOENT
-    nil
-  rescue StandardError => e
-    UI.error("delete failed: #{e.class}")
-  end
 end
 
 def with_breez_overlay
@@ -70,21 +45,21 @@ def with_breez_overlay
   src = File.expand_path("../../.env.prd", __dir__)
   UI.user_error!(".env.prd is missing; cannot build a release overlay") unless File.file?(src)
 
-  overlay = File.join("/tmp", "breez-env.#{Process.pid}.#{SecureRandom.hex(4)}")
+  previous_envfile = ENV["ENVFILE"]
+  overlay_dir = Dir.mktmpdir("breez-env-")
+  overlay = File.join(overlay_dir, "env")
   begin
     FileUtils.cp(src, overlay)
     File.chmod(0o600, overlay)
     File.open(overlay, "a") { |f| f.write("\nBREEZ_API_KEY=#{ENV.fetch("BREEZ_API_KEY")}\n") }
-    File.write(ENVFILE_POINTER, "#{overlay}\n")
-    FileUtils.touch(BREEZ_CI_MARKER)
+    ENV["ENVFILE"] = overlay
     unless breez_overlay_ready?(overlay)
       UI.user_error!("failed to write a BREEZ_API_KEY overlay for the release build")
     end
     yield
   ensure
-    remove_file_if_present(overlay)
-    remove_file_if_present(ENVFILE_POINTER)
-    remove_file_if_present(BREEZ_CI_MARKER)
+    previous_envfile.nil? ? ENV.delete("ENVFILE") : ENV["ENVFILE"] = previous_envfile
+    FileUtils.remove_entry_secure(overlay_dir) if File.directory?(overlay_dir) && !File.symlink?(overlay_dir)
   end
 end
 
@@ -171,7 +146,7 @@ platform :ios do
     with_breez_overlay do
       build_app(
         workspace: "BlueWallet.xcworkspace",
-        scheme: "BlueWallet", # prod scheme; marker keeps its pre-action from replacing /tmp/envfile with .env.prd
+        scheme: "BlueWallet", # prod scheme; explicit ENVFILE keeps the pre-action fallback inert
         configuration: "Release",
         export_method: "app-store",
         output_directory: "build",
@@ -222,7 +197,7 @@ platform :ios do
     with_breez_overlay do
       build_app(
         workspace: "BlueWallet.xcworkspace",
-        scheme: "BlueWallet", # prod scheme; marker keeps its pre-action from replacing /tmp/envfile with .env.prd
+        scheme: "BlueWallet", # prod scheme; explicit ENVFILE keeps the pre-action fallback inert
         configuration: "Release",
         export_method: "app-store",
         output_directory: "build",
