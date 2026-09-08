@@ -1,6 +1,74 @@
 # Coverage record
 
-## Current combined-artifact checkpoint (2026-09-06)
+## Actual native Lightning payments (2026-09-08)
+
+P11 and P12 completed with real Lightning payments of 1,000 sat each against
+the existing local API and services stack. The native wallet, provider and
+persisted backend records were correlated by the complete payment hash.
+The bank, KYC and price inputs remain declared test fixtures: this is not a
+real CHF transfer or a fully mock-free fiat/KYC environment.
+
+Wallet source: `c908905866222fb74dfd5606b1c24c0d2ee3331d`.
+Backend source: `50fedee04f4dd2ab98a62072a2919cc2404996e8`,
+image `sha256:bdae2977961ebf498d83cd215e4a9476cb142f02415e0e2112db7d0e9d761526`.
+Services source: `270356c71a7681cf21238d0a6ac6101ceda13864`.
+The installed Release app on the owned iOS simulator used executable SHA-256
+`0fda3f9b484ea44e712b8b2ba8633f220c2050e7535f5eaeedb6b4b22e999c2e`
+and JavaScript bundle SHA-256
+`2e8552faa34db91d9bb35ee46bf24344e8a4bd55236ee369cb9c6cda443716a6`.
+No wallet-data or keychain reset occurred during these payment runs.
+
+| Case | Actual payment and persisted correlation | Boundary |
+| --- | --- | --- |
+| P11 buy | BankTx 2 → Buy 1 / User 2 → BuyCrypto 1 / Transaction 2 → PayoutOrder 1; BuyCrypto and payout Complete, AML Pass; native receipt 1,000 sat, sender fee 0 sat. Transaction UID `T18E9D57D3F028B0E`. | The incoming 0.50 CHF BankTx is synthetic. Lightning payout and native receipt are actual. |
+| P12 sell | Native payment 1,000 sat + 4 sat fee → actual LNbits webhook → CryptoInput 1 / Sell 1 / User 2 → BuyFiat 1 / Transaction 4 → FiatOutput 1 / BankTx 4; pay-in Completed and confirmed, AML Pass, BuyFiat and FiatOutput complete. | The 0.50 CHF bank output completed against the declared Frick test service. |
+
+P11 payment hash:
+`77dba3c7e61cb3db1eebd57c578f8f77ac8d8b2816764eb7e8abf491f209c2d7`.
+
+P12 payment hash:
+`a91e5c33344c55a5a4b3907119bdb2d41b7c4e0d5d9abcae6f8aedab7f594bcd`.
+
+Native steps were operator-orchestrated, using the separate harness's existing-wallet
+Maestro flows and visual review before each final payment action; this was not
+one automated 13/13 suite. The complete hashes were checked in native transaction
+details with flow 06, both exit 0. P11 execute ran once. P12 observe and process
+completed with exit 0 after correcting a missing public entity-source input;
+that setup failure is not counted as a successful run. Independent read-only
+PostgreSQL and authenticated provider checks confirmed the same payment chains.
+No Lightning mock-settlement endpoint or direct terminal-state SQL write was used.
+
+The actual KYC-document store was local MinIO with verified Object Lock and
+eleven-year COMPLIANCE retention. Dilisense responses, bank settlement, pricing,
+KYC prerequisites and parts of backend startup remain explicitly simulated.
+
+The dated [payment report](https://github.com/joshuakrueger-dfx/dfx-lightning-e2e-simulation/blob/1d05390f5ff5a3c5f107270b35e10f6116e92d54/docs/live-p11-p12-result-20260908.md)
+contains all five movement hashes, source pins, provider status and native history
+captures. The [independent SQL record](https://github.com/joshuakrueger-dfx/dfx-lightning-e2e-simulation/blob/1d05390f5ff5a3c5f107270b35e10f6116e92d54/docs/evidence/2026-09-08/p11-p12-final-independent-sql-20260908.json)
+and [final validator record](https://github.com/joshuakrueger-dfx/dfx-lightning-e2e-simulation/blob/1d05390f5ff5a3c5f107270b35e10f6116e92d54/docs/evidence/2026-09-08/p11-p12-final-validation-20260908.json)
+retain the exact correlation. These links require access to the private test repository;
+credentials, seeds, preimages and raw logs are not copied into this wallet repository.
+
+P11 return was 996 sat + 4 sat fee, separate P12 prefunding was 2,000 sat,
+and the final residual return was 992 sat + 4 sat fee. Treasury moved from
+9,000 to 8,988 sat and the native wallet returned to 0 sat; the 12 sat difference
+matches the three observed native fees. Prefunding and returns are not additional
+P11/P12 test cases. A second complete payment replay was not executed.
+
+The same source also has the dated September 7 P01–P09, P10 and P13 native
+results (11/11 selected non-paying flows across three batches). On September 8,
+P05 and P07 were freshly run without resetting the existing wallet, each exit 0:
+independent QR-pixel decoding confirmed a mainnet 1,000-sat invoice with description
+`Maestro-E2E`, and a mainnet Bech32m on-chain address matching the UI.
+A separate P06-like address capture also matched its decoded QR. Address and
+unpaid-invoice checks do not prove on-chain credit.
+
+These results do not establish physical-device execution, production/store signing,
+funded reinstall/import recovery, every requested payment method, a fully mock-free
+fiat/KYC/price stack, or 100% coverage of every touched file. The earlier records
+below remain historical and retain their original failures and limitations.
+
+## Historical combined-artifact checkpoint (2026-09-06)
 
 The current native evidence is from a freshly Xcode-signed combined Release
 artifact built from wallet source
