@@ -548,6 +548,9 @@ const LnurlPay = () => {
   };
 
   const isInsufficientFunds = () => {
+    if (wallet.type === SparkWallet.type && !isMax && typeof sparkFee === 'number') {
+      return amountSat + sparkFee > wallet.getBalance();
+    }
     return amountSat > wallet.getBalance();
   };
 

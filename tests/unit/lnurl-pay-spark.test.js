@@ -1516,6 +1516,41 @@ describe('LnurlPay remaining payment paths', () => {
     expect(mockGoBack).toHaveBeenCalledTimes(1);
   });
 
+  it('disables payment when a Spark amount plus quoted fee exceeds the balance', async () => {
+    const wallet = makeWallet();
+    wallet.balance = 1000;
+    wallet.getPaymentFeeQuote.mockResolvedValue({
+      invoice: SAMPLE_INVOICE,
+      amountSats: 990,
+      walletIdentity: 'pk-pay',
+      method: SendPaymentMethod_Tags.Bolt11Invoice,
+      feeSats: 20,
+    });
+    const screen = renderPay(wallet, { amountSat: 990 });
+
+    await waitFor(() => screen.getByText(loc.send.insufficient_funds));
+    expect(screen.queryByText(loc.lnd.payButton)).toBeNull();
+    expect(wallet.payInvoice).not.toHaveBeenCalled();
+    expect(wallet.paySparkInvoice).not.toHaveBeenCalled();
+  });
+
+  it('keeps the Spark MAX pay button enabled when the amount equals the balance and a fee quote is present', async () => {
+    jest.spyOn(Lnurl.prototype, 'getLnurlPayRequestDetails').mockReturnValue({ callback: 'https://example.com/callback' });
+    mockLnurlPay({ getMin: 1000 });
+    const wallet = makeWallet();
+    wallet.balance = 1000;
+    wallet.getLnurlMaxFeeQuote.mockResolvedValue({
+      amountSats: 1000,
+      walletIdentity: 'pk-pay',
+      requestKey: 'test-request',
+      feeSats: 20,
+    });
+    const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST', isMax: true, amountSat: 1000 });
+
+    await waitFor(() => screen.getByText(`${loc.send.create_fee}: 20 ${BitcoinUnit.SATS}`));
+    expect(getPayButton(screen).props.disabled).toBe(false);
+  });
+
   it('throws when the wallet is removed from storage after mount', async () => {
     const wallet = makeWallet();
     const screen = renderPay(wallet);
