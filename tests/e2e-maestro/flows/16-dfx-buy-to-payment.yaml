@@ -1,0 +1,68 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: ../_setup.yaml
+- tapOn:
+    point: '85%,58%'
+- waitForAnimationToEnd:
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Externe Services'
+    timeout: 90000
+# Die Kaufen-Kachel ist ein Bitmap in ImageButton ohne testID oder
+# accessibilityLabel. Der Punkt wurde am gerenderten Handbuchbild gemessen.
+- tapOn:
+    point: '38%,34%'
+- waitForAnimationToEnd:
+    timeout: 30000
+- extendedWaitUntil:
+    visible: '^Kaufen$'
+    timeout: 30000
+- assertVisible: '^DFX\.swiss \| Buy & Sell directly into your wallet$'
+- assertVisible: '^Kaufen$'
+- assertVisible: '^Formular$'
+- assertNotVisible: '^Login bei DFX Services$'
+- assertNotVisible: 'Invalid signature'
+# Dieser Abschnitt setzt extern einen lokalen DFX-Stack voraus, in dem der
+# Nutzer bereits handelsfähig ist (Kontostatus, Limit und Einzahlungsadressen).
+# Ohne den Stack bleibt der Flow hier stehen.
+- waitForAnimationToEnd:
+    timeout: 8000
+- tapOn:
+    point: '72%,93%'
+- extendedWaitUntil:
+    visible: '^Zahlungsinformation$'
+    timeout: 30000
+- assertVisible: '^Zahlungsinformation$'
+- assertVisible: '^Wechselkurs$'
+- assertVisible: '^QR-Code$'
+- assertNotVisible: '^KYC VERVOLLSTÄNDIGEN$'
+# Die Lightning-Auszahlung kommt erst nach der Fiat-Gutschrift auf dem Stack.
+# Ohne diese Gutschrift bleibt der Spark-Saldo 0 und der Flow fällt.
+- runFlow:
+    when:
+      visible: 'Schließen'
+    commands:
+      - tapOn: 'Schließen'
+- runFlow:
+    when:
+      visible: 'Zurück zu BTC Taro'
+    commands:
+      - tapOn: 'Zurück zu BTC Taro'
+- runFlow:
+    when:
+      visible: 'Fertig'
+    commands:
+      - tapOn: 'Fertig'
+- extendedWaitUntil:
+    visible: 'Externe Services'
+    timeout: 30000
+- swipe:
+    direction: DOWN
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), [1-9].*sats, .*'
+    timeout: 120000
+- assertVisible: 'Bitcoin, Lightning \(Spark\), [1-9].*sats, .*'
+- assertNotVisible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'

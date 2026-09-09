@@ -1,0 +1,159 @@
+appId: swiss.dfx.bitcoin
+env:
+  E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
+onFlowComplete:
+  - runFlow: ../_return-spark-balance.yaml
+---
+- runFlow: ../_setup.yaml
+- runScript:
+    file: ../scripts/payment-amount.js
+    env:
+      E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
+- tapOn:
+    point: '85%,58%'
+- waitForAnimationToEnd:
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    timeout: 90000
+- tapOn:
+    point: '50%,58%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- tapOn:
+    point: '16%,93%'
+- extendedWaitUntil:
+    visible: 'Amount (optional)'
+    timeout: 20000
+- tapOn: 'Amount (optional)'
+- inputText: ${output.paymentSat}
+- tapOn: 'sats'
+- extendedWaitUntil:
+    visible: '.*lnbc.*'
+    timeout: 30000
+- tapOn: 'Beschreibung (optional)'
+- inputText: 'Maestro-E2E'
+- tapOn: 'sats'
+# Betragsunabhaengig: 10 sat ist lnbc100n, 1000 sat waere lnbc10u.
+- extendedWaitUntil:
+    visible: '.*lnbc.*'
+    timeout: 30000
+- copyTextFrom: '.*lnbc.*'
+- runScript:
+    file: ../scripts/treasury.js
+    env:
+      TREASURY_CMD: pay
+      E2E_TREASURY_URL: ${E2E_TREASURY_URL || ''}
+      E2E_TREASURY_KEY: ${E2E_TREASURY_KEY || ''}
+      E2E_TREASURY_MAX_SAT: ${E2E_TREASURY_MAX_SAT || ''}
+      E2E_TREASURY_MAX_FEE_SAT: ${E2E_TREASURY_MAX_FEE_SAT || ''}
+- extendedWaitUntil:
+    visible: 'Fertig'
+    timeout: 120000
+# runScript ersetzt output. Betragswerte unmittelbar vor der Zusicherung neu setzen.
+- runScript:
+    file: ../scripts/payment-amount.js
+    env:
+      E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
+- assertVisible: ${'^' + output.paymentSat + '$'}
+- assertVisible: '^ sats$'
+- assertVisible: '^Maestro-E2E$'
+- assertVisible: 'Fertig'
+- tapOn: 'Fertig'
+- waitForAnimationToEnd:
+    timeout: 15000
+# Die Listen-Zeile mit dem neuen Saldo erschien erst nach einem Neustart
+# ohne Zustandsloeschung, nicht auf dem offen gebliebenen Schirm.
+- runFlow: ../_relaunch-keep-state.yaml
+- extendedWaitUntil:
+    visible: ${'Bitcoin, Lightning \\(Spark\\), ' + output.walletBalanceText + ', .*'}
+    timeout: 90000
+- tapOn:
+    point: '50%,58%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: WalletLabel
+      text: 'Lightning \(Spark\)'
+      containsDescendants:
+        - id: WalletBalance
+          text: ${output.walletBalanceRegex}
+    timeout: 60000
+- extendedWaitUntil:
+    visible: 'Externe Services'
+    timeout: 90000
+# Die Verkaufen-Kachel ist ein Bitmap ohne semantischen Selektor. Bei zwei
+# sichtbaren DFX-Kacheln liegt ihr gemessener Mittelpunkt hier.
+- tapOn:
+    point: '61%,34%'
+- waitForAnimationToEnd:
+    timeout: 30000
+- extendedWaitUntil:
+    visible: '^Deine IBAN hinzufügen oder auswählen$'
+    timeout: 30000
+- assertVisible: '^DFX\.swiss \| Buy & Sell directly into your wallet$'
+- assertVisible: '^Deine IBAN hinzufügen oder auswählen$'
+- assertNotVisible: '^Login bei DFX Services$'
+- assertNotVisible: 'Invalid signature'
+# Dieser Abschnitt setzt extern einen lokalen DFX-Stack voraus, in dem der
+# Nutzer bereits handelsfähig ist. Ohne den Stack bleibt der Flow hier stehen.
+- tapOn: '^Deine IBAN hinzufügen oder auswählen$'
+- extendedWaitUntil:
+    visible: '^Bankkonto auswählen$'
+    timeout: 30000
+- tapOn: 'XX XXXX XXXX XXXX XXXX X'
+- inputText: 'DE89370400440532013000'
+- hideKeyboard
+- tapOn: '^BANKVERBINDUNG HINZUFÜGEN$'
+- extendedWaitUntil:
+    visible: '^DE89 3704 0044 0532 0130 00$'
+    timeout: 30000
+- assertVisible: '^DE89 3704 0044 0532 0130 00$'
+- runFlow:
+    when:
+      visible: '^Weiter$'
+    commands:
+      - tapOn: '^Weiter$'
+# Der DFX-Dienst fuehrt per Deeplink zurueck in die App. Ohne diesen Rueckweg
+# erscheint Verkauf bestätigen nicht und der Flow fällt.
+- extendedWaitUntil:
+    visible: 'Verkauf bestätigen'
+    timeout: 120000
+- assertVisible: 'Auszahlung auf Dein Bankkonto'
+- tapOn: 'Auszahlung auf Dein Bankkonto'
+- extendedWaitUntil:
+    visible: 'Zahlen'
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 8000
+- tapOn: 'Zahlen'
+- extendedWaitUntil:
+    visible: 'Fertig'
+    timeout: 120000
+- assertVisible: 'Fertig'
+- tapOn: 'Fertig'
+- waitForAnimationToEnd:
+    timeout: 15000
+- runFlow: ../_relaunch-keep-state.yaml
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+    timeout: 90000
+- tapOn:
+    point: '50%,58%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: WalletLabel
+      text: 'Lightning \(Spark\)'
+      containsDescendants:
+        - id: WalletBalance
+          text: '.*sats'
+    timeout: 60000
+- assertNotVisible:
+    id: WalletLabel
+    text: 'Lightning \(Spark\)'
+    containsDescendants:
+      - id: WalletBalance
+        text: ${output.walletBalanceRegex}

@@ -78,6 +78,25 @@ MAESTRO_BIN="$(command -v maestro)" || fail 'maestro is not installed or not on 
 command -v xcrun >/dev/null 2>&1 || fail 'xcrun is not installed or not on PATH'
 [[ -d "$FLOW_DIR" ]] || fail "flow directory does not exist: $FLOW_DIR"
 
+# Pass only set treasury names to `maestro test -e`. Unset names stay off the
+# argv so the client still fails closed. Values are never printed.
+# E2E_PAYMENT_SAT always goes through (default 10) so P14/P15/P17 can run
+# smaller amounts without a code change.
+maestro_env_args=()
+maestro_env_args+=(-e "E2E_PAYMENT_SAT=${E2E_PAYMENT_SAT:-10}")
+if [[ -n "${E2E_TREASURY_URL-}" ]]; then
+  maestro_env_args+=(-e "E2E_TREASURY_URL=${E2E_TREASURY_URL}")
+fi
+if [[ -n "${E2E_TREASURY_KEY-}" ]]; then
+  maestro_env_args+=(-e "E2E_TREASURY_KEY=${E2E_TREASURY_KEY}")
+fi
+if [[ -n "${E2E_TREASURY_MAX_SAT-}" ]]; then
+  maestro_env_args+=(-e "E2E_TREASURY_MAX_SAT=${E2E_TREASURY_MAX_SAT}")
+fi
+if [[ -n "${E2E_TREASURY_MAX_FEE_SAT-}" ]]; then
+  maestro_env_args+=(-e "E2E_TREASURY_MAX_FEE_SAT=${E2E_TREASURY_MAX_FEE_SAT}")
+fi
+
 shopt -s nullglob
 FLOWS=("$FLOW_DIR"/$FLOW_FILTER)
 shopt -u nullglob
@@ -172,7 +191,7 @@ for flow in "${FLOWS[@]}"; do
 
   printf '\n==> %s\n' "$name"
   if ensure_simulator_ready && reset_simulator_app && ensure_simulator_ready; then
-    "$MAESTRO_BIN" --device "$SIMULATOR_UDID" test "$flow" 2>&1 | tee "$flow_log"
+    "$MAESTRO_BIN" --device "$SIMULATOR_UDID" test "${maestro_env_args[@]}" "$flow" 2>&1 | tee "$flow_log"
     flow_exit=${PIPESTATUS[0]}
   else
     flow_exit=125

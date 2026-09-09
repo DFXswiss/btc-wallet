@@ -1,6 +1,6 @@
 # Spark wallet E2E with Maestro
 
-This suite runs the 13 user paths listed in `coverage.md` individually on an iOS
+This suite runs the 17 user paths listed in `coverage.md` individually on an iOS
 simulator. Every flow starts the app with cleared state, walks through
 onboarding itself and checks at least one visible state. No flow inherits state
 from a previous one.
@@ -18,18 +18,37 @@ from a previous one.
   `JAVA_HOME` and extends `PATH`; if Java is missing it aborts with exit 2.
 - Network access to Spark/Breez and to the DFX API. P9 uses the `@breez.tips`
   address registered by the freshly created Spark wallet instead of a foreign
-  LNURL test service. P11/P12 need a reachable DFX web flow.
-- P11 and P12 additionally require an account that is tradable on the API side
-  (verified status, a non-zero limit, Lightning deposit addresses). That state is
-  set outside the suite; without it both flows fail rather than silently pass.
+  LNURL test service. P11/P12/P16/P17 need a reachable DFX web flow.
+- P11, P12, P16 and P17 additionally require an account that is tradable on the
+  API side (verified status, a non-zero limit, Lightning deposit addresses). That
+  state is set outside the suite; without it those flows fail rather than
+  silently pass.
+- P14, P15 and P17 need a Lightning counterpart, configured only through the
+  runner's environment (`E2E_TREASURY_URL`, `E2E_TREASURY_KEY`, optional
+  `E2E_TREASURY_MAX_SAT` default 1000, optional `E2E_TREASURY_MAX_FEE_SAT` default
+  100). The payment amount those three flows type and assert is `E2E_PAYMENT_SAT`
+  (default 10). P15 sends one tenth of that amount so the Spark fee still fits
+  in the remaining balance. Maestro's `runScript` sandbox does not see the shell
+  environment, so the runner forwards `E2E_PAYMENT_SAT` (always, default 10) and
+  each treasury variable that is set to `maestro test` as `-e NAME=VALUE`
+  (unset treasury names are omitted). The flows bind those names in the
+  `runScript` `env` map, and `treasury.js` reads the script bindings first, then
+  `process.env`. If the URL or the key is missing,
+  `tests/e2e-maestro/scripts/treasury.js` exits 2 and the flow fails. It does
+  not skip the payment or report success. Amounts above `E2E_TREASURY_MAX_SAT`
+  are rejected before anything is sent. The helper never prints the key; BOLT11
+  values it prints are the invoices the app has to pay (P15 send, P14/P17
+  return). The runner does not echo the forwarded values.
 - The given simulator must not hold any wallet state worth protecting. Before
   every flow the runner terminates and uninstalls the app, resets the simulator
-  keychain and installs the given bundle anew. On top of that every flow uses
-  `clearState: true`.
+  keychain and installs the given bundle anew. On top of that every flow starts
+  with `clearState: true`. P14, P15 and P17 later relaunch with `clearState:
+  false` so the Spark row can show the balance after a payment.
 
-## Local DFX stack for P11/P12
+## Local DFX stack for P11/P12/P16/P17
 
-The distinguishable buy and sell screens require a complete local stack. The
+The distinguishable buy and sell screens, and the P16/P17 payment extensions,
+require a complete local stack. The
 tracked defaults remain `3000`/`3001`. The owned verification stack uses a
 private, uncommitted `ENVFILE` overlay with:
 
@@ -90,13 +109,42 @@ on a configuration error or an empty filter.
 
 ## Deliberate limits
 
-- P8–P10 send no money. With a reproducible expired BOLT11 vector P8 checks
+- P8–P10 still send no money. With a reproducible expired BOLT11 vector P8 checks
   parsing, amount, the rendering of the invoice itself (`lnbc2500u`) and the
   expected expiry error. P9 captures the Lightning address created in the same
   flow, encodes its LNURL-pay target and ends at the amount entry. P10 checks
   the authentication prompt and the rejection expected for Spark. All three hand
   the QR content to the registered deeplink through `openLink`; camera and
   optical QR recognition are not tested in the simulator.
+- P14 and P15 complete Lightning payments against the treasury counterpart: P14
+  receives `E2E_PAYMENT_SAT` (default 10) until the Spark detail header shows
+  that amount on `WalletBalance` under `WalletLabel` `Lightning (Spark)`. P15
+  sends one tenth of that amount until the counterpart reports the invoice paid
+  and the Spark row is no longer the funded amount and not `0 sats`. They are
+  not hermetic; without the treasury environment they fail rather than skip.
+  After a payment the Spark row only showed the new balance after an app
+  restart without wiping state (`launchApp` with `clearState: false`); waiting
+  on the still-open screen was not enough. P14, P15 and P17 therefore relaunch
+  that way before every wallet-row assertion that follows a payment. That is a
+  product observation, not a persistence test.
+- P16 and P17 take the DFX buy and sell entries through to a Lightning payment
+  instead of stopping at the DFX surface. They need the local DFX stack. P16
+  waits for a Spark credit after the buy payment-information view; that credit
+  does not arrive unless the stack actually completes the buy. P17 funds the
+  Spark wallet, fills the sell IBAN form, then waits for the native sell
+  confirmation and pays. Without the stack, the redirect, or the Spark
+  balance, both flows fail rather than pass. A bank payout, a real CHF transfer,
+  and a camera QR read stay outside the suite.
+- P14 and P17 return the visible Spark balance minus a 4 sat fee reserve in an
+  `onFlowComplete` hook (`_return-spark-balance.yaml`), so the return also runs
+  after a failed assertion. At the default 10 sat credit that leaves 6 sat
+  returnable. A completed P14 therefore costs only the native Lightning fee.
+  P17 returns only the Spark remainder after the sell; the sold amount does not
+  come back. If the hook cannot read a Spark balance (0, missing, at or below
+  the 4 sat reserve, or the app is not on the Spark wallet screen) it skips,
+  logs that, and does not fail the flow. If a balance was readable and the
+  return then fails, the hook fails and the flow is red. An abort before the
+  hook still leaves credit in a wallet the next flow discards with the seed.
 - No current physical-device payment proof is claimed here. An earlier note
   about a 10-sat payment on an iPhone is historical and unverified, so it is
   excluded from this suite's evidence.
@@ -104,19 +152,17 @@ on a configuration error or an empty filter.
   use disjoint mode markers plus the exact DFX page title to check the external
   transition. Later fixture-assisted observations recorded in `coverage.md`
   were limited to a local quote/payment-information view for P11 and the IBAN
-  form for P12. Neither result proves a completed purchase, sale, settlement,
-  or payout. These flows are not hermetic: without the local stack they do not
-  reach those views. The owned verification stack uses the private `3300` API
-  and `3301` services overlay shown above; that configuration must not be
-  conflated with the dated historical series record below. Bank payout, buy
-  completion, swap completion, and a deeplink through a real DFX route stay
-  outside the suite.
+  form for P12. Those two paths still do not prove settlement. P16 and P17 are
+  the payment extensions; they are not hermetic. The owned verification stack
+  uses the private overlay shown above; that configuration must not be
+  conflated with the dated historical series record below.
 - The QR component has neither `testID` nor `accessibilityLabel`. P5–P7
   therefore check the visible payload, which sits in the same render branch as
   the QR, not the pixels or whether they decode.
 - Persistence across app restarts, keychain entitlements, NFC, camera QR reads,
-  hardware wallets, multi-device and successful payments with a balance are not
-  part of these 13 paths.
+  hardware wallets and multi-device are not part of these 17 paths. The
+  P14/P15/P17 relaunch without wiping state only exists so the Spark row can
+  show the new balance; it is not a persistence proof.
 - Dynamic Spark and DFX responses can turn the suite red. That is intended; the
   runner does not treat missing external prerequisites as success.
 
