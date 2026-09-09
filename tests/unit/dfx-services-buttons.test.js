@@ -160,13 +160,13 @@ describe('DfxServicesButtons rendered service actions', () => {
     expect(unavailable.queryByText('External services')).toBeNull();
   });
 
-  it('opens Spark sell and swap at the full balance and still haircuts LDS by 3 percent', async () => {
+  it('haircuts Spark sell and swap by 3 percent like LDS', async () => {
     const spark = makeWallet({ type: SparkWallet.type });
     const sparkScreen = renderButtons(spark, { isDfxSwap: true });
     fireEvent.press(sparkScreen.getByTestId('dfx-sell-en'));
-    await waitFor(() => expect(mockOpenServices).toHaveBeenCalledWith('wallet-1', '1', 'sell'));
+    await waitFor(() => expect(mockOpenServices).toHaveBeenCalledWith('wallet-1', '0.97', 'sell'));
     fireEvent.press(sparkScreen.getByTestId('dfx-swap'));
-    await waitFor(() => expect(mockOpenServices).toHaveBeenCalledWith('wallet-1', '1', 'swap'));
+    await waitFor(() => expect(mockOpenServices).toHaveBeenCalledWith('wallet-1', '0.97', 'swap'));
 
     mockOpenServices.mockClear();
     const lds = makeWallet({ type: LightningLdsWallet.type });

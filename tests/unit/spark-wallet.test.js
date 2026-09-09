@@ -3310,15 +3310,15 @@ describe('SparkWallet', () => {
     );
   });
 
-  it('paySparkInvoice uses its deterministic tracking hash when the SDK omits a payment id', async () => {
+  it('paySparkInvoice throws when the SDK omits a payment id', async () => {
     mockSessionIdentity = 'id-pk';
     const wallet = SparkWallet.create('id-pk');
     mockSdk.prepareSendPayment.mockResolvedValue(sparkInvoicePrepareResponse());
     mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Pending } });
-    const result = await paySparkInvoiceWithExplicitQuote(wallet, SPARK_INVOICE, 12_345, 'missing-id');
-    assert.strictEqual(result.status, SparkPayInvoiceStatus.Pending);
-    assert.strictEqual(result.paymentId, undefined);
-    assert.match(result.paymentHash, /^[0-9a-f]{64}$/);
+    await assert.rejects(
+      () => paySparkInvoiceWithExplicitQuote(wallet, SPARK_INVOICE, 12_345, 'missing-id'),
+      new RegExp(loc.wallets.lightning_spark_payment_failed),
+    );
   });
 
   it('paySparkInvoice keeps a completed SDK result separate from a reset current payment', async () => {

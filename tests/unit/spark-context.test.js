@@ -1065,6 +1065,43 @@ describe('SparkContextProvider', () => {
     warn.mockRestore();
   });
 
+  it('clears unclaimed-deposit state when the Spark wallet is replaced', async () => {
+    const existing = stubSparkMethods(SparkWallet.create('unclaimed-replace-pk'));
+    const replacement = SparkWallet.create('unclaimed-replace-new-pk');
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const setWalletsRef = { current: null };
+    function Harness() {
+      const [wallets, setWallets] = React.useState([hdWallet, existing]);
+      React.useEffect(() => {
+        setWalletsRef.current = setWallets;
+      }, [setWallets]);
+      return (
+        <BlueStorageContext.Provider value={{ wallets, walletsInitialized: true, addAndSaveWallet, saveToDisk, deleteWallet }}>
+          <SparkContextProvider>
+            <Probe />
+          </SparkContextProvider>
+        </BlueStorageContext.Provider>
+      );
+    }
+
+    render(<Harness />);
+    await waitFor(() => expect(mockConnect).toHaveBeenCalled());
+    assert.strictEqual(latestCtx.hasUnclaimedDeposits, false);
+
+    const onEvent = mockConnect.lastOnEvent;
+    await act(async () => {
+      await onEvent({ tag: SdkEvent_Tags.UnclaimedDeposits });
+    });
+    await waitFor(() => assert.strictEqual(latestCtx.hasUnclaimedDeposits, true));
+
+    stubSparkMethods(replacement);
+    await act(async () => {
+      setWalletsRef.current([hdWallet, replacement]);
+    });
+    await waitFor(() => assert.strictEqual(latestCtx.hasUnclaimedDeposits, false));
+    warn.mockRestore();
+  });
+
   it('warns with a fixed tag when deposits stay unclaimed', async () => {
     const existing = stubSparkMethods(SparkWallet.create('unclaimed-pk'));
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});

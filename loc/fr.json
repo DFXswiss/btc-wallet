@@ -532,7 +532,7 @@
     "lightning_spark_receive_lightning": "Lightning",
     "lightning_spark_receive_onchain": "On-chain",
     "lightning_spark_onchain_confirmations": "Un paiement Bitcoin a besoin de quelques confirmations avant d'être crédité.",
-    "lightning_spark_unclaimed_deposits": "A received Bitcoin payment is waiting: network fees are currently too high to credit it automatically. It will be credited once fees drop.",
+    "lightning_spark_unclaimed_deposits": "Un paiement Bitcoin reçu est en attente : les frais de réseau sont actuellement trop élevés pour le créditer automatiquement. Il sera crédité une fois que les frais auront baissé.",
     "multi_sig_wallet_label": "Portefeuille multi-appareils",
     "chf_taproot_wallet_label": "Portefeuille Taproot en CHF",
     "add_lndhub_DFXswiss_not_available": "Ce service sera bientôt disponible",

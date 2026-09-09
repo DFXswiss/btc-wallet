@@ -1043,6 +1043,10 @@ export class SparkWallet extends AbstractWallet {
       settleOutgoingPayment({ status: 'failed', paymentHash, paymentId: payment.id });
       throw new Error(loc.wallets.lightning_spark_payment_failed);
     }
+    // Without a payment id no SDK event can settle this send.
+    if (!payment.id) {
+      throw new Error(loc.wallets.lightning_spark_payment_failed);
+    }
     return { status: SparkPayInvoiceStatus.Pending, paymentHash, paymentId: payment.id, fee };
   }
 

@@ -301,6 +301,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
   // Connect when a Spark wallet exists, and again when that wallet is replaced.
   useEffect(() => {
     lnAddressRegisterAttemptedRef.current = false;
+    setHasUnclaimedDeposits(false);
     if (!walletsInitialized) return;
     const spark = getSparkWallet(walletsRef.current);
     if (!spark) {
