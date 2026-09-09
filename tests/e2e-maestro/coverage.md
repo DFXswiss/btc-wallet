@@ -42,12 +42,11 @@ The actual KYC-document store was local MinIO with verified Object Lock and
 eleven-year COMPLIANCE retention. Dilisense responses, bank settlement, pricing,
 KYC prerequisites and parts of backend startup remain explicitly simulated.
 
-The dated [payment report](https://github.com/joshuakrueger-dfx/dfx-lightning-e2e-simulation/blob/1d05390f5ff5a3c5f107270b35e10f6116e92d54/docs/live-p11-p12-result-20260908.md)
-contains all five movement hashes, source pins, provider status and native history
-captures. The [independent SQL record](https://github.com/joshuakrueger-dfx/dfx-lightning-e2e-simulation/blob/1d05390f5ff5a3c5f107270b35e10f6116e92d54/docs/evidence/2026-09-08/p11-p12-final-independent-sql-20260908.json)
-and [final validator record](https://github.com/joshuakrueger-dfx/dfx-lightning-e2e-simulation/blob/1d05390f5ff5a3c5f107270b35e10f6116e92d54/docs/evidence/2026-09-08/p11-p12-final-validation-20260908.json)
-retain the exact correlation. These links require access to the private test repository;
-credentials, seeds, preimages and raw logs are not copied into this wallet repository.
+The dated payment report contains all five movement hashes, source pins, provider
+status and native history captures. The independent SQL record and the final
+validator record retain the exact correlation. All of them are retained in the
+access-controlled test project outside this repository; credentials, seeds,
+preimages and raw logs are not copied into this wallet repository.
 
 P11 return was 996 sat + 4 sat fee, separate P12 prefunding was 2,000 sat,
 and the final residual return was 992 sat + 4 sat fee. Treasury moved from
