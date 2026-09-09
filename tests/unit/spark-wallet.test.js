@@ -466,39 +466,30 @@ describe('SparkWallet', () => {
     assert.notStrictEqual(keys[0], keys[4]);
   });
 
-  it('paySparkInvoice returns pending without an eventless tracker when sendPayment reports a stale session', async () => {
+  it('paySparkInvoice throws when sendPayment reports a stale session', async () => {
+    const stale = new SparkSessionStaleError();
     mockSdk.prepareSendPayment.mockResolvedValue(sparkInvoicePrepareResponse());
-    mockSdk.sendPayment.mockRejectedValue(new SparkSessionStaleError());
+    mockSdk.sendPayment.mockRejectedValue(stale);
     mockSessionIdentity = 'id-pk';
     const wallet = SparkWallet.create('id-pk');
 
-    const result = await paySparkInvoiceWithExplicitQuote(wallet, SPARK_INVOICE, 12_345, 'sell-stale-session');
-
-    expect(result).toEqual({
-      status: SparkPayInvoiceStatus.Pending,
-      paymentHash: expect.any(String),
-      fee: 1,
-    });
+    await expect(paySparkInvoiceWithExplicitQuote(wallet, SPARK_INVOICE, 12_345, 'sell-stale-session')).rejects.toBe(stale);
     expect(mockSdk.sendPayment).toHaveBeenCalledTimes(1);
     assert.strictEqual(getOutgoingPayment(), null);
   });
 
-  it('paySparkInvoice returns pending without an eventless tracker when the session disappears during sendPayment', async () => {
+  it('paySparkInvoice throws when the session disappears during sendPayment', async () => {
+    const gone = new Error('transport failed while the session disappeared');
     mockSdk.prepareSendPayment.mockResolvedValue(sparkInvoicePrepareResponse());
     mockSdk.sendPayment.mockImplementation(async () => {
       mockLeaseValid = false;
-      throw new Error('transport failed while the session disappeared');
+      throw gone;
     });
     mockSessionIdentity = 'id-pk';
     const wallet = SparkWallet.create('id-pk');
 
-    const result = await paySparkInvoiceWithExplicitQuote(wallet, SPARK_INVOICE, 12_345, 'sell-session-gone');
-
-    expect(result).toEqual({
-      status: SparkPayInvoiceStatus.Pending,
-      paymentHash: expect.any(String),
-      fee: 1,
-    });
+    await expect(paySparkInvoiceWithExplicitQuote(wallet, SPARK_INVOICE, 12_345, 'sell-session-gone')).rejects.toBe(gone);
+    expect(mockSdk.sendPayment).toHaveBeenCalledTimes(1);
     assert.strictEqual(getOutgoingPayment(), null);
   });
 

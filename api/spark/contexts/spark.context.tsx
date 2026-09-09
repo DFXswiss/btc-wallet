@@ -60,6 +60,7 @@ export interface SparkContextInterface {
   isCreating: boolean;
   createSparkWallet: () => Promise<SparkWallet | null>;
   outgoingPayment: OutgoingPayment | null;
+  hasUnclaimedDeposits: boolean;
 }
 
 const SparkContext = createContext<SparkContextInterface | undefined>(undefined);
@@ -158,6 +159,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
   const [isConnecting, setIsConnecting] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [outgoingPayment, setOutgoingPayment] = useState<OutgoingPayment | null>(getOutgoingPayment);
+  const [hasUnclaimedDeposits, setHasUnclaimedDeposits] = useState(false);
   const connectingCountRef = useRef(0);
   const isCreatingRef = useRef(false);
   const sparkWalletRef = useRef<SparkWallet | undefined>(undefined);
@@ -231,6 +233,9 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
       ) {
         if (event.tag === SdkEvent_Tags.UnclaimedDeposits) {
           console.warn('SparkContext: unclaimed deposits remain');
+          setHasUnclaimedDeposits(true);
+        } else if (event.tag === SdkEvent_Tags.ClaimedDeposits) {
+          setHasUnclaimedDeposits(false);
         }
         await refreshSparkWallet();
       }
@@ -462,8 +467,9 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
       isCreating,
       createSparkWallet,
       outgoingPayment,
+      hasUnclaimedDeposits,
     }),
-    [isConnected, isConnecting, isCreating, createSparkWallet, outgoingPayment],
+    [isConnected, isConnecting, isCreating, createSparkWallet, outgoingPayment, hasUnclaimedDeposits],
   );
 
   return <SparkContext.Provider value={value}>{props.children}</SparkContext.Provider>;

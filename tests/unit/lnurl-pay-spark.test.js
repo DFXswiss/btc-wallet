@@ -462,6 +462,25 @@ describe('LnurlPay Spark invoice mode', () => {
     expect(AsyncStorage.setItem).toHaveBeenCalledTimes(2);
   });
 
+  it('restores the Spark pay button when paySparkInvoice rejects because the session is gone', async () => {
+    const { SparkSessionStaleError } = require('../../api/spark/spark-sdk');
+    const wallet = makeWallet();
+    wallet.paySparkInvoice.mockRejectedValue(new SparkSessionStaleError());
+    const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
+
+    await waitFor(() => screen.getByText(loc.lnd.payButton));
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+
+    await waitFor(() => expect(alert).toHaveBeenCalledWith('Spark session is no longer the one this call started with'));
+    await waitFor(() => screen.getByText(loc.lnd.payButton));
+    expect(getPayButton(screen).props.disabled).toBe(false);
+    assert.strictEqual(screen.queryByText(loc.wallets.lightning_spark_payment_in_transit), null);
+    expect(wallet.paySparkInvoice).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
   it('shows Spark invoice payments as pending and applies the existing biometric gate', async () => {
     Biometric.isBiometricUseCapableAndEnabled.mockResolvedValue(true);
     Biometric.unlockWithBiometrics.mockResolvedValue(true);
@@ -789,6 +808,37 @@ describe('LnurlPay remaining payment paths', () => {
     jest.spyOn(Lnurl.prototype, 'requestBolt11FromLnurlPayService').mockResolvedValue({ pr: SAMPLE_INVOICE });
     return jest.spyOn(Lnurl.prototype, 'storeSuccess').mockResolvedValue(undefined);
   }
+
+  it('requests a new LNURL invoice after a non-fee pay error instead of retrying the cached invoice', async () => {
+    mockLnurlPay();
+    const firstInvoice = SAMPLE_INVOICE;
+    const secondInvoice = 'lnbc1-new-after-expiry';
+    Lnurl.prototype.requestBolt11FromLnurlPayService
+      .mockResolvedValueOnce({ pr: firstInvoice })
+      .mockResolvedValueOnce({ pr: secondInvoice });
+    const wallet = makeWallet();
+    wallet.payInvoice.mockRejectedValue(new Error('invoice expired'));
+    const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST' });
+
+    await waitFor(() => screen.getByText(`${loc.send.create_fee}: 4 ${BitcoinUnit.SATS}`));
+    await waitFor(() => expect(Lnurl.prototype.requestBolt11FromLnurlPayService).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+
+    await waitFor(() => expect(alert).toHaveBeenCalledWith('invoice expired'));
+    expect(wallet.payInvoice).toHaveBeenCalledTimes(1);
+    expect(wallet.payInvoice).toHaveBeenCalledWith(firstInvoice, 1000, expect.objectContaining({ feeSats: 4 }));
+    await waitFor(() => screen.getByText(loc.lnd.payButton));
+
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+
+    await waitFor(() => expect(Lnurl.prototype.requestBolt11FromLnurlPayService).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(wallet.getPaymentFeeQuote).toHaveBeenCalledWith(secondInvoice, 1000));
+    expect(wallet.payInvoice.mock.calls.map(call => call[0])).toEqual([firstInvoice]);
+  });
 
   it('keeps the spinner up while the LNURL pay service has not returned an amount', () => {
     jest.spyOn(Lnurl.prototype, 'callLnurlPayService').mockReturnValue(new Promise(() => {}));

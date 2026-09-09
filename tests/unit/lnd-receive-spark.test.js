@@ -151,6 +151,11 @@ jest.mock('../../api/spark/spark-sdk', () => ({
   }),
 }));
 
+const mockUseSparkContext = jest.fn();
+jest.mock('../../api/spark/contexts/spark.context', () => ({
+  useSparkContext: () => mockUseSparkContext(),
+}));
+
 const SAMPLE_INVOICE =
   'lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp';
 
@@ -381,6 +386,14 @@ describe('LNDReceive with SparkWallet', () => {
     mockRouteParams.walletID = 'spark-receive-1';
     mockSdk.receivePayment.mockResolvedValue({ paymentRequest: SAMPLE_INVOICE, fee: 0n });
     mockSdk.listPayments.mockResolvedValue({ payments: [] });
+    mockUseSparkContext.mockReturnValue({
+      isConnected: true,
+      isConnecting: false,
+      isCreating: false,
+      createSparkWallet: jest.fn(),
+      outgoingPayment: null,
+      hasUnclaimedDeposits: false,
+    });
     Share.open.mockReset();
     Share.open.mockResolvedValue({});
   });
@@ -690,6 +703,7 @@ describe('LNDReceive with SparkWallet', () => {
       assert.ok(json.wallets.lightning_spark_receive_lightning);
       assert.ok(json.wallets.lightning_spark_receive_onchain);
       assert.ok(json.wallets.lightning_spark_onchain_confirmations);
+      assert.ok(json.wallets.lightning_spark_unclaimed_deposits);
     }
   });
 
@@ -712,8 +726,32 @@ describe('LNDReceive with SparkWallet', () => {
     expect(screen.getByTestId('QRCode')).toBeTruthy();
     expect(screen.getByText(address)).toBeTruthy();
     expect(screen.getByText(loc.wallets.lightning_spark_onchain_confirmations)).toBeTruthy();
+    expect(screen.queryByText(loc.wallets.lightning_spark_unclaimed_deposits)).toBeNull();
     expect(screen.queryByPlaceholderText('Amount (optional)')).toBeNull();
     expect(mockSdk.receivePayment).not.toHaveBeenCalled();
+  });
+
+  it('shows the unclaimed-deposits hint instead of confirmations when deposits remain unclaimed', async () => {
+    mockUseSparkContext.mockReturnValue({
+      isConnected: true,
+      isConnecting: false,
+      isCreating: false,
+      createSparkWallet: jest.fn(),
+      outgoingPayment: null,
+      hasUnclaimedDeposits: true,
+    });
+    const address = 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
+    const wallet = makeSparkReceiveWallet('spark-receive-1');
+    wallet.depositAddress = address;
+    const screen = renderReceive(wallet);
+
+    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText(loc.wallets.lightning_spark_unclaimed_deposits)).toBeTruthy();
+    expect(screen.queryByText(loc.wallets.lightning_spark_onchain_confirmations)).toBeNull();
   });
 
   it('loads the deposit address through the wallet when none is cached', async () => {

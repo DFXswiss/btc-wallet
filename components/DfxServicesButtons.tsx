@@ -124,7 +124,8 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
     }
 
     const balance = wallet.getBalance();
-    const maxBalance = service === DfxService.SELL || service === DfxService.SWAP ? balance - balance * 0.03 : balance;
+    const feeHaircut = wallet.type === SparkWallet.type ? 0 : 0.03;
+    const maxBalance = service === DfxService.SELL || service === DfxService.SWAP ? balance - balance * feeHaircut : balance;
     return { maxBalance, sweepableBalance: balance };
   };
 

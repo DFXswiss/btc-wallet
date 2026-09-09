@@ -1,5 +1,8 @@
 import assert from 'assert';
+import fs from 'fs';
+import path from 'path';
 import { dfxConnectAtInit, dfxAvailabilityFromSettled } from '../../api/dfx/dfx-connect-at-init';
+import { SparkWallet } from '../../class/wallets/spark-wallet';
 
 describe('dfxConnectAtInit', () => {
   it('keeps HD and LDS in the start-up connect list', () => {
@@ -8,8 +11,12 @@ describe('dfxConnectAtInit', () => {
   });
 
   it('skips Spark and multisig so a disconnected Spark SDK cannot hide Buy/Sell', () => {
-    assert.strictEqual(dfxConnectAtInit('sparkWallet'), false);
+    assert.strictEqual(dfxConnectAtInit(SparkWallet.type), false);
     assert.strictEqual(dfxConnectAtInit('HDmultisig'), false);
+
+    const walletSrc = fs.readFileSync(path.resolve(__dirname, '../../class/wallets/multisig-hd-wallet.js'), 'utf8');
+    const typeMatch = walletSrc.match(/^\s*static type = '([^']+)';/m);
+    assert.strictEqual(typeMatch && typeMatch[1], 'HDmultisig');
   });
 });
 

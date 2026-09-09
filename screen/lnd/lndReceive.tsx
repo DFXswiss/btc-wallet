@@ -34,6 +34,7 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { AbstractWallet } from '../../class';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import { SparkWallet } from '../../class/wallets/spark-wallet';
+import { useSparkContext } from '../../api/spark/contexts/spark.context';
 import { majorTomToGroundControl, tryToObtainPermissions } from '../../blue_modules/notifications';
 import useInputAmount from '../../hooks/useInputAmount';
 import { SuccessView } from '../send/success';
@@ -75,6 +76,7 @@ const LNDReceive = () => {
   const { isNfcActive, startReading, stopReading } = useNFC();
   const isSpark = wallet?.type === SparkWallet.type;
   const isOnchainReceive = isSpark && receiveMethod === 'onchain';
+  const { hasUnclaimedDeposits } = useSparkContext();
   const latestInvoiceValues = useRef({ amountSats, description });
   latestInvoiceValues.current = { amountSats, description };
 
@@ -462,7 +464,11 @@ const LNDReceive = () => {
                       </TouchableOpacity>
                     </View>
                     {isOnchainReceive && displayedOnchainAddress ? (
-                      <Text style={[styles.onchainHint, styleHooks.onchainHint]}>{loc.wallets.lightning_spark_onchain_confirmations}</Text>
+                      <Text style={[styles.onchainHint, styleHooks.onchainHint]}>
+                        {hasUnclaimedDeposits
+                          ? loc.wallets.lightning_spark_unclaimed_deposits
+                          : loc.wallets.lightning_spark_onchain_confirmations}
+                      </Text>
                     ) : null}
                   </>
                 ) : (

@@ -1,10 +1,14 @@
+import { SparkWallet } from '../../class/wallets/spark-wallet';
+
 /**
  * Wallets whose DFX session needs a live native SDK (Spark) or that DFX
  * never authenticates (multisig) stay out of connect() at app start.
  * Spark is signed in openServices once the user taps Buy/Sell/Swap.
  */
 export function dfxConnectAtInit(type: string): boolean {
-  return type !== 'HDmultisig' && type !== 'sparkWallet';
+  // Literal, not MultisigHDWallet.type: importing that class pulls class/index
+  // and a circular import that breaks the module graph.
+  return type !== 'HDmultisig' && type !== SparkWallet.type;
 }
 
 export function dfxAvailabilityFromSettled(results: PromiseSettledResult<unknown>[]): 'available' | 'forbidden' | 'throw' {

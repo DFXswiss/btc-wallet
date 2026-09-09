@@ -526,11 +526,11 @@ const LnurlPay = () => {
       setIsLoading(false);
     } catch (Err) {
       console.log(Err.message);
+      setLnurlInvoiceQuote(undefined);
       if (Err instanceof SparkPaymentFeeQuoteError) {
         setSparkFee(undefined);
         setSparkFeeQuote(undefined);
         setSparkMaxFeeQuote(undefined);
-        setLnurlInvoiceQuote(undefined);
         setQuoteRetry(retry => retry + 1);
       }
       setIsLoading(false);

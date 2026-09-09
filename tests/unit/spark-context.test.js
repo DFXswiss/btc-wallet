@@ -1045,6 +1045,26 @@ describe('SparkContextProvider', () => {
     expect(existing.fetchBalance.mock.calls.length).toBe(8);
   });
 
+  it('sets unclaimed-deposit state from UnclaimedDeposits and clears it on ClaimedDeposits', async () => {
+    const existing = stubSparkMethods(SparkWallet.create('unclaimed-state-pk'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    renderWith([hdWallet, existing]);
+    await waitFor(() => expect(mockConnect).toHaveBeenCalled());
+    assert.strictEqual(latestCtx.hasUnclaimedDeposits, false);
+
+    const onEvent = mockConnect.lastOnEvent;
+    await act(async () => {
+      await onEvent({ tag: SdkEvent_Tags.UnclaimedDeposits });
+    });
+    await waitFor(() => assert.strictEqual(latestCtx.hasUnclaimedDeposits, true));
+
+    await act(async () => {
+      await onEvent({ tag: SdkEvent_Tags.ClaimedDeposits });
+    });
+    await waitFor(() => assert.strictEqual(latestCtx.hasUnclaimedDeposits, false));
+    warn.mockRestore();
+  });
+
   it('warns with a fixed tag when deposits stay unclaimed', async () => {
     const existing = stubSparkMethods(SparkWallet.create('unclaimed-pk'));
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});

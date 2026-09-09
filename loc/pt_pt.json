@@ -284,6 +284,7 @@
     "updating": "A atualizar..."
   },
   "wallets": {
+    "lightning_spark_unclaimed_deposits": "A received Bitcoin payment is waiting: network fees are currently too high to credit it automatically. It will be credited once fees drop.",
     "add_bitcoin": "Bitcoin",
     "add_bitcoin_explain": "Carteira Bitcoin simples e poderosa",
     "add_create": "Adicionar",

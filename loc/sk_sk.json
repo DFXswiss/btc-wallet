@@ -199,6 +199,7 @@
     "transactions_count": "počet transakcií"
   },
   "wallets": {
+    "lightning_spark_unclaimed_deposits": "A received Bitcoin payment is waiting: network fees are currently too high to credit it automatically. It will be credited once fees drop.",
     "add_bitcoin": "Bitcoin",
     "add_create": "Vytvoriť",
     "add_entropy_generated": "{gen} bytov vygenerovanej entropie",

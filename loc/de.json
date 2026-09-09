@@ -532,6 +532,7 @@
     "lightning_spark_receive_lightning": "Lightning",
     "lightning_spark_receive_onchain": "On-Chain",
     "lightning_spark_onchain_confirmations": "Eine Bitcoin-Zahlung braucht ein paar Bestätigungen, bevor sie gutgeschrieben wird.",
+    "lightning_spark_unclaimed_deposits": "Eine erhaltene Bitcoin-Zahlung wartet: Die Netzwerkgebühren sind gerade zu hoch, um sie automatisch gutzuschreiben. Sie wird gutgeschrieben, sobald die Gebühren sinken.",
     "multi_sig_wallet_label": "Multi-Device-Wallet",
     "chf_taproot_wallet_label": "CHF Taproot-Wallet",
     "add_lndhub_DFXswiss_not_available": "Dieser Dienst wird bald verfügbar sein",

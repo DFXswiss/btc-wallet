@@ -87,6 +87,7 @@
     "list_title": "transaktioner"
   },
   "wallets": {
+    "lightning_spark_unclaimed_deposits": "A received Bitcoin payment is waiting: network fees are currently too high to credit it automatically. It will be credited once fees drop.",
     "add_bitcoin_explain": "Simple and powerful Bitcoin wallet",
     "add_create": "Opret",
     "add_import_wallet": "Importer wallet",

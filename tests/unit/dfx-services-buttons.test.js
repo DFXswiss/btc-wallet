@@ -76,6 +76,8 @@ jest.mock('../../img/dfx/buttons/swap.png', () => 'swap');
 
 const { BlueStorageContext } = require('../../blue_modules/storage-context');
 const { AbstractHDElectrumWallet } = require('../../class/wallets/abstract-hd-electrum-wallet');
+const { SparkWallet } = require('../../class/wallets/spark-wallet');
+const { LightningLdsWallet } = require('../../class/wallets/lightning-lds-wallet');
 const DfxServicesButtons = require('../../components/DfxServicesButtons').default;
 
 function makeWallet(overrides = {}) {
@@ -156,6 +158,21 @@ describe('DfxServicesButtons rendered service actions', () => {
     availabilityState.value = false;
     const unavailable = renderButtons(wallet);
     expect(unavailable.queryByText('External services')).toBeNull();
+  });
+
+  it('opens Spark sell and swap at the full balance and still haircuts LDS by 3 percent', async () => {
+    const spark = makeWallet({ type: SparkWallet.type });
+    const sparkScreen = renderButtons(spark, { isDfxSwap: true });
+    fireEvent.press(sparkScreen.getByTestId('dfx-sell-en'));
+    await waitFor(() => expect(mockOpenServices).toHaveBeenCalledWith('wallet-1', '1', 'sell'));
+    fireEvent.press(sparkScreen.getByTestId('dfx-swap'));
+    await waitFor(() => expect(mockOpenServices).toHaveBeenCalledWith('wallet-1', '1', 'swap'));
+
+    mockOpenServices.mockClear();
+    const lds = makeWallet({ type: LightningLdsWallet.type });
+    const ldsScreen = renderButtons(lds);
+    fireEvent.press(ldsScreen.getByTestId('dfx-sell-en'));
+    await waitFor(() => expect(mockOpenServices).toHaveBeenCalledWith('wallet-1', '0.97', 'sell'));
   });
 
   it('refreshes on-chain UTXOs, estimates fees, remembers max, and opens sell', async () => {
