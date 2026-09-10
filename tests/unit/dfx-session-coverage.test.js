@@ -195,7 +195,6 @@ describe('DFX session lifecycle and failure boundaries', () => {
     const spark = {
       type: SparkWallet.type,
       getID: () => 'spark',
-      lnAddress: 'spark@example.com',
       getSparkAddress: jest.fn().mockResolvedValue(sparkAddress),
       signCompactMessage: jest.fn().mockResolvedValue('spark-proof'),
     };
@@ -204,13 +203,17 @@ describe('DFX session lifecycle and failure boundaries', () => {
     await expect(invoke(result, current => current.getAccessToken('lds'))).resolves.toBeTruthy();
     await expect(invoke(result, current => current.getAccessToken('taproot'))).resolves.toBeTruthy();
     mockGetSignMessage.mockClear();
+    mockGetLnurlFromAddress.mockClear();
     await expect(invoke(result, current => current.getAccessToken('spark'))).resolves.toBeTruthy();
+    expect(mockGetLnurlFromAddress).not.toHaveBeenCalled();
     expect(mockGetSignMessage).toHaveBeenCalledTimes(1);
     expect(mockGetSignMessage).toHaveBeenCalledWith(sparkAddress);
+    expect(mockGetSignMessage).not.toHaveBeenCalledWith(sparkAddress.toUpperCase());
     expect(spark.signCompactMessage).toHaveBeenCalledTimes(1);
     expect(spark.signCompactMessage).toHaveBeenCalledWith(`sign:${sparkAddress}`);
     expect(mockAuth).toHaveBeenCalledTimes(3);
     expect(mockAuth).toHaveBeenCalledWith(sparkAddress, 'spark-proof');
+    expect(mockAuth.mock.calls.some(call => call[0] === sparkAddress.toUpperCase())).toBe(false);
     await expect(invoke(result, current => current.getAccessToken('unsupported'))).rejects.toThrow('TODO');
     expect(mockAuth.mock.calls).toEqual(
       expect.arrayContaining([
@@ -225,7 +228,6 @@ describe('DFX session lifecycle and failure boundaries', () => {
     const spark = {
       type: SparkWallet.type,
       getID: () => 'spark',
-      lnAddress: 'spark@example.com',
       getSparkAddress: jest.fn().mockResolvedValue(''),
       signCompactMessage: jest.fn(),
     };
@@ -234,6 +236,7 @@ describe('DFX session lifecycle and failure boundaries', () => {
     expect(mockAuth).not.toHaveBeenCalled();
     expect(spark.signCompactMessage).not.toHaveBeenCalled();
     expect(spark.getSparkAddress).toHaveBeenCalled();
+    expect(mockGetLnurlFromAddress).not.toHaveBeenCalled();
   });
 
   it('opens services with encoded parameters, blocks unavailable sessions, and reports URL failures', async () => {
@@ -248,13 +251,14 @@ describe('DFX session lifecycle and failure boundaries', () => {
     const wallet = {
       type: SparkWallet.type,
       getID: () => 'wallet/id',
-      lnAddress: 'wallet@example.com',
       getSparkAddress: jest.fn().mockResolvedValue('spark1abcdefghijklmnopqrstuvwxyz'),
       signCompactMessage: jest.fn().mockResolvedValue('proof'),
     };
     const connected = renderSession([wallet]);
     await waitFor(() => expect(connected.result.current.isAvailable).toBe(true));
+    expect(mockGetLnurlFromAddress).not.toHaveBeenCalled();
     await expect(invoke(connected.result, current => current.openServices('wallet/id', '0.1', DfxService.SELL))).resolves.toBeUndefined();
+    expect(mockGetLnurlFromAddress).not.toHaveBeenCalled();
     expect(openURL).toHaveBeenCalledWith(expect.stringContaining('https://dfx.test/sell?session='));
     expect(openURL).toHaveBeenCalledWith(expect.stringContaining('redirect-uri=dfxtaro%3A%2F%2F%3Fwallet-id%3Dwallet%2Fid'));
     openURL.mockClear();

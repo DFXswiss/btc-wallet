@@ -97,7 +97,6 @@ function makeWallet(type = 'sparkWallet') {
     type,
     chain: Chain.OFFCHAIN,
     getID: () => 'spark-wallet-id',
-    lnAddress: 'alice@example.com',
     getSparkAddress: jest.fn().mockResolvedValue('spark1abcdefghijklmnopqrstuvwxyz'),
     signCompactMessage: jest.fn().mockResolvedValue('compact-signature'),
     getBalance: () => 100000000,
@@ -113,7 +112,6 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockAuth.mockResolvedValue({ accessToken: 'access-token' });
   mockGetSignMessage.mockImplementation(address => `sign:${address}`);
-  mockGetLnurlFromAddress.mockReturnValue('lnurl1sparkaddress');
   mockFetchUtxo.mockResolvedValue(undefined);
   mockMainWallet = makeWallet();
   jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
@@ -137,6 +135,9 @@ it('renders service buttons and forwards a rendered Buy action to openServices',
   expect(mockAuth).not.toHaveBeenCalled();
   fireEvent.press(screen.getByTestId('dfx-buy-en'));
   await waitFor(() => expect(mockAuth).toHaveBeenCalledWith('spark1abcdefghijklmnopqrstuvwxyz', 'compact-signature'));
+  expect(mockGetLnurlFromAddress).not.toHaveBeenCalled();
+  expect(mockGetSignMessage).toHaveBeenCalledWith('spark1abcdefghijklmnopqrstuvwxyz');
+  expect(mockGetSignMessage).not.toHaveBeenCalledWith('spark1abcdefghijklmnopqrstuvwxyz'.toUpperCase());
   expect(wallet.signCompactMessage).toHaveBeenCalledWith('sign:spark1abcdefghijklmnopqrstuvwxyz');
   expect(Linking.openURL).toHaveBeenCalledWith(expect.stringContaining('session=access-token'));
 });
