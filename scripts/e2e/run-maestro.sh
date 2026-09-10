@@ -78,7 +78,7 @@ MAESTRO_BIN="$(command -v maestro)" || fail 'maestro is not installed or not on 
 command -v xcrun >/dev/null 2>&1 || fail 'xcrun is not installed or not on PATH'
 [[ -d "$FLOW_DIR" ]] || fail "flow directory does not exist: $FLOW_DIR"
 
-# Pass only set treasury names to `maestro test -e`. Unset names stay off the
+# Pass only set names to `maestro test -e`. Unset names stay off the
 # argv so the client still fails closed. Values are never printed.
 # E2E_PAYMENT_SAT always goes through (default 10) so P14/P15/P17 can run
 # smaller amounts without a code change.
@@ -95,6 +95,12 @@ if [[ -n "${E2E_TREASURY_MAX_SAT-}" ]]; then
 fi
 if [[ -n "${E2E_TREASURY_MAX_FEE_SAT-}" ]]; then
   maestro_env_args+=(-e "E2E_TREASURY_MAX_FEE_SAT=${E2E_TREASURY_MAX_FEE_SAT}")
+fi
+if [[ -n "${E2E_SPARK_MNEMONIC-}" ]]; then
+  maestro_env_args+=(-e "E2E_SPARK_MNEMONIC=${E2E_SPARK_MNEMONIC}")
+fi
+if [[ -n "${E2E_SPARK_DEPOSIT_ADDRESS-}" ]]; then
+  maestro_env_args+=(-e "E2E_SPARK_DEPOSIT_ADDRESS=${E2E_SPARK_DEPOSIT_ADDRESS}")
 fi
 
 shopt -s nullglob

@@ -1,31 +1,22 @@
 appId: swiss.dfx.bitcoin
+env:
+  E2E_SPARK_MNEMONIC: ${E2E_SPARK_MNEMONIC || ''}
 ---
-# Bestehende Spark-Wallet weiterverwenden. Dieser Flow legt keine an.
-- runFlow: ../_relaunch-keep-state.yaml
+# P16 prueft die Kaufmaske der Wallet ueber Spark: die Maske rendert, die
+# gekuerzte spark1-Form der eigenen Wallet-Adresse und Spark sind sichtbar,
+# die Zahlungsinformation zeigt IBAN und BIC, Invalid signature bleibt aus.
+# Die eigene Adresse wird am Muster geprueft, nicht an einem festen Wert.
+#
+# Dieser Flow belegt keinen Kaufabschluss. Dafuer brauchte es eine Fiat-
+# Gutschrift im Backend; das ist keine Wallet-Operation. Es gibt hier keinen
+# Zahlungsschritt und keinen Saldo-Beweis.
 - runFlow:
-    when:
-      visible: 'Erstellen'
-    commands:
-      - assertTrue:
-          condition: ${false}
-          label: P16 requires an existing Spark wallet on the device; this flow does not create one
-- runFlow:
-    when:
-      visible: '.*Lightning-Wallet.*Hinzufügen.*'
-    commands:
-      - assertTrue:
-          condition: ${false}
-          label: P16 requires an existing Spark wallet on the device; this flow does not create one
+    file: ../_setup-import.yaml
+    env:
+      E2E_SPARK_MNEMONIC: ${E2E_SPARK_MNEMONIC || ''}
 - extendedWaitUntil:
     visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
     timeout: 90000
-- runFlow:
-    when:
-      notVisible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
-    commands:
-      - assertTrue:
-          condition: ${false}
-          label: P16 requires an existing Spark wallet on the device; this flow does not create one
 - extendedWaitUntil:
     visible: 'Externe Services'
     timeout: 90000
@@ -35,52 +26,41 @@ appId: swiss.dfx.bitcoin
     point: '38%,34%'
 - waitForAnimationToEnd:
     timeout: 30000
+- runFlow:
+    when:
+      visible: 'NUTZERDATEN EINGEBEN'
+    commands:
+      - assertTrue:
+          condition: ${false}
+          label: P16 needs a tradable local-stack account. Run tests/e2e-maestro/scripts/seed-local-backend.sql against the local stack only (see tests/e2e-maestro/README.md).
 - extendedWaitUntil:
     visible: '^Kaufen$'
     timeout: 30000
 - assertVisible: '^DFX\.swiss \| Buy & Sell directly into your wallet$'
 - assertVisible: '^Kaufen$'
-- assertVisible: '^Formular$'
 - assertNotVisible: '^Login bei DFX Services$'
 - assertNotVisible: 'Invalid signature'
-# Dieser Abschnitt setzt extern einen lokalen DFX-Stack voraus, in dem der
-# Nutzer bereits handelsfähig ist (Kontostatus, Limit und ein freies
-# Lightning-Deposit). Ohne den Stack bleibt der Flow hier stehen.
 - waitForAnimationToEnd:
     timeout: 8000
+# Das Neuladen-Icon des In-App-Browsers hat keinen semantischen Selektor. Der
+# Punkt wurde im Simulator am gerenderten Browser gemessen. Ohne diesen Reload
+# behaelt die Seite den verfruehten KYC-Zustand.
 - tapOn:
     point: '72%,93%'
+# Adresse und Netz stehen in einem Element, zeilenumbruchgetrennt.
+# assertVisible verankert am ganzen Text; (?s) laesst den Punkt den
+# Zeilenumbruch ueberqueren. Erst danach zur Zahlungsinformation.
 - extendedWaitUntil:
-    visible: '^Zahlungsinformation$'
+    visible: '(?s)spark1.*Spark'
     timeout: 30000
-- assertVisible: '^Zahlungsinformation$'
-- assertVisible: '^Wechselkurs$'
-- assertVisible: '^QR-Code$'
-- assertNotVisible: '^KYC VERVOLLSTÄNDIGEN$'
-# Die Lightning-Auszahlung kommt erst nach der Fiat-Gutschrift auf dem Stack.
-# Ohne diese Gutschrift bleibt der Spark-Saldo 0 und der Flow fällt.
-- runFlow:
-    when:
-      visible: 'Schließen'
-    commands:
-      - tapOn: 'Schließen'
-- runFlow:
-    when:
-      visible: 'Zurück zu BTC Taro'
-    commands:
-      - tapOn: 'Zurück zu BTC Taro'
-- runFlow:
-    when:
-      visible: 'Fertig'
-    commands:
-      - tapOn: 'Fertig'
-- extendedWaitUntil:
-    visible: 'Externe Services'
-    timeout: 30000
-- swipe:
+- assertVisible: '(?s)spark1.*Spark'
+- scrollUntilVisible:
+    element: 'IBAN'
     direction: DOWN
-- extendedWaitUntil:
-    visible: 'Bitcoin, Lightning \(Spark\), [1-9].*sats, .*'
-    timeout: 120000
-- assertVisible: 'Bitcoin, Lightning \(Spark\), [1-9].*sats, .*'
-- assertNotVisible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    timeout: 20000
+- assertVisible: '^Zahlungsinformation$'
+- assertVisible: 'IBAN'
+- assertVisible: 'BIC'
+- assertNotVisible: 'Invalid signature'
+- assertNotVisible: '^KYC VERVOLLSTÄNDIGEN$'
+- assertNotVisible: 'NUTZERDATEN EINGEBEN'

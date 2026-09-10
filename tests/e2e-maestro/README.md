@@ -2,8 +2,8 @@
 
 This suite runs the 17 user paths listed in `coverage.md` individually on an iOS
 simulator. P01–P15 start the app with cleared state, walk through onboarding
-themselves and check at least one visible state. P16 and P17 do not: they keep
-the existing device wallet and fail if it is missing.
+themselves and check at least one visible state. P16 and P17 import a fixed
+Spark identity through `_setup-import.yaml` instead of creating a random wallet.
 
 ## Prerequisites
 
@@ -20,11 +20,11 @@ the existing device wallet and fail if it is missing.
   address registered by the freshly created Spark wallet instead of a foreign
   LNURL test service. P11/P12/P16/P17 need a reachable DFX web flow.
 - P11, P12, P16 and P17 additionally require an account that is tradable on the
-  API side (verified status, a non-zero limit, Lightning deposit addresses). That
-  state is set outside the suite; without it those flows fail rather than
-  silently pass. P16 and P17 also need an existing Spark wallet on the device
-  and a free Lightning deposit on that tradable account. They do not create a
-  wallet. Without the device wallet they fail rather than skip.
+  API side (verified status, a non-zero limit, deposit addresses). That state is
+  set outside the suite; without it those flows fail rather than silently pass.
+  P16 and P17 import a fixed Spark identity (`E2E_SPARK_MNEMONIC`) and need that
+  identity to be tradable on the local stack (see the fixture section below).
+  Without the mnemonic they fail rather than skip.
 - P14, P15 and P17 need a Lightning counterpart, configured only through the
   runner's environment (`E2E_TREASURY_URL`, `E2E_TREASURY_KEY`, optional
   `E2E_TREASURY_MAX_SAT` default 1000, optional `E2E_TREASURY_MAX_FEE_SAT` default
@@ -32,8 +32,9 @@ the existing device wallet and fail if it is missing.
   (default 10). P15 sends one tenth of that amount so the Spark fee still fits
   in the remaining balance. Maestro's `runScript` sandbox does not see the shell
   environment, so the runner forwards `E2E_PAYMENT_SAT` (always, default 10) and
-  each treasury variable that is set to `maestro test` as `-e NAME=VALUE`
-  (unset treasury names are omitted). The flows bind those names in the
+  each treasury variable that is set, plus `E2E_SPARK_MNEMONIC` and
+  `E2E_SPARK_DEPOSIT_ADDRESS` when set, to `maestro test` as `-e NAME=VALUE`
+  (unset names are omitted). The flows bind those names in the
   `runScript` `env` map, and `treasury.js` reads the script bindings first, then
   `process.env`. If the URL or the key is missing,
   `tests/e2e-maestro/scripts/treasury.js` exits 2 and the flow fails. It does
@@ -46,11 +47,8 @@ the existing device wallet and fail if it is missing.
   resets the simulator keychain and installs the given bundle anew. On top of
   that P01–P15 start with `clearState: true`. P14, P15 and P17 later relaunch
   with `clearState: false` so the Spark row can show the balance after a
-  payment. P16 and P17 start with that keep-state launch and need the Spark
-  wallet already on the device; they fail with an explicit assertion if it is
-  missing. The runner's uninstall and keychain reset still discard that wallet,
-  so those two flows cannot be driven through `run-maestro.sh` until that reset
-  is skipped for them.
+  payment. P16 and P17 start from `_setup-import.yaml` (`clearState: true`) and
+  re-import the same identity after that reset.
 
 ## Local DFX stack for P11/P12/P16/P17
 
@@ -66,6 +64,41 @@ DFX_ENV=loc
 ```
 
 Keep that overlay private and do not print its environment values in logs.
+
+## Fixed Spark identity for P16/P17
+
+P16 and P17 import one Spark identity so the local backend can see the same
+user on every run. The mnemonic is **not** in this repository.
+
+- Set `E2E_SPARK_MNEMONIC` outside the repo and pass it to `maestro test` as
+  `-e E2E_SPARK_MNEMONIC=...`. The flows declare it in their `env:` block;
+  without that declaration Maestro types the literal `${E2E_SPARK_MNEMONIC}`.
+  If the variable is missing, `_setup-import.yaml` fails with an assertion
+  that names the variable and this section. There is no skip. `run-maestro.sh`
+  forwards the name only when it is set; it does not print the value.
+  Maestro writes the `inputText` of the import step into its run log, so that
+  log contains the identity and must not be shared. The identity is disposable
+  and exists only for the local stack.
+- P17 also needs `E2E_SPARK_DEPOSIT_ADDRESS`, the reusable Spark deposit
+  address for that identity on the local stack (always the same for Spark
+  payouts to the fixture IBAN). The flows declare it in `env:`; the runner
+  forwards it only when set and does not print the value. If it is missing,
+  P17 fails with an assertion that names the variable and this section. The
+  address is not in the repository. Maestro `inputText` will write it into
+  the run log; do not share that log.
+- Before a run, seed **only** the local stack with that identity's Spark
+  address. Never run this against dev or prod:
+
+  ```sh
+  psql "$LOCAL_DATABASE_URL" \
+    -v addr="$SPARK_ADDRESS" \
+    -f tests/e2e-maestro/scripts/seed-local-backend.sql
+  ```
+
+  `$LOCAL_DATABASE_URL` is the local stack's connection string. `$SPARK_ADDRESS`
+  is the Spark address of the imported identity. Both stay outside the repo.
+- The stack must already have free Spark deposit addresses (`POST /v1/deposit`)
+  and `Spark/BTC` with `sellable = true`. The SQL does not create those.
 
 The selected local API stack must supply `FAUCET_LOW_BALANCE_THRESHOLD` at boot;
 do not silently omit this required variable. The frontend build needs sufficient
@@ -95,8 +128,8 @@ The values are also accepted positionally as `UDID APP_BUNDLE [FLOW_GLOB]`. UDID
 and app path are mandatory; without them the runner aborts, because the fresh
 state cannot otherwise be guaranteed for P01–P15. The runner resets the
 simulator before every match, installs the bundle and then starts its own
-`maestro test`. That reset still discards the P16/P17 device wallet. Between
-two flows it waits 12 seconds so the repeated simulator resets do not overload
+`maestro test`. P16 and P17 re-import the fixed identity after that reset.
+Between two flows it waits 12 seconds so the repeated simulator resets do not overload
 the CoreSimulator services. Before and after every reset `simctl bootstatus -b`
 checks whether the device is booted and ready, and boots a crashed simulator
 again; because of the reproduced series crashes these two safeguards must not be
@@ -135,17 +168,19 @@ on a configuration error or an empty filter.
   on the still-open screen was not enough. P14, P15 and P17 therefore relaunch
   that way before every wallet-row assertion that follows a payment. That is a
   product observation, not a persistence test.
-- P16 and P17 take the DFX buy and sell entries through to a Lightning payment
-  instead of stopping at the DFX surface. They need the local DFX stack, an
-  existing Spark wallet on the device, and a tradable backend account with a
-  free Lightning deposit. They do not create a wallet. P16 waits for a Spark
-  credit after the buy payment-information view; that credit does not arrive
-  unless the stack actually completes the buy. P17 fills the existing Spark
-  wallet from the counterpart if its visible balance is below
-  `E2E_PAYMENT_SAT`, fills the sell IBAN form, then waits for the native sell
-  confirmation and pays. Without the stack, the redirect, the device wallet, or
-  the Spark balance, both flows fail rather than pass. A bank payout, a real CHF
-  transfer, and a camera QR read stay outside the suite.
+- P16 and P17 import a fixed Spark identity (`E2E_SPARK_MNEMONIC`) and need the
+  local DFX stack plus a tradable backend account for that identity (the
+  fixture above). P16 checks that the buy mask renders over Spark (truncated
+  `spark1` receive address of the imported wallet, plus `Spark`), that
+  payment information shows `IBAN` and `BIC`, and that `Invalid signature` is
+  absent. It does not complete a buy: that would need a fiat credit, which is
+  not a wallet operation. P17 fills the Spark wallet from the counterpart if
+  the visible balance is below `E2E_PAYMENT_SAT`, opens sell, asserts the
+  truncated on-screen address matches `E2E_SPARK_DEPOSIT_ADDRESS`, pays that
+  address through the wallet send path, and asserts `WalletBalance` has
+  fallen. Missing trade approval fails on `NUTZERDATEN EINGEBEN` with a
+  pointer to the fixture, not a skip. A bank payout, a real CHF transfer, and
+  a camera QR read stay outside the suite.
 - P14 and P17 return the visible Spark balance minus a 4 sat fee reserve in an
   `onFlowComplete` hook (`_return-spark-balance.yaml`), so the return also runs
   after a failed assertion. At the default 10 sat credit that leaves 6 sat
@@ -155,8 +190,8 @@ on a configuration error or an empty filter.
   the 4 sat reserve, or the app is not on the Spark wallet screen) it skips,
   logs that, and does not fail the flow. If a balance was readable and the
   return then fails, the hook fails and the flow is red. An abort before the
-  hook still leaves credit: P14's next flow discards that wallet with the seed;
-  P17 keeps the device wallet, so the leftover stays there.
+  hook still leaves credit on the Spark identity; the next P16/P17 run re-imports
+  that same identity.
 - No current physical-device payment proof is claimed here. An earlier note
   about a 10-sat payment on an iPhone is historical and unverified, so it is
   excluded from this suite's evidence.
@@ -174,8 +209,8 @@ on a configuration error or an empty filter.
 - Persistence across app restarts, keychain entitlements, NFC, camera QR reads,
   hardware wallets and multi-device are not part of these 17 paths. The
   P14/P15/P17 relaunch without wiping state only exists so the Spark row can
-  show the new balance; it is not a persistence proof. P16 and P17 start that
-  way to reuse the existing device wallet, not as a persistence proof.
+  show the new balance; it is not a persistence proof. P16 and P17 import the
+  fixed identity after the runner's reset; that is not a persistence proof.
 - Dynamic Spark and DFX responses can turn the suite red. That is intended; the
   runner does not treat missing external prerequisites as success.
 

@@ -1,39 +1,42 @@
 appId: swiss.dfx.bitcoin
 env:
   E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
+  E2E_SPARK_MNEMONIC: ${E2E_SPARK_MNEMONIC || ''}
+  E2E_SPARK_DEPOSIT_ADDRESS: ${E2E_SPARK_DEPOSIT_ADDRESS || ''}
 onFlowComplete:
   - runFlow: ../_return-spark-balance.yaml
 ---
-# Bestehende Spark-Wallet weiterverwenden. Dieser Flow legt keine an.
-- runFlow: ../_relaunch-keep-state.yaml
+# P17 importiert die feste Testidentitaet, oeffnet den DFX-Verkauf und zahlt
+# die stabile Spark-Einzahlungsadresse ueber den Sendeweg der Wallet. Die
+# Adresse kommt aus E2E_SPARK_DEPOSIT_ADDRESS (Fixture), nicht vom Schirm; der
+# Schirm wird gegen deren gekuerzte Form geprueft. Der Beleg ist der gefallene
+# Saldo auf WalletBalance, nicht der Erfolgsschirm.
+- runFlow:
+    when:
+      true: ${E2E_SPARK_DEPOSIT_ADDRESS === ''}
+    commands:
+      - assertTrue:
+          condition: ${false}
+          label: E2E_SPARK_DEPOSIT_ADDRESS is missing. Set the reusable Spark deposit address from the local-stack fixture outside the repository and pass it to maestro test as -e E2E_SPARK_DEPOSIT_ADDRESS. See tests/e2e-maestro/README.md.
+- runFlow:
+    file: ../_setup-import.yaml
+    env:
+      E2E_SPARK_MNEMONIC: ${E2E_SPARK_MNEMONIC || ''}
 - runScript:
     file: ../scripts/payment-amount.js
     env:
       E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
-- runFlow:
-    when:
-      visible: 'Erstellen'
-    commands:
-      - assertTrue:
-          condition: ${false}
-          label: P17 requires an existing Spark wallet on the device; this flow does not create one
-- runFlow:
-    when:
-      visible: '.*Lightning-Wallet.*Hinzufügen.*'
-    commands:
-      - assertTrue:
-          condition: ${false}
-          label: P17 requires an existing Spark wallet on the device; this flow does not create one
+- evalScript: "${output.paymentBtc = (Number(output.paymentSat) / 100000000).toFixed(8)}"
 - extendedWaitUntil:
     visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
     timeout: 90000
-- runFlow:
-    when:
-      notVisible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
-    commands:
-      - assertTrue:
-          condition: ${false}
-          label: P17 requires an existing Spark wallet on the device; this flow does not create one
+# 0 sats nach dem Import ist der Zwischenzustand vor der Spark-Synchronisation,
+# kein Befund. Warten, bis eine Ziffer ungleich null steht; optional, damit eine
+# wirklich leere Wallet in die Auffuellung laeuft statt den Flow zu brechen.
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), [1-9].*sats, .*'
+    timeout: 90000
+    optional: true
 - copyTextFrom: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
 - evalScript: "${output.needsFunding = (function(){ var t = String(maestro.copiedText || ''); var m = t.match(/([0-9][0-9., ]*)sats/i); var sat = m ? Number(String(m[1]).replace(/[^0-9]/g, '')) : 0; if (!Number.isFinite(sat) || sat < 0) sat = 0; return (sat < Number(output.paymentSat || 10)) ? 'true' : 'false'; })()}"
 # Reicht das sichtbare Guthaben nicht fuer E2E_PAYMENT_SAT, fuellt die
@@ -81,6 +84,7 @@ onFlowComplete:
           file: ../scripts/payment-amount.js
           env:
             E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
+      - evalScript: "${output.paymentBtc = (Number(output.paymentSat) / 100000000).toFixed(8)}"
       - assertVisible: '^${E2E_PAYMENT_SAT}$'
       - assertVisible: '^ sats$'
       - assertVisible: '^Maestro-E2E$'
@@ -121,47 +125,116 @@ onFlowComplete:
     point: '61%,34%'
 - waitForAnimationToEnd:
     timeout: 30000
-- extendedWaitUntil:
-    visible: '^Deine IBAN hinzufügen oder auswählen$'
-    timeout: 30000
-- assertVisible: '^DFX\.swiss \| Buy & Sell directly into your wallet$'
-- assertVisible: '^Deine IBAN hinzufügen oder auswählen$'
-- assertNotVisible: '^Login bei DFX Services$'
-- assertNotVisible: 'Invalid signature'
-# Dieser Abschnitt setzt extern einen lokalen DFX-Stack voraus, in dem der
-# Nutzer bereits handelsfähig ist (verifiziert, mit Limit, mit freiem
-# Lightning-Deposit). Ohne den Stack bleibt der Flow hier stehen.
-- tapOn: '^Deine IBAN hinzufügen oder auswählen$'
-- extendedWaitUntil:
-    visible: '^Bankkonto auswählen$'
-    timeout: 30000
-- tapOn: 'XX XXXX XXXX XXXX XXXX X'
-- inputText: 'DE89370400440532013000'
 - runFlow:
     when:
-      visible: 'MAX'
+      visible: 'NUTZERDATEN EINGEBEN'
     commands:
-      - tapOn: 'MAX'
-      - waitForAnimationToEnd:
-          timeout: 8000
-- hideKeyboard
-- tapOn: '^BANKVERBINDUNG HINZUFÜGEN$'
-- extendedWaitUntil:
-    visible: '^DE89 3704 0044 0532 0130 00$'
-    timeout: 30000
-- assertVisible: '^DE89 3704 0044 0532 0130 00$'
+      - assertTrue:
+          condition: ${false}
+          label: P17 needs a tradable local-stack account. Run tests/e2e-maestro/scripts/seed-local-backend.sql against the local stack only (see tests/e2e-maestro/README.md).
+- assertNotVisible: '^Login bei DFX Services$'
+- assertNotVisible: 'Invalid signature'
+- tapOn: '0.001'
+- eraseText:
+    charactersToErase: 12
+- inputText: ${output.paymentBtc}
 - runFlow:
     when:
       visible: '^Weiter$'
     commands:
       - tapOn: '^Weiter$'
-# Der DFX-Dienst fuehrt per Deeplink zurueck in die App. Ohne diesen Rueckweg
-# erscheint Verkauf bestätigen nicht und der Flow fällt.
 - extendedWaitUntil:
-    visible: 'Verkauf bestätigen'
-    timeout: 120000
-- assertVisible: 'Auszahlung auf Dein Bankkonto'
-- tapOn: 'Auszahlung auf Dein Bankkonto'
+    visible: '^Zahlungsinformation$'
+    timeout: 30000
+- assertVisible: '^Zahlungsinformation$'
+- assertVisible: '^Adresse$'
+- assertVisible: '^Blockchain$'
+- assertVisible: 'Spark'
+# Die Maske kuerzt die Adresse (erste und letzte zwoelf Zeichen). Weicht sie
+# vom Fixture ab, ist das der Fehler, den der Test finden soll.
+- assertVisible: ${E2E_SPARK_DEPOSIT_ADDRESS.slice(0, 12) + '.*' + E2E_SPARK_DEPOSIT_ADDRESS.slice(-12)}
+- runFlow:
+    when:
+      visible: 'Schließen'
+    commands:
+      - tapOn: 'Schließen'
+- runFlow:
+    when:
+      visible: 'Zurück zu BTC Taro'
+    commands:
+      - tapOn: 'Zurück zu BTC Taro'
+- runFlow:
+    when:
+      visible: 'Fertig'
+    commands:
+      - tapOn: 'Fertig'
+- waitForAnimationToEnd:
+    timeout: 15000
+- runFlow:
+    when:
+      notVisible:
+        id: SendButton
+    commands:
+      - runFlow: ../_relaunch-keep-state.yaml
+      - extendedWaitUntil:
+          visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+          timeout: 90000
+      - tapOn:
+          point: '50%,58%'
+      - waitForAnimationToEnd:
+          timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: WalletLabel
+      text: 'Lightning \(Spark\)'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: SendButton
+    timeout: 30000
+- tapOn:
+    id: SendButton
+- waitForAnimationToEnd:
+    timeout: 15000
+# Untere Leiste des QR-Scanners: Bild, Tastatur, Zwischenablage. Die
+# Zwischenablage loest den iOS-Dialog Einsetzen erlauben aus; Tastatur nehmen.
+- tapOn:
+    point: '50%,88%'
+- extendedWaitUntil:
+    visible: 'Fortsetzen'
+    timeout: 20000
+# Die Ueberschrift traegt in der Hierarchie denselben Treffer wie das Feld;
+# ein tapOn auf eine Id trifft den Titel. Der Punkt sitzt im Eingabefeld.
+- tapOn:
+    point: '50%,23%'
+- inputText: ${E2E_SPARK_DEPOSIT_ADDRESS}
+- tapOn: 'Fortsetzen'
+# Der erste Tipp bleibt folgenlos, bis die Eingabe verarbeitet und die
+# Tastatur unten ist. Ist Adresse eingeben danach noch da, genau einmal
+# erneut tippen, keine Schleife.
+- runFlow:
+    when:
+      visible: 'Adresse eingeben'
+    commands:
+      - tapOn: 'Fortsetzen'
+- extendedWaitUntil:
+    visible:
+      id: BitcoinAmountInput
+    timeout: 30000
+- tapOn:
+    point: '44%,20%'
+- inputText: ${output.paymentSat}
+# Das Betragsfeld haelt eine Null fest; 1000 wird zu 10000. Die letzte Ziffer
+# geht ueber die Ruecktaste der Zifferntastatur weg. Der Wert im Feld muss
+# danach paymentSat sein, nicht die Tastenfolge.
+- tapOn:
+    point: '83%,88%'
+- assertVisible:
+    id: BitcoinAmountInput
+    text: '^${output.paymentSat}$'
+- tapOn:
+    point: '50%,35%'
+- tapOn: 'Weiter'
 - extendedWaitUntil:
     visible: 'Zahlen'
     timeout: 60000
