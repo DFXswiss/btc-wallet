@@ -117,7 +117,18 @@ const Sell = () => {
       });
     } else {
       const depositAddress = sell?.deposit.address;
-      if (wallet.type === SparkWallet.type && depositAddress && SparkWallet.isSparkInvoice(depositAddress)) {
+      const sparkKind =
+        wallet.type === SparkWallet.type && typeof depositAddress === 'string'
+          ? SparkWallet.sparkDepositKind(depositAddress)
+          : null;
+      if (sparkKind === 'address' && typeof depositAddress === 'string') {
+        navigation.navigate('LnurlPay', {
+          sparkAddress: depositAddress,
+          walletID: wallet.getID(),
+          amountSat: currency.btcToSatoshi(amount),
+          routeId,
+        });
+      } else if (sparkKind === 'invoice' && typeof depositAddress === 'string') {
         const parsed = SparkWallet.parseSparkPaymentUri(depositAddress);
         navigation.navigate('LnurlPay', {
           sparkInvoice: parsed.invoice,

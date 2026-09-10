@@ -41,7 +41,7 @@ export type SparkPaymentFeeQuote = Readonly<{
   invoice: string;
   amountSats: number;
   walletIdentity: string;
-  method: SendPaymentMethod_Tags.Bolt11Invoice | SendPaymentMethod_Tags.SparkInvoice;
+  method: SendPaymentMethod_Tags.Bolt11Invoice | SendPaymentMethod_Tags.SparkInvoice | SendPaymentMethod_Tags.SparkAddress;
   feeSats: number;
 }>;
 
@@ -82,7 +82,7 @@ function lnurlMaxQuoteKey(payRequest: LnurlPayRequestDetails, comment?: string):
 
 function preparedSendFeeSats(
   prepareResponse: PrepareSendPaymentResponse,
-  expectedMethod: SendPaymentMethod_Tags.Bolt11Invoice | SendPaymentMethod_Tags.SparkInvoice = SendPaymentMethod_Tags.Bolt11Invoice,
+  expectedMethod: SparkPaymentFeeQuote['method'] = SendPaymentMethod_Tags.Bolt11Invoice,
 ): number {
   const { paymentMethod } = prepareResponse;
   if (expectedMethod === SendPaymentMethod_Tags.Bolt11Invoice) {
@@ -90,12 +90,14 @@ function preparedSendFeeSats(
       throw new Error(loc.wallets.lightning_spark_invoice_unreadable);
     }
     return Number(paymentMethod.inner.lightningFeeSats + (paymentMethod.inner.sparkTransferFeeSats ?? 0n));
-  } else {
-    if (paymentMethod.tag !== SendPaymentMethod_Tags.SparkInvoice) {
-      throw new Error(loc.wallets.lightning_spark_invoice_unreadable);
-    }
+  }
+  if (paymentMethod.tag !== expectedMethod) {
+    throw new Error(loc.wallets.lightning_spark_invoice_unreadable);
+  }
+  if (paymentMethod.tag === SendPaymentMethod_Tags.SparkInvoice || paymentMethod.tag === SendPaymentMethod_Tags.SparkAddress) {
     return Number(paymentMethod.inner.fee);
   }
+  throw new Error(loc.wallets.lightning_spark_invoice_unreadable);
 }
 
 /** Shape expected by LND screens (lndReceive, transaction list, etc.). */
@@ -184,6 +186,41 @@ export class SparkWallet extends AbstractWallet {
     } catch (_) {
       return false;
     }
+  }
+
+  /**
+   * Raw Spark identity address (spark1…). Bech32m, lowercase only — never case-folded.
+   * Does not accept a `spark:` URI; that form is the invoice wrapper parsed by parseSparkPaymentUri.
+   */
+  static isSparkAddress(input: string): boolean {
+    if (typeof input !== 'string') return false;
+    const trimmed = input.trim();
+    if (!trimmed || trimmed !== trimmed.toLowerCase()) return false;
+    if (!/^spark1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+$/.test(trimmed)) return false;
+    try {
+      return bech32m.decode(trimmed, 10000).prefix === 'spark';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /** `spark:…` wrapper that parseSparkPaymentUri already strips, including `?amount=`. */
+  static isSparkPaymentUri(input: string): boolean {
+    if (typeof input !== 'string') return false;
+    const trimmed = input.trim();
+    if (!/^spark:/i.test(trimmed)) return false;
+    return SparkWallet.isSparkInvoice(trimmed);
+  }
+
+  /**
+   * Deposit kind for DFX sell/swap. URI form is invoice; a raw spark1 string is an address.
+   * The two shapes do not overlap, so the result does not depend on checker order.
+   */
+  static sparkDepositKind(input: string): 'address' | 'invoice' | null {
+    if (SparkWallet.isSparkPaymentUri(input)) return 'invoice';
+    if (SparkWallet.isSparkAddress(input)) return 'address';
+    if (SparkWallet.isSparkInvoice(input)) return 'invoice';
+    return null;
   }
 
   static create(identityPubkey: string, lnAddress?: string): SparkWallet {
@@ -849,7 +886,8 @@ export class SparkWallet extends AbstractWallet {
 
   async getPaymentFeeQuote(invoice: string, amountSats = 0): Promise<SparkPaymentFeeQuote> {
     const isSparkInvoice = SparkWallet.isSparkInvoice(invoice);
-    if (isSparkInvoice && (!Number.isSafeInteger(amountSats) || amountSats <= 0)) {
+    const isSparkAddress = SparkWallet.isSparkAddress(invoice);
+    if ((isSparkInvoice || isSparkAddress) && (!Number.isSafeInteger(amountSats) || amountSats <= 0)) {
       throw new Error(loc.lnd.error_tip_invoice_not_supported);
     }
 
@@ -866,7 +904,22 @@ export class SparkWallet extends AbstractWallet {
     this.requireHeld(lease);
     const effectiveAmountSats = this.effectiveAmountSats(prepareResponse.amount);
     if (amountSats > 0 && effectiveAmountSats !== amountSats) throw new SparkPaymentFeeQuoteError();
-    if (isSparkInvoice) {
+    if (isSparkInvoice || isSparkAddress) {
+      if (prepareResponse.paymentMethod.tag === SendPaymentMethod_Tags.SparkAddress) {
+        if (prepareResponse.paymentMethod.inner.tokenIdentifier) {
+          throw new Error(loc.wallets.lightning_spark_token_invoice_unsupported);
+        }
+        if (prepareResponse.amount !== BigInt(amountSats)) {
+          throw new Error(loc.wallets.lightning_spark_amount_mismatch);
+        }
+        return {
+          invoice,
+          amountSats: effectiveAmountSats,
+          walletIdentity: this.quoteWalletIdentity(),
+          method: SendPaymentMethod_Tags.SparkAddress,
+          feeSats: preparedSendFeeSats(prepareResponse, SendPaymentMethod_Tags.SparkAddress),
+        };
+      }
       if (
         prepareResponse.paymentMethod.tag === SendPaymentMethod_Tags.SparkInvoice &&
         prepareResponse.paymentMethod.inner.tokenIdentifier
@@ -986,6 +1039,122 @@ export class SparkWallet extends AbstractWallet {
     // A reusable deposit invoice may receive the same amount more than once. The per-payment
     // seed keeps separate payments distinct while preserving SDK deduplication for retries.
     const idempotencyKey = invoiceIdempotencyKey(`${invoice}\0${amountSats}\0${idempotencySeed}`);
+    const sendRequest = {
+      prepareResponse,
+      options: undefined,
+      idempotencyKey,
+    };
+
+    let payment: Payment | undefined;
+    try {
+      const sent = await sdk.sendPayment(sendRequest);
+      payment = sent.payment;
+    } catch (e) {
+      if (e instanceof SparkSessionStaleError || this.sessionGone(lease)) {
+        // Without a payment id no SDK event can settle this send. Throw so the pay
+        // screen re-enables the button; a retry uses the same idempotency key.
+        throw e;
+      }
+      // Reusing the idempotency key returns the existing payment instead of creating a second payment.
+      // If the first call never reached the server, this retry becomes the first real send, matching the user's intent to pay.
+      try {
+        const sent = await sdk.sendPayment(sendRequest);
+        payment = sent.payment;
+      } catch {
+        throw e;
+      }
+    }
+
+    const paymentHash = payment.id || trackingHash;
+    const tracked = payment.id
+      ? attachOutgoingPaymentId({ paymentHash, paymentId: payment.id })
+      : getOutgoingPayment();
+
+    if (payment.status === PaymentStatus.Failed) {
+      const settled = settleOutgoingPayment({ status: 'failed', paymentHash, paymentId: payment.id });
+      if (settled?.paymentHash === paymentHash && settled.status === 'completed') {
+        this.recordPaidInvoice(payment, settled.preimage);
+        return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: settled.paymentId, fee };
+      }
+      throw new Error(loc.wallets.lightning_spark_payment_failed);
+    }
+
+    if (payment.status === PaymentStatus.Completed) {
+      const settled = settleOutgoingPayment({ status: 'completed', paymentHash, paymentId: payment.id });
+      if (settled?.paymentHash === paymentHash && settled.status === 'failed') {
+        throw new Error(loc.wallets.lightning_spark_payment_failed);
+      }
+      this.recordPaidInvoice(payment, settled?.paymentHash === paymentHash ? settled.preimage : undefined);
+      return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: payment.id, fee };
+    }
+
+    if (tracked?.paymentHash === paymentHash && tracked.status === 'completed') {
+      this.recordPaidInvoice(payment, tracked.preimage);
+      return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: payment.id, fee };
+    }
+    if (tracked?.paymentHash === paymentHash && tracked.status === 'failed') {
+      settleOutgoingPayment({ status: 'failed', paymentHash, paymentId: payment.id });
+      throw new Error(loc.wallets.lightning_spark_payment_failed);
+    }
+    // Without a payment id no SDK event can settle this send.
+    if (!payment.id) {
+      throw new Error(loc.wallets.lightning_spark_payment_failed);
+    }
+    return { status: SparkPayInvoiceStatus.Pending, paymentHash, paymentId: payment.id, fee };
+  }
+
+  async paySparkAddress(
+    address: string,
+    amountSats: number,
+    idempotencySeed: string,
+    quote: SparkPaymentFeeQuote,
+  ): Promise<SparkPayInvoiceResult> {
+    if (!Number.isSafeInteger(amountSats) || amountSats <= 0) {
+      throw new Error(loc.lnd.error_tip_invoice_not_supported);
+    }
+
+    const lease = this.holdMatchingSession();
+    const trackingHash = createHash('sha256')
+      .update(address)
+      .update('\0')
+      .update(String(amountSats))
+      .update('\0')
+      .update(idempotencySeed)
+      .digest('hex');
+    const prepareResponse = await lease.requireSdk().prepareSendPayment({
+      paymentRequest: new PaymentRequest.Input({ input: address }),
+      amount: BigInt(amountSats),
+      tokenIdentifier: undefined,
+      conversionOptions: undefined,
+      feePolicy: undefined,
+    });
+
+    if (
+      prepareResponse.paymentMethod.tag === SendPaymentMethod_Tags.SparkAddress &&
+      prepareResponse.paymentMethod.inner.tokenIdentifier
+    ) {
+      throw new Error(loc.wallets.lightning_spark_token_invoice_unsupported);
+    }
+    if (prepareResponse.amount !== BigInt(amountSats)) {
+      throw new Error(loc.wallets.lightning_spark_amount_mismatch);
+    }
+    const sdk = this.requireHeld(lease);
+    const fee = preparedSendFeeSats(prepareResponse, SendPaymentMethod_Tags.SparkAddress);
+    this.assertFeeQuote(
+      quote,
+      address,
+      amountSats,
+      this.effectiveAmountSats(prepareResponse.amount),
+      SendPaymentMethod_Tags.SparkAddress,
+      fee,
+    );
+
+    const balance = this.getBalance();
+    if (!Number.isSafeInteger(balance) || amountSats + fee > balance) {
+      throw new Error(loc.send.insufficient_funds);
+    }
+
+    const idempotencyKey = invoiceIdempotencyKey(`${address}\0${amountSats}\0${idempotencySeed}`);
     const sendRequest = {
       prepareResponse,
       options: undefined,

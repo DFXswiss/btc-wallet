@@ -23,6 +23,7 @@ import { lnurlPaySuccessDisplay } from './lnurlPaySuccess';
 import { randomBytes } from '../../class/rng';
 import { LightningCustodianWallet } from '../../class/wallets/lightning-custodian-wallet';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
+import { SendPaymentMethod_Tags } from '@breeztech/breez-sdk-spark-react-native';
 import { SparkPaymentFeeQuoteError, SparkWallet } from '../../class/wallets/spark-wallet';
 import { BitcoinUnit } from '../../models/bitcoinUnits';
 import loc from '../../loc';
@@ -76,7 +77,8 @@ const LnurlPay = () => {
   const { wallets, refreshAllWalletTransactions } = useContext(BlueStorageContext);
   const { outgoingPayment } = useSparkContext();
   const { params } = useRoute();
-  const { walletID, lnurl, amountSat, destination, invoice, sparkInvoice, amountUnit, description, free, isMax, routeId } = params;
+  const { walletID, lnurl, amountSat, destination, invoice, sparkInvoice, sparkAddress, amountUnit, description, free, isMax, routeId } =
+    params;
   /** @type {LightningCustodianWallet} */
   const wallet = wallets.find(w => w.getID() === walletID);
   const [unit, setUnit] = useState(wallet.getPreferredBalanceUnit());
@@ -143,13 +145,13 @@ const LnurlPay = () => {
   }, [invoice, amountSat, amountUnit, free, wallet]);
 
   useEffect(() => {
-    if (sparkInvoice) {
+    if (sparkInvoice || sparkAddress) {
       setAmount(amountSat);
       setUnit(BitcoinUnit.SATS);
       setIsLoading(false);
       setIsTxFree(false);
     }
-  }, [sparkInvoice, amountSat]);
+  }, [sparkInvoice, sparkAddress, amountSat]);
 
   useEffect(() => {
     let isCurrent = true;
@@ -158,7 +160,7 @@ const LnurlPay = () => {
     setSparkMaxFeeQuote(undefined);
     setLnurlInvoiceQuote(undefined);
     setSparkFeeQuoteError(undefined);
-    const paymentRequest = invoice || sparkInvoice;
+    const paymentRequest = invoice || sparkInvoice || sparkAddress;
     if (wallet.type !== SparkWallet.type || !paymentRequest || !(amountSat > 0)) {
       return () => {
         isCurrent = false;
@@ -180,11 +182,12 @@ const LnurlPay = () => {
     return () => {
       isCurrent = false;
     };
-  }, [amountSat, description, invoice, isMax, payload, sparkInvoice, wallet, _LN, quoteRetry]);
+  }, [amountSat, description, invoice, isMax, payload, sparkInvoice, sparkAddress, wallet, _LN, quoteRetry]);
 
   useEffect(() => {
     const quoteAmountSats = amountSat ?? _LN?.getMin();
-    if (wallet.type !== SparkWallet.type || invoice || sparkInvoice || !payload || !(quoteAmountSats > 0) || !_LN) return undefined;
+    if (wallet.type !== SparkWallet.type || invoice || sparkInvoice || sparkAddress || !payload || !(quoteAmountSats > 0) || !_LN)
+      return undefined;
     let isCurrent = true;
     const comment = _LN.getCommentAllowed() ? description : undefined;
     if (isMax) {
@@ -217,7 +220,7 @@ const LnurlPay = () => {
     return () => {
       isCurrent = false;
     };
-  }, [amountSat, description, invoice, isMax, payload, sparkInvoice, wallet, _LN, quoteRetry]);
+  }, [amountSat, description, invoice, isMax, payload, sparkInvoice, sparkAddress, wallet, _LN, quoteRetry]);
 
   useEffect(() => {
     setPayButtonDisabled(isLoading);
@@ -285,7 +288,7 @@ const LnurlPay = () => {
         finishLnurlSuccess(watching.paymentHash, watching.fee, watching.LN).catch(error => {
           reportError('lnurlPay: failed to finish LNURL success', error);
         });
-      } else if (watching.kind === 'sparkInvoice') {
+      } else if (watching.kind === 'sparkInvoice' || watching.kind === 'sparkAddress') {
         releaseSparkPaymentSeed(watching.seedStorageKey).then(() =>
           finishInvoiceSuccess(watching.amountSats, watching.fee, watching.decoded),
         );
@@ -445,9 +448,36 @@ const LnurlPay = () => {
     finishInvoiceSuccess(amountSats, result?.fee, decoded);
   };
 
-  const handleSparkInvoice = async amountSats => {
-    const { storageKey, seed } = await getOrCreateSparkPaymentSeed(walletID, routeId, sparkInvoice, amountSats);
-    const result = await wallet.paySparkInvoice(sparkInvoice, amountSats, seed, sparkFeeQuote);
+  const handleSparkAddress = async (amountSats, destination) => {
+    const { storageKey, seed } = await getOrCreateSparkPaymentSeed(walletID, routeId, destination, amountSats);
+    const result = await wallet.paySparkAddress(destination, amountSats, seed, sparkFeeQuote);
+    const decoded = {};
+    if (result && result.status === 'pending') {
+      pendingPayRef.current = {
+        kind: 'sparkAddress',
+        paymentHash: result.paymentHash,
+        amountSats,
+        fee: result.fee,
+        decoded,
+        seedStorageKey: storageKey,
+      };
+      setIsPaymentPending(true);
+      setPayButtonDisabled(true);
+      return;
+    }
+    if (result && result.status !== 'completed') {
+      payInFlightRef.current = false;
+      setPayButtonDisabled(false);
+      return;
+    }
+
+    await releaseSparkPaymentSeed(storageKey);
+    finishInvoiceSuccess(amountSats, result?.fee, decoded);
+  };
+
+  const handleSparkInvoice = async (amountSats, destination) => {
+    const { storageKey, seed } = await getOrCreateSparkPaymentSeed(walletID, routeId, destination, amountSats);
+    const result = await wallet.paySparkInvoice(destination, amountSats, seed, sparkFeeQuote);
     const decoded = {};
     if (result && result.status === 'pending') {
       pendingPayRef.current = {
@@ -509,8 +539,13 @@ const LnurlPay = () => {
           break;
       }
 
-      if (sparkInvoice) {
-        await handleSparkInvoice(amountSats);
+      if (sparkAddress || sparkInvoice) {
+        const sparkDestination = sparkAddress || sparkInvoice;
+        if (sparkFeeQuote?.method === SendPaymentMethod_Tags.SparkAddress) {
+          await handleSparkAddress(amountSats, sparkDestination);
+        } else {
+          await handleSparkInvoice(amountSats, sparkDestination);
+        }
       } else if (invoice) {
         await handleLnInvoice(amountSats);
       } else {
@@ -595,7 +630,9 @@ const LnurlPay = () => {
                 <BlueSpacing10 />
               </>
             )}
-            {(invoice || sparkInvoice) && <BlueCopyTextToClipboard text={invoice || sparkInvoice} truncated />}
+            {(invoice || sparkInvoice || sparkAddress) && (
+              <BlueCopyTextToClipboard text={invoice || sparkInvoice || sparkAddress} truncated />
+            )}
           </BlueCard>
         </ScrollView>
         <View style={styles.buttonContainer}>

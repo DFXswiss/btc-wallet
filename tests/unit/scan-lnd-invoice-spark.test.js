@@ -107,6 +107,8 @@ const Lnurl = require('../../class/lnurl').default;
 const DeeplinkSchemaMatch = require('../../class/deeplink-schema-match').default;
 const loc = require('../../loc').default;
 const alert = require('../../components/Alert');
+const { bech32m } = require('bech32');
+const SPARK_ADDRESS = bech32m.encode('spark', bech32m.toWords(Buffer.from('spark-address-identity-key-32')), 10000);
 const haptic = require('react-native-haptic-feedback');
 const { BlueDarkTheme } = require('../../components/themes');
 const AmountInput = require('../../components/AmountInput').default;
@@ -730,6 +732,40 @@ describe('ScanLndInvoice destination and pay', () => {
     fireEvent.press(screen.getByText(loc.lnd.next));
     expect(alert).toHaveBeenCalledWith(loc.send.details_address_field_is_not_valid);
     expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('recognizes a lowercase spark1 address as a payable destination', async () => {
+    const wallet = makeSparkWallet();
+    const screen = renderScan(wallet, { uri: SPARK_ADDRESS });
+    const truncated = `${SPARK_ADDRESS.substring(0, 18)}.....${SPARK_ADDRESS.substring(SPARK_ADDRESS.length - 18)}`;
+
+    await waitFor(() => screen.getByText(truncated));
+    fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '1000');
+    await waitFor(() => expect(wallet.getPaymentFeeWithoutSending).toHaveBeenCalledWith(SPARK_ADDRESS, 1000));
+    fireEvent.press(screen.getByText(loc.lnd.next));
+    expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', {
+      screen: 'LnurlPay',
+      params: {
+        sparkAddress: SPARK_ADDRESS,
+        amountSat: 1000,
+        amountUnit: BitcoinUnit.SATS,
+        walletID: wallet.getID(),
+      },
+    });
+    expect(alert).not.toHaveBeenCalledWith(loc.send.details_address_field_is_not_valid);
+  });
+
+  it('does not treat a mangled spark1 string as a destination', async () => {
+    const dismiss = jest.spyOn(Keyboard, 'dismiss');
+    const wallet = makeSparkWallet();
+    const screen = renderScan(wallet, { uri: 'spark1not-a-valid-bech32m-value' });
+
+    await waitFor(() => expect(dismiss).toHaveBeenCalled());
+    fireEvent.press(screen.getByText(loc.lnd.next));
+    expect(alert).toHaveBeenCalledWith(loc.send.details_address_field_is_not_valid);
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(DeeplinkSchemaMatch.isSparkAddress('spark1not-a-valid-bech32m-value')).toBe(false);
+    expect(DeeplinkSchemaMatch.isSparkAddress(SPARK_ADDRESS.toUpperCase())).toBe(false);
   });
 
   it('keeps the wallet label as text when only one Lightning wallet exists', async () => {

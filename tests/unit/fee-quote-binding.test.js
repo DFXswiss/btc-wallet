@@ -46,6 +46,18 @@ function preparedSparkInvoice(fee) {
   };
 }
 
+const SPARK_ADDRESS = 'spark1v3n8sgrjv46hxctzd3jjqumpw3ejq6twwehkjcm9xxwdrh';
+
+function preparedSparkAddress(fee) {
+  return {
+    amount: 12_345n,
+    paymentMethod: {
+      tag: SendPaymentMethod_Tags.SparkAddress,
+      inner: { address: SPARK_ADDRESS, fee, tokenIdentifier: undefined },
+    },
+  };
+}
+
 function preparedLnurlMax(feeSats, amountSats = 10n) {
   return {
     amountSats,
@@ -167,6 +179,32 @@ it('allows a lower Spark-Invoice fee after a real quote', async () => {
   const quote = await wallet.getPaymentFeeQuote(SPARK_INVOICE, 12_345);
 
   await wallet.paySparkInvoice(SPARK_INVOICE, 12_345, 'spark-case', quote);
+  assert.strictEqual(mockSdk.sendPayment.mock.calls.length, 1);
+});
+
+it('does not send a previously quoted Spark-address payment at a higher fee without fresh confirmation', async () => {
+  mockSdk.prepareSendPayment.mockResolvedValueOnce(preparedSparkAddress(1n)).mockResolvedValueOnce(preparedSparkAddress(50n));
+  const wallet = SparkWallet.create('id-pk');
+  wallet.balance = 1_000_000;
+  const quote = await wallet.getPaymentFeeQuote(SPARK_ADDRESS, 12_345);
+  assert.strictEqual(quote.method, SendPaymentMethod_Tags.SparkAddress);
+  assert.strictEqual(quote.feeSats, 1);
+
+  await assert.rejects(
+    () => wallet.paySparkAddress(SPARK_ADDRESS, 12_345, 'spark-address-case', quote),
+    error => error?.name === 'SparkPaymentFeeQuoteError',
+  );
+  assert.strictEqual(mockSdk.sendPayment.mock.calls.length, 0);
+});
+
+it('allows a lower Spark-address fee after a real quote', async () => {
+  mockSdk.prepareSendPayment.mockResolvedValueOnce(preparedSparkAddress(2n)).mockResolvedValueOnce(preparedSparkAddress(1n));
+  mockSdk.sendPayment.mockResolvedValue({ payment: { id: 'spark-address-payment', status: PaymentStatus.Completed } });
+  const wallet = SparkWallet.create('id-pk');
+  wallet.balance = 1_000_000;
+  const quote = await wallet.getPaymentFeeQuote(SPARK_ADDRESS, 12_345);
+
+  await wallet.paySparkAddress(SPARK_ADDRESS, 12_345, 'spark-address-case', quote);
   assert.strictEqual(mockSdk.sendPayment.mock.calls.length, 1);
 });
 

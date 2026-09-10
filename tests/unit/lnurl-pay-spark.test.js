@@ -131,6 +131,7 @@ const {
 const SAMPLE_INVOICE =
   'lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp';
 const SPARK_INVOICE = bech32m.encode('spark', bech32m.toWords(Buffer.from('dfx reusable sats invoice')), 10000);
+const SPARK_ADDRESS = bech32m.encode('spark', bech32m.toWords(Buffer.from('spark-address-identity-key-32')), 10000);
 const LNURL_PAY_SUCCESS_DISPLAY = {
   domain: 'example.com',
   description: 'tea',
@@ -144,6 +145,7 @@ function makeWallet() {
   wallet.balance = 1_000_000;
   wallet.payInvoice = jest.fn();
   wallet.paySparkInvoice = jest.fn();
+  wallet.paySparkAddress = jest.fn();
   wallet.payLnurlMax = jest.fn();
   wallet.getLnurlMaxFeeQuote = jest.fn().mockResolvedValue({
     amountSats: 1000,
@@ -1532,6 +1534,84 @@ describe('LnurlPay remaining payment paths', () => {
     expect(screen.queryByText(loc.lnd.payButton)).toBeNull();
     expect(wallet.payInvoice).not.toHaveBeenCalled();
     expect(wallet.paySparkInvoice).not.toHaveBeenCalled();
+  });
+
+  it('pays by the quoted Spark method, not by which route param was set', async () => {
+    const wallet = makeWallet();
+    wallet.getPaymentFeeQuote.mockResolvedValue({
+      invoice: SPARK_INVOICE,
+      amountSats: 1000,
+      walletIdentity: 'pk-pay',
+      method: SendPaymentMethod_Tags.SparkAddress,
+      feeSats: 4,
+    });
+    wallet.paySparkAddress.mockResolvedValue({ status: 'completed', paymentHash: 'spark-address-from-quote', fee: 4 });
+    const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
+
+    await waitFor(() => screen.getByText(`${loc.send.create_fee}: 4 ${BitcoinUnit.SATS}`));
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+
+    await waitFor(() => expect(wallet.paySparkAddress).toHaveBeenCalledTimes(1));
+    assert.strictEqual(wallet.paySparkAddress.mock.calls[0][0], SPARK_INVOICE);
+    expect(wallet.paySparkInvoice).not.toHaveBeenCalled();
+    expect(wallet.payInvoice).not.toHaveBeenCalled();
+  });
+
+  it('pays a Spark address without falling back to Lightning', async () => {
+    const wallet = makeWallet();
+    wallet.getPaymentFeeQuote.mockResolvedValue({
+      invoice: SPARK_ADDRESS,
+      amountSats: 1000,
+      walletIdentity: 'pk-pay',
+      method: SendPaymentMethod_Tags.SparkAddress,
+      feeSats: 4,
+    });
+    wallet.paySparkAddress.mockResolvedValue({ status: 'completed', paymentHash: 'spark-address-1', fee: 4 });
+    const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: undefined, sparkAddress: SPARK_ADDRESS, amountUnit: undefined });
+
+    await waitFor(() => screen.getByText(`${loc.send.create_fee}: 4 ${BitcoinUnit.SATS}`));
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+
+    await waitFor(() => expect(wallet.paySparkAddress).toHaveBeenCalledTimes(1));
+    const [paidAddress, paidAmount] = wallet.paySparkAddress.mock.calls[0];
+    assert.strictEqual(paidAddress, SPARK_ADDRESS);
+    assert.strictEqual(paidAmount, 1000);
+    expect(wallet.payInvoice).not.toHaveBeenCalled();
+    expect(wallet.paySparkInvoice).not.toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith('Success', {
+      amount: 1000,
+      amountUnit: BitcoinUnit.SATS,
+      fee: 4,
+      invoiceDescription: undefined,
+    });
+  });
+
+  it('blocks a Spark address payment when amount plus quoted fee exceeds the balance', async () => {
+    const wallet = makeWallet();
+    wallet.balance = 1000;
+    wallet.getPaymentFeeQuote.mockResolvedValue({
+      invoice: SPARK_ADDRESS,
+      amountSats: 990,
+      walletIdentity: 'pk-pay',
+      method: SendPaymentMethod_Tags.SparkAddress,
+      feeSats: 20,
+    });
+    const screen = renderPay(wallet, {
+      invoice: undefined,
+      sparkInvoice: undefined,
+      sparkAddress: SPARK_ADDRESS,
+      amountSat: 990,
+      amountUnit: undefined,
+    });
+
+    await waitFor(() => screen.getByText(loc.send.insufficient_funds));
+    expect(screen.queryByText(loc.lnd.payButton)).toBeNull();
+    expect(wallet.paySparkAddress).not.toHaveBeenCalled();
+    expect(wallet.payInvoice).not.toHaveBeenCalled();
   });
 
   it('keeps the Spark MAX pay button enabled when the amount equals the balance and a fee quote is present', async () => {

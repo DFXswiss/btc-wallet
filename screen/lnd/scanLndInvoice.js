@@ -146,10 +146,19 @@ const ScanLndInvoice = () => {
     setExpiresIn(newExpiresIn);
   };
 
+  const setSparkAddressDestination = destinationString => {
+    setDestination(destinationString);
+    setIsAmountInputDisabled(false);
+    setIsDescDisabled(false);
+    setIsTxFree(false);
+  };
+
   const processDestination = destinationString => {
     Keyboard.dismiss();
     if (Lnurl.isLnurl(destinationString)) return setLnurlDestination(destinationString);
     if (Lnurl.isLightningAddress(destinationString)) return setLightningAddressDestination(destinationString);
+    if (wallet?.type === SparkWallet.type && DeeplinkSchemaMatch.isSparkAddress(destinationString))
+      return setSparkAddressDestination(destinationString);
     if (
       DeeplinkSchemaMatch.isLightningInvoice(destinationString) ||
       DeeplinkSchemaMatch.isBothBitcoinAndLightning(destinationString) ||
@@ -191,7 +200,12 @@ const ScanLndInvoice = () => {
   useEffect(() => {
     let isCurrent = true;
     setSparkFee(undefined);
-    if (wallet?.type !== SparkWallet.type || !decoded || !destination || !(amountSat > 0)) {
+    if (
+      wallet?.type !== SparkWallet.type ||
+      !destination ||
+      !(amountSat > 0) ||
+      (!decoded && !DeeplinkSchemaMatch.isSparkAddress(destination))
+    ) {
       return () => {
         isCurrent = false;
       };
@@ -257,8 +271,23 @@ const ScanLndInvoice = () => {
     });
   };
 
+  const processSparkAddressPay = () => {
+    if (!Number.isInteger(amountSat) || amountSat === 0) return showError(loc.lnd.error_tip_invoice_not_supported);
+
+    return navigate('SendDetailsRoot', {
+      screen: 'LnurlPay',
+      params: {
+        sparkAddress: destination,
+        amountSat,
+        amountUnit: BitcoinUnit.SATS,
+        walletID: walletID || wallet.getID(),
+      },
+    });
+  };
+
   const next = () => {
     if (Lnurl.isLnurl(destination) || Lnurl.isLightningAddress(destination)) return processLnurlPay();
+    if (wallet?.type === SparkWallet.type && DeeplinkSchemaMatch.isSparkAddress(destination)) return processSparkAddressPay();
     if (
       DeeplinkSchemaMatch.isLightningInvoice(destination) ||
       DeeplinkSchemaMatch.isBothBitcoinAndLightning(destination) ||
