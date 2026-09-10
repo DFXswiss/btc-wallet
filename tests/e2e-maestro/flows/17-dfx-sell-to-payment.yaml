@@ -4,69 +4,95 @@ env:
 onFlowComplete:
   - runFlow: ../_return-spark-balance.yaml
 ---
-- runFlow: ../_setup.yaml
-- runScript:
-    file: ../scripts/payment-amount.js
-    env:
-      E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
-- tapOn:
-    point: '85%,58%'
-- waitForAnimationToEnd:
-    timeout: 90000
-- extendedWaitUntil:
-    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
-    timeout: 90000
-- tapOn:
-    point: '50%,58%'
-- waitForAnimationToEnd:
-    timeout: 15000
-- tapOn:
-    point: '16%,93%'
-- extendedWaitUntil:
-    visible: 'Amount (optional)'
-    timeout: 20000
-- tapOn: 'Amount (optional)'
-- inputText: ${output.paymentSat}
-- tapOn: 'sats'
-- extendedWaitUntil:
-    visible: '.*lnbc.*'
-    timeout: 30000
-- tapOn: 'Beschreibung (optional)'
-- inputText: 'Maestro-E2E'
-- tapOn: 'sats'
-# Betragsunabhaengig: 10 sat ist lnbc100n, 1000 sat waere lnbc10u.
-- extendedWaitUntil:
-    visible: '.*lnbc.*'
-    timeout: 30000
-- copyTextFrom: '.*lnbc.*'
-- runScript:
-    file: ../scripts/treasury.js
-    env:
-      TREASURY_CMD: pay
-      E2E_TREASURY_URL: ${E2E_TREASURY_URL || ''}
-      E2E_TREASURY_KEY: ${E2E_TREASURY_KEY || ''}
-      E2E_TREASURY_MAX_SAT: ${E2E_TREASURY_MAX_SAT || ''}
-      E2E_TREASURY_MAX_FEE_SAT: ${E2E_TREASURY_MAX_FEE_SAT || ''}
-- extendedWaitUntil:
-    visible: 'Fertig'
-    timeout: 120000
-# runScript ersetzt output. Betragswerte unmittelbar vor der Zusicherung neu setzen.
-- runScript:
-    file: ../scripts/payment-amount.js
-    env:
-      E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
-- assertVisible: ${'^' + output.paymentSat + '$'}
-- assertVisible: '^ sats$'
-- assertVisible: '^Maestro-E2E$'
-- assertVisible: 'Fertig'
-- tapOn: 'Fertig'
-- waitForAnimationToEnd:
-    timeout: 15000
-# Die Listen-Zeile mit dem neuen Saldo erschien erst nach einem Neustart
-# ohne Zustandsloeschung, nicht auf dem offen gebliebenen Schirm.
+# Bestehende Spark-Wallet weiterverwenden. Dieser Flow legt keine an.
 - runFlow: ../_relaunch-keep-state.yaml
+- runScript:
+    file: ../scripts/payment-amount.js
+    env:
+      E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
+- runFlow:
+    when:
+      visible: 'Erstellen'
+    commands:
+      - assertTrue:
+          condition: ${false}
+          label: P17 requires an existing Spark wallet on the device; this flow does not create one
+- runFlow:
+    when:
+      visible: '.*Lightning-Wallet.*Hinzufügen.*'
+    commands:
+      - assertTrue:
+          condition: ${false}
+          label: P17 requires an existing Spark wallet on the device; this flow does not create one
 - extendedWaitUntil:
-    visible: ${'Bitcoin, Lightning \\(Spark\\), ' + output.walletBalanceText + ', .*'}
+    visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+    timeout: 90000
+- runFlow:
+    when:
+      notVisible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+    commands:
+      - assertTrue:
+          condition: ${false}
+          label: P17 requires an existing Spark wallet on the device; this flow does not create one
+- copyTextFrom: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+- evalScript: "${output.needsFunding = (function(){ var t = String(maestro.copiedText || ''); var m = t.match(/([0-9][0-9., ]*)sats/i); var sat = m ? Number(String(m[1]).replace(/[^0-9]/g, '')) : 0; if (!Number.isFinite(sat) || sat < 0) sat = 0; return (sat < Number(output.paymentSat || 10)) ? 'true' : 'false'; })()}"
+# Reicht das sichtbare Guthaben nicht fuer E2E_PAYMENT_SAT, fuellt die
+# Gegenstelle wie bisher auf. Sonst bleibt der vorhandene Saldo.
+- runFlow:
+    when:
+      true: ${output.needsFunding === 'true'}
+    commands:
+      - tapOn:
+          point: '50%,58%'
+      - waitForAnimationToEnd:
+          timeout: 15000
+      - tapOn:
+          point: '16%,93%'
+      - extendedWaitUntil:
+          visible: 'Amount (optional)'
+          timeout: 20000
+      - tapOn: 'Amount (optional)'
+      - inputText: ${output.paymentSat}
+      - tapOn: 'sats'
+      - extendedWaitUntil:
+          visible: '.*lnbc.*'
+          timeout: 30000
+      - tapOn: 'Beschreibung (optional)'
+      - inputText: 'Maestro-E2E'
+      - tapOn: 'sats'
+      # Betragsunabhaengig: 10 sat ist lnbc100n, 1000 sat waere lnbc10u.
+      - extendedWaitUntil:
+          visible: '.*lnbc.*'
+          timeout: 30000
+      - copyTextFrom: '.*lnbc.*'
+      - runScript:
+          file: ../scripts/treasury.js
+          env:
+            TREASURY_CMD: pay
+            E2E_TREASURY_URL: ${E2E_TREASURY_URL || ''}
+            E2E_TREASURY_KEY: ${E2E_TREASURY_KEY || ''}
+            E2E_TREASURY_MAX_SAT: ${E2E_TREASURY_MAX_SAT || ''}
+            E2E_TREASURY_MAX_FEE_SAT: ${E2E_TREASURY_MAX_FEE_SAT || ''}
+      - extendedWaitUntil:
+          visible: 'Fertig'
+          timeout: 120000
+      # runScript ersetzt output. Betragswerte unmittelbar vor der Zusicherung neu setzen.
+      - runScript:
+          file: ../scripts/payment-amount.js
+          env:
+            E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
+      - assertVisible: '^${E2E_PAYMENT_SAT}$'
+      - assertVisible: '^ sats$'
+      - assertVisible: '^Maestro-E2E$'
+      - assertVisible: 'Fertig'
+      - tapOn: 'Fertig'
+      - waitForAnimationToEnd:
+          timeout: 15000
+      # Die Listen-Zeile mit dem neuen Saldo erschien erst nach einem Neustart
+      # ohne Zustandsloeschung, nicht auf dem offen gebliebenen Schirm.
+      - runFlow: ../_relaunch-keep-state.yaml
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
     timeout: 90000
 - tapOn:
     point: '50%,58%'
@@ -76,10 +102,16 @@ onFlowComplete:
     visible:
       id: WalletLabel
       text: 'Lightning \(Spark\)'
-      containsDescendants:
-        - id: WalletBalance
-          text: ${output.walletBalanceRegex}
     timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: WalletBalance
+      text: '.*sats'
+    timeout: 60000
+- copyTextFrom:
+    id: WalletBalance
+    text: '[0-9][0-9., ]+sats'
+- evalScript: "${output.walletBalanceText = String(maestro.copiedText || '').trim(); output.walletBalanceRegex = '^' + output.walletBalanceText.replace(/[.]/g, '[.,]') + '$'}"
 - extendedWaitUntil:
     visible: 'Externe Services'
     timeout: 90000
@@ -97,13 +129,21 @@ onFlowComplete:
 - assertNotVisible: '^Login bei DFX Services$'
 - assertNotVisible: 'Invalid signature'
 # Dieser Abschnitt setzt extern einen lokalen DFX-Stack voraus, in dem der
-# Nutzer bereits handelsfähig ist. Ohne den Stack bleibt der Flow hier stehen.
+# Nutzer bereits handelsfähig ist (verifiziert, mit Limit, mit freiem
+# Lightning-Deposit). Ohne den Stack bleibt der Flow hier stehen.
 - tapOn: '^Deine IBAN hinzufügen oder auswählen$'
 - extendedWaitUntil:
     visible: '^Bankkonto auswählen$'
     timeout: 30000
 - tapOn: 'XX XXXX XXXX XXXX XXXX X'
 - inputText: 'DE89370400440532013000'
+- runFlow:
+    when:
+      visible: 'MAX'
+    commands:
+      - tapOn: 'MAX'
+      - waitForAnimationToEnd:
+          timeout: 8000
 - hideKeyboard
 - tapOn: '^BANKVERBINDUNG HINZUFÜGEN$'
 - extendedWaitUntil:
@@ -147,13 +187,12 @@ onFlowComplete:
     visible:
       id: WalletLabel
       text: 'Lightning \(Spark\)'
-      containsDescendants:
-        - id: WalletBalance
-          text: '.*sats'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: WalletBalance
+      text: '.*sats'
     timeout: 60000
 - assertNotVisible:
-    id: WalletLabel
-    text: 'Lightning \(Spark\)'
-    containsDescendants:
-      - id: WalletBalance
-        text: ${output.walletBalanceRegex}
+    id: WalletBalance
+    text: ${output.walletBalanceRegex}

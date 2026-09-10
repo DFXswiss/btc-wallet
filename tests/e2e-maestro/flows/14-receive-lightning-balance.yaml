@@ -64,7 +64,7 @@ onFlowComplete:
 # step-037-assertCondition-sats.json). Maestro matcht den ganzen String, daher
 # scheitert das unverankerte "sats". Die drei ^…$-Selektoren sind dieselbe
 # Form wie in P11/P12; fehlt Betrag, Einheit oder Beschreibung, wird der Flow rot.
-- assertVisible: ${'^' + output.paymentSat + '$'}
+- assertVisible: '^${E2E_PAYMENT_SAT}$'
 - assertVisible: '^ sats$'
 - assertVisible: '^Maestro-E2E$'
 - assertVisible: 'Fertig'
@@ -96,24 +96,24 @@ onFlowComplete:
 - waitForAnimationToEnd:
     timeout: 15000
 # Nach dem Neustart liegt die App auf der Liste. Der Hook liest den Saldo
-# im Wallet-Detailkopf (WalletLabel / WalletBalance), deshalb hier oeffnen.
+# im Wallet-Detailkopf (WalletLabel und WalletBalance nebeneinander),
+# deshalb hier oeffnen. Die beiden Knoten sind Geschwister, nicht Eltern-Kind.
 - extendedWaitUntil:
     visible:
       id: WalletLabel
       text: 'Lightning \(Spark\)'
-      containsDescendants:
-        - id: WalletBalance
-          text: ${output.walletBalanceRegex}
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: WalletBalance
+      text: ${output.walletBalanceRegex}
     timeout: 60000
 - assertVisible:
     id: WalletLabel
     text: 'Lightning \(Spark\)'
-    containsDescendants:
-      - id: WalletBalance
-        text: ${output.walletBalanceRegex}
+- assertVisible:
+    id: WalletBalance
+    text: ${output.walletBalanceRegex}
 - assertNotVisible:
-    id: WalletLabel
-    text: 'Lightning \(Spark\)'
-    containsDescendants:
-      - id: WalletBalance
-        text: '^0 sats$'
+    id: WalletBalance
+    text: '^0 sats$'

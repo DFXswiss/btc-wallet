@@ -1,9 +1,9 @@
 # Spark wallet E2E with Maestro
 
 This suite runs the 17 user paths listed in `coverage.md` individually on an iOS
-simulator. Every flow starts the app with cleared state, walks through
-onboarding itself and checks at least one visible state. No flow inherits state
-from a previous one.
+simulator. P01–P15 start the app with cleared state, walk through onboarding
+themselves and check at least one visible state. P16 and P17 do not: they keep
+the existing device wallet and fail if it is missing.
 
 ## Prerequisites
 
@@ -22,7 +22,9 @@ from a previous one.
 - P11, P12, P16 and P17 additionally require an account that is tradable on the
   API side (verified status, a non-zero limit, Lightning deposit addresses). That
   state is set outside the suite; without it those flows fail rather than
-  silently pass.
+  silently pass. P16 and P17 also need an existing Spark wallet on the device
+  and a free Lightning deposit on that tradable account. They do not create a
+  wallet. Without the device wallet they fail rather than skip.
 - P14, P15 and P17 need a Lightning counterpart, configured only through the
   runner's environment (`E2E_TREASURY_URL`, `E2E_TREASURY_KEY`, optional
   `E2E_TREASURY_MAX_SAT` default 1000, optional `E2E_TREASURY_MAX_FEE_SAT` default
@@ -39,11 +41,16 @@ from a previous one.
   are rejected before anything is sent. The helper never prints the key; BOLT11
   values it prints are the invoices the app has to pay (P15 send, P14/P17
   return). The runner does not echo the forwarded values.
-- The given simulator must not hold any wallet state worth protecting. Before
-  every flow the runner terminates and uninstalls the app, resets the simulator
-  keychain and installs the given bundle anew. On top of that every flow starts
-  with `clearState: true`. P14, P15 and P17 later relaunch with `clearState:
-  false` so the Spark row can show the balance after a payment.
+- The given simulator must not hold any wallet state worth protecting for
+  P01–P15. Before every flow the runner terminates and uninstalls the app,
+  resets the simulator keychain and installs the given bundle anew. On top of
+  that P01–P15 start with `clearState: true`. P14, P15 and P17 later relaunch
+  with `clearState: false` so the Spark row can show the balance after a
+  payment. P16 and P17 start with that keep-state launch and need the Spark
+  wallet already on the device; they fail with an explicit assertion if it is
+  missing. The runner's uninstall and keychain reset still discard that wallet,
+  so those two flows cannot be driven through `run-maestro.sh` until that reset
+  is skipped for them.
 
 ## Local DFX stack for P11/P12/P16/P17
 
@@ -86,8 +93,9 @@ bash scripts/e2e/run-maestro.sh \
 
 The values are also accepted positionally as `UDID APP_BUNDLE [FLOW_GLOB]`. UDID
 and app path are mandatory; without them the runner aborts, because the fresh
-state cannot otherwise be guaranteed. The runner resets the simulator before
-every match, installs the bundle and then starts its own `maestro test`. Between
+state cannot otherwise be guaranteed for P01–P15. The runner resets the
+simulator before every match, installs the bundle and then starts its own
+`maestro test`. That reset still discards the P16/P17 device wallet. Between
 two flows it waits 12 seconds so the repeated simulator resets do not overload
 the CoreSimulator services. Before and after every reset `simctl bootstatus -b`
 checks whether the device is booted and ready, and boots a crashed simulator
@@ -128,13 +136,16 @@ on a configuration error or an empty filter.
   that way before every wallet-row assertion that follows a payment. That is a
   product observation, not a persistence test.
 - P16 and P17 take the DFX buy and sell entries through to a Lightning payment
-  instead of stopping at the DFX surface. They need the local DFX stack. P16
-  waits for a Spark credit after the buy payment-information view; that credit
-  does not arrive unless the stack actually completes the buy. P17 funds the
-  Spark wallet, fills the sell IBAN form, then waits for the native sell
-  confirmation and pays. Without the stack, the redirect, or the Spark
-  balance, both flows fail rather than pass. A bank payout, a real CHF transfer,
-  and a camera QR read stay outside the suite.
+  instead of stopping at the DFX surface. They need the local DFX stack, an
+  existing Spark wallet on the device, and a tradable backend account with a
+  free Lightning deposit. They do not create a wallet. P16 waits for a Spark
+  credit after the buy payment-information view; that credit does not arrive
+  unless the stack actually completes the buy. P17 fills the existing Spark
+  wallet from the counterpart if its visible balance is below
+  `E2E_PAYMENT_SAT`, fills the sell IBAN form, then waits for the native sell
+  confirmation and pays. Without the stack, the redirect, the device wallet, or
+  the Spark balance, both flows fail rather than pass. A bank payout, a real CHF
+  transfer, and a camera QR read stay outside the suite.
 - P14 and P17 return the visible Spark balance minus a 4 sat fee reserve in an
   `onFlowComplete` hook (`_return-spark-balance.yaml`), so the return also runs
   after a failed assertion. At the default 10 sat credit that leaves 6 sat
@@ -144,7 +155,8 @@ on a configuration error or an empty filter.
   the 4 sat reserve, or the app is not on the Spark wallet screen) it skips,
   logs that, and does not fail the flow. If a balance was readable and the
   return then fails, the hook fails and the flow is red. An abort before the
-  hook still leaves credit in a wallet the next flow discards with the seed.
+  hook still leaves credit: P14's next flow discards that wallet with the seed;
+  P17 keeps the device wallet, so the leftover stays there.
 - No current physical-device payment proof is claimed here. An earlier note
   about a 10-sat payment on an iPhone is historical and unverified, so it is
   excluded from this suite's evidence.
@@ -162,7 +174,8 @@ on a configuration error or an empty filter.
 - Persistence across app restarts, keychain entitlements, NFC, camera QR reads,
   hardware wallets and multi-device are not part of these 17 paths. The
   P14/P15/P17 relaunch without wiping state only exists so the Spark row can
-  show the new balance; it is not a persistence proof.
+  show the new balance; it is not a persistence proof. P16 and P17 start that
+  way to reuse the existing device wallet, not as a persistence proof.
 - Dynamic Spark and DFX responses can turn the suite red. That is intended; the
   runner does not treat missing external prerequisites as success.
 

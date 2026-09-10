@@ -1,6 +1,7 @@
 appId: swiss.dfx.bitcoin
 env:
   E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
+  E2E_SEND_SAT: ${E2E_SEND_SAT || '1'}
 ---
 - runFlow: ../_setup.yaml
 - runScript:
@@ -53,7 +54,7 @@ env:
     file: ../scripts/payment-amount.js
     env:
       E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
-- assertVisible: ${'^' + output.paymentSat + '$'}
+- assertVisible: '^${E2E_PAYMENT_SAT}$'
 - assertVisible: '^ sats$'
 - assertVisible: '^Maestro-E2E$'
 - assertVisible: 'Fertig'
@@ -103,7 +104,7 @@ env:
 - extendedWaitUntil:
     visible: 'Weiter'
     timeout: 30000
-- assertVisible: ${'^' + output.sendSat + '$'}
+- assertVisible: '^${E2E_SEND_SAT}$'
 - assertVisible: 'Senden'
 - tapOn: 'Weiter'
 - extendedWaitUntil:
@@ -115,7 +116,7 @@ env:
 - extendedWaitUntil:
     visible: 'Fertig'
     timeout: 120000
-- assertVisible: ${'^' + output.sendSat + '$'}
+- assertVisible: '^${E2E_SEND_SAT}$'
 - assertVisible: '^ sats$'
 - assertVisible: '^Maestro-E2E-send$'
 - assertVisible: 'Fertig'

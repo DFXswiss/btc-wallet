@@ -1,13 +1,31 @@
 appId: swiss.dfx.bitcoin
 ---
-- runFlow: ../_setup.yaml
-- tapOn:
-    point: '85%,58%'
-- waitForAnimationToEnd:
-    timeout: 90000
+# Bestehende Spark-Wallet weiterverwenden. Dieser Flow legt keine an.
+- runFlow: ../_relaunch-keep-state.yaml
+- runFlow:
+    when:
+      visible: 'Erstellen'
+    commands:
+      - assertTrue:
+          condition: ${false}
+          label: P16 requires an existing Spark wallet on the device; this flow does not create one
+- runFlow:
+    when:
+      visible: '.*Lightning-Wallet.*Hinzufügen.*'
+    commands:
+      - assertTrue:
+          condition: ${false}
+          label: P16 requires an existing Spark wallet on the device; this flow does not create one
 - extendedWaitUntil:
-    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
     timeout: 90000
+- runFlow:
+    when:
+      notVisible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+    commands:
+      - assertTrue:
+          condition: ${false}
+          label: P16 requires an existing Spark wallet on the device; this flow does not create one
 - extendedWaitUntil:
     visible: 'Externe Services'
     timeout: 90000
@@ -26,8 +44,8 @@ appId: swiss.dfx.bitcoin
 - assertNotVisible: '^Login bei DFX Services$'
 - assertNotVisible: 'Invalid signature'
 # Dieser Abschnitt setzt extern einen lokalen DFX-Stack voraus, in dem der
-# Nutzer bereits handelsfähig ist (Kontostatus, Limit und Einzahlungsadressen).
-# Ohne den Stack bleibt der Flow hier stehen.
+# Nutzer bereits handelsfähig ist (Kontostatus, Limit und ein freies
+# Lightning-Deposit). Ohne den Stack bleibt der Flow hier stehen.
 - waitForAnimationToEnd:
     timeout: 8000
 - tapOn:

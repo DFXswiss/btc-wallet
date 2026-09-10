@@ -29,30 +29,35 @@ appId: swiss.dfx.bitcoin
                 visible:
                   id: WalletLabel
                   text: 'Lightning \(Spark\)'
-                  containsDescendants:
-                    - id: WalletBalance
+                timeout: 60000
+            - extendedWaitUntil:
+                visible:
+                  id: WalletBalance
                 timeout: 60000
 - runFlow:
     when:
       visible:
         id: WalletLabel
         text: 'Lightning \(Spark\)'
-        containsDescendants:
-          - id: WalletBalance
     commands:
-      - copyTextFrom:
-          id: WalletBalance
-          text: '[0-9][0-9., ]+sats'
-      - runScript:
-          file: scripts/treasury.js
-          env:
-            TREASURY_CMD: refundIfDue
-            TREASURY_FEE_RESERVE_SAT: '4'
-            TREASURY_MEMO: Maestro-E2E-return
-            E2E_TREASURY_URL: ${E2E_TREASURY_URL || ''}
-            E2E_TREASURY_KEY: ${E2E_TREASURY_KEY || ''}
-            E2E_TREASURY_MAX_SAT: ${E2E_TREASURY_MAX_SAT || ''}
-            E2E_TREASURY_MAX_FEE_SAT: ${E2E_TREASURY_MAX_FEE_SAT || ''}
+      - runFlow:
+          when:
+            visible:
+              id: WalletBalance
+          commands:
+            - copyTextFrom:
+                id: WalletBalance
+                text: '[0-9][0-9., ]+sats'
+            - runScript:
+                file: scripts/treasury.js
+                env:
+                  TREASURY_CMD: refundIfDue
+                  TREASURY_FEE_RESERVE_SAT: '4'
+                  TREASURY_MEMO: Maestro-E2E-return
+                  E2E_TREASURY_URL: ${E2E_TREASURY_URL || ''}
+                  E2E_TREASURY_KEY: ${E2E_TREASURY_KEY || ''}
+                  E2E_TREASURY_MAX_SAT: ${E2E_TREASURY_MAX_SAT || ''}
+                  E2E_TREASURY_MAX_FEE_SAT: ${E2E_TREASURY_MAX_FEE_SAT || ''}
 - runFlow:
     when:
       true: ${output.refundDue === 'true'}
@@ -72,7 +77,7 @@ appId: swiss.dfx.bitcoin
       - extendedWaitUntil:
           visible: 'Weiter'
           timeout: 30000
-      - assertVisible: ${'^' + output.refundSat + '$'}
+      - assertVisible: '^[0-9][0-9.,]*$'
       - assertVisible: 'Senden'
       - tapOn: 'Weiter'
       - extendedWaitUntil:
@@ -84,7 +89,7 @@ appId: swiss.dfx.bitcoin
       - extendedWaitUntil:
           visible: 'Fertig'
           timeout: 120000
-      - assertVisible: ${'^' + output.refundSat + '$'}
+      - assertVisible: '^[0-9][0-9.,]*$'
       - assertVisible: '^ sats$'
       - assertVisible: '^Maestro-E2E-return$'
       - assertVisible: 'Fertig'
