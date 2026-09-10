@@ -98,6 +98,7 @@ function makeWallet(type = 'sparkWallet') {
     chain: Chain.OFFCHAIN,
     getID: () => 'spark-wallet-id',
     lnAddress: 'alice@example.com',
+    getSparkAddress: jest.fn().mockResolvedValue('spark1abcdefghijklmnopqrstuvwxyz'),
     signCompactMessage: jest.fn().mockResolvedValue('compact-signature'),
     getBalance: () => 100000000,
     getUtxo: () => [{ value: 100000 }],
@@ -135,8 +136,8 @@ it('renders service buttons and forwards a rendered Buy action to openServices',
   await waitFor(() => expect(screen.getByText('External services')).toBeTruthy());
   expect(mockAuth).not.toHaveBeenCalled();
   fireEvent.press(screen.getByTestId('dfx-buy-en'));
-  await waitFor(() => expect(mockAuth).toHaveBeenCalledWith('LNURL1SPARKADDRESS', 'compact-signature'));
-  expect(wallet.signCompactMessage).toHaveBeenCalledWith('sign:LNURL1SPARKADDRESS');
+  await waitFor(() => expect(mockAuth).toHaveBeenCalledWith('spark1abcdefghijklmnopqrstuvwxyz', 'compact-signature'));
+  expect(wallet.signCompactMessage).toHaveBeenCalledWith('sign:spark1abcdefghijklmnopqrstuvwxyz');
   expect(Linking.openURL).toHaveBeenCalledWith(expect.stringContaining('session=access-token'));
 });
 

@@ -1,3 +1,5 @@
+/* global E2E_TREASURY_URL, E2E_TREASURY_KEY, E2E_TREASURY_MAX_SAT, E2E_TREASURY_MAX_FEE_SAT, output, maestro, http */
+/* global TREASURY_FEE_RESERVE_SAT, TREASURY_VISIBLE, TREASURY_MEMO, TREASURY_CMD, TREASURY_SAT, TREASURY_BOLT11, TREASURY_HASH */
 // Lightning counterpart for P14-P17. Speaks the LNbits HTTP API.
 // Prints only the value the caller needs. Never prints the key or a
 // full invoice except the single BOLT11 from the invoice command.

@@ -124,13 +124,11 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
         return await createSession(address.toUpperCase(), wallet.addressOwnershipProof);
       }
       if (wallet.type === SparkWallet.type) {
-        if (!wallet.lnAddress) throw new Error(loc.wallets.lightning_spark_address_unavailable);
-        const address = Lnurl.getLnurlFromAddress(wallet.lnAddress);
+        const address = await wallet.getSparkAddress();
         if (!address) throw new Error(loc.wallets.lightning_spark_address_unavailable);
 
-        const normalizedAddress = address.toUpperCase();
-        const signature = await wallet.signCompactMessage(getSignMessage(normalizedAddress));
-        return await createSession(normalizedAddress, signature);
+        const signature = await wallet.signCompactMessage(getSignMessage(address));
+        return await createSession(address, signature);
       }
     }
 

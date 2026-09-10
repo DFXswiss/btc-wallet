@@ -191,10 +191,12 @@ describe('DFX session lifecycle and failure boundaries', () => {
       lnAddress: 'tap@example.com',
       addressOwnershipProof: 'tap-proof',
     };
+    const sparkAddress = 'spark1abcdefghijklmnopqrstuvwxyz';
     const spark = {
       type: SparkWallet.type,
       getID: () => 'spark',
       lnAddress: 'spark@example.com',
+      getSparkAddress: jest.fn().mockResolvedValue(sparkAddress),
       signCompactMessage: jest.fn().mockResolvedValue('spark-proof'),
     };
     const unsupported = { type: 'unsupported', getID: () => 'unsupported' };
@@ -204,36 +206,34 @@ describe('DFX session lifecycle and failure boundaries', () => {
     mockGetSignMessage.mockClear();
     await expect(invoke(result, current => current.getAccessToken('spark'))).resolves.toBeTruthy();
     expect(mockGetSignMessage).toHaveBeenCalledTimes(1);
-    expect(mockGetSignMessage).toHaveBeenCalledWith('LNURL1ADDRESS');
+    expect(mockGetSignMessage).toHaveBeenCalledWith(sparkAddress);
     expect(spark.signCompactMessage).toHaveBeenCalledTimes(1);
-    expect(spark.signCompactMessage).toHaveBeenCalledWith('sign:LNURL1ADDRESS');
+    expect(spark.signCompactMessage).toHaveBeenCalledWith(`sign:${sparkAddress}`);
     expect(mockAuth).toHaveBeenCalledTimes(3);
-    expect(mockAuth).toHaveBeenCalledWith('LNURL1ADDRESS', 'spark-proof');
+    expect(mockAuth).toHaveBeenCalledWith(sparkAddress, 'spark-proof');
     await expect(invoke(result, current => current.getAccessToken('unsupported'))).rejects.toThrow('TODO');
     expect(mockAuth.mock.calls).toEqual(
       expect.arrayContaining([
         ['LNURL1ADDRESS', 'lds-proof'],
         ['LNURL1ADDRESS', 'tap-proof'],
-        ['LNURL1ADDRESS', expect.any(String)],
+        [sparkAddress, expect.any(String)],
       ]),
     );
   });
 
-  it('rejects a Spark wallet without an LN address without calling auth', async () => {
-    const spark = { type: SparkWallet.type, getID: () => 'spark', signCompactMessage: jest.fn() };
+  it('rejects a Spark wallet without a Spark address without calling auth', async () => {
+    const spark = {
+      type: SparkWallet.type,
+      getID: () => 'spark',
+      lnAddress: 'spark@example.com',
+      getSparkAddress: jest.fn().mockResolvedValue(''),
+      signCompactMessage: jest.fn(),
+    };
     const { result } = renderSession([spark]);
     await expect(invoke(result, current => current.getAccessToken('spark'))).rejects.toThrow('Spark address unavailable');
     expect(mockAuth).not.toHaveBeenCalled();
     expect(spark.signCompactMessage).not.toHaveBeenCalled();
-  });
-
-  it('rejects Spark conversion failures without calling auth', async () => {
-    mockGetLnurlFromAddress.mockReturnValue(undefined);
-    const spark = { type: SparkWallet.type, getID: () => 'spark', lnAddress: 'spark@example.com', signCompactMessage: jest.fn() };
-    const { result } = renderSession([spark]);
-    await expect(invoke(result, current => current.getAccessToken('spark'))).rejects.toThrow('Spark address unavailable');
-    expect(mockAuth).not.toHaveBeenCalled();
-    expect(spark.signCompactMessage).not.toHaveBeenCalled();
+    expect(spark.getSparkAddress).toHaveBeenCalled();
   });
 
   it('opens services with encoded parameters, blocks unavailable sessions, and reports URL failures', async () => {
@@ -249,6 +249,7 @@ describe('DFX session lifecycle and failure boundaries', () => {
       type: SparkWallet.type,
       getID: () => 'wallet/id',
       lnAddress: 'wallet@example.com',
+      getSparkAddress: jest.fn().mockResolvedValue('spark1abcdefghijklmnopqrstuvwxyz'),
       signCompactMessage: jest.fn().mockResolvedValue('proof'),
     };
     const connected = renderSession([wallet]);

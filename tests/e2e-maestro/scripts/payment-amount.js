@@ -1,3 +1,4 @@
+/* global E2E_PAYMENT_SAT, TREASURY_HASH, output */
 // Derives the sat amounts the payment flows type and assert.
 // Default 10, overridable through E2E_PAYMENT_SAT. Send is 1/10 of that
 // (same ratio as the previous 100-of-1000 send) so the Spark fee still fits.

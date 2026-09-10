@@ -109,11 +109,14 @@ describe('DFX wallet session identity', () => {
   });
 
   it('defers Spark authentication while exposing services for the existing on-demand flow', async () => {
+    const sparkAddress = 'spark1abcdefghijklmnopqrstuvwxyz';
     const signCompactMessage = jest.fn().mockResolvedValue('compact-signature');
+    const getSparkAddress = jest.fn().mockResolvedValue(sparkAddress);
     const wallet = {
       type: SparkWallet.type,
       getID: () => 'spark-wallet-id',
       lnAddress: 'alice@example.com',
+      getSparkAddress,
       signCompactMessage,
     };
     const { result } = renderSession([wallet]);
@@ -126,7 +129,7 @@ describe('DFX wallet session identity', () => {
     await act(async () => {
       await result.current.openServices('spark-wallet-id', '1', 'buy');
     });
-    expect(mockAuth).toHaveBeenCalledWith('LNURL1SPARKADDRESS', 'compact-signature');
+    expect(mockAuth).toHaveBeenCalledWith(sparkAddress, 'compact-signature');
     expect(Linking.openURL).toHaveBeenCalledWith(expect.stringContaining('session=access-token'));
   });
 
@@ -239,8 +242,9 @@ describe('DFX wallet session identity', () => {
     expect(mockAuth).toHaveBeenCalledTimes(1);
   });
 
-  it('authenticates a Spark wallet with its uppercase Lightning LNURL without an identity key', async () => {
-    const getSparkAddress = jest.fn();
+  it('authenticates a Spark wallet with its Spark address without uppercasing or an identity key', async () => {
+    const sparkAddress = 'spark1abcdefghijklmnopqrstuvwxyz';
+    const getSparkAddress = jest.fn().mockResolvedValue(sparkAddress);
     const signCompactMessage = jest.fn().mockResolvedValue('compact-signature');
     const wallet = {
       type: SparkWallet.type,
@@ -254,23 +258,27 @@ describe('DFX wallet session identity', () => {
 
     await expect(getAccessToken(result, 'spark-wallet-id')).resolves.toBe('access-token');
 
-    expect(mockGetLnurlFromAddress).toHaveBeenCalledWith('alice@example.com');
-    expect(mockGetSignMessage).toHaveBeenCalledWith('LNURL1SPARKADDRESS');
-    expect(signCompactMessage).toHaveBeenCalledWith('sign:LNURL1SPARKADDRESS');
-    expect(mockAuth).toHaveBeenCalledWith('LNURL1SPARKADDRESS', 'compact-signature');
+    expect(getSparkAddress).toHaveBeenCalled();
+    expect(mockGetLnurlFromAddress).not.toHaveBeenCalled();
+    expect(mockGetSignMessage).toHaveBeenCalledWith(sparkAddress);
+    expect(mockGetSignMessage).not.toHaveBeenCalledWith(sparkAddress.toUpperCase());
+    expect(signCompactMessage).toHaveBeenCalledWith(`sign:${sparkAddress}`);
+    expect(mockAuth).toHaveBeenCalledWith(sparkAddress, 'compact-signature');
     const [address, signature, ...additionalArguments] = mockAuth.mock.calls[0];
+    expect(address).toBe(sparkAddress);
+    expect(address).not.toBe(sparkAddress.toUpperCase());
     const body = {
       address,
       signature,
       ...(additionalArguments.length ? { key: additionalArguments[0] } : {}),
     };
     expect('key' in body).toBe(false);
-    expect(getSparkAddress).not.toHaveBeenCalled();
   });
 
-  it('rejects a Spark wallet without its Lightning address instead of falling back to its Spark address', async () => {
-    const getSparkAddress = jest.fn().mockResolvedValue('spark-fallback-address');
-    const signCompactMessage = jest.fn();
+  it('authenticates a Spark wallet from its Spark address even when Lightning address is missing', async () => {
+    const sparkAddress = 'spark1abcdefghijklmnopqrstuvwxyz';
+    const getSparkAddress = jest.fn().mockResolvedValue(sparkAddress);
+    const signCompactMessage = jest.fn().mockResolvedValue('compact-signature');
     const wallet = {
       type: SparkWallet.type,
       getID: () => 'spark-wallet-id',
@@ -280,16 +288,17 @@ describe('DFX wallet session identity', () => {
     };
     const { result } = renderSession([wallet]);
 
-    await expect(getAccessToken(result, 'spark-wallet-id')).rejects.toThrow('Spark Lightning address is unavailable');
+    await expect(getAccessToken(result, 'spark-wallet-id')).resolves.toBe('access-token');
 
-    expect(mockAuth).not.toHaveBeenCalled();
-    expect(signCompactMessage).not.toHaveBeenCalled();
-    expect(getSparkAddress).not.toHaveBeenCalled();
+    expect(getSparkAddress).toHaveBeenCalled();
+    expect(mockGetLnurlFromAddress).not.toHaveBeenCalled();
+    expect(mockGetSignMessage).toHaveBeenCalledWith(sparkAddress);
+    expect(signCompactMessage).toHaveBeenCalledWith(`sign:${sparkAddress}`);
+    expect(mockAuth).toHaveBeenCalledWith(sparkAddress, 'compact-signature');
   });
 
-  it('rejects a Spark wallet when its Lightning address cannot be converted to an LNURL', async () => {
-    mockGetLnurlFromAddress.mockReturnValue(undefined);
-    const getSparkAddress = jest.fn().mockResolvedValue('spark-fallback-address');
+  it('rejects a Spark wallet without its Spark address instead of falling back to Lightning', async () => {
+    const getSparkAddress = jest.fn().mockResolvedValue('');
     const signCompactMessage = jest.fn();
     const wallet = {
       type: SparkWallet.type,
@@ -303,9 +312,10 @@ describe('DFX wallet session identity', () => {
 
     await expect(getAccessToken(result, 'spark-wallet-id')).rejects.toThrow('Spark Lightning address is unavailable');
 
+    expect(getSparkAddress).toHaveBeenCalled();
     expect(mockAuth).not.toHaveBeenCalled();
     expect(signCompactMessage).not.toHaveBeenCalled();
-    expect(getSparkAddress).not.toHaveBeenCalled();
+    expect(mockGetLnurlFromAddress).not.toHaveBeenCalled();
   });
 
   it('keeps LDS authentication on its uppercase Lightning LNURL without a key', async () => {
