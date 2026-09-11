@@ -1,0 +1,296 @@
+appId: swiss.dfx.bitcoin
+env:
+  E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
+  E2E_SPARK_MNEMONIC: ${E2E_SPARK_MNEMONIC || ''}
+  E2E_SPARK_DEPOSIT_ADDRESS: ${E2E_SPARK_DEPOSIT_ADDRESS || ''}
+onFlowComplete:
+  - runFlow: ../_return-spark-balance.yaml
+---
+# P17 importiert die feste Testidentitaet, oeffnet den DFX-Verkauf und zahlt
+# die stabile Spark-Einzahlungsadresse ueber den Sendeweg der Wallet. Die
+# Adresse kommt aus E2E_SPARK_DEPOSIT_ADDRESS (Fixture), nicht vom Schirm; der
+# Schirm wird gegen deren gekuerzte Form geprueft. Der Beleg ist der gefallene
+# Saldo auf WalletBalance, nicht der Erfolgsschirm.
+- runFlow:
+    when:
+      true: ${E2E_SPARK_DEPOSIT_ADDRESS === ''}
+    commands:
+      - assertTrue:
+          condition: ${false}
+          label: E2E_SPARK_DEPOSIT_ADDRESS is missing. Set the reusable Spark deposit address from the local-stack fixture outside the repository and pass it to maestro test as -e E2E_SPARK_DEPOSIT_ADDRESS. See tests/e2e-maestro/README.md.
+- runFlow:
+    file: ../_setup-import.yaml
+    env:
+      E2E_SPARK_MNEMONIC: ${E2E_SPARK_MNEMONIC || ''}
+- runScript:
+    file: ../scripts/payment-amount.js
+    env:
+      E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
+- evalScript: "${output.paymentBtc = (Number(output.paymentSat) / 100000000).toFixed(8)}"
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+    timeout: 90000
+# 0 sats nach dem Import ist der Zwischenzustand vor der Spark-Synchronisation,
+# kein Befund. Warten, bis eine Ziffer ungleich null steht; optional, damit eine
+# wirklich leere Wallet in die Auffuellung laeuft statt den Flow zu brechen.
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), [1-9].*sats, .*'
+    timeout: 90000
+    optional: true
+- copyTextFrom: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+- evalScript: "${output.needsFunding = (function(){ var t = String(maestro.copiedText || ''); var m = t.match(/([0-9][0-9., ]*)sats/i); var sat = m ? Number(String(m[1]).replace(/[^0-9]/g, '')) : 0; if (!Number.isFinite(sat) || sat < 0) sat = 0; return (sat < Number(output.paymentSat || 10)) ? 'true' : 'false'; })()}"
+# Reicht das sichtbare Guthaben nicht fuer E2E_PAYMENT_SAT, fuellt die
+# Gegenstelle wie bisher auf. Sonst bleibt der vorhandene Saldo.
+- runFlow:
+    when:
+      true: ${output.needsFunding === 'true'}
+    commands:
+      - tapOn:
+          point: '50%,58%'
+      - waitForAnimationToEnd:
+          timeout: 15000
+      - tapOn:
+          point: '16%,93%'
+      - extendedWaitUntil:
+          visible: 'Amount (optional)'
+          timeout: 20000
+      - tapOn: 'Amount (optional)'
+      - inputText: ${output.paymentSat}
+      - tapOn: 'sats'
+      - extendedWaitUntil:
+          visible: '.*lnbc.*'
+          timeout: 30000
+      - tapOn: 'Beschreibung (optional)'
+      - inputText: 'Maestro-E2E'
+      - tapOn: 'sats'
+      # Betragsunabhaengig: 10 sat ist lnbc100n, 1000 sat waere lnbc10u.
+      - extendedWaitUntil:
+          visible: '.*lnbc.*'
+          timeout: 30000
+      - copyTextFrom: '.*lnbc.*'
+      - runScript:
+          file: ../scripts/treasury.js
+          env:
+            TREASURY_CMD: pay
+            E2E_TREASURY_URL: ${E2E_TREASURY_URL || ''}
+            E2E_TREASURY_KEY: ${E2E_TREASURY_KEY || ''}
+            E2E_TREASURY_MAX_SAT: ${E2E_TREASURY_MAX_SAT || ''}
+            E2E_TREASURY_MAX_FEE_SAT: ${E2E_TREASURY_MAX_FEE_SAT || ''}
+      - extendedWaitUntil:
+          visible: 'Fertig'
+          timeout: 120000
+      # runScript ersetzt output. Betragswerte unmittelbar vor der Zusicherung neu setzen.
+      - runScript:
+          file: ../scripts/payment-amount.js
+          env:
+            E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
+      - evalScript: "${output.paymentBtc = (Number(output.paymentSat) / 100000000).toFixed(8)}"
+      - assertVisible: '^${E2E_PAYMENT_SAT}$'
+      - assertVisible: '^ sats$'
+      - assertVisible: '^Maestro-E2E$'
+      - assertVisible: 'Fertig'
+      - tapOn: 'Fertig'
+      - waitForAnimationToEnd:
+          timeout: 15000
+      # Die Listen-Zeile mit dem neuen Saldo erschien erst nach einem Neustart
+      # ohne Zustandsloeschung, nicht auf dem offen gebliebenen Schirm.
+      - runFlow: ../_relaunch-keep-state.yaml
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+    timeout: 90000
+- tapOn:
+    point: '50%,58%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: WalletLabel
+      text: 'Lightning \(Spark\)'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: WalletBalance
+      text: '.*sats'
+    timeout: 60000
+- copyTextFrom:
+    id: WalletBalance
+    text: '[0-9][0-9., ]+sats'
+- evalScript: "${output.walletBalanceText = String(maestro.copiedText || '').trim()}"
+- runScript:
+    file: ../scripts/payment-amount.js
+    env:
+      E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
+      WALLET_BALANCE_TEXT: ${output.walletBalanceText}
+- evalScript: "${output.paymentBtc = (Number(output.paymentSat) / 100000000).toFixed(8)}"
+- extendedWaitUntil:
+    visible: 'Externe Services'
+    timeout: 90000
+# Die Verkaufen-Kachel ist ein Bitmap ohne semantischen Selektor. Bei zwei
+# sichtbaren DFX-Kacheln liegt ihr gemessener Mittelpunkt hier.
+- tapOn:
+    point: '61%,34%'
+- waitForAnimationToEnd:
+    timeout: 30000
+- runFlow:
+    when:
+      visible: 'NUTZERDATEN EINGEBEN'
+    commands:
+      - assertTrue:
+          condition: ${false}
+          label: P17 needs a tradable local-stack account. Run tests/e2e-maestro/scripts/seed-local-backend.sql against the local stack only (see tests/e2e-maestro/README.md).
+- assertNotVisible: '^Login bei DFX Services$'
+- assertNotVisible: 'Invalid signature'
+- tapOn: '0.001'
+- eraseText:
+    charactersToErase: 12
+- inputText: ${output.paymentBtc}
+- assertVisible: '^${output.paymentBtc}$'
+- runFlow:
+    when:
+      visible: '^Weiter$'
+    commands:
+      - tapOn: '^Weiter$'
+- extendedWaitUntil:
+    visible: '^Zahlungsinformation$'
+    timeout: 30000
+- assertVisible: '^Zahlungsinformation$'
+- assertVisible: '^Adresse$'
+- assertVisible: '^Blockchain$'
+- assertVisible: 'Spark'
+# Die Maske kuerzt die Adresse (erste und letzte zwoelf Zeichen). Weicht sie
+# vom Fixture ab, ist das der Fehler, den der Test finden soll.
+- assertVisible: ${E2E_SPARK_DEPOSIT_ADDRESS.slice(0, 12) + '.*' + E2E_SPARK_DEPOSIT_ADDRESS.slice(-12)}
+- runFlow:
+    when:
+      visible: 'Schließen'
+    commands:
+      - tapOn: 'Schließen'
+- runFlow:
+    when:
+      visible: 'Zurück zu BTC Taro'
+    commands:
+      - tapOn: 'Zurück zu BTC Taro'
+- runFlow:
+    when:
+      visible: 'Fertig'
+    commands:
+      - tapOn: 'Fertig'
+- waitForAnimationToEnd:
+    timeout: 15000
+- runFlow:
+    when:
+      notVisible:
+        id: SendButton
+    commands:
+      - runFlow: ../_relaunch-keep-state.yaml
+      - extendedWaitUntil:
+          visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+          timeout: 90000
+      - tapOn:
+          point: '50%,58%'
+      - waitForAnimationToEnd:
+          timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: WalletLabel
+      text: 'Lightning \(Spark\)'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: SendButton
+    timeout: 30000
+- tapOn:
+    id: SendButton
+- waitForAnimationToEnd:
+    timeout: 15000
+# Untere Leiste des QR-Scanners: Bild, Tastatur, Zwischenablage. Die
+# Zwischenablage loest den iOS-Dialog Einsetzen erlauben aus; Tastatur nehmen.
+- tapOn:
+    point: '50%,88%'
+- extendedWaitUntil:
+    visible: 'Fortsetzen'
+    timeout: 20000
+# Die Ueberschrift traegt in der Hierarchie denselben Treffer wie das Feld;
+# ein tapOn auf eine Id trifft den Titel. Der Punkt sitzt im Eingabefeld.
+- tapOn:
+    point: '50%,23%'
+- inputText: ${E2E_SPARK_DEPOSIT_ADDRESS}
+- tapOn: 'Fortsetzen'
+# Der erste Tipp bleibt folgenlos, bis die Eingabe verarbeitet und die
+# Tastatur unten ist. Ist Adresse eingeben danach noch da, genau einmal
+# erneut tippen, keine Schleife.
+- runFlow:
+    when:
+      visible: 'Adresse eingeben'
+    commands:
+      - tapOn: 'Fortsetzen'
+- extendedWaitUntil:
+    visible:
+      id: BitcoinAmountInput
+    timeout: 30000
+- tapOn:
+    point: '44%,20%'
+- eraseText:
+    charactersToErase: 12
+- inputText: ${output.paymentSat}
+# Das Feld haelt eine Null hinter dem Cursor. Ruecktaste loescht die zuletzt
+# getippte Ziffer, nicht die festgehaltene Null; nur ein Betrag, der auf 0
+# endet, bleibt danach korrekt. Nur loeschen, wenn der Betrag tatsaechlich
+# eine angehaengte Null hat.
+- runFlow:
+    when:
+      visible:
+        id: BitcoinAmountInput
+        text: '^${output.paymentSat}0$'
+    commands:
+      - tapOn:
+          point: '83%,88%'
+- assertVisible:
+    id: BitcoinAmountInput
+    text: '^${output.paymentSat}$'
+- tapOn:
+    point: '50%,35%'
+- tapOn: 'Weiter'
+- extendedWaitUntil:
+    visible: 'Zahlen'
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 8000
+- tapOn: 'Zahlen'
+- extendedWaitUntil:
+    visible: 'Fertig'
+    timeout: 120000
+- assertVisible: 'Fertig'
+- tapOn: 'Fertig'
+- waitForAnimationToEnd:
+    timeout: 15000
+- runFlow: ../_relaunch-keep-state.yaml
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+    timeout: 90000
+- tapOn:
+    point: '50%,58%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: WalletLabel
+      text: 'Lightning \(Spark\)'
+    timeout: 60000
+- assertTrue:
+    condition: ${output.walletBalanceRegex != null && output.walletBalanceRegex != '' && output.walletBalanceRegex != 'undefined'}
+    label: walletBalanceRegex missing after payment-amount.js
+- assertTrue:
+    condition: ${output.expectedBalanceRegex != null && output.expectedBalanceRegex != '' && output.expectedBalanceRegex != 'undefined'}
+    label: expectedBalanceRegex missing after payment-amount.js
+- extendedWaitUntil:
+    visible:
+      id: WalletBalance
+      text: ${output.expectedBalanceRegex}
+    timeout: 120000
+- assertVisible:
+    id: WalletBalance
+    text: ${output.expectedBalanceRegex}
+- assertNotVisible:
+    id: WalletBalance
+    text: ${output.walletBalanceRegex}

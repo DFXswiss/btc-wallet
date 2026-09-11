@@ -30,8 +30,12 @@
  * Three checks run over that set, plus one check on the checking:
  *
  *   QR — a decodable QR in a screenshot is an address, a payment request or,
- *   worst case, an encoded seed. Only the receive-address screen may carry one,
- *   and only with a payload shaped like a receive address.
+ *   worst case, an encoded seed. Exactly two screens may carry one, each with
+ *   its own payload shape: the on-chain receive screen
+ *   (`screenshots/04-empfangen-senden/01-erhalten.png`, a Bitcoin receive
+ *   address) and the Spark receive screen with an amount
+ *   (`screenshots/08-lightning/03-rechnung-erstellen.png`, a mainnet BOLT11
+ *   invoice).
  *
  *   Seed phrase — a QR gate is blind to the higher risk: a recovery phrase
  *   printed as plain text on a backup screen. OCR every image and look for a
@@ -80,12 +84,23 @@ const QR_ALLOWLIST = {
     // screenshot without an amount, or widen this with a shape for the
     // parameters, not with `.*`.
   },
+  'screenshots/08-lightning/03-rechnung-erstellen.png': {
+    // Spark receive screen with an amount: the QR is a BOLT11 invoice, not a
+    // Lightning address. Without an amount that screen shows the Breez address
+    // instead — that payload must not pass here, or the handbook would publish
+    // a permanent receive address under an invoice caption.
+    // Mainnet only (`lnbc`), optional amount, bech32 body. No `lightning:`
+    // prefix: the screen encodes the raw invoice. No testnet (`lntb`). No `m`
+    // flag: a second QR on the next line must fail, same as the address entry.
+    payload: /^lnbc(?:[1-9][0-9]*[munp]?)?1[02-9ac-hj-np-z]{50,}$/,
+    reason: 'Lightning invoice on the Spark receive screen — the QR is the subject of the screenshot',
+  },
 };
 
 /**
  * Fail when this many consecutive BIP39 words are read out of one image.
  *
- * Measured over the 70 PNGs the handbook currently publishes — all of them
+ * Measured over the 66 PNGs the handbook currently publishes — all of them
  * German UI — the longest run is 3 ("open source push", from the
  * notification-settings screen). English prose sits higher: over this repo's
  * own English markdown the longest run is 6 ("can you make sure you follow"),
@@ -125,17 +140,20 @@ const SEED_RUN_LIMIT = 5;
  * empty, and the gate reports "longest BIP39 run 0" and exits 0. That is the
  * same vacuous pass the scan-set comparison closes one level up.
  *
- * The 70 published PNGs yield 1264 tokens under tesseract 5.5.3 and 1263 under
- * the 5.3.4 the CI runner ships — a spread of one token.
+ * The 66 published PNGs yield 1147 tokens under tesseract 5.5.3. A previous
+ * measurement on a 70-PNG set gave 1264 under 5.5.3 and 1263 under the 5.3.4
+ * the CI runner ships — a spread of one token; that pair is not re-run on
+ * today's images.
  *
- * 700, not higher: the headroom argument only works pro rata. Dropping to the
- * MIN_SCREENSHOTS floor of 35 images leaves ~1055 tokens if the images that go
- * are average, but the seven most text-rich alone carry ~500, so a legitimate
- * edit could land near 750. A floor above that would report "broken tool" for a
- * content change, which is the wrong diagnosis at the wrong moment.
+ * 700, not higher: the headroom argument only works pro rata. On that earlier
+ * 70-PNG / 42-screenshot set, dropping to the MIN_SCREENSHOTS floor of 35
+ * images left ~1055 tokens if the images that go were average, but the seven
+ * most text-rich alone carried ~500, so a legitimate edit could land near 750.
+ * A floor above that would report "broken tool" for a content change, which is
+ * the wrong diagnosis at the wrong moment.
  *
- * Not lower either: 300 was 24% of the yield, and the four most text-rich
- * images clear that on their own.
+ * Not lower either: 300 was 24% of that earlier yield, and the four most
+ * text-rich images clear that on their own.
  *
  * The sum only measures bulk. Partial blindness is caught by
  * SCREENSHOTS_MUST_YIELD_OCR, which looks at every screenshot individually — that is
@@ -157,12 +175,13 @@ const MIN_OCR_TOKENS = 700;
  * contradictory: listing the file fails on one version, omitting it on the
  * other.
  *
- * Screenshots do not have that problem — the thinnest returns 5 tokens on both
- * versions, and all 42 clear it. Assets are borderline by nature: 21 of 28
- * return nothing at all and the rest one to four words.
+ * Screenshots do not have that problem — the thinnest returned 5 tokens on
+ * both versions on an earlier 42-screenshot set, and all 38 today clear it.
+ * Assets are borderline by nature: 21 of 28 returned nothing at all on that
+ * run and the rest one to four words.
  *
  * What is left uncovered is narrow: a tool that goes blind for one asset and
- * nothing else. Real blindness shows up across all 42 screenshots at once, and
+ * nothing else. Real blindness shows up across all 38 screenshots at once, and
  * the token floor catches the bulk case — so the residue is a failure mode
  * nobody has seen, traded against a check that provably cannot hold.
  */
@@ -184,7 +203,7 @@ const SCREENSHOTS_MUST_YIELD_OCR = 'screenshots/';
  * with the render set — a second measurement on a different set put them at 17
  * and 1 — but the gap is the point, and it is an order of magnitude either way.
  *
- * False positives measured at 0 over the OCR text of all 70 published PNGs,
+ * False positives measured at 0 over the OCR text of all 66 published PNGs,
  * every .md and loc/*.json in this repository, and /usr/share/dict/words.
  *
  * Upper case matters for two reasons: this wallet emits `Ypub` and `Zpub` for
@@ -506,7 +525,7 @@ function requireTool(tool, versionArgs, hint) {
  *
  * Accents are folded on both sides so `éolien` and OCR's `eolien` are the same
  * word. Measured: the union is 12114 words against English's 2048, and the
- * longest natural run over the 70 published PNGs stays at 3 either way.
+ * longest natural run over the 66 published PNGs stays at 3 either way.
  */
 const BIP39_LATIN_WORDLISTS = ['english', 'french', 'spanish', 'italian', 'czech', 'portuguese'];
 

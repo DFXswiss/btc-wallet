@@ -55,7 +55,7 @@ const actionIcons: { [key: string]: ActionIcons } = {
 };
 
 const QRCodeComponent: React.FC<QRCodeComponentProps> = ({
-  value = '',
+  value,
   isLogoRendered = true,
   isMenuAvailable = true,
   logoSize = 90,

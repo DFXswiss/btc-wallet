@@ -145,6 +145,16 @@ class DeeplinkSchemaMatch {
           },
         },
       ]);
+    } else if (DeeplinkSchemaMatch.isSparkAddress(event.url)) {
+      completionHandler([
+        'SendDetailsRoot',
+        {
+          screen: 'ScanLndInvoice',
+          params: {
+            uri: event.url,
+          },
+        },
+      ]);
     } else if (DeeplinkSchemaMatch.isLnUrl(event.url)) {
       // at this point we can not tell if it is lnurl-pay or lnurl-withdraw since it needs additional async call
       // to the server, which is undesirable here, so LNDCreateInvoice screen will handle it for us and will
@@ -395,6 +405,11 @@ class DeeplinkSchemaMatch {
     return isValidLightningInvoice;
   }
 
+  static isSparkAddress(address) {
+    const { SparkWallet } = require('./wallets/spark-wallet');
+    return SparkWallet.isSparkAddress(address);
+  }
+
   static isTestnetLightningInvoice(invoice) {
     let isValidLightningInvoice = false;
     if (
@@ -504,6 +519,7 @@ class DeeplinkSchemaMatch {
     if (Lnurl.isLightningAddress(text)) return true;
     if (DeeplinkSchemaMatch.isLightningInvoice(text)) return true;
     if (DeeplinkSchemaMatch.isTestnetLightningInvoice(text)) return true;
+    if (DeeplinkSchemaMatch.isSparkAddress(text)) return true;
 
     if (options.includeDualFormats) {
       if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(text)) return true;

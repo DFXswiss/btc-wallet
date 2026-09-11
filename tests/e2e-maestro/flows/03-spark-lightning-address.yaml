@@ -1,0 +1,23 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: ../_setup.yaml
+- tapOn:
+    point: '85%,58%'
+- waitForAnimationToEnd:
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    timeout: 90000
+# Der Wallet-Zeilentext ist ein zusammengesetztes accessibilityText; der Punkt
+# entspricht der Spark-Zeile im vorhandenen Simulator-Flow.
+- tapOn:
+    point: '50%,58%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- tapOn:
+    point: '16%,93%'
+- extendedWaitUntil:
+    visible: '.*@breez\.tips.*'
+    timeout: 30000
+- assertVisible: '.*@breez\.tips.*'
+- assertNotVisible: 'Eine Empfangsadresse ist noch nicht vorhanden.*'

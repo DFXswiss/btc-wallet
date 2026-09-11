@@ -35,6 +35,13 @@ jest.mock('react-native-watch-connectivity', () => {
     getIsWatchAppInstalled: jest.fn(() => Promise.resolve(false)),
     subscribeToMessages: jest.fn(),
     updateApplicationContext: jest.fn(),
+    transferCurrentComplicationUserInfo: jest.fn(),
+    useReachability: jest.fn(() => false),
+    usePaired: jest.fn(() => false),
+    useInstalled: jest.fn(() => false),
+    watchEvents: {
+      addListener: jest.fn(() => jest.fn()),
+    },
   };
 });
 
@@ -181,6 +188,9 @@ jest.mock('react-native-biometrics', () => {
     BiometryTypes: RN.BiometryTypes,
   };
 });
+
+// Native TurboModule — use the manual mock under __mocks__/@breeztech/
+jest.mock('@breeztech/breez-sdk-spark-react-native');
 
 jest.mock('react-native-haptic-feedback', () => {
   return {

@@ -1,0 +1,90 @@
+appId: swiss.dfx.bitcoin
+env:
+  E2E_SPARK_MNEMONIC: ${E2E_SPARK_MNEMONIC || ''}
+---
+# Vorlauf fuer P16/P17. Importiert eine feste Wallet statt eine zufaellige
+# anzulegen, und ergaenzt danach die Spark-Wallet. Die Mnemonic kommt nur aus
+# E2E_SPARK_MNEMONIC (ausserhalb des Repos, maestro test -e). Fehlt sie, bricht
+# der Flow laut ab. Eine importierte Wallet zeigt kein Wallet Backup; der
+# Schlussteil prueft die Liste, nicht den Backup-Schirm.
+- runFlow:
+    when:
+      true: ${E2E_SPARK_MNEMONIC === ''}
+    commands:
+      - assertTrue:
+          condition: ${false}
+          label: E2E_SPARK_MNEMONIC is missing. Set it outside the repository and pass it to maestro test as -e E2E_SPARK_MNEMONIC. See tests/e2e-maestro/README.md.
+- launchApp:
+    clearState: true
+- runFlow:
+    when:
+      visible: 'Nicht erlauben'
+    commands:
+      - tapOn: 'Nicht erlauben'
+- extendedWaitUntil:
+    visible: 'Wallet importieren'
+    timeout: 60000
+- tapOn: 'Wallet importieren'
+- waitForAnimationToEnd:
+    timeout: 12000
+- runFlow:
+    when:
+      visible: 'Nicht erlauben'
+    commands:
+      - tapOn: 'Nicht erlauben'
+# Untere Leiste der Scanner-Ansicht: Bild, Tastatur. Der Punkt oeffnet die
+# manuelle Eingabe; die Kamera wird nicht benutzt.
+- tapOn:
+    point: '61%,88%'
+- extendedWaitUntil:
+    visible:
+      id: MnemonicInput
+    timeout: 20000
+- tapOn:
+    id: MnemonicInput
+- inputText: ${E2E_SPARK_MNEMONIC}
+- waitForAnimationToEnd:
+    timeout: 3000
+# Ohne Fertig bleibt die Tastatur ueber DoImport.
+- tapOn: 'Fertig'
+- extendedWaitUntil:
+    visible:
+      id: DoImport
+    timeout: 10000
+- tapOn:
+    id: DoImport
+- extendedWaitUntil:
+    visible: '.*On-Chain-Wallet.*'
+    timeout: 90000
+- assertVisible: '.*On-Chain-Wallet.*'
+- assertVisible: '.*Lightning-Wallet.*'
+# Den Mitteilungsdialog jetzt provozieren und entfernen. Andernfalls kann er
+# spaetere Zusicherungen oder die Hinzufuegen-Schaltflaeche verdecken.
+- tapOn:
+    point: '16%,93%'
+- waitForAnimationToEnd:
+    timeout: 12000
+- runFlow:
+    when:
+      visible: 'Nicht erlauben'
+    commands:
+      - tapOn: 'Nicht erlauben'
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn: 'Schließen'
+- extendedWaitUntil:
+    visible: '.*On-Chain-Wallet.*'
+    timeout: 30000
+# Hinzufuegen in der Zeile Bitcoin / Lightning-Wallet. Ohne Backup-Schirm
+# liegt die Schaltflaeche hier, nicht an der Position aus Flow 02.
+- tapOn:
+    point: '75%,58%'
+- waitForAnimationToEnd:
+    timeout: 90000
+# Die Zeile kann 0 oder ein bereits vorhandenes Spark-Guthaben der festen
+# Identitaet zeigen; die Suite muss dieselbe Adresse wiederverwenden koennen.
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+    timeout: 90000
+- assertVisible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+- assertNotVisible: '.*Lightning-Wallet.*Hinzufügen.*'

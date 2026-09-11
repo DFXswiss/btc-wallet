@@ -1,0 +1,175 @@
+appId: swiss.dfx.bitcoin
+env:
+  E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
+  E2E_SPARK_MNEMONIC: ${E2E_SPARK_MNEMONIC || ''}
+  E2E_SPARK_WALLET_ADDRESS: ${E2E_SPARK_WALLET_ADDRESS || ''}
+  E2E_SPARK_PAYOUT_URL: ${E2E_SPARK_PAYOUT_URL || ''}
+  E2E_SPARK_PAYOUT_KEY: ${E2E_SPARK_PAYOUT_KEY || ''}
+  E2E_SPARK_PAYOUT_MAX_SAT: ${E2E_SPARK_PAYOUT_MAX_SAT || ''}
+---
+# P16 prueft die Kaufmaske der Wallet ueber Spark: die Maske nennt die
+# gekuerzte eigene Wallet-Adresse und Spark, die Zahlungsinformation zeigt
+# IBAN und BIC, Invalid signature bleibt aus.
+#
+# Die Auszahlung laeuft ueber Spark, aus der Spark-Wallet des Backends —
+# derselben, aus der DFX real auszahlen wuerde.
+# Sie ist trotzdem simuliert: ausgeloest vom Test, nicht von einer Fiat-
+# Gutschrift. BuyCrypto und die Verarbeitung auf DFX-Seite bleiben unberuehrt.
+# Belegt ist, dass die in der Kaufmaske genannte Adresse ueber Spark zahlbar
+# ist und das Geld dort ankommt — nicht, dass DFX' Auszahlungsstrecke
+# funktioniert.
+- runFlow:
+    when:
+      true: ${E2E_SPARK_WALLET_ADDRESS === ''}
+    commands:
+      - assertTrue:
+          condition: ${false}
+          label: E2E_SPARK_WALLET_ADDRESS is missing. Set the identity's own Spark address (user.address on the local stack) outside the repository and pass it to maestro test as -e E2E_SPARK_WALLET_ADDRESS. See tests/e2e-maestro/README.md. Do not use E2E_SPARK_DEPOSIT_ADDRESS; that is DFX's sell deposit, not the wallet's receive address.
+- runFlow:
+    file: ../_setup-import.yaml
+    env:
+      E2E_SPARK_MNEMONIC: ${E2E_SPARK_MNEMONIC || ''}
+- runScript:
+    file: ../scripts/payment-amount.js
+    env:
+      E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Externe Services'
+    timeout: 90000
+# Die Kaufen-Kachel ist ein Bitmap in ImageButton ohne testID oder
+# accessibilityLabel. Der Punkt wurde am gerenderten Handbuchbild gemessen.
+- tapOn:
+    point: '38%,34%'
+- waitForAnimationToEnd:
+    timeout: 30000
+- runFlow:
+    when:
+      visible: 'NUTZERDATEN EINGEBEN'
+    commands:
+      - assertTrue:
+          condition: ${false}
+          label: P16 needs a tradable local-stack account. Run tests/e2e-maestro/scripts/seed-local-backend.sql against the local stack only (see tests/e2e-maestro/README.md).
+- extendedWaitUntil:
+    visible: '^Kaufen$'
+    timeout: 30000
+- assertVisible: '^DFX\.swiss \| Buy & Sell directly into your wallet$'
+- assertVisible: '^Kaufen$'
+- assertNotVisible: '^Login bei DFX Services$'
+- assertNotVisible: 'Invalid signature'
+- waitForAnimationToEnd:
+    timeout: 8000
+# Das Neuladen-Icon des In-App-Browsers hat keinen semantischen Selektor. Der
+# Punkt wurde im Simulator am gerenderten Browser gemessen. Ohne diesen Reload
+# behaelt die Seite den verfruehten KYC-Zustand.
+- tapOn:
+    point: '72%,93%'
+# Adresse und Netz stehen in einem Element, zeilenumbruchgetrennt. Das Muster
+# kommt von E2E_SPARK_WALLET_ADDRESS (erste und letzte zwoelf Zeichen), wie
+# P17 die Einzahlungsadresse kuerzt; (?s) laesst den Punkt den Umbruch
+# ueberqueren. Erst danach zur Zahlungsinformation.
+- extendedWaitUntil:
+    visible: ${'(?s)' + E2E_SPARK_WALLET_ADDRESS.slice(0, 12) + '.*' + E2E_SPARK_WALLET_ADDRESS.slice(-12) + '.*Spark'}
+    timeout: 30000
+- assertVisible: ${'(?s)' + E2E_SPARK_WALLET_ADDRESS.slice(0, 12) + '.*' + E2E_SPARK_WALLET_ADDRESS.slice(-12) + '.*Spark'}
+- scrollUntilVisible:
+    element: 'IBAN'
+    direction: DOWN
+    timeout: 20000
+- assertVisible: '^Zahlungsinformation$'
+- assertVisible: 'IBAN'
+- assertVisible: 'BIC'
+- assertNotVisible: 'Invalid signature'
+- assertNotVisible: '^KYC VERVOLLSTÄNDIGEN$'
+- assertNotVisible: 'NUTZERDATEN EINGEBEN'
+- runFlow:
+    when:
+      visible: 'Schließen'
+    commands:
+      - tapOn: 'Schließen'
+- runFlow:
+    when:
+      visible: 'Zurück zu BTC Taro'
+    commands:
+      - tapOn: 'Zurück zu BTC Taro'
+- runFlow:
+    when:
+      visible: 'Fertig'
+    commands:
+      - tapOn: 'Fertig'
+- waitForAnimationToEnd:
+    timeout: 15000
+- runFlow:
+    when:
+      notVisible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+    commands:
+      - runFlow: ../_relaunch-keep-state.yaml
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+    timeout: 90000
+- tapOn:
+    point: '50%,58%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: WalletLabel
+      text: 'Lightning \(Spark\)'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: WalletBalance
+      text: '.*sats'
+    timeout: 60000
+- copyTextFrom:
+    id: WalletBalance
+    text: '[0-9][0-9., ]+sats'
+- evalScript: "${output.walletBalanceText = String(maestro.copiedText || '').trim()}"
+# runScript setzt output zurueck. Der gemerkte Saldo geht deshalb als env
+# hinein und kommt als Ausgabe wieder heraus; das erwartete Muster wird erst
+# danach gerechnet.
+- runScript:
+    file: ../scripts/spark-payout.js
+    env:
+      E2E_SPARK_PAYOUT_URL: ${E2E_SPARK_PAYOUT_URL || ''}
+      E2E_SPARK_PAYOUT_KEY: ${E2E_SPARK_PAYOUT_KEY || ''}
+      E2E_SPARK_PAYOUT_MAX_SAT: ${E2E_SPARK_PAYOUT_MAX_SAT || ''}
+      E2E_SPARK_WALLET_ADDRESS: ${E2E_SPARK_WALLET_ADDRESS || ''}
+      E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
+      SPARK_WALLET_BALANCE: ${output.walletBalanceText}
+- assertTrue: ${output.payoutOk === 'true'}
+- assertTrue:
+    condition: ${output.walletBalanceRegex != null && output.walletBalanceRegex != '' && output.walletBalanceRegex != 'undefined'}
+    label: walletBalanceRegex missing after spark-payout.js
+- assertTrue:
+    condition: ${output.expectedBalanceRegex != null && output.expectedBalanceRegex != '' && output.expectedBalanceRegex != 'undefined'}
+    label: expectedBalanceRegex missing after spark-payout.js
+- runFlow: ../_relaunch-keep-state.yaml
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+    timeout: 90000
+- tapOn:
+    point: '50%,58%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: WalletLabel
+      text: 'Lightning \(Spark\)'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: WalletBalance
+      text: ${output.expectedBalanceRegex}
+    timeout: 120000
+- assertVisible:
+    id: WalletLabel
+    text: 'Lightning \(Spark\)'
+- assertVisible:
+    id: WalletBalance
+    text: ${output.expectedBalanceRegex}
+- assertNotVisible:
+    id: WalletBalance
+    text: ${output.walletBalanceRegex}

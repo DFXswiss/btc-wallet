@@ -1,0 +1,110 @@
+appId: swiss.dfx.bitcoin
+---
+# Abschluss-Hook fuer P14/P17. Liest den Spark-Saldo im Wallet-Detailkopf
+# (WalletLabel + WalletBalance). Fehlt der Kopf, Skip (gruen). Ist der gelesene
+# Saldo 0 oder unter der Gebuehrenreserve (4 sat), Skip (gruen) — bei 10 sat
+# Guthaben bleiben 6 sat rueckfuehrbar, bei Rest <= 4 sat faellt die
+# Rueckfuehrung sauber aus und faerbt den Lauf nicht rot. Ist ein
+# Rueckzahlbetrag da und die Rueckfuehrung scheitert, oder der sichtbare Saldo
+# laesst sich nicht als sats lesen, faerbt der Hook den Flow rot.
+- evalScript: "${output.refundDue = 'false'; output.refundSkip = 'not-visible'}"
+# Nach einer gescheiterten Zusicherung auf dem Erfolgsbildschirm ist
+# WalletBalance nicht sichtbar, der Saldo aber vorhanden. Dann neu starten
+# und die Spark-Wallet oeffnen, sonst bleibt die Rueckfuehrung stumm.
+- runFlow:
+    when:
+      notVisible:
+        id: WalletBalance
+    commands:
+      - runFlow: _relaunch-keep-state.yaml
+      - runFlow:
+          when:
+            visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+          commands:
+            - tapOn:
+                point: '50%,58%'
+            - waitForAnimationToEnd:
+                timeout: 15000
+            - extendedWaitUntil:
+                visible:
+                  id: WalletLabel
+                  text: 'Lightning \(Spark\)'
+                timeout: 60000
+            - extendedWaitUntil:
+                visible:
+                  id: WalletBalance
+                timeout: 60000
+- runFlow:
+    when:
+      visible:
+        id: WalletLabel
+        text: 'Lightning \(Spark\)'
+    commands:
+      - runFlow:
+          when:
+            visible:
+              id: WalletBalance
+          commands:
+            - copyTextFrom:
+                id: WalletBalance
+                text: '[0-9][0-9., ]+sats'
+            - runScript:
+                file: scripts/treasury.js
+                env:
+                  TREASURY_CMD: refundIfDue
+                  TREASURY_FEE_RESERVE_SAT: '4'
+                  TREASURY_MEMO: Maestro-E2E-return
+                  E2E_TREASURY_URL: ${E2E_TREASURY_URL || ''}
+                  E2E_TREASURY_KEY: ${E2E_TREASURY_KEY || ''}
+                  E2E_TREASURY_MAX_SAT: ${E2E_TREASURY_MAX_SAT || ''}
+                  E2E_TREASURY_MAX_FEE_SAT: ${E2E_TREASURY_MAX_FEE_SAT || ''}
+- runFlow:
+    when:
+      true: ${output.refundDue === 'true'}
+    commands:
+      - openLink:
+          link: ${'dfxtaro:lightning:' + output.bolt11}
+      - runFlow:
+          when:
+            visible: 'Öffnen'
+          commands:
+            - tapOn: 'Öffnen'
+      - runFlow:
+          when:
+            visible: 'Open'
+          commands:
+            - tapOn: 'Open'
+      - extendedWaitUntil:
+          visible: 'Weiter'
+          timeout: 30000
+      - assertVisible: '^[0-9][0-9.,]*$'
+      - assertVisible: 'Senden'
+      - tapOn: 'Weiter'
+      - extendedWaitUntil:
+          visible: 'Zahlen'
+          timeout: 60000
+      - waitForAnimationToEnd:
+          timeout: 8000
+      - tapOn: 'Zahlen'
+      - extendedWaitUntil:
+          visible: 'Fertig'
+          timeout: 120000
+      - assertVisible: '^[0-9][0-9.,]*$'
+      - assertVisible: '^ sats$'
+      - assertVisible: '^Maestro-E2E-return$'
+      - assertVisible: 'Fertig'
+      - runScript:
+          file: scripts/treasury.js
+          env:
+            TREASURY_CMD: status
+            TREASURY_HASH: ${output.paymentHash || ''}
+            E2E_TREASURY_URL: ${E2E_TREASURY_URL || ''}
+            E2E_TREASURY_KEY: ${E2E_TREASURY_KEY || ''}
+            E2E_TREASURY_MAX_SAT: ${E2E_TREASURY_MAX_SAT || ''}
+            E2E_TREASURY_MAX_FEE_SAT: ${E2E_TREASURY_MAX_FEE_SAT || ''}
+      - assertTrue: ${output.treasuryPaid === 'true'}
+- runFlow:
+    when:
+      true: ${output.refundDue !== 'true' && output.treasuryPaid !== 'true'}
+    commands:
+      - evalScript: "${console.log('refund skipped: ' + output.refundSkip)}"

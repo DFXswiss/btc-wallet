@@ -10,5 +10,14 @@
     "element": false,
     "expect": false,
     "waitFor": false
-  }
+  },
+  "overrides": [
+    {
+      "files": ["e2e-maestro/scripts/**/*.js"],
+      "globals": {
+        "maestro": false,
+        "output": false
+      }
+    }
+  ]
 }

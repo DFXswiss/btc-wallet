@@ -1,0 +1,13 @@
+appId: swiss.dfx.bitcoin
+---
+# Neustart ohne Zustandsloeschung. Die Spark-Zeile zeigte den neuen
+# Saldo erst nach diesem Weg, nicht auf dem offen gebliebenen Schirm.
+- launchApp:
+    clearState: false
+- waitForAnimationToEnd:
+    timeout: 15000
+- runFlow:
+    when:
+      visible: 'Nicht erlauben'
+    commands:
+      - tapOn: 'Nicht erlauben'

@@ -1,0 +1,43 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: ../_setup.yaml
+- tapOn:
+    point: '85%,58%'
+- waitForAnimationToEnd:
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Externe Services'
+    timeout: 90000
+# Die Verkaufen-Kachel ist ein Bitmap ohne semantischen Selektor. Bei zwei
+# sichtbaren DFX-Kacheln liegt ihr gemessener Mittelpunkt hier.
+- tapOn:
+    point: '61%,34%'
+- waitForAnimationToEnd:
+    timeout: 30000
+# Die IBAN-Aktion unterscheidet die Verkaufsmaske vom Login und von der
+# Kaufmaske; der exakte Seitentitel belegt den externen Uebergang.
+- extendedWaitUntil:
+    visible: '^Deine IBAN hinzufügen oder auswählen$'
+    timeout: 30000
+- assertVisible: '^DFX\.swiss \| Buy & Sell directly into your wallet$'
+- assertVisible: '^Deine IBAN hinzufügen oder auswählen$'
+- assertNotVisible: '^Login bei DFX Services$'
+- assertNotVisible: 'Invalid signature'
+# Dieser Abschnitt setzt extern einen lokalen DFX-Stack voraus, in dem der
+# Nutzer bereits handelsfähig ist (Kontostatus, Limit und Einzahlungsadressen).
+- tapOn: '^Deine IBAN hinzufügen oder auswählen$'
+- extendedWaitUntil:
+    visible: '^Bankkonto auswählen$'
+    timeout: 30000
+- tapOn: 'XX XXXX XXXX XXXX XXXX X'
+- inputText: 'DE89370400440532013000'
+- hideKeyboard
+- tapOn: '^BANKVERBINDUNG HINZUFÜGEN$'
+- extendedWaitUntil:
+    visible: '^DE89 3704 0044 0532 0130 00$'
+    timeout: 30000
+- assertVisible: '^DE89 3704 0044 0532 0130 00$'
+- assertNotVisible: '^Deine IBAN hinzufügen oder auswählen$'

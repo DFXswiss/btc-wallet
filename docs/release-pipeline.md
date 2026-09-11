@@ -113,6 +113,7 @@ All implemented in one PR ([#181](https://github.com/DFXswiss/btc-wallet/pull/18
 | `TRANSPARENCY_*`              | Android  | code-transparency signing (already present)                |
 | `SENTRY_AUTH_TOKEN`           | both     | crash-symbol/sourcemap upload auth (see `docs/release-pipeline-setup.md`) |
 | `SENTRY_URL`, `SENTRY_ORG`, `SENTRY_PROJECT` | both | not secrets, but required alongside the token — same doc |
+| `BREEZ_API_KEY`               | both     | Spark Lightning: baked into the binary via an overlay `.env`; missing key fails the build (see setup runbook) |
 
 No secret **values** live in this repo — only names. Provision them in repo/org settings.
 

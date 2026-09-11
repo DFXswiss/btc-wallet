@@ -2649,4 +2649,171 @@ describe('unit - handbook build guards', () => {
       releaseHandbookDataDir(handle);
     }
   });
+
+  it('reports usage when invoked without an output directory', function () {
+    const r = spawnSync(process.execPath, [SCRIPT], {
+      encoding: 'utf8',
+      env: { ...process.env, NODE_PATH: markedNodePath },
+      timeout: 60000,
+    });
+    assert.notStrictEqual(r.status, 0, r.stderr);
+    assert.match(`${r.stderr}\n${r.stdout}`, /Usage: node scripts\/handbook\/build\.js <output-dir>/);
+  });
+
+  it('accepts null metadata and non-object metadata sections safely', function () {
+    const handle = ensureHandbookDataDir();
+    try {
+      const metadataPath = path.join(handle.dir, 'metadata.json');
+      const { fixture: nullFixture, out: nullOut } = freshDirs();
+      populateValidFixture(nullFixture, { shotSize: MIN_PNG_BYTES + 1 });
+      fs.writeFileSync(metadataPath, 'null\n', 'utf8');
+      const nullRun = runBuild(nullOut, {
+        HANDBOOK_REPO_ROOT: nullFixture,
+        NODE_PATH: markedNodePath,
+        GIT_SHA: 'metadata-null',
+      });
+      assert.strictEqual(nullRun.status, 0, nullRun.stderr);
+      assert.ok(fs.existsSync(path.join(nullOut, 'manifest.json')));
+      const nullManifest = JSON.parse(fs.readFileSync(path.join(nullOut, 'manifest.json'), 'utf8'));
+      assert.ok(Array.isArray(nullManifest.artifacts));
+      assert.ok(nullManifest.artifacts.some(a => a.category === 'page' && typeof a.outputPath === 'string'));
+
+      const { fixture: invalidFixture, out: invalidOut } = freshDirs();
+      populateValidFixture(invalidFixture, { shotSize: MIN_PNG_BYTES + 1 });
+      fs.writeFileSync(metadataPath, JSON.stringify({ screenshots: 'not-an-object', docs: null }) + '\n', 'utf8');
+      const invalidRun = runBuild(invalidOut, {
+        HANDBOOK_REPO_ROOT: invalidFixture,
+        NODE_PATH: markedNodePath,
+        GIT_SHA: 'metadata-invalid',
+      });
+      assert.strictEqual(invalidRun.status, 0, invalidRun.stderr);
+      const manifest = JSON.parse(fs.readFileSync(path.join(invalidOut, 'manifest.json'), 'utf8'));
+      assert.ok(manifest.artifacts.length > 0);
+      assert.ok(manifest.artifacts.some(a => a.category === 'page' && typeof a.sourcePath === 'string'));
+    } finally {
+      releaseHandbookDataDir(handle);
+    }
+  });
+
+  it('lists existing content files when the locale floor fails', function () {
+    const handle = ensureHandbookDataDir();
+    try {
+      const files = fs
+        .readdirSync(path.join(handle.dir, 'content'))
+        .filter(name => name.endsWith('.json'))
+        .sort();
+      assert.ok(files.length > 1, `expected multiple content fixtures, saw ${files}`);
+      for (const name of files.slice(1)) fs.unlinkSync(path.join(handle.dir, 'content', name));
+      const { fixture, out } = freshDirs();
+      populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+      const r = runBuild(out, { HANDBOOK_REPO_ROOT: fixture, NODE_PATH: markedNodePath });
+      assert.notStrictEqual(r.status, 0, r.stderr);
+      assert.match(r.stderr, /handbook floor guard: found 1 content locales/);
+      assert.match(r.stderr, new RegExp(`files=\\[${files[0]}\\]`));
+      assert.doesNotMatch(r.stderr, /files=\[\(none\)\]/);
+    } finally {
+      releaseHandbookDataDir(handle);
+    }
+  });
+
+  it('puts a root-level screenshot in the allgemeine manifest group', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    writePng(path.join(fixture, 'docs/handbook/screenshots/root-level.png'), MIN_PNG_BYTES + 1);
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 'root-shot',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const manifest = JSON.parse(fs.readFileSync(path.join(out, 'manifest.json'), 'utf8'));
+    const rootShot = manifest.artifacts.find(a => a.outputPath === 'screenshots/root-level.png');
+    assert.ok(rootShot, 'root-level screenshot must be emitted');
+    assert.strictEqual(rootShot.group, 'allgemein');
+  });
+
+  it('truncates long Git revisions in the developer statistics', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: '1234567890abcdef',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+    const shaStat = index.match(/<div class="stat stat-sha"><span class="n">([^<]+)<\/span>/);
+    assert.ok(shaStat, 'developer revision stat');
+    assert.strictEqual(shaStat[1], '1234567890ab');
+    const footerSha = index.match(/<footer class="footer">[\s\S]*?<code>([^<]+)<\/code>/);
+    assert.ok(footerSha, 'footer revision');
+    assert.strictEqual(footerSha[1], '1234567890abcdef');
+  });
+
+  it('uses the first locale structure then fails closed without German index', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    withPatchedContent(
+      'de',
+      data => {
+        data.locale = 'zz';
+      },
+      () =>
+        withPatchedContent(
+          'fr',
+          data => {
+            data.chapters[0].id = null;
+            data.chapters[0].title = null;
+          },
+          () => {
+            const r = runBuild(out, {
+              HANDBOOK_REPO_ROOT: fixture,
+              NODE_PATH: markedNodePath,
+              GIT_SHA: 'locale-fallback',
+            });
+            assert.notStrictEqual(r.status, 0, r.stderr);
+            assert.match(r.stderr, /integrity check failed.*missing index\.html/);
+            assert.ok(fs.existsSync(path.join(out, 'zz', 'index.html')));
+            assert.match(r.stderr, /missing in content locale "fr"/);
+          },
+        ),
+    );
+  });
+
+  it('renders safe defaults when optional locale UI and metadata fields are absent', function () {
+    const { fixture, out } = freshDirs();
+    populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
+    writePng(path.join(fixture, 'docs/handbook/screenshots/unassigned.png'), MIN_PNG_BYTES + 1);
+    withPatchedContent(
+      'de',
+      data => {
+        data.meta = {};
+        data.ui = {};
+        data.groupTitles = {};
+      },
+      () => {
+        const r = runBuild(out, {
+          HANDBOOK_REPO_ROOT: fixture,
+          NODE_PATH: markedNodePath,
+          GIT_SHA: 'optional-defaults',
+        });
+        assert.strictEqual(r.status, 0, r.stderr);
+        assert.match(r.stderr, /missing groupTitles\["group"\].*locale "de"/);
+        const index = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
+        assert.match(index, /<h1>BTC Taro Wallet<\/h1>/);
+        assert.match(index, /id="developer"[\s\S]*?<h2>[\s\S]*Developer/);
+        assert.match(index, /<a class="skip-link" href="#main-content">Skip<\/a>/);
+        assert.match(index, /<div class="toc-label">Contents<\/div>/);
+        assert.match(index, /id="toc-expand-all">Expand<\/button>/);
+        assert.match(index, /id="toc-collapse-all">Collapse<\/button>/);
+        assert.match(index, /id="lightbox"[^>]*aria-label="Image"/);
+        assert.match(index, /id="lightbox-close"[^>]*aria-label="Close"/);
+        assert.match(index, /id="lightbox-prev"[^>]*aria-label="Prev"/);
+        assert.match(index, /id="lightbox-next"[^>]*aria-label="Next"/);
+        assert.match(index, /data-template="\{n\} \/ \{total\}"/);
+        assert.match(index, /More screens/);
+        assert.doesNotMatch(index, /<p class="lede">/);
+      },
+    );
+  });
 });

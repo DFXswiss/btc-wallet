@@ -1,0 +1,119 @@
+appId: swiss.dfx.bitcoin
+env:
+  E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
+onFlowComplete:
+  - runFlow: ../_return-spark-balance.yaml
+---
+- runFlow: ../_setup.yaml
+- runScript:
+    file: ../scripts/payment-amount.js
+    env:
+      E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
+- tapOn:
+    point: '85%,58%'
+- waitForAnimationToEnd:
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    timeout: 90000
+- tapOn:
+    point: '50%,58%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- tapOn:
+    point: '16%,93%'
+- extendedWaitUntil:
+    visible: 'Amount (optional)'
+    timeout: 20000
+- tapOn: 'Amount (optional)'
+- inputText: ${output.paymentSat}
+- tapOn: 'sats'
+- extendedWaitUntil:
+    visible: '.*lnbc.*'
+    timeout: 30000
+- tapOn: 'Beschreibung (optional)'
+- inputText: 'Maestro-E2E'
+- tapOn: 'sats'
+# Betragsunabhaengig: 10 sat ist lnbc100n, 1000 sat waere lnbc10u.
+- extendedWaitUntil:
+    visible: '.*lnbc.*'
+    timeout: 30000
+- copyTextFrom: '.*lnbc.*'
+# Die Gegenstelle zahlt die sichtbare Rechnung. Fehlen URL oder Schluessel,
+# bricht treasury.js mit Exit 2 ab; der Flow wird nicht gruen.
+- runScript:
+    file: ../scripts/treasury.js
+    env:
+      TREASURY_CMD: pay
+      E2E_TREASURY_URL: ${E2E_TREASURY_URL || ''}
+      E2E_TREASURY_KEY: ${E2E_TREASURY_KEY || ''}
+      E2E_TREASURY_MAX_SAT: ${E2E_TREASURY_MAX_SAT || ''}
+      E2E_TREASURY_MAX_FEE_SAT: ${E2E_TREASURY_MAX_FEE_SAT || ''}
+- extendedWaitUntil:
+    visible: 'Fertig'
+    timeout: 120000
+# runScript ersetzt output. Betragswerte unmittelbar vor der Zusicherung neu setzen;
+# den Payment-Hash der Gegenstelle dabei durchreichen, sonst findet status ihn nicht.
+- runScript:
+    file: ../scripts/payment-amount.js
+    env:
+      E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
+      TREASURY_HASH: ${output.paymentHash || ''}
+# SuccessView rendert Betrag, Einheit und Memo als getrennte Texte. Die Einheit
+# ist " sats" mit fuehrendem Leerzeichen (success.js, accessibilityText in
+# step-037-assertCondition-sats.json). Maestro matcht den ganzen String, daher
+# scheitert das unverankerte "sats". Die drei ^…$-Selektoren sind dieselbe
+# Form wie in P11/P12; fehlt Betrag, Einheit oder Beschreibung, wird der Flow rot.
+- assertVisible: '^${E2E_PAYMENT_SAT}$'
+- assertVisible: '^ sats$'
+- assertVisible: '^Maestro-E2E$'
+- assertVisible: 'Fertig'
+- runScript:
+    file: ../scripts/treasury.js
+    env:
+      TREASURY_CMD: status
+      TREASURY_HASH: ${output.paymentHash || ''}
+      E2E_TREASURY_URL: ${E2E_TREASURY_URL || ''}
+      E2E_TREASURY_KEY: ${E2E_TREASURY_KEY || ''}
+      E2E_TREASURY_MAX_SAT: ${E2E_TREASURY_MAX_SAT || ''}
+      E2E_TREASURY_MAX_FEE_SAT: ${E2E_TREASURY_MAX_FEE_SAT || ''}
+- assertTrue: ${output.treasuryPaid === 'true'}
+- runScript:
+    file: ../scripts/payment-amount.js
+    env:
+      E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
+- tapOn: 'Fertig'
+- waitForAnimationToEnd:
+    timeout: 15000
+# Die Listen-Zeile mit dem neuen Saldo erschien erst nach einem Neustart
+# ohne Zustandsloeschung, nicht auf dem offen gebliebenen Schirm.
+- runFlow: ../_relaunch-keep-state.yaml
+- extendedWaitUntil:
+    visible: ${'Bitcoin, Lightning \\(Spark\\), ' + output.walletBalanceText + ', .*'}
+    timeout: 90000
+- tapOn:
+    point: '50%,58%'
+- waitForAnimationToEnd:
+    timeout: 15000
+# Nach dem Neustart liegt die App auf der Liste. Der Hook liest den Saldo
+# im Wallet-Detailkopf (WalletLabel und WalletBalance nebeneinander),
+# deshalb hier oeffnen. Die beiden Knoten sind Geschwister, nicht Eltern-Kind.
+- extendedWaitUntil:
+    visible:
+      id: WalletLabel
+      text: 'Lightning \(Spark\)'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: WalletBalance
+      text: ${output.walletBalanceRegex}
+    timeout: 60000
+- assertVisible:
+    id: WalletLabel
+    text: 'Lightning \(Spark\)'
+- assertVisible:
+    id: WalletBalance
+    text: ${output.walletBalanceRegex}
+- assertNotVisible:
+    id: WalletBalance
+    text: '^0 sats$'
