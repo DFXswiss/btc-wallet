@@ -29,15 +29,19 @@ Spark identity through `_setup-import.yaml` instead of creating a random wallet.
   runner's environment (`E2E_TREASURY_URL`, `E2E_TREASURY_KEY`, optional
   `E2E_TREASURY_MAX_SAT` default 1000, optional `E2E_TREASURY_MAX_FEE_SAT` default
   100). The payment amount those three flows type and assert is `E2E_PAYMENT_SAT`
-  (default 10). P15 sends one tenth of that amount so the Spark fee still fits
-  in the remaining balance. Maestro's `runScript` sandbox does not see the shell
+  (default 10). It must end in 0: the amount field keeps a zero after the
+  cursor, so backspace deletes the last typed digit. P15 sends one tenth of that amount so the Spark fee still fits
+  in the remaining balance. P16 pays over Spark through a local loopback
+  payout service (`E2E_SPARK_PAYOUT_URL`, `E2E_SPARK_PAYOUT_KEY`, optional
+  `E2E_SPARK_PAYOUT_MAX_SAT` default 1000). Maestro's `runScript` sandbox does not see the shell
   environment, so the runner forwards `E2E_PAYMENT_SAT` (always, default 10) and
-  each treasury variable that is set, plus `E2E_SPARK_MNEMONIC` and
-  `E2E_SPARK_DEPOSIT_ADDRESS` when set, to `maestro test` as `-e NAME=VALUE`
-  (unset names are omitted). The flows bind those names in the
-  `runScript` `env` map, and `treasury.js` reads the script bindings first, then
-  `process.env`. If the URL or the key is missing,
-  `tests/e2e-maestro/scripts/treasury.js` exits 2 and the flow fails. It does
+  each treasury or payout variable that is set, plus `E2E_SPARK_MNEMONIC`,
+  `E2E_SPARK_DEPOSIT_ADDRESS` and `E2E_SPARK_WALLET_ADDRESS` when set, to
+  `maestro test` as `-e NAME=VALUE` (unset names are omitted). The flows bind those names in the
+  `runScript` `env` map, and `treasury.js` / `spark-payout.js` read the script
+  bindings first, then `process.env`. If the URL or the key is missing,
+  `tests/e2e-maestro/scripts/treasury.js` or
+  `tests/e2e-maestro/scripts/spark-payout.js` exits 2 and the flow fails. It does
   not skip the payment or report success. Amounts above `E2E_TREASURY_MAX_SAT`
   are rejected before anything is sent. The helper never prints the key; BOLT11
   values it prints are the invoices the app has to pay (P15 send, P14/P17
@@ -45,7 +49,7 @@ Spark identity through `_setup-import.yaml` instead of creating a random wallet.
 - The given simulator must not hold any wallet state worth protecting for
   P01–P15. Before every flow the runner terminates and uninstalls the app,
   resets the simulator keychain and installs the given bundle anew. On top of
-  that P01–P15 start with `clearState: true`. P14, P15 and P17 later relaunch
+  that P01–P15 start with `clearState: true`. P14, P15, P16 and P17 later relaunch
   with `clearState: false` so the Spark row can show the balance after a
   payment. P16 and P17 start from `_setup-import.yaml` (`clearState: true`) and
   re-import the same identity after that reset.
@@ -79,13 +83,15 @@ user on every run. The mnemonic is **not** in this repository.
   Maestro writes the `inputText` of the import step into its run log, so that
   log contains the identity and must not be shared. The identity is disposable
   and exists only for the local stack.
-- P17 also needs `E2E_SPARK_DEPOSIT_ADDRESS`, the reusable Spark deposit
-  address for that identity on the local stack (always the same for Spark
-  payouts to the fixture IBAN). The flows declare it in `env:`; the runner
-  forwards it only when set and does not print the value. If it is missing,
-  P17 fails with an assertion that names the variable and this section. The
-  address is not in the repository. Maestro `inputText` will write it into
-  the run log; do not share that log.
+- P17 needs `E2E_SPARK_DEPOSIT_ADDRESS`: DFX's reusable Spark **deposit**
+  address for that identity on the local stack (sell destination, always the
+  same for Spark payouts to the fixture IBAN). P16 needs
+  `E2E_SPARK_WALLET_ADDRESS`: the identity's **own** Spark address — the
+  value in `user.address` with which the wallet signs in to the backend
+  (buy destination). Do not swap them. Both are declared in `env:`; the
+  runner forwards each only when set and does not print the value. If the
+  one a flow needs is missing, that flow fails with an assertion that names
+  the variable and this section. Neither address is in the repository.
 - Before a run, seed **only** the local stack with that identity's Spark
   address. Never run this against dev or prod:
 
@@ -99,6 +105,29 @@ user on every run. The mnemonic is **not** in this repository.
   is the Spark address of the imported identity. Both stay outside the repo.
 - The stack must already have free Spark deposit addresses (`POST /v1/deposit`)
   and `Spark/BTC` with `sellable = true`. The SQL does not create those.
+
+## Local Spark payout service for P16
+
+P16's simulated buy credit is a Spark transfer from the backend wallet, not a
+Lightning payment from the treasury counterpart. The service that performs
+that transfer is **not part of this repository**. It holds
+`SPARK_WALLET_SEED`, binds only to `127.0.0.1`, and requires
+`SPARK_PAYOUT_KEY`. Run it only against the local stack, never against dev
+or prod:
+
+```sh
+SPARK_WALLET_SEED='<seed>' \
+SPARK_PAYOUT_KEY='<key>' \
+SPARK_PAYOUT_MAX_SAT='<limit>' \
+node /tmp/spark-payout-service.js <accountIndex>
+```
+
+The flow then needs `E2E_SPARK_PAYOUT_URL` (loopback, e.g. `http://127.0.0.1:18765`),
+`E2E_SPARK_PAYOUT_KEY` (same key), and `E2E_SPARK_WALLET_ADDRESS`. Optional
+`E2E_SPARK_PAYOUT_MAX_SAT` defaults to 1000. The runner forwards those names
+only when set and does not print the values. If the URL or the key is
+missing, `tests/e2e-maestro/scripts/spark-payout.js` exits 2 and the flow
+fails. It does not skip the payout.
 
 The selected local API stack must supply `FAUCET_LOW_BALANCE_THRESHOLD` at boot;
 do not silently omit this required variable. The frontend build needs sufficient
@@ -165,22 +194,25 @@ on a configuration error or an empty filter.
   not hermetic; without the treasury environment they fail rather than skip.
   After a payment the Spark row only showed the new balance after an app
   restart without wiping state (`launchApp` with `clearState: false`); waiting
-  on the still-open screen was not enough. P14, P15 and P17 therefore relaunch
+  on the still-open screen was not enough. P14, P15, P16 and P17 therefore relaunch
   that way before every wallet-row assertion that follows a payment. That is a
   product observation, not a persistence test.
 - P16 and P17 import a fixed Spark identity (`E2E_SPARK_MNEMONIC`) and need the
   local DFX stack plus a tradable backend account for that identity (the
-  fixture above). P16 checks that the buy mask renders over Spark (truncated
-  `spark1` receive address of the imported wallet, plus `Spark`), that
-  payment information shows `IBAN` and `BIC`, and that `Invalid signature` is
-  absent. It does not complete a buy: that would need a fiat credit, which is
-  not a wallet operation. P17 fills the Spark wallet from the counterpart if
-  the visible balance is below `E2E_PAYMENT_SAT`, opens sell, asserts the
-  truncated on-screen address matches `E2E_SPARK_DEPOSIT_ADDRESS`, pays that
-  address through the wallet send path, and asserts `WalletBalance` has
-  fallen. Missing trade approval fails on `NUTZERDATEN EINGEBEN` with a
-  pointer to the fixture, not a skip. A bank payout, a real CHF transfer, and
-  a camera QR read stay outside the suite.
+  fixture above). P16 asserts the buy mask shows the truncated
+  `E2E_SPARK_WALLET_ADDRESS` plus `Spark`, then `IBAN` and `BIC`, and that
+  `Invalid signature` is absent. It then has the local Spark payout service
+  send `E2E_PAYMENT_SAT` to that wallet from the backend Spark account and
+  asserts `WalletBalance` has risen by that amount. That payout is simulated:
+  it is not a DFX BuyCrypto, even though it uses the same Spark wallet DFX
+  would pay from. There is no fiat credit.
+  P17 fills the Spark wallet from the counterpart if the visible balance is
+  below `E2E_PAYMENT_SAT`, opens sell, asserts the truncated on-screen
+  address matches `E2E_SPARK_DEPOSIT_ADDRESS`, pays that address through the
+  wallet send path, and asserts `WalletBalance` has fallen. Missing trade
+  approval fails on `NUTZERDATEN EINGEBEN` with a pointer to the fixture,
+  not a skip. A bank payout, a real CHF transfer, and a camera QR read stay
+  outside the suite.
 - P14 and P17 return the visible Spark balance minus a 4 sat fee reserve in an
   `onFlowComplete` hook (`_return-spark-balance.yaml`), so the return also runs
   after a failed assertion. At the default 10 sat credit that leaves 6 sat

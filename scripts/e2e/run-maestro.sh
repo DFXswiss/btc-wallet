@@ -102,6 +102,18 @@ fi
 if [[ -n "${E2E_SPARK_DEPOSIT_ADDRESS-}" ]]; then
   maestro_env_args+=(-e "E2E_SPARK_DEPOSIT_ADDRESS=${E2E_SPARK_DEPOSIT_ADDRESS}")
 fi
+if [[ -n "${E2E_SPARK_WALLET_ADDRESS-}" ]]; then
+  maestro_env_args+=(-e "E2E_SPARK_WALLET_ADDRESS=${E2E_SPARK_WALLET_ADDRESS}")
+fi
+if [[ -n "${E2E_SPARK_PAYOUT_URL-}" ]]; then
+  maestro_env_args+=(-e "E2E_SPARK_PAYOUT_URL=${E2E_SPARK_PAYOUT_URL}")
+fi
+if [[ -n "${E2E_SPARK_PAYOUT_KEY-}" ]]; then
+  maestro_env_args+=(-e "E2E_SPARK_PAYOUT_KEY=${E2E_SPARK_PAYOUT_KEY}")
+fi
+if [[ -n "${E2E_SPARK_PAYOUT_MAX_SAT-}" ]]; then
+  maestro_env_args+=(-e "E2E_SPARK_PAYOUT_MAX_SAT=${E2E_SPARK_PAYOUT_MAX_SAT}")
+fi
 
 shopt -s nullglob
 FLOWS=("$FLOW_DIR"/$FLOW_FILTER)

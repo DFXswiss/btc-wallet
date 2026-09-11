@@ -115,7 +115,12 @@ onFlowComplete:
 - copyTextFrom:
     id: WalletBalance
     text: '[0-9][0-9., ]+sats'
-- evalScript: "${output.walletBalanceText = String(maestro.copiedText || '').trim(); output.walletBalanceRegex = '^' + output.walletBalanceText.replace(/[.]/g, '[.,]') + '$'}"
+- evalScript: "${output.walletBalanceText = String(maestro.copiedText || '').trim()}"
+- runScript:
+    file: ../scripts/payment-amount.js
+    env:
+      E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
+      WALLET_BALANCE_TEXT: ${output.walletBalanceText}
 - extendedWaitUntil:
     visible: 'Externe Services'
     timeout: 90000
@@ -223,12 +228,21 @@ onFlowComplete:
     timeout: 30000
 - tapOn:
     point: '44%,20%'
+- eraseText:
+    charactersToErase: 12
 - inputText: ${output.paymentSat}
-# Das Betragsfeld haelt eine Null fest; 1000 wird zu 10000. Die letzte Ziffer
-# geht ueber die Ruecktaste der Zifferntastatur weg. Der Wert im Feld muss
-# danach paymentSat sein, nicht die Tastenfolge.
-- tapOn:
-    point: '83%,88%'
+# Das Feld haelt eine Null hinter dem Cursor. Ruecktaste loescht die zuletzt
+# getippte Ziffer, nicht die festgehaltene Null; nur ein Betrag, der auf 0
+# endet, bleibt danach korrekt. Nur loeschen, wenn der Betrag tatsaechlich
+# eine angehaengte Null hat.
+- runFlow:
+    when:
+      visible:
+        id: BitcoinAmountInput
+        text: '^${output.paymentSat}0$'
+    commands:
+      - tapOn:
+          point: '83%,88%'
 - assertVisible:
     id: BitcoinAmountInput
     text: '^${output.paymentSat}$'
@@ -266,6 +280,9 @@ onFlowComplete:
       id: WalletBalance
       text: '.*sats'
     timeout: 60000
+- assertTrue:
+    condition: ${output.walletBalanceRegex != null && output.walletBalanceRegex != '' && output.walletBalanceRegex != 'undefined'}
+    label: walletBalanceRegex missing after payment-amount.js
 - assertNotVisible:
     id: WalletBalance
     text: ${output.walletBalanceRegex}
