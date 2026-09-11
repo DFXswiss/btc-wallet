@@ -213,8 +213,10 @@ export class SparkWallet extends AbstractWallet {
   }
 
   /**
-   * Deposit kind for DFX sell/swap. URI form is invoice; a raw spark1 string is an address.
-   * The two shapes do not overlap, so the result does not depend on checker order.
+   * Deposit kind for DFX sell/swap. A `spark:` URI is unambiguously an invoice.
+   * A raw `spark1…` string cannot be distinguished from an invoice by prefix and
+   * is treated as an address on purpose: DFX issues an address on sell.
+   * A raw invoice without the URI wrapper would therefore classify as an address.
    */
   static sparkDepositKind(input: string): 'address' | 'invoice' | null {
     if (SparkWallet.isSparkPaymentUri(input)) return 'invoice';

@@ -232,6 +232,10 @@ describe('SparkWallet', () => {
     assert.strictEqual(SparkWallet.sparkDepositKind(SAMPLE_INVOICE), null);
   });
 
+  it('sparkDepositKind returns invoice for a spark: URI', () => {
+    assert.strictEqual(SparkWallet.sparkDepositKind(`spark:${SPARK_INVOICE}?amount=0.00012345`), 'invoice');
+  });
+
   it('extracts the invoice from a Spark payment URI without interpreting its query amount', () => {
     expect(SparkWallet.parseSparkPaymentUri(SPARK_INVOICE)).toEqual({ invoice: SPARK_INVOICE });
     expect(SparkWallet.parseSparkPaymentUri(`spark:${SPARK_INVOICE}?label=DFX&amount=0.00012345`)).toEqual({ invoice: SPARK_INVOICE });

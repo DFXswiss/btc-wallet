@@ -209,13 +209,19 @@ function httpJsonSync(config, method, path, body) {
   return httpJsonMaestro(config, method, path, body);
 }
 
-function applyPayout(result) {
+function applyPayout(result, requestedSat, maxSat) {
   if (!result || result.ok !== true) {
     fail('Spark payout service did not confirm the transfer', 2);
   }
   const sat = Number(result.amountSat);
   if (!Number.isInteger(sat) || sat <= 0) {
     fail('Spark payout service returned an invalid amount', 2);
+  }
+  if (sat !== requestedSat) {
+    fail('Spark payout service returned an amount that does not match the request', 2);
+  }
+  if (sat >= maxSat) {
+    fail('Spark payout service returned an amount that exceeds E2E_SPARK_PAYOUT_MAX_SAT', 2);
   }
   const visible = readEnv('SPARK_WALLET_BALANCE').trim();
   if (!visible) fail('SPARK_WALLET_BALANCE is required', 2);
@@ -245,11 +251,11 @@ function preparePayout(config) {
 const config = loadConfig();
 const body = preparePayout(config);
 if (hasMaestroHttp()) {
-  applyPayout(httpJsonSync(config, 'POST', '/v1/payout', body));
+  applyPayout(httpJsonSync(config, 'POST', '/v1/payout', body), body.sat, config.maxSat);
 } else if (isNode()) {
   httpJsonNode(config, 'POST', '/v1/payout', body)
     .then(function (result) {
-      applyPayout(result);
+      applyPayout(result, body.sat, config.maxSat);
       process.exit(0);
     })
     .catch(function (error) {

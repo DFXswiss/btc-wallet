@@ -275,14 +275,20 @@ onFlowComplete:
       id: WalletLabel
       text: 'Lightning \(Spark\)'
     timeout: 60000
-- extendedWaitUntil:
-    visible:
-      id: WalletBalance
-      text: '.*sats'
-    timeout: 60000
 - assertTrue:
     condition: ${output.walletBalanceRegex != null && output.walletBalanceRegex != '' && output.walletBalanceRegex != 'undefined'}
     label: walletBalanceRegex missing after payment-amount.js
+- assertTrue:
+    condition: ${output.expectedBalanceRegex != null && output.expectedBalanceRegex != '' && output.expectedBalanceRegex != 'undefined'}
+    label: expectedBalanceRegex missing after payment-amount.js
+- extendedWaitUntil:
+    visible:
+      id: WalletBalance
+      text: ${output.expectedBalanceRegex}
+    timeout: 120000
+- assertVisible:
+    id: WalletBalance
+    text: ${output.expectedBalanceRegex}
 - assertNotVisible:
     id: WalletBalance
     text: ${output.walletBalanceRegex}
