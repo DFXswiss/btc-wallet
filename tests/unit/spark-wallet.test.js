@@ -232,8 +232,8 @@ describe('SparkWallet', () => {
     assert.strictEqual(SparkWallet.sparkDepositKind(SAMPLE_INVOICE), null);
   });
 
-  it('sparkDepositKind returns invoice for a spark: URI', () => {
-    assert.strictEqual(SparkWallet.sparkDepositKind(`spark:${SPARK_INVOICE}?amount=0.00012345`), 'invoice');
+  it('sparkDepositKind classifies a raw Spark invoice without a spark: wrapper as an address', () => {
+    assert.strictEqual(SparkWallet.sparkDepositKind(SPARK_INVOICE), 'address');
   });
 
   it('extracts the invoice from a Spark payment URI without interpreting its query amount', () => {

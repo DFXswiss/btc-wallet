@@ -121,6 +121,7 @@ onFlowComplete:
     env:
       E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
       WALLET_BALANCE_TEXT: ${output.walletBalanceText}
+- evalScript: "${output.paymentBtc = (Number(output.paymentSat) / 100000000).toFixed(8)}"
 - extendedWaitUntil:
     visible: 'Externe Services'
     timeout: 90000
@@ -143,6 +144,7 @@ onFlowComplete:
 - eraseText:
     charactersToErase: 12
 - inputText: ${output.paymentBtc}
+- assertVisible: '^${output.paymentBtc}$'
 - runFlow:
     when:
       visible: '^Weiter$'
