@@ -2354,6 +2354,303 @@ function isSelfClosingAttrs(attrs) {
   return /(^|\s)\/\s*$/.test(attrs || '');
 }
 
+const DANGER_BLOCKS = new Set(['script', 'iframe', 'object', 'form']);
+const DANGER_VOIDS = new Set(['embed', 'meta', 'base', 'link']);
+const STRIP_MAX_PASSES = 16;
+
+function isTagNameChar(ch) {
+  const c = ch.charCodeAt(0);
+  return (
+    (c >= 65 && c <= 90) ||
+    (c >= 97 && c <= 122) ||
+    (c >= 48 && c <= 57) ||
+    ch === '-' ||
+    ch === ':'
+  );
+}
+
+function isWsCode(code) {
+  return code <= 32;
+}
+
+function skipCommentAt(html, i) {
+  if (html.slice(i, i + 4) !== '<!--') return null;
+  const len = html.length;
+  let p = i + 4;
+  // HTML5: `<!-->` and `<!--->` close immediately. A search for `-->` alone
+  // treats `<!--><script>…` as one comment through EOF (or the next `-->`),
+  // while the browser has already closed the comment and will run the script.
+  if (p < len && html.charCodeAt(p) === 62) return p + 1;
+  if (p + 1 < len && html.charCodeAt(p) === 45 && html.charCodeAt(p + 1) === 62) {
+    return p + 2;
+  }
+  while (p < len) {
+    if (html.charCodeAt(p) === 45 && p + 1 < len && html.charCodeAt(p + 1) === 45) {
+      let q = p + 2;
+      if (q < len && html.charCodeAt(q) === 33) q++;
+      if (q < len && html.charCodeAt(q) === 62) return q + 1;
+    }
+    p++;
+  }
+  fail(
+    'handbook sanitizer: unterminated HTML comment. ' +
+      'Refusing to strip across content boundaries — fix the markdown source.',
+  );
+}
+
+/**
+ * Walk tags instead of replacing `<script>…</script>` (and friends) with a
+ * regex. Nested tags reconstitute after one replace, and browsers treat
+ * `</script foo="bar">` as a closer — a `<\/tag\s*>` pattern misses that.
+ */
+function parseTagAt(html, i) {
+  const len = html.length;
+  if (i >= len || html.charCodeAt(i) !== 60) return null;
+  const commentEnd = skipCommentAt(html, i);
+  if (commentEnd !== null) {
+    return { kind: 'comment', start: i, end: commentEnd };
+  }
+  let p = i + 1;
+  if (p >= len) return null;
+  const isClose = html.charCodeAt(p) === 47;
+  if (isClose) p++;
+  while (p < len && isWsCode(html.charCodeAt(p))) p++;
+  if (p >= len) return null;
+  const first = html.charCodeAt(p);
+  if (!((first >= 65 && first <= 90) || (first >= 97 && first <= 122))) return null;
+  const nameStart = p;
+  p++;
+  while (p < len && isTagNameChar(html[p])) p++;
+  const name = html.slice(nameStart, p).toLowerCase();
+  const attrStart = p;
+  // Quotes only start a value after `=`. A stray `"` in an unquoted value
+  // must not swallow later tags (`<div data-x=x"><script>…`).
+  while (p < len) {
+    while (p < len && isWsCode(html.charCodeAt(p))) p++;
+    if (p >= len) return null;
+    const code = html.charCodeAt(p);
+    if (code === 62) {
+      p++;
+      const attrs = html.slice(attrStart, p - 1);
+      return {
+        kind: 'tag',
+        start: i,
+        end: p,
+        name,
+        attrs,
+        isClose,
+        isSelfClosing: isSelfClosingAttrs(attrs),
+        raw: html.slice(i, p),
+      };
+    }
+    if (code === 47) {
+      p++;
+      continue;
+    }
+    if (code === 60) return null;
+    while (p < len) {
+      const c = html.charCodeAt(p);
+      if (isWsCode(c) || c === 61 || c === 47 || c === 62 || c === 60) break;
+      p++;
+    }
+    while (p < len && isWsCode(html.charCodeAt(p))) p++;
+    if (p < len && html.charCodeAt(p) === 61) {
+      p++;
+      while (p < len && isWsCode(html.charCodeAt(p))) p++;
+      if (p >= len) return null;
+      const q = html.charCodeAt(p);
+      if (q === 34 || q === 39) {
+        p++;
+        while (p < len && html.charCodeAt(p) !== q) p++;
+        if (p < len) p++;
+      } else {
+        while (p < len) {
+          const c = html.charCodeAt(p);
+          if (isWsCode(c) || c === 62 || c === 60) break;
+          p++;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function isEventHandlerName(name) {
+  const n = String(name).toLowerCase();
+  if (n.length < 3 || n.charCodeAt(0) !== 111 || n.charCodeAt(1) !== 110) return false;
+  for (let i = 2; i < n.length; i++) {
+    const c = n.charCodeAt(i);
+    if (c < 97 || c > 122) return false;
+  }
+  return true;
+}
+
+function isDangerousAttrUrl(url) {
+  const trimmed = String(url).trim();
+  const lower = trimmed.toLowerCase();
+  return (
+    lower.startsWith('javascript:') ||
+    lower.startsWith('vbscript:') ||
+    (lower.startsWith('data:') && !/^data:image\//i.test(trimmed))
+  );
+}
+
+/**
+ * Split a tag's attribute string. `/` is a separator between attributes
+ * (`<img/onerror=…>`) but not inside an unquoted value (`src=https://…/x.png`).
+ * A trailing `/` token is the self-close marker (isSelfClosingAttrs).
+ */
+function splitAttrs(attrsStr) {
+  const attrs = [];
+  const s = attrsStr || '';
+  const selfClose = isSelfClosingAttrs(s);
+  let i = 0;
+  const n = s.length;
+  function skipWs() {
+    while (i < n && isWsCode(s.charCodeAt(i))) i++;
+  }
+  while (i < n) {
+    skipWs();
+    if (i >= n) break;
+    if (s.charCodeAt(i) === 47) {
+      const rest = s.slice(i);
+      if (rest === '/' || /^\/\s*$/.test(rest)) break;
+      i++;
+      continue;
+    }
+    const nameStart = i;
+    while (i < n) {
+      const c = s.charCodeAt(i);
+      if (isWsCode(c) || c === 61 || c === 47) break;
+      i++;
+    }
+    if (i === nameStart) {
+      i++;
+      continue;
+    }
+    const name = s.slice(nameStart, i);
+    skipWs();
+    let value = null;
+    let quote = '';
+    if (i < n && s.charCodeAt(i) === 61) {
+      i++;
+      skipWs();
+      if (i < n && (s.charCodeAt(i) === 34 || s.charCodeAt(i) === 39)) {
+        quote = s[i];
+        i++;
+        const vStart = i;
+        while (i < n && s[i] !== quote) i++;
+        value = s.slice(vStart, i);
+        if (i < n) i++;
+      } else {
+        const vStart = i;
+        while (i < n && !isWsCode(s.charCodeAt(i))) i++;
+        value = s.slice(vStart, i);
+        quote = '';
+      }
+    }
+    attrs.push({ name, value, quote });
+  }
+  return { attrs, selfClose };
+}
+
+function escapeAttrValue(value, quote) {
+  let s = String(value).replace(/&/g, '&amp;');
+  if (quote === "'") return s.replace(/'/g, '&#39;');
+  return s.replace(/"/g, '&quot;');
+}
+
+function rewriteOpenTag(tok) {
+  const parsed = splitAttrs(tok.attrs);
+  let changed = false;
+  const kept = [];
+  for (let i = 0; i < parsed.attrs.length; i++) {
+    const a = parsed.attrs[i];
+    if (isEventHandlerName(a.name)) {
+      changed = true;
+      continue;
+    }
+    const lower = String(a.name).toLowerCase();
+    const colon = lower.lastIndexOf(':');
+    const local = colon === -1 ? lower : lower.slice(colon + 1);
+    if (a.value !== null && (local === 'href' || local === 'src') && isDangerousAttrUrl(a.value)) {
+      changed = true;
+      kept.push({ name: a.name, value: '', quote: a.quote || '"' });
+      continue;
+    }
+    kept.push(a);
+  }
+  if (!changed) return tok.raw;
+  let out = '<' + tok.name;
+  for (let i = 0; i < kept.length; i++) {
+    const a = kept[i];
+    if (a.value === null) {
+      out += ' ' + a.name;
+      continue;
+    }
+    if (a.quote === "'") {
+      out += ' ' + a.name + "='" + escapeAttrValue(a.value, "'") + "'";
+    } else {
+      out += ' ' + a.name + '="' + escapeAttrValue(a.value, '"') + '"';
+    }
+  }
+  if (parsed.selfClose) out += ' /';
+  out += '>';
+  return out;
+}
+
+function stripOnce(html) {
+  let out = '';
+  let i = 0;
+  let skipUntil = null;
+  const s = String(html);
+  while (i < s.length) {
+    if (s.charCodeAt(i) !== 60) {
+      if (!skipUntil) out += s[i];
+      i++;
+      continue;
+    }
+    const tok = parseTagAt(s, i);
+    if (!tok) {
+      if (!skipUntil) out += s[i];
+      i++;
+      continue;
+    }
+    if (tok.kind === 'comment') {
+      i = tok.end;
+      continue;
+    }
+    if (skipUntil) {
+      if (tok.isClose && tok.name === skipUntil) skipUntil = null;
+      i = tok.end;
+      continue;
+    }
+    if (DANGER_BLOCKS.has(tok.name)) {
+      if (tok.isClose || tok.isSelfClosing) {
+        i = tok.end;
+        continue;
+      }
+      skipUntil = tok.name;
+      i = tok.end;
+      continue;
+    }
+    if (DANGER_VOIDS.has(tok.name)) {
+      i = tok.end;
+      continue;
+    }
+    out += tok.isClose ? tok.raw : rewriteOpenTag(tok);
+    i = tok.end;
+  }
+  if (skipUntil !== null) {
+    fail(
+      `handbook sanitizer: unbalanced <${skipUntil}> blocks ` +
+        `(1 open without a matching close). Refusing to strip across content ` +
+        'boundaries — fix the markdown source.',
+    );
+  }
+  return out;
+}
+
 /**
  * Fail closed when open/close tags for active blocks are not nested in
  * document order, including across tag types. A per-tag depth counter
@@ -2362,14 +2659,28 @@ function isSelfClosingAttrs(attrs) {
  * non-greedy `<tag>…</tag>` replaces then eat the outer closer and leave
  * its opener intact. A single stack over all four tags rejects that
  * mismatch. Self-closing tags (`<tag …/>`) are not opens.
+ *
+ * Closers may carry extra attributes (`</script foo="bar">`); browsers
+ * still treat them as closers, so the stack must too.
  */
 function assertBalancedDangerBlocks(html) {
-  const tokenRe = /<(script|iframe|object|form)\b([^>]*)>|<\/(script|iframe|object|form)\s*>/gi;
   const stack = [];
-  let m;
-  while ((m = tokenRe.exec(html)) !== null) {
-    if (/^<\//.test(m[0])) {
-      const closeName = String(m[3] || '').toLowerCase();
+  let i = 0;
+  const s = String(html);
+  while (i < s.length) {
+    if (s.charCodeAt(i) !== 60) {
+      i++;
+      continue;
+    }
+    const tok = parseTagAt(s, i);
+    if (!tok) {
+      i++;
+      continue;
+    }
+    i = tok.end;
+    if (tok.kind !== 'tag' || !DANGER_BLOCKS.has(tok.name)) continue;
+    if (tok.isClose) {
+      const closeName = tok.name;
       if (stack.length === 0) {
         fail(
           `handbook sanitizer: unbalanced <${closeName}> blocks ` +
@@ -2386,9 +2697,8 @@ function assertBalancedDangerBlocks(html) {
         );
       }
     } else {
-      const attrs = m[2] || '';
-      if (isSelfClosingAttrs(attrs)) continue;
-      stack.push(String(m[1] || '').toLowerCase());
+      if (tok.isSelfClosing) continue;
+      stack.push(tok.name);
     }
   }
   if (stack.length !== 0) {
@@ -2410,60 +2720,22 @@ function assertBalancedDangerBlocks(html) {
  * Attribute separators: HTML allows `/` as well as whitespace between
  * attributes (`<img/onerror=…>`). Values may be unquoted. Both must be
  * covered — whitespace-only / quote-only patterns miss live vectors.
+ *
+ * Repeat until the string is stable so a nested tag cannot reconstitute
+ * another danger block after the inner pair is removed.
  */
 function stripDangerousHtml(html) {
   let out = String(html);
   assertBalancedDangerBlocks(out);
-  // Remove script/iframe/object/embed blocks (content discarded).
-  // Closers tolerate whitespace before `>` — same grammar as the
-  // balance guard (`<\/tag\s*>`). A stricter `<\/tag>` leaves the
-  // whole block in the published page when the closer is `</tag >`.
-  // Remaining opens are dropped only when isSelfClosingAttrs says so —
-  // the same check the guard used — not via a second `/>` regex that
-  // missed whitespace between `/` and `>`.
-  out = out.replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '');
-  out = out.replace(/<script\b([^>]*)>/gi, (full, attrs) => (isSelfClosingAttrs(attrs) ? '' : full));
-  out = out.replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe\s*>/gi, '');
-  out = out.replace(/<iframe\b([^>]*)>/gi, (full, attrs) => (isSelfClosingAttrs(attrs) ? '' : full));
-  out = out.replace(/<object\b[^>]*>[\s\S]*?<\/object\s*>/gi, '');
-  out = out.replace(/<object\b([^>]*)>/gi, (full, attrs) => (isSelfClosingAttrs(attrs) ? '' : full));
-  out = out.replace(/<embed\b[^>]*\/?>/gi, '');
-  // Navigation / document chrome not needed in handbook body, and not covered
-  // by CSP alone (meta refresh has no directive; form-action is separate).
-  out = out.replace(/<meta\b[^>]*\/?>/gi, '');
-  out = out.replace(/<base\b[^>]*\/?>/gi, '');
-  out = out.replace(/<link\b[^>]*\/?>/gi, '');
-  out = out.replace(/<form\b[^>]*>[\s\S]*?<\/form\s*>/gi, '');
-  out = out.replace(/<\/?form\b[^>]*\/?>/gi, '');
-  // Drop inline event handlers (onerror=, onclick=, …). `/` is a valid
-  // attribute separator in HTML, not only whitespace.
-  out = out.replace(/[\s/]+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
-  // Neutralize dangerous URL schemes in href/src (keep data:image/*).
-  // Quoted and unquoted attribute values.
-  out = out.replace(
-    /\b(href|src)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
-    (full, attr, dQuoted, sQuoted, unquoted) => {
-      const url =
-        dQuoted !== undefined
-          ? dQuoted
-          : sQuoted !== undefined
-            ? sQuoted
-            : unquoted;
-      const trimmed = String(url).trim();
-      const lower = trimmed.toLowerCase();
-      if (
-        lower.startsWith('javascript:') ||
-        lower.startsWith('vbscript:') ||
-        (lower.startsWith('data:') && !/^data:image\//i.test(trimmed))
-      ) {
-        if (dQuoted !== undefined) return attr + '=""';
-        if (sQuoted !== undefined) return attr + "=''";
-        return attr + '=""';
-      }
-      return full;
-    },
+  for (let pass = 0; pass < STRIP_MAX_PASSES; pass++) {
+    const next = stripOnce(out);
+    if (next === out) return out;
+    out = next;
+  }
+  fail(
+    'handbook sanitizer: dangerous markup remained after stripping. ' +
+      'Refusing to publish — fix the markdown source.',
   );
-  return out;
 }
 
 /**
@@ -2475,7 +2747,7 @@ function stripDangerousHtml(html) {
  * 0. Strip script/iframe/object/embed/meta/form/base/link, on* handlers
  *    (whitespace or `/` separators, quoted or unquoted values), and
  *    javascript:/vbscript:/non-image data: URLs; fail on unbalanced
- *    script/iframe/object (defence in depth with CSP + form-action).
+ *    script/iframe/object/form (defence in depth with CSP + form-action).
  * 1. Relative *.md links that resolve to a discovered handbook doc are
  *    rewritten to the corresponding HTML output path.
  * 2. Any other relative src/href that does not resolve under the output
