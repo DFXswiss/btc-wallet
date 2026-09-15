@@ -2373,17 +2373,17 @@ function isWsCode(code) {
   return code <= 32;
 }
 
-/**
- * Walk tags instead of replacing `<script>…</script>` (and friends) with a
- * regex. Nested tags reconstitute after one replace, and browsers treat
- * `</script foo="bar">` as a closer — a `<\/tag\s*>` pattern misses that.
- */
 function skipCommentAt(html, i) {
   if (html.slice(i, i + 4) !== '<!--') return null;
   const end = html.indexOf('-->', i + 4);
   return end === -1 ? html.length : end + 3;
 }
 
+/**
+ * Walk tags instead of replacing `<script>…</script>` (and friends) with a
+ * regex. Nested tags reconstitute after one replace, and browsers treat
+ * `</script foo="bar">` as a closer — a `<\/tag\s*>` pattern misses that.
+ */
 function parseTagAt(html, i) {
   const len = html.length;
   if (i >= len || html.charCodeAt(i) !== 60) return null;
@@ -2545,10 +2545,6 @@ function rewriteOpenTag(tok) {
     }
     if (a.quote === "'") {
       out += ' ' + a.name + "='" + a.value + "'";
-    } else if (a.quote === '"') {
-      out += ' ' + a.name + '="' + a.value + '"';
-    } else if (a.quote === '') {
-      out += ' ' + a.name + '="' + a.value + '"';
     } else {
       out += ' ' + a.name + '="' + a.value + '"';
     }

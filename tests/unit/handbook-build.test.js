@@ -984,10 +984,7 @@ describe('unit - handbook build guards', () => {
   // only allows whitespace before `>` leaves the live block in the page.
   it('strips a script block whose closer has extra attributes', function () {
     const { fixture, out } = freshDirs();
-    const danger =
-      '# Title\n\n' +
-      '<p>KEEP-CLOSER-ATTRS</p>\n\n' +
-      '<div><script>alert(1)</script foo="bar"></div>\n';
+    const danger = '# Title\n\n' + '<p>KEEP-CLOSER-ATTRS</p>\n\n' + '<div><script>alert(1)</script foo="bar"></div>\n';
     populateValidFixture(fixture, {
       shotSize: MIN_PNG_BYTES + 1,
       docContents: { 'DOC-0.md': danger },
@@ -1011,9 +1008,7 @@ describe('unit - handbook build guards', () => {
   it('does not publish a script reconstituted from a nested pair', function () {
     const { fixture, out } = freshDirs();
     const danger =
-      '# Title\n\n' +
-      '<p>KEEP-RECONSTITUTE</p>\n\n' +
-      '<div><scrip<script>removed</script>t>alert(9)</script></div>\n';
+      '# Title\n\n' + '<p>KEEP-RECONSTITUTE</p>\n\n' + '<div><scrip<script>removed</script>t>alert(9)</script></div>\n';
     populateValidFixture(fixture, {
       shotSize: MIN_PNG_BYTES + 1,
       docContents: { 'DOC-0.md': danger },
