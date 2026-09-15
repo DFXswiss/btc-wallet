@@ -1003,12 +1003,14 @@ describe('unit - handbook build guards', () => {
   });
 
   // One pass that deletes the inner pair reconstitutes an outer script.
-  // Either the fixed-point strip removes it, or the build fails closed —
-  // never a live script with the reconstituted payload.
+  // Source-balanced so the guard does not fail first: two inner pairs turn
+  // `<scrip` + `t>` into `<script>…</script>`, which the next pass must strip.
   it('does not publish a script reconstituted from a nested pair', function () {
     const { fixture, out } = freshDirs();
     const danger =
-      '# Title\n\n' + '<p>KEEP-RECONSTITUTE</p>\n\n' + '<div><scrip<script>removed</script>t>alert(9)</script></div>\n';
+      '# Title\n\n' +
+      '<p>KEEP-RECONSTITUTE</p>\n\n' +
+      '<div><scrip<script>removed</script>t>alert(9)</scrip<script>removed</script>t></div>\n';
     populateValidFixture(fixture, {
       shotSize: MIN_PNG_BYTES + 1,
       docContents: { 'DOC-0.md': danger },
@@ -1027,6 +1029,53 @@ describe('unit - handbook build guards', () => {
     assert.ok(body.includes('KEEP-RECONSTITUTE'));
     assert.ok(!/<script\b/i.test(body), 'reconstituted script must not remain');
     assert.ok(!/alert\(9\)/i.test(body), 'reconstituted script body must not remain');
+  });
+
+  // HTML5 closes `<!-->` immediately. Searching only for `-->` would swallow
+  // the following script as a comment while the browser runs it.
+  it('strips a script after an abrupt HTML comment closer', function () {
+    const { fixture, out } = freshDirs();
+    const danger = '# Title\n\n' + '<p>KEEP-ABRUPT-COMMENT</p>\n\n' + '<div><!--><script>alert(1)</script></div>\n';
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docContents: { 'DOC-0.md': danger },
+    });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const html = fs.readFileSync(path.join(out, 'docs/DOC-0.html'), 'utf8');
+    const body = html.replace(/^[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*$/i, '');
+    assert.ok(body.includes('KEEP-ABRUPT-COMMENT'));
+    assert.ok(!/<script\b/i.test(body), 'script after <!--> must be stripped');
+    assert.ok(!/alert\(1\)/i.test(body), 'script body after <!--> must not remain');
+  });
+
+  it('neutralizes javascript URLs on xlink:href', function () {
+    const { fixture, out } = freshDirs();
+    const evilScheme = ['java', 'script', ':'].join('');
+    const danger =
+      '# Title\n\n' +
+      '<p>KEEP-XLINK</p>\n\n' +
+      '<div><svg><a xlink:href=' +
+      evilScheme +
+      'alert(1)>click</a></svg></div>\n';
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docContents: { 'DOC-0.md': danger },
+    });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const html = fs.readFileSync(path.join(out, 'docs/DOC-0.html'), 'utf8');
+    const body = html.replace(/^[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*$/i, '');
+    assert.ok(body.includes('KEEP-XLINK'));
+    assert.ok(!new RegExp('java' + 'script:', 'i').test(body), 'xlink:href javascript scheme neutralized');
   });
 
   // Guard used to treat an unquoted src ending in `/` as a self-close

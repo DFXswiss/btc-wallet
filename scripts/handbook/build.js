@@ -2375,8 +2375,27 @@ function isWsCode(code) {
 
 function skipCommentAt(html, i) {
   if (html.slice(i, i + 4) !== '<!--') return null;
-  const end = html.indexOf('-->', i + 4);
-  return end === -1 ? html.length : end + 3;
+  const len = html.length;
+  let p = i + 4;
+  // HTML5: `<!-->` and `<!--->` close immediately. A search for `-->` alone
+  // treats `<!--><script>…` as one comment through EOF (or the next `-->`),
+  // while the browser has already closed the comment and will run the script.
+  if (p < len && html.charCodeAt(p) === 62) return p + 1;
+  if (p + 1 < len && html.charCodeAt(p) === 45 && html.charCodeAt(p + 1) === 62) {
+    return p + 2;
+  }
+  while (p < len) {
+    if (html.charCodeAt(p) === 45 && p + 1 < len && html.charCodeAt(p + 1) === 45) {
+      let q = p + 2;
+      if (q < len && html.charCodeAt(q) === 33) q++;
+      if (q < len && html.charCodeAt(q) === 62) return q + 1;
+    }
+    p++;
+  }
+  fail(
+    'handbook sanitizer: unterminated HTML comment. ' +
+      'Refusing to strip across content boundaries — fix the markdown source.',
+  );
 }
 
 /**
@@ -2528,9 +2547,11 @@ function rewriteOpenTag(tok) {
       continue;
     }
     const lower = String(a.name).toLowerCase();
-    if (a.value !== null && (lower === 'href' || lower === 'src') && isDangerousAttrUrl(a.value)) {
+    const colon = lower.lastIndexOf(':');
+    const local = colon === -1 ? lower : lower.slice(colon + 1);
+    if (a.value !== null && (local === 'href' || local === 'src') && isDangerousAttrUrl(a.value)) {
       changed = true;
-      kept.push({ name: lower, value: '', quote: a.quote || '"' });
+      kept.push({ name: a.name, value: '', quote: a.quote || '"' });
       continue;
     }
     kept.push(a);
@@ -2572,7 +2593,6 @@ function stripOnce(html) {
       continue;
     }
     if (tok.kind === 'comment') {
-      if (!skipUntil) out += s.slice(tok.start, tok.end);
       i = tok.end;
       continue;
     }
@@ -2596,6 +2616,13 @@ function stripOnce(html) {
     }
     out += tok.isClose ? tok.raw : rewriteOpenTag(tok);
     i = tok.end;
+  }
+  if (skipUntil !== null) {
+    fail(
+      `handbook sanitizer: unbalanced <${skipUntil}> blocks ` +
+        `(1 open without a matching close). Refusing to strip across content ` +
+        'boundaries — fix the markdown source.',
+    );
   }
   return out;
 }
