@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { getAddress, sortByAddressIndex, totalBalance, filterByAddressType } from '../../screen/wallets/addresses';
+import { getAddress, sortByAddressIndex, totalBalance, filterByAddressType, buildWalletAddresses } from '../../screen/wallets/addresses';
 import { TABS } from '../../components/addresses/AddressTypeTabs';
 
 jest.mock('../../blue_modules/currency', () => {
@@ -66,6 +66,61 @@ describe('Addresses', () => {
     assert.strictEqual(totalBalance(wallet1Balance), 0);
     assert.strictEqual(totalBalance(wallet2Balance), 10);
     assert.strictEqual(totalBalance(wallet3Balance), 10);
+  });
+
+  it('buildWalletAddresses derives internal + external and tolerates a throwing derivation', () => {
+    const wallet = {
+      next_free_change_address_index: 1, // internal loop index 0..1 => 2 internal
+      next_free_address_index: 1,
+      gap_limit: 2, // external loop index 0..2 => 3 external (index 1 throws)
+      _getInternalAddressByIndex: index => `internal_${index}`,
+      _getExternalAddressByIndex: index => {
+        if (index === 1) throw new Error('boom');
+        return `external_${index}`;
+      },
+      _balances_by_internal_index: {},
+      _balances_by_external_index: {},
+      _txs_by_internal_index: {},
+      _txs_by_external_index: {},
+    };
+
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const result = buildWalletAddresses(wallet);
+    const errorCalls = errorSpy.mock.calls.length;
+    errorSpy.mockRestore();
+
+    // the throwing external index 1 is skipped, everything else survives with its index intact
+    assert.deepStrictEqual(
+      result.map(a => a.address),
+      ['internal_0', 'internal_1', 'external_0', 'external_2'],
+    );
+    assert.deepStrictEqual(
+      result.filter(a => !a.isInternal).map(a => a.index),
+      [0, 2],
+    );
+    assert.strictEqual(errorCalls, 1); // the failing derivation was caught, not rethrown
+  });
+
+  it('buildWalletAddresses returns an empty list when every derivation throws', () => {
+    const wallet = {
+      next_free_change_address_index: 0,
+      next_free_address_index: 0,
+      gap_limit: 1,
+      _getInternalAddressByIndex: () => {
+        throw new Error('bad');
+      },
+      _getExternalAddressByIndex: () => {
+        throw new Error('bad');
+      },
+      _balances_by_internal_index: {},
+      _balances_by_external_index: {},
+      _txs_by_internal_index: {},
+      _txs_by_external_index: {},
+    };
+
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    assert.deepStrictEqual(buildWalletAddresses(wallet), []);
+    errorSpy.mockRestore();
   });
 
   it('Returns AddressItem object', () => {

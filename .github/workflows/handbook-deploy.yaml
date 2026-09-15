@@ -1,0 +1,164 @@
+# Build, push and deploy the DFX BTC Taro Wallet handbook on develop.
+# Image: dfxswiss/dfx-taro-handbook:latest → handbook.taro.dfx.swiss
+# Public handbook — no runtime auth gate, no app login credentials.
+
+name: Handbook Deploy
+
+# Until DNS/proxy/service for handbook.taro.dfx.swiss are live, the job may
+# fail at SSH or the public smoke poll after a successful image push — that is
+# intentional (issue #211 merge order: push image first, server side later).
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'docs/**'
+      - 'scripts/handbook/**'
+      - 'android/fastlane/metadata/**'
+      - 'ios/fastlane/metadata/**'
+      - 'img/dfx/**'
+      - 'img/icon*.png'
+      - '*.md'
+      - 'Dockerfile.handbook'
+      - 'handbook.nginx.conf'
+      - '.github/workflows/handbook-deploy.yaml'
+      - '.github/workflows/handbook-check.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: handbook-deploy
+  cancel-in-progress: false
+
+# Fixed values per issue #211.
+env:
+  DOCKER_TAGS: dfxswiss/dfx-taro-handbook:latest
+  DEPLOY_SERVICE: dfx-taro-handbook
+  SMOKE_URL: https://handbook.taro.dfx.swiss/healthz
+
+jobs:
+  build-and-deploy:
+    name: Build, push, deploy, smoke
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      # Preflight before any side effect (checkout, docker login, image push).
+      # This workflow is not on the default branch until merged, so
+      # `gh workflow run` cannot exercise it first — the merge to develop is
+      # the first sharp run. Without this check, a missing DEPLOY_PRD_* secret
+      # would only fail after docker login+push already published
+      # dfxswiss/dfx-taro-handbook:latest. Pattern matches deploy-develop.yml
+      # (collect all missing names; never echo values).
+      - name: Require deploy secrets
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          DEPLOY_PRD_HOST: ${{ secrets.DEPLOY_PRD_HOST }}
+          DEPLOY_PRD_USER: ${{ secrets.DEPLOY_PRD_USER }}
+          DEPLOY_PRD_SSH_KEY: ${{ secrets.DEPLOY_PRD_SSH_KEY }}
+          DEPLOY_PRD_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_PRD_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          missing=""
+          for var in \
+            DOCKER_USERNAME \
+            DOCKER_PASSWORD \
+            DEPLOY_PRD_HOST \
+            DEPLOY_PRD_USER \
+            DEPLOY_PRD_SSH_KEY \
+            DEPLOY_PRD_SSH_KNOWN_HOSTS
+          do
+            # Indirect expansion: only the name is printed on failure.
+            if [ -z "${!var:-}" ]; then
+              missing="${missing} ${var}"
+            fi
+          done
+          if [ -n "$missing" ]; then
+            echo "Missing required secrets (empty or unset):${missing}" >&2
+            echo "handbook-deploy: refusing to build/push without full secret set." >&2
+            exit 1
+          fi
+
+      - name: Checkout
+        # Pin SHA for v4.4.0 (gh api repos/actions/checkout/commits/v4.4.0)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Log in to Docker Hub
+        # Pin SHA for v3.7.0 (gh api repos/docker/login-action/commits/v3.7.0)
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        # Pin SHA for v3.12.0 (gh api repos/docker/setup-buildx-action/commits/v3.12.0)
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Build and push Docker image
+        # Pin SHA for v6.19.2 (gh api repos/docker/build-push-action/commits/v6.19.2)
+        # Tag both :latest (rolling) and :${{ github.sha }} (immutable). If SSH or
+        # smoke fails after push, rollback is possible by redeploying the last
+        # known-good SHA tag — automation of that rollback is an ops decision.
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: ./Dockerfile.handbook
+          push: true
+          tags: |
+            ${{ env.DOCKER_TAGS }}
+            dfxswiss/dfx-taro-handbook:${{ github.sha }}
+          platforms: linux/arm64
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+
+      # Pin cloudflared and verify SHA256 (release binary, not "latest").
+      - name: Install cloudflared
+        env:
+          CLOUDFLARED_VERSION: '2025.4.0'
+          CLOUDFLARED_SHA256: '2561391ee9abdc828afcc52f5ac314b6551a9a6a31ff59cbc64efc63aec04615'
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-arm64" -o /usr/local/bin/cloudflared
+          echo "${CLOUDFLARED_SHA256}  /usr/local/bin/cloudflared" | sha256sum -c -
+          chmod +x /usr/local/bin/cloudflared
+
+      # IdentitiesOnly + IdentityAgent=none pin SSH to the explicit deploy key
+      # so OpenSSH does not probe default/agent keys first and exhaust
+      # MaxAuthTries on the server. Secrets only via env (never ${{ secrets.* }}
+      # in the shell command line).
+      - name: Deploy via SSH
+        env:
+          DEPLOY_PRD_SSH_KEY: ${{ secrets.DEPLOY_PRD_SSH_KEY }}
+          DEPLOY_PRD_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_PRD_SSH_KNOWN_HOSTS }}
+          DEPLOY_PRD_HOST: ${{ secrets.DEPLOY_PRD_HOST }}
+          DEPLOY_PRD_USER: ${{ secrets.DEPLOY_PRD_USER }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_PRD_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_PRD_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key \
+            -o IdentitiesOnly=yes \
+            -o IdentityAgent=none \
+            -o ProxyCommand="cloudflared access ssh --hostname \"$DEPLOY_PRD_HOST\"" \
+            "${DEPLOY_PRD_USER}@${DEPLOY_PRD_HOST}" \
+            "${{ env.DEPLOY_SERVICE }}"
+
+      # Poll public /healthz so a green job cannot lie when the container is up
+      # but nginx is not answering.
+      - name: Smoke test public endpoint
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            code=$(curl -sS -L --max-redirs 3 -o /dev/null -w '%{http_code}' --max-time 10 "$SMOKE_URL" || echo "000")
+            if [ "$code" = "200" ]; then
+              echo "handbook responded 200 after ${i} attempt(s)"
+              exit 0
+            fi
+            echo "[$i/30] $SMOKE_URL -> ${code} (waiting 10 s)"
+            sleep 10
+          done
+          echo "::error::handbook never returned 200 within ~5 min after deploy"
+          exit 1

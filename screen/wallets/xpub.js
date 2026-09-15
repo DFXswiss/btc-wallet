@@ -74,7 +74,7 @@ const WalletXpub = () => {
   };
 
   const handleShareButtonPressed = () => {
-    Share.open({ message: xpub }).catch(error => console.log(error));
+    Share.open({ message: xpub }).catch(() => {});
   };
 
   return isLoading ? (

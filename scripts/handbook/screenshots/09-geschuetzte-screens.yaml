@@ -1,0 +1,71 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: _setup.yaml
+# Privatsphaere-Blur abschalten (Abschnitts-Header 12x tippen, Easter Egg in
+# SettingsPrivacy.js: setIsPrivacyBlurEnabled(!(tapped >= 10)))
+- tapOn:
+    point: '90%,10%'
+- extendedWaitUntil:
+    visible: 'Allgemein'
+    timeout: 20000
+- tapOn: 'Allgemein'
+- extendedWaitUntil:
+    visible: 'Privatsphäre'
+    timeout: 15000
+- tapOn: 'Privatsphäre'
+- extendedWaitUntil:
+    visible: 'Zwischenablage lesen'
+    timeout: 15000
+- repeat:
+    times: 12
+    commands:
+      - tapOn:
+          point: '50%,20%'
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    point: '20%,10%'
+- extendedWaitUntil:
+    visible: 'Kontinuität'
+    timeout: 15000
+- tapOn:
+    point: '20%,10%'
+- extendedWaitUntil:
+    visible: 'On-Chain-Wallet'
+    timeout: 15000
+
+# Screens hinter Privacy.enableBlur(). Ohne Blur-Off liefert Maestros
+# takeScreenshot oft nur Schwarz — dann mit
+#   xcrun simctl io <udid> screenshot <pfad>
+# aufnehmen (committeter Satz wurde so erzeugt).
+- tapOn: 'On-Chain-Wallet'
+- extendedWaitUntil:
+    visible: 'Adressen anzeigen'
+    timeout: 15000
+- tapOn: 'Adressen anzeigen'
+- waitForAnimationToEnd:
+    timeout: 12000
+# Privacy.enableBlur — Maestro oft schwarz; ggf. simctl io screenshot.
+- takeScreenshot: shots/02-wallet/05-adressen
+- tapOn:
+    point: '20%,10%'
+- extendedWaitUntil:
+    visible: 'Adressen anzeigen'
+    timeout: 15000
+
+- tapOn: 'Exportieren / Backup'
+- waitForAnimationToEnd:
+    timeout: 12000
+# Privacy.enableBlur — Maestro oft schwarz; ggf. simctl io screenshot.
+- takeScreenshot: shots/02-wallet/06-export-backup
+- tapOn:
+    point: '20%,10%'
+- extendedWaitUntil:
+    visible: 'Adressen anzeigen'
+    timeout: 15000
+
+- tapOn: 'Wallet xPub zeigen'
+- waitForAnimationToEnd:
+    timeout: 12000
+# Privacy.enableBlur — Maestro oft schwarz; ggf. simctl io screenshot.
+- takeScreenshot: shots/02-wallet/07-xpub

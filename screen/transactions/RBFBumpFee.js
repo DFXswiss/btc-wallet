@@ -20,7 +20,6 @@ export default class RBFBumpFee extends CPFP {
   static contextType = BlueStorageContext;
 
   async componentDidMount() {
-    console.log('transactions/RBFBumpFee - componentDidMount');
     this.setState({
       isLoading: true,
       newFeeRate: '',

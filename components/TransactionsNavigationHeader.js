@@ -19,10 +19,12 @@ export default class TransactionsNavigationHeader extends Component {
     width: PropTypes.number,
     showRBFWarning: PropTypes.bool,
     rightHeaderComponent: PropTypes.element,
+    headerOverlayHeight: PropTypes.number,
   };
 
   static defaultProps = {
     showRBFWarning: false,
+    headerOverlayHeight: 0,
   };
 
   static actionKeys = {
@@ -182,7 +184,8 @@ export default class TransactionsNavigationHeader extends Component {
 
     const stylesHook = StyleSheet.create({
       lineaderGradient: {
-        minHeight: this.props.showRBFWarning ? 100 : 140,
+        minHeight: (this.props.showRBFWarning ? 85 : 120) + this.props.headerOverlayHeight,
+        paddingTop: this.props.headerOverlayHeight > 0 ? this.props.headerOverlayHeight : 15,
       },
     });
 

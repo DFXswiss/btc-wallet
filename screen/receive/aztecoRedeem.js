@@ -81,10 +81,6 @@ export default class AztecoRedeem extends Component {
     }
   }
 
-  async componentDidMount() {
-    console.log('AztecoRedeem - componentDidMount');
-  }
-
   onWalletSelect = toWallet => {
     this.setState({ toWallet }, () => {
       this.props.navigation.pop();

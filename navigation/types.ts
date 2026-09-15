@@ -35,6 +35,7 @@ export type SendDetailsStackParamList = {
   ScanLndInvoice: object;
   LnurlPay: object;
   LnurlPaySuccess: object;
+  LnurlAuth: { walletID?: string; lnurl: string };
   LnurlNavigationForwarder: object;
   OpenCryptoPayCommitOnchain: object;
 };
@@ -42,6 +43,7 @@ export type SendDetailsStackParamList = {
 export type ReceiveDetailsStackParamList = {
   ReceiveDetails: { walletID: string; address?: string };
   LNDCreateInvoice: object;
+  LnurlAuth: { walletID?: string; lnurl: string };
   LNDReceive: object;
   PosReceive: object;
   CashierPos: object;
@@ -93,7 +95,9 @@ export type PaymentCodeStackParamList = {
 };
 
 export type WalletsStackParamList = {
-  WalletTransactions: { walletID: string; walletType?: string; isLoading?: boolean };
+  // `| undefined` so NavigatorScreenParams accepts `{ screen: 'WalletTransactions' }` without params.
+  // Callers that do pass params must still supply walletID.
+  WalletTransactions: { walletID: string; walletType?: string; isLoading?: boolean } | undefined;
   WalletAsset: { walletID: string };
   AddLightning: object;
   WalletsAddMultisig: object;
@@ -137,7 +141,7 @@ export type WalletsStackParamList = {
   IsItMyAddress: undefined;
   LnurlPay: object;
   LnurlPaySuccess: object;
-  LnurlAuth: object;
+  LnurlAuth: { walletID?: string; lnurl: string };
   Success: object;
   WalletAddresses: { walletID: string };
 };

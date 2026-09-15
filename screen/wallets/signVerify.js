@@ -4,7 +4,6 @@ import {
   Alert,
   Keyboard,
   KeyboardAvoidingView,
-  LayoutAnimation,
   Platform,
   StatusBar,
   StyleSheet,
@@ -63,7 +62,7 @@ const SignVerify = () => {
   const handleShare = () => {
     const baseUri = 'https://bluewallet.github.io/VerifySignature';
     const uri = `${baseUri}?a=${address}&m=${encodeURIComponent(message)}&s=${encodeURIComponent(signature)}`;
-    Share.open({ message: uri }).catch(error => console.log(error));
+    Share.open({ message: uri }).catch(() => {});
   };
 
   const handleSign = async () => {
@@ -102,7 +101,6 @@ const SignVerify = () => {
   };
 
   const handleFocus = value => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setMessageHasFocus(value);
   };
 

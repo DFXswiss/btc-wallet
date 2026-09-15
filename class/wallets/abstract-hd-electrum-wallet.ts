@@ -714,7 +714,7 @@ export class AbstractHDElectrumWallet extends AbstractHDWallet {
       // finally fetching balance
       await this._fetchBalance();
     } catch (err) {
-      console.warn(err);
+      console.warn('AbstractHDElectrumWallet.fetchBalance: failed during rescan, keeping stale balance', err);
     }
   }
 
@@ -910,10 +910,38 @@ export class AbstractHDElectrumWallet extends AbstractHDWallet {
     addressess = [...new Set(addressess)]; // deduplicate just for any case
 
     const fetchedUtxo = await BlueElectrum.multiGetUtxoByAddress(addressess);
-    this._utxo = [];
+    let newUtxo: any[] = [];
     for (const arr of Object.values(fetchedUtxo)) {
-      this._utxo = this._utxo.concat(arr);
+      newUtxo = newUtxo.concat(arr);
     }
+
+    if (newUtxo.length === 0 && this._utxo.length > 0 && BlueElectrum.isBatchingDisabled()) {
+      // Some servers (ElectrumPersonalServer, or an electrs version this client fails to detect)
+      // don't support the batched listunspent call multiGetUtxoByAddress() needs, and resolve
+      // with an empty result by design on every call, regardless of actual balance - expecting
+      // getUtxo() to fall back to deriving UTXOs from transaction history instead. That's a
+      // structural no-op, not a real "you have no UTXOs now" signal, so silently replacing an
+      // already-known-good UTXO set with it - right before a caller signs off of it - would be
+      // worse than surfacing the failure and letting the caller's own retry/abort handling run.
+      //
+      // Deliberately NOT cross-checked against getDerivedUtxoFromOurTransaction(): that view is
+      // refreshed on its own independent timer (fetchTransactions(), not this call) and can lag
+      // or under-cover real funds - a stale/incomplete "also empty" read there would silently let
+      // this exact wipe back in, just gated on a different, harder-to-reason-about condition. This
+      // throws every time instead, for as long as the wallet talks to such a server - and since
+      // _utxo is persisted with the wallet, an app restart alone doesn't clear the condition;
+      // connecting to a batching-capable server does. A blocked send is recoverable; a silently
+      // wrong one is not.
+      const error = new Error(
+        'fetchUtxo(): server does not support batched UTXO lookups; refusing to discard the previously known UTXO set',
+      ) as Error & { code: string; nonRetryable: boolean };
+      error.code = 'ELECTRUM_BATCHING_UNSUPPORTED';
+      // a structural property of the connection, not a transient failure - retrying cannot help
+      error.nonRetryable = true;
+      throw error;
+    }
+
+    this._utxo = newUtxo;
 
     // backward compatibility TODO: remove when we make sure `.utxo` is not used
     this.utxo = this._utxo;

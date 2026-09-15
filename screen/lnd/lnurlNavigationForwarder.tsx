@@ -14,6 +14,8 @@ import { AbstractWallet, HDSegwitBech32Wallet, LegacyWallet } from '../../class'
 import BigNumber from 'bignumber.js';
 import { AbstractHDElectrumWallet } from '../../class/wallets/abstract-hd-electrum-wallet';
 import { isInternalDomain } from '../../helpers/freeLightningDomains';
+import { reportError } from '../../helpers/errors';
+import { Utils } from '../../helpers/utils';
 
 type RouteParams = {
   lnurl: string;
@@ -120,9 +122,12 @@ const LnurlNavigationForwarder = () => {
 
     const isOffchain = wallets.find((w: any) => w.getID() === params?.walletID)?.chain === Chain.OFFCHAIN;
     if (tag === Lnurl.TAG_LOGIN_REQUEST) {
-      return navigation.navigate('LnurlAuth', {
-        lnurl,
-        walletID: isOffchain ? params?.walletID : undefined,
+      return navigation.replace('SendDetailsRoot', {
+        screen: 'LnurlAuth',
+        params: {
+          lnurl,
+          walletID: isOffchain ? params?.walletID : undefined,
+        },
       });
     }
 
@@ -147,7 +152,7 @@ const LnurlNavigationForwarder = () => {
         if (isMainWalletSuitable(paymentLink)) {
           setIsOnchainPayment(true);
           if (mainWallet instanceof LegacyWallet) {
-            await mainWallet.fetchUtxo();
+            await Utils.withRetry(() => mainWallet.fetchUtxo());
           }
           const navigationParams = await getOnChainPaymentNavigation(paymentLink);
           return navigation.replace('SendDetailsRoot', {
@@ -190,7 +195,7 @@ const LnurlNavigationForwarder = () => {
 
       throw new Error('Unsupported lnurl');
     } catch (error) {
-      console.error(error);
+      reportError('lnurlNavigationForwarder: failed to route lnurl', error);
       navigation.goBack();
     }
   };

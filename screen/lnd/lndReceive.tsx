@@ -197,7 +197,7 @@ const LNDReceive = () => {
   };
 
   const handleShareButtonPressed = () => {
-    Share.open({ message: invoiceRequest || wallet.lnAddress }).catch(error => console.log(error));
+    Share.open({ message: invoiceRequest || wallet.lnAddress }).catch(() => {});
   };
 
   if (isPaid) {

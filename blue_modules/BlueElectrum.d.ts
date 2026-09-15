@@ -96,3 +96,5 @@ export function getTransactionsFullByAddress(address: string): Promise<ElectrumT
 export function txhexToElectrumTransaction(txhes: string): ElectrumTransaction;
 
 export function isDisabled(): Promise<boolean>;
+
+export function isBatchingDisabled(): boolean;

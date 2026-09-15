@@ -59,13 +59,8 @@ function WatchConnectivity() {
             preferredFiatCurrency: preferredFiatCurrencyParsed.endPointKey,
           });
           lastPreferredCurrency.current = preferredFiatCurrency.endPointKey;
-        } else {
-          console.log('WatchConnectivity lastPreferredCurrency has not changed');
         }
-      } catch (e) {
-        console.log('WatchConnectivity useEffect preferredFiatCurrency error');
-        console.log(e);
-      }
+      } catch (_) {}
     }
   }, [preferredFiatCurrency, walletsInitialized, isReachable, isInstalled]);
 
@@ -73,8 +68,7 @@ function WatchConnectivity() {
     if (message.request === 'createInvoice') {
       handleLightningInvoiceCreateRequest(message.walletIndex, message.amount, message.description)
         .then(createInvoiceRequest => reply({ invoicePaymentRequest: createInvoiceRequest }))
-        .catch(e => {
-          console.log(e);
+        .catch(() => {
           reply({});
         });
     } else if (message.message === 'sendApplicationContext') {
@@ -83,9 +77,7 @@ function WatchConnectivity() {
     } else if (message.message === 'fetchTransactions') {
       fetchWalletTransactions()
         .then(() => saveToDisk())
-        .catch(e => {
-          console.log(e);
-        })
+        .catch(() => {})
         .finally(() => reply({}));
     } else if (message.message === 'hideBalance') {
       const walletIndex = message.walletIndex;
@@ -108,10 +100,7 @@ function WatchConnectivity() {
             const decoded = await wallet.decodeInvoice(invoiceRequest);
             majorTomToGroundControl([], [decoded.payment_hash], []);
           }
-        } catch (e) {
-          console.log('WatchConnectivity - Running in Simulator');
-          console.log(e);
-        }
+        } catch (_) {}
         return invoiceRequest;
       } catch (error) {
         return error;
@@ -121,11 +110,9 @@ function WatchConnectivity() {
 
   const sendWalletsToWatch = async () => {
     if (!Array.isArray(wallets)) {
-      console.log('No Wallets set to sync with Watch app. Exiting...');
       return;
     }
     if (!walletsInitialized) {
-      console.log('Wallets not initialized. Exiting...');
       return;
     }
     const walletsToProcess = [];

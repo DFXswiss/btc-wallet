@@ -1,0 +1,19 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: _setup.yaml
+- tapOn:
+    point: '16%,93%'
+- extendedWaitUntil:
+    visible: 'Teilen'
+    timeout: 20000
+- takeScreenshot: shots/04-empfangen-senden/01-erhalten
+- tapOn: 'Schließen'
+- extendedWaitUntil:
+    visible: 'Wallet Backup'
+    timeout: 20000
+
+- tapOn:
+    point: '84%,93%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- takeScreenshot: shots/04-empfangen-senden/02-senden

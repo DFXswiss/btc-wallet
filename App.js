@@ -32,6 +32,56 @@ import WidgetCommunication from './blue_modules/WidgetCommunication';
 import HandoffComponent from './components/handoff';
 import Privacy from './blue_modules/Privacy';
 import { addEventListener } from '@react-native-community/netinfo';
+import { getUniqueIdSync } from 'react-native-device-info';
+import * as Sentry from '@sentry/react-native';
+// Not re-exported by @sentry/react-native. Both are pinned to exact versions so they stay
+// a single deduped instance: Sentry keys its carrier by SDK version, so a copy at a
+// *different* version would get its own client, the integration's own client check would
+// never match, and it would stop filing issues silently.
+import { captureConsoleIntegration } from '@sentry/core';
+const BlueApp = require('./BlueApp');
+
+// blue_modules/analytics.js's setSentryEnabled() only toggles JS-side event
+// delivery (client.getOptions().enabled) - it can't retroactively stop native
+// crash handling once initialized. enableNative can only be set at init time,
+// so the persisted Do Not Track choice has to be read (async, AsyncStorage-
+// backed) before Sentry.init() runs, not after. Deferring init briefly - rather
+// than initializing native handling unconditionally and hoping to disable it
+// later - is what actually keeps an opted-out user's native crashes local.
+BlueApp.isDoNotTrackEnabled().then(doNotTrack => {
+  Sentry.init({
+    dsn: 'https://3442e1e21177204b9c8d25d2f682b485@sentry.dfxserve.com/4',
+
+    // Set both here, atomically, from the one resolved value: blue_modules/
+    // analytics.js reads this same async preference independently for live
+    // toggling later, and racing two separate reads of it at startup could
+    // otherwise leave the JS side briefly enabled for an opted-out user.
+    enableNative: !doNotTrack,
+    enabled: !doNotTrack,
+
+    // Do not attach IP address, cookies, or other PII to events.
+    sendDefaultPii: false,
+
+    // Enable Logs
+    enableLogs: true,
+
+    // Without this, a caught error that only reaches console.error is recorded
+    // as a breadcrumb and a log, but never opens an issue - so nothing alerts on
+    // it. Errors only: console.warn is far too noisy (Electrum reconnects alone
+    // produce hundreds a day). Merged with the SDK's default integrations.
+    integrations: [captureConsoleIntegration({ levels: ['error'] })],
+
+    // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+    // spotlight: __DEV__,
+  });
+
+  // Identify the device here, not from analytics.js's own Do Not Track read: that
+  // module is imported first and so resolves first, and the scope->native bridge is
+  // installed inside init() without replaying a user set before it. Setting it there
+  // alone would leave native crashes carrying the SDK's own install id while JS
+  // events and logs carry this one - the same split this is meant to remove.
+  Sentry.setUser(doNotTrack ? null : { id: getUniqueIdSync() });
+});
 const currency = require('./blue_modules/currency');
 const BlueElectrum = require('./blue_modules/BlueElectrum');
 
@@ -50,6 +100,7 @@ const App = () => {
   const { walletsInitialized, wallets, addWallet, saveToDisk, setBalanceRefreshInterval, clearBalanceRefreshInterval } =
     useContext(BlueStorageContext);
   const appState = useRef(AppState.currentState);
+  const wasElectrumOnline = useRef(undefined);
 
   useCompanionListeners();
 
@@ -110,7 +161,7 @@ const App = () => {
     DeviceQuickActions.popInitialAction().then(popInitialAction);
     EventEmitter?.getMostRecentUserActivity()
       .then(onUserActivityOpen)
-      .catch(() => console.log('No userActivity object sent'));
+      .catch(() => {});
     handleAppStateChange(undefined);
     eventEmitter?.addListener('openSettings', openSettings);
     eventEmitter?.addListener('onUserActivityOpen', onUserActivityOpen);
@@ -173,7 +224,29 @@ const App = () => {
 
   useEffect(() => {
     const unsubscribe = addEventListener(state => {
-      BlueElectrum.setNetworkConnected(state.isConnected);
+      // isConnected is `boolean | null`, where null means "not yet determined".
+      // Only a definite false means offline - treating unknown as offline would
+      // gate connectMain() off entirely (see the networkConnected check there)
+      // and leave Electrum wedged with no connection and no retry.
+      const isOffline = state.isConnected === false;
+      BlueElectrum.setNetworkConnected(!isOffline);
+
+      // The initial connect used to run at BlueApp.js module scope, before NetInfo
+      // had reported anything - and BlueElectrum defaults networkConnected to true,
+      // so a cold start with no network burned the whole retry cascade for nothing.
+      // NetInfo delivers the current state as soon as we subscribe, so this is the
+      // earliest point at which the answer is actually known.
+      //
+      // Fires on the first report that says we have a network, and again on every
+      // offline -> online transition: while offline every connectMain() returns at
+      // the networkConnected guard, so reconnecting here is immediate instead of
+      // waiting for the next waitTillConnected() timeout to drive it. Not
+      // level-triggered: reconnecting when already connected re-arms the 30 minute
+      // peer rotation timer.
+      if (!isOffline && wasElectrumOnline.current !== true) {
+        BlueElectrum.connectMain();
+      }
+      wasElectrumOnline.current = !isOffline;
     });
 
     return () => {
@@ -223,4 +296,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default App;
+export default Sentry.wrap(App);

@@ -1,0 +1,8 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: _setup.yaml
+- tapOn:
+    point: '85%,43%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- takeScreenshot: shots/06-wallet-hinzufuegen/01-multi-device

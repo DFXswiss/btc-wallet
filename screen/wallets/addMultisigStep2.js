@@ -1,7 +1,7 @@
 import React, { useContext, useRef, useState, useEffect, useMemo } from 'react';
-import { Alert, FlatList, LayoutAnimation, Platform, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Platform, StyleSheet, Text, View } from 'react-native';
 import { Icon } from 'react-native-elements';
-import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { useIsFocused, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import PropTypes from 'prop-types';
 
@@ -13,7 +13,7 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { BlueURDecoder, encodeUR } from '../../blue_modules/ur';
 import QRCodeComponent from '../../components/QRCodeComponent';
 import alert from '../../components/Alert';
-import { Camera } from 'react-native-camera-kit-no-google';
+import { CosignerCamera } from './CosignerCamera';
 import { ScrollView } from 'react-native-gesture-handler';
 const createHash = require('create-hash');
 
@@ -35,6 +35,7 @@ const WalletsAddMultisigStep2 = () => {
   const [isError, setIsError] = useState(false);
   const scannedCache = useRef({}).current; // ref so the scan-dedup cache survives re-renders
   const quorum = useRef(new Array(n));
+  const isFocused = useIsFocused();
 
   useEffect(() => {
     if (cosigners.length === 0) {
@@ -68,7 +69,7 @@ const WalletsAddMultisigStep2 = () => {
     } catch (e) {
       setIsLoading(false);
       alert(e.message);
-      console.log('create MS wallet error', e);
+      console.error('addMultisigStep2: failed to create multisig wallet', e);
     }
   };
 
@@ -192,7 +193,6 @@ const WalletsAddMultisigStep2 = () => {
 
     const cosignersCopy = [...cosigners];
     cosignersCopy.push([xpub, fp, path]);
-    if (Platform.OS !== 'android') LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setCosigners(cosignersCopy);
   };
 
@@ -250,7 +250,7 @@ const WalletsAddMultisigStep2 = () => {
     try {
       onBarScanned(ret.data);
     } catch (e) {
-      console.log(e);
+      console.debug('addMultisigStep2: onBarScanned handler threw', e);
     }
   };
 
@@ -355,7 +355,6 @@ const WalletsAddMultisigStep2 = () => {
 
       const cosignersCopy = [...cosigners];
       cosignersCopy.push([cosigner.getXpub(), cosigner.getFp(), cosigner.getPath()]);
-      if (Platform.OS !== 'android') LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
       setCosigners(cosignersCopy);
     }
@@ -395,9 +394,9 @@ const WalletsAddMultisigStep2 = () => {
         <QRCodeComponent value={cosignerXpubURv2} size={290} />
       </View>
       <View style={styles.cameraContainer}>
-        <Camera
+        <CosignerCamera
+          isFocused={isFocused}
           scanBarcode={!isError}
-          scanThrottleDelay={0}
           onReadCode={event => onBarCodeRead({ data: event?.nativeEvent?.codeStringValue })}
           style={styles.camera}
         />

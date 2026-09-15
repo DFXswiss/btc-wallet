@@ -106,6 +106,11 @@ describe.each(['', '//'])('unit - DeepLinkSchemaMatch', function (suffix) {
         'LNURL1DP68GURN8GHJ7UM9WFMXJCM99E3K7MF0V9CXJ0M385EKVCENXC6R2C35XVUKXEFCV5MKVV34X5EKZD3EV56NYD3HXQURZEPEXEJXXEPNXSCRVWFNV9NXZCN9XQ6XYEFHVGCXXCMYXYMNSERXFQ5FNS',
       ),
     );
+    assert.ok(
+      DeeplinkSchemaMatch.isLnUrl(
+        'dfxtaro:lightning:LNURL1DP68GURN8GHJ7UM9WFMXJCM99E3K7MF0V9CXJ0M385EKVCENXC6R2C35XVUKXEFCV5MKVV34X5EKZD3EV56NYD3HXQURZEPEXEJXXEPNXSCRVWFNV9NXZCN9XQ6XYEFHVGCXXCMYXYMNSERXFQ5FNS',
+      ),
+    );
   });
 
   it('navigationForRoute', async () => {
@@ -166,6 +171,20 @@ describe.each(['', '//'])('unit - DeepLinkSchemaMatch', function (suffix) {
       {
         argument: {
           url: 'https://lnbits.com/?lightning=LNURL1DP68GURN8GHJ7MRWVF5HGUEWVDHK6TMHD96XSERJV9MJ7CTSDYHHVVF0D3H82UNV9UM9JDENFPN5SMMK2359J5RKWVMKZ5ZVWAV4VJD63TM',
+        },
+        expected: [
+          'ReceiveDetailsRoot',
+          {
+            screen: 'LNDCreateInvoice',
+            params: {
+              uri: 'lnurl1dp68gurn8ghj7mrwvf5hguewvdhk6tmhd96xserjv9mj7ctsdyhhvvf0d3h82unv9um9jdenfpn5smmk2359j5rkwvmkz5zvwav4vjd63tm',
+            },
+          },
+        ],
+      },
+      {
+        argument: {
+          url: 'dfxtaro:lightning:LNURL1DP68GURN8GHJ7MRWVF5HGUEWVDHK6TMHD96XSERJV9MJ7CTSDYHHVVF0D3H82UNV9UM9JDENFPN5SMMK2359J5RKWVMKZ5ZVWAV4VJD63TM',
         },
         expected: [
           'ReceiveDetailsRoot',

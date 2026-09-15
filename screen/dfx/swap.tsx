@@ -15,6 +15,9 @@ import { useSwap } from '../../api/dfx/hooks/swap.hook';
 import { useWalletContext } from '../../contexts/wallet.context';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import { SwapInfo } from '../../api/dfx/definitions/swap';
+import { Utils } from '../../helpers/utils';
+import { DfxService } from '../../api/dfx/contexts/session.context';
+import { DfxMaxAmount } from '../../helpers/dfxMaxAmount';
 const currency = require('../../blue_modules/currency');
 
 type SwapRouteProps = RouteProp<
@@ -35,6 +38,7 @@ const Swap = () => {
   const { routeId, amount, 'wallet-id': walletId } = useRoute<SwapRouteProps>().params;
   const { getInfo } = useSwap();
   const [isLoading, setIsLoading] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [swapInfo, setSwapInfo] = useState<SwapInfo>();
   const [changeAddress, setChangeAddress] = useState<string>();
 
@@ -81,8 +85,12 @@ const Swap = () => {
       const networkTransactionFees = await NetworkTransactionFees.recommendedFees();
       const changeAddress = await getChangeAddressAsync(wallet);
       const requestedSatPerByte = Number(networkTransactionFees.fastestFee);
+      await Utils.withRetry(() => wallet.fetchUtxo());
       const lutxo = wallet.getUtxo();
-      const targets = [{ address: swapInfo?.deposit.address, value: currency.btcToSatoshi(amount) }];
+      const isMaxAmount = await DfxMaxAmount.wasConfirmed(walletId, DfxService.SWAP, amount, Utils.sumUtxoValue(lutxo));
+      const targets = isMaxAmount
+        ? [{ address: swapInfo?.deposit.address }]
+        : [{ address: swapInfo?.deposit.address, value: currency.btcToSatoshi(amount) }];
       const { tx, outputs, psbt, fee } = wallet.createTransaction(
         lutxo,
         targets,
@@ -121,7 +129,9 @@ const Swap = () => {
   }
 
   function handleError(e: any) {
-    Alert.alert('Something went wrong', e.message?.toString(), [
+    // same actionable copy Send uses for this structural condition, instead of the raw technical message
+    const message = e?.code === 'ELECTRUM_BATCHING_UNSUPPORTED' ? loc.send.details_utxo_refresh_unsupported_server : e.message?.toString();
+    Alert.alert('Something went wrong', message, [
       {
         text: loc._.ok,
         onPress: () => {},
@@ -195,7 +205,16 @@ const Swap = () => {
           </View>
           <View style={styles.buttonContainer}>
             <View style={styles.button}>
-              <BlueButton onPress={() => handleConfirm().catch(handleError)} title={loc.swap.confirm} />
+              <BlueButton
+                onPress={() => {
+                  setIsConfirming(true);
+                  handleConfirm()
+                    .catch(handleError)
+                    .finally(() => setIsConfirming(false));
+                }}
+                title={loc.swap.confirm}
+                isLoading={isConfirming}
+              />
             </View>
           </View>
         </View>

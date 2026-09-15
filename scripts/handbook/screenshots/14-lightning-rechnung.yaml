@@ -1,0 +1,13 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: _setup-lightning.yaml
+- tapOn:
+    point: '50%,58%'
+- extendedWaitUntil:
+    visible: 'Bezahlkarte'
+    timeout: 20000
+- tapOn:
+    point: '16%,93%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- takeScreenshot: shots/08-lightning/03-rechnung-erstellen

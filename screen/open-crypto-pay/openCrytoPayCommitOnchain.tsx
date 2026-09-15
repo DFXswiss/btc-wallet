@@ -15,6 +15,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AbstractWallet } from '../../class';
 import { CoinSelectOutput } from 'coinselect';
 import { OpenCryptoPayPaymentLink } from '../../class/open-crypto-pay';
+import { reportError } from '../../helpers/errors';
 const currency = require('../../blue_modules/currency');
 const Bignumber = require('bignumber.js');
 const bitcoin = require('bitcoinjs-lib');
@@ -68,10 +69,7 @@ const OpenCrytoPayCommitOnchain = () => {
   });
 
   useEffect(() => {
-    console.log('openCrytoPayCommitOnchain - useEffect');
-    console.log('address = ', recipients);
     Biometric.isBiometricUseCapableAndEnabled().then(setIsBiometricUseCapableAndEnabled);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -120,8 +118,9 @@ const OpenCrytoPayCommitOnchain = () => {
       const result = await paymentLink.commitOnchainPayment(_tx);
 
       if (result.error) {
-        console.error('error', result);
-        throw new Error(`${result.error} - ${result.message} - ${result.statusCode}`);
+        // Not result.message: the outer catch logs this error, and the message can
+        // carry payment detail. It is never displayed - the catch only flags state.
+        throw new Error(`openCryptoPay commit rejected: ${result.error} (${result.statusCode})`);
       }
 
       const amount = recipients.reduce((acc, recipient) => acc + recipient.value, 0);
@@ -133,7 +132,7 @@ const OpenCrytoPayCommitOnchain = () => {
         amount: Number(amountFormatted),
       });
     } catch (error) {
-      console.error('error', error);
+      reportError('openCryptoPay: onchain commit failed', error);
       setIsServerError(true);
     } finally {
       setIsLoading(false);

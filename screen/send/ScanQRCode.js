@@ -173,7 +173,7 @@ const ScanQRCode = () => {
         setUrHave(Math.floor(decoder.estimatedPercentComplete() * 100));
       }
     } catch (error) {
-      console.warn(error);
+      console.debug('ScanQRCode: UR fragment decode failed', error);
       setIsLoading(true);
       Alert.alert(
         loc.send.scan_error,
@@ -221,7 +221,7 @@ const ScanQRCode = () => {
         setAnimatedQRCodeData(animatedQRCodeData);
       }
     } catch (error) {
-      console.warn(error);
+      console.debug('ScanQRCode: animated QR fragment decode failed', error);
       setIsLoading(true);
       Alert.alert(
         loc.send.scan_error,
@@ -292,7 +292,7 @@ const ScanQRCode = () => {
         }
         onBarScanned(ret.data);
       } catch (e) {
-        console.log(e);
+        console.debug('ScanQRCode: onBarScanned handler threw', e);
       }
     }
     setIsLoading(false);
@@ -369,7 +369,7 @@ const ScanQRCode = () => {
       onBarScanned({ data: { ...card, secrets: authKeys } });
     } catch (error) {
       setHoldCardModalVisible(false);
-      console.log('#### error ###', error, error?.message, error.constructor?.name);
+      console.error('ScanQRCode: NFC card read failed', error);
     }
     stopNfcSession();
   };

@@ -1,6 +1,6 @@
 import React, { useState, useRef, forwardRef } from 'react';
 import PropTypes from 'prop-types';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, PixelRatio } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, PixelRatio, Platform } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 
 const BORDER_RADIUS = 30;
@@ -15,7 +15,7 @@ const cStyles = StyleSheet.create({
   },
   rootAbsolute: {
     position: 'absolute',
-    bottom: 30,
+    bottom: Platform.OS === 'android' ? 20 : 30,
   },
   rootInline: {},
   rootPre: {

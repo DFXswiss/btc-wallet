@@ -19,9 +19,8 @@ const ToolTipMenu = (props, ref) => {
     }
   }, [ref]);
 
-  const dismissMenu = () => {
-    console.log('dismissMenu Not implemented');
-  };
+  // Android popup menus cannot be dismissed programmatically; the ref contract needs the method regardless.
+  const dismissMenu = () => {};
 
   const showMenu = () => {
     const menu = [];
