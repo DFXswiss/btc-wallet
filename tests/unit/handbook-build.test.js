@@ -980,6 +980,60 @@ describe('unit - handbook build guards', () => {
     assert.ok(!/alert\(1\)/i.test(body), 'script body must not remain');
   });
 
+  // Browsers treat `</script foo="bar">` as a script closer. A filter that
+  // only allows whitespace before `>` leaves the live block in the page.
+  it('strips a script block whose closer has extra attributes', function () {
+    const { fixture, out } = freshDirs();
+    const danger =
+      '# Title\n\n' +
+      '<p>KEEP-CLOSER-ATTRS</p>\n\n' +
+      '<div><script>alert(1)</script foo="bar"></div>\n';
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docContents: { 'DOC-0.md': danger },
+    });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const html = fs.readFileSync(path.join(out, 'docs/DOC-0.html'), 'utf8');
+    const body = html.replace(/^[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*$/i, '');
+    assert.ok(body.includes('KEEP-CLOSER-ATTRS'));
+    assert.ok(!/<script\b/i.test(body), 'script with extra-attribute closer must be stripped');
+    assert.ok(!/alert\(1\)/i.test(body), 'script body must not remain');
+  });
+
+  // One pass that deletes the inner pair reconstitutes an outer script.
+  // Either the fixed-point strip removes it, or the build fails closed —
+  // never a live script with the reconstituted payload.
+  it('does not publish a script reconstituted from a nested pair', function () {
+    const { fixture, out } = freshDirs();
+    const danger =
+      '# Title\n\n' +
+      '<p>KEEP-RECONSTITUTE</p>\n\n' +
+      '<div><scrip<script>removed</script>t>alert(9)</script></div>\n';
+    populateValidFixture(fixture, {
+      shotSize: MIN_PNG_BYTES + 1,
+      docContents: { 'DOC-0.md': danger },
+    });
+    const r = runBuild(out, {
+      HANDBOOK_REPO_ROOT: fixture,
+      NODE_PATH: markedNodePath,
+      GIT_SHA: 't',
+    });
+    if (r.status !== 0) {
+      assert.match(r.stderr, /sanitizer/i);
+      return;
+    }
+    const html = fs.readFileSync(path.join(out, 'docs/DOC-0.html'), 'utf8');
+    const body = html.replace(/^[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*$/i, '');
+    assert.ok(body.includes('KEEP-RECONSTITUTE'));
+    assert.ok(!/<script\b/i.test(body), 'reconstituted script must not remain');
+    assert.ok(!/alert\(9\)/i.test(body), 'reconstituted script body must not remain');
+  });
+
   // Guard used to treat an unquoted src ending in `/` as a self-close
   // marker (`/\/\s*$/` on the raw attr string). The opener was never
   // pushed, strip matched neither the block nor the `/>` form, and the
