@@ -24,7 +24,12 @@ Spark identity through `_setup-import.yaml` instead of creating a random wallet.
   set outside the suite; without it those flows fail rather than silently pass.
   P16 and P17 import a fixed Spark identity (`E2E_SPARK_MNEMONIC`) and need that
   identity to be tradable on the local stack (see the fixture section below).
-  Without the mnemonic they fail rather than skip.
+  Without the mnemonic they fail rather than skip. P16 and P17 also need
+  `E2E_API_URL` (local API origin) and `E2E_DFX_JWT` (bearer token for that
+  identity). `E2E_DFX_JWT` is a secret; the runner forwards it to `maestro test`
+  only when set and never prints it. The helpers do not print it either. If
+  either name is missing, `dfx-simulate-payment.js` or `backend-state.js` exits
+  2 and the flow fails rather than skip.
 - P14, P15 and P17 need a Lightning counterpart, configured only through the
   runner's environment (`E2E_TREASURY_URL`, `E2E_TREASURY_KEY`, optional
   `E2E_TREASURY_MAX_SAT` default 1000, optional `E2E_TREASURY_MAX_FEE_SAT` default
@@ -297,3 +302,21 @@ Details, flow mappings and the known P11 load-timing flake remain in
 `coverage.md`.
 
 The exact mapping of path, flow and assertion is in `coverage.md`.
+
+## Dated P16/P17 run (2026-09-16)
+
+P16 and P17 were run on this head against the local stack on
+`http://127.0.0.1:3300`, simulator `762EC3AB-2EE7-47D8-AE37-FC1357CC0B33`, with
+`E2E_API_URL`, `E2E_DFX_JWT`, `E2E_SPARK_MNEMONIC`, `E2E_SPARK_WALLET_ADDRESS`
+(P16) and `E2E_SPARK_DEPOSIT_ADDRESS` (P17) set. Both were red in
+`_setup-import.yaml`: after the Lightning-add tap the app showed
+`Lightning konnte nicht gestartet werden. (Error)` and two `Wiederholen` taps
+still left no Spark row. Neither flow reached the buy/sell mask or the backend
+booking. last-run for P16 (third attempt) was exit 1, 159 s,
+`assertion-failed`; for P17 (one attempt) exit 1, 167 s, `assertion-failed`.
+`E2E_TREASURY_URL` was not set, so the Lightning counterpart for P17's
+`onFlowComplete` return hook was missing; that hook ran after the failed
+assertion and skipped (`refund skipped: not-visible`) because no Spark
+`WalletBalance` was on screen. The counterpart was therefore not the blocking
+failure of this run. The first P16 attempt aborted at YAML parse of the
+unquoted `MIN_TX_ID` ternary; those three `MIN_TX_ID` lines are now quoted.

@@ -81,6 +81,23 @@ env:
     point: '75%,58%'
 - waitForAnimationToEnd:
     timeout: 90000
+# createSparkWallet kann mit "Lightning konnte nicht gestartet werden" und
+# Wiederholen scheitern. Ohne diesen Tipp verstreicht die 90s-Wartezeit
+# vor dem unveraenderten Dialog.
+- runFlow:
+    when:
+      visible: 'Wiederholen'
+    commands:
+      - tapOn: 'Wiederholen'
+      - waitForAnimationToEnd:
+          timeout: 90000
+- runFlow:
+    when:
+      visible: 'Wiederholen'
+    commands:
+      - tapOn: 'Wiederholen'
+      - waitForAnimationToEnd:
+          timeout: 90000
 # Die Zeile kann 0 oder ein bereits vorhandenes Spark-Guthaben der festen
 # Identitaet zeigen; die Suite muss dieselbe Adresse wiederverwenden koennen.
 - extendedWaitUntil:

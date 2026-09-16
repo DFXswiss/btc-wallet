@@ -323,7 +323,7 @@ onFlowComplete:
       E2E_API_URL: ${E2E_API_URL || ''}
       E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
       STATE_KIND: sell-booked
-      MIN_TX_ID: ${Number(savedMaxTxId) > 0 ? String(savedMaxTxId) : ''}
+      MIN_TX_ID: "${Number(savedMaxTxId) > 0 ? String(savedMaxTxId) : ''}"
       TIMEOUT_MS: '900000'
 - assertTrue:
     condition: ${output.backendState === 'ok'}
@@ -335,7 +335,7 @@ onFlowComplete:
       E2E_API_URL: ${E2E_API_URL || ''}
       E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
       STATE_KIND: sell-complete
-      MIN_TX_ID: ${Number(savedMaxTxId) > 0 ? String(savedMaxTxId) : ''}
+      MIN_TX_ID: "${Number(savedMaxTxId) > 0 ? String(savedMaxTxId) : ''}"
       TIMEOUT_MS: '900000'
 - assertTrue:
     condition: ${output.backendState === 'ok'}
