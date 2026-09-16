@@ -105,14 +105,14 @@ fi
 if [[ -n "${E2E_SPARK_WALLET_ADDRESS-}" ]]; then
   maestro_env_args+=(-e "E2E_SPARK_WALLET_ADDRESS=${E2E_SPARK_WALLET_ADDRESS}")
 fi
-if [[ -n "${E2E_SPARK_PAYOUT_URL-}" ]]; then
-  maestro_env_args+=(-e "E2E_SPARK_PAYOUT_URL=${E2E_SPARK_PAYOUT_URL}")
+if [[ -n "${E2E_API_URL-}" ]]; then
+  maestro_env_args+=(-e "E2E_API_URL=${E2E_API_URL}")
 fi
-if [[ -n "${E2E_SPARK_PAYOUT_KEY-}" ]]; then
-  maestro_env_args+=(-e "E2E_SPARK_PAYOUT_KEY=${E2E_SPARK_PAYOUT_KEY}")
+if [[ -n "${E2E_DFX_JWT-}" ]]; then
+  maestro_env_args+=(-e "E2E_DFX_JWT=${E2E_DFX_JWT}")
 fi
-if [[ -n "${E2E_SPARK_PAYOUT_MAX_SAT-}" ]]; then
-  maestro_env_args+=(-e "E2E_SPARK_PAYOUT_MAX_SAT=${E2E_SPARK_PAYOUT_MAX_SAT}")
+if [[ -n "${E2E_BUY_CHF-}" ]]; then
+  maestro_env_args+=(-e "E2E_BUY_CHF=${E2E_BUY_CHF}")
 fi
 
 shopt -s nullglob

@@ -31,20 +31,25 @@ Spark identity through `_setup-import.yaml` instead of creating a random wallet.
   100). The payment amount those three flows type and assert is `E2E_PAYMENT_SAT`
   (default 10). It must end in 0: the amount field keeps a zero after the
   cursor, so backspace deletes the last typed digit. P15 sends one tenth of that amount so the Spark fee still fits
-  in the remaining balance. P16 pays over Spark through a local loopback
-  payout service (`E2E_SPARK_PAYOUT_URL`, `E2E_SPARK_PAYOUT_KEY`, optional
-  `E2E_SPARK_PAYOUT_MAX_SAT` default 1000). Maestro's `runScript` sandbox does not see the shell
+  in the remaining balance. P16 and P17 also need `E2E_API_URL` and
+  `E2E_DFX_JWT` (see the backend-API section below). P16's buy amount is
+  `E2E_BUY_CHF` (default 0.20). Maestro's `runScript` sandbox does not see the shell
   environment, so the runner forwards `E2E_PAYMENT_SAT` (always, default 10) and
-  each treasury or payout variable that is set, plus `E2E_SPARK_MNEMONIC`,
-  `E2E_SPARK_DEPOSIT_ADDRESS` and `E2E_SPARK_WALLET_ADDRESS` when set, to
+  each treasury variable that is set, plus `E2E_SPARK_MNEMONIC`,
+  `E2E_SPARK_DEPOSIT_ADDRESS`, `E2E_SPARK_WALLET_ADDRESS`, `E2E_API_URL`,
+  `E2E_DFX_JWT` and `E2E_BUY_CHF` when set, to
   `maestro test` as `-e NAME=VALUE` (unset names are omitted). The flows bind those names in the
-  `runScript` `env` map, and `treasury.js` / `spark-payout.js` read the script
+  `runScript` `env` map, and `treasury.js` / `dfx-simulate-payment.js` /
+  `backend-state.js` read the script
   bindings first, then `process.env`. If the URL or the key is missing,
-  `tests/e2e-maestro/scripts/treasury.js` or
-  `tests/e2e-maestro/scripts/spark-payout.js` exits 2 and the flow fails. It does
+  `tests/e2e-maestro/scripts/treasury.js` exits 2 and the flow fails. If
+  `E2E_API_URL` or `E2E_DFX_JWT` is missing,
+  `tests/e2e-maestro/scripts/dfx-simulate-payment.js` or
+  `tests/e2e-maestro/scripts/backend-state.js` exits 2 and the flow fails. It does
   not skip the payment or report success. Amounts above `E2E_TREASURY_MAX_SAT`
-  are rejected before anything is sent. The helper never prints the key; BOLT11
-  values it prints are the invoices the app has to pay (P15 send, P14/P17
+  are rejected before anything is sent. The helpers never print the key or the
+  JWT; BOLT11
+  values they print are the invoices the app has to pay (P15 send, P14/P17
   return). The runner does not echo the forwarded values.
 - The given simulator must not hold any wallet state worth protecting for
   P01–P15. Before every flow the runner terminates and uninstalls the app,
@@ -106,28 +111,28 @@ user on every run. The mnemonic is **not** in this repository.
 - The stack must already have free Spark deposit addresses (`POST /v1/deposit`)
   and `Spark/BTC` with `sellable = true`. The SQL does not create those.
 
-## Local Spark payout service for P16
+## Backend API for P16 and P17
 
-P16's simulated buy credit is a Spark transfer from the backend wallet, not a
-Lightning payment from the treasury counterpart. The service that performs
-that transfer is **not part of this repository**. It holds
-`SPARK_WALLET_SEED`, binds only to `127.0.0.1`, and requires
-`SPARK_PAYOUT_KEY`. Run it only against the local stack, never against dev
-or prod:
+P16 and P17 talk to the local DFX API through
+`tests/e2e-maestro/scripts/dfx-simulate-payment.js` and
+`tests/e2e-maestro/scripts/backend-state.js`. They need `E2E_API_URL` (the
+local API origin, e.g. `http://127.0.0.1:3300`) and `E2E_DFX_JWT` (a bearer
+token for the imported identity). The runner forwards those names only when
+set and does not print the values. `E2E_DFX_JWT` is a secret. If either name
+is missing, the scripts exit 2 and the flow fails; they do not skip.
 
-```sh
-SPARK_WALLET_SEED='<seed>' \
-SPARK_PAYOUT_KEY='<key>' \
-SPARK_PAYOUT_MAX_SAT='<limit>' \
-node /tmp/spark-payout-service.js <accountIndex>
-```
+P16 triggers an incoming payment on the identity's active buy route
+(`PUT /v1/buy/<id>/simulatePayment`) for `E2E_BUY_CHF` (default 0.20), waits
+until `GET /v1/transaction`
+shows a Buy in Completed with an id greater than the snapshot taken before
+that trigger, then asserts the Spark wallet balance has risen. P17 snapshots
+`GET /v1/transaction` before the wallet send, then waits for a Sell to be
+booked and then Completed, again only counting ids greater than the
+snapshot.
 
-The flow then needs `E2E_SPARK_PAYOUT_URL` (loopback, e.g. `http://127.0.0.1:18765`),
-`E2E_SPARK_PAYOUT_KEY` (same key), and `E2E_SPARK_WALLET_ADDRESS`. Optional
-`E2E_SPARK_PAYOUT_MAX_SAT` defaults to 1000. The runner forwards those names
-only when set and does not print the values. If the URL or the key is
-missing, `tests/e2e-maestro/scripts/spark-payout.js` exits 2 and the flow
-fails. It does not skip the payout.
+The local stack must accept that JWT, expose those routes, process the buy
+through to a Spark credit, and process the sell through to Completed. Never
+run this against dev or prod.
 
 The selected local API stack must supply `FAUCET_LOW_BALANCE_THRESHOLD` at boot;
 do not silently omit this required variable. The frontend build needs sufficient
@@ -199,20 +204,23 @@ on a configuration error or an empty filter.
   product observation, not a persistence test.
 - P16 and P17 import a fixed Spark identity (`E2E_SPARK_MNEMONIC`) and need the
   local DFX stack plus a tradable backend account for that identity (the
-  fixture above). P16 asserts the buy mask shows the truncated
-  `E2E_SPARK_WALLET_ADDRESS` plus `Spark`, then `IBAN` and `BIC`, and that
-  `Invalid signature` is absent. It then has the local Spark payout service
-  send `E2E_PAYMENT_SAT` to that wallet from the backend Spark account and
-  asserts `WalletBalance` has risen by that amount. That payout is simulated:
-  it is not a DFX BuyCrypto, even though it uses the same Spark wallet DFX
-  would pay from. There is no fiat credit.
+  fixture above), plus `E2E_API_URL` and `E2E_DFX_JWT`. P16 asserts the buy
+  mask shows the truncated `E2E_SPARK_WALLET_ADDRESS` plus `Spark`, then
+  `IBAN` and `BIC`, and that `Invalid signature` is absent. It then triggers
+  an incoming payment on the buy route, waits for the backend to complete
+  that buy (id greater than the snapshot taken before the trigger), and
+  asserts `WalletBalance` has risen. The incoming payment is raised through
+  the API helper (`dfx-simulate-payment.js`, `E2E_BUY_CHF` default 0.20), not a
+  transfer from a real bank. P16 does not assert a specific sat credit.
   P17 fills the Spark wallet from the counterpart if the visible balance is
   below `E2E_PAYMENT_SAT`, opens sell, asserts the truncated on-screen
   address matches `E2E_SPARK_DEPOSIT_ADDRESS`, pays that address through the
-  wallet send path, and asserts `WalletBalance` has fallen. Missing trade
-  approval fails on `NUTZERDATEN EINGEBEN` with a pointer to the fixture,
-  not a skip. A bank payout, a real CHF transfer, and a camera QR read stay
-  outside the suite.
+  wallet send path, asserts `WalletBalance` has fallen, and waits for the
+  backend to book and then complete a Sell with id greater than the
+  snapshot taken before the send. Missing trade approval fails on
+  `NUTZERDATEN EINGEBEN` with a pointer to the fixture, not a skip. The
+  flows do not open a bank app, do not inspect an IBAN credit, and do not
+  read a camera QR.
 - P14 and P17 return the visible Spark balance minus a 4 sat fee reserve in an
   `onFlowComplete` hook (`_return-spark-balance.yaml`), so the return also runs
   after a failed assertion. At the default 10 sat credit that leaves 6 sat

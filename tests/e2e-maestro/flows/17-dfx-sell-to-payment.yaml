@@ -3,14 +3,21 @@ env:
   E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
   E2E_SPARK_MNEMONIC: ${E2E_SPARK_MNEMONIC || ''}
   E2E_SPARK_DEPOSIT_ADDRESS: ${E2E_SPARK_DEPOSIT_ADDRESS || ''}
+  E2E_API_URL: ${E2E_API_URL || ''}
+  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
 onFlowComplete:
   - runFlow: ../_return-spark-balance.yaml
 ---
 # P17 importiert die feste Testidentitaet, oeffnet den DFX-Verkauf und zahlt
 # die stabile Spark-Einzahlungsadresse ueber den Sendeweg der Wallet. Die
 # Adresse kommt aus E2E_SPARK_DEPOSIT_ADDRESS (Fixture), nicht vom Schirm; der
-# Schirm wird gegen deren gekuerzte Form geprueft. Der Beleg ist der gefallene
-# Saldo auf WalletBalance, nicht der Erfolgsschirm.
+# Schirm wird gegen deren gekuerzte Form geprueft. Der Beleg auf der Wallet
+# ist der gefallene Saldo auf WalletBalance, nicht der Erfolgsschirm.
+#
+# Vor der Zahlung merkt der Flow den hoechsten Backend-Transaktionsstand.
+# Danach wartet er, bis das Backend einen Verkauf mit groesserer id zuerst
+# verbucht und dann als Completed fuehrt. Belegt ist die durchgaengige
+# Verbuchung des Spark-Eingangs auf der Verkaufsstrecke.
 - runFlow:
     when:
       true: ${E2E_SPARK_DEPOSIT_ADDRESS === ''}
@@ -256,6 +263,20 @@ onFlowComplete:
     timeout: 60000
 - waitForAnimationToEnd:
     timeout: 8000
+# runScript setzt output zurueck. Saldo-Muster und Snapshot-Wert werden
+# deshalb ausserhalb von output gehalten und nach dem Snapshot wieder
+# auf output gelegt; MIN_TX_ID geht als env in die spaetere Wartepruefung.
+- evalScript: "${savedWalletBalanceRegex = String(output.walletBalanceRegex || ''); savedExpectedBalanceRegex = String(output.expectedBalanceRegex || '')}"
+- runScript:
+    file: ../scripts/backend-state.js
+    env:
+      E2E_API_URL: ${E2E_API_URL || ''}
+      E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+      STATE_KIND: snapshot
+- evalScript: "${savedMaxTxId = String(output.backendMaxTxId || ''); output.walletBalanceRegex = savedWalletBalanceRegex; output.expectedBalanceRegex = savedExpectedBalanceRegex}"
+- assertTrue:
+    condition: ${savedMaxTxId != null && savedMaxTxId != '' && savedMaxTxId != 'undefined'}
+    label: backendMaxTxId missing after snapshot
 - tapOn: 'Zahlen'
 - extendedWaitUntil:
     visible: 'Fertig'
@@ -294,3 +315,28 @@ onFlowComplete:
 - assertNotVisible:
     id: WalletBalance
     text: ${output.walletBalanceRegex}
+# Nach dem Ausloesen steht die Transaktion nicht sofort in der Liste.
+- evalScript: "${output.backendMaxTxId = savedMaxTxId}"
+- runScript:
+    file: ../scripts/backend-state.js
+    env:
+      E2E_API_URL: ${E2E_API_URL || ''}
+      E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+      STATE_KIND: sell-booked
+      MIN_TX_ID: ${Number(savedMaxTxId) > 0 ? String(savedMaxTxId) : ''}
+      TIMEOUT_MS: '900000'
+- assertTrue:
+    condition: ${output.backendState === 'ok'}
+    label: backendState is not ok after sell-booked
+- evalScript: "${output.backendMaxTxId = savedMaxTxId}"
+- runScript:
+    file: ../scripts/backend-state.js
+    env:
+      E2E_API_URL: ${E2E_API_URL || ''}
+      E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+      STATE_KIND: sell-complete
+      MIN_TX_ID: ${Number(savedMaxTxId) > 0 ? String(savedMaxTxId) : ''}
+      TIMEOUT_MS: '900000'
+- assertTrue:
+    condition: ${output.backendState === 'ok'}
+    label: backendState is not ok after sell-complete
