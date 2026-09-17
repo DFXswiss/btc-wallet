@@ -149,6 +149,15 @@ onFlowComplete:
           label: P17 needs a tradable local-stack account. Run tests/e2e-maestro/scripts/seed-local-backend.sql against the local stack only (see tests/e2e-maestro/README.md).
 - assertNotVisible: '^Login bei DFX Services$'
 - assertNotVisible: 'Invalid signature'
+# Wie in P16: ohne dieses Neuladen bleibt die Seite im In-App-Browser stehen.
+# Der Punkt ist derselbe, am gerenderten Browser gemessen.
+- tapOn:
+    point: '72%,93%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- extendedWaitUntil:
+    visible: '0.001'
+    timeout: 120000
 - tapOn: '0.001'
 - eraseText:
     charactersToErase: 12
@@ -159,9 +168,11 @@ onFlowComplete:
       visible: '^Weiter$'
     commands:
       - tapOn: '^Weiter$'
+# Die DFX-Seite laedt im In-App-Browser des Simulators deutlich langsamer als
+# im Browser des Hosts; 30 s waren wiederholt zu knapp (gemessen 17.09.2026).
 - extendedWaitUntil:
     visible: '^Zahlungsinformation$'
-    timeout: 30000
+    timeout: 180000
 - assertVisible: '^Zahlungsinformation$'
 - assertVisible: '^Adresse$'
 - assertVisible: '^Blockchain$'
@@ -313,7 +324,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: E2EBackendPollPause
-                timeout: 30000
+                timeout: 15000
                 optional: true
             - runScript:
                 file: ../scripts/backend-state.js
@@ -333,7 +344,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: E2EBackendPollPause
-                timeout: 30000
+                timeout: 15000
                 optional: true
             - runScript:
                 file: ../scripts/backend-state.js
@@ -353,7 +364,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: E2EBackendPollPause
-                timeout: 30000
+                timeout: 15000
                 optional: true
             - runScript:
                 file: ../scripts/backend-state.js
@@ -373,7 +384,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: E2EBackendPollPause
-                timeout: 30000
+                timeout: 15000
                 optional: true
             - runScript:
                 file: ../scripts/backend-state.js
@@ -393,7 +404,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: E2EBackendPollPause
-                timeout: 30000
+                timeout: 15000
                 optional: true
             - runScript:
                 file: ../scripts/backend-state.js
@@ -413,7 +424,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: E2EBackendPollPause
-                timeout: 30000
+                timeout: 15000
                 optional: true
             - runScript:
                 file: ../scripts/backend-state.js
@@ -433,7 +444,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: E2EBackendPollPause
-                timeout: 30000
+                timeout: 15000
                 optional: true
             - runScript:
                 file: ../scripts/backend-state.js
@@ -453,7 +464,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: E2EBackendPollPause
-                timeout: 30000
+                timeout: 15000
                 optional: true
             - runScript:
                 file: ../scripts/backend-state.js
@@ -481,7 +492,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: E2EBackendPollPause
-                timeout: 30000
+                timeout: 15000
                 optional: true
             - runScript:
                 file: ../scripts/backend-state.js
@@ -501,7 +512,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: E2EBackendPollPause
-                timeout: 30000
+                timeout: 15000
                 optional: true
             - runScript:
                 file: ../scripts/backend-state.js
@@ -521,7 +532,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: E2EBackendPollPause
-                timeout: 30000
+                timeout: 15000
                 optional: true
             - runScript:
                 file: ../scripts/backend-state.js
@@ -541,7 +552,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: E2EBackendPollPause
-                timeout: 30000
+                timeout: 15000
                 optional: true
             - runScript:
                 file: ../scripts/backend-state.js
@@ -561,7 +572,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: E2EBackendPollPause
-                timeout: 30000
+                timeout: 15000
                 optional: true
             - runScript:
                 file: ../scripts/backend-state.js
@@ -581,7 +592,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: E2EBackendPollPause
-                timeout: 30000
+                timeout: 15000
                 optional: true
             - runScript:
                 file: ../scripts/backend-state.js
@@ -601,7 +612,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: E2EBackendPollPause
-                timeout: 30000
+                timeout: 15000
                 optional: true
             - runScript:
                 file: ../scripts/backend-state.js
@@ -621,7 +632,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: E2EBackendPollPause
-                timeout: 30000
+                timeout: 15000
                 optional: true
             - runScript:
                 file: ../scripts/backend-state.js
@@ -631,6 +642,7 @@ onFlowComplete:
                   STATE_KIND: sell-complete
                   MIN_TX_ID: "${MIN_TX_ID}"
                   POLL_ONCE: "true"
+                  PASSTHROUGH: ${WALLET_BALANCE_TEXT}
             - assertTrue:
                 condition: ${output.backendState === 'ok'}
                 label: backendState is not ok after sell-complete
@@ -638,7 +650,7 @@ onFlowComplete:
                 file: ../scripts/payment-amount.js
                 env:
                   E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
-                  WALLET_BALANCE_TEXT: ${WALLET_BALANCE_TEXT}
+                  WALLET_BALANCE_TEXT: ${output.passthrough}
             - assertTrue:
                 condition: ${output.walletBalanceRegex != null && output.walletBalanceRegex != '' && output.walletBalanceRegex != 'undefined'}
                 label: walletBalanceRegex missing after payment-amount.js

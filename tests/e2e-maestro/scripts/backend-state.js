@@ -1,4 +1,4 @@
-/* global E2E_API_URL, E2E_DFX_JWT, STATE_KIND, TIMEOUT_MS, POLL_MS, MIN_TX_ID, POLL_ONCE, output, http, Java, java */
+/* global E2E_API_URL, E2E_DFX_JWT, STATE_KIND, TIMEOUT_MS, POLL_MS, MIN_TX_ID, POLL_ONCE, PASSTHROUGH, output, http, Java, java */
 // Polls GET {E2E_API_URL}/v1/transaction with Authorization: Bearer {E2E_DFX_JWT}
 // until a transaction matches STATE_KIND. Observed on the local stack
 // (http://127.0.0.1:3300, 2026-09-15): JSON array of TransactionDto.
@@ -7,7 +7,9 @@
 // Optional MIN_TX_ID (positive integer) keeps only rows with id > MIN_TX_ID for
 // buy-complete, sell-booked, and sell-complete. Optional POLL_ONCE=true asks
 // once, never waits, and exits 0 with backendState pending on a miss (ok plus
-// id/state on a hit). Real errors still exit 2 or 1. userAddress is an optional
+// id/state on a hit). Real errors still exit 2 or 1. Optional PASSTHROUGH is
+// copied unchanged to output.passthrough on every exit 0 (ok, pending, and
+// snapshot). It is not read for any check. userAddress is an optional
 // API filter and is omitted because the JWT already scopes the subject. Never
 // prints the JWT.
 
@@ -46,6 +48,9 @@ function readScriptBinding(name) {
     }
     if (name === 'POLL_ONCE' && typeof POLL_ONCE !== 'undefined') {
       return scriptBinding(POLL_ONCE);
+    }
+    if (name === 'PASSTHROUGH' && typeof PASSTHROUGH !== 'undefined') {
+      return scriptBinding(PASSTHROUGH);
     }
   } catch (error) {}
   return '';
@@ -287,10 +292,18 @@ function maxTxId(txs) {
   return max;
 }
 
+function applyPassthrough() {
+  const value = readEnv('PASSTHROUGH');
+  if (!value) return;
+  setOutput('passthrough', value);
+  writeStdout('passthrough=' + value);
+}
+
 function applySnapshot(txs) {
   const max = maxTxId(txs);
   setOutput('backendMaxTxId', String(max));
   writeStdout('backendMaxTxId=' + max);
+  applyPassthrough();
 }
 
 function txId(tx) {
@@ -309,11 +322,13 @@ function applySuccess(tx) {
   setOutput('backendTxId', id);
   setOutput('backendTxState', state);
   writeStdout('backendState=ok id=' + id + ' state=' + state);
+  applyPassthrough();
 }
 
 function applyPending() {
   setOutput('backendState', 'pending');
   writeStdout('backendState=pending');
+  applyPassthrough();
 }
 
 function sleepSync(ms) {
