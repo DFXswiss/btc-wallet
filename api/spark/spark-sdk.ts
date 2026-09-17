@@ -284,6 +284,10 @@ async function connectLocked(mnemonic: string, onEvent?: (event: SdkEvent) => Pr
     config.apiKey = apiKey;
     // A cap, not "always claim": expensive blocks must not spend unbounded sats for the user.
     config.maxDepositClaimFee = new MaxFee.Rate({ satPerVbyte: MAX_DEPOSIT_CLAIM_FEE_SAT_PER_VBYTE });
+    const lnurlDomain = Config.BREEZ_LNURL_DOMAIN?.trim();
+    if (lnurlDomain) {
+      config.lnurlDomain = lnurlDomain;
+    }
 
     const seed = new Seed.Mnemonic({ mnemonic, passphrase: undefined });
     const instance = await connect({
@@ -357,7 +361,7 @@ async function connectLocked(mnemonic: string, onEvent?: (event: SdkEvent) => Pr
 /**
  * Connects the Breez Spark SDK once per app session.
  * Receives the BIP-85 child phrase derived from the on-chain wallet, never the on-chain phrase or its passphrase.
- * Does not set a custom LNURL domain — the SDK default Breez server is used.
+ * Lightning addresses are registered on BREEZ_LNURL_DOMAIN when set, otherwise on the SDK default Breez server.
  */
 export async function connectSparkSdk(mnemonic: string, onEvent?: (event: SdkEvent) => Promise<void>): Promise<BreezSdkInterface> {
   return enqueueLifecycle(() => connectLocked(mnemonic, onEvent));
