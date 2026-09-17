@@ -8,6 +8,13 @@ appId: swiss.dfx.bitcoin
 # Rueckzahlbetrag da und die Rueckfuehrung scheitert, oder der sichtbare Saldo
 # laesst sich nicht als sats lesen, faerbt der Hook den Flow rot.
 - evalScript: "${output.refundDue = 'false'; output.refundSkip = 'not-visible'}"
+- evalScript: "${output.treasuryConfigured = (typeof E2E_TREASURY_URL !== 'undefined' && String(E2E_TREASURY_URL || '') !== '' && typeof E2E_TREASURY_KEY !== 'undefined' && String(E2E_TREASURY_KEY || '') !== '') ? 'true' : 'false'}"
+- runFlow:
+    when:
+      true: ${output.treasuryConfigured !== 'true'}
+    commands:
+      - evalScript: "${output.refundSkip = 'no-treasury'}"
+      - evalScript: "${console.log('refund skipped: no treasury counterpart configured')}"
 # Nach einer gescheiterten Zusicherung auf dem Erfolgsbildschirm ist
 # WalletBalance nicht sichtbar, der Saldo aber vorhanden. Dann neu starten
 # und die Spark-Wallet oeffnen, sonst bleibt die Rueckfuehrung stumm.
@@ -48,8 +55,12 @@ appId: swiss.dfx.bitcoin
             - copyTextFrom:
                 id: WalletBalance
                 text: '[0-9][0-9., ]+sats'
-            - runScript:
-                file: scripts/treasury.js
+            - runFlow:
+                when:
+                  true: ${output.treasuryConfigured === 'true'}
+                commands:
+                  - runScript:
+                      file: scripts/treasury.js
                 env:
                   TREASURY_CMD: refundIfDue
                   TREASURY_FEE_RESERVE_SAT: '4'
@@ -93,8 +104,12 @@ appId: swiss.dfx.bitcoin
       - assertVisible: '^ sats$'
       - assertVisible: '^Maestro-E2E-return$'
       - assertVisible: 'Fertig'
-      - runScript:
-          file: scripts/treasury.js
+      - runFlow:
+          when:
+            true: ${output.treasuryConfigured === 'true'}
+          commands:
+            - runScript:
+                file: scripts/treasury.js
           env:
             TREASURY_CMD: status
             TREASURY_HASH: ${output.paymentHash || ''}

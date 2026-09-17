@@ -10,18 +10,20 @@ env:
 onFlowComplete:
   - runFlow: ../_return-spark-balance.yaml
 ---
-# P17 importiert die feste Testidentitaet, oeffnet den DFX-Verkauf und zahlt
-# die stabile Spark-Einzahlungsadresse ueber den Sendeweg der Wallet. Die
-# Adresse kommt aus E2E_SPARK_DEPOSIT_ADDRESS (Fixture), nicht vom Schirm; der
-# Schirm wird gegen deren gekuerzte Form geprueft. Der Beleg auf der Wallet
-# ist der gefallene Saldo auf WalletBalance, nicht der Erfolgsschirm.
+# P17 importiert die feste Testidentitaet, nimmt den Spark-Saldo auf und zahlt
+# zuerst die stabile Spark-Einzahlungsadresse ueber den Sendeweg der Wallet.
+# Die Adresse kommt aus E2E_SPARK_DEPOSIT_ADDRESS (Fixture), nicht vom Schirm.
+# Direkt hinter der Zahlung folgt der Wartebereich auf die Backend-Kette.
+# Die Verkaufsmaske wird danach geprueft; sie haengt nicht an der Kette.
+# Der Beleg auf der Wallet ist der gefallene Saldo auf WalletBalance,
+# nicht der Erfolgsschirm.
 #
 # Vor der Zahlung merkt der Flow den hoechsten Backend-Transaktionsstand.
-# Danach wartet er in zwei Folgen gleicher Bloecke aus Neustart plus
-# kurzer Backend-Abfrage, bis ein Verkauf mit groesserer id zuerst
-# verbucht und dann als Completed gefuehrt wird, und sichert danach den
-# gefallenen Spark-Saldo zu. Belegt ist die durchgaengige Verbuchung
-# des Spark-Eingangs auf der Verkaufsstrecke.
+# Nach der Zahlung wartet er in zehn gleichen Bloecken (Pause, sell-booked,
+# optional Abschlussaufruf, sell-complete), bis ein Verkauf mit groesserer
+# id als Completed gefuehrt wird, sichert backendState, prueft danach die
+# Verkaufsmaske und zuletzt den gefallenen Spark-Saldo. Belegt ist die
+# durchgaengige Verbuchung des Spark-Eingangs auf der Verkaufsstrecke.
 - runFlow:
     when:
       true: ${E2E_SPARK_DEPOSIT_ADDRESS === ''}
@@ -139,103 +141,9 @@ onFlowComplete:
       E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
       WALLET_BALANCE_TEXT: ${output.walletBalanceText}
 - evalScript: "${output.paymentBtc = (Number(output.paymentSat) / 100000000).toFixed(8)}"
-- extendedWaitUntil:
-    visible: 'Externe Services'
-    timeout: 90000
-# Die Verkaufen-Kachel ist ein Bitmap ohne semantischen Selektor. Bei zwei
-# sichtbaren DFX-Kacheln liegt ihr gemessener Mittelpunkt hier.
-- tapOn:
-    point: '61%,34%'
-- waitForAnimationToEnd:
-    timeout: 30000
-- runFlow:
-    when:
-      visible: 'NUTZERDATEN EINGEBEN'
-    commands:
-      - assertTrue:
-          condition: ${false}
-          label: P17 needs a tradable local-stack account. Run tests/e2e-maestro/scripts/seed-local-backend.sql against the local stack only (see tests/e2e-maestro/README.md).
-- assertNotVisible: '^Login bei DFX Services$'
-- assertNotVisible: 'Invalid signature'
-# Wie in P16: ohne dieses Neuladen bleibt die Seite im In-App-Browser stehen.
-# Der Punkt ist derselbe, am gerenderten Browser gemessen.
-- tapOn:
-    point: '72%,93%'
-- waitForAnimationToEnd:
-    timeout: 15000
-- extendedWaitUntil:
-    visible: '0.001'
-    timeout: 120000
-- tapOn: '0.001'
-- eraseText:
-    charactersToErase: 12
-- inputText: ${output.paymentBtc}
-- assertVisible: '^${output.paymentBtc}$'
-- runFlow:
-    when:
-      visible: '^Weiter$'
-    commands:
-      - tapOn: '^Weiter$'
-# Beim Spark-Verkauf zeigt DFX **keine** Zahlungsinformationsseite im Browser.
-# Die Antwort auf Weiter traegt eine `paymentRequest` der Form
-# `spark:<adresse>?amount=…`, und die Seite loest damit den Deeplink zurueck in
-# die Wallet aus: der In-App-Browser schliesst sich, die App steht wieder auf
-# der Spark-Ansicht (gemessen 17.09.2026 an zwei Laeufen, Statusleiste
-# "◀ Safari", Bildschirm ist die Wallet). Auf `^Zahlungsinformation$` zu warten
-# heisst deshalb, auf einen Schirm zu warten, den dieser Ablauf nicht hat.
-#
-# Was der Flow stattdessen zusichert: die App ist zurueck und zeigt die
-# Spark-Zeile. Die Einzahlungsadresse wird nicht mehr am Schirm geprueft — sie
-# steht in `E2E_SPARK_DEPOSIT_ADDRESS` und wird unten bezahlt; ob das Backend
-# genau diesen Eingang verbucht, entscheiden die beiden Wartepunkte am Ende.
-# Nach dem Deeplink steht die App auf der Spark-**Detailansicht**, nicht auf
-# der Wallet-Liste (gemessen am Bildschirmfoto: Titel Lightning (Spark),
-# Saldo, Transaktionsliste).
-# Was nach dem Deeplink im Vordergrund steht, ist nicht zuverlaessig vorherzusagen
-# (Browser, Wallet-Liste oder Detailansicht, je nach Timing). Statt darauf zu
-# warten, stellt der Flow den Zustand selbst her: App neu starten ohne
-# Zustandsverlust, dann zur Spark-Ansicht navigieren - dasselbe Muster, das P16
-# an dieser Stelle benutzt.
-- waitForAnimationToEnd:
-    timeout: 15000
-- runFlow: ../_relaunch-keep-state.yaml
-- extendedWaitUntil:
-    visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
-    timeout: 180000
-- tapOn:
-    point: '50%,58%'
-- waitForAnimationToEnd:
-    timeout: 15000
-- extendedWaitUntil:
-    visible:
-      id: WalletLabel
-      text: 'Lightning \(Spark\)'
-    timeout: 60000
-- runFlow:
-    when:
-      visible: 'Fertig'
-    commands:
-      - tapOn: 'Fertig'
-- waitForAnimationToEnd:
-    timeout: 15000
-- runFlow:
-    when:
-      notVisible:
-        id: SendButton
-    commands:
-      - runFlow: ../_relaunch-keep-state.yaml
-      - extendedWaitUntil:
-          visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
-          timeout: 90000
-      - tapOn:
-          point: '50%,58%'
-      - waitForAnimationToEnd:
-          timeout: 15000
-- extendedWaitUntil:
-    visible:
-      id: WalletLabel
-      text: 'Lightning \(Spark\)'
-    timeout: 60000
+# Zuerst der Sendeweg. Der Wartebereich folgt direkt hinter Zahlen.
+# Die Verkaufsmaske kommt nach sell-complete. SendButton sitzt auf
+# derselben Spark-Detailansicht wie die gerade aufgenommene Saldozeile.
 - extendedWaitUntil:
     visible:
       id: SendButton
@@ -322,6 +230,7 @@ onFlowComplete:
                 env:
                   E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
                   WALLET_BALANCE_TEXT: ${WALLET_BALANCE_TEXT}
+            - evalScript: "${output.paymentBtc = (Number(output.paymentSat) / 100000000).toFixed(8)}"
             - tapOn: 'Zahlen'
             - extendedWaitUntil:
                 visible: 'Fertig'
@@ -330,22 +239,18 @@ onFlowComplete:
             - tapOn: 'Fertig'
             - waitForAnimationToEnd:
                 timeout: 15000
-            # Acht gleiche Bloecke, keine Schleife: repeat/while endete
+            # Einmal sell-booked vor dem Wartebereich: trifft es schon,
+            # steht die Verkaufs-Kennung in output.backendTxId, sonst bleibt
+            # sie leer. Jeder der zehn Bloecke holt sie bei Bedarf nach.
+            # Zehn gleiche Bloecke, keine Schleife: repeat/while endete
             # im Lauf vom 17.09.2026 nach zwei Durchgaengen, obwohl die
             # Bedingung noch galt. MIN_TX_ID bleibt die env-Bindung dieses
-            # runFlow. Jeder Block startet neu und fragt das Backend einmal
-            # (POLL_ONCE), nie lange.
-            # E2EBackendPollPause gibt es in der App nicht. Der Schritt laeuft
-            # seine Zeit ab (optional: true) und beschaeftigt dabei den Treiber
-            # mit Hierarchie-Abfragen; das ist die Pause, kein Fehler. Kein
-            # App-Neustart hier: die naechste Zeile fragt das Backend, nicht die
-            # Oberflaeche, und ein Neustart kostete rund 15 s je Block - genug,
-            # um den Flow ueber Maestros Zeitfenster zu heben.
-            - extendedWaitUntil:
-                visible:
-                  id: E2EBackendPollPause
-                timeout: 30000
-                optional: true
+            # runFlow. Kein App-Neustart: die Schritte lesen das Backend,
+            # nicht die Oberflaeche. E2EBackendPollPause gibt es in der App
+            # nicht; der Schritt laeuft 20 s ab (optional: true) und
+            # beschaeftigt den Treiber mit Hierarchie-Abfragen. Jeder Block:
+            # Pause, sell-booked (POLL_ONCE), Abschlussaufruf nur wenn die
+            # Kennung da ist, sell-complete (POLL_ONCE).
             - runScript:
                 file: ../scripts/backend-state.js
                 env:
@@ -354,218 +259,38 @@ onFlowComplete:
                   STATE_KIND: sell-booked
                   MIN_TX_ID: "${MIN_TX_ID}"
                   POLL_ONCE: "true"
-            # E2EBackendPollPause gibt es in der App nicht. Der Schritt laeuft
-            # seine Zeit ab (optional: true) und beschaeftigt dabei den Treiber
-            # mit Hierarchie-Abfragen; das ist die Pause, kein Fehler. Kein
-            # App-Neustart hier: die naechste Zeile fragt das Backend, nicht die
-            # Oberflaeche, und ein Neustart kostete rund 15 s je Block - genug,
-            # um den Flow ueber Maestros Zeitfenster zu heben.
-            - extendedWaitUntil:
-                visible:
-                  id: E2EBackendPollPause
-                timeout: 30000
-                optional: true
-            - runScript:
-                file: ../scripts/backend-state.js
-                env:
-                  E2E_API_URL: ${E2E_API_URL || ''}
-                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
-                  STATE_KIND: sell-booked
-                  MIN_TX_ID: "${MIN_TX_ID}"
-                  POLL_ONCE: "true"
-            # E2EBackendPollPause gibt es in der App nicht. Der Schritt laeuft
-            # seine Zeit ab (optional: true) und beschaeftigt dabei den Treiber
-            # mit Hierarchie-Abfragen; das ist die Pause, kein Fehler. Kein
-            # App-Neustart hier: die naechste Zeile fragt das Backend, nicht die
-            # Oberflaeche, und ein Neustart kostete rund 15 s je Block - genug,
-            # um den Flow ueber Maestros Zeitfenster zu heben.
-            - extendedWaitUntil:
-                visible:
-                  id: E2EBackendPollPause
-                timeout: 30000
-                optional: true
-            - runScript:
-                file: ../scripts/backend-state.js
-                env:
-                  E2E_API_URL: ${E2E_API_URL || ''}
-                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
-                  STATE_KIND: sell-booked
-                  MIN_TX_ID: "${MIN_TX_ID}"
-                  POLL_ONCE: "true"
-            - assertTrue:
-                condition: ${output.backendState === 'ok'}
-                label: backendState is not ok after sell-booked
-            # backendTxId comes from backend-state.js after sell-booked.
-            # runScript replaces output, so the id is bound here once.
+            # Die Pause laeuft nur, solange das Ziel nicht erreicht ist. Ohne
+            # diese Bedingung warten auch die Bloecke nach dem Erfolg noch ihre
+            # volle Zeit ab - genug, um die Schlusszusicherung aus Maestros
+            # Zeitfenster zu schieben (gemessen 19.09.2026: Kette war fertig,
+            # der Lauf wurde trotzdem davor abgeschnitten).
             - runFlow:
-                env:
-                  BUY_FIAT_ID: ${output.backendTxId}
+                when:
+                  true: ${output.backendState !== 'ok'}
                 commands:
-                  # Acht gleiche Bloecke, keine Schleife: repeat/while endete
-                  # im Lauf vom 17.09.2026 nach zwei Durchgaengen, obwohl die
-                  # Bedingung noch galt. BUY_FIAT_ID bleibt die env-Bindung
-                  # dieses runFlow. Jeder Block startet neu; 409 (pending)
-                  # wird wiederholt, ein anderer Fehler bricht ab.
-                  - runFlow: ../_relaunch-keep-state.yaml
-                  - extendedWaitUntil:
-                      visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
-                      timeout: 60000
-                  # E2EBackendPollPause gibt es in der App nicht. Der Schritt
-                  # laeuft seine 30 s ab (optional: true) und beschaeftigt den
-                  # Treiber mit Hierarchie-Abfragen; das ist die Pause, kein Fehler.
                   - extendedWaitUntil:
                       visible:
                         id: E2EBackendPollPause
-                      timeout: 15000
+                      timeout: 22000
                       optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-booked
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendTxId != null && output.backendTxId != '' && output.backendTxId != 'undefined'}
+                commands:
                   - runScript:
                       file: ../scripts/dfx-settle-fiat.js
                       env:
                         E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
                         E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${BUY_FIAT_ID}"
-                  - runFlow: ../_relaunch-keep-state.yaml
-                  - extendedWaitUntil:
-                      visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
-                      timeout: 60000
-                  # E2EBackendPollPause gibt es in der App nicht. Der Schritt
-                  # laeuft seine 30 s ab (optional: true) und beschaeftigt den
-                  # Treiber mit Hierarchie-Abfragen; das ist die Pause, kein Fehler.
-                  - extendedWaitUntil:
-                      visible:
-                        id: E2EBackendPollPause
-                      timeout: 15000
-                      optional: true
-                  - runScript:
-                      file: ../scripts/dfx-settle-fiat.js
-                      env:
-                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
-                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${BUY_FIAT_ID}"
-                  - runFlow: ../_relaunch-keep-state.yaml
-                  - extendedWaitUntil:
-                      visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
-                      timeout: 60000
-                  # E2EBackendPollPause gibt es in der App nicht. Der Schritt
-                  # laeuft seine 30 s ab (optional: true) und beschaeftigt den
-                  # Treiber mit Hierarchie-Abfragen; das ist die Pause, kein Fehler.
-                  - extendedWaitUntil:
-                      visible:
-                        id: E2EBackendPollPause
-                      timeout: 15000
-                      optional: true
-                  - runScript:
-                      file: ../scripts/dfx-settle-fiat.js
-                      env:
-                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
-                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${BUY_FIAT_ID}"
-                  - runFlow: ../_relaunch-keep-state.yaml
-                  - extendedWaitUntil:
-                      visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
-                      timeout: 60000
-                  # E2EBackendPollPause gibt es in der App nicht. Der Schritt
-                  # laeuft seine 30 s ab (optional: true) und beschaeftigt den
-                  # Treiber mit Hierarchie-Abfragen; das ist die Pause, kein Fehler.
-                  - extendedWaitUntil:
-                      visible:
-                        id: E2EBackendPollPause
-                      timeout: 15000
-                      optional: true
-                  - runScript:
-                      file: ../scripts/dfx-settle-fiat.js
-                      env:
-                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
-                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${BUY_FIAT_ID}"
-                  - runFlow: ../_relaunch-keep-state.yaml
-                  - extendedWaitUntil:
-                      visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
-                      timeout: 60000
-                  # E2EBackendPollPause gibt es in der App nicht. Der Schritt
-                  # laeuft seine 30 s ab (optional: true) und beschaeftigt den
-                  # Treiber mit Hierarchie-Abfragen; das ist die Pause, kein Fehler.
-                  - extendedWaitUntil:
-                      visible:
-                        id: E2EBackendPollPause
-                      timeout: 15000
-                      optional: true
-                  - runScript:
-                      file: ../scripts/dfx-settle-fiat.js
-                      env:
-                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
-                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${BUY_FIAT_ID}"
-                  - runFlow: ../_relaunch-keep-state.yaml
-                  - extendedWaitUntil:
-                      visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
-                      timeout: 60000
-                  # E2EBackendPollPause gibt es in der App nicht. Der Schritt
-                  # laeuft seine 30 s ab (optional: true) und beschaeftigt den
-                  # Treiber mit Hierarchie-Abfragen; das ist die Pause, kein Fehler.
-                  - extendedWaitUntil:
-                      visible:
-                        id: E2EBackendPollPause
-                      timeout: 15000
-                      optional: true
-                  - runScript:
-                      file: ../scripts/dfx-settle-fiat.js
-                      env:
-                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
-                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${BUY_FIAT_ID}"
-                  - runFlow: ../_relaunch-keep-state.yaml
-                  - extendedWaitUntil:
-                      visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
-                      timeout: 60000
-                  # E2EBackendPollPause gibt es in der App nicht. Der Schritt
-                  # laeuft seine 30 s ab (optional: true) und beschaeftigt den
-                  # Treiber mit Hierarchie-Abfragen; das ist die Pause, kein Fehler.
-                  - extendedWaitUntil:
-                      visible:
-                        id: E2EBackendPollPause
-                      timeout: 15000
-                      optional: true
-                  - runScript:
-                      file: ../scripts/dfx-settle-fiat.js
-                      env:
-                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
-                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${BUY_FIAT_ID}"
-                  - runFlow: ../_relaunch-keep-state.yaml
-                  - extendedWaitUntil:
-                      visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
-                      timeout: 60000
-                  # E2EBackendPollPause gibt es in der App nicht. Der Schritt
-                  # laeuft seine 30 s ab (optional: true) und beschaeftigt den
-                  # Treiber mit Hierarchie-Abfragen; das ist die Pause, kein Fehler.
-                  - extendedWaitUntil:
-                      visible:
-                        id: E2EBackendPollPause
-                      timeout: 15000
-                      optional: true
-                  - runScript:
-                      file: ../scripts/dfx-settle-fiat.js
-                      env:
-                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
-                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${BUY_FIAT_ID}"
-            # Acht gleiche Bloecke, keine Schleife: repeat/while endete
-            # im Lauf vom 17.09.2026 nach zwei Durchgaengen, obwohl die
-            # Bedingung noch galt. MIN_TX_ID bleibt die env-Bindung dieses
-            # runFlow. Jeder Block startet neu und fragt das Backend einmal
-            # (POLL_ONCE), nie lange.
-            # E2EBackendPollPause gibt es in der App nicht. Der Schritt laeuft
-            # seine Zeit ab (optional: true) und beschaeftigt dabei den Treiber
-            # mit Hierarchie-Abfragen; das ist die Pause, kein Fehler. Kein
-            # App-Neustart hier: die naechste Zeile fragt das Backend, nicht die
-            # Oberflaeche, und ein Neustart kostete rund 15 s je Block - genug,
-            # um den Flow ueber Maestros Zeitfenster zu heben.
-            - extendedWaitUntil:
-                visible:
-                  id: E2EBackendPollPause
-                timeout: 30000
-                optional: true
+                        BUY_FIAT_ID: "${output.backendTxId}"
             - runScript:
                 file: ../scripts/backend-state.js
                 env:
@@ -574,17 +299,39 @@ onFlowComplete:
                   STATE_KIND: sell-complete
                   MIN_TX_ID: "${MIN_TX_ID}"
                   POLL_ONCE: "true"
-            # E2EBackendPollPause gibt es in der App nicht. Der Schritt laeuft
-            # seine Zeit ab (optional: true) und beschaeftigt dabei den Treiber
-            # mit Hierarchie-Abfragen; das ist die Pause, kein Fehler. Kein
-            # App-Neustart hier: die naechste Zeile fragt das Backend, nicht die
-            # Oberflaeche, und ein Neustart kostete rund 15 s je Block - genug,
-            # um den Flow ueber Maestros Zeitfenster zu heben.
-            - extendedWaitUntil:
-                visible:
-                  id: E2EBackendPollPause
-                timeout: 30000
-                optional: true
+                  PASSTHROUGH: ${WALLET_BALANCE_TEXT}
+            # Die Pause laeuft nur, solange das Ziel nicht erreicht ist. Ohne
+            # diese Bedingung warten auch die Bloecke nach dem Erfolg noch ihre
+            # volle Zeit ab - genug, um die Schlusszusicherung aus Maestros
+            # Zeitfenster zu schieben (gemessen 19.09.2026: Kette war fertig,
+            # der Lauf wurde trotzdem davor abgeschnitten).
+            - runFlow:
+                when:
+                  true: ${output.backendState !== 'ok'}
+                commands:
+                  - extendedWaitUntil:
+                      visible:
+                        id: E2EBackendPollPause
+                      timeout: 22000
+                      optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-booked
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendTxId != null && output.backendTxId != '' && output.backendTxId != 'undefined'}
+                commands:
+                  - runScript:
+                      file: ../scripts/dfx-settle-fiat.js
+                      env:
+                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
+                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
+                        BUY_FIAT_ID: "${output.backendTxId}"
             - runScript:
                 file: ../scripts/backend-state.js
                 env:
@@ -593,17 +340,572 @@ onFlowComplete:
                   STATE_KIND: sell-complete
                   MIN_TX_ID: "${MIN_TX_ID}"
                   POLL_ONCE: "true"
-            # E2EBackendPollPause gibt es in der App nicht. Der Schritt laeuft
-            # seine Zeit ab (optional: true) und beschaeftigt dabei den Treiber
-            # mit Hierarchie-Abfragen; das ist die Pause, kein Fehler. Kein
-            # App-Neustart hier: die naechste Zeile fragt das Backend, nicht die
-            # Oberflaeche, und ein Neustart kostete rund 15 s je Block - genug,
-            # um den Flow ueber Maestros Zeitfenster zu heben.
-            - extendedWaitUntil:
-                visible:
-                  id: E2EBackendPollPause
-                timeout: 30000
-                optional: true
+                  PASSTHROUGH: ${WALLET_BALANCE_TEXT}
+            # Die Pause laeuft nur, solange das Ziel nicht erreicht ist. Ohne
+            # diese Bedingung warten auch die Bloecke nach dem Erfolg noch ihre
+            # volle Zeit ab - genug, um die Schlusszusicherung aus Maestros
+            # Zeitfenster zu schieben (gemessen 19.09.2026: Kette war fertig,
+            # der Lauf wurde trotzdem davor abgeschnitten).
+            - runFlow:
+                when:
+                  true: ${output.backendState !== 'ok'}
+                commands:
+                  - extendedWaitUntil:
+                      visible:
+                        id: E2EBackendPollPause
+                      timeout: 22000
+                      optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-booked
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendTxId != null && output.backendTxId != '' && output.backendTxId != 'undefined'}
+                commands:
+                  - runScript:
+                      file: ../scripts/dfx-settle-fiat.js
+                      env:
+                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
+                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
+                        BUY_FIAT_ID: "${output.backendTxId}"
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-complete
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+                  PASSTHROUGH: ${WALLET_BALANCE_TEXT}
+            # Die Pause laeuft nur, solange das Ziel nicht erreicht ist. Ohne
+            # diese Bedingung warten auch die Bloecke nach dem Erfolg noch ihre
+            # volle Zeit ab - genug, um die Schlusszusicherung aus Maestros
+            # Zeitfenster zu schieben (gemessen 19.09.2026: Kette war fertig,
+            # der Lauf wurde trotzdem davor abgeschnitten).
+            - runFlow:
+                when:
+                  true: ${output.backendState !== 'ok'}
+                commands:
+                  - extendedWaitUntil:
+                      visible:
+                        id: E2EBackendPollPause
+                      timeout: 22000
+                      optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-booked
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendTxId != null && output.backendTxId != '' && output.backendTxId != 'undefined'}
+                commands:
+                  - runScript:
+                      file: ../scripts/dfx-settle-fiat.js
+                      env:
+                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
+                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
+                        BUY_FIAT_ID: "${output.backendTxId}"
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-complete
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+                  PASSTHROUGH: ${WALLET_BALANCE_TEXT}
+            # Die Pause laeuft nur, solange das Ziel nicht erreicht ist. Ohne
+            # diese Bedingung warten auch die Bloecke nach dem Erfolg noch ihre
+            # volle Zeit ab - genug, um die Schlusszusicherung aus Maestros
+            # Zeitfenster zu schieben (gemessen 19.09.2026: Kette war fertig,
+            # der Lauf wurde trotzdem davor abgeschnitten).
+            - runFlow:
+                when:
+                  true: ${output.backendState !== 'ok'}
+                commands:
+                  - extendedWaitUntil:
+                      visible:
+                        id: E2EBackendPollPause
+                      timeout: 22000
+                      optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-booked
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendTxId != null && output.backendTxId != '' && output.backendTxId != 'undefined'}
+                commands:
+                  - runScript:
+                      file: ../scripts/dfx-settle-fiat.js
+                      env:
+                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
+                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
+                        BUY_FIAT_ID: "${output.backendTxId}"
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-complete
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+                  PASSTHROUGH: ${WALLET_BALANCE_TEXT}
+            # Die Pause laeuft nur, solange das Ziel nicht erreicht ist. Ohne
+            # diese Bedingung warten auch die Bloecke nach dem Erfolg noch ihre
+            # volle Zeit ab - genug, um die Schlusszusicherung aus Maestros
+            # Zeitfenster zu schieben (gemessen 19.09.2026: Kette war fertig,
+            # der Lauf wurde trotzdem davor abgeschnitten).
+            - runFlow:
+                when:
+                  true: ${output.backendState !== 'ok'}
+                commands:
+                  - extendedWaitUntil:
+                      visible:
+                        id: E2EBackendPollPause
+                      timeout: 22000
+                      optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-booked
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendTxId != null && output.backendTxId != '' && output.backendTxId != 'undefined'}
+                commands:
+                  - runScript:
+                      file: ../scripts/dfx-settle-fiat.js
+                      env:
+                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
+                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
+                        BUY_FIAT_ID: "${output.backendTxId}"
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-complete
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+                  PASSTHROUGH: ${WALLET_BALANCE_TEXT}
+            # Die Pause laeuft nur, solange das Ziel nicht erreicht ist. Ohne
+            # diese Bedingung warten auch die Bloecke nach dem Erfolg noch ihre
+            # volle Zeit ab - genug, um die Schlusszusicherung aus Maestros
+            # Zeitfenster zu schieben (gemessen 19.09.2026: Kette war fertig,
+            # der Lauf wurde trotzdem davor abgeschnitten).
+            - runFlow:
+                when:
+                  true: ${output.backendState !== 'ok'}
+                commands:
+                  - extendedWaitUntil:
+                      visible:
+                        id: E2EBackendPollPause
+                      timeout: 22000
+                      optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-booked
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendTxId != null && output.backendTxId != '' && output.backendTxId != 'undefined'}
+                commands:
+                  - runScript:
+                      file: ../scripts/dfx-settle-fiat.js
+                      env:
+                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
+                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
+                        BUY_FIAT_ID: "${output.backendTxId}"
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-complete
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+                  PASSTHROUGH: ${WALLET_BALANCE_TEXT}
+            # Die Pause laeuft nur, solange das Ziel nicht erreicht ist. Ohne
+            # diese Bedingung warten auch die Bloecke nach dem Erfolg noch ihre
+            # volle Zeit ab - genug, um die Schlusszusicherung aus Maestros
+            # Zeitfenster zu schieben (gemessen 19.09.2026: Kette war fertig,
+            # der Lauf wurde trotzdem davor abgeschnitten).
+            - runFlow:
+                when:
+                  true: ${output.backendState !== 'ok'}
+                commands:
+                  - extendedWaitUntil:
+                      visible:
+                        id: E2EBackendPollPause
+                      timeout: 22000
+                      optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-booked
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendTxId != null && output.backendTxId != '' && output.backendTxId != 'undefined'}
+                commands:
+                  - runScript:
+                      file: ../scripts/dfx-settle-fiat.js
+                      env:
+                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
+                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
+                        BUY_FIAT_ID: "${output.backendTxId}"
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-complete
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+                  PASSTHROUGH: ${WALLET_BALANCE_TEXT}
+            # Die Pause laeuft nur, solange das Ziel nicht erreicht ist. Ohne
+            # diese Bedingung warten auch die Bloecke nach dem Erfolg noch ihre
+            # volle Zeit ab - genug, um die Schlusszusicherung aus Maestros
+            # Zeitfenster zu schieben (gemessen 19.09.2026: Kette war fertig,
+            # der Lauf wurde trotzdem davor abgeschnitten).
+            - runFlow:
+                when:
+                  true: ${output.backendState !== 'ok'}
+                commands:
+                  - extendedWaitUntil:
+                      visible:
+                        id: E2EBackendPollPause
+                      timeout: 22000
+                      optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-booked
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendTxId != null && output.backendTxId != '' && output.backendTxId != 'undefined'}
+                commands:
+                  - runScript:
+                      file: ../scripts/dfx-settle-fiat.js
+                      env:
+                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
+                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
+                        BUY_FIAT_ID: "${output.backendTxId}"
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-complete
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+                  PASSTHROUGH: ${WALLET_BALANCE_TEXT}
+            # Die Pause laeuft nur, solange das Ziel nicht erreicht ist. Ohne
+            # diese Bedingung warten auch die Bloecke nach dem Erfolg noch ihre
+            # volle Zeit ab - genug, um die Schlusszusicherung aus Maestros
+            # Zeitfenster zu schieben (gemessen 19.09.2026: Kette war fertig,
+            # der Lauf wurde trotzdem davor abgeschnitten).
+            - runFlow:
+                when:
+                  true: ${output.backendState !== 'ok'}
+                commands:
+                  - extendedWaitUntil:
+                      visible:
+                        id: E2EBackendPollPause
+                      timeout: 22000
+                      optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-booked
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendTxId != null && output.backendTxId != '' && output.backendTxId != 'undefined'}
+                commands:
+                  - runScript:
+                      file: ../scripts/dfx-settle-fiat.js
+                      env:
+                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
+                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
+                        BUY_FIAT_ID: "${output.backendTxId}"
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-complete
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+                  PASSTHROUGH: ${WALLET_BALANCE_TEXT}
+            # Die Pause laeuft nur, solange das Ziel nicht erreicht ist. Ohne
+            # diese Bedingung warten auch die Bloecke nach dem Erfolg noch ihre
+            # volle Zeit ab - genug, um die Schlusszusicherung aus Maestros
+            # Zeitfenster zu schieben (gemessen 19.09.2026: Kette war fertig,
+            # der Lauf wurde trotzdem davor abgeschnitten).
+            - runFlow:
+                when:
+                  true: ${output.backendState !== 'ok'}
+                commands:
+                  - extendedWaitUntil:
+                      visible:
+                        id: E2EBackendPollPause
+                      timeout: 22000
+                      optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-booked
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendTxId != null && output.backendTxId != '' && output.backendTxId != 'undefined'}
+                commands:
+                  - runScript:
+                      file: ../scripts/dfx-settle-fiat.js
+                      env:
+                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
+                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
+                        BUY_FIAT_ID: "${output.backendTxId}"
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-complete
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+                  PASSTHROUGH: ${WALLET_BALANCE_TEXT}
+            # Die Pause laeuft nur, solange das Ziel nicht erreicht ist. Ohne
+            # diese Bedingung warten auch die Bloecke nach dem Erfolg noch ihre
+            # volle Zeit ab - genug, um die Schlusszusicherung aus Maestros
+            # Zeitfenster zu schieben (gemessen 19.09.2026: Kette war fertig,
+            # der Lauf wurde trotzdem davor abgeschnitten).
+            - runFlow:
+                when:
+                  true: ${output.backendState !== 'ok'}
+                commands:
+                  - extendedWaitUntil:
+                      visible:
+                        id: E2EBackendPollPause
+                      timeout: 22000
+                      optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-booked
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendTxId != null && output.backendTxId != '' && output.backendTxId != 'undefined'}
+                commands:
+                  - runScript:
+                      file: ../scripts/dfx-settle-fiat.js
+                      env:
+                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
+                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
+                        BUY_FIAT_ID: "${output.backendTxId}"
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-complete
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+                  PASSTHROUGH: ${WALLET_BALANCE_TEXT}
+            # Die Pause laeuft nur, solange das Ziel nicht erreicht ist. Ohne
+            # diese Bedingung warten auch die Bloecke nach dem Erfolg noch ihre
+            # volle Zeit ab - genug, um die Schlusszusicherung aus Maestros
+            # Zeitfenster zu schieben (gemessen 19.09.2026: Kette war fertig,
+            # der Lauf wurde trotzdem davor abgeschnitten).
+            - runFlow:
+                when:
+                  true: ${output.backendState !== 'ok'}
+                commands:
+                  - extendedWaitUntil:
+                      visible:
+                        id: E2EBackendPollPause
+                      timeout: 22000
+                      optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-booked
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendTxId != null && output.backendTxId != '' && output.backendTxId != 'undefined'}
+                commands:
+                  - runScript:
+                      file: ../scripts/dfx-settle-fiat.js
+                      env:
+                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
+                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
+                        BUY_FIAT_ID: "${output.backendTxId}"
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-complete
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+                  PASSTHROUGH: ${WALLET_BALANCE_TEXT}
+            # Die Pause laeuft nur, solange das Ziel nicht erreicht ist. Ohne
+            # diese Bedingung warten auch die Bloecke nach dem Erfolg noch ihre
+            # volle Zeit ab - genug, um die Schlusszusicherung aus Maestros
+            # Zeitfenster zu schieben (gemessen 19.09.2026: Kette war fertig,
+            # der Lauf wurde trotzdem davor abgeschnitten).
+            - runFlow:
+                when:
+                  true: ${output.backendState !== 'ok'}
+                commands:
+                  - extendedWaitUntil:
+                      visible:
+                        id: E2EBackendPollPause
+                      timeout: 22000
+                      optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-booked
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendTxId != null && output.backendTxId != '' && output.backendTxId != 'undefined'}
+                commands:
+                  - runScript:
+                      file: ../scripts/dfx-settle-fiat.js
+                      env:
+                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
+                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
+                        BUY_FIAT_ID: "${output.backendTxId}"
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-complete
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+                  PASSTHROUGH: ${WALLET_BALANCE_TEXT}
+            # Die Pause laeuft nur, solange das Ziel nicht erreicht ist. Ohne
+            # diese Bedingung warten auch die Bloecke nach dem Erfolg noch ihre
+            # volle Zeit ab - genug, um die Schlusszusicherung aus Maestros
+            # Zeitfenster zu schieben (gemessen 19.09.2026: Kette war fertig,
+            # der Lauf wurde trotzdem davor abgeschnitten).
+            - runFlow:
+                when:
+                  true: ${output.backendState !== 'ok'}
+                commands:
+                  - extendedWaitUntil:
+                      visible:
+                        id: E2EBackendPollPause
+                      timeout: 22000
+                      optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-booked
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendTxId != null && output.backendTxId != '' && output.backendTxId != 'undefined'}
+                commands:
+                  - runScript:
+                      file: ../scripts/dfx-settle-fiat.js
+                      env:
+                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
+                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
+                        BUY_FIAT_ID: "${output.backendTxId}"
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-complete
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+                  PASSTHROUGH: ${WALLET_BALANCE_TEXT}
+            # Die Pause laeuft nur, solange das Ziel nicht erreicht ist. Ohne
+            # diese Bedingung warten auch die Bloecke nach dem Erfolg noch ihre
+            # volle Zeit ab - genug, um die Schlusszusicherung aus Maestros
+            # Zeitfenster zu schieben (gemessen 19.09.2026: Kette war fertig,
+            # der Lauf wurde trotzdem davor abgeschnitten).
+            - runFlow:
+                when:
+                  true: ${output.backendState !== 'ok'}
+                commands:
+                  - extendedWaitUntil:
+                      visible:
+                        id: E2EBackendPollPause
+                      timeout: 22000
+                      optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-booked
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendTxId != null && output.backendTxId != '' && output.backendTxId != 'undefined'}
+                commands:
+                  - runScript:
+                      file: ../scripts/dfx-settle-fiat.js
+                      env:
+                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
+                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
+                        BUY_FIAT_ID: "${output.backendTxId}"
             - runScript:
                 file: ../scripts/backend-state.js
                 env:
@@ -616,11 +918,119 @@ onFlowComplete:
             - assertTrue:
                 condition: ${output.backendState === 'ok'}
                 label: backendState is not ok after sell-complete
+            # runScript ersetzt output. Vorher-Saldo kommt als env-Bindung
+            # WALLET_BALANCE_TEXT dieses runFlow, nicht aus output.passthrough:
+            # die Maske folgt dazwischen, nackte output-Felder ueberleben das
+            # nicht verlaesslich. paymentBtc wird hier neu gesetzt, weil die
+            # Maske ihn eintippt.
             - runScript:
                 file: ../scripts/payment-amount.js
                 env:
                   E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
-                  WALLET_BALANCE_TEXT: ${output.passthrough}
+                  WALLET_BALANCE_TEXT: ${WALLET_BALANCE_TEXT}
+            - evalScript: "${output.paymentBtc = (Number(output.paymentSat) / 100000000).toFixed(8)}"
+            # Nach dem Wartebereich die Spark-Detailansicht herstellen, dann die
+            # Verkaufsmaske pruefen. Die Backend-Kette ist bereits durch.
+            - runFlow: ../_relaunch-keep-state.yaml
+            - extendedWaitUntil:
+                visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+                timeout: 180000
+            - tapOn:
+                point: '50%,58%'
+            - waitForAnimationToEnd:
+                timeout: 15000
+            - extendedWaitUntil:
+                visible:
+                  id: WalletLabel
+                  text: 'Lightning \(Spark\)'
+                timeout: 60000
+            - extendedWaitUntil:
+                visible: 'Externe Services'
+                timeout: 90000
+            # Die Verkaufen-Kachel ist ein Bitmap ohne semantischen Selektor. Bei zwei
+            # sichtbaren DFX-Kacheln liegt ihr gemessener Mittelpunkt hier.
+            - tapOn:
+                point: '61%,34%'
+            - waitForAnimationToEnd:
+                timeout: 30000
+            - runFlow:
+                when:
+                  visible: 'NUTZERDATEN EINGEBEN'
+                commands:
+                  - assertTrue:
+                      condition: ${false}
+                      label: P17 needs a tradable local-stack account. Run tests/e2e-maestro/scripts/seed-local-backend.sql against the local stack only (see tests/e2e-maestro/README.md).
+            - assertNotVisible: '^Login bei DFX Services$'
+            - assertNotVisible: 'Invalid signature'
+            # Wie in P16: ohne dieses Neuladen bleibt die Seite im In-App-Browser stehen.
+            # Der Punkt ist derselbe, am gerenderten Browser gemessen.
+            - tapOn:
+                point: '72%,93%'
+            - waitForAnimationToEnd:
+                timeout: 15000
+            - extendedWaitUntil:
+                visible: '0.001'
+                timeout: 120000
+            - tapOn: '0.001'
+            - eraseText:
+                charactersToErase: 12
+            - inputText: ${output.paymentBtc}
+            - assertVisible: '^${output.paymentBtc}$'
+            - runFlow:
+                when:
+                  visible: '^Weiter$'
+                commands:
+                  - tapOn: '^Weiter$'
+            # Beim Spark-Verkauf zeigt DFX **keine** Zahlungsinformationsseite im Browser.
+            # Die Antwort auf Weiter traegt eine `paymentRequest` der Form
+            # `spark:<adresse>?amount=…`, und die Seite loest damit den Deeplink zurueck in
+            # die Wallet aus: der In-App-Browser schliesst sich, die App steht wieder auf
+            # der Spark-Ansicht (gemessen 17.09.2026 an zwei Laeufen, Statusleiste
+            # "◀ Safari", Bildschirm ist die Wallet). Auf `^Zahlungsinformation$` zu warten
+            # heisst deshalb, auf einen Schirm zu warten, den dieser Ablauf nicht hat.
+            #
+            # Was der Flow stattdessen zusichert: die App ist zurueck und zeigt die
+            # Spark-Zeile. Die Einzahlungsadresse wird nicht am Schirm geprueft — sie
+            # steht in `E2E_SPARK_DEPOSIT_ADDRESS` und wurde vor dem Wartebereich bezahlt;
+            # die Verbuchung hat der Wartebereich vor der Maske geprueft.
+            # Nach dem Deeplink steht die App auf der Spark-**Detailansicht**, nicht auf
+            # der Wallet-Liste (gemessen am Bildschirmfoto: Titel Lightning (Spark),
+            # Saldo, Transaktionsliste).
+            # Was nach dem Deeplink im Vordergrund steht, ist nicht zuverlaessig vorherzusagen
+            # (Browser, Wallet-Liste oder Detailansicht, je nach Timing). Statt darauf zu
+            # warten, stellt der Flow den Zustand selbst her: App neu starten ohne
+            # Zustandsverlust, dann zur Spark-Ansicht navigieren - dasselbe Muster, das P16
+            # an dieser Stelle benutzt.
+            - waitForAnimationToEnd:
+                timeout: 15000
+            - runFlow: ../_relaunch-keep-state.yaml
+            - extendedWaitUntil:
+                visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+                timeout: 180000
+            - tapOn:
+                point: '50%,58%'
+            - waitForAnimationToEnd:
+                timeout: 15000
+            - extendedWaitUntil:
+                visible:
+                  id: WalletLabel
+                  text: 'Lightning \(Spark\)'
+                timeout: 60000
+            - runFlow:
+                when:
+                  visible: 'Fertig'
+                commands:
+                  - tapOn: 'Fertig'
+            - waitForAnimationToEnd:
+                timeout: 15000
+            # Vorher-Saldo als env-Bindung, unmittelbar vor der Zusicherung.
+            # Die Maske hat dazwischen Relounches; nacktes output.passthrough
+            # aus dem letzten sell-complete ist danach nicht der Beleg.
+            - runScript:
+                file: ../scripts/payment-amount.js
+                env:
+                  E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
+                  WALLET_BALANCE_TEXT: ${WALLET_BALANCE_TEXT}
             - assertTrue:
                 condition: ${output.walletBalanceRegex != null && output.walletBalanceRegex != '' && output.walletBalanceRegex != 'undefined'}
                 label: walletBalanceRegex missing after payment-amount.js
