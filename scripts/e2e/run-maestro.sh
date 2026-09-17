@@ -114,6 +114,12 @@ fi
 if [[ -n "${E2E_BUY_CHF-}" ]]; then
   maestro_env_args+=(-e "E2E_BUY_CHF=${E2E_BUY_CHF}")
 fi
+if [[ -n "${E2E_SETTLE_URL-}" ]]; then
+  maestro_env_args+=(-e "E2E_SETTLE_URL=${E2E_SETTLE_URL}")
+fi
+if [[ -n "${E2E_SETTLE_KEY-}" ]]; then
+  maestro_env_args+=(-e "E2E_SETTLE_KEY=${E2E_SETTLE_KEY}")
+fi
 
 shopt -s nullglob
 FLOWS=("$FLOW_DIR"/$FLOW_FILTER)
