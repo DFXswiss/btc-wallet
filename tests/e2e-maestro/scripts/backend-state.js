@@ -1,13 +1,15 @@
-/* global E2E_API_URL, E2E_DFX_JWT, STATE_KIND, TIMEOUT_MS, POLL_MS, MIN_TX_ID, output, http, Java, java */
+/* global E2E_API_URL, E2E_DFX_JWT, STATE_KIND, TIMEOUT_MS, POLL_MS, MIN_TX_ID, POLL_ONCE, output, http, Java, java */
 // Polls GET {E2E_API_URL}/v1/transaction with Authorization: Bearer {E2E_DFX_JWT}
 // until a transaction matches STATE_KIND. Observed on the local stack
 // (http://127.0.0.1:3300, 2026-09-15): JSON array of TransactionDto.
 // Fields read: id (number), type ("Buy"|"Sell"|...), state (e.g. "Completed",
 // "LiquidityPending"). snapshot returns the highest id once and does not wait.
 // Optional MIN_TX_ID (positive integer) keeps only rows with id > MIN_TX_ID for
-// buy-complete, sell-booked, and sell-complete. userAddress is an optional API
-// filter and is omitted because the JWT already scopes the subject. Never prints
-// the JWT.
+// buy-complete, sell-booked, and sell-complete. Optional POLL_ONCE=true asks
+// once, never waits, and exits 0 with backendState pending on a miss (ok plus
+// id/state on a hit). Real errors still exit 2 or 1. userAddress is an optional
+// API filter and is omitted because the JWT already scopes the subject. Never
+// prints the JWT.
 
 function fail(message, code) {
   const text = String(message || 'Backend state request failed');
@@ -41,6 +43,9 @@ function readScriptBinding(name) {
     }
     if (name === 'MIN_TX_ID' && typeof MIN_TX_ID !== 'undefined') {
       return scriptBinding(MIN_TX_ID);
+    }
+    if (name === 'POLL_ONCE' && typeof POLL_ONCE !== 'undefined') {
+      return scriptBinding(POLL_ONCE);
     }
   } catch (error) {}
   return '';
@@ -106,6 +111,7 @@ function loadConfig() {
   const timeoutMs = readPositiveInt('TIMEOUT_MS', 600000);
   const pollMs = readPositiveInt('POLL_MS', 5000);
   const minTxId = readOptionalPositiveInt('MIN_TX_ID');
+  const pollOnce = readEnv('POLL_ONCE').trim().toLowerCase() === 'true';
   return {
     url,
     token,
@@ -113,6 +119,7 @@ function loadConfig() {
     timeoutMs,
     pollMs,
     minTxId,
+    pollOnce,
     deadline: Date.now() + timeoutMs,
   };
 }
@@ -304,6 +311,11 @@ function applySuccess(tx) {
   writeStdout('backendState=ok id=' + id + ' state=' + state);
 }
 
+function applyPending() {
+  setOutput('backendState', 'pending');
+  writeStdout('backendState=pending');
+}
+
 function sleepSync(ms) {
   try {
     const Thread = Java.type('java.lang.Thread');
@@ -334,6 +346,10 @@ function pollSync(config) {
       return;
     }
     seen = summarize(txs);
+    if (config.pollOnce) {
+      applyPending();
+      return;
+    }
     if (Date.now() >= config.deadline) {
       fail(timeoutMessage(config.kind, config.timeoutMs, seen, config.minTxId), 1);
     }
@@ -350,6 +366,10 @@ function pollNode(config) {
         return;
       }
       const seen = summarize(txs);
+      if (config.pollOnce) {
+        applyPending();
+        return;
+      }
       if (Date.now() >= config.deadline) {
         fail(timeoutMessage(config.kind, config.timeoutMs, seen, config.minTxId), 1);
       }
