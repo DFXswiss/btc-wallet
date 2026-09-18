@@ -187,6 +187,22 @@ const LnurlPay = () => {
     if (wallet.type !== SparkWallet.type || invoice || sparkInvoice || sparkAddress || !payload || !(quoteAmountSats > 0) || !_LN)
       return undefined;
     let isCurrent = true;
+    const lnurlSparkAddress = _LN.getSparkAddress();
+    if (lnurlSparkAddress) {
+      wallet
+        .getPaymentFeeQuote(lnurlSparkAddress, quoteAmountSats)
+        .then(quote => {
+          if (!isCurrent) return;
+          setSparkFeeQuote(quote);
+          setSparkFee(quote.feeSats);
+        })
+        .catch(() => {
+          if (isCurrent) setSparkFeeQuoteError(loc.send.server_error);
+        });
+      return () => {
+        isCurrent = false;
+      };
+    }
     const comment = _LN.getCommentAllowed() ? description : undefined;
     if (isMax) {
       wallet
@@ -572,6 +588,8 @@ const LnurlPay = () => {
         }
       } else if (invoice) {
         await handleLnInvoice(amountSats);
+      } else if (wallet.type === SparkWallet.type && _LN?.getSparkAddress()) {
+        await handleSparkAddress(amountSats, _LN.getSparkAddress());
       } else {
         await handleBolt11Invoice(amountSats);
       }

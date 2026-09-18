@@ -32,12 +32,18 @@ beforeEach(() => {
   jest.clearAllMocks();
   __resetSparkSdkForTests();
   Config.BREEZ_API_KEY = 'test-api-key';
+  delete Config.BREEZ_LNURL_DOMAIN;
   mockInstance.addEventListener.mockReset().mockResolvedValue('listener-1');
   mockInstance.removeEventListener.mockReset().mockResolvedValue(true);
   mockInstance.disconnect.mockReset().mockResolvedValue(undefined);
   mockInstance.syncWallet.mockReset().mockResolvedValue({});
   mockInstance.getInfo.mockReset().mockResolvedValue({ identityPubkey: 'identity-1', balanceSats: 0n });
-  breez.defaultConfig.mockReturnValue({ apiKey: undefined, network: breez.Network.Mainnet, lnurlDomain: undefined });
+  breez.defaultConfig.mockReturnValue({
+    apiKey: undefined,
+    network: breez.Network.Mainnet,
+    lnurlDomain: undefined,
+    privateEnabledDefault: true,
+  });
   breez.connect.mockReset();
   breez.connect.mockResolvedValue(mockInstance);
 });
@@ -62,16 +68,30 @@ describe('spark-sdk', () => {
     assert.strictEqual(request.config.apiKey, 'test-api-key');
     assert.ok(String(request.storageDir).includes('breezSdkSpark'));
     assert.ok(request.seed);
-    // Must not set a custom LNURL domain.
+    // No BREEZ_LNURL_DOMAIN: the SDK default LNURL server stays in place.
     assert.strictEqual(request.config.lnurlDomain, undefined);
     assert.strictEqual(request.config.maxDepositClaimFee.tag, breez.MaxFee_Tags.Rate);
     assert.strictEqual(request.config.maxDepositClaimFee.inner.satPerVbyte, 10n);
+    // New wallets start without Spark private mode, whatever the SDK default is.
+    assert.strictEqual(request.config.privateEnabledDefault, false);
     expect(mockInstance.addEventListener).toHaveBeenCalled();
     assert.strictEqual(isSparkSdkConnected(), true);
     const lease = acquireSparkSessionLease();
     assert.strictEqual(lease.requireSdk(), mockInstance);
     assert.strictEqual(lease.identity, 'identity-1');
     expect(mockInstance.getInfo).toHaveBeenCalledWith({ ensureSynced: false });
+  });
+
+  it('registers lightning addresses on BREEZ_LNURL_DOMAIN when it is set', async () => {
+    Config.BREEZ_LNURL_DOMAIN = ' dev.lightning.space ';
+    await connectSparkSdk('one two three four five six seven eight nine ten eleven about');
+    assert.strictEqual(breez.connect.mock.calls[0][0].config.lnurlDomain, 'dev.lightning.space');
+  });
+
+  it('keeps the SDK default LNURL server when BREEZ_LNURL_DOMAIN is blank', async () => {
+    Config.BREEZ_LNURL_DOMAIN = '  ';
+    await connectSparkSdk('one two three four five six seven eight nine ten eleven about');
+    assert.strictEqual(breez.connect.mock.calls[0][0].config.lnurlDomain, undefined);
   });
 
   it('reuses the same connection on a second call', async () => {

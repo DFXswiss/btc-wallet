@@ -2,6 +2,7 @@ import Lnurl from '../../class/lnurl';
 const assert = require('assert');
 const bolt11 = require('bolt11');
 const loc = require('../../loc').default;
+const { bech32m } = require('bech32');
 
 describe('LNURL', function () {
   it('can findlnurl', () => {
@@ -683,5 +684,49 @@ describe('LNURL edge cases', function () {
       return true;
     });
     expect(Lnurl.getDomainFromLightningAddress('invalid')).toBe('');
+  });
+  describe('sparkAddress in the pay response', () => {
+    const sparkAddress = bech32m.encode('spark', bech32m.toWords(Buffer.from('spark-address-identity-key-32')), 10000);
+
+    function payResponseFrom(address, extra) {
+      const LN = new Lnurl(address);
+      LN.fetchGet = () => ({
+        status: 'OK',
+        callback: `https://${address.split('@')[1]}/lnurlp/${address.split('@')[0]}/invoice`,
+        tag: 'payRequest',
+        maxSendable: 1000000000,
+        minSendable: 1000,
+        metadata: '[["text/plain","spark test"]]',
+        ...extra,
+      });
+      return LN;
+    }
+
+    it('keeps a valid sparkAddress from a trusted domain', async () => {
+      const LN = payResponseFrom('0123456789abcdef@dev.lightning.space', { sparkAddress });
+      const payload = await LN.callLnurlPayService();
+      assert.strictEqual(payload.sparkAddress, sparkAddress);
+      assert.strictEqual(LN.getSparkAddress(), sparkAddress);
+    });
+
+    it('drops a sparkAddress from any other domain', async () => {
+      const LN = payResponseFrom('alice@example.com', { sparkAddress });
+      const payload = await LN.callLnurlPayService();
+      assert.strictEqual('sparkAddress' in payload, false);
+      assert.strictEqual(LN.getSparkAddress(), undefined);
+    });
+
+    it('drops a sparkAddress that is not a Spark address', async () => {
+      const LN = payResponseFrom('0123456789abcdef@dev.lightning.space', { sparkAddress: 'lnbc1notaspark' });
+      const payload = await LN.callLnurlPayService();
+      assert.strictEqual('sparkAddress' in payload, false);
+    });
+
+    it('has no sparkAddress when the response carries none', async () => {
+      const LN = payResponseFrom('0123456789abcdef@dev.lightning.space', {});
+      const payload = await LN.callLnurlPayService();
+      assert.strictEqual('sparkAddress' in payload, false);
+      assert.strictEqual(LN.getSparkAddress(), undefined);
+    });
   });
 });
