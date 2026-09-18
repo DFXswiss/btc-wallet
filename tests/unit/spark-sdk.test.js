@@ -38,7 +38,12 @@ beforeEach(() => {
   mockInstance.disconnect.mockReset().mockResolvedValue(undefined);
   mockInstance.syncWallet.mockReset().mockResolvedValue({});
   mockInstance.getInfo.mockReset().mockResolvedValue({ identityPubkey: 'identity-1', balanceSats: 0n });
-  breez.defaultConfig.mockReturnValue({ apiKey: undefined, network: breez.Network.Mainnet, lnurlDomain: undefined });
+  breez.defaultConfig.mockReturnValue({
+    apiKey: undefined,
+    network: breez.Network.Mainnet,
+    lnurlDomain: undefined,
+    privateEnabledDefault: true,
+  });
   breez.connect.mockReset();
   breez.connect.mockResolvedValue(mockInstance);
 });
@@ -67,6 +72,8 @@ describe('spark-sdk', () => {
     assert.strictEqual(request.config.lnurlDomain, undefined);
     assert.strictEqual(request.config.maxDepositClaimFee.tag, breez.MaxFee_Tags.Rate);
     assert.strictEqual(request.config.maxDepositClaimFee.inner.satPerVbyte, 10n);
+    // New wallets start without Spark private mode, whatever the SDK default is.
+    assert.strictEqual(request.config.privateEnabledDefault, false);
     expect(mockInstance.addEventListener).toHaveBeenCalled();
     assert.strictEqual(isSparkSdkConnected(), true);
     const lease = acquireSparkSessionLease();
