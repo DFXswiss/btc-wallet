@@ -390,38 +390,38 @@ export class SparkWallet extends AbstractWallet {
       return;
     }
     try {
-      const lease = this.holdMatchingSession();
-      const payments = await this.listPaymentsPages(
-        lease.requireSdk(),
-        {
-          typeFilter: undefined,
-          statusFilter: undefined,
-          assetFilter: new AssetFilter.Bitcoin(),
-          paymentDetailsFilter: undefined,
-          fromTimestamp: undefined,
-          toTimestamp: undefined,
-          sortAscending: false,
-          limit: SparkWallet.LIST_PAYMENTS_PAGE_SIZE,
-        },
-        true,
-      );
+    const lease = this.holdMatchingSession();
+    const payments = await this.listPaymentsPages(
+      lease.requireSdk(),
+      {
+        typeFilter: undefined,
+        statusFilter: undefined,
+        assetFilter: new AssetFilter.Bitcoin(),
+        paymentDetailsFilter: undefined,
+        fromTimestamp: undefined,
+        toTimestamp: undefined,
+        sortAscending: false,
+        limit: SparkWallet.LIST_PAYMENTS_PAGE_SIZE,
+      },
+      true,
+    );
 
-      const completed: SparkInvoiceRecord[] = [];
-      const pending: SparkInvoiceRecord[] = [];
+    const completed: SparkInvoiceRecord[] = [];
+    const pending: SparkInvoiceRecord[] = [];
 
-      for (const payment of payments) {
-        const mapped = this.mapPayment(payment);
-        if (payment.status === PaymentStatus.Pending) {
-          pending.push(mapped);
-        } else if (payment.status === PaymentStatus.Completed) {
-          completed.push(mapped);
-        }
+    for (const payment of payments) {
+      const mapped = this.mapPayment(payment);
+      if (payment.status === PaymentStatus.Pending) {
+        pending.push(mapped);
+      } else if (payment.status === PaymentStatus.Completed) {
+        completed.push(mapped);
       }
+    }
 
-      this.requireHeld(lease);
-      this.transactions_raw = completed;
-      this.pending_transactions_raw = pending;
-      this._lastTxFetch = +new Date();
+    this.requireHeld(lease);
+    this.transactions_raw = completed;
+    this.pending_transactions_raw = pending;
+    this._lastTxFetch = +new Date();
     } catch (e) {
       if (e instanceof SparkSessionStaleError || !isSparkSdkConnected()) {
         return;
@@ -442,58 +442,58 @@ export class SparkWallet extends AbstractWallet {
       return this.user_invoices_raw || [];
     }
     try {
-      const lease = this.holdMatchingSession();
-      const paginate = !(limit > 0);
-      const payments = await this.listPaymentsPages(
-        lease.requireSdk(),
-        {
-          typeFilter: [PaymentType.Receive],
-          statusFilter: undefined,
-          assetFilter: undefined,
-          paymentDetailsFilter: [new PaymentDetailsFilter.Lightning({ htlcStatus: undefined })],
-          fromTimestamp: undefined,
-          toTimestamp: undefined,
-          sortAscending: false,
-          limit: limit > 0 ? limit : SparkWallet.LIST_PAYMENTS_PAGE_SIZE,
-        },
-        paginate,
-      );
+    const lease = this.holdMatchingSession();
+    const paginate = !(limit > 0);
+    const payments = await this.listPaymentsPages(
+      lease.requireSdk(),
+      {
+        typeFilter: [PaymentType.Receive],
+        statusFilter: undefined,
+        assetFilter: undefined,
+        paymentDetailsFilter: [new PaymentDetailsFilter.Lightning({ htlcStatus: undefined })],
+        fromTimestamp: undefined,
+        toTimestamp: undefined,
+        sortAscending: false,
+        limit: limit > 0 ? limit : SparkWallet.LIST_PAYMENTS_PAGE_SIZE,
+      },
+      paginate,
+    );
 
-      // Lightning without htlcStatus adds no SQL clause in breez-sdk 0.19.2, so
-      // the request filter above is a hint, not a guarantee. Drop other kinds here.
-      const remote = payments
-        .filter(payment => payment.details && payment.details.tag === PaymentDetails_Tags.Lightning)
-        .map(p => this.mapPayment(p));
-      // Keep locally created unpaid invoices that the network has not seen yet.
-      // Match on payment_hash (mapPayment sets it from the Lightning HTLC hash
-      // when present, otherwise payment.id; addInvoice from the bolt11 decode)
-      // or a non-empty payment_request. An empty request is not an identity —
-      // Lightning details.inner.invoice can be missing. A row with neither key
-      // cannot be told apart from a new empty row, so it is not re-appended:
-      // re-appending would grow the list on every fetch.
-      for (const old of this.user_invoices_raw) {
-        const hasKey = Boolean(old.payment_hash) || Boolean(old.payment_request);
-        if (!hasKey) {
-          continue;
-        }
-        const match = remote.find(
-          r =>
-            (Boolean(r.payment_hash) && r.payment_hash === old.payment_hash) ||
-            (Boolean(r.payment_request) && r.payment_request === old.payment_request),
-        );
-        if (match) {
-          // Spark listPayments can omit details.inner.invoice. Keep the bolt11
-          // the receive poller matches on, or a paid invoice never looks paid.
-          if (!match.payment_request && old.payment_request) {
-            match.payment_request = old.payment_request;
-          }
-          continue;
-        }
-        remote.push(old);
+    // Lightning without htlcStatus adds no SQL clause in breez-sdk 0.19.2, so
+    // the request filter above is a hint, not a guarantee. Drop other kinds here.
+    const remote = payments
+      .filter(payment => payment.details && payment.details.tag === PaymentDetails_Tags.Lightning)
+      .map(p => this.mapPayment(p));
+    // Keep locally created unpaid invoices that the network has not seen yet.
+    // Match on payment_hash (mapPayment sets it from the Lightning HTLC hash
+    // when present, otherwise payment.id; addInvoice from the bolt11 decode)
+    // or a non-empty payment_request. An empty request is not an identity —
+    // Lightning details.inner.invoice can be missing. A row with neither key
+    // cannot be told apart from a new empty row, so it is not re-appended:
+    // re-appending would grow the list on every fetch.
+    for (const old of this.user_invoices_raw) {
+      const hasKey = Boolean(old.payment_hash) || Boolean(old.payment_request);
+      if (!hasKey) {
+        continue;
       }
-      this.requireHeld(lease);
-      this.user_invoices_raw = remote.sort((a, b) => a.timestamp - b.timestamp);
-      return this.user_invoices_raw;
+      const match = remote.find(
+        r =>
+          (Boolean(r.payment_hash) && r.payment_hash === old.payment_hash) ||
+          (Boolean(r.payment_request) && r.payment_request === old.payment_request),
+      );
+      if (match) {
+        // Spark listPayments can omit details.inner.invoice. Keep the bolt11
+        // the receive poller matches on, or a paid invoice never looks paid.
+        if (!match.payment_request && old.payment_request) {
+          match.payment_request = old.payment_request;
+        }
+        continue;
+      }
+      remote.push(old);
+    }
+    this.requireHeld(lease);
+    this.user_invoices_raw = remote.sort((a, b) => a.timestamp - b.timestamp);
+    return this.user_invoices_raw;
     } catch (e) {
       if (e instanceof SparkSessionStaleError || !isSparkSdkConnected()) {
         return this.user_invoices_raw || [];
@@ -555,7 +555,7 @@ export class SparkWallet extends AbstractWallet {
     this.requireHeld(lease);
     const address = response.paymentRequest;
     if (!address) {
-      return '';
+      return "";
     }
     this.sparkAddress = address;
     return address;
@@ -1032,7 +1032,10 @@ export class SparkWallet extends AbstractWallet {
       feePolicy: undefined,
     });
 
-    if (prepareResponse.paymentMethod.tag === SendPaymentMethod_Tags.SparkInvoice && prepareResponse.paymentMethod.inner.tokenIdentifier) {
+    if (
+      prepareResponse.paymentMethod.tag === SendPaymentMethod_Tags.SparkInvoice &&
+      prepareResponse.paymentMethod.inner.tokenIdentifier
+    ) {
       throw new Error(loc.wallets.lightning_spark_token_invoice_unsupported);
     }
     if (prepareResponse.amount !== BigInt(amountSats)) {
@@ -1079,7 +1082,9 @@ export class SparkWallet extends AbstractWallet {
     }
 
     const paymentHash = payment.id || trackingHash;
-    const tracked = payment.id ? attachOutgoingPaymentId({ paymentHash, paymentId: payment.id }) : getOutgoingPayment();
+    const tracked = payment.id
+      ? attachOutgoingPaymentId({ paymentHash, paymentId: payment.id })
+      : getOutgoingPayment();
 
     if (payment.status === PaymentStatus.Failed) {
       const settled = settleOutgoingPayment({ status: 'failed', paymentHash, paymentId: payment.id });
@@ -1140,7 +1145,10 @@ export class SparkWallet extends AbstractWallet {
       feePolicy: undefined,
     });
 
-    if (prepareResponse.paymentMethod.tag === SendPaymentMethod_Tags.SparkAddress && prepareResponse.paymentMethod.inner.tokenIdentifier) {
+    if (
+      prepareResponse.paymentMethod.tag === SendPaymentMethod_Tags.SparkAddress &&
+      prepareResponse.paymentMethod.inner.tokenIdentifier
+    ) {
       throw new Error(loc.wallets.lightning_spark_token_invoice_unsupported);
     }
     if (prepareResponse.amount !== BigInt(amountSats)) {
@@ -1190,7 +1198,9 @@ export class SparkWallet extends AbstractWallet {
     }
 
     const paymentHash = payment.id || trackingHash;
-    const tracked = payment.id ? attachOutgoingPaymentId({ paymentHash, paymentId: payment.id }) : getOutgoingPayment();
+    const tracked = payment.id
+      ? attachOutgoingPaymentId({ paymentHash, paymentId: payment.id })
+      : getOutgoingPayment();
 
     if (payment.status === PaymentStatus.Failed) {
       const settled = settleOutgoingPayment({ status: 'failed', paymentHash, paymentId: payment.id });
