@@ -30,18 +30,22 @@ Spark identity through `_setup-import.yaml` instead of creating a random wallet.
   only when set and never prints it. The helpers do not print it either. If
   either name is missing, `dfx-simulate-payment.js` or `backend-state.js` exits
   2 and the flow fails rather than skip.
-- P14, P15 and P17 need a Lightning counterpart, configured only through the
+- P14 and P15 need a Lightning counterpart, configured only through the
   runner's environment (`E2E_TREASURY_URL`, `E2E_TREASURY_KEY`, optional
   `E2E_TREASURY_MAX_SAT` default 1000, optional `E2E_TREASURY_MAX_FEE_SAT` default
-  100). The payment amount those three flows type and assert is `E2E_PAYMENT_SAT`
+  100). The payment amount those two flows type and assert is `E2E_PAYMENT_SAT`
   (default 10). It must end in 0: the amount field keeps a zero after the
   cursor, so backspace deletes the last typed digit. P15 sends one tenth of that amount so the Spark fee still fits
   in the remaining balance. P16 and P17 also need `E2E_API_URL` and
-  `E2E_DFX_JWT` (see the backend-API section below). P16's buy amount is
+  `E2E_DFX_JWT` (see the backend-API section below). P17 has no Lightning
+  funding and does not use `E2E_TREASURY_*`; it sells the Spark amount that
+  P16 credited, so P16 has to run first. P17's sell amount is
+  `E2E_PAYMENT_SAT` (default 10). P16's buy amount is
   `E2E_BUY_CHF` (default 0.20). Maestro's `runScript` sandbox does not see the shell
   environment, so the runner forwards `E2E_PAYMENT_SAT` (always, default 10) and
   each treasury variable that is set, plus `E2E_SPARK_MNEMONIC`,
-  `E2E_SPARK_DEPOSIT_ADDRESS`, `E2E_SPARK_WALLET_ADDRESS`, `E2E_API_URL`,
+  `E2E_SPARK_DEPOSIT_ADDRESS`, `E2E_SPARK_WALLET_ADDRESS`,
+  `E2E_SPARK_RETURN_ADDRESS`, `E2E_API_URL`,
   `E2E_DFX_JWT` and `E2E_BUY_CHF` when set, to
   `maestro test` as `-e NAME=VALUE` (unset names are omitted). The flows bind those names in the
   `runScript` `env` map, and `treasury.js` / `dfx-simulate-payment.js` /
@@ -54,8 +58,10 @@ Spark identity through `_setup-import.yaml` instead of creating a random wallet.
   not skip the payment or report success. Amounts above `E2E_TREASURY_MAX_SAT`
   are rejected before anything is sent. The helpers never print the key or the
   JWT; BOLT11
-  values they print are the invoices the app has to pay (P15 send, P14/P17
-  return). The runner does not echo the forwarded values.
+  values they print are the invoices the app has to pay (P15 send, P14
+  receive). P14 and P17 return leftover Spark through the wallet send path
+  to `E2E_SPARK_RETURN_ADDRESS`; if that name is unset the hook skips
+  without failing. The runner does not echo the forwarded values.
 - The given simulator must not hold any wallet state worth protecting for
   P01–P15. Before every flow the runner terminates and uninstalls the app,
   resets the simulator keychain and installs the given bundle anew. On top of
@@ -217,19 +223,24 @@ on a configuration error or an empty filter.
   asserts `WalletBalance` has risen. The incoming payment is raised through
   the API helper (`dfx-simulate-payment.js`, `E2E_BUY_CHF` default 0.20), not a
   transfer from a real bank. P16 does not assert a specific sat credit.
-  P17 fills the Spark wallet from the counterpart if the visible balance is
-  below `E2E_PAYMENT_SAT`, opens sell, asserts the truncated on-screen
-  address matches `E2E_SPARK_DEPOSIT_ADDRESS`, pays that address through the
-  wallet send path, asserts `WalletBalance` has fallen, and waits for the
-  backend to book and then complete a Sell with id greater than the
-  snapshot taken before the send. Missing trade approval fails on
+  P17 has no funding of its own. It requires P16 to have run first so the
+  imported identity already holds the Spark payout that P17 sells. It
+  asserts the visible Spark balance is at least `E2E_PAYMENT_SAT` (default
+  10) and fails rather than skip if it is not. It then pays
+  `E2E_SPARK_DEPOSIT_ADDRESS` through the wallet send path, asserts
+  `WalletBalance` has fallen, and waits for the backend to book and then
+  complete a Sell with id greater than the snapshot taken before the send.
+  Missing trade approval fails on
   `NUTZERDATEN EINGEBEN` with a pointer to the fixture, not a skip. The
   flows do not open a bank app, do not inspect an IBAN credit, and do not
   read a camera QR.
 - P14 and P17 return the visible Spark balance minus a 4 sat fee reserve in an
   `onFlowComplete` hook (`_return-spark-balance.yaml`), so the return also runs
-  after a failed assertion. At the default 10 sat credit that leaves 6 sat
-  returnable. A completed P14 therefore costs only the native Lightning fee.
+  after a failed assertion. The return uses the wallet's Spark send path to
+  `E2E_SPARK_RETURN_ADDRESS`, not a Lightning counterpart. If that address is
+  unset the hook skips, logs that, and does not fail the flow. At the default
+  10 sat credit that leaves 6 sat returnable. A completed P14 therefore costs
+  only the native Lightning fee.
   P17 returns only the Spark remainder after the sell; the sold amount does not
   come back. If the hook cannot read a Spark balance (0, missing, at or below
   the 4 sat reserve, or the app is not on the Spark wallet screen) it skips,
@@ -314,9 +325,12 @@ P16 and P17 were run on this head against the local stack on
 still left no Spark row. Neither flow reached the buy/sell mask or the backend
 booking. last-run for P16 (third attempt) was exit 1, 159 s,
 `assertion-failed`; for P17 (one attempt) exit 1, 167 s, `assertion-failed`.
-`E2E_TREASURY_URL` was not set, so the Lightning counterpart for P17's
-`onFlowComplete` return hook was missing; that hook ran after the failed
+`E2E_TREASURY_URL` was not set, so the Lightning counterpart that the
+return hook still used in that version of P17's `onFlowComplete` was
+missing; that hook ran after the failed
 assertion and skipped (`refund skipped: not-visible`) because no Spark
 `WalletBalance` was on screen. The counterpart was therefore not the blocking
-failure of this run. The first P16 attempt aborted at YAML parse of the
+failure of this run. The hook now sends leftover Spark to
+`E2E_SPARK_RETURN_ADDRESS` instead; that dated skip reason is from the
+Lightning-return version. The first P16 attempt aborted at YAML parse of the
 unquoted `MIN_TX_ID` ternary; those three `MIN_TX_ID` lines are now quoted.

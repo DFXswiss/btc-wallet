@@ -44,76 +44,20 @@ onFlowComplete:
     visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
     timeout: 90000
 # 0 sats nach dem Import ist der Zwischenzustand vor der Spark-Synchronisation,
-# kein Befund. Warten, bis eine Ziffer ungleich null steht; optional, damit eine
-# wirklich leere Wallet in die Auffuellung laeuft statt den Flow zu brechen.
+# kein Befund. Warten, bis eine Ziffer ungleich null steht. Der sichtbare
+# Spark-Saldo muss danach mindestens E2E_PAYMENT_SAT sein — das ist die
+# Auszahlung aus P16, nicht eine Gegenstelle. Reicht er nicht, bricht der
+# Flow hier ab.
 - extendedWaitUntil:
     visible: 'Bitcoin, Lightning \(Spark\), [1-9].*sats, .*'
     timeout: 90000
     optional: true
 - copyTextFrom: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
-# Ein leerer Kopiertext ist **kein** Beleg fuer einen niedrigen Saldo:
-# maestro.copiedText kommt in diesem Flow stellenweise leer an, obwohl der
-# Kopierschritt Erfolg meldet. Eine fruehere Fassung hat daraufhin die
-# Lightning-Gegenstelle angerufen und den Lauf dort abgebrochen, wo sie
-# fehlt. Aufgefuellt wird nur bei einem tatsaechlich gelesenen Betrag.
 - evalScript: "${output.balanceRead = String(maestro.copiedText || '').replace(/[^0-9]/g, '')}"
-- evalScript: "${output.needsFunding = (output.balanceRead !== '' && Number(output.balanceRead) < Number(output.paymentSat || 10)) ? 'true' : 'false'}"
-# Reicht das sichtbare Guthaben nicht fuer E2E_PAYMENT_SAT, fuellt die
-# Gegenstelle wie bisher auf. Sonst bleibt der vorhandene Saldo.
-- runFlow:
-    when:
-      true: ${output.needsFunding === 'true'}
-    commands:
-      - tapOn:
-          point: '50%,58%'
-      - waitForAnimationToEnd:
-          timeout: 15000
-      - tapOn:
-          point: '16%,93%'
-      - extendedWaitUntil:
-          visible: 'Amount (optional)'
-          timeout: 20000
-      - tapOn: 'Amount (optional)'
-      - inputText: ${output.paymentSat}
-      - tapOn: 'sats'
-      - extendedWaitUntil:
-          visible: '.*lnbc.*'
-          timeout: 30000
-      - tapOn: 'Beschreibung (optional)'
-      - inputText: 'Maestro-E2E'
-      - tapOn: 'sats'
-      # Betragsunabhaengig: 10 sat ist lnbc100n, 1000 sat waere lnbc10u.
-      - extendedWaitUntil:
-          visible: '.*lnbc.*'
-          timeout: 30000
-      - copyTextFrom: '.*lnbc.*'
-      - runScript:
-          file: ../scripts/treasury.js
-          env:
-            TREASURY_CMD: pay
-            E2E_TREASURY_URL: ${E2E_TREASURY_URL || ''}
-            E2E_TREASURY_KEY: ${E2E_TREASURY_KEY || ''}
-            E2E_TREASURY_MAX_SAT: ${E2E_TREASURY_MAX_SAT || ''}
-            E2E_TREASURY_MAX_FEE_SAT: ${E2E_TREASURY_MAX_FEE_SAT || ''}
-      - extendedWaitUntil:
-          visible: 'Fertig'
-          timeout: 120000
-      # runScript ersetzt output. Betragswerte unmittelbar vor der Zusicherung neu setzen.
-      - runScript:
-          file: ../scripts/payment-amount.js
-          env:
-            E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
-      - evalScript: "${output.paymentBtc = (Number(output.paymentSat) / 100000000).toFixed(8)}"
-      - assertVisible: '^${E2E_PAYMENT_SAT}$'
-      - assertVisible: '^ sats$'
-      - assertVisible: '^Maestro-E2E$'
-      - assertVisible: 'Fertig'
-      - tapOn: 'Fertig'
-      - waitForAnimationToEnd:
-          timeout: 15000
-      # Die Listen-Zeile mit dem neuen Saldo erschien erst nach einem Neustart
-      # ohne Zustandsloeschung, nicht auf dem offen gebliebenen Schirm.
-      - runFlow: ../_relaunch-keep-state.yaml
+- evalScript: "${output.balanceOk = (output.balanceRead !== '' && Number(output.balanceRead) >= Number(output.paymentSat || 10)) ? 'true' : 'false'}"
+- assertTrue:
+    condition: ${output.balanceOk === 'true'}
+    label: Spark balance is below E2E_PAYMENT_SAT. Run P16 first so the wallet holds the Spark payout to sell.
 - extendedWaitUntil:
     visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
     timeout: 90000

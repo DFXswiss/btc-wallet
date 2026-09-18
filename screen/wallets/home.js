@@ -101,7 +101,7 @@ const WalletHome = ({ navigation }) => {
   useEffect(() => {
     setIsLoading(true);
     setIsLoading(false);
-    setSelectedWallet(wallet.getID());
+    if (wallet) setSelectedWallet(wallet.getID());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletID]);
 
@@ -294,7 +294,7 @@ const WalletHome = ({ navigation }) => {
       title: 'Bitcoin',
       isActivated: true,
       subtitle: loc.wallets.main_wallet_label,
-      walletID: onChainWallet.getID?.(),
+      walletID: onChainWallet?.getID?.(),
     });
 
     const LnWallet = wallets.find(w => w.type === LightningLdsWallet.type) || wallets.find(w => w.type === SparkWallet.type);
@@ -321,7 +321,7 @@ const WalletHome = ({ navigation }) => {
         wallet={totalWallet}
         width={width}
         headerOverlayHeight={headerOverlayHeight}
-        showRBFWarning={!wallet.allowRBF()}
+        showRBFWarning={!wallet?.allowRBF()}
         onWalletChange={total =>
           InteractionManager.runAfterInteractions(async () => {
             wallets.forEach(w => {
@@ -402,7 +402,7 @@ const WalletHome = ({ navigation }) => {
         ))}
       </View>
       <FContainer ref={walletActionButtonsRef}>
-        {wallet.allowReceive() && (
+        {wallet?.allowReceive() && (
           <FButton
             testID="ReceiveButton"
             text={loc.receive.header}
@@ -425,7 +425,7 @@ const WalletHome = ({ navigation }) => {
           }
           text={loc.send.details_scan}
         />
-        {(wallet.allowSend() || (wallet.type === WatchOnlyWallet.type && wallet.isHd())) && (
+        {(wallet?.allowSend() || (wallet?.type === WatchOnlyWallet.type && wallet?.isHd())) && (
           <FButton
             onLongPress={sendButtonLongPress}
             onPress={sendButtonPress}

@@ -105,6 +105,9 @@ fi
 if [[ -n "${E2E_SPARK_WALLET_ADDRESS-}" ]]; then
   maestro_env_args+=(-e "E2E_SPARK_WALLET_ADDRESS=${E2E_SPARK_WALLET_ADDRESS}")
 fi
+if [[ -n "${E2E_SPARK_RETURN_ADDRESS-}" ]]; then
+  maestro_env_args+=(-e "E2E_SPARK_RETURN_ADDRESS=${E2E_SPARK_RETURN_ADDRESS}")
+fi
 if [[ -n "${E2E_API_URL-}" ]]; then
   maestro_env_args+=(-e "E2E_API_URL=${E2E_API_URL}")
 fi

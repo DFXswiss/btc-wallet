@@ -49,18 +49,15 @@ function walletWaivesDomainFees(fromWallet) {
 const _cacheFiatToSat = {};
 const SPARK_PAYMENT_SEED_PREFIX = 'spark-pay-seed:';
 
-function sparkPaymentSeedStorageKey(walletID, routeId, invoice, amountSats) {
-  return `${SPARK_PAYMENT_SEED_PREFIX}${walletID}:${routeId}:${invoice}:${amountSats}`;
+function sparkPaymentSeedStorageKey(walletID, routeId, invoice, amountSats, seed) {
+  return `${SPARK_PAYMENT_SEED_PREFIX}${walletID}:${routeId}:${invoice}:${amountSats}:${seed}`;
 }
 
-async function getOrCreateSparkPaymentSeed(walletID, routeId, invoice, amountSats) {
-  const storageKey = sparkPaymentSeedStorageKey(walletID, routeId, invoice, amountSats);
-  const storedSeed = await AsyncStorage.getItem(storageKey);
-  if (storedSeed) return { storageKey, seed: storedSeed };
-
-  // Pending operations deliberately keep this shared slot across restarts. Two equal sales on the
-  // same route that overlap before the first completes therefore share a seed; this is the retry-safety tradeoff.
+async function createSparkPaymentSeed(walletID, routeId, invoice, amountSats) {
+  // A fresh nonce per attempt. A stored seed is never reused: a failed or abandoned
+  // payment must not make the next try share an idempotency key.
   const seed = (await randomBytes(16)).toString('hex');
+  const storageKey = sparkPaymentSeedStorageKey(walletID, routeId, invoice, amountSats, seed);
   await AsyncStorage.setItem(storageKey, seed);
   return { storageKey, seed };
 }
@@ -88,6 +85,7 @@ const LnurlPay = () => {
   const [isPaymentPending, setIsPaymentPending] = useState(false);
   const pendingPayRef = useRef();
   const payInFlightRef = useRef(false);
+  const sparkSeedKeyRef = useRef();
   const [payload, setPayload] = useState();
   const { pop, navigate, goBack } = useNavigation();
   const [amount, setAmount] = useState();
@@ -289,6 +287,9 @@ const LnurlPay = () => {
           reportError('lnurlPay: failed to finish LNURL success', error);
         });
       } else if (watching.kind === 'sparkInvoice' || watching.kind === 'sparkAddress') {
+        if (sparkSeedKeyRef.current === watching.seedStorageKey) {
+          sparkSeedKeyRef.current = undefined;
+        }
         releaseSparkPaymentSeed(watching.seedStorageKey).then(() =>
           finishInvoiceSuccess(watching.amountSats, watching.fee, watching.decoded),
         );
@@ -299,6 +300,12 @@ const LnurlPay = () => {
     }
 
     if (outgoingPayment.status === 'failed') {
+      if (watching.seedStorageKey) {
+        if (sparkSeedKeyRef.current === watching.seedStorageKey) {
+          sparkSeedKeyRef.current = undefined;
+        }
+        releaseSparkPaymentSeed(watching.seedStorageKey);
+      }
       setIsPaymentPending(false);
       payInFlightRef.current = false;
       setPayButtonDisabled(false);
@@ -309,6 +316,15 @@ const LnurlPay = () => {
     // finish helpers close over navigation and wallet; they are stable for this screen instance.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outgoingPayment]);
+
+  useEffect(() => {
+    return () => {
+      const storageKey = sparkSeedKeyRef.current;
+      if (!storageKey) return;
+      sparkSeedKeyRef.current = undefined;
+      releaseSparkPaymentSeed(storageKey);
+    };
+  }, []);
 
   useEffect(() => {
     if (payload) {
@@ -449,7 +465,8 @@ const LnurlPay = () => {
   };
 
   const handleSparkAddress = async (amountSats, destination) => {
-    const { storageKey, seed } = await getOrCreateSparkPaymentSeed(walletID, routeId, destination, amountSats);
+    const { storageKey, seed } = await createSparkPaymentSeed(walletID, routeId, destination, amountSats);
+    sparkSeedKeyRef.current = storageKey;
     const result = await wallet.paySparkAddress(destination, amountSats, seed, sparkFeeQuote);
     const decoded = {};
     if (result && result.status === 'pending') {
@@ -466,17 +483,21 @@ const LnurlPay = () => {
       return;
     }
     if (result && result.status !== 'completed') {
+      sparkSeedKeyRef.current = undefined;
+      await releaseSparkPaymentSeed(storageKey);
       payInFlightRef.current = false;
       setPayButtonDisabled(false);
       return;
     }
 
+    sparkSeedKeyRef.current = undefined;
     await releaseSparkPaymentSeed(storageKey);
     finishInvoiceSuccess(amountSats, result?.fee, decoded);
   };
 
   const handleSparkInvoice = async (amountSats, destination) => {
-    const { storageKey, seed } = await getOrCreateSparkPaymentSeed(walletID, routeId, destination, amountSats);
+    const { storageKey, seed } = await createSparkPaymentSeed(walletID, routeId, destination, amountSats);
+    sparkSeedKeyRef.current = storageKey;
     const result = await wallet.paySparkInvoice(destination, amountSats, seed, sparkFeeQuote);
     const decoded = {};
     if (result && result.status === 'pending') {
@@ -493,11 +514,14 @@ const LnurlPay = () => {
       return;
     }
     if (result && result.status !== 'completed') {
+      sparkSeedKeyRef.current = undefined;
+      await releaseSparkPaymentSeed(storageKey);
       payInFlightRef.current = false;
       setPayButtonDisabled(false);
       return;
     }
 
+    sparkSeedKeyRef.current = undefined;
     await releaseSparkPaymentSeed(storageKey);
     finishInvoiceSuccess(amountSats, result?.fee, decoded);
   };
@@ -561,6 +585,11 @@ const LnurlPay = () => {
       setIsLoading(false);
     } catch (Err) {
       console.log(Err.message);
+      const failedSeedKey = sparkSeedKeyRef.current;
+      if (failedSeedKey) {
+        sparkSeedKeyRef.current = undefined;
+        await releaseSparkPaymentSeed(failedSeedKey);
+      }
       setLnurlInvoiceQuote(undefined);
       if (Err instanceof SparkPaymentFeeQuoteError) {
         setSparkFee(undefined);

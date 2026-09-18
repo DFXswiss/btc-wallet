@@ -1,4 +1,6 @@
 appId: swiss.dfx.bitcoin
+env:
+  E2E_SPARK_RETURN_ADDRESS: ${E2E_SPARK_RETURN_ADDRESS || ''}
 ---
 # Abschluss-Hook fuer P14/P17. Liest den Spark-Saldo im Wallet-Detailkopf
 # (WalletLabel + WalletBalance). Fehlt der Kopf, Skip (gruen). Ist der gelesene
@@ -7,89 +9,135 @@ appId: swiss.dfx.bitcoin
 # Rueckfuehrung sauber aus und faerbt den Lauf nicht rot. Ist ein
 # Rueckzahlbetrag da und die Rueckfuehrung scheitert, oder der sichtbare Saldo
 # laesst sich nicht als sats lesen, faerbt der Hook den Flow rot.
+# Rueckgabe laeuft ueber denselben Spark-Sendeweg wie P17, Ziel ist
+# E2E_SPARK_RETURN_ADDRESS. Fehlt die Adresse, Skip (gruen) — ein bestandener
+# Lauf wird nicht rot.
 - evalScript: "${output.refundDue = 'false'; output.refundSkip = 'not-visible'}"
-- evalScript: "${output.treasuryConfigured = (typeof E2E_TREASURY_URL !== 'undefined' && String(E2E_TREASURY_URL || '') !== '' && typeof E2E_TREASURY_KEY !== 'undefined' && String(E2E_TREASURY_KEY || '') !== '') ? 'true' : 'false'}"
+- evalScript: "${output.returnConfigured = (typeof E2E_SPARK_RETURN_ADDRESS !== 'undefined' && String(E2E_SPARK_RETURN_ADDRESS || '') !== '') ? 'true' : 'false'}"
 - runFlow:
     when:
-      true: ${output.treasuryConfigured !== 'true'}
+      true: ${output.returnConfigured !== 'true'}
     commands:
-      - evalScript: "${output.refundSkip = 'no-treasury'}"
-      - evalScript: "${console.log('refund skipped: no treasury counterpart configured')}"
+      - evalScript: "${output.refundSkip = 'no-return-address'}"
+      - evalScript: "${console.log('refund skipped: no Spark return address configured')}"
 # Nach einer gescheiterten Zusicherung auf dem Erfolgsbildschirm ist
 # WalletBalance nicht sichtbar, der Saldo aber vorhanden. Dann neu starten
 # und die Spark-Wallet oeffnen, sonst bleibt die Rueckfuehrung stumm.
 - runFlow:
     when:
-      notVisible:
-        id: WalletBalance
+      true: ${output.returnConfigured === 'true'}
     commands:
-      - runFlow: _relaunch-keep-state.yaml
       - runFlow:
           when:
-            visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+            notVisible:
+              id: WalletBalance
           commands:
-            - tapOn:
-                point: '50%,58%'
-            - waitForAnimationToEnd:
-                timeout: 15000
-            - extendedWaitUntil:
-                visible:
-                  id: WalletLabel
-                  text: 'Lightning \(Spark\)'
-                timeout: 60000
-            - extendedWaitUntil:
-                visible:
-                  id: WalletBalance
-                timeout: 60000
-- runFlow:
-    when:
-      visible:
-        id: WalletLabel
-        text: 'Lightning \(Spark\)'
-    commands:
+            - runFlow: _relaunch-keep-state.yaml
+            - runFlow:
+                when:
+                  visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+                commands:
+                  - tapOn:
+                      point: '50%,58%'
+                  - waitForAnimationToEnd:
+                      timeout: 15000
+                  - extendedWaitUntil:
+                      visible:
+                        id: WalletLabel
+                        text: 'Lightning \(Spark\)'
+                      timeout: 60000
+                  - extendedWaitUntil:
+                      visible:
+                        id: WalletBalance
+                      timeout: 60000
       - runFlow:
           when:
             visible:
-              id: WalletBalance
+              id: WalletLabel
+              text: 'Lightning \(Spark\)'
           commands:
-            - copyTextFrom:
-                id: WalletBalance
-                text: '[0-9][0-9., ]+sats'
             - runFlow:
                 when:
-                  true: ${output.treasuryConfigured === 'true'}
+                  visible:
+                    id: WalletBalance
                 commands:
-                  - runScript:
-                      file: scripts/treasury.js
-                env:
-                  TREASURY_CMD: refundIfDue
-                  TREASURY_FEE_RESERVE_SAT: '4'
-                  TREASURY_MEMO: Maestro-E2E-return
-                  E2E_TREASURY_URL: ${E2E_TREASURY_URL || ''}
-                  E2E_TREASURY_KEY: ${E2E_TREASURY_KEY || ''}
-                  E2E_TREASURY_MAX_SAT: ${E2E_TREASURY_MAX_SAT || ''}
-                  E2E_TREASURY_MAX_FEE_SAT: ${E2E_TREASURY_MAX_FEE_SAT || ''}
+                  - copyTextFrom:
+                      id: WalletBalance
+                      text: '[0-9][0-9., ]+sats'
+                  - evalScript: "${output.balanceRead = String(maestro.copiedText || '').replace(/[^0-9]/g, '')}"
+                  - runFlow:
+                      when:
+                        true: ${output.balanceRead === ''}
+                      commands:
+                        - assertTrue:
+                            condition: ${false}
+                            label: Visible Spark balance could not be read
+                  - evalScript: "${output.refundSat = String(Math.max(0, Number(output.balanceRead) - 4))}"
+                  - evalScript: "${output.refundDue = (Number(output.refundSat) > 0) ? 'true' : 'false'}"
+                  - runFlow:
+                      when:
+                        true: ${output.refundDue !== 'true'}
+                      commands:
+                        - evalScript: "${output.refundSkip = Number(output.balanceRead) === 0 ? 'zero' : 'below-reserve'}"
 - runFlow:
     when:
       true: ${output.refundDue === 'true'}
     commands:
-      - openLink:
-          link: ${'dfxtaro:lightning:' + output.bolt11}
-      - runFlow:
-          when:
-            visible: 'Öffnen'
-          commands:
-            - tapOn: 'Öffnen'
-      - runFlow:
-          when:
-            visible: 'Open'
-          commands:
-            - tapOn: 'Open'
       - extendedWaitUntil:
-          visible: 'Weiter'
+          visible:
+            id: SendButton
           timeout: 30000
-      - assertVisible: '^[0-9][0-9.,]*$'
-      - assertVisible: 'Senden'
+      - tapOn:
+          id: SendButton
+      - waitForAnimationToEnd:
+          timeout: 15000
+      # Untere Leiste des QR-Scanners: Bild, Tastatur, Zwischenablage. Die
+      # Zwischenablage loest den iOS-Dialog Einsetzen erlauben aus; Tastatur nehmen.
+      - tapOn:
+          point: '50%,88%'
+      - extendedWaitUntil:
+          visible: 'Fortsetzen'
+          timeout: 20000
+      # Die Ueberschrift traegt in der Hierarchie denselben Treffer wie das Feld;
+      # ein tapOn auf eine Id trifft den Titel. Der Punkt sitzt im Eingabefeld.
+      - tapOn:
+          point: '50%,23%'
+      - inputText: ${E2E_SPARK_RETURN_ADDRESS}
+      - tapOn: 'Fortsetzen'
+      # Der erste Tipp bleibt folgenlos, bis die Eingabe verarbeitet und die
+      # Tastatur unten ist. Ist Adresse eingeben danach noch da, genau einmal
+      # erneut tippen, keine Schleife.
+      - runFlow:
+          when:
+            visible: 'Adresse eingeben'
+          commands:
+            - tapOn: 'Fortsetzen'
+      - extendedWaitUntil:
+          visible:
+            id: BitcoinAmountInput
+          timeout: 30000
+      - tapOn:
+          point: '44%,20%'
+      - eraseText:
+          charactersToErase: 12
+      - inputText: ${output.refundSat}
+      # Das Feld haelt eine Null hinter dem Cursor. Ruecktaste loescht die zuletzt
+      # getippte Ziffer, nicht die festgehaltene Null; nur ein Betrag, der auf 0
+      # endet, bleibt danach korrekt. Nur loeschen, wenn der Betrag tatsaechlich
+      # eine angehaengte Null hat.
+      - runFlow:
+          when:
+            visible:
+              id: BitcoinAmountInput
+              text: '^${output.refundSat}0$'
+          commands:
+            - tapOn:
+                point: '83%,88%'
+      - assertVisible:
+          id: BitcoinAmountInput
+          text: '^${output.refundSat}$'
+      - tapOn:
+          point: '50%,35%'
       - tapOn: 'Weiter'
       - extendedWaitUntil:
           visible: 'Zahlen'
@@ -100,26 +148,10 @@ appId: swiss.dfx.bitcoin
       - extendedWaitUntil:
           visible: 'Fertig'
           timeout: 120000
-      - assertVisible: '^[0-9][0-9.,]*$'
-      - assertVisible: '^ sats$'
-      - assertVisible: '^Maestro-E2E-return$'
       - assertVisible: 'Fertig'
-      - runFlow:
-          when:
-            true: ${output.treasuryConfigured === 'true'}
-          commands:
-            - runScript:
-                file: scripts/treasury.js
-          env:
-            TREASURY_CMD: status
-            TREASURY_HASH: ${output.paymentHash || ''}
-            E2E_TREASURY_URL: ${E2E_TREASURY_URL || ''}
-            E2E_TREASURY_KEY: ${E2E_TREASURY_KEY || ''}
-            E2E_TREASURY_MAX_SAT: ${E2E_TREASURY_MAX_SAT || ''}
-            E2E_TREASURY_MAX_FEE_SAT: ${E2E_TREASURY_MAX_FEE_SAT || ''}
-      - assertTrue: ${output.treasuryPaid === 'true'}
+      - tapOn: 'Fertig'
 - runFlow:
     when:
-      true: ${output.refundDue !== 'true' && output.treasuryPaid !== 'true'}
+      true: ${output.refundDue !== 'true'}
     commands:
       - evalScript: "${console.log('refund skipped: ' + output.refundSkip)}"
