@@ -1,0 +1,37 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: ../_setup.yaml
+- tapOn:
+    point: '85%,58%'
+- waitForAnimationToEnd:
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    timeout: 90000
+- tapOn:
+    point: '50%,58%'
+- waitForAnimationToEnd:
+    timeout: 15000
+# BOLT-11-Referenzvektor aus tests/unit/spark-wallet.test.js. Er ist absichtlich
+# statisch und daher abgelaufen. Das registrierte dfxtaro-Schema landet wie
+# ein gescannter QR-Payload direkt in DeeplinkSchemaMatch.navigationRouteFor.
+- openLink:
+    link: 'dfxtaro:lightning:lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp'
+- runFlow:
+    when:
+      visible: 'Öffnen'
+    commands:
+      - tapOn: 'Öffnen'
+- runFlow:
+    when:
+      visible: 'Open'
+    commands:
+      - tapOn: 'Open'
+- extendedWaitUntil:
+    visible: 'Abgelaufen'
+    timeout: 20000
+- assertVisible: '250000'
+- assertVisible: '.*lnbc2500u.*'
+- assertVisible: 'Abgelaufen'
+- tapOn: 'Weiter'
+- assertVisible: 'Rechnung verfallen'

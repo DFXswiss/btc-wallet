@@ -210,6 +210,7 @@
     "list_title": "işlemler"
   },
   "wallets": {
+    "lightning_spark_unclaimed_deposits": "A received Bitcoin payment is waiting: network fees are currently too high to credit it automatically. It will be credited once fees drop.",
     "add_create": "Oluştur",
     "add_import_wallet": "Cüzdan İçeri Yükle",
     "add_title": "Cüzdan ekle",

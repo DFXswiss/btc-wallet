@@ -155,6 +155,7 @@
     "list_title": "Trafodion"
   },
   "wallets": {
+    "lightning_spark_unclaimed_deposits": "A received Bitcoin payment is waiting: network fees are currently too high to credit it automatically. It will be credited once fees drop.",
     "add_bitcoin_explain": "Waled Bitcoin syml a cryf",
     "add_create": "Creu",
     "add_import_wallet": "Mewnforio waled",

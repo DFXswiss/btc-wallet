@@ -216,6 +216,7 @@
     "pending": "Не потвърдена транзакция"
   },
   "wallets": {
+    "lightning_spark_unclaimed_deposits": "A received Bitcoin payment is waiting: network fees are currently too high to credit it automatically. It will be credited once fees drop.",
     "add_create": "Създай",
     "details_address": "Адрес",
     "details_save": "Запази"

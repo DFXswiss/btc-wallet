@@ -1,0 +1,157 @@
+appId: swiss.dfx.bitcoin
+env:
+  E2E_SPARK_RETURN_ADDRESS: ${E2E_SPARK_RETURN_ADDRESS || ''}
+---
+# Abschluss-Hook fuer P14/P17. Liest den Spark-Saldo im Wallet-Detailkopf
+# (WalletLabel + WalletBalance). Fehlt der Kopf, Skip (gruen). Ist der gelesene
+# Saldo 0 oder unter der Gebuehrenreserve (4 sat), Skip (gruen) — bei 10 sat
+# Guthaben bleiben 6 sat rueckfuehrbar, bei Rest <= 4 sat faellt die
+# Rueckfuehrung sauber aus und faerbt den Lauf nicht rot. Ist ein
+# Rueckzahlbetrag da und die Rueckfuehrung scheitert, oder der sichtbare Saldo
+# laesst sich nicht als sats lesen, faerbt der Hook den Flow rot.
+# Rueckgabe laeuft ueber denselben Spark-Sendeweg wie P17, Ziel ist
+# E2E_SPARK_RETURN_ADDRESS. Fehlt die Adresse, Skip (gruen) — ein bestandener
+# Lauf wird nicht rot.
+- evalScript: "${output.refundDue = 'false'; output.refundSkip = 'not-visible'}"
+- evalScript: "${output.returnConfigured = (typeof E2E_SPARK_RETURN_ADDRESS !== 'undefined' && String(E2E_SPARK_RETURN_ADDRESS || '') !== '') ? 'true' : 'false'}"
+- runFlow:
+    when:
+      true: ${output.returnConfigured !== 'true'}
+    commands:
+      - evalScript: "${output.refundSkip = 'no-return-address'}"
+      - evalScript: "${console.log('refund skipped: no Spark return address configured')}"
+# Nach einer gescheiterten Zusicherung auf dem Erfolgsbildschirm ist
+# WalletBalance nicht sichtbar, der Saldo aber vorhanden. Dann neu starten
+# und die Spark-Wallet oeffnen, sonst bleibt die Rueckfuehrung stumm.
+- runFlow:
+    when:
+      true: ${output.returnConfigured === 'true'}
+    commands:
+      - runFlow:
+          when:
+            notVisible:
+              id: WalletBalance
+          commands:
+            - runFlow: _relaunch-keep-state.yaml
+            - runFlow:
+                when:
+                  visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+                commands:
+                  - tapOn:
+                      point: '50%,58%'
+                  - waitForAnimationToEnd:
+                      timeout: 15000
+                  - extendedWaitUntil:
+                      visible:
+                        id: WalletLabel
+                        text: 'Lightning \(Spark\)'
+                      timeout: 60000
+                  - extendedWaitUntil:
+                      visible:
+                        id: WalletBalance
+                      timeout: 60000
+      - runFlow:
+          when:
+            visible:
+              id: WalletLabel
+              text: 'Lightning \(Spark\)'
+          commands:
+            - runFlow:
+                when:
+                  visible:
+                    id: WalletBalance
+                commands:
+                  - copyTextFrom:
+                      id: WalletBalance
+                      text: '[0-9][0-9., ]+sats'
+                  - evalScript: "${output.balanceRead = String(maestro.copiedText || '').replace(/[^0-9]/g, '')}"
+                  - runFlow:
+                      when:
+                        true: ${output.balanceRead === ''}
+                      commands:
+                        - assertTrue:
+                            condition: ${false}
+                            label: Visible Spark balance could not be read
+                  - evalScript: "${output.refundSat = String(Math.max(0, Number(output.balanceRead) - 4))}"
+                  - evalScript: "${output.refundDue = (Number(output.refundSat) > 0) ? 'true' : 'false'}"
+                  - runFlow:
+                      when:
+                        true: ${output.refundDue !== 'true'}
+                      commands:
+                        - evalScript: "${output.refundSkip = Number(output.balanceRead) === 0 ? 'zero' : 'below-reserve'}"
+- runFlow:
+    when:
+      true: ${output.refundDue === 'true'}
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: SendButton
+          timeout: 30000
+      - tapOn:
+          id: SendButton
+      - waitForAnimationToEnd:
+          timeout: 15000
+      # Untere Leiste des QR-Scanners: Bild, Tastatur, Zwischenablage. Die
+      # Zwischenablage loest den iOS-Dialog Einsetzen erlauben aus; Tastatur nehmen.
+      - tapOn:
+          point: '50%,88%'
+      - extendedWaitUntil:
+          visible: 'Fortsetzen'
+          timeout: 20000
+      # Die Ueberschrift traegt in der Hierarchie denselben Treffer wie das Feld;
+      # ein tapOn auf eine Id trifft den Titel. Der Punkt sitzt im Eingabefeld.
+      - tapOn:
+          point: '50%,23%'
+      - inputText: ${E2E_SPARK_RETURN_ADDRESS}
+      - tapOn: 'Fortsetzen'
+      # Der erste Tipp bleibt folgenlos, bis die Eingabe verarbeitet und die
+      # Tastatur unten ist. Ist Adresse eingeben danach noch da, genau einmal
+      # erneut tippen, keine Schleife.
+      - runFlow:
+          when:
+            visible: 'Adresse eingeben'
+          commands:
+            - tapOn: 'Fortsetzen'
+      - extendedWaitUntil:
+          visible:
+            id: BitcoinAmountInput
+          timeout: 30000
+      - tapOn:
+          point: '44%,20%'
+      - eraseText:
+          charactersToErase: 12
+      - inputText: ${output.refundSat}
+      # Das Feld haelt eine Null hinter dem Cursor. Ruecktaste loescht die zuletzt
+      # getippte Ziffer, nicht die festgehaltene Null; nur ein Betrag, der auf 0
+      # endet, bleibt danach korrekt. Nur loeschen, wenn der Betrag tatsaechlich
+      # eine angehaengte Null hat.
+      - runFlow:
+          when:
+            visible:
+              id: BitcoinAmountInput
+              text: '^${output.refundSat}0$'
+          commands:
+            - tapOn:
+                point: '83%,88%'
+      - assertVisible:
+          id: BitcoinAmountInput
+          text: '^${output.refundSat}$'
+      - tapOn:
+          point: '50%,35%'
+      - tapOn: 'Weiter'
+      - extendedWaitUntil:
+          visible: 'Zahlen'
+          timeout: 60000
+      - waitForAnimationToEnd:
+          timeout: 8000
+      - tapOn: 'Zahlen'
+      - extendedWaitUntil:
+          visible: 'Fertig'
+          timeout: 120000
+      - assertVisible: 'Fertig'
+      - tapOn: 'Fertig'
+- runFlow:
+    when:
+      true: ${output.refundDue !== 'true'}
+    commands:
+      - evalScript: "${console.log('refund skipped: ' + output.refundSkip)}"

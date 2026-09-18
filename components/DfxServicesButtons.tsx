@@ -24,6 +24,7 @@ import { AbstractHDElectrumWallet } from '../class/wallets/abstract-hd-electrum-
 import { Utxo } from '../class/wallets/types';
 import { BlueText } from '../BlueComponents';
 import { LightningLdsWallet } from '../class/wallets/lightning-lds-wallet';
+import { SparkWallet } from '../class/wallets/spark-wallet';
 import { useWalletContext } from '../contexts/wallet.context';
 import { DfxMaxAmount } from '../helpers/dfxMaxAmount';
 import { Utils } from '../helpers/utils';
@@ -41,7 +42,9 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
 
   const wallet = useMemo(() => {
     const selectedWallet = wallets.find((w: AbstractHDElectrumWallet) => w.getID() === walletID);
-    const lndWallet = wallets.find((w: AbstractHDElectrumWallet) => w.type === LightningLdsWallet.type);
+    const lndWallet =
+      wallets.find((w: AbstractHDElectrumWallet) => w.type === LightningLdsWallet.type) ||
+      wallets.find((w: AbstractHDElectrumWallet) => w.type === SparkWallet.type);
     return selectedWallet || lndWallet || mainWallet;
   }, [wallets, walletID]);
 
@@ -121,6 +124,8 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
     }
 
     const balance = wallet.getBalance();
+    // 3% haircut buffers the Spark fee charged on top of the amount. An exact
+    // value needs the fee quote, which is not available at this entry point.
     const maxBalance = service === DfxService.SELL || service === DfxService.SWAP ? balance - balance * 0.03 : balance;
     return { maxBalance, sweepableBalance: balance };
   };

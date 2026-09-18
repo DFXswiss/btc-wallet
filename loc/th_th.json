@@ -233,6 +233,7 @@
     "transactions_count": "จำนวนธุรกรรม"
   },
   "wallets": {
+    "lightning_spark_unclaimed_deposits": "A received Bitcoin payment is waiting: network fees are currently too high to credit it automatically. It will be credited once fees drop.",
     "add_bitcoin": "บิตคอยน์",
     "add_bitcoin_explain": "กระเป๋าเงินบิตคอยน์ที่เรียบง่ายและทรงพลัง",
     "add_create": "สร้าง",

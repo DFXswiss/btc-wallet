@@ -1,0 +1,23 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: ../_setup.yaml
+- tapOn:
+    point: '85%,58%'
+- waitForAnimationToEnd:
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    timeout: 90000
+# Das Drei-Punkte-Icon hat keinen sichtbaren Text; Position aus dem realen
+# Handbuch-Flow.
+- tapOn:
+    point: '90%,10%'
+- extendedWaitUntil:
+    visible: 'Allgemein'
+    timeout: 60000
+- tapOn: '.*Lightning \(Spark\).*'
+- extendedWaitUntil:
+    visible: 'Breez Spark'
+    timeout: 20000
+- assertVisible: 'Typ'
+- assertVisible: 'Breez Spark'

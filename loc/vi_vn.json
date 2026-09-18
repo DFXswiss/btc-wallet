@@ -373,6 +373,7 @@
     "updating": "Đang cập nhật..."
   },
   "wallets": {
+    "lightning_spark_unclaimed_deposits": "A received Bitcoin payment is waiting: network fees are currently too high to credit it automatically. It will be credited once fees drop.",
     "add_bitcoin": "Bitcoin",
     "add_bitcoin_explain": "Ví Bitcoin đơn giản và mạnh mẽ",
     "add_create": "Tạo",

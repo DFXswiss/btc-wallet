@@ -90,21 +90,17 @@ function WatchConnectivity() {
   const handleLightningInvoiceCreateRequest = async (walletIndex, amount, description = loc.lnd.placeholder) => {
     const wallet = wallets[walletIndex];
     if (wallet.allowReceive() && amount > 0) {
-      try {
-        const invoiceRequest = await wallet.addInvoice(amount, description);
+      const invoiceRequest = await wallet.addInvoice(amount, description);
 
-        // lets decode payreq and subscribe groundcontrol so we can receive push notification when our invoice is paid
-        try {
-          // Let's verify if notifications are already configured. Otherwise the watch app will freeze waiting for user approval in iOS app
-          if (await isNotificationsEnabled()) {
-            const decoded = await wallet.decodeInvoice(invoiceRequest);
-            majorTomToGroundControl([], [decoded.payment_hash], []);
-          }
-        } catch (_) {}
-        return invoiceRequest;
-      } catch (error) {
-        return error;
-      }
+      // lets decode payreq and subscribe groundcontrol so we can receive push notification when our invoice is paid
+      try {
+        // Let's verify if notifications are already configured. Otherwise the watch app will freeze waiting for user approval in iOS app
+        if (await isNotificationsEnabled()) {
+          const decoded = await wallet.decodeInvoice(invoiceRequest);
+          majorTomToGroundControl([], [decoded.payment_hash], []);
+        }
+      } catch (_) {}
+      return invoiceRequest;
     }
   };
 
@@ -112,101 +108,105 @@ function WatchConnectivity() {
     if (!Array.isArray(wallets)) {
       return;
     }
-    if (!walletsInitialized) {
-      return;
-    }
     const walletsToProcess = [];
 
     for (const wallet of wallets) {
-      let receiveAddress;
-      if (wallet.chain === Chain.ONCHAIN) {
-        try {
-          receiveAddress = await wallet.getAddressAsync();
-        } catch (_) {}
-        if (!receiveAddress) {
-          // either sleep expired or getAddressAsync threw an exception
-          receiveAddress = wallet._getExternalAddressByIndex(wallet.next_free_address_index);
-        }
-      } else if (wallet.chain === Chain.OFFCHAIN) {
-        try {
-          await wallet.getAddressAsync();
-          receiveAddress = wallet.getAddress();
-        } catch (_) {}
-        if (!receiveAddress) {
-          // either sleep expired or getAddressAsync threw an exception
-          receiveAddress = wallet.getAddress();
-        }
-      }
-      const transactions = wallet.getTransactions(10);
-      const watchTransactions = [];
-      for (const transaction of transactions) {
-        let type = 'pendingConfirmation';
-        let memo = '';
-        let amount = 0;
-
-        if ('confirmations' in transaction && !(transaction.confirmations > 0)) {
-          type = 'pendingConfirmation';
-        } else if (transaction.type === 'user_invoice' || transaction.type === 'payment_request') {
-          const currentDate = new Date();
-          const now = (currentDate.getTime() / 1000) | 0; // eslint-disable-line no-bitwise
-          const invoiceExpiration = transaction.timestamp + transaction.expire_time;
-
-          if (invoiceExpiration > now) {
-            type = 'pendingConfirmation';
-          } else if (invoiceExpiration < now) {
-            if (transaction.ispaid) {
-              type = 'received';
-            } else {
-              type = 'sent';
+      try {
+        let receiveAddress;
+        if (wallet.chain === Chain.ONCHAIN) {
+          try {
+            receiveAddress = await wallet.getAddressAsync();
+          } catch (_) {}
+          if (!receiveAddress) {
+            // either sleep expired or getAddressAsync threw an exception
+            receiveAddress = wallet._getExternalAddressByIndex(wallet.next_free_address_index);
+          }
+        } else if (wallet.chain === Chain.OFFCHAIN) {
+          try {
+            await wallet.getAddressAsync();
+            receiveAddress = wallet.getAddress();
+          } catch (_) {}
+          if (!receiveAddress) {
+            // either sleep expired or getAddressAsync threw an exception
+            try {
+              receiveAddress = wallet.getAddress();
+            } catch (_) {
+              // SparkWallet inherits AbstractWallet.getAddress(), which throws.
+              // Leave receiveAddress unset so this wallet still reaches the watch.
             }
           }
-        } else if (transaction.value / 100000000 < 0) {
-          type = 'sent';
-        } else {
-          type = 'received';
         }
-        if (transaction.type === 'user_invoice' || transaction.type === 'payment_request') {
-          amount = isNaN(transaction.value) ? '0' : amount;
-          const currentDate = new Date();
-          const now = (currentDate.getTime() / 1000) | 0; // eslint-disable-line no-bitwise
-          const invoiceExpiration = transaction.timestamp + transaction.expire_time;
+        const transactions = wallet.getTransactions(10);
+        const watchTransactions = [];
+        for (const transaction of transactions) {
+          let type = 'pendingConfirmation';
+          let memo = '';
+          let amount = 0;
 
-          if (invoiceExpiration > now) {
-            amount = formatBalance(transaction.value, wallet.getPreferredBalanceUnit(), true).toString();
-          } else if (invoiceExpiration < now) {
+          if ('confirmations' in transaction && !(transaction.confirmations > 0)) {
+            type = 'pendingConfirmation';
+          } else if (transaction.type === 'user_invoice' || transaction.type === 'payment_request') {
+            const currentDate = new Date();
+            const now = (currentDate.getTime() / 1000) | 0; // eslint-disable-line no-bitwise
+            const invoiceExpiration = transaction.timestamp + transaction.expire_time;
+
             if (transaction.ispaid) {
+              type = 'received';
+            } else if (invoiceExpiration > now) {
+              type = 'pendingConfirmation';
+            } else if (invoiceExpiration < now) {
+              type = 'sent';
+            }
+          } else if (transaction.value / 100000000 < 0) {
+            type = 'sent';
+          } else {
+            type = 'received';
+          }
+          if (transaction.type === 'user_invoice' || transaction.type === 'payment_request') {
+            const currentDate = new Date();
+            const now = (currentDate.getTime() / 1000) | 0; // eslint-disable-line no-bitwise
+            const invoiceExpiration = transaction.timestamp + transaction.expire_time;
+
+            if (invoiceExpiration > now) {
               amount = formatBalance(transaction.value, wallet.getPreferredBalanceUnit(), true).toString();
+            } else if (invoiceExpiration < now) {
+              if (transaction.ispaid) {
+                amount = formatBalance(transaction.value, wallet.getPreferredBalanceUnit(), true).toString();
+              } else {
+                amount = loc.lnd.expired;
+              }
             } else {
-              amount = loc.lnd.expired;
+              amount = formatBalance(transaction.value, wallet.getPreferredBalanceUnit(), true).toString();
             }
           } else {
             amount = formatBalance(transaction.value, wallet.getPreferredBalanceUnit(), true).toString();
           }
-        } else {
-          amount = formatBalance(transaction.value, wallet.getPreferredBalanceUnit(), true).toString();
+          if (txMetadata[transaction.hash] && txMetadata[transaction.hash].memo) {
+            memo = txMetadata[transaction.hash].memo;
+          } else if (transaction.memo) {
+            memo = transaction.memo;
+          }
+          const watchTX = { type, amount, memo, time: transactionTimeToReadable(transaction.received) };
+          watchTransactions.push(watchTX);
         }
-        if (txMetadata[transaction.hash] && txMetadata[transaction.hash].memo) {
-          memo = txMetadata[transaction.hash].memo;
-        } else if (transaction.memo) {
-          memo = transaction.memo;
-        }
-        const watchTX = { type, amount, memo, time: transactionTimeToReadable(transaction.received) };
-        watchTransactions.push(watchTX);
-      }
 
-      const walletInformation = {
-        label: wallet.getLabel(),
-        balance: formatBalance(Number(wallet.getBalance()), wallet.getPreferredBalanceUnit(), true),
-        type: wallet.type,
-        preferredBalanceUnit: wallet.getPreferredBalanceUnit(),
-        receiveAddress,
-        transactions: watchTransactions,
-        hideBalance: wallet.hideBalance,
-      };
-      if (wallet.chain === Chain.ONCHAIN && wallet.type !== MultisigHDWallet.type) {
-        walletInformation.xpub = wallet.getXpub() ? wallet.getXpub() : wallet.getSecret();
+        const walletInformation = {
+          label: wallet.getLabel(),
+          balance: formatBalance(Number(wallet.getBalance()), wallet.getPreferredBalanceUnit(), true),
+          type: wallet.type,
+          preferredBalanceUnit: wallet.getPreferredBalanceUnit(),
+          receiveAddress,
+          transactions: watchTransactions,
+          hideBalance: wallet.hideBalance,
+        };
+        if (wallet.chain === Chain.ONCHAIN && wallet.type !== MultisigHDWallet.type) {
+          walletInformation.xpub = wallet.getXpub() ? wallet.getXpub() : wallet.getSecret();
+        }
+        walletsToProcess.push(walletInformation);
+      } catch (e) {
+        // Skip this wallet so the remaining ones still reach the watch.
+        console.warn('WatchConnectivity: skipped wallet for watch sync', wallet.type, e instanceof Error ? e.name : typeof e);
       }
-      walletsToProcess.push(walletInformation);
     }
     updateApplicationContext({ wallets: walletsToProcess, randomID: Math.floor(Math.random() * 11) });
   };

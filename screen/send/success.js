@@ -52,7 +52,7 @@ export default Success;
 export const SuccessView = ({
   amount,
   amountUnit,
-  fee = 0,
+  fee = undefined,
   invoiceDescription,
   shouldAnimate = true,
   paymentHash = undefined,
@@ -157,7 +157,7 @@ export const SuccessView = ({
           )}
         </View>
         <BlueCard style={styles.amount}>
-          {amount < 0 && (
+          {fee !== undefined && (
             <View style={styles.view}>
               <Text style={styles.feeText}>
                 {loc.send.create_fee.toLowerCase()}: {Math.abs(fee)} {loc.units[BitcoinUnit.SATS]}

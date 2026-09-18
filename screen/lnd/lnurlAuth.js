@@ -56,6 +56,12 @@ const LnurlAuth = () => {
   );
 
   const authenticate = useCallback(() => {
+    if (typeof wallet.authenticate !== 'function') {
+      setAuthState(AuthState.ERROR);
+      setErrMsg(loc.wallets.lightning_spark_lnurl_auth_unsupported);
+      return;
+    }
+
     const address = Lnurl.getLnurlFromAddress(wallet.lnAddress);
     const signature = wallet.addressOwnershipProof;
     const additionalParams =

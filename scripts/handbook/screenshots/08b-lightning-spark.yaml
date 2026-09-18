@@ -1,0 +1,29 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: _setup.yaml
+- tapOn:
+    point: '85%,58%'
+# Wie 06b: Anlegen dauert; Textabgleich auf "Lightning (Spark)" greift nicht.
+- waitForAnimationToEnd:
+    timeout: 90000
+- takeScreenshot: shots/08-lightning/01-uebersicht-mit-lightning
+- tapOn:
+    point: '50%,58%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- takeScreenshot: shots/08-lightning/02-lightning-wallet
+- tapOn:
+    point: '16%,93%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- tapOn: 'Amount (optional)'
+- inputText: '1000'
+# Der Ziffernblock exponiert kein "Fertig". Der folgende Tap gehoert zum
+# gemessenen Handbuch-Ablauf und bleibt hier unveraendert.
+- tapOn: 'Fertig'
+- tapOn: 'Beschreibung (optional)'
+- inputText: 'Handbuch'
+- hideKeyboard
+- waitForAnimationToEnd:
+    timeout: 30000
+- takeScreenshot: shots/08-lightning/03-rechnung-erstellen

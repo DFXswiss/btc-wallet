@@ -86,7 +86,7 @@ const Asset = ({ navigation }) => {
    * @param lmt {Integer} How many txs return, starting from the earliest. Default: all of them.
    * @returns {Array}
    */
-  const getTransactionsSliced = (lmt = Infinity) => {
+  const getTransactionsSliced = lmt => {
     if (!wallet) return [];
     let txs = wallet.getTransactions();
     for (const tx of txs) {

@@ -1,0 +1,26 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: ../_setup.yaml
+- tapOn:
+    point: '85%,58%'
+- waitForAnimationToEnd:
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    timeout: 90000
+- tapOn:
+    point: '50%,58%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- tapOn:
+    point: '16%,93%'
+- extendedWaitUntil:
+    visible: 'On-Chain'
+    timeout: 20000
+- tapOn: 'On-Chain'
+- extendedWaitUntil:
+    visible: '.*bc1.*'
+    timeout: 30000
+- assertVisible: '.*bc1.*'
+- assertVisible: 'Eine Bitcoin-Zahlung braucht ein paar Bestätigungen.*'
+- assertNotVisible: 'Eine Empfangsadresse ist noch nicht vorhanden.*'

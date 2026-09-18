@@ -1,0 +1,14 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: ../_setup.yaml
+# Die Hinzufuegen-Schaltflaeche ist Teil eines zusammengesetzten RN-Elements;
+# der Text allein ist in Maestro nicht stabil adressierbar.
+- tapOn:
+    point: '85%,58%'
+- waitForAnimationToEnd:
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    timeout: 90000
+- assertVisible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+- assertNotVisible: '.*Lightning-Wallet.*Hinzufügen.*'

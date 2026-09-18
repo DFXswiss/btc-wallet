@@ -20,6 +20,8 @@ export default class Lnurl {
     this._lnurl = url;
     this._lnurlPayServiceBolt11Payload = false;
     this._lnurlPayServicePayload = false;
+    /** @type {import('@breeztech/breez-sdk-spark-react-native').LnurlPayRequestDetails | undefined} */
+    this._lnurlPayRequestDetails = undefined;
     this._AsyncStorage = AsyncStorage;
     this._preimage = false;
   }
@@ -162,6 +164,9 @@ export default class Lnurl {
     const urlToFetch =
       this._lnurlPayServicePayload.callback + separator + 'amount=' + Math.floor(amountSat * 1000) + '&nonce=' + nonce + comment;
     this._lnurlPayServiceBolt11Payload = await this.fetchGet(urlToFetch);
+    // LUD-11 treats a missing or null disposable flag as true; only explicit false permits repeating.
+    const disposable = this._lnurlPayServiceBolt11Payload.disposable;
+    if (disposable === undefined || disposable === null) this._lnurlPayServiceBolt11Payload.disposable = true;
     if (this._lnurlPayServiceBolt11Payload.status === 'ERROR')
       throw new Error(this._lnurlPayServiceBolt11Payload.reason || 'requestBolt11FromLnurlPayService() error');
 
@@ -212,6 +217,22 @@ export default class Lnurl {
     // setting the payment screen with the parameters
     const min = Math.ceil((data.minSendable ?? 0) / 1000);
     const max = Math.floor((data.maxSendable ?? 0) / 1000);
+    const address = Lnurl.isLightningAddress(this._lnurl) ? this._lnurl.replace('mailto:', '').toLowerCase() : undefined;
+    const domain = parse(url).hostname;
+    if (!domain) throw new Error('Invalid LNURL domain');
+
+    this._lnurlPayRequestDetails = {
+      callback: data.callback,
+      minSendable: BigInt(data.minSendable ?? 0),
+      maxSendable: BigInt(data.maxSendable ?? 0),
+      metadataStr: data.metadata,
+      commentAllowed: Number(data.commentAllowed ?? 0),
+      domain,
+      url,
+      address,
+      allowsNostr: data.allowsNostr,
+      nostrPubkey: data.nostrPubkey,
+    };
 
     this._lnurlPayServicePayload = {
       callback: data.callback,
@@ -272,6 +293,36 @@ export default class Lnurl {
 
   getDomain() {
     return this._lnurlPayServicePayload.domain;
+  }
+
+  getLnurlPayRequestDetails() {
+    if (!this._lnurlPayRequestDetails) throw new Error('LNURL pay request is not loaded');
+    return this._lnurlPayRequestDetails;
+  }
+
+  setSdkSuccessAction(successAction) {
+    let mappedSuccessAction;
+    if (successAction) {
+      const data = successAction.inner.data;
+      let tag;
+      switch (successAction.tag) {
+        case 'Aes':
+          tag = 'aes';
+          break;
+        case 'Message':
+          tag = 'message';
+          break;
+        case 'Url':
+          tag = 'url';
+          break;
+        default:
+          throw new Error('Unsupported LNURL success action');
+      }
+      mappedSuccessAction = { tag, ...data };
+    }
+
+    // The SDK response has no disposable flag. Do not offer a repeat action without evidence that the endpoint supports it.
+    this._lnurlPayServiceBolt11Payload = { successAction: mappedSuccessAction, disposable: true };
   }
 
   getDescription() {

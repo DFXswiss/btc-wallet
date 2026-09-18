@@ -1,5 +1,8 @@
 import assert from 'assert';
+import { bech32m } from 'bech32';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
+
+const SPARK_ADDRESS = bech32m.encode('spark', bech32m.toWords(Buffer.from('spark-address-identity-key-32')), 10000);
 
 jest.mock('../../blue_modules/BlueElectrum', () => {
   return {
@@ -40,6 +43,15 @@ describe.each(['', '//'])('unit - DeepLinkSchemaMatch', function (suffix) {
     assert.ok(DeeplinkSchemaMatch.isBitcoinAddress(`bitcoin:${suffix}BC1QH6TF004TY7Z7UN2V5NTU4MKF630545GVHS45U7`));
     assert.ok(DeeplinkSchemaMatch.isBitcoinAddress(`BITCOIN:${suffix}BC1Q3RL0MKYK0ZRTXFMQN9WPCD3GNAZ00YV9YP0HXE`));
     assert.ok(DeeplinkSchemaMatch.isBitcoinAddress(`BITCOIN:${suffix}BC1Q3RL0MKYK0ZRTXFMQN9WPCD3GNAZ00YV9YP0HXE?amount=666&label=Yo`));
+  });
+
+  it('isSparkAddress', () => {
+    assert.ok(DeeplinkSchemaMatch.isSparkAddress(SPARK_ADDRESS));
+    assert.ok(!DeeplinkSchemaMatch.isSparkAddress(SPARK_ADDRESS.toUpperCase()));
+    assert.ok(!DeeplinkSchemaMatch.isSparkAddress('spark1not-a-valid-bech32m-value'));
+    assert.ok(!DeeplinkSchemaMatch.isSparkAddress('lnbc1invoice'));
+    assert.ok(DeeplinkSchemaMatch.isPossiblyLightningDestination(SPARK_ADDRESS));
+    assert.ok(!DeeplinkSchemaMatch.isPossiblyLightningDestination('spark1not-a-valid-bech32m-value'));
   });
 
   it('isLighting Invoice', () => {

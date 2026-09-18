@@ -299,6 +299,7 @@
     "status_cancel": "लेनदेन क्यान्सिल "
   },
   "wallets": {
+    "lightning_spark_unclaimed_deposits": "A received Bitcoin payment is waiting: network fees are currently too high to credit it automatically. It will be credited once fees drop.",
     "add_bitcoin": "बिटकोइन",
     "add_bitcoin_explain": "सजिलो र शक्तिशाली बिटकोइन वालेट",
     "add_create": "सिर्जना गर्नुहोस्",

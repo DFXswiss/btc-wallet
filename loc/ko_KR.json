@@ -360,6 +360,7 @@
     "updating": "갱신중..."
   },
   "wallets": {
+    "lightning_spark_unclaimed_deposits": "A received Bitcoin payment is waiting: network fees are currently too high to credit it automatically. It will be credited once fees drop.",
     "add_bitcoin": "비트코인",
     "add_bitcoin_explain": "단순하고 강력한 비트코인 지갑",
     "add_create": "생성하기",
