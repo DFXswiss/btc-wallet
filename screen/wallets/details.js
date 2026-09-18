@@ -372,6 +372,31 @@ const WalletDetails = () => {
 
   const showPosModeOptions = wallet.isPosMode || isPosMode;
   const isSparkWallet = wallet.type === SparkWallet.type;
+  const [sparkPrivateMode, setSparkPrivateMode] = useState();
+
+  useEffect(() => {
+    if (!isSparkWallet) return;
+    let isCurrent = true;
+    wallet
+      .isPrivateModeEnabled()
+      .then(enabled => {
+        if (isCurrent) setSparkPrivateMode(enabled);
+      })
+      .catch(e => console.error('walletDetails: failed to read Spark private mode', e));
+    return () => {
+      isCurrent = false;
+    };
+  }, [isSparkWallet, wallet]);
+
+  const toggleSparkPrivateMode = async enabled => {
+    setSparkPrivateMode(enabled);
+    try {
+      await wallet.setPrivateModeEnabled(enabled);
+    } catch (e) {
+      setSparkPrivateMode(!enabled);
+      alert(loc.wallets.lightning_spark_private_mode_error);
+    }
+  };
 
   return (
     <ScrollView
@@ -499,6 +524,15 @@ const WalletDetails = () => {
             </BlueCard>
             {(wallet instanceof AbstractHDElectrumWallet || (wallet.type === WatchOnlyWallet.type && wallet.isHd())) && (
               <BlueListItem onPress={navigateToAddresses} title={loc.wallets.details_show_addresses} chevron />
+            )}
+            {isSparkWallet && sparkPrivateMode !== undefined && (
+              <BlueListItem
+                Component={Pressable}
+                testID="SparkPrivateModeSwitch"
+                title={loc.wallets.lightning_spark_private_mode}
+                subtitle={loc.wallets.lightning_spark_private_mode_hint}
+                switch={{ onValueChange: toggleSparkPrivateMode, value: sparkPrivateMode }}
+              />
             )}
             {showPosModeOptions && wallet.type === LightningLdsWallet.type && (
               <BlueListItem
