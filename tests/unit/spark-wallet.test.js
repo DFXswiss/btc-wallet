@@ -19,6 +19,8 @@ const mockSdk = {
   lnurlPay: jest.fn(),
   sendPayment: jest.fn(),
   getLightningAddress: jest.fn(),
+  getUserSettings: jest.fn(),
+  updateUserSettings: jest.fn(),
 };
 
 let mockSessionIdentity = null;
@@ -2723,6 +2725,23 @@ describe('SparkWallet', () => {
     assert.strictEqual(first, '');
     await wallet.getSparkAddress();
     expect(mockSdk.receivePayment).toHaveBeenCalledTimes(2);
+  });
+
+  it('isPrivateModeEnabled reads the Spark private mode from the SDK user settings', async () => {
+    const wallet = SparkWallet.create('id-pk');
+    mockSessionIdentity = 'id-pk';
+    mockSdk.getUserSettings.mockResolvedValue({ sparkPrivateModeEnabled: true, stableBalanceActiveLabel: undefined });
+    assert.strictEqual(await wallet.isPrivateModeEnabled(), true);
+    mockSdk.getUserSettings.mockResolvedValue({ sparkPrivateModeEnabled: false, stableBalanceActiveLabel: undefined });
+    assert.strictEqual(await wallet.isPrivateModeEnabled(), false);
+  });
+
+  it('setPrivateModeEnabled updates only the Spark private mode', async () => {
+    const wallet = SparkWallet.create('id-pk');
+    mockSessionIdentity = 'id-pk';
+    mockSdk.updateUserSettings.mockResolvedValue(undefined);
+    await wallet.setPrivateModeEnabled(false);
+    expect(mockSdk.updateUserSettings).toHaveBeenCalledWith({ sparkPrivateModeEnabled: false, stableBalanceActiveLabel: undefined });
   });
 
   it('signCompactMessage signs with compact true', async () => {
