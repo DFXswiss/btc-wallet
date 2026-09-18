@@ -296,6 +296,8 @@ async function connectLocked(
     config.apiKey = apiKey;
     // A cap, not "always claim": expensive blocks must not spend unbounded sats for the user.
     config.maxDepositClaimFee = new MaxFee.Rate({ satPerVbyte: MAX_DEPOSIT_CLAIM_FEE_SAT_PER_VBYTE });
+    // Applied on a wallet's first initialisation only; the SDK leaves existing wallets as they are.
+    config.privateEnabledDefault = false;
     const lnurlDomain = Config.BREEZ_LNURL_DOMAIN?.trim();
     if (lnurlDomain) {
       config.lnurlDomain = lnurlDomain;
