@@ -11,3 +11,11 @@ export const isInternalDomain = (domain: string) => {
   const internalDomains = ['dfx.swiss', 'api.dfx.swiss', 'dev.dfx.swiss', 'dev.api.dfx.swiss'];
   return internalDomains.some(d => domain.toLowerCase().includes(d));
 };
+
+/** Lightning-address domains whose LNURL-pay response may carry a `sparkAddress` the wallet pays directly. */
+export const trustsSparkAddress = (domain: string) => {
+  if (!domain || typeof domain !== 'string') return false;
+
+  const trustedDomains = ['lightning.space', 'dev.lightning.space'];
+  return trustedDomains.includes(domain.toLowerCase());
+};
