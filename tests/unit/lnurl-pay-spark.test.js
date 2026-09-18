@@ -962,6 +962,47 @@ describe('LnurlPay remaining payment paths', () => {
     expect(wallet.payInvoice.mock.calls.map(call => call[0])).toEqual([firstInvoice]);
   });
 
+  it('pays a trusted Lightning address through its Spark address instead of requesting an invoice', async () => {
+    mockLnurlPay({ domain: 'dev.lightning.space' });
+    jest.spyOn(Lnurl.prototype, 'getSparkAddress').mockReturnValue(SPARK_ADDRESS);
+    const wallet = makeWallet();
+    const quote = {
+      invoice: SPARK_ADDRESS,
+      amountSats: 1000,
+      walletIdentity: 'pk-pay',
+      method: SendPaymentMethod_Tags.SparkAddress,
+      feeSats: 0,
+    };
+    wallet.getPaymentFeeQuote.mockResolvedValue(quote);
+    wallet.paySparkAddress.mockResolvedValue({ status: 'completed', fee: 0 });
+    const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST' });
+
+    await waitFor(() => expect(wallet.getPaymentFeeQuote).toHaveBeenCalledWith(SPARK_ADDRESS, 1000));
+    await waitFor(() => screen.getByText(loc.lnd.payButton));
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+
+    await waitFor(() => expect(wallet.paySparkAddress).toHaveBeenCalledWith(SPARK_ADDRESS, 1000, expect.any(String), quote));
+    expect(Lnurl.prototype.requestBolt11FromLnurlPayService).not.toHaveBeenCalled();
+    expect(wallet.payInvoice).not.toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith('Success', expect.objectContaining({ amount: 1000, fee: 0 }));
+  });
+
+  it('keeps the invoice path for a trusted domain that published no Spark address', async () => {
+    mockLnurlPay({ domain: 'dev.lightning.space' });
+    const wallet = makeWallet();
+    const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST' });
+
+    await waitFor(() => screen.getByText(loc.lnd.payButton));
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+
+    await waitFor(() => expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000, expect.objectContaining({ feeSats: 4 })));
+    expect(wallet.paySparkAddress).not.toHaveBeenCalled();
+  });
+
   it('keeps the spinner up while the LNURL pay service has not returned an amount', () => {
     jest.spyOn(Lnurl.prototype, 'callLnurlPayService').mockReturnValue(new Promise(() => {}));
     const wallet = makeWallet();

@@ -4,6 +4,8 @@ import { parse } from 'url'; // eslint-disable-line n/no-deprecated-api
 import { createHmac } from 'crypto';
 import secp256k1 from 'secp256k1';
 import loc from '../loc';
+import { trustsSparkAddress } from '../helpers/freeLightningDomains';
+import { SparkWallet } from './wallets/spark-wallet';
 const CryptoJS = require('crypto-js');
 const createHash = require('create-hash');
 const ONION_REGEX = /^(http:\/\/[^/:@]+\.onion(?::\d{1,5})?)(\/.*)?$/; // regex for onion URL
@@ -220,6 +222,9 @@ export default class Lnurl {
     const address = Lnurl.isLightningAddress(this._lnurl) ? this._lnurl.replace('mailto:', '').toLowerCase() : undefined;
     const domain = parse(url).hostname;
     if (!domain) throw new Error('Invalid LNURL domain');
+    // Our own address server publishes the receiver's Spark address so a Spark wallet can
+    // transfer directly instead of paying an invoice; only honoured for our own domains.
+    const sparkAddress = trustsSparkAddress(domain) && SparkWallet.isSparkAddress(data.sparkAddress) ? data.sparkAddress.trim() : undefined;
 
     this._lnurlPayRequestDetails = {
       callback: data.callback,
@@ -245,6 +250,7 @@ export default class Lnurl {
       image,
       amount: min,
       commentAllowed: data.commentAllowed,
+      ...(sparkAddress ? { sparkAddress } : {}),
       // lnurl: uri,
     };
     return this._lnurlPayServicePayload;
@@ -293,6 +299,11 @@ export default class Lnurl {
 
   getDomain() {
     return this._lnurlPayServicePayload.domain;
+  }
+
+  /** Spark address of the receiver, only present for a trusted domain that published one. */
+  getSparkAddress() {
+    return this._lnurlPayServicePayload?.sparkAddress;
   }
 
   getLnurlPayRequestDetails() {
