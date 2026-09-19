@@ -313,6 +313,44 @@ describe('WalletDetails Spark private mode', () => {
     expect(wallet.isPrivateModeEnabled).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps a changed setting when the Spark session reconnects', async () => {
+    const wallet = makeWallet('sparkWallet', {
+      id: 'spark-private-mode-reconnect',
+      isPrivateModeEnabled: jest.fn().mockResolvedValue(true),
+      setPrivateModeEnabled: jest.fn().mockResolvedValue(undefined),
+    });
+    const tree = () => (
+      <BlueStorageContext.Provider
+        value={{
+          wallets: [wallet],
+          deleteWallet: jest.fn(),
+          setSelectedWallet: jest.fn(),
+          txMetadata: {},
+          isPosMode: false,
+          saveToDisk: jest.fn().mockResolvedValue(undefined),
+          isAdvancedModeEnabled: jest.fn().mockResolvedValue(false),
+        }}
+      >
+        <WalletDetails />
+      </BlueStorageContext.Provider>
+    );
+    const screen = renderDetails(wallet);
+    await waitFor(() => expect(screen.getByLabelText(loc.wallets.lightning_spark_private_mode).props.value).toBe(true));
+    await act(async () => {
+      fireEvent(screen.getByLabelText(loc.wallets.lightning_spark_private_mode), 'valueChange', false);
+    });
+
+    mockSparkConnected = false;
+    screen.rerender(tree());
+    mockSparkConnected = true;
+    await act(async () => {
+      screen.rerender(tree());
+    });
+
+    expect(wallet.isPrivateModeEnabled).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText(loc.wallets.lightning_spark_private_mode).props.value).toBe(false);
+  });
+
   it('locks the switch while an update is in flight', async () => {
     let finishUpdate;
     const wallet = makeWallet('sparkWallet', {

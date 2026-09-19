@@ -378,8 +378,9 @@ const WalletDetails = () => {
   const [isSparkPrivateModeUpdating, setIsSparkPrivateModeUpdating] = useState(false);
 
   useEffect(() => {
-    // The setting can only be read from a connected session, so it is read again once that is up.
-    if (!isSparkWallet || !isSparkConnected) return;
+    // The setting can only be read from a connected session. It is read until it is known and not
+    // again after that, so a reconnect never overwrites a change the user just made.
+    if (!isSparkWallet || !isSparkConnected || sparkPrivateMode !== undefined) return;
     let isCurrent = true;
     wallet
       .isPrivateModeEnabled()
@@ -390,7 +391,7 @@ const WalletDetails = () => {
     return () => {
       isCurrent = false;
     };
-  }, [isSparkWallet, isSparkConnected, wallet]);
+  }, [isSparkWallet, isSparkConnected, sparkPrivateMode, wallet]);
 
   const toggleSparkPrivateMode = async enabled => {
     setSparkPrivateMode(enabled);
