@@ -201,7 +201,7 @@ export default class Lnurl {
     this._lastResponseUrl = undefined;
     const reply = await this.fetchGet(url);
     // fetch follows redirects, so the host that answered can differ from the one that was asked
-    const responseUrl = this._lastResponseUrl || url;
+    const responseUrl = this._lastResponseUrl;
 
     if (reply.tag !== Lnurl.TAG_PAY_REQUEST) {
       throw new Error('lnurl-pay expected, found tag ' + reply.tag);
@@ -234,8 +234,10 @@ export default class Lnurl {
     if (!domain) throw new Error('Invalid LNURL domain');
     // Our own address server publishes the receiver's Spark address so a Spark wallet can
     // transfer directly instead of paying an invoice; only honoured when both the request and
-    // the response that answered it went to one of our own domains over TLS.
+    // the response that answered it went to one of our own domains over TLS. A response whose
+    // origin is unknown is not trusted, the payment then takes the invoice path.
     const isTrustedSource = source => {
+      if (!source) return false;
       const { protocol, hostname } = parse(source);
       return protocol === 'https:' && trustsSparkAddress(hostname);
     };
