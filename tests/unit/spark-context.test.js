@@ -1810,7 +1810,7 @@ describe('SparkContextProvider', () => {
     expect(addAndSaveWallet).toHaveBeenCalledWith(created);
   });
 
-  it('does not treat a missing or empty passphrase as an empty string', async () => {
+  it('derives the same Spark child for an empty passphrase as for none', async () => {
     const hd = {
       type: 'HDsegwitBech32',
       getSecret: () => MNEMONIC,
