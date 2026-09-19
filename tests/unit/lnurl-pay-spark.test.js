@@ -993,9 +993,11 @@ describe('LnurlPay remaining payment paths', () => {
   it('quotes no Spark address payment for an amount outside the receiver range', async () => {
     mockLnurlPay({ domain: 'dev.lightning.space' });
     jest.spyOn(Lnurl.prototype, 'getSparkAddress').mockReturnValue(SPARK_ADDRESS);
+    const rangeError = new Error('The specified amount is invalid, 1000 it should be between 1 and 500');
     Lnurl.prototype.assertAmountInRange.mockImplementation(() => {
-      throw new Error('The specified amount is invalid, 1000 it should be between 1 and 500');
+      throw rangeError;
     });
+    Lnurl.prototype.requestBolt11FromLnurlPayService.mockRejectedValue(rangeError);
     const wallet = makeWallet();
     const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST' });
 
@@ -1032,6 +1034,65 @@ describe('LnurlPay remaining payment paths', () => {
     await waitFor(() => expect(alert).toHaveBeenCalledWith(rangeError.message));
     expect(wallet.paySparkAddress).not.toHaveBeenCalled();
     expect(Lnurl.prototype.requestBolt11FromLnurlPayService).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the invoice when the published Spark address cannot be quoted', async () => {
+    mockLnurlPay({ domain: 'dev.lightning.space' });
+    jest.spyOn(Lnurl.prototype, 'getSparkAddress').mockReturnValue(SPARK_ADDRESS);
+    const wallet = makeWallet();
+    const invoiceQuote = { invoice: SAMPLE_INVOICE, amountSats: 1000, walletIdentity: 'pk-pay', feeSats: 4 };
+    wallet.getPaymentFeeQuote.mockImplementation(async destination => {
+      if (destination === SPARK_ADDRESS) throw new Error('spark quote unavailable');
+      return invoiceQuote;
+    });
+    wallet.payInvoice.mockResolvedValue({ status: 'completed', fee: 4 });
+    const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST' });
+
+    await waitFor(() => screen.getByText(`${loc.send.create_fee}: 4 ${BitcoinUnit.SATS}`));
+    expect(Lnurl.prototype.requestBolt11FromLnurlPayService).toHaveBeenCalledWith(1000, undefined);
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+
+    await waitFor(() => expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000, invoiceQuote));
+    expect(wallet.paySparkAddress).not.toHaveBeenCalled();
+  });
+
+  it('keeps the invoice path when the payment carries a comment', async () => {
+    mockLnurlPay({ domain: 'dev.lightning.space', getCommentAllowed: 100 });
+    jest.spyOn(Lnurl.prototype, 'getSparkAddress').mockReturnValue(SPARK_ADDRESS);
+    const wallet = makeWallet();
+    wallet.payInvoice.mockResolvedValue({ status: 'completed', fee: 4 });
+    const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST' });
+
+    await waitFor(() => expect(Lnurl.prototype.requestBolt11FromLnurlPayService).toHaveBeenCalledWith(1000, 'tea'));
+    await waitFor(() => screen.getByText(`${loc.send.create_fee}: 4 ${BitcoinUnit.SATS}`));
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+
+    await waitFor(() => expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000, expect.objectContaining({ feeSats: 4 })));
+    expect(wallet.getPaymentFeeQuote).not.toHaveBeenCalledWith(SPARK_ADDRESS, 1000);
+    expect(wallet.paySparkAddress).not.toHaveBeenCalled();
+  });
+
+  it('keeps the LNURL max flow when the receiver published a Spark address', async () => {
+    jest.spyOn(Lnurl.prototype, 'getLnurlPayRequestDetails').mockReturnValue({ callback: 'https://dev.lightning.space/callback' });
+    mockLnurlPay({ domain: 'dev.lightning.space', getMin: 1000 });
+    jest.spyOn(Lnurl.prototype, 'getSparkAddress').mockReturnValue(SPARK_ADDRESS);
+    const wallet = makeWallet();
+    wallet.payLnurlMax.mockResolvedValue({ status: 'completed', paymentHash: 'max-spark-address', fee: 4 });
+    const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST', isMax: true });
+
+    await waitFor(() => expect(getPayButton(screen).props.disabled).toBe(false));
+    expect(wallet.getLnurlMaxFeeQuote).toHaveBeenCalledTimes(1);
+    expect(wallet.getPaymentFeeQuote).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+
+    await waitFor(() => expect(wallet.payLnurlMax).toHaveBeenCalledTimes(1));
+    expect(wallet.paySparkAddress).not.toHaveBeenCalled();
   });
 
   it('keeps the invoice path for a trusted domain that published no Spark address', async () => {
