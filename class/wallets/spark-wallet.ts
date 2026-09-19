@@ -561,9 +561,6 @@ export class SparkWallet extends AbstractWallet {
     return address;
   }
 
-  /**
-   * Compact 64-byte hex ECDSA signature over `message`. DER fails DFX Spark auth.
-   */
   /** Spark private mode hides this wallet's transfers from public explorers. */
   async isPrivateModeEnabled(): Promise<boolean> {
     const lease = this.holdMatchingSession();
@@ -578,6 +575,9 @@ export class SparkWallet extends AbstractWallet {
     this.requireHeld(lease);
   }
 
+  /**
+   * Compact 64-byte hex ECDSA signature over `message`. DER fails DFX Spark auth.
+   */
   async signCompactMessage(message: string): Promise<string> {
     const lease = this.holdMatchingSession();
     const response = await lease.requireSdk().signMessage({ message, compact: true });
