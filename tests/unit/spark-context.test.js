@@ -1792,6 +1792,24 @@ describe('SparkContextProvider', () => {
     expect(addAndSaveWallet).toHaveBeenCalledWith(created);
   });
 
+  it('creates from a non-English on-chain wallet', async () => {
+    const french = 'abaisser abaisser abaisser abaisser abaisser abaisser abaisser abaisser abaisser abaisser abaisser abeille';
+    const wallet = { type: 'HDsegwitBech32', getSecret: () => french, getID: () => 'hd-french' };
+    renderWith([wallet]);
+    await waitFor(() => assert.ok(latestCtx));
+
+    let created;
+    await act(async () => {
+      created = await latestCtx.createSparkWallet();
+    });
+    assert.ok(created);
+    expect(mockConnect).toHaveBeenCalledWith(
+      'panda lesson setup coffee uncle beyond night burger hello artist sick hawk',
+      expect.any(Function),
+    );
+    expect(addAndSaveWallet).toHaveBeenCalledWith(created);
+  });
+
   it('does not treat a missing or empty passphrase as an empty string', async () => {
     const hd = {
       type: 'HDsegwitBech32',

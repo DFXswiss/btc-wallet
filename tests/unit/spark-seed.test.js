@@ -56,4 +56,11 @@ describe('spark-seed', () => {
   it('pins the BIP-85 recovery path', () => {
     assert.strictEqual(SPARK_BIP85_PATH, "m/83696968'/39'/0'/12'/0'");
   });
+
+  it('accepts a non-English on-chain phrase and still derives an English child', () => {
+    const input = 'abaisser abaisser abaisser abaisser abaisser abaisser abaisser abaisser abaisser abaisser abaisser abeille';
+    const child = deriveSparkMnemonic(input);
+    assert.strictEqual(child, 'panda lesson setup coffee uncle beyond night burger hello artist sick hawk');
+    assert.ok(bip39.validateMnemonic(child));
+  });
 });
