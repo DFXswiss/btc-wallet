@@ -175,8 +175,12 @@ const LnurlPay = () => {
     let isCurrent = true;
     const lnurlSparkAddress = _LN.getSparkAddress();
     if (lnurlSparkAddress) {
-      wallet
-        .getPaymentFeeQuote(lnurlSparkAddress, quoteAmountSats)
+      // The receiver's limits apply to a Spark transfer just as they do to an invoice.
+      Promise.resolve()
+        .then(() => {
+          _LN.assertAmountInRange(quoteAmountSats);
+          return wallet.getPaymentFeeQuote(lnurlSparkAddress, quoteAmountSats);
+        })
         .then(quote => {
           if (!isCurrent) return;
           setSparkFeeQuote(quote);
@@ -561,6 +565,7 @@ const LnurlPay = () => {
       } else if (invoice) {
         await handleLnInvoice(amountSats);
       } else if (wallet.type === SparkWallet.type && _LN?.getSparkAddress()) {
+        _LN.assertAmountInRange(amountSats);
         await handleSparkAddress(amountSats, _LN.getSparkAddress());
       } else {
         await handleBolt11Invoice(amountSats);

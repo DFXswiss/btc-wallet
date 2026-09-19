@@ -685,6 +685,24 @@ describe('LNURL edge cases', function () {
     });
     expect(Lnurl.getDomainFromLightningAddress('invalid')).toBe('');
   });
+  it('assertAmountInRange accepts the advertised range and rejects anything outside it', async () => {
+    const LN = new Lnurl('0123456789abcdef@dev.lightning.space');
+    assert.throws(() => LN.assertAmountInRange(1), /_lnurlPayServicePayload is not set/);
+    LN.fetchGet = () => ({
+      status: 'OK',
+      callback: 'https://dev.lightning.space/lnurlp/0123456789abcdef/invoice',
+      tag: 'payRequest',
+      maxSendable: 500000,
+      minSendable: 2000,
+      metadata: '[["text/plain","range test"]]',
+    });
+    await LN.callLnurlPayService();
+    assert.throws(() => LN.assertAmountInRange(1), /The specified amount is invalid, 1 it should be between 2 and 500/);
+    assert.throws(() => LN.assertAmountInRange(501), /The specified amount is invalid, 501 it should be between 2 and 500/);
+    assert.doesNotThrow(() => LN.assertAmountInRange(2));
+    assert.doesNotThrow(() => LN.assertAmountInRange(500));
+  });
+
   describe('sparkAddress in the pay response', () => {
     const sparkAddress = bech32m.encode('spark', bech32m.toWords(Buffer.from('spark-address-identity-key-32')), 10000);
 

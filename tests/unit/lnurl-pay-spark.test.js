@@ -927,6 +927,7 @@ describe('LnurlPay remaining payment paths', () => {
     jest.spyOn(Lnurl.prototype, 'getSuccessAction').mockReturnValue(undefined);
     jest.spyOn(Lnurl.prototype, 'getCommentAllowed').mockReturnValue(getCommentAllowed ?? false);
     jest.spyOn(Lnurl.prototype, 'getMin').mockReturnValue(getMin ?? 1);
+    jest.spyOn(Lnurl.prototype, 'assertAmountInRange').mockReturnValue(undefined);
     jest.spyOn(Lnurl.prototype, 'requestBolt11FromLnurlPayService').mockResolvedValue({ pr: SAMPLE_INVOICE });
     return jest.spyOn(Lnurl.prototype, 'storeSuccess').mockResolvedValue(undefined);
   }
@@ -987,6 +988,50 @@ describe('LnurlPay remaining payment paths', () => {
     expect(Lnurl.prototype.requestBolt11FromLnurlPayService).not.toHaveBeenCalled();
     expect(wallet.payInvoice).not.toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledWith('Success', expect.objectContaining({ amount: 1000, fee: 0 }));
+  });
+
+  it('quotes no Spark address payment for an amount outside the receiver range', async () => {
+    mockLnurlPay({ domain: 'dev.lightning.space' });
+    jest.spyOn(Lnurl.prototype, 'getSparkAddress').mockReturnValue(SPARK_ADDRESS);
+    Lnurl.prototype.assertAmountInRange.mockImplementation(() => {
+      throw new Error('The specified amount is invalid, 1000 it should be between 1 and 500');
+    });
+    const wallet = makeWallet();
+    const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST' });
+
+    await waitFor(() => screen.getByText(`${loc.send.create_fee}: ${loc.send.server_error}`));
+    expect(Lnurl.prototype.assertAmountInRange).toHaveBeenCalledWith(1000);
+    expect(wallet.getPaymentFeeQuote).not.toHaveBeenCalled();
+    expect(getPayButton(screen).props.disabled).toBe(true);
+  });
+
+  it('refuses a Spark address payment whose amount left the receiver range', async () => {
+    mockLnurlPay({ domain: 'dev.lightning.space' });
+    jest.spyOn(Lnurl.prototype, 'getSparkAddress').mockReturnValue(SPARK_ADDRESS);
+    const rangeError = new Error('The specified amount is invalid, 1000 it should be between 1 and 500');
+    let inRange = true;
+    Lnurl.prototype.assertAmountInRange.mockImplementation(() => {
+      if (!inRange) throw rangeError;
+    });
+    const wallet = makeWallet();
+    wallet.getPaymentFeeQuote.mockResolvedValue({
+      invoice: SPARK_ADDRESS,
+      amountSats: 1000,
+      walletIdentity: 'pk-pay',
+      method: SendPaymentMethod_Tags.SparkAddress,
+      feeSats: 0,
+    });
+    const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST' });
+
+    await waitFor(() => expect(getPayButton(screen).props.disabled).toBe(false));
+    inRange = false;
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+
+    await waitFor(() => expect(alert).toHaveBeenCalledWith(rangeError.message));
+    expect(wallet.paySparkAddress).not.toHaveBeenCalled();
+    expect(Lnurl.prototype.requestBolt11FromLnurlPayService).not.toHaveBeenCalled();
   });
 
   it('keeps the invoice path for a trusted domain that published no Spark address', async () => {
