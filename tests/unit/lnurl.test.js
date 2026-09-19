@@ -728,8 +728,8 @@ describe('LNURL edge cases', function () {
       return new Lnurl(address);
     }
 
-    it('keeps a valid sparkAddress from a trusted domain', async () => {
-      const LN = payResponseFrom('0123456789abcdef@dev.lightning.space', { sparkAddress });
+    it.each(['lightning.space', 'dev.lightning.space'])('keeps a valid sparkAddress from the trusted domain %s', async host => {
+      const LN = payResponseFrom(`0123456789abcdef@${host}`, { sparkAddress });
       const payload = await LN.callLnurlPayService();
       assert.strictEqual(payload.sparkAddress, sparkAddress);
       assert.strictEqual(LN.getSparkAddress(), sparkAddress);
@@ -760,6 +760,12 @@ describe('LNURL edge cases', function () {
 
     it('drops a sparkAddress when the request was redirected to another host', async () => {
       answerFrom('https://example.com/.well-known/lnurlp/0123456789abcdef', { sparkAddress });
+      const payload = await new Lnurl('0123456789abcdef@dev.lightning.space').callLnurlPayService();
+      assert.strictEqual('sparkAddress' in payload, false);
+    });
+
+    it('drops a sparkAddress when the trusted host answered without TLS', async () => {
+      answerFrom('http://dev.lightning.space/.well-known/lnurlp/0123456789abcdef', { sparkAddress });
       const payload = await new Lnurl('0123456789abcdef@dev.lightning.space').callLnurlPayService();
       assert.strictEqual('sparkAddress' in payload, false);
     });
