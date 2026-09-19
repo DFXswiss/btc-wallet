@@ -704,9 +704,9 @@ describe('SparkContextProvider', () => {
   });
 
   it('does not put SDK error messages (seed markers) into console.error for Sentry', async () => {
-    // connectSparkSdk sees the mnemonic; if the SDK echoed it into Error.message we must not
+    // connectSparkSdk sees the Spark child phrase; if the SDK echoed it into Error.message we must not
     // ship that via captureConsoleIntegration({ levels: ['error'] }) in App.js.
-    const seedMarker = 'abandon abandon abandon';
+    const seedMarker = 'prosper short ramp';
     mockConnect.mockRejectedValue(new Error(`invalid mnemonic: ${seedMarker}`));
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -1822,27 +1822,30 @@ describe('SparkContextProvider', () => {
     expect(mockConnect).toHaveBeenCalledWith(SPARK_MNEMONIC, expect.any(Function));
   });
 
-  it('does not put the BIP39 passphrase into console.error or the alert', async () => {
+  it('does not put the Spark child phrase, the on-chain phrase or the passphrase into console.error or the alert', async () => {
     const passphrase = 'unique-passphrase-marker-xyzzy';
     const hd = {
       type: 'HDsegwitBech32',
       getSecret: () => MNEMONIC,
       getPassphrase: () => passphrase,
     };
-    mockConnect.mockRejectedValue(new Error(`invalid mnemonic: ${MNEMONIC} passphrase=${passphrase}`));
+    mockConnect.mockRejectedValue(new Error(`invalid mnemonic: ${SPARK_MNEMONIC_PASSPHRASE}`));
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     const existing = stubSparkMethods(SparkWallet.create('stored-pk'));
     renderWith([hd, existing]);
 
     await waitFor(() => expect(errorSpy).toHaveBeenCalled());
-    for (const args of errorSpy.mock.calls) {
-      for (const arg of args) {
-        assert.ok(!String(arg).includes(passphrase), `console.error must not contain passphrase: ${arg}`);
-      }
-    }
+    const secrets = [SPARK_MNEMONIC_PASSPHRASE, MNEMONIC, passphrase];
     expect(alert).toHaveBeenCalled();
-    expect(String(alert.mock.calls[0][1])).not.toContain(passphrase);
+    for (const secret of secrets) {
+      for (const args of errorSpy.mock.calls) {
+        for (const arg of args) {
+          assert.ok(!String(arg).includes(secret), `console.error must not contain secret material: ${arg}`);
+        }
+      }
+      assert.ok(!String(alert.mock.calls[0][1]).includes(secret), `alert must not contain secret material: ${alert.mock.calls[0][1]}`);
+    }
     expect(errorSpy.mock.calls.some(c => c[0] === 'SparkContext: failed to connect' && c[1] === 'Error')).toBe(true);
 
     alert.mockRestore();
