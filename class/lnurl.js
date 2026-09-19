@@ -93,6 +93,7 @@ export default class Lnurl {
       throw new Error(loc.settings.tor_unsupported);
     }
     const resp = await fetch(url, { method: 'GET' });
+    this._lastResponseUrl = resp.url;
     if (resp.status >= 300) {
       throw new Error('Bad response from server');
     }
@@ -191,7 +192,10 @@ export default class Lnurl {
     if (!lnurlUrl) throw new Error('Invalid LNURL');
     const url = lnurlUrl.replace('lightning:', '').replace('lightning=', '').replace('lnurlp://', 'https://');
     // calling the url
+    this._lastResponseUrl = undefined;
     const reply = await this.fetchGet(url);
+    // fetch follows redirects, so the host that answered can differ from the one that was asked
+    const responseUrl = this._lastResponseUrl || url;
 
     if (reply.tag !== Lnurl.TAG_PAY_REQUEST) {
       throw new Error('lnurl-pay expected, found tag ' + reply.tag);
@@ -223,8 +227,16 @@ export default class Lnurl {
     const domain = parse(url).hostname;
     if (!domain) throw new Error('Invalid LNURL domain');
     // Our own address server publishes the receiver's Spark address so a Spark wallet can
-    // transfer directly instead of paying an invoice; only honoured for our own domains.
-    const sparkAddress = trustsSparkAddress(domain) && SparkWallet.isSparkAddress(data.sparkAddress) ? data.sparkAddress.trim() : undefined;
+    // transfer directly instead of paying an invoice; only honoured when both the request and
+    // the response that answered it went to one of our own domains over TLS.
+    const isTrustedSource = source => {
+      const { protocol, hostname } = parse(source);
+      return protocol === 'https:' && trustsSparkAddress(hostname);
+    };
+    const sparkAddress =
+      isTrustedSource(url) && isTrustedSource(responseUrl) && SparkWallet.isSparkAddress(data.sparkAddress)
+        ? data.sparkAddress.trim()
+        : undefined;
 
     this._lnurlPayRequestDetails = {
       callback: data.callback,

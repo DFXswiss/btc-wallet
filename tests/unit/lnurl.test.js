@@ -688,17 +688,21 @@ describe('LNURL edge cases', function () {
   describe('sparkAddress in the pay response', () => {
     const sparkAddress = bech32m.encode('spark', bech32m.toWords(Buffer.from('spark-address-identity-key-32')), 10000);
 
-    function payResponseFrom(address, extra) {
-      const LN = new Lnurl(address);
-      LN.fetchGet = () => ({
+    function payResponse(extra) {
+      return {
         status: 'OK',
-        callback: `https://${address.split('@')[1]}/lnurlp/${address.split('@')[0]}/invoice`,
+        callback: 'https://dev.lightning.space/lnurlp/0123456789abcdef/invoice',
         tag: 'payRequest',
         maxSendable: 1000000000,
         minSendable: 1000,
         metadata: '[["text/plain","spark test"]]',
         ...extra,
-      });
+      };
+    }
+
+    function payResponseFrom(address, extra) {
+      const LN = new Lnurl(address);
+      LN.fetchGet = () => payResponse({ callback: `https://${address.split('@')[1]}/lnurlp/${address.split('@')[0]}/invoice`, ...extra });
       return LN;
     }
 
@@ -714,6 +718,44 @@ describe('LNURL edge cases', function () {
       const payload = await LN.callLnurlPayService();
       assert.strictEqual('sparkAddress' in payload, false);
       assert.strictEqual(LN.getSparkAddress(), undefined);
+    });
+
+    it.each(['alice@evil-lightning.space', 'alice@lightning.space.evil.com', 'alice@sub.lightning.space', 'alice@lightning.space.'])(
+      'drops a sparkAddress from the lookalike domain of %s',
+      async address => {
+        const LN = payResponseFrom(address, { sparkAddress });
+        const payload = await LN.callLnurlPayService();
+        assert.strictEqual('sparkAddress' in payload, false);
+      },
+    );
+
+    it('drops a sparkAddress fetched from a trusted domain without TLS', async () => {
+      const LN = new Lnurl(Lnurl.encode('http://dev.lightning.space/.well-known/lnurlp/0123456789abcdef'));
+      LN.fetchGet = () => payResponse({ sparkAddress });
+      const payload = await LN.callLnurlPayService();
+      assert.strictEqual('sparkAddress' in payload, false);
+    });
+
+    it('drops a sparkAddress when the request was redirected to another host', async () => {
+      const LN = new Lnurl('0123456789abcdef@dev.lightning.space');
+      jest.spyOn(global, 'fetch').mockResolvedValueOnce({
+        status: 200,
+        url: 'https://example.com/.well-known/lnurlp/0123456789abcdef',
+        json: async () => payResponse({ sparkAddress }),
+      });
+      const payload = await LN.callLnurlPayService();
+      assert.strictEqual('sparkAddress' in payload, false);
+    });
+
+    it('keeps a sparkAddress when the response came from the trusted host that was asked', async () => {
+      const LN = new Lnurl('0123456789abcdef@dev.lightning.space');
+      jest.spyOn(global, 'fetch').mockResolvedValueOnce({
+        status: 200,
+        url: 'https://dev.lightning.space/.well-known/lnurlp/0123456789abcdef',
+        json: async () => payResponse({ sparkAddress }),
+      });
+      const payload = await LN.callLnurlPayService();
+      assert.strictEqual(payload.sparkAddress, sparkAddress);
     });
 
     it('drops a sparkAddress that is not a Spark address', async () => {
