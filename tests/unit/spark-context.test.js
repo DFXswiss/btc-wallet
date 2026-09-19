@@ -1822,20 +1822,23 @@ describe('SparkContextProvider', () => {
     expect(mockConnect).toHaveBeenCalledWith(SPARK_MNEMONIC, expect.any(Function));
   });
 
-  it('does not put the Spark child phrase, the on-chain phrase or the passphrase into console.error or the alert', async () => {
-    const passphrase = 'unique-passphrase-marker-xyzzy';
+  it('does not put the phrase the SDK received, the on-chain phrase or the passphrase into console.error or the alert', async () => {
+    const passphrase = 'super secret passphrase';
     const hd = {
       type: 'HDsegwitBech32',
       getSecret: () => MNEMONIC,
       getPassphrase: () => passphrase,
     };
-    mockConnect.mockRejectedValue(new Error(`invalid mnemonic: ${SPARK_MNEMONIC_PASSPHRASE}`));
+    mockConnect.mockImplementation(async mnemonic => {
+      throw new Error(`invalid mnemonic: ${mnemonic}`);
+    });
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     const existing = stubSparkMethods(SparkWallet.create('stored-pk'));
     renderWith([hd, existing]);
 
     await waitFor(() => expect(errorSpy).toHaveBeenCalled());
+    expect(mockConnect).toHaveBeenCalledWith(SPARK_MNEMONIC_PASSPHRASE, expect.any(Function));
     const secrets = [SPARK_MNEMONIC_PASSPHRASE, MNEMONIC, passphrase];
     expect(alert).toHaveBeenCalled();
     for (const secret of secrets) {
