@@ -373,6 +373,7 @@ const WalletDetails = () => {
   const showPosModeOptions = wallet.isPosMode || isPosMode;
   const isSparkWallet = wallet.type === SparkWallet.type;
   const [sparkPrivateMode, setSparkPrivateMode] = useState();
+  const [isSparkPrivateModeUpdating, setIsSparkPrivateModeUpdating] = useState(false);
 
   useEffect(() => {
     if (!isSparkWallet) return;
@@ -390,11 +391,14 @@ const WalletDetails = () => {
 
   const toggleSparkPrivateMode = async enabled => {
     setSparkPrivateMode(enabled);
+    setIsSparkPrivateModeUpdating(true);
     try {
       await wallet.setPrivateModeEnabled(enabled);
     } catch (e) {
       setSparkPrivateMode(!enabled);
       alert(loc.wallets.lightning_spark_private_mode_error);
+    } finally {
+      setIsSparkPrivateModeUpdating(false);
     }
   };
 
@@ -531,7 +535,7 @@ const WalletDetails = () => {
                 testID="SparkPrivateModeSwitch"
                 title={loc.wallets.lightning_spark_private_mode}
                 subtitle={loc.wallets.lightning_spark_private_mode_hint}
-                switch={{ onValueChange: toggleSparkPrivateMode, value: sparkPrivateMode }}
+                switch={{ onValueChange: toggleSparkPrivateMode, value: sparkPrivateMode, disabled: isSparkPrivateModeUpdating }}
               />
             )}
             {showPosModeOptions && wallet.type === LightningLdsWallet.type && (

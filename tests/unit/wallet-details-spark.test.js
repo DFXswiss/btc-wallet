@@ -277,6 +277,26 @@ describe('WalletDetails Spark private mode', () => {
     expect(screen.getByLabelText(loc.wallets.lightning_spark_private_mode).props.value).toBe(false);
   });
 
+  it('locks the switch while an update is in flight', async () => {
+    let finishUpdate;
+    const wallet = makeWallet('sparkWallet', {
+      id: 'spark-private-mode-in-flight',
+      isPrivateModeEnabled: jest.fn().mockResolvedValue(false),
+      setPrivateModeEnabled: jest.fn().mockReturnValue(new Promise(resolve => (finishUpdate = resolve))),
+    });
+    const screen = renderDetails(wallet);
+    await waitFor(() => expect(screen.getByText(loc.wallets.lightning_spark_private_mode)).toBeTruthy());
+    await act(async () => {
+      fireEvent(screen.getByLabelText(loc.wallets.lightning_spark_private_mode), 'valueChange', true);
+    });
+    expect(screen.getByLabelText(loc.wallets.lightning_spark_private_mode).props.disabled).toBe(true);
+    await act(async () => {
+      finishUpdate();
+    });
+    expect(screen.getByLabelText(loc.wallets.lightning_spark_private_mode).props.disabled).toBe(false);
+    expect(screen.getByLabelText(loc.wallets.lightning_spark_private_mode).props.value).toBe(true);
+  });
+
   it('shows no private-mode switch for an LNDHub wallet', async () => {
     const screen = renderDetails(makeWallet('lightningCustodianWallet', { id: 'lndhub-no-private' }));
     await waitFor(() => expect(screen.getByText(loc.wallets.details_type)).toBeTruthy());
