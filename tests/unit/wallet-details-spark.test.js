@@ -47,6 +47,10 @@ jest.mock('../../api/dfx/contexts/session.context', () => ({
 jest.mock('../../api/spark/spark-sdk', () => ({
   isSparkSdkConnected: () => false,
 }));
+let mockSparkConnected = true;
+jest.mock('../../api/spark/contexts/spark.context', () => ({
+  useSparkContext: () => ({ isConnected: mockSparkConnected }),
+}));
 jest.mock('../../components/navigationStyle', () => {
   return (_opts, formatter) => theme => deps => {
     const options = { ..._opts };
@@ -175,6 +179,7 @@ function renderDetails(wallet, extras = {}) {
 beforeEach(() => {
   jest.useRealTimers();
   jest.clearAllMocks();
+  mockSparkConnected = true;
   mockReactFlags.bip47Backdoor = false;
   mockReactFlags.zeroCount = 0;
   mockWalletContext.walletID = 'main-onchain';
@@ -275,6 +280,37 @@ describe('WalletDetails Spark private mode', () => {
     });
     expect(alertFn).toHaveBeenCalledWith(loc.wallets.lightning_spark_private_mode_error);
     expect(screen.getByLabelText(loc.wallets.lightning_spark_private_mode).props.value).toBe(false);
+  });
+
+  it('reads the setting once the Spark session is connected', async () => {
+    mockSparkConnected = false;
+    const wallet = makeWallet('sparkWallet', {
+      id: 'spark-private-mode-late-connect',
+      isPrivateModeEnabled: jest.fn().mockResolvedValue(true),
+    });
+    const screen = renderDetails(wallet);
+    await waitFor(() => expect(screen.getByText(loc.wallets.details_type)).toBeTruthy());
+    expect(wallet.isPrivateModeEnabled).not.toHaveBeenCalled();
+    expect(screen.queryByText(loc.wallets.lightning_spark_private_mode)).toBeNull();
+
+    mockSparkConnected = true;
+    screen.rerender(
+      <BlueStorageContext.Provider
+        value={{
+          wallets: [wallet],
+          deleteWallet: jest.fn(),
+          setSelectedWallet: jest.fn(),
+          txMetadata: {},
+          isPosMode: false,
+          saveToDisk: jest.fn().mockResolvedValue(undefined),
+          isAdvancedModeEnabled: jest.fn().mockResolvedValue(false),
+        }}
+      >
+        <WalletDetails />
+      </BlueStorageContext.Provider>,
+    );
+    await waitFor(() => expect(screen.getByLabelText(loc.wallets.lightning_spark_private_mode).props.value).toBe(true));
+    expect(wallet.isPrivateModeEnabled).toHaveBeenCalledTimes(1);
   });
 
   it('locks the switch while an update is in flight', async () => {
