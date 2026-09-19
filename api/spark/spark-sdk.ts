@@ -58,18 +58,11 @@ export type SparkSessionLease = {
   requireSdk(): BreezSdkInterface;
 };
 
-function fingerprintSeed(mnemonic: string, passphrase?: string): string {
+function fingerprintSeed(mnemonic: string): string {
   const hash = createHash('sha256');
   hash.update(mnemonic);
   hash.update('\0');
-  if (passphrase) {
-    hash.update(passphrase);
-  }
   return hash.digest().toString('hex');
-}
-
-function seedPassphrase(passphrase?: string): string | undefined {
-  return passphrase || undefined;
 }
 
 function errorKind(e: unknown): string {
@@ -255,11 +248,7 @@ export async function disconnectSparkSdk(): Promise<void> {
   await enqueueLifecycle(() => disconnectLocked());
 }
 
-async function connectLocked(
-  mnemonic: string,
-  onEvent?: (event: SdkEvent) => Promise<void>,
-  passphrase?: string,
-): Promise<BreezSdkInterface> {
+async function connectLocked(mnemonic: string, onEvent?: (event: SdkEvent) => Promise<void>): Promise<BreezSdkInterface> {
   // A hang with no instance yet cannot be torn down; fail closed instead of opening a second native session.
   // A hang that already produced an instance is poisoned so this connect can rebuild.
   if (teardownInFlight || (pendingNativeConnect && !sdk && !poisonedSdk && !inFlightInstance)) {
@@ -270,8 +259,7 @@ async function connectLocked(
   const nativeConnectAttempt = { nativeConnect: true as const };
   pendingNativeConnect = nativeConnectAttempt;
   try {
-    const resolvedPassphrase = seedPassphrase(passphrase);
-    const fingerprint = fingerprintSeed(mnemonic, resolvedPassphrase);
+    const fingerprint = fingerprintSeed(mnemonic);
 
     if (sdk && connectedSeedFingerprint === fingerprint) {
       return sdk;
@@ -297,7 +285,7 @@ async function connectLocked(
     // A cap, not "always claim": expensive blocks must not spend unbounded sats for the user.
     config.maxDepositClaimFee = new MaxFee.Rate({ satPerVbyte: MAX_DEPOSIT_CLAIM_FEE_SAT_PER_VBYTE });
 
-    const seed = new Seed.Mnemonic({ mnemonic, passphrase: resolvedPassphrase });
+    const seed = new Seed.Mnemonic({ mnemonic, passphrase: undefined });
     const instance = await connect({
       config,
       seed,
@@ -368,16 +356,11 @@ async function connectLocked(
 
 /**
  * Connects the Breez Spark SDK once per app session.
- * Uses the recovery phrase of the on-chain wallet, including its BIP39 passphrase when set.
- * An empty passphrase is treated as unset so the derived seed matches a wallet with no passphrase.
+ * Receives the BIP-85 child phrase derived from the on-chain wallet, never the on-chain phrase or its passphrase.
  * Does not set a custom LNURL domain — the SDK default Breez server is used.
  */
-export async function connectSparkSdk(
-  mnemonic: string,
-  onEvent?: (event: SdkEvent) => Promise<void>,
-  passphrase?: string,
-): Promise<BreezSdkInterface> {
-  return enqueueLifecycle(() => connectLocked(mnemonic, onEvent, passphrase));
+export async function connectSparkSdk(mnemonic: string, onEvent?: (event: SdkEvent) => Promise<void>): Promise<BreezSdkInterface> {
+  return enqueueLifecycle(() => connectLocked(mnemonic, onEvent));
 }
 
 export async function syncSparkWallet(): Promise<void> {
