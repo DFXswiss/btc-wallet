@@ -87,11 +87,12 @@ jest.mock('react-native-safe-area-context', () => ({
 jest.mock('../../components/TransactionsNavigationHeader', () => {
   const ReactModule = require('react');
   const { View, Text, TouchableOpacity } = require('react-native');
-  function TransactionsNavigationHeader({ onWalletChange, wallet }) {
+  function TransactionsNavigationHeader({ onWalletChange, showRBFWarning, wallet }) {
     return ReactModule.createElement(
       View,
       { testID: 'TransactionsNavigationHeader' },
       ReactModule.createElement(Text, { testID: 'HeaderBalance' }, String(wallet && wallet.balance)),
+      showRBFWarning && ReactModule.createElement(Text, null, require('../../loc').default.wallets.rbf_warning),
       ReactModule.createElement(TouchableOpacity, {
         testID: 'HeaderWalletChange',
         accessibilityRole: 'button',
@@ -105,7 +106,11 @@ jest.mock('../../components/TransactionsNavigationHeader', () => {
       }),
     );
   }
-  TransactionsNavigationHeader.propTypes = { onWalletChange: require('prop-types').func, wallet: require('prop-types').any };
+  TransactionsNavigationHeader.propTypes = {
+    onWalletChange: require('prop-types').func,
+    showRBFWarning: require('prop-types').bool,
+    wallet: require('prop-types').any,
+  };
   return TransactionsNavigationHeader;
 });
 
@@ -993,6 +998,15 @@ describe('home screen setParams, focus and header wallet change', () => {
       screen = render(<HomeHarness initialWallets={[]} setSelectedWallet={setSelectedWallet} />);
     }).not.toThrow();
     expect(setSelectedWallet).not.toHaveBeenCalled();
+    screen.unmount();
+  });
+
+  it('does not show the RBF warning when storage has no wallet', () => {
+    let screen;
+    expect(() => {
+      screen = render(<HomeHarness initialWallets={[]} />);
+    }).not.toThrow();
+    expect(screen.queryByText(loc.wallets.rbf_warning)).toBeNull();
     screen.unmount();
   });
 

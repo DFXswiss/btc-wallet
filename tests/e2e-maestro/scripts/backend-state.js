@@ -4,9 +4,11 @@
 // (http://127.0.0.1:3300, 2026-09-15): JSON array of TransactionDto.
 // Fields read: id (number), type ("Buy"|"Sell"|...), state (e.g. "Completed",
 // "LiquidityPending"), outputAmount (number, asset units). On a match,
-// outputAmount is converted to whole sat (BTC * 1e8) as backendTxAmount;
-// if outputAmount is missing or not a positive amount, backendTxAmount is
-// left unset. snapshot returns the highest id once and does not wait.
+// outputAmount is converted to whole sat (BTC * 1e8) as backendTxAmount only
+// for buy-complete. Sell outputAmount values are fiat amounts and must not be
+// converted as BTC. For other states, or if the buy amount is missing or not
+// positive, backendTxAmount is left unset. snapshot returns the highest id once
+// and does not wait.
 // Optional MIN_TX_ID (positive integer) keeps only rows with id > MIN_TX_ID for
 // buy-complete, sell-booked, and sell-complete. Optional POLL_ONCE=true asks
 // once, never waits, and exits 0 with backendState pending on a miss (ok plus
@@ -328,14 +330,14 @@ function txAmountSat(tx) {
   return sat;
 }
 
-function applySuccess(tx) {
+function applySuccess(tx, kind) {
   const id = txId(tx);
   const state = String((tx && tx.state) || '');
   if (!id) fail('Matching transaction has no id', 2);
   setOutput('backendState', 'ok');
   setOutput('backendTxId', id);
   setOutput('backendTxState', state);
-  const amountSat = txAmountSat(tx);
+  const amountSat = kind === 'buy-complete' ? txAmountSat(tx) : null;
   if (amountSat !== null) {
     setOutput('backendTxAmount', String(amountSat));
   }
@@ -377,7 +379,7 @@ function pollSync(config) {
     const txs = httpJsonSync(config);
     const hit = findMatch(txs, config.kind, config.minTxId);
     if (hit) {
-      applySuccess(hit);
+      applySuccess(hit, config.kind);
       return;
     }
     seen = summarize(txs);
@@ -397,7 +399,7 @@ function pollNode(config) {
     return httpJsonNode(config).then(function (txs) {
       const hit = findMatch(txs, config.kind, config.minTxId);
       if (hit) {
-        applySuccess(hit);
+        applySuccess(hit, config.kind);
         return;
       }
       const seen = summarize(txs);

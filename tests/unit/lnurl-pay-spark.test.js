@@ -363,7 +363,9 @@ describe('LnurlPay Spark invoice mode', () => {
     assert.strictEqual(paidAmount, 1000);
     assert.match(seed, /^[0-9a-f]{32}$/);
     assert.notStrictEqual(seed, mockRouteKey);
-    await waitFor(() => expect(AsyncStorage.removeItem).toHaveBeenCalledTimes(1));
+    expect(mockRandomBytes).toHaveBeenCalledTimes(1);
+    expect(AsyncStorage.setItem).not.toHaveBeenCalled();
+    expect(AsyncStorage.removeItem).not.toHaveBeenCalled();
     expect(wallet.payInvoice).not.toHaveBeenCalled();
     expect(callLnurlPayService).not.toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledWith('Success', {
@@ -374,7 +376,7 @@ describe('LnurlPay Spark invoice mode', () => {
     });
   });
 
-  it('uses a new Spark idempotency seed after a failed payment instead of the stored one', async () => {
+  it('uses a new Spark idempotency seed after a send error reaches the catch path', async () => {
     const wallet = makeWallet();
     const quote = {
       invoice: SPARK_INVOICE,
@@ -395,7 +397,6 @@ describe('LnurlPay Spark invoice mode', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
     await waitFor(() => expect(wallet.paySparkInvoice).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(AsyncStorage.removeItem).toHaveBeenCalledTimes(1));
     const firstCall = wallet.paySparkInvoice.mock.calls[0];
     assert.strictEqual(firstCall[0], SPARK_INVOICE);
     assert.strictEqual(firstCall[1], 1000);
@@ -414,44 +415,39 @@ describe('LnurlPay Spark invoice mode', () => {
     assert.strictEqual(secondCall[3], quote);
     assert.notStrictEqual(firstCall[2], secondCall[2]);
     expect(mockRandomBytes).toHaveBeenCalledTimes(2);
-    expect(AsyncStorage.setItem).toHaveBeenCalledTimes(2);
   });
 
-  it('does not reuse a Spark idempotency seed left in AsyncStorage after a crash', async () => {
-    const crashedSeed = 'f'.repeat(32);
+  it('uses a new Spark idempotency seed after a non-completed result', async () => {
     const wallet = makeWallet();
-    const walletID = wallet.getID();
-    const routeId = 'route-1';
-    const invoice = SPARK_INVOICE;
-    const amountSats = 1000;
-    // Leftover as after a process kill: persisted, never released. Do not seed this via a pay run.
-    // Slot is sparkPaymentSeedStorageKey(walletID, routeId, invoice, amountSats) without the nonce.
-    await AsyncStorage.setItem(`spark-pay-seed:${walletID}:${routeId}:${invoice}:${amountSats}`, crashedSeed);
-    wallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'spark-payment-after-crash' });
-    const screen = renderPay(wallet, {
-      invoice: undefined,
-      sparkInvoice: invoice,
-      amountSat: amountSats,
-      amountUnit: undefined,
-      routeId,
-    });
+    wallet.paySparkInvoice
+      .mockResolvedValueOnce({ status: 'unknown' })
+      .mockResolvedValueOnce({ status: 'pending', paymentHash: 'spark-payment-after-non-completed' });
+    const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
     await act(async () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
-
     await waitFor(() => expect(wallet.paySparkInvoice).toHaveBeenCalledTimes(1));
-    expect(AsyncStorage.removeItem).not.toHaveBeenCalled();
-    const paid = wallet.paySparkInvoice.mock.calls[0];
-    assert.strictEqual(paid[0], SPARK_INVOICE);
-    assert.strictEqual(paid[1], 1000);
-    assert.match(paid[2], /^[0-9a-f]{32}$/);
-    assert.notStrictEqual(paid[2], crashedSeed);
-    expect(mockRandomBytes).toHaveBeenCalledTimes(1);
+    const firstCall = wallet.paySparkInvoice.mock.calls[0];
+    assert.strictEqual(firstCall[0], SPARK_INVOICE);
+    assert.strictEqual(firstCall[1], 1000);
+    assert.match(firstCall[2], /^[0-9a-f]{32}$/);
+
+    await waitFor(() => expect(getPayButton(screen).props.disabled).toBe(false));
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+    await waitFor(() => expect(wallet.paySparkInvoice).toHaveBeenCalledTimes(2));
+    const secondCall = wallet.paySparkInvoice.mock.calls[1];
+    assert.strictEqual(secondCall[0], SPARK_INVOICE);
+    assert.strictEqual(secondCall[1], 1000);
+    assert.match(secondCall[2], /^[0-9a-f]{32}$/);
+    assert.notStrictEqual(firstCall[2], secondCall[2]);
+    expect(mockRandomBytes).toHaveBeenCalledTimes(2);
   });
 
-  it('releases the Spark seed on unmount and does not reuse it when the screen is reopened', async () => {
+  it('uses a new Spark idempotency seed when the screen is reopened', async () => {
     const wallet = makeWallet();
     wallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'spark-payment-first-open' });
     const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
@@ -467,7 +463,6 @@ describe('LnurlPay Spark invoice mode', () => {
     assert.match(firstCall[2], /^[0-9a-f]{32}$/);
 
     screen.unmount();
-    await waitFor(() => expect(AsyncStorage.removeItem).toHaveBeenCalledTimes(1));
     mockRouteKey = 'lnurl-pay-test-route-2';
     const reopenedWallet = makeWallet();
     reopenedWallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'spark-payment-reopened' });
@@ -485,7 +480,6 @@ describe('LnurlPay Spark invoice mode', () => {
     assert.match(secondCall[2], /^[0-9a-f]{32}$/);
     assert.notStrictEqual(firstCall[2], secondCall[2]);
     expect(mockRandomBytes).toHaveBeenCalledTimes(2);
-    expect(AsyncStorage.setItem).toHaveBeenCalledTimes(2);
   });
 
   it('creates a new Spark idempotency seed after the previous operation completed', async () => {
@@ -497,8 +491,9 @@ describe('LnurlPay Spark invoice mode', () => {
     await act(async () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
-    await waitFor(() => expect(AsyncStorage.removeItem).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(wallet.paySparkInvoice).toHaveBeenCalledTimes(1));
     const completedSeed = wallet.paySparkInvoice.mock.calls[0][2];
+    assert.match(completedSeed, /^[0-9a-f]{32}$/);
 
     screen.unmount();
     const nextWallet = makeWallet();
@@ -512,7 +507,6 @@ describe('LnurlPay Spark invoice mode', () => {
     await waitFor(() => expect(nextWallet.paySparkInvoice).toHaveBeenCalledTimes(1));
     assert.notStrictEqual(completedSeed, nextWallet.paySparkInvoice.mock.calls[0][2]);
     expect(mockRandomBytes).toHaveBeenCalledTimes(2);
-    expect(AsyncStorage.setItem).toHaveBeenCalledTimes(2);
   });
 
   it('creates different Spark idempotency seeds for different operations even when the navigation key is reused', async () => {
@@ -544,7 +538,6 @@ describe('LnurlPay Spark invoice mode', () => {
     await waitFor(() => expect(otherWallet.paySparkInvoice).toHaveBeenCalledTimes(1));
     assert.notStrictEqual(firstSeed, otherWallet.paySparkInvoice.mock.calls[0][2]);
     expect(mockRandomBytes).toHaveBeenCalledTimes(2);
-    expect(AsyncStorage.setItem).toHaveBeenCalledTimes(2);
   });
 
   it('restores the Spark pay button when paySparkInvoice rejects because the session is gone', async () => {
@@ -563,7 +556,8 @@ describe('LnurlPay Spark invoice mode', () => {
     expect(getPayButton(screen).props.disabled).toBe(false);
     assert.strictEqual(screen.queryByText(loc.wallets.lightning_spark_payment_in_transit), null);
     expect(wallet.paySparkInvoice).toHaveBeenCalledTimes(1);
-    await waitFor(() => expect(AsyncStorage.removeItem).toHaveBeenCalledTimes(1));
+    assert.match(wallet.paySparkInvoice.mock.calls[0][2], /^[0-9a-f]{32}$/);
+    expect(mockRandomBytes).toHaveBeenCalledTimes(1);
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
@@ -585,7 +579,7 @@ describe('LnurlPay Spark invoice mode', () => {
     assert.strictEqual(screen.queryByText(loc.lnd.payButton), null);
   });
 
-  it('releases the persisted seed when a pending Spark payment completes through an SDK event', async () => {
+  it('completes a pending Spark payment through an SDK event without generating another seed', async () => {
     const wallet = makeWallet();
     wallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'spark-payment-event-completed', fee: 2 });
     const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
@@ -595,7 +589,9 @@ describe('LnurlPay Spark invoice mode', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
     await waitFor(() => screen.getByText(loc.wallets.lightning_spark_payment_in_transit));
-    expect(AsyncStorage.removeItem).not.toHaveBeenCalled();
+    const seed = wallet.paySparkInvoice.mock.calls[0][2];
+    assert.match(seed, /^[0-9a-f]{32}$/);
+    expect(mockRandomBytes).toHaveBeenCalledTimes(1);
 
     mockUseSparkContext.mockReturnValue({
       isConnected: true,
@@ -610,15 +606,16 @@ describe('LnurlPay Spark invoice mode', () => {
       </BlueStorageContext.Provider>,
     );
 
-    await waitFor(() => expect(AsyncStorage.removeItem).toHaveBeenCalledTimes(1));
     await waitFor(() =>
       expect(mockNavigate).toHaveBeenCalledWith('Success', expect.objectContaining({ amount: 1000, amountUnit: BitcoinUnit.SATS, fee: 2 })),
     );
   });
 
-  it('releases the persisted seed when a pending Spark payment fails through an SDK event', async () => {
+  it('uses a new Spark idempotency seed after a pending payment fails through an SDK event', async () => {
     const wallet = makeWallet();
-    wallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'spark-payment-event-failed', fee: 2 });
+    wallet.paySparkInvoice
+      .mockResolvedValueOnce({ status: 'pending', paymentHash: 'spark-payment-event-failed', fee: 2 })
+      .mockResolvedValueOnce({ status: 'pending', paymentHash: 'spark-payment-after-event-failure', fee: 2 });
     const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
@@ -626,7 +623,8 @@ describe('LnurlPay Spark invoice mode', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
     await waitFor(() => screen.getByText(loc.wallets.lightning_spark_payment_in_transit));
-    expect(AsyncStorage.removeItem).not.toHaveBeenCalled();
+    const firstSeed = wallet.paySparkInvoice.mock.calls[0][2];
+    assert.match(firstSeed, /^[0-9a-f]{32}$/);
 
     mockUseSparkContext.mockReturnValue({
       isConnected: true,
@@ -641,8 +639,16 @@ describe('LnurlPay Spark invoice mode', () => {
       </BlueStorageContext.Provider>,
     );
 
-    await waitFor(() => expect(AsyncStorage.removeItem).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(alert).toHaveBeenCalledWith(loc.wallets.lightning_spark_payment_failed));
+    await waitFor(() => expect(getPayButton(screen).props.disabled).toBe(false));
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+    await waitFor(() => expect(wallet.paySparkInvoice).toHaveBeenCalledTimes(2));
+    const secondSeed = wallet.paySparkInvoice.mock.calls[1][2];
+    assert.match(secondSeed, /^[0-9a-f]{32}$/);
+    assert.notStrictEqual(firstSeed, secondSeed);
+    expect(mockRandomBytes).toHaveBeenCalledTimes(2);
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 });
@@ -1797,18 +1803,19 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
     return jest.spyOn(Lnurl.prototype, 'storeSuccess').mockResolvedValue(undefined);
   }
 
-  it('reports a Spark seed cleanup failure without changing the success result', async () => {
+  it('passes a Spark payment seed without persisting it', async () => {
     const wallet = makeWallet();
-    wallet.paySparkInvoice.mockResolvedValue({ status: 'completed', paymentHash: 'cleanup-error', fee: 2 });
-    const cleanupError = new Error('storage cleanup failed');
-    AsyncStorage.removeItem.mockRejectedValueOnce(cleanupError);
+    wallet.paySparkInvoice.mockResolvedValue({ status: 'completed', paymentHash: 'in-memory-seed', fee: 2 });
     const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
     await act(async () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
-    await waitFor(() => expect(reportError).toHaveBeenCalledWith('lnurlPay: failed to release Spark payment seed', cleanupError));
+    await waitFor(() => expect(wallet.paySparkInvoice).toHaveBeenCalledTimes(1));
+    assert.match(wallet.paySparkInvoice.mock.calls[0][2], /^[0-9a-f]{32}$/);
+    expect(AsyncStorage.setItem).not.toHaveBeenCalled();
+    expect(AsyncStorage.removeItem).not.toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledWith('Success', expect.objectContaining({ amount: 1000, fee: 2 }));
   });
 

@@ -321,7 +321,7 @@ const WalletHome = ({ navigation }) => {
         wallet={totalWallet}
         width={width}
         headerOverlayHeight={headerOverlayHeight}
-        showRBFWarning={!wallet?.allowRBF()}
+        showRBFWarning={!!wallet && !wallet.allowRBF()}
         onWalletChange={total =>
           InteractionManager.runAfterInteractions(async () => {
             wallets.forEach(w => {

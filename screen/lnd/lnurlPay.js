@@ -47,35 +47,21 @@ function walletWaivesDomainFees(fromWallet) {
  * provided by LnUrl. thats why we cache initial precise conversion rate so the reverse conversion wont be off.
  */
 const _cacheFiatToSat = {};
-const SPARK_PAYMENT_SEED_PREFIX = 'spark-pay-seed:';
 
-function sparkPaymentSeedStorageKey(walletID, routeId, invoice, amountSats, seed) {
-  return `${SPARK_PAYMENT_SEED_PREFIX}${walletID}:${routeId}:${invoice}:${amountSats}:${seed}`;
-}
-
-async function createSparkPaymentSeed(walletID, routeId, invoice, amountSats) {
-  // A fresh nonce per attempt. A stored seed is never reused: a failed or abandoned
-  // payment must not make the next try share an idempotency key.
+async function createSparkPaymentSeed(seedRef) {
+  if (seedRef.current) return seedRef.current;
+  // A fresh nonce per attempt keeps a failed or abandoned payment from blocking
+  // the next attempt with the same idempotency key.
   const seed = (await randomBytes(16)).toString('hex');
-  const storageKey = sparkPaymentSeedStorageKey(walletID, routeId, invoice, amountSats, seed);
-  await AsyncStorage.setItem(storageKey, seed);
-  return { storageKey, seed };
-}
-
-async function releaseSparkPaymentSeed(storageKey) {
-  try {
-    await AsyncStorage.removeItem(storageKey);
-  } catch (error) {
-    reportError('lnurlPay: failed to release Spark payment seed', error);
-  }
+  seedRef.current = seed;
+  return seed;
 }
 
 const LnurlPay = () => {
   const { wallets, refreshAllWalletTransactions } = useContext(BlueStorageContext);
   const { outgoingPayment } = useSparkContext();
   const { params } = useRoute();
-  const { walletID, lnurl, amountSat, destination, invoice, sparkInvoice, sparkAddress, amountUnit, description, free, isMax, routeId } =
-    params;
+  const { walletID, lnurl, amountSat, destination, invoice, sparkInvoice, sparkAddress, amountUnit, description, free, isMax } = params;
   /** @type {LightningCustodianWallet} */
   const wallet = wallets.find(w => w.getID() === walletID);
   const [unit, setUnit] = useState(wallet.getPreferredBalanceUnit());
@@ -85,7 +71,7 @@ const LnurlPay = () => {
   const [isPaymentPending, setIsPaymentPending] = useState(false);
   const pendingPayRef = useRef();
   const payInFlightRef = useRef(false);
-  const sparkSeedKeyRef = useRef();
+  const sparkPaymentSeedRef = useRef();
   const [payload, setPayload] = useState();
   const { pop, navigate, goBack } = useNavigation();
   const [amount, setAmount] = useState();
@@ -287,12 +273,10 @@ const LnurlPay = () => {
           reportError('lnurlPay: failed to finish LNURL success', error);
         });
       } else if (watching.kind === 'sparkInvoice' || watching.kind === 'sparkAddress') {
-        if (sparkSeedKeyRef.current === watching.seedStorageKey) {
-          sparkSeedKeyRef.current = undefined;
+        if (sparkPaymentSeedRef.current === watching.seed) {
+          sparkPaymentSeedRef.current = undefined;
         }
-        releaseSparkPaymentSeed(watching.seedStorageKey).then(() =>
-          finishInvoiceSuccess(watching.amountSats, watching.fee, watching.decoded),
-        );
+        finishInvoiceSuccess(watching.amountSats, watching.fee, watching.decoded);
       } else {
         finishInvoiceSuccess(watching.amountSats, watching.fee, watching.decoded);
       }
@@ -300,11 +284,8 @@ const LnurlPay = () => {
     }
 
     if (outgoingPayment.status === 'failed') {
-      if (watching.seedStorageKey) {
-        if (sparkSeedKeyRef.current === watching.seedStorageKey) {
-          sparkSeedKeyRef.current = undefined;
-        }
-        releaseSparkPaymentSeed(watching.seedStorageKey);
+      if (watching.seed && sparkPaymentSeedRef.current === watching.seed) {
+        sparkPaymentSeedRef.current = undefined;
       }
       setIsPaymentPending(false);
       payInFlightRef.current = false;
@@ -319,10 +300,7 @@ const LnurlPay = () => {
 
   useEffect(() => {
     return () => {
-      const storageKey = sparkSeedKeyRef.current;
-      if (!storageKey) return;
-      sparkSeedKeyRef.current = undefined;
-      releaseSparkPaymentSeed(storageKey);
+      sparkPaymentSeedRef.current = undefined;
     };
   }, []);
 
@@ -465,8 +443,7 @@ const LnurlPay = () => {
   };
 
   const handleSparkAddress = async (amountSats, destination) => {
-    const { storageKey, seed } = await createSparkPaymentSeed(walletID, routeId, destination, amountSats);
-    sparkSeedKeyRef.current = storageKey;
+    const seed = await createSparkPaymentSeed(sparkPaymentSeedRef);
     const result = await wallet.paySparkAddress(destination, amountSats, seed, sparkFeeQuote);
     const decoded = {};
     if (result && result.status === 'pending') {
@@ -476,28 +453,25 @@ const LnurlPay = () => {
         amountSats,
         fee: result.fee,
         decoded,
-        seedStorageKey: storageKey,
+        seed,
       };
       setIsPaymentPending(true);
       setPayButtonDisabled(true);
       return;
     }
     if (result && result.status !== 'completed') {
-      sparkSeedKeyRef.current = undefined;
-      await releaseSparkPaymentSeed(storageKey);
+      sparkPaymentSeedRef.current = undefined;
       payInFlightRef.current = false;
       setPayButtonDisabled(false);
       return;
     }
 
-    sparkSeedKeyRef.current = undefined;
-    await releaseSparkPaymentSeed(storageKey);
+    sparkPaymentSeedRef.current = undefined;
     finishInvoiceSuccess(amountSats, result?.fee, decoded);
   };
 
   const handleSparkInvoice = async (amountSats, destination) => {
-    const { storageKey, seed } = await createSparkPaymentSeed(walletID, routeId, destination, amountSats);
-    sparkSeedKeyRef.current = storageKey;
+    const seed = await createSparkPaymentSeed(sparkPaymentSeedRef);
     const result = await wallet.paySparkInvoice(destination, amountSats, seed, sparkFeeQuote);
     const decoded = {};
     if (result && result.status === 'pending') {
@@ -507,22 +481,20 @@ const LnurlPay = () => {
         amountSats,
         fee: result.fee,
         decoded,
-        seedStorageKey: storageKey,
+        seed,
       };
       setIsPaymentPending(true);
       setPayButtonDisabled(true);
       return;
     }
     if (result && result.status !== 'completed') {
-      sparkSeedKeyRef.current = undefined;
-      await releaseSparkPaymentSeed(storageKey);
+      sparkPaymentSeedRef.current = undefined;
       payInFlightRef.current = false;
       setPayButtonDisabled(false);
       return;
     }
 
-    sparkSeedKeyRef.current = undefined;
-    await releaseSparkPaymentSeed(storageKey);
+    sparkPaymentSeedRef.current = undefined;
     finishInvoiceSuccess(amountSats, result?.fee, decoded);
   };
 
@@ -585,11 +557,7 @@ const LnurlPay = () => {
       setIsLoading(false);
     } catch (Err) {
       console.log(Err.message);
-      const failedSeedKey = sparkSeedKeyRef.current;
-      if (failedSeedKey) {
-        sparkSeedKeyRef.current = undefined;
-        await releaseSparkPaymentSeed(failedSeedKey);
-      }
+      sparkPaymentSeedRef.current = undefined;
       setLnurlInvoiceQuote(undefined);
       if (Err instanceof SparkPaymentFeeQuoteError) {
         setSparkFee(undefined);

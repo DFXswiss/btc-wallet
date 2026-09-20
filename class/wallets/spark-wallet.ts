@@ -1053,12 +1053,14 @@ export class SparkWallet extends AbstractWallet {
       payment = sent.payment;
     } catch (e) {
       if (e instanceof SparkSessionStaleError || this.sessionGone(lease)) {
-        // Without a payment id no SDK event can settle this send. Throw so the pay
-        // screen re-enables the button; a retry uses the same idempotency key.
+        // Without a payment id no SDK event can settle this send. The caller uses a
+        // fresh nonce for the next attempt so this one cannot block it; consequently,
+        // a retry after a lost response is no longer deduplicated by the SDK.
         throw e;
       }
-      // Reusing the idempotency key returns the existing payment instead of creating a second payment.
-      // If the first call never reached the server, this retry becomes the first real send, matching the user's intent to pay.
+      // This immediate retry is part of the same attempt and reuses its idempotency key.
+      // A later caller retry gets a fresh nonce so a failed or abandoned attempt cannot
+      // block it, at the cost of losing SDK deduplication after a lost response.
       try {
         const sent = await sdk.sendPayment(sendRequest);
         payment = sent.payment;
@@ -1169,12 +1171,14 @@ export class SparkWallet extends AbstractWallet {
       payment = sent.payment;
     } catch (e) {
       if (e instanceof SparkSessionStaleError || this.sessionGone(lease)) {
-        // Without a payment id no SDK event can settle this send. Throw so the pay
-        // screen re-enables the button; a retry uses the same idempotency key.
+        // Without a payment id no SDK event can settle this send. The caller uses a
+        // fresh nonce for the next attempt so this one cannot block it; consequently,
+        // a retry after a lost response is no longer deduplicated by the SDK.
         throw e;
       }
-      // Reusing the idempotency key returns the existing payment instead of creating a second payment.
-      // If the first call never reached the server, this retry becomes the first real send, matching the user's intent to pay.
+      // This immediate retry is part of the same attempt and reuses its idempotency key.
+      // A later caller retry gets a fresh nonce so a failed or abandoned attempt cannot
+      // block it, at the cost of losing SDK deduplication after a lost response.
       try {
         const sent = await sdk.sendPayment(sendRequest);
         payment = sent.payment;
