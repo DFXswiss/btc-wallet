@@ -22,7 +22,8 @@ onFlowComplete:
 # Nach der Zahlung wartet er in zehn gleichen Bloecken (Pause, sell-booked,
 # optional Abschlussaufruf, sell-complete). Die Verkaufsmaske folgt ohne
 # Schlusszusicherung. Danach ein sell-complete-Aufruf (POLL_ONCE) mit
-# demselben MIN_TX_ID, dann backendState, zuletzt der gefallene Spark-Saldo.
+# demselben MIN_TX_ID sowie bei Bedarf zwei weitere Poll-Runden, dann
+# backendState, zuletzt der gefallene Spark-Saldo.
 # Belegt ist die durchgaengige Verbuchung des Spark-Eingangs auf der
 # Verkaufsstrecke.
 - runFlow:
@@ -967,9 +968,42 @@ onFlowComplete:
                   - tapOn: 'Fertig'
             - waitForAnimationToEnd:
                 timeout: 15000
-            # Momentaufnahme nach der Maskenstrecke. POLL_ONCE, kein
-            # zusaetzlicher Warteblock. MIN_TX_ID ist die env-Bindung
-            # dieses runFlow (ueberlebt Relounches, output nicht).
+            # Momentaufnahme nach der Maskenstrecke. MIN_TX_ID ist die
+            # env-Bindung dieses runFlow (ueberlebt Relounches, output nicht).
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-complete
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendState !== 'ok'}
+                commands:
+                  - extendedWaitUntil:
+                      visible:
+                        id: E2EBackendPollPause
+                      timeout: 32000
+                      optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-complete
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendState !== 'ok'}
+                commands:
+                  - extendedWaitUntil:
+                      visible:
+                        id: E2EBackendPollPause
+                      timeout: 32000
+                      optional: true
             - runScript:
                 file: ../scripts/backend-state.js
                 env:
