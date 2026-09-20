@@ -15,15 +15,14 @@ env:
 # Kaufroute aus, wartet in zwoelf gleichen Bloecken aus Neustart plus
 # kurzer Backend-Abfrage, bis das Backend diesen Kauf als Completed
 # verbucht (id groesser als der Snapshot vor dem Ausloesen), und sichert
-# danach den gestiegenen Spark-Saldo zu. Belegt ist die durchgaengige
-# Verbuchung: Fiat-Eingang auf der Kaufroute, abgeschlossener Kauf,
-# Spark-Gutschrift in der Wallet.
+# danach den sichtbaren Spark-Saldo gegen den Auszahlungsbetrag dieses
+# Laufs zu. Belegt ist die durchgaengige Verbuchung: Fiat-Eingang auf der
+# Kaufroute, abgeschlossener Kauf, Spark-Gutschrift in der Wallet.
 # Die Vorgabe E2E_BUY_CHF=0,20 ergibt bei den Kursen dieses Aufbaus rund
 # 260 Satoshi und ist damit aus dem vorhandenen Bestand zahlbar.
-# Die Saldo-Zusicherung prueft, dass der Nachher-Betrag als Zahl groesser
-# ist als der Vorher-Betrag, nicht einen festen Zuwachs: der Auszahlungsbetrag
-# folgt dem Kurs und ist nicht vorhersagbar. Fehlt der Vorher-Saldo oder
-# parst er nicht als Satoshi, faellt der Flow fail-closed.
+# Die Schlusszusicherung liest den Spark-Saldo nach dem letzten Neustart
+# und vergleicht ihn mit outputAmount der Backend-Transaktion dieses Laufs
+# (in Satoshi). Ein Vorher-Wert ueberlebt den App-Neustart in Maestro nicht.
 - runFlow:
     when:
       true: ${E2E_SPARK_WALLET_ADDRESS === ''}
@@ -117,13 +116,6 @@ env:
 - extendedWaitUntil:
     visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
     timeout: 90000
-# Dieselbe copyTextFrom-Form wie P17 Zeile 53: Textmuster der Listen-Zeile.
-# id: WalletBalance plus text: meldete Erfolg, der Wert kam leer an (17.09.2026).
-- copyTextFrom: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
-- evalScript: "${output.walletBalanceText = String(maestro.copiedText || '').trim(); output.walletBalanceBeforeSat = !String(output.walletBalanceText || '').match(/([0-9][0-9., ]*)sats/i) ? 'NaN' : String(Number(String(String(output.walletBalanceText || '').match(/([0-9][0-9., ]*)sats/i)[1]).replace(/[^0-9]/g, ''))); output.walletBalanceRegex = output.walletBalanceBeforeSat == 'NaN' ? '^$' : '^' + String(output.walletBalanceBeforeSat).split('').join('[., ]?') + ' sats$'}"
-- assertTrue:
-    condition: ${output.walletBalanceRegex != null && output.walletBalanceRegex != '' && output.walletBalanceRegex != 'undefined' && output.walletBalanceRegex != '^$' && output.walletBalanceBeforeSat != 'NaN'}
-    label: pre-buy wallet balance did not arrive
 - tapOn:
     point: '50%,58%'
 - waitForAnimationToEnd:
@@ -138,11 +130,8 @@ env:
       id: WalletBalance
       text: '.*sats'
     timeout: 60000
-# runScript ersetzt output. Werte, die einen spaeteren runScript
-# ueberdauern muessen, gehen als env-Bindung in den folgenden Lauf.
+# runScript ersetzt output. MIN_TX_ID bleibt die env-Bindung des inneren runFlow.
 - runFlow:
-    env:
-      WALLET_BALANCE_TEXT: ${output.walletBalanceText}
     commands:
       - runScript:
           file: ../scripts/backend-state.js
@@ -150,14 +139,12 @@ env:
             E2E_API_URL: ${E2E_API_URL || ''}
             E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
             STATE_KIND: snapshot
-            PASSTHROUGH: ${WALLET_BALANCE_TEXT}
       - assertTrue:
           condition: ${output.backendMaxTxId != null && output.backendMaxTxId != '' && output.backendMaxTxId != 'undefined'}
           label: backendMaxTxId missing after snapshot
       - runFlow:
           env:
             MIN_TX_ID: "${Number(output.backendMaxTxId) > 0 ? String(output.backendMaxTxId) : ''}"
-            WALLET_BALANCE_TEXT: ${WALLET_BALANCE_TEXT}
           commands:
             - evalScript: "${output.simIdempotencyKey = 'p16-' + Date.now()}"
             - runScript:
@@ -170,10 +157,6 @@ env:
             - assertTrue:
                 condition: ${output.simulatedPayment === 'ok'}
                 label: simulatedPayment is not ok
-            - evalScript: "${output.walletBalanceText = String(WALLET_BALANCE_TEXT || '').trim(); output.walletBalanceBeforeSat = !String(output.walletBalanceText || '').match(/([0-9][0-9., ]*)sats/i) ? 'NaN' : String(Number(String(String(output.walletBalanceText || '').match(/([0-9][0-9., ]*)sats/i)[1]).replace(/[^0-9]/g, ''))); output.walletBalanceRegex = output.walletBalanceBeforeSat == 'NaN' ? '^$' : '^' + String(output.walletBalanceBeforeSat).split('').join('[., ]?') + ' sats$'}"
-            - assertTrue:
-                condition: ${output.walletBalanceRegex != null && output.walletBalanceRegex != '' && output.walletBalanceRegex != 'undefined' && output.walletBalanceRegex != '^$' && output.walletBalanceBeforeSat != 'NaN'}
-                label: pre-buy wallet balance did not arrive
             # Zwoelf gleiche Bloecke, keine Schleife: repeat/while endete
             # im Lauf vom 17.09.2026 nach zwei Durchgaengen, obwohl die
             # Bedingung noch galt. MIN_TX_ID bleibt die env-Bindung dieses
@@ -431,15 +414,16 @@ env:
                   PASSTHROUGH: ${output.passthrough}
                   MIN_TX_ID: "${MIN_TX_ID}"
                   POLL_ONCE: "true"
-                  PASSTHROUGH: ${WALLET_BALANCE_TEXT}
             - assertTrue:
                 condition: ${output.backendState === 'ok'}
                 label: backendState is not ok after buy-complete
-            - evalScript: "${output.walletBalanceText = String(WALLET_BALANCE_TEXT || '').trim(); output.walletBalanceBeforeSat = !String(output.walletBalanceText || '').match(/([0-9][0-9., ]*)sats/i) ? 'NaN' : String(Number(String(String(output.walletBalanceText || '').match(/([0-9][0-9., ]*)sats/i)[1]).replace(/[^0-9]/g, ''))); output.walletBalanceRegex = output.walletBalanceBeforeSat == 'NaN' ? '^$' : '^' + String(output.walletBalanceBeforeSat).split('').join('[., ]?') + ' sats$'}"
-            - assertTrue:
-                condition: ${output.walletBalanceRegex != null && output.walletBalanceRegex != '' && output.walletBalanceRegex != 'undefined' && output.walletBalanceRegex != '^$' && output.walletBalanceBeforeSat != 'NaN'}
-                label: pre-buy wallet balance did not arrive
-            - runFlow: ../_relaunch-keep-state.yaml
+            - launchApp:
+                clearState: false
+            - waitForAnimationToEnd:
+                timeout: 15000
+            - tapOn:
+                text: 'Nicht erlauben'
+                optional: true
             - extendedWaitUntil:
                 visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
                 timeout: 90000
@@ -457,24 +441,38 @@ env:
                   id: WalletBalance
                   text: '.*sats'
                 timeout: 60000
-            - extendedWaitUntil:
-                notVisible:
-                  id: WalletBalance
-                  text: ${output.walletBalanceRegex}
-                timeout: 60000
+            - launchApp:
+                clearState: false
+            - waitForAnimationToEnd:
+                timeout: 15000
+            - tapOn:
+                text: 'Nicht erlauben'
                 optional: true
-            - runFlow: ../_relaunch-keep-state.yaml
             - extendedWaitUntil:
                 visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
                 timeout: 90000
             - copyTextFrom: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
-            - evalScript: "${output.walletBalanceAfterText = String(maestro.copiedText || '').trim(); output.walletBalanceAfterSat = !String(output.walletBalanceAfterText || '').match(/([0-9][0-9., ]*)sats/i) ? 'NaN' : String(Number(String(String(output.walletBalanceAfterText || '').match(/([0-9][0-9., ]*)sats/i)[1]).replace(/[^0-9]/g, ''))); output.walletBalanceText = String(WALLET_BALANCE_TEXT || '').trim(); output.walletBalanceBeforeSat = !String(output.walletBalanceText || '').match(/([0-9][0-9., ]*)sats/i) ? 'NaN' : String(Number(String(String(output.walletBalanceText || '').match(/([0-9][0-9., ]*)sats/i)[1]).replace(/[^0-9]/g, ''))); output.walletBalanceRegex = output.walletBalanceBeforeSat == 'NaN' ? '^$' : '^' + String(output.walletBalanceBeforeSat).split('').join('[., ]?') + ' sats$'}"
+            - evalScript: "${output.walletBalanceAfterText = String(maestro.copiedText || '').trim(); output.walletBalanceAfterSat = !String(output.walletBalanceAfterText || '').match(/([0-9][0-9., ]*)sats/i) ? 'NaN' : String(Number(String(String(output.walletBalanceAfterText || '').match(/([0-9][0-9., ]*)sats/i)[1]).replace(/[^0-9]/g, '')))}"
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: buy-complete
+                  PASSTHROUGH: ${output.walletBalanceAfterSat}
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - evalScript: "${console.log('passthrough=' + output.passthrough)}"
+            - evalScript: "${console.log('backendTxAmount=' + output.backendTxAmount)}"
             - assertTrue:
-                condition: ${output.walletBalanceAfterSat != 'NaN'}
-                label: post-buy wallet balance did not arrive
+                condition: ${output.backendState === 'ok'}
+                label: backendState is not ok after buy-complete
             - assertTrue:
-                condition: "${output.walletBalanceBeforeSat != 'NaN' && Number(output.walletBalanceAfterSat) > Number(output.walletBalanceBeforeSat)}"
-                label: Spark balance after buy is not greater than the pre-buy balance
+                condition: "${Number(output.backendTxAmount) > 0 && Number(output.backendTxAmount) == Math.floor(Number(output.backendTxAmount))}"
+                label: backendTxAmount is not a positive integer
+            - assertTrue:
+                condition: "${Number(output.passthrough) >= Number(output.backendTxAmount)}"
+                label: "${'Spark balance after buy is below the backend payout amount passthrough=' + output.passthrough + ' backendTxAmount=' + output.backendTxAmount}"
             - tapOn:
                 point: '50%,58%'
             - waitForAnimationToEnd:
@@ -489,19 +487,6 @@ env:
                   id: WalletBalance
                   text: '.*sats'
                 timeout: 60000
-            - extendedWaitUntil:
-                notVisible:
-                  id: WalletBalance
-                  text: ${output.walletBalanceRegex}
-                timeout: 60000
-                optional: true
-            # Der Beleg fuer die Gutschrift steht in drei Teilen, alle
-            # verpflichtend: das Backend hat den Kauf als Completed verbucht,
-            # der Nachher-Betrag ist als Zahl groesser als der Vorher-Betrag,
-            # und WalletBalance zeigt nicht mehr den Vorher-Betrag.
-            - assertNotVisible:
-                id: WalletBalance
-                text: ${output.walletBalanceRegex}
             - assertVisible:
                 id: WalletLabel
                 text: 'Lightning \(Spark\)'

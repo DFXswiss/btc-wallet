@@ -33,13 +33,15 @@ Spark identity through `_setup-import.yaml` instead of creating a random wallet.
 - P14 and P15 need a Lightning counterpart, configured only through the
   runner's environment (`E2E_TREASURY_URL`, `E2E_TREASURY_KEY`, optional
   `E2E_TREASURY_MAX_SAT` default 1000, optional `E2E_TREASURY_MAX_FEE_SAT` default
-  100). The payment amount those two flows type and assert is `E2E_PAYMENT_SAT`
+  100). `E2E_TREASURY_*` applies only to those two Lightning flows. The
+  payment amount those two flows type and assert is `E2E_PAYMENT_SAT`
   (default 10). It must end in 0: the amount field keeps a zero after the
   cursor, so backspace deletes the last typed digit. P15 sends one tenth of that amount so the Spark fee still fits
   in the remaining balance. P16 and P17 also need `E2E_API_URL` and
   `E2E_DFX_JWT` (see the backend-API section below). P17 has no Lightning
-  funding and does not use `E2E_TREASURY_*`; it sells the Spark amount that
-  P16 credited, so P16 has to run first. P17's sell amount is
+  counterpart funding and does not use `E2E_TREASURY_*`. The wallet must
+  already hold the amount; it does because P16 runs first and buys it. P16
+  therefore has to run before P17. P17's sell amount is
   `E2E_PAYMENT_SAT` (default 10). P16's buy amount is
   `E2E_BUY_CHF` (default 0.20). Maestro's `runScript` sandbox does not see the shell
   environment, so the runner forwards `E2E_PAYMENT_SAT` (always, default 10) and
@@ -59,9 +61,10 @@ Spark identity through `_setup-import.yaml` instead of creating a random wallet.
   are rejected before anything is sent. The helpers never print the key or the
   JWT; BOLT11
   values they print are the invoices the app has to pay (P15 send, P14
-  receive). P14 and P17 return leftover Spark through the wallet send path
-  to `E2E_SPARK_RETURN_ADDRESS`; if that name is unset the hook skips
-  without failing. The runner does not echo the forwarded values.
+  receive). P14 and P17 return leftover Spark through the wallet's Spark
+  send path to `E2E_SPARK_RETURN_ADDRESS`; if that name is unset the hook
+  skips without failing. The return does not use `E2E_TREASURY_*`. The
+  runner does not echo the forwarded values.
 - The given simulator must not hold any wallet state worth protecting for
   P01–P15. Before every flow the runner terminates and uninstalls the app,
   resets the simulator keychain and installs the given bundle anew. On top of
@@ -136,10 +139,14 @@ P16 triggers an incoming payment on the identity's active buy route
 (`PUT /v1/buy/<id>/simulatePayment`) for `E2E_BUY_CHF` (default 0.20), waits
 until `GET /v1/transaction`
 shows a Buy in Completed with an id greater than the snapshot taken before
-that trigger, then asserts the Spark wallet balance has risen. P17 snapshots
-`GET /v1/transaction` before the wallet send, then waits for a Sell to be
-booked and then Completed, again only counting ids greater than the
-snapshot.
+that trigger, then asserts the visible Spark balance is at least the amount
+the backend paid out in this run (`backendTxAmount` from
+`backend-state.js`; the balance is returned as `passthrough` through the
+same script). Limitation: if the wallet already held at least this amount
+before the buy, the condition is also satisfied without the new credit. P17
+snapshots `GET /v1/transaction` before the wallet send, then waits for a
+Sell to be booked and then Completed, again only counting ids greater than
+the snapshot.
 
 The local stack must accept that JWT, expose those routes, process the buy
 through to a Spark credit, and process the sell through to Completed. Never
@@ -195,6 +202,12 @@ on a configuration error or an empty filter.
 
 ## Deliberate limits
 
+In Maestro no value survives an app restart (`launchApp`). Measured on four
+paths — `env` binding, `output.passthrough`, a file across the script
+runtime, and both `runFlow` calls pulled inline — the before-value arrived
+as `undefined` every time. A before/after comparison across a restart is
+therefore not possible.
+
 - P8–P10 still send no money. With a reproducible expired BOLT11 vector P8 checks
   parsing, amount, the rendering of the invoice itself (`lnbc2500u`) and the
   expected expiry error. P9 captures the Lightning address created in the same
@@ -220,13 +233,18 @@ on a configuration error or an empty filter.
   `IBAN` and `BIC`, and that `Invalid signature` is absent. It then triggers
   an incoming payment on the buy route, waits for the backend to complete
   that buy (id greater than the snapshot taken before the trigger), and
-  asserts `WalletBalance` has risen. The incoming payment is raised through
+  asserts the visible Spark balance is at least the amount the backend paid
+  out in this run (`backendTxAmount` from `backend-state.js`; the balance
+  is returned as `passthrough` through the same script). Limitation: if the
+  wallet already held at least this amount before the buy, the condition is
+  also satisfied without the new credit. In a green run the visible balance
+  was 211 sat and the payout 45 sat. The incoming payment is raised through
   the API helper (`dfx-simulate-payment.js`, `E2E_BUY_CHF` default 0.20), not a
-  transfer from a real bank. P16 does not assert a specific sat credit.
-  P17 has no funding of its own. It requires P16 to have run first so the
-  imported identity already holds the Spark payout that P17 sells. It
-  asserts the visible Spark balance is at least `E2E_PAYMENT_SAT` (default
-  10) and fails rather than skip if it is not. It then pays
+  transfer from a real bank. P17 has no Lightning counterpart funding: the
+  wallet must already hold the amount, and it does because P16 runs first
+  and buys it. P16 therefore has to run before P17. P17 asserts the visible
+  Spark balance is at least `E2E_PAYMENT_SAT` (default 10) and fails rather
+  than skip if it is not. It then pays
   `E2E_SPARK_DEPOSIT_ADDRESS` through the wallet send path, asserts
   `WalletBalance` has fallen, and waits for the backend to book and then
   complete a Sell with id greater than the snapshot taken before the send.
@@ -237,8 +255,9 @@ on a configuration error or an empty filter.
 - P14 and P17 return the visible Spark balance minus a 4 sat fee reserve in an
   `onFlowComplete` hook (`_return-spark-balance.yaml`), so the return also runs
   after a failed assertion. The return uses the wallet's Spark send path to
-  `E2E_SPARK_RETURN_ADDRESS`, not a Lightning counterpart. If that address is
-  unset the hook skips, logs that, and does not fail the flow. At the default
+  `E2E_SPARK_RETURN_ADDRESS`, not a Lightning counterpart, and does not use
+  `E2E_TREASURY_*`. If that address is unset the hook skips, logs that, and
+  does not fail the flow. At the default
   10 sat credit that leaves 6 sat returnable. A completed P14 therefore costs
   only the native Lightning fee.
   P17 returns only the Spark remainder after the sell; the sold amount does not

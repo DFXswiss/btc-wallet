@@ -20,10 +20,11 @@ onFlowComplete:
 #
 # Vor der Zahlung merkt der Flow den hoechsten Backend-Transaktionsstand.
 # Nach der Zahlung wartet er in zehn gleichen Bloecken (Pause, sell-booked,
-# optional Abschlussaufruf, sell-complete), bis ein Verkauf mit groesserer
-# id als Completed gefuehrt wird, sichert backendState, prueft danach die
-# Verkaufsmaske und zuletzt den gefallenen Spark-Saldo. Belegt ist die
-# durchgaengige Verbuchung des Spark-Eingangs auf der Verkaufsstrecke.
+# optional Abschlussaufruf, sell-complete). Die Verkaufsmaske folgt ohne
+# Schlusszusicherung. Danach ein sell-complete-Aufruf (POLL_ONCE) mit
+# demselben MIN_TX_ID, dann backendState, zuletzt der gefallene Spark-Saldo.
+# Belegt ist die durchgaengige Verbuchung des Spark-Eingangs auf der
+# Verkaufsstrecke.
 - runFlow:
     when:
       true: ${E2E_SPARK_DEPOSIT_ADDRESS === ''}
@@ -86,7 +87,8 @@ onFlowComplete:
       WALLET_BALANCE_TEXT: ${output.walletBalanceText}
 - evalScript: "${output.paymentBtc = (Number(output.paymentSat) / 100000000).toFixed(8)}"
 # Zuerst der Sendeweg. Der Wartebereich folgt direkt hinter Zahlen.
-# Die Verkaufsmaske kommt nach sell-complete. SendButton sitzt auf
+# Die Verkaufsmaske kommt nach dem Wartebereich; sell-complete wird
+# danach zugesichert. SendButton sitzt auf
 # derselben Spark-Detailansicht wie die gerade aufgenommene Saldozeile.
 - extendedWaitUntil:
     visible:
@@ -859,9 +861,6 @@ onFlowComplete:
                   MIN_TX_ID: "${MIN_TX_ID}"
                   POLL_ONCE: "true"
                   PASSTHROUGH: ${WALLET_BALANCE_TEXT}
-            - assertTrue:
-                condition: ${output.backendState === 'ok'}
-                label: backendState is not ok after sell-complete
             # runScript ersetzt output. Vorher-Saldo kommt als env-Bindung
             # WALLET_BALANCE_TEXT dieses runFlow, nicht aus output.passthrough:
             # die Maske folgt dazwischen, nackte output-Felder ueberleben das
@@ -874,7 +873,8 @@ onFlowComplete:
                   WALLET_BALANCE_TEXT: ${WALLET_BALANCE_TEXT}
             - evalScript: "${output.paymentBtc = (Number(output.paymentSat) / 100000000).toFixed(8)}"
             # Nach dem Wartebereich die Spark-Detailansicht herstellen, dann die
-            # Verkaufsmaske pruefen. Die Backend-Kette ist bereits durch.
+            # Verkaufsmaske pruefen. Die Backend-Kette darf waehrenddessen
+            # weiterlaufen; die Schlusszusicherung kommt danach.
             - runFlow: ../_relaunch-keep-state.yaml
             - extendedWaitUntil:
                 visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
@@ -936,7 +936,7 @@ onFlowComplete:
             # Was der Flow stattdessen zusichert: die App ist zurueck und zeigt die
             # Spark-Zeile. Die Einzahlungsadresse wird nicht am Schirm geprueft — sie
             # steht in `E2E_SPARK_DEPOSIT_ADDRESS` und wurde vor dem Wartebereich bezahlt;
-            # die Verbuchung hat der Wartebereich vor der Maske geprueft.
+            # die Verbuchung wird nach der Maske per sell-complete zugesichert.
             # Nach dem Deeplink steht die App auf der Spark-**Detailansicht**, nicht auf
             # der Wallet-Liste (gemessen am Bildschirmfoto: Titel Lightning (Spark),
             # Saldo, Transaktionsliste).
@@ -967,6 +967,20 @@ onFlowComplete:
                   - tapOn: 'Fertig'
             - waitForAnimationToEnd:
                 timeout: 15000
+            # Momentaufnahme nach der Maskenstrecke. POLL_ONCE, kein
+            # zusaetzlicher Warteblock. MIN_TX_ID ist die env-Bindung
+            # dieses runFlow (ueberlebt Relounches, output nicht).
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-complete
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - assertTrue:
+                condition: ${output.backendState === 'ok'}
+                label: backendState is not ok after sell-complete
             # Vorher-Saldo als env-Bindung, unmittelbar vor der Zusicherung.
             # Die Maske hat dazwischen Relounches; nacktes output.passthrough
             # aus dem letzten sell-complete ist danach nicht der Beleg.

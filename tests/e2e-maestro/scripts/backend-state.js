@@ -3,11 +3,14 @@
 // until a transaction matches STATE_KIND. Observed on the local stack
 // (http://127.0.0.1:3300, 2026-09-15): JSON array of TransactionDto.
 // Fields read: id (number), type ("Buy"|"Sell"|...), state (e.g. "Completed",
-// "LiquidityPending"). snapshot returns the highest id once and does not wait.
+// "LiquidityPending"), outputAmount (number, asset units). On a match,
+// outputAmount is converted to whole sat (BTC * 1e8) as backendTxAmount;
+// if outputAmount is missing or not a positive amount, backendTxAmount is
+// left unset. snapshot returns the highest id once and does not wait.
 // Optional MIN_TX_ID (positive integer) keeps only rows with id > MIN_TX_ID for
 // buy-complete, sell-booked, and sell-complete. Optional POLL_ONCE=true asks
 // once, never waits, and exits 0 with backendState pending on a miss (ok plus
-// id/state on a hit). Real errors still exit 2 or 1. Optional PASSTHROUGH is
+// id/state/amount on a hit). Real errors still exit 2 or 1. Optional PASSTHROUGH is
 // copied unchanged to output.passthrough on every exit 0 (ok, pending, and
 // snapshot). It is not read for any check. userAddress is an optional
 // API filter and is omitted because the JWT already scopes the subject. Never
@@ -314,6 +317,17 @@ function txId(tx) {
   return '';
 }
 
+function txAmountSat(tx) {
+  if (!tx || tx.outputAmount === undefined || tx.outputAmount === null || String(tx.outputAmount) === '') {
+    return null;
+  }
+  const btc = Number(tx.outputAmount);
+  if (!Number.isFinite(btc) || btc <= 0) return null;
+  const sat = Math.round(btc * 1e8);
+  if (!Number.isInteger(sat) || sat <= 0) return null;
+  return sat;
+}
+
 function applySuccess(tx) {
   const id = txId(tx);
   const state = String((tx && tx.state) || '');
@@ -321,7 +335,13 @@ function applySuccess(tx) {
   setOutput('backendState', 'ok');
   setOutput('backendTxId', id);
   setOutput('backendTxState', state);
-  writeStdout('backendState=ok id=' + id + ' state=' + state);
+  const amountSat = txAmountSat(tx);
+  if (amountSat !== null) {
+    setOutput('backendTxAmount', String(amountSat));
+  }
+  writeStdout(
+    'backendState=ok id=' + id + ' state=' + state + (amountSat !== null ? ' amount=' + amountSat : ''),
+  );
   applyPassthrough();
 }
 
