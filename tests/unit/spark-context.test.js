@@ -42,6 +42,9 @@ jest.mock('../../api/spark/spark-sdk', () => {
 
 jest.mock('../../class', () => ({
   HDSegwitBech32Wallet: { type: 'HDsegwitBech32' },
+  HDSegwitP2SHWallet: { type: 'HDsegwitP2SH' },
+  HDLegacyP2PKHWallet: { type: 'HDlegacyP2PKH' },
+  HDLegacyBreadwalletWallet: { type: 'HDLegacyBreadwallet' },
 }));
 
 const { SparkWallet } = require('../../class/wallets/spark-wallet');
@@ -67,6 +70,9 @@ const Probe = () => {
 
 const MNEMONIC = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
 const MNEMONIC_B = 'legal winner thank year wave sausage worth useful legal winner thank yellow';
+const SPARK_MNEMONIC = 'prosper short ramp prepare exchange stove life snack client enough purpose fold';
+const SPARK_MNEMONIC_PASSPHRASE = 'car over raven tomato east trust board lend wave horn behind trip';
+const SPARK_MNEMONIC_B = 'weird hair hip place rail airport twin immense stomach later push carpet';
 
 const hdWallet = {
   type: 'HDsegwitBech32',
@@ -171,7 +177,10 @@ describe('SparkContextProvider', () => {
     assert.notStrictEqual(created.sourceWalletId, MNEMONIC);
     assert.ok(!String(created.sourceWalletId).includes('abandon'));
     expect(addAndSaveWallet).toHaveBeenCalledWith(created);
-    expect(mockConnect).toHaveBeenCalled();
+    expect(mockConnect).toHaveBeenCalledWith(SPARK_MNEMONIC, expect.any(Function));
+    for (const args of mockConnect.mock.calls) {
+      assert.ok(!args.some(a => typeof a === 'string' && a.includes(MNEMONIC)));
+    }
     expect(mockSdk.registerLightningAddress).not.toHaveBeenCalled();
     alert.mockRestore();
   });
@@ -695,9 +704,9 @@ describe('SparkContextProvider', () => {
   });
 
   it('does not put SDK error messages (seed markers) into console.error for Sentry', async () => {
-    // connectSparkSdk sees the mnemonic; if the SDK echoed it into Error.message we must not
+    // connectSparkSdk sees the Spark child phrase; if the SDK echoed it into Error.message we must not
     // ship that via captureConsoleIntegration({ levels: ['error'] }) in App.js.
-    const seedMarker = 'abandon abandon abandon';
+    const seedMarker = 'prosper short ramp';
     mockConnect.mockRejectedValue(new Error(`invalid mnemonic: ${seedMarker}`));
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -815,9 +824,9 @@ describe('SparkContextProvider', () => {
     alert.mockRestore();
   });
 
-  it('falls back to wallets[0] when no HD type is present', async () => {
+  it('falls back to another allowlisted HD type when HDsegwitBech32 is absent', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    const other = { type: 'legacy', getSecret: () => MNEMONIC, getID: () => 'legacy-1' };
+    const other = { type: 'HDsegwitP2SH', getSecret: () => MNEMONIC, getID: () => 'p2sh-1' };
     renderWith([other]);
     await waitFor(() => assert.ok(latestCtx));
 
@@ -826,7 +835,44 @@ describe('SparkContextProvider', () => {
       created = await latestCtx.createSparkWallet();
     });
     assert.ok(created);
-    expect(mockConnect).toHaveBeenCalled();
+    expect(mockConnect).toHaveBeenCalledWith(SPARK_MNEMONIC, expect.any(Function));
+    alert.mockRestore();
+  });
+
+  it('rejects create when only a non-BIP39 wallet type is present', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const electrum = {
+      type: 'HDSegwitElectrumSeedP2WPKHWallet',
+      getSecret: () => MNEMONIC,
+      getID: () => 'electrum-1',
+    };
+    renderWith([electrum]);
+    await waitFor(() => assert.ok(latestCtx));
+
+    let result;
+    await act(async () => {
+      result = await latestCtx.createSparkWallet();
+    });
+    assert.strictEqual(result, null);
+    expect(mockConnect).not.toHaveBeenCalled();
+    expect(addAndSaveWallet).not.toHaveBeenCalled();
+    expect(alert).toHaveBeenCalled();
+    alert.mockRestore();
+  });
+
+  it('rejects reconnect when the bound source wallet is not an allowlisted BIP39 HD type', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const electrum = {
+      type: 'HDSegwitElectrumSeedP2WPKHWallet',
+      getSecret: () => MNEMONIC,
+      getID: () => 'electrum-1',
+    };
+    const spark = stubSparkMethods(SparkWallet.create('pk-bound'));
+    spark.sourceWalletId = 'electrum-1';
+    renderWith([electrum, spark]);
+    await waitFor(() => expect(alert).toHaveBeenCalled());
+    expect(mockConnect).not.toHaveBeenCalled();
+    expect(String(alert.mock.calls[0][1])).toBe(expectedUserFacingError(new Error('On-chain recovery phrase is not available')));
     alert.mockRestore();
   });
 
@@ -869,7 +915,7 @@ describe('SparkContextProvider', () => {
     await act(async () => {
       await latestCtx.createSparkWallet();
     });
-    expect(mockConnect).toHaveBeenCalledWith(MNEMONIC, expect.any(Function), undefined);
+    expect(mockConnect).toHaveBeenCalledWith(SPARK_MNEMONIC, expect.any(Function));
     expect(addAndSaveWallet).toHaveBeenCalled();
   });
 
@@ -930,17 +976,17 @@ describe('SparkContextProvider', () => {
 
     render(<Harness />);
     await waitFor(() => expect(mockConnect).toHaveBeenCalled());
-    expect(mockConnect.mock.calls[0][0]).toBe(MNEMONIC);
+    expect(mockConnect.mock.calls[0][0]).toBe(SPARK_MNEMONIC);
 
     mockConnect.mockClear();
     await act(async () => {
       setWalletsRef.current([hdB, second]);
     });
     await waitFor(() => expect(mockConnect).toHaveBeenCalled());
-    expect(mockConnect.mock.calls[0][0]).toBe(seedB);
+    expect(mockConnect.mock.calls[0][0]).toBe(SPARK_MNEMONIC_B);
   });
 
-  it('hands a new on-chain seed to connectSparkSdk while a session is already live', async () => {
+  it('reconnects with the new Spark child when the on-chain seed changes while a session is already live', async () => {
     const seedB = 'legal winner thank year wave sausage worth useful legal winner thank yellow';
     const hdB = { type: 'HDsegwitBech32', getSecret: () => seedB };
     const existing = stubSparkMethods(SparkWallet.create('switch-pk'));
@@ -966,7 +1012,7 @@ describe('SparkContextProvider', () => {
 
     render(<Harness />);
     await waitFor(() => expect(mockConnect).toHaveBeenCalled());
-    expect(mockConnect.mock.calls[0][0]).toBe(MNEMONIC);
+    expect(mockConnect.mock.calls[0][0]).toBe(SPARK_MNEMONIC);
 
     mockConnect.mockClear();
     await act(async () => {
@@ -978,7 +1024,7 @@ describe('SparkContextProvider', () => {
     });
 
     await waitFor(() => expect(mockConnect).toHaveBeenCalled());
-    expect(mockConnect.mock.calls[0][0]).toBe(seedB);
+    expect(mockConnect.mock.calls[0][0]).toBe(SPARK_MNEMONIC_B);
   });
 
   it('resolves a pending outgoing payment from a PaymentSucceeded event, not from a wait loop', async () => {
@@ -1716,7 +1762,7 @@ describe('SparkContextProvider', () => {
     alert.mockRestore();
   });
 
-  it('hands the on-chain BIP39 passphrase to connectSparkSdk', async () => {
+  it('derives a different Spark child for a BIP39 passphrase and never passes the passphrase on', async () => {
     const hd = {
       type: 'HDsegwitBech32',
       getSecret: () => MNEMONIC,
@@ -1725,7 +1771,10 @@ describe('SparkContextProvider', () => {
     const existing = stubSparkMethods(SparkWallet.create('stored-pk'));
     renderWith([hd, existing]);
     await waitFor(() => expect(mockConnect).toHaveBeenCalled());
-    expect(mockConnect).toHaveBeenCalledWith(MNEMONIC, expect.any(Function), 'super secret passphrase');
+    expect(mockConnect).toHaveBeenCalledWith(SPARK_MNEMONIC_PASSPHRASE, expect.any(Function));
+    for (const args of mockConnect.mock.calls) {
+      assert.ok(!args.some(a => a === 'super secret passphrase'));
+    }
   });
 
   it('creates from an on-chain wallet that has no getPassphrase method', async () => {
@@ -1739,11 +1788,29 @@ describe('SparkContextProvider', () => {
       created = await latestCtx.createSparkWallet();
     });
     assert.ok(created);
-    expect(mockConnect).toHaveBeenCalledWith(MNEMONIC, expect.any(Function), undefined);
+    expect(mockConnect).toHaveBeenCalledWith(SPARK_MNEMONIC, expect.any(Function));
     expect(addAndSaveWallet).toHaveBeenCalledWith(created);
   });
 
-  it('does not treat a missing or empty passphrase as an empty string', async () => {
+  it('creates from a non-English on-chain wallet', async () => {
+    const french = 'abaisser abaisser abaisser abaisser abaisser abaisser abaisser abaisser abaisser abaisser abaisser abeille';
+    const wallet = { type: 'HDsegwitBech32', getSecret: () => french, getID: () => 'hd-french' };
+    renderWith([wallet]);
+    await waitFor(() => assert.ok(latestCtx));
+
+    let created;
+    await act(async () => {
+      created = await latestCtx.createSparkWallet();
+    });
+    assert.ok(created);
+    expect(mockConnect).toHaveBeenCalledWith(
+      'panda lesson setup coffee uncle beyond night burger hello artist sick hawk',
+      expect.any(Function),
+    );
+    expect(addAndSaveWallet).toHaveBeenCalledWith(created);
+  });
+
+  it('derives the same Spark child for an empty passphrase as for none', async () => {
     const hd = {
       type: 'HDsegwitBech32',
       getSecret: () => MNEMONIC,
@@ -1752,31 +1819,36 @@ describe('SparkContextProvider', () => {
     const existing = stubSparkMethods(SparkWallet.create('stored-pk'));
     renderWith([hd, existing]);
     await waitFor(() => expect(mockConnect).toHaveBeenCalled());
-    expect(mockConnect).toHaveBeenCalledWith(MNEMONIC, expect.any(Function), undefined);
-    assert.notStrictEqual(mockConnect.mock.calls[0][2], '');
+    expect(mockConnect).toHaveBeenCalledWith(SPARK_MNEMONIC, expect.any(Function));
   });
 
-  it('does not put the BIP39 passphrase into console.error or the alert', async () => {
-    const passphrase = 'unique-passphrase-marker-xyzzy';
+  it('does not put the phrase the SDK received, the on-chain phrase or the passphrase into console.error or the alert', async () => {
+    const passphrase = 'super secret passphrase';
     const hd = {
       type: 'HDsegwitBech32',
       getSecret: () => MNEMONIC,
       getPassphrase: () => passphrase,
     };
-    mockConnect.mockRejectedValue(new Error(`invalid mnemonic: ${MNEMONIC} passphrase=${passphrase}`));
+    mockConnect.mockImplementation(async mnemonic => {
+      throw new Error(`invalid mnemonic: ${mnemonic}`);
+    });
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     const existing = stubSparkMethods(SparkWallet.create('stored-pk'));
     renderWith([hd, existing]);
 
     await waitFor(() => expect(errorSpy).toHaveBeenCalled());
-    for (const args of errorSpy.mock.calls) {
-      for (const arg of args) {
-        assert.ok(!String(arg).includes(passphrase), `console.error must not contain passphrase: ${arg}`);
-      }
-    }
+    expect(mockConnect).toHaveBeenCalledWith(SPARK_MNEMONIC_PASSPHRASE, expect.any(Function));
+    const secrets = [SPARK_MNEMONIC_PASSPHRASE, MNEMONIC, passphrase];
     expect(alert).toHaveBeenCalled();
-    expect(String(alert.mock.calls[0][1])).not.toContain(passphrase);
+    for (const secret of secrets) {
+      for (const args of errorSpy.mock.calls) {
+        for (const arg of args) {
+          assert.ok(!String(arg).includes(secret), `console.error must not contain secret material: ${arg}`);
+        }
+      }
+      assert.ok(!String(alert.mock.calls[0][1]).includes(secret), `alert must not contain secret material: ${alert.mock.calls[0][1]}`);
+    }
     expect(errorSpy.mock.calls.some(c => c[0] === 'SparkContext: failed to connect' && c[1] === 'Error')).toBe(true);
 
     alert.mockRestore();
@@ -1811,7 +1883,7 @@ describe('SparkContextProvider', () => {
     assert.notStrictEqual(created.sourceWalletId, MNEMONIC_B);
     assert.ok(!String(created.sourceWalletId).includes('abandon'));
     assert.ok(!String(created.sourceWalletId).includes('winner'));
-    expect(mockConnect).toHaveBeenCalledWith(MNEMONIC, expect.any(Function), undefined);
+    expect(mockConnect).toHaveBeenCalledWith(SPARK_MNEMONIC, expect.any(Function));
   });
 
   it('connects with the bound source wallet after HD wallets are reordered', async () => {
@@ -1831,9 +1903,9 @@ describe('SparkContextProvider', () => {
     spark.sourceWalletId = 'hd-a';
     renderWith([hdB, hdA, spark]);
     await waitFor(() => expect(mockConnect).toHaveBeenCalled());
-    expect(mockConnect).toHaveBeenCalledWith(MNEMONIC, expect.any(Function), undefined);
-    assert.strictEqual(mockConnect.mock.calls[0][0], MNEMONIC);
-    assert.notStrictEqual(mockConnect.mock.calls[0][0], MNEMONIC_B);
+    expect(mockConnect).toHaveBeenCalledWith(SPARK_MNEMONIC, expect.any(Function));
+    assert.strictEqual(mockConnect.mock.calls[0][0], SPARK_MNEMONIC);
+    assert.notStrictEqual(mockConnect.mock.calls[0][0], SPARK_MNEMONIC_B);
   });
 
   it('does not fall back to another HD wallet when the bound source is missing', async () => {
@@ -1902,7 +1974,7 @@ describe('SparkContextProvider', () => {
     });
     await waitFor(() => expect(mockConnect.mock.calls.length).toBeGreaterThanOrEqual(2));
     await waitFor(() => assert.strictEqual(latestCtx.isConnected, true));
-    expect(mockConnect.mock.calls[mockConnect.mock.calls.length - 1][0]).toBe(MNEMONIC);
+    expect(mockConnect.mock.calls[mockConnect.mock.calls.length - 1][0]).toBe(SPARK_MNEMONIC);
 
     alert.mockRestore();
     AppState.addEventListener = orig;

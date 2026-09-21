@@ -3,7 +3,7 @@ import { Alert, AppState, AppStateStatus } from 'react-native';
 import createHash from 'create-hash';
 import { SdkEvent_Tags, type SdkEvent } from '@breeztech/breez-sdk-spark-react-native';
 import { BlueStorageContext } from '../../../blue_modules/storage-context';
-import { HDSegwitBech32Wallet } from '../../../class';
+import { HDLegacyBreadwalletWallet, HDLegacyP2PKHWallet, HDSegwitBech32Wallet, HDSegwitP2SHWallet } from '../../../class';
 import { SparkWallet } from '../../../class/wallets/spark-wallet';
 import loc from '../../../loc';
 import {
@@ -15,7 +15,15 @@ import {
   syncSparkWallet,
   type SparkSessionLease,
 } from '../spark-sdk';
+import { deriveSparkMnemonic } from '../spark-seed';
 import { applyOutgoingSdkEvent, getOutgoingPayment, subscribeOutgoingPayment, type OutgoingPayment } from '../outgoing-payment';
+
+const BIP39_HD_WALLET_TYPES = new Set([
+  HDSegwitBech32Wallet.type,
+  HDSegwitP2SHWallet.type,
+  HDLegacyP2PKHWallet.type,
+  HDLegacyBreadwalletWallet.type,
+]);
 
 const LIGHTNING_ADDRESS_USERNAME_LENGTH = 16;
 const LIGHTNING_ADDRESS_REGISTER_ATTEMPTS = 5;
@@ -109,13 +117,15 @@ function sourceWalletIdOf(wallet: OnChainMnemonicWallet): string | undefined {
   }
 }
 
-function mnemonicFromWallet(hd: OnChainMnemonicWallet): { mnemonic: string; passphrase?: string } {
-  const secret = hd.getSecret();
-  if (!secret || !secret.includes(' ')) {
+function sparkMnemonicFromWallet(hd: OnChainMnemonicWallet): string {
+  if (!BIP39_HD_WALLET_TYPES.has(hd.type)) {
     throw new Error('On-chain recovery phrase is not available');
   }
-  const rawPassphrase = hd.getPassphrase?.();
-  return { mnemonic: secret, passphrase: rawPassphrase || undefined };
+  const secret = hd.getSecret();
+  if (!secret) {
+    throw new Error('On-chain recovery phrase is not available');
+  }
+  return deriveSparkMnemonic(secret, hd.getPassphrase?.() || undefined);
 }
 
 function resolveOnChainWallet(
@@ -130,19 +140,15 @@ function resolveOnChainWallet(
     }
     return bound;
   }
-  const hd = wallets.find(w => w.type === HDSegwitBech32Wallet.type) || wallets[0];
+  const hd = wallets.find(w => w.type === HDSegwitBech32Wallet.type) || wallets.find(w => BIP39_HD_WALLET_TYPES.has(w.type));
   if (!hd) {
     throw new Error('On-chain wallet is required to create a Spark Lightning wallet');
   }
   return hd;
 }
 
-function getOnChainMnemonic(
-  wallets: OnChainMnemonicWallet[],
-  sourceWalletId?: string,
-  sourceWalletLabel?: string,
-): { mnemonic: string; passphrase?: string } {
-  return mnemonicFromWallet(resolveOnChainWallet(wallets, sourceWalletId, sourceWalletLabel));
+function getSparkMnemonic(wallets: OnChainMnemonicWallet[], sourceWalletId?: string, sourceWalletLabel?: string): string {
+  return sparkMnemonicFromWallet(resolveOnChainWallet(wallets, sourceWalletId, sourceWalletLabel));
 }
 
 function getSparkWallet(wallets: { type: string }[]): SparkWallet | undefined {
@@ -244,12 +250,12 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
   );
 
   const ensureConnected = useCallback(
-    async (mnemonic: string, passphrase?: string): Promise<void> => {
+    async (mnemonic: string): Promise<void> => {
       // Always call through: connectSparkSdk reuses, replaces, or joins an in-flight connect.
       connectingCountRef.current += 1;
       setIsConnecting(true);
       try {
-        await connectSparkSdk(mnemonic, onSdkEvent, passphrase);
+        await connectSparkSdk(mnemonic, onSdkEvent);
         setIsConnected(true);
       } catch (e) {
         setIsConnected(false);
@@ -267,8 +273,8 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
   const reconnectSpark = useCallback(async (): Promise<void> => {
     const spark = getSparkWallet(walletsRef.current);
     if (!spark) return;
-    const { mnemonic, passphrase } = getOnChainMnemonic(walletsRef.current, spark.sourceWalletId, spark.sourceWalletLabel);
-    await ensureConnected(mnemonic, passphrase);
+    const mnemonic = getSparkMnemonic(walletsRef.current, spark.sourceWalletId, spark.sourceWalletLabel);
+    await ensureConnected(mnemonic);
     await refreshSparkWallet(spark);
   }, [ensureConnected, refreshSparkWallet]);
 
@@ -277,7 +283,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
       await reconnectSpark();
     } catch (e: unknown) {
       // console.error is forwarded to crash reports; never log the raw message
-      // because connect receives the recovery phrase and API key, and the error
+      // because connect receives the Spark child phrase and API key, and the error
       // text can repeat those inputs. Log only a fixed tag and the error class.
       console.error('SparkContext: failed to connect', errorClass(e));
       setIsConnected(false);
@@ -319,7 +325,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
       } catch (e: unknown) {
         if (cancelled) return;
         // console.error is forwarded to crash reports; never log the raw message
-        // because connect receives the recovery phrase and API key, and the error
+        // because connect receives the Spark child phrase and API key, and the error
         // text can repeat those inputs. Log only a fixed tag and the error class.
         console.error('SparkContext: failed to connect', errorClass(e));
         setIsConnected(false);
@@ -387,12 +393,12 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
     let created: SparkWallet | undefined;
     try {
       const source = resolveOnChainWallet(walletsRef.current);
-      const { mnemonic, passphrase } = mnemonicFromWallet(source);
+      const mnemonic = sparkMnemonicFromWallet(source);
       const sourceId = sourceWalletIdOf(source);
       if (!sourceId) {
         throw new Error('On-chain wallet is required to create a Spark Lightning wallet');
       }
-      await ensureConnected(mnemonic, passphrase);
+      await ensureConnected(mnemonic);
 
       const lease = acquireSparkSessionLease();
       const info = await lease.requireSdk().getInfo({ ensureSynced: false });
