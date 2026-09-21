@@ -374,7 +374,6 @@ function sleepNode(ms) {
 }
 
 function pollSync(config) {
-  let seen = 'none';
   while (true) {
     const txs = httpJsonSync(config);
     const hit = findMatch(txs, config.kind, config.minTxId);
@@ -382,7 +381,7 @@ function pollSync(config) {
       applySuccess(hit, config.kind);
       return;
     }
-    seen = summarize(txs);
+    const seen = summarize(txs);
     if (config.pollOnce) {
       applyPending();
       return;
