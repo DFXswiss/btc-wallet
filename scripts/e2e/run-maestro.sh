@@ -16,6 +16,10 @@ readonly INTER_FLOW_PAUSE_SECONDS=12
 SIMULATOR_UDID=''
 APP_BUNDLE_PATH=''
 FLOW_FILTER='*.yaml'
+SETTLE_SERVICE_PID=''
+SETTLE_SERVICE_ENABLED=0
+SETTLE_SERVICE_URL=''
+manifest_tmp=''
 
 usage() {
   printf 'Usage: %s --device SIMULATOR_UDID --app APP_BUNDLE [--flow FLOW_GLOB]\n' "$0"
@@ -77,6 +81,16 @@ command -v java >/dev/null 2>&1 || fail 'Java is not available after setting JAV
 MAESTRO_BIN="$(command -v maestro)" || fail 'maestro is not installed or not on PATH'
 command -v xcrun >/dev/null 2>&1 || fail 'xcrun is not installed or not on PATH'
 [[ -d "$FLOW_DIR" ]] || fail "flow directory does not exist: $FLOW_DIR"
+
+# SETTLE_KEY opts into the repository-owned local bank-return helper. P17
+# already requires E2E_API_URL; requiring both keeps all other runs unchanged.
+# The helper itself rejects non-loopback API origins before opening its port.
+if [[ -n "${SETTLE_KEY-}" && -n "${E2E_API_URL-}" ]]; then
+  SETTLE_SERVICE_ENABLED=1
+  SETTLE_SERVICE_URL="http://127.0.0.1:${SETTLE_PORT:-18790}"
+  E2E_SETTLE_URL="$SETTLE_SERVICE_URL"
+  E2E_SETTLE_KEY="$SETTLE_KEY"
+fi
 
 # Pass only set names to `maestro test -e`. Unset names stay off the
 # argv so the client still fails closed. Values are never printed.
@@ -140,7 +154,17 @@ json_escape() {
 
 started_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 manifest_tmp="$(mktemp "$MANIFEST.tmp.XXXXXX")" || fail "cannot create manifest next to $MANIFEST"
-trap 'rm -f "$manifest_tmp"' EXIT
+
+cleanup() {
+  if [[ -n "$SETTLE_SERVICE_PID" ]]; then
+    kill "$SETTLE_SERVICE_PID" >/dev/null 2>&1 || true
+    wait "$SETTLE_SERVICE_PID" >/dev/null 2>&1 || true
+  fi
+  if [[ -n "$manifest_tmp" ]]; then
+    rm -f "$manifest_tmp"
+  fi
+}
+trap cleanup EXIT
 
 printf '{\n' >"$manifest_tmp"
 printf '  "startedAt": "%s",\n' "$(json_escape "$started_at")" >>"$manifest_tmp"
@@ -159,8 +183,51 @@ if ((${#FLOWS[@]} == 0)); then
   printf '  "suiteExitCode": 2\n' >>"$manifest_tmp"
   printf '}\n' >>"$manifest_tmp"
   mv "$manifest_tmp" "$MANIFEST"
-  trap - EXIT
+  manifest_tmp=''
   fail "no flows matched '$FLOW_FILTER' in $FLOW_DIR"
+fi
+
+start_settle_service() {
+  local attempt
+  local status
+
+  command -v node >/dev/null 2>&1 || fail 'node is required for the configured settle service'
+  command -v curl >/dev/null 2>&1 || fail 'curl is required to check the configured settle service'
+
+  SETTLE_KEY="$SETTLE_KEY" \
+    E2E_API_URL="$E2E_API_URL" \
+    SETTLE_PORT="${SETTLE_PORT-}" \
+    SETTLE_DB_CONTAINER="${SETTLE_DB_CONTAINER-}" \
+    node "$REPO_ROOT/tests/e2e-maestro/scripts/settle-service.mjs" &
+  SETTLE_SERVICE_PID=$!
+
+  for attempt in {1..30}; do
+    if ! kill -0 "$SETTLE_SERVICE_PID" >/dev/null 2>&1; then
+      wait "$SETTLE_SERVICE_PID" >/dev/null 2>&1 || true
+      SETTLE_SERVICE_PID=''
+      fail 'settle service exited during startup'
+    fi
+    status="$(curl --silent --output /dev/null --write-out '%{http_code}' "$SETTLE_SERVICE_URL/" || true)"
+    if [[ "$status" == '405' ]]; then
+      # Give a bind collision time to terminate the child before accepting a
+      # response that could have come from an older process on the same port.
+      sleep 0.1
+      if ! kill -0 "$SETTLE_SERVICE_PID" >/dev/null 2>&1; then
+        wait "$SETTLE_SERVICE_PID" >/dev/null 2>&1 || true
+        SETTLE_SERVICE_PID=''
+        fail 'settle service exited during startup'
+      fi
+      printf 'Settle service ready at %s\n' "$SETTLE_SERVICE_URL"
+      return
+    fi
+    sleep 0.1
+  done
+
+  fail "settle service did not become ready at $SETTLE_SERVICE_URL"
+}
+
+if ((SETTLE_SERVICE_ENABLED == 1)); then
+  start_settle_service
 fi
 
 failed=0
@@ -270,7 +337,7 @@ printf '  "suiteOutcome": "%s",\n' "$suite_outcome" >>"$manifest_tmp"
 printf '  "suiteExitCode": %d\n' "$suite_exit" >>"$manifest_tmp"
 printf '}\n' >>"$manifest_tmp"
 mv "$manifest_tmp" "$MANIFEST"
-trap - EXIT
+manifest_tmp=''
 
 printf '\nManifest: %s\n' "$MANIFEST"
 printf 'Flows: %d, passed: %d, assertion failures: %d, aborted: %d\n' \

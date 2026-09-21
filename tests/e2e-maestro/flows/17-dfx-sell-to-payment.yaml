@@ -237,7 +237,7 @@ onFlowComplete:
                       env:
                         E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
                         E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${output.backendTxId}"
+                        TRANSACTION_ID: "${output.backendTxId}"
             - runScript:
                 file: ../scripts/backend-state.js
                 env:
@@ -278,7 +278,7 @@ onFlowComplete:
                       env:
                         E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
                         E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${output.backendTxId}"
+                        TRANSACTION_ID: "${output.backendTxId}"
             - runScript:
                 file: ../scripts/backend-state.js
                 env:
@@ -319,7 +319,7 @@ onFlowComplete:
                       env:
                         E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
                         E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${output.backendTxId}"
+                        TRANSACTION_ID: "${output.backendTxId}"
             - runScript:
                 file: ../scripts/backend-state.js
                 env:
@@ -360,7 +360,7 @@ onFlowComplete:
                       env:
                         E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
                         E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${output.backendTxId}"
+                        TRANSACTION_ID: "${output.backendTxId}"
             - runScript:
                 file: ../scripts/backend-state.js
                 env:
@@ -401,7 +401,7 @@ onFlowComplete:
                       env:
                         E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
                         E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${output.backendTxId}"
+                        TRANSACTION_ID: "${output.backendTxId}"
             - runScript:
                 file: ../scripts/backend-state.js
                 env:
@@ -442,7 +442,7 @@ onFlowComplete:
                       env:
                         E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
                         E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${output.backendTxId}"
+                        TRANSACTION_ID: "${output.backendTxId}"
             - runScript:
                 file: ../scripts/backend-state.js
                 env:
@@ -483,7 +483,7 @@ onFlowComplete:
                       env:
                         E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
                         E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${output.backendTxId}"
+                        TRANSACTION_ID: "${output.backendTxId}"
             - runScript:
                 file: ../scripts/backend-state.js
                 env:
@@ -524,7 +524,7 @@ onFlowComplete:
                       env:
                         E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
                         E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${output.backendTxId}"
+                        TRANSACTION_ID: "${output.backendTxId}"
             - runScript:
                 file: ../scripts/backend-state.js
                 env:
@@ -565,7 +565,7 @@ onFlowComplete:
                       env:
                         E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
                         E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${output.backendTxId}"
+                        TRANSACTION_ID: "${output.backendTxId}"
             - runScript:
                 file: ../scripts/backend-state.js
                 env:
@@ -606,7 +606,7 @@ onFlowComplete:
                       env:
                         E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
                         E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${output.backendTxId}"
+                        TRANSACTION_ID: "${output.backendTxId}"
             - runScript:
                 file: ../scripts/backend-state.js
                 env:
@@ -647,7 +647,7 @@ onFlowComplete:
                       env:
                         E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
                         E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${output.backendTxId}"
+                        TRANSACTION_ID: "${output.backendTxId}"
             - runScript:
                 file: ../scripts/backend-state.js
                 env:
@@ -688,7 +688,7 @@ onFlowComplete:
                       env:
                         E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
                         E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${output.backendTxId}"
+                        TRANSACTION_ID: "${output.backendTxId}"
             - runScript:
                 file: ../scripts/backend-state.js
                 env:
@@ -729,7 +729,7 @@ onFlowComplete:
                       env:
                         E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
                         E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${output.backendTxId}"
+                        TRANSACTION_ID: "${output.backendTxId}"
             - runScript:
                 file: ../scripts/backend-state.js
                 env:
@@ -770,7 +770,7 @@ onFlowComplete:
                       env:
                         E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
                         E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${output.backendTxId}"
+                        TRANSACTION_ID: "${output.backendTxId}"
             - runScript:
                 file: ../scripts/backend-state.js
                 env:
@@ -811,7 +811,7 @@ onFlowComplete:
                       env:
                         E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
                         E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${output.backendTxId}"
+                        TRANSACTION_ID: "${output.backendTxId}"
             - runScript:
                 file: ../scripts/backend-state.js
                 env:
@@ -852,7 +852,7 @@ onFlowComplete:
                       env:
                         E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
                         E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
-                        BUY_FIAT_ID: "${output.backendTxId}"
+                        TRANSACTION_ID: "${output.backendTxId}"
             - runScript:
                 file: ../scripts/backend-state.js
                 env:

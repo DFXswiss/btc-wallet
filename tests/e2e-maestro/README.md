@@ -30,6 +30,15 @@ Spark identity through `_setup-import.yaml` instead of creating a random wallet.
   only when set and never prints it. The helpers do not print it either. If
   either name is missing, `dfx-simulate-payment.js` or `backend-state.js` exits
   2 and the flow fails rather than skip.
+- P17 needs the repository-owned local bank-return helper in
+  `tests/e2e-maestro/scripts/settle-service.mjs`. Set `SETTLE_KEY` outside the
+  repository together with the local `E2E_API_URL`; the key has no default.
+  When both names are set, `run-maestro.sh` starts the helper, forwards its
+  loopback URL and key to Maestro, and stops it when the run exits, including
+  failed runs. If either name is absent, the runner does not start the helper
+  and otherwise behaves as before. `SETTLE_PORT` optionally overrides port
+  `18790`. `SETTLE_DB_CONTAINER` selects the local database container used by
+  the helper and defaults to `spark276-db-1`.
 - P14 and P15 need a Lightning counterpart, configured only through the
   runner's environment (`E2E_TREASURY_URL`, `E2E_TREASURY_KEY`, optional
   `E2E_TREASURY_MAX_SAT` default 1000, optional `E2E_TREASURY_MAX_FEE_SAT` default
@@ -157,6 +166,38 @@ do not silently omit this required variable. The frontend build needs sufficient
 Docker resources; `cannot allocate memory` is an environmental failure, not a
 fixed minimum established by this document.
 
+## Local bank-return helper for P17
+
+`tests/e2e-maestro/scripts/settle-service.mjs` is an E2E helper service, not a
+flow script. It uses only Node standard modules and invokes `docker exec` to run
+`psql` in the local `spark276-db-1` database container. Its `SETTLE_KEY` must be
+provided through the environment and has no default. The runner starts it when
+both `SETTLE_KEY` and `E2E_API_URL` are set, supplies the resulting
+`E2E_SETTLE_URL` and `E2E_SETTLE_KEY` bindings to Maestro, and terminates the
+process through its exit trap. `SETTLE_PORT` is optional and defaults to
+`18790`. `SETTLE_DB_CONTAINER` is optional, defaults to `spark276-db-1` and
+selects the local database container passed to `docker exec`.
+
+**This helper must never run against development or production.** At startup it
+requires `E2E_API_URL` to be plain HTTP on `127.0.0.1`, `localhost` or `::1`;
+it listens only on `127.0.0.1` and addresses the selected local Docker container.
+This rejects an obviously remote API origin. It cannot detect a loopback proxy
+to a foreign stack or a foreign database deliberately exposed under the same
+local container name, so the operator must still verify the selected Compose
+stack.
+
+The boundary differs from the reviewer's P12 reference. That historical P12
+bank payout ran against the declared Frick test service. The P17 local stack has
+no bank service attached: `FRICK_BASE_URL` points at a discard port. The helper
+therefore supplies the return that the absent bank would have supplied. It
+fills the missing `valutaDate`, `frickReference`, `remittanceInfo`,
+`frickCustomId` and `isReadyDate` payout fields and inserts the matching `DBIT`
+`bank_tx` row. It does not
+attach that row to `fiat_output` or complete `buy_fiat`; the backend's
+`searchOutgoingBankTx` path must find and attach it and complete the sale.
+Repeated calls first reuse a matching unattached bank row, and incomplete
+positions return HTTP 409 so the flow continues to read them as not ready.
+
 ## Running
 
 All flows on a specific booted simulator:
@@ -251,7 +292,11 @@ therefore not possible.
   Missing trade approval fails on
   `NUTZERDATEN EINGEBEN` with a pointer to the fixture, not a skip. The
   flows do not open a bank app, do not inspect an IBAN credit, and do not
-  read a camera QR.
+  read a camera QR. P17 also uses the repository-owned local bank-return helper
+  described above. This is not the Frick test-service boundary used by the
+  historical P12 run: P17's stack points `FRICK_BASE_URL` at a discard port,
+  so the helper writes the returning bank row and leaves matching and completion
+  to the backend.
 - P14 and P17 return the visible Spark balance minus a 4 sat fee reserve in an
   `onFlowComplete` hook (`_return-spark-balance.yaml`), so the return also runs
   after a failed assertion. The return uses the wallet's Spark send path to

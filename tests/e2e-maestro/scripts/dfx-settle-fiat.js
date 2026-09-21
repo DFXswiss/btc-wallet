@@ -1,5 +1,5 @@
-/* global E2E_SETTLE_URL, E2E_SETTLE_KEY, BUY_FIAT_ID, output, http */
-// Calls POST {E2E_SETTLE_URL}/settle-fiat with { buyFiatId } so the
+/* global E2E_SETTLE_URL, E2E_SETTLE_KEY, TRANSACTION_ID, output, http */
+// Calls POST {E2E_SETTLE_URL}/settle-fiat with { transactionId } so the
 // loopback settle service can insert the DBIT bank_tx that
 // searchOutgoingBankTx matches. Never prints the key.
 
@@ -24,8 +24,8 @@ function readScriptBinding(name) {
     if (name === 'E2E_SETTLE_KEY' && typeof E2E_SETTLE_KEY !== 'undefined') {
       return scriptBinding(E2E_SETTLE_KEY);
     }
-    if (name === 'BUY_FIAT_ID' && typeof BUY_FIAT_ID !== 'undefined') {
-      return scriptBinding(BUY_FIAT_ID);
+    if (name === 'TRANSACTION_ID' && typeof TRANSACTION_ID !== 'undefined') {
+      return scriptBinding(TRANSACTION_ID);
     }
   } catch (error) {}
   return '';
@@ -64,12 +64,12 @@ function loadConfig() {
   if (!/^https?:\/\//i.test(url)) {
     fail('E2E_SETTLE_URL must be an http or https URL', 2);
   }
-  const buyFiatRaw = readEnv('BUY_FIAT_ID').trim();
-  const buyFiatId = Number(buyFiatRaw);
-  if (!Number.isInteger(buyFiatId) || buyFiatId <= 0) {
-    fail('BUY_FIAT_ID must be a positive integer', 2);
+  const transactionRaw = readEnv('TRANSACTION_ID').trim();
+  const transactionId = Number(transactionRaw);
+  if (!Number.isInteger(transactionId) || transactionId <= 0) {
+    fail('TRANSACTION_ID must be a positive integer', 2);
   }
-  return { url: url, key: key, buyFiatId: buyFiatId };
+  return { url: url, key: key, transactionId: transactionId };
 }
 
 function hasMaestroHttp() {
@@ -120,7 +120,7 @@ function settlePath() {
 }
 
 function settleBody(config) {
-  return { buyFiatId: config.buyFiatId };
+  return { transactionId: config.transactionId };
 }
 
 function applyOk() {
