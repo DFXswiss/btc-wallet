@@ -57,6 +57,16 @@ async function createSparkPaymentSeed(seedRef) {
   return seed;
 }
 
+/**
+ * Spark address a Spark wallet pays directly instead of requesting an invoice. A max amount is sized
+ * by the LNURL callback and a comment only travels with the invoice request, so both keep the invoice path.
+ */
+function directSparkAddress(LN, fromWallet, isMax, description) {
+  if (!LN || fromWallet.type !== SparkWallet.type || isMax) return undefined;
+  if (LN.getCommentAllowed() && description) return undefined;
+  return LN.getSparkAddress();
+}
+
 const LnurlPay = () => {
   const { wallets, refreshAllWalletTransactions } = useContext(BlueStorageContext);
   const { outgoingPayment } = useSparkContext();
@@ -174,6 +184,38 @@ const LnurlPay = () => {
       return undefined;
     let isCurrent = true;
     const comment = _LN.getCommentAllowed() ? description : undefined;
+    const quoteInvoice = () =>
+      _LN
+        .requestBolt11FromLnurlPayService(quoteAmountSats, comment)
+        .then(({ pr }) => wallet.getPaymentFeeQuote(pr, quoteAmountSats).then(quote => ({ pr, quote })))
+        .then(result => {
+          if (!isCurrent) return;
+          setLnurlInvoiceQuote({ invoice: result.pr, quote: result.quote });
+          setSparkFeeQuote(result.quote);
+          setSparkFee(result.quote.feeSats);
+        })
+        .catch(() => {
+          if (isCurrent) setSparkFeeQuoteError(loc.send.server_error);
+        });
+    const lnurlSparkAddress = directSparkAddress(_LN, wallet, isMax, description);
+    if (lnurlSparkAddress) {
+      // The receiver's limits apply to a Spark transfer just as they do to an invoice.
+      Promise.resolve()
+        .then(() => {
+          _LN.assertAmountInRange(quoteAmountSats);
+          return wallet.getPaymentFeeQuote(lnurlSparkAddress, quoteAmountSats);
+        })
+        .then(quote => {
+          if (!isCurrent) return;
+          setSparkFeeQuote(quote);
+          setSparkFee(quote.feeSats);
+        })
+        // Without a Spark quote the payment can still go out as an invoice.
+        .catch(() => (isCurrent ? quoteInvoice() : undefined));
+      return () => {
+        isCurrent = false;
+      };
+    }
     if (isMax) {
       wallet
         .getLnurlMaxFeeQuote(_LN.getLnurlPayRequestDetails(), quoteAmountSats, comment)
@@ -189,18 +231,7 @@ const LnurlPay = () => {
         isCurrent = false;
       };
     }
-    _LN
-      .requestBolt11FromLnurlPayService(quoteAmountSats, comment)
-      .then(({ pr }) => wallet.getPaymentFeeQuote(pr, quoteAmountSats).then(quote => ({ pr, quote })))
-      .then(result => {
-        if (!isCurrent) return;
-        setLnurlInvoiceQuote({ invoice: result.pr, quote: result.quote });
-        setSparkFeeQuote(result.quote);
-        setSparkFee(result.quote.feeSats);
-      })
-      .catch(() => {
-        if (isCurrent) setSparkFeeQuoteError(loc.send.server_error);
-      });
+    quoteInvoice();
     return () => {
       isCurrent = false;
     };
@@ -544,6 +575,9 @@ const LnurlPay = () => {
         }
       } else if (invoice) {
         await handleLnInvoice(amountSats);
+      } else if (sparkFeeQuote?.method === SendPaymentMethod_Tags.SparkAddress && directSparkAddress(_LN, wallet, isMax, description)) {
+        _LN.assertAmountInRange(amountSats);
+        await handleSparkAddress(amountSats, directSparkAddress(_LN, wallet, isMax, description));
       } else {
         await handleBolt11Invoice(amountSats);
       }

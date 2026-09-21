@@ -38,6 +38,7 @@ import alert from '../../components/Alert';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import { writeFileAndExport } from '../../blue_modules/fs';
 import { useDfxSessionContext } from '../../api/dfx/contexts/session.context';
+import { useSparkContext } from '../../api/spark/contexts/spark.context';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import { SparkWallet } from '../../class/wallets/spark-wallet';
 import Clipboard from '@react-native-clipboard/clipboard';
@@ -94,6 +95,7 @@ const styles = StyleSheet.create({
 const WalletDetails = () => {
   const { saveToDisk, wallets, deleteWallet, setSelectedWallet, txMetadata, isPosMode } = useContext(BlueStorageContext);
   const { reset } = useDfxSessionContext();
+  const { isConnected: isSparkConnected } = useSparkContext();
   const { walletID } = useRoute().params;
   const [isLoading, setIsLoading] = useState(false);
   const [backdoorPressed, setBackdoorPressed] = useState(0);
@@ -372,6 +374,37 @@ const WalletDetails = () => {
 
   const showPosModeOptions = wallet.isPosMode || isPosMode;
   const isSparkWallet = wallet.type === SparkWallet.type;
+  const [sparkPrivateMode, setSparkPrivateMode] = useState();
+  const [isSparkPrivateModeUpdating, setIsSparkPrivateModeUpdating] = useState(false);
+
+  useEffect(() => {
+    // The setting can only be read from a connected session. It is read until it is known and not
+    // again after that, so a reconnect never overwrites a change the user just made.
+    if (!isSparkWallet || !isSparkConnected || sparkPrivateMode !== undefined) return;
+    let isCurrent = true;
+    wallet
+      .isPrivateModeEnabled()
+      .then(enabled => {
+        if (isCurrent) setSparkPrivateMode(enabled);
+      })
+      .catch(e => console.error('walletDetails: failed to read Spark private mode', e));
+    return () => {
+      isCurrent = false;
+    };
+  }, [isSparkWallet, isSparkConnected, sparkPrivateMode, wallet]);
+
+  const toggleSparkPrivateMode = async enabled => {
+    setSparkPrivateMode(enabled);
+    setIsSparkPrivateModeUpdating(true);
+    try {
+      await wallet.setPrivateModeEnabled(enabled);
+    } catch (e) {
+      setSparkPrivateMode(!enabled);
+      alert(loc.wallets.lightning_spark_private_mode_error);
+    } finally {
+      setIsSparkPrivateModeUpdating(false);
+    }
+  };
 
   return (
     <ScrollView
@@ -499,6 +532,15 @@ const WalletDetails = () => {
             </BlueCard>
             {(wallet instanceof AbstractHDElectrumWallet || (wallet.type === WatchOnlyWallet.type && wallet.isHd())) && (
               <BlueListItem onPress={navigateToAddresses} title={loc.wallets.details_show_addresses} chevron />
+            )}
+            {isSparkWallet && sparkPrivateMode !== undefined && (
+              <BlueListItem
+                Component={Pressable}
+                testID="SparkPrivateModeSwitch"
+                title={loc.wallets.lightning_spark_private_mode}
+                subtitle={loc.wallets.lightning_spark_private_mode_hint}
+                switch={{ onValueChange: toggleSparkPrivateMode, value: sparkPrivateMode, disabled: isSparkPrivateModeUpdating }}
+              />
             )}
             {showPosModeOptions && wallet.type === LightningLdsWallet.type && (
               <BlueListItem

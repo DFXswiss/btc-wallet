@@ -561,6 +561,20 @@ export class SparkWallet extends AbstractWallet {
     return address;
   }
 
+  /** Spark private mode hides this wallet's transfers from public explorers. */
+  async isPrivateModeEnabled(): Promise<boolean> {
+    const lease = this.holdMatchingSession();
+    const settings = await lease.requireSdk().getUserSettings();
+    this.requireHeld(lease);
+    return settings.sparkPrivateModeEnabled;
+  }
+
+  async setPrivateModeEnabled(enabled: boolean): Promise<void> {
+    const lease = this.holdMatchingSession();
+    await lease.requireSdk().updateUserSettings({ sparkPrivateModeEnabled: enabled, stableBalanceActiveLabel: undefined });
+    this.requireHeld(lease);
+  }
+
   /**
    * Compact 64-byte hex ECDSA signature over `message`. DER fails DFX Spark auth.
    */

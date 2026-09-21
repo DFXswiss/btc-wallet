@@ -2,6 +2,7 @@ import Lnurl from '../../class/lnurl';
 const assert = require('assert');
 const bolt11 = require('bolt11');
 const loc = require('../../loc').default;
+const { bech32m } = require('bech32');
 
 describe('LNURL', function () {
   it('can findlnurl', () => {
@@ -683,5 +684,109 @@ describe('LNURL edge cases', function () {
       return true;
     });
     expect(Lnurl.getDomainFromLightningAddress('invalid')).toBe('');
+  });
+  it('assertAmountInRange accepts the advertised range and rejects anything outside it', async () => {
+    const LN = new Lnurl('0123456789abcdef@dev.lightning.space');
+    assert.throws(() => LN.assertAmountInRange(1), /_lnurlPayServicePayload is not set/);
+    LN.fetchGet = () => ({
+      status: 'OK',
+      callback: 'https://dev.lightning.space/lnurlp/0123456789abcdef/invoice',
+      tag: 'payRequest',
+      maxSendable: 500000,
+      minSendable: 2000,
+      metadata: '[["text/plain","range test"]]',
+    });
+    await LN.callLnurlPayService();
+    assert.throws(() => LN.assertAmountInRange(1), /The specified amount is invalid, 1 it should be between 2 and 500/);
+    assert.throws(() => LN.assertAmountInRange(501), /The specified amount is invalid, 501 it should be between 2 and 500/);
+    assert.doesNotThrow(() => LN.assertAmountInRange(2));
+    assert.doesNotThrow(() => LN.assertAmountInRange(500));
+  });
+
+  describe('sparkAddress in the pay response', () => {
+    const sparkAddress = bech32m.encode('spark', bech32m.toWords(Buffer.from('spark-address-identity-key-32')), 10000);
+
+    function payResponse(extra) {
+      return {
+        status: 'OK',
+        callback: 'https://dev.lightning.space/lnurlp/0123456789abcdef/invoice',
+        tag: 'payRequest',
+        maxSendable: 1000000000,
+        minSendable: 1000,
+        metadata: '[["text/plain","spark test"]]',
+        ...extra,
+      };
+    }
+
+    function answerFrom(url, extra) {
+      jest.spyOn(global, 'fetch').mockResolvedValueOnce({ status: 200, url, json: async () => payResponse(extra) });
+    }
+
+    function payResponseFrom(address, extra) {
+      const [username, host] = address.split('@');
+      answerFrom(`https://${host}/.well-known/lnurlp/${username}`, { callback: `https://${host}/lnurlp/${username}/invoice`, ...extra });
+      return new Lnurl(address);
+    }
+
+    it.each(['lightning.space', 'dev.lightning.space'])('keeps a valid sparkAddress from the trusted domain %s', async host => {
+      const LN = payResponseFrom(`0123456789abcdef@${host}`, { sparkAddress });
+      const payload = await LN.callLnurlPayService();
+      assert.strictEqual(payload.sparkAddress, sparkAddress);
+      assert.strictEqual(LN.getSparkAddress(), sparkAddress);
+    });
+
+    it('drops a sparkAddress from any other domain', async () => {
+      const LN = payResponseFrom('alice@example.com', { sparkAddress });
+      const payload = await LN.callLnurlPayService();
+      assert.strictEqual('sparkAddress' in payload, false);
+      assert.strictEqual(LN.getSparkAddress(), undefined);
+    });
+
+    it.each(['alice@evil-lightning.space', 'alice@lightning.space.evil.com', 'alice@sub.lightning.space', 'alice@lightning.space.'])(
+      'drops a sparkAddress from the lookalike domain of %s',
+      async address => {
+        const LN = payResponseFrom(address, { sparkAddress });
+        const payload = await LN.callLnurlPayService();
+        assert.strictEqual('sparkAddress' in payload, false);
+      },
+    );
+
+    it('drops a sparkAddress fetched from a trusted domain without TLS', async () => {
+      const url = 'http://dev.lightning.space/.well-known/lnurlp/0123456789abcdef';
+      answerFrom(url, { sparkAddress });
+      const payload = await new Lnurl(Lnurl.encode(url)).callLnurlPayService();
+      assert.strictEqual('sparkAddress' in payload, false);
+    });
+
+    it('drops a sparkAddress when the request was redirected to another host', async () => {
+      answerFrom('https://example.com/.well-known/lnurlp/0123456789abcdef', { sparkAddress });
+      const payload = await new Lnurl('0123456789abcdef@dev.lightning.space').callLnurlPayService();
+      assert.strictEqual('sparkAddress' in payload, false);
+    });
+
+    it('drops a sparkAddress when the trusted host answered without TLS', async () => {
+      answerFrom('http://dev.lightning.space/.well-known/lnurlp/0123456789abcdef', { sparkAddress });
+      const payload = await new Lnurl('0123456789abcdef@dev.lightning.space').callLnurlPayService();
+      assert.strictEqual('sparkAddress' in payload, false);
+    });
+
+    it.each(['', undefined])('drops a sparkAddress when the response does not say where it came from (%p)', async url => {
+      answerFrom(url, { sparkAddress });
+      const payload = await new Lnurl('0123456789abcdef@dev.lightning.space').callLnurlPayService();
+      assert.strictEqual('sparkAddress' in payload, false);
+    });
+
+    it('drops a sparkAddress that is not a Spark address', async () => {
+      const LN = payResponseFrom('0123456789abcdef@dev.lightning.space', { sparkAddress: 'lnbc1notaspark' });
+      const payload = await LN.callLnurlPayService();
+      assert.strictEqual('sparkAddress' in payload, false);
+    });
+
+    it('has no sparkAddress when the response carries none', async () => {
+      const LN = payResponseFrom('0123456789abcdef@dev.lightning.space', {});
+      const payload = await LN.callLnurlPayService();
+      assert.strictEqual('sparkAddress' in payload, false);
+      assert.strictEqual(LN.getSparkAddress(), undefined);
+    });
   });
 });
