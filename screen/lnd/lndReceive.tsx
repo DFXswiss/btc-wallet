@@ -33,8 +33,6 @@ import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { AbstractWallet } from '../../class';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
-import { SparkWallet } from '../../class/wallets/spark-wallet';
-import { useSparkContext } from '../../api/spark/contexts/spark.context';
 import { majorTomToGroundControl, tryToObtainPermissions } from '../../blue_modules/notifications';
 import useInputAmount from '../../hooks/useInputAmount';
 import { SuccessView } from '../send/success';
@@ -67,16 +65,9 @@ const LNDReceive = () => {
   const generateInvoiceRef = useRef<(() => Promise<void>) | undefined>(undefined);
   const [invoiceGenerationRequest, setInvoiceGenerationRequest] = useState(0);
   const [isPaid, setIsPaid] = useState(false);
-  const [receiveMethod, setReceiveMethod] = useState<'lightning' | 'onchain'>('lightning');
-  const receiveMethodRef = useRef(receiveMethod);
-  const [onchainAddress, setOnchainAddress] = useState<string | undefined>();
-  const [isOnchainLoading, setIsOnchainLoading] = useState(false);
   const inputAmountRef = useRef<TextInput | null>(null);
   const inputDescriptionRef = useRef<TextInput | null>(null);
   const { isNfcActive, startReading, stopReading } = useNFC();
-  const isSpark = wallet?.type === SparkWallet.type;
-  const isOnchainReceive = isSpark && receiveMethod === 'onchain';
-  const { hasUnclaimedDeposits } = useSparkContext();
   const latestInvoiceValues = useRef({ amountSats, description });
   latestInvoiceValues.current = { amountSats, description };
 
@@ -92,26 +83,10 @@ const LNDReceive = () => {
     missingAddress: {
       color: colors.foregroundColor,
     },
-    methodSwitchTrack: {
-      backgroundColor: colors.buttonDisabledBackgroundColor,
-    },
-    methodSwitchTabActive: {
-      backgroundColor: colors.modal,
-    },
-    methodSwitchText: {
-      color: colors.foregroundColor,
-    },
-    onchainHint: {
-      color: colors.alternativeTextColor,
-    },
     root: {
       backgroundColor: colors.elevated,
     },
   });
-
-  useEffect(() => {
-    receiveMethodRef.current = receiveMethod;
-  }, [receiveMethod]);
 
   useEffect(() => {
     return () => {
@@ -131,39 +106,6 @@ const LNDReceive = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletID]);
-
-  useEffect(() => {
-    if (!isSpark || !isOnchainReceive || !wallet) {
-      return;
-    }
-    if (typeof wallet.depositAddress === 'string' && wallet.depositAddress) {
-      setOnchainAddress(wallet.depositAddress);
-      setIsOnchainLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setIsOnchainLoading(true);
-    setOnchainAddress(undefined);
-    (async () => {
-      try {
-        const address = await wallet.getDepositAddress();
-        if (cancelled) return;
-        setOnchainAddress(address || undefined);
-        if (address) {
-          await saveToDisk();
-        }
-      } catch {
-        if (cancelled) return;
-        setOnchainAddress(undefined);
-      } finally {
-        if (!cancelled) setIsOnchainLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSpark, isOnchainReceive, walletID]);
 
   const cancelInvoicePolling = () => {
     pollGeneration.current += 1;
@@ -221,11 +163,7 @@ const LNDReceive = () => {
         if (now > invoiceExpiration) {
           cancelInvoicePolling();
           setInvoiceRequest(undefined);
-          // Keep watching an open invoice on the on-chain tab; only skip
-          // creating a replacement while Lightning is not visible.
-          if (receiveMethodRef.current === 'lightning') {
-            generateInvoice();
-          }
+          generateInvoice();
         }
       } catch (error) {
         if (generation !== pollGeneration.current) {
@@ -363,14 +301,12 @@ const LNDReceive = () => {
     });
   };
 
-  const displayedOnchainAddress =
-    onchainAddress || (typeof wallet?.depositAddress === 'string' && wallet.depositAddress ? wallet.depositAddress : undefined);
-  const copyText = isOnchainReceive ? displayedOnchainAddress : invoiceRequest || wallet?.lnAddress;
-  const qrValue = isOnchainReceive ? displayedOnchainAddress : invoiceRequest || wallet?.getLnurl?.() || wallet?.lnAddress;
-  const isQrLoading = isInvoiceLoading || (isOnchainReceive && isOnchainLoading && !displayedOnchainAddress);
+  const copyText = invoiceRequest || wallet?.lnAddress;
+  const qrValue = invoiceRequest || wallet?.getLnurl?.() || wallet?.lnAddress;
+  const isQrLoading = isInvoiceLoading;
 
   const handleShareButtonPressed = () => {
-    Share.open({ message: (isOnchainReceive ? displayedOnchainAddress : invoiceRequest || wallet.lnAddress) || '' }).catch(() => {});
+    Share.open({ message: invoiceRequest || wallet.lnAddress || '' }).catch(() => {});
   };
 
   if (isPaid) {
@@ -393,59 +329,6 @@ const LNDReceive = () => {
             <View style={styles.pickerContainer}>
               <BlueWalletSelect wallets={wallets} value={wallet?.getID()} onChange={onWalletChange} />
             </View>
-            {isSpark ? (
-              <View style={styles.methodSwitch} testID="SparkReceiveMethodSwitch">
-                <View style={[styles.methodSwitchTrack, styleHooks.methodSwitchTrack]}>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: receiveMethod === 'lightning' }}
-                    testID="SparkReceiveLightning"
-                    onPress={() => {
-                      if (receiveMethod === 'lightning') return;
-                      receiveMethodRef.current = 'lightning';
-                      setReceiveMethod('lightning');
-                      if (amountSats > 0) {
-                        generateInvoice();
-                      }
-                    }}
-                    style={[styles.methodSwitchTab, receiveMethod === 'lightning' && styleHooks.methodSwitchTabActive]}
-                  >
-                    <Text
-                      style={[
-                        styles.methodSwitchText,
-                        receiveMethod === 'lightning' && styles.methodSwitchTextActive,
-                        styleHooks.methodSwitchText,
-                      ]}
-                    >
-                      {loc.wallets.lightning_spark_receive_lightning}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: receiveMethod === 'onchain' }}
-                    testID="SparkReceiveOnchain"
-                    onPress={() => {
-                      if (!(typeof wallet?.depositAddress === 'string' && wallet.depositAddress)) {
-                        setIsOnchainLoading(true);
-                      }
-                      receiveMethodRef.current = 'onchain';
-                      setReceiveMethod('onchain');
-                    }}
-                    style={[styles.methodSwitchTab, receiveMethod === 'onchain' && styleHooks.methodSwitchTabActive]}
-                  >
-                    <Text
-                      style={[
-                        styles.methodSwitchText,
-                        receiveMethod === 'onchain' && styles.methodSwitchTextActive,
-                        styleHooks.methodSwitchText,
-                      ]}
-                    >
-                      {loc.wallets.lightning_spark_receive_onchain}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : null}
             <View style={styles.contentContainer}>
               <View style={[styles.scrollBody, styles.flex]}>
                 {isQrLoading ? (
@@ -454,64 +337,49 @@ const LNDReceive = () => {
                   <>
                     <QRCodeComponent value={qrValue} />
                     <View style={styles.shareContainer}>
-                      <BlueCopyTextToClipboard
-                        text={copyText || ''}
-                        truncated={Boolean(invoiceRequest) && !isOnchainReceive}
-                        textStyle={styles.copyText}
-                      />
+                      <BlueCopyTextToClipboard text={copyText || ''} truncated={Boolean(invoiceRequest)} textStyle={styles.copyText} />
                       <TouchableOpacity accessibilityRole="button" onPress={handleShareButtonPressed}>
                         <Image resizeMode="stretch" source={require('../../img/share-icon.png')} style={styles.shareIcon} />
                       </TouchableOpacity>
                     </View>
-                    {isOnchainReceive && displayedOnchainAddress ? (
-                      <Text style={[styles.onchainHint, styleHooks.onchainHint]}>
-                        {hasUnclaimedDeposits
-                          ? loc.wallets.lightning_spark_unclaimed_deposits
-                          : loc.wallets.lightning_spark_onchain_confirmations}
-                      </Text>
-                    ) : null}
                   </>
                 ) : (
                   <Text style={[styles.missingAddress, styleHooks.missingAddress]}>{loc.wallets.lightning_spark_address_unavailable}</Text>
                 )}
               </View>
               <View style={styles.share}>
-                {isOnchainReceive ? null : (
-                  <>
-                    <View style={[styles.customAmount, styleHooks.customAmount]}>
-                      <TextInput
-                        ref={inputAmountRef}
-                        placeholderTextColor="#81868e"
-                        placeholder="Amount (optional)"
-                        style={[styles.customAmountText, styleHooks.customAmountText]}
-                        inputAccessoryViewID={BlueDismissKeyboardInputAccessory.InputAccessoryViewID}
-                        onBlur={handleOnBlur}
-                        {...inputProps}
-                      />
-                      <Text style={styles.inputUnit}>{formattedUnit}</Text>
-                      <TouchableOpacity
-                        accessibilityRole="button"
-                        accessibilityLabel={loc._.change_input_currency}
-                        style={styles.changeToNextUnitButton}
-                        onPress={changeToNextUnit}
-                      >
-                        <Image source={require('../../img/round-compare-arrows-24-px.png')} />
-                      </TouchableOpacity>
-                    </View>
-                    <View style={[styles.customAmount, styleHooks.customAmount]}>
-                      <TextInput
-                        ref={inputDescriptionRef}
-                        onChangeText={setDescription}
-                        placeholder={`${loc.receive.details_label} (optional)`}
-                        value={description}
-                        numberOfLines={1}
-                        placeholderTextColor="#81868e"
-                        style={[styles.customAmountText, styleHooks.customAmountText]}
-                        onBlur={handleOnBlur}
-                      />
-                    </View>
-                  </>
-                )}
+                <View style={[styles.customAmount, styleHooks.customAmount]}>
+                  <TextInput
+                    ref={inputAmountRef}
+                    placeholderTextColor="#81868e"
+                    placeholder="Amount (optional)"
+                    style={[styles.customAmountText, styleHooks.customAmountText]}
+                    inputAccessoryViewID={BlueDismissKeyboardInputAccessory.InputAccessoryViewID}
+                    onBlur={handleOnBlur}
+                    {...inputProps}
+                  />
+                  <Text style={styles.inputUnit}>{formattedUnit}</Text>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={loc._.change_input_currency}
+                    style={styles.changeToNextUnitButton}
+                    onPress={changeToNextUnit}
+                  >
+                    <Image source={require('../../img/round-compare-arrows-24-px.png')} />
+                  </TouchableOpacity>
+                </View>
+                <View style={[styles.customAmount, styleHooks.customAmount]}>
+                  <TextInput
+                    ref={inputDescriptionRef}
+                    onChangeText={setDescription}
+                    placeholder={`${loc.receive.details_label} (optional)`}
+                    value={description}
+                    numberOfLines={1}
+                    placeholderTextColor="#81868e"
+                    style={[styles.customAmountText, styleHooks.customAmountText]}
+                    onBlur={handleOnBlur}
+                  />
+                </View>
                 {invoiceRequest && wallet.type === LightningLdsWallet.type ? (
                   <View>
                     {Platform.select({
@@ -596,33 +464,6 @@ const styles = StyleSheet.create({
     minHeight: 33,
   },
   pickerContainer: { marginHorizontal: 16 },
-  methodSwitch: {
-    marginHorizontal: 16,
-    marginTop: 8,
-    alignItems: 'center',
-  },
-  methodSwitchTrack: {
-    flexDirection: 'row',
-    padding: 4,
-    borderRadius: 8,
-  },
-  methodSwitchTab: {
-    borderRadius: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  methodSwitchText: {
-    fontWeight: 'normal',
-  },
-  methodSwitchTextActive: {
-    fontWeight: 'bold',
-  },
-  onchainHint: {
-    textAlign: 'center',
-    paddingHorizontal: 24,
-    marginTop: 8,
-    fontSize: 14,
-  },
   inputUnit: {
     color: '#81868e',
     fontSize: 16,

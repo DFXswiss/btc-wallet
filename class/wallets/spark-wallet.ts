@@ -144,8 +144,6 @@ export class SparkWallet extends AbstractWallet {
   private static readonly LIST_PAYMENTS_MAX_PAGES = 100;
 
   lnAddress?: string;
-  /** On-chain Bitcoin deposit address from receivePayment(BitcoinAddress). */
-  depositAddress?: string;
   /** Spark address (spark1…) from receivePayment(SparkAddress). */
   sparkAddress?: string;
   identityPubkey?: string;
@@ -223,6 +221,13 @@ export class SparkWallet extends AbstractWallet {
     if (SparkWallet.isSparkAddress(input)) return 'address';
     if (SparkWallet.isSparkInvoice(input)) return 'invoice';
     return null;
+  }
+
+  static fromJson(obj: string): SparkWallet {
+    const wallet = super.fromJson(obj) as unknown as SparkWallet;
+    // Older builds stored a Bitcoin deposit address. v1 does not receive on-chain.
+    delete (wallet as { depositAddress?: string }).depositAddress;
+    return wallet;
   }
 
   static create(identityPubkey: string, lnAddress?: string): SparkWallet {
@@ -510,33 +515,10 @@ export class SparkWallet extends AbstractWallet {
     return this.user_invoices_raw.some(invoice => invoice.payment_request === paymentRequest);
   }
 
+  // No Bitcoin deposit address. Callers scan every wallet, and the base method throws.
   weOwnAddress(address: string): boolean {
-    if (!address || !this.depositAddress) return false;
-    const normalize = (value: string) => (value.slice(0, 3).toLowerCase() === 'bc1' ? value.toLowerCase() : value);
-    return normalize(address) === normalize(this.depositAddress);
-  }
-
-  /**
-   * Bitcoin deposit address. Cached on the wallet after the first successful SDK call.
-   * `newAddress: false` reuses the existing address (the SDK creates one if none exists yet).
-   */
-  async getDepositAddress(): Promise<string> {
-    if (this.depositAddress) {
-      return this.depositAddress;
-    }
-
-    const lease = this.holdMatchingSession();
-    const response = await lease.requireSdk().receivePayment({
-      paymentMethod: new ReceivePaymentMethod.BitcoinAddress({ newAddress: false }),
-    });
-
-    this.requireHeld(lease);
-    const address = response.paymentRequest;
-    if (!address) {
-      return '';
-    }
-    this.depositAddress = address;
-    return address;
+    void address;
+    return false;
   }
 
   /**

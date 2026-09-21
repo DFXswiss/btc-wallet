@@ -392,7 +392,6 @@ describe('LNDReceive with SparkWallet', () => {
       isCreating: false,
       createSparkWallet: jest.fn(),
       outgoingPayment: null,
-      hasUnclaimedDeposits: false,
     });
     Share.open.mockReset();
     Share.open.mockResolvedValue({});
@@ -459,156 +458,6 @@ describe('LNDReceive with SparkWallet', () => {
     expect(screen.getByText('1000')).toBeTruthy();
     expect(screen.queryByText('2000')).toBeNull();
     expect(screen.getByText(loc.send.success_done)).toBeTruthy();
-    screen.unmount();
-  });
-
-  it('keeps watching the Lightning invoice after switching to on-chain and shows success when it is paid', async () => {
-    const wallet = makeSparkReceiveWallet('spark-receive-1');
-    wallet.depositAddress = 'bc1qtestonchain';
-    const screen = renderReceive(wallet);
-    await createInvoice(screen);
-    await advanceTimers(1000);
-    assert.strictEqual(invoiceIntervalCount(), 1);
-    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
-    expect(screen.getByText('bc1qtestonchain')).toBeTruthy();
-    assert.strictEqual(invoiceIntervalCount(), 1);
-
-    mockSdk.listPayments.mockResolvedValue({ payments: [paidPayment()] });
-    await advanceTimers(3000);
-
-    expect(screen.getByTestId('SuccessView')).toBeTruthy();
-    expect(screen.getByText('1000')).toBeTruthy();
-    expect(screen.getByText(loc.send.success_done)).toBeTruthy();
-    screen.unmount();
-  });
-
-  it('does not create another Lightning invoice when the polled invoice expires on the on-chain tab', async () => {
-    const wallet = makeSparkReceiveWallet('spark-receive-1');
-    wallet.depositAddress = 'bc1qtestonchain';
-    jest.spyOn(wallet, 'getUserInvoices').mockImplementation(async limit => {
-      if (limit === 1) return [];
-      return [
-        {
-          payment_request: SAMPLE_INVOICE,
-          ispaid: false,
-          timestamp: 1,
-          expire_time: 1,
-        },
-      ];
-    });
-    const screen = renderReceive(wallet);
-    await createInvoice(screen);
-    expect(mockSdk.receivePayment).toHaveBeenCalledTimes(1);
-    await advanceTimers(1000);
-    assert.strictEqual(invoiceIntervalCount(), 1);
-
-    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
-    expect(screen.getByText('bc1qtestonchain')).toBeTruthy();
-    assert.strictEqual(invoiceIntervalCount(), 1);
-
-    await advanceTimers(3000);
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(mockSdk.receivePayment).toHaveBeenCalledTimes(1);
-    assert.strictEqual(invoiceIntervalCount(), 0);
-    expect(screen.getByText('bc1qtestonchain')).toBeTruthy();
-    expect(screen.queryByTestId('SuccessView')).toBeNull();
-    screen.unmount();
-  });
-
-  it('does not create a Lightning invoice when an in-flight poll tick expires after switching to on-chain', async () => {
-    const wallet = makeSparkReceiveWallet('spark-receive-1');
-    wallet.depositAddress = 'bc1qtestonchain';
-    let resolvePoll;
-    jest.spyOn(wallet, 'getUserInvoices').mockImplementation(limit => {
-      if (limit === 1) return Promise.resolve([]);
-      return new Promise(resolve => {
-        resolvePoll = resolve;
-      });
-    });
-    const screen = renderReceive(wallet);
-    await createInvoice(screen);
-    expect(mockSdk.receivePayment).toHaveBeenCalledTimes(1);
-    await advanceTimers(1000);
-    assert.strictEqual(invoiceIntervalCount(), 1);
-    await advanceTimers(3000);
-    expect(typeof resolvePoll).toBe('function');
-
-    await act(async () => {
-      fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
-      resolvePoll([
-        {
-          payment_request: SAMPLE_INVOICE,
-          ispaid: false,
-          timestamp: 1,
-          expire_time: 1,
-        },
-      ]);
-      await Promise.resolve();
-    });
-
-    expect(mockSdk.receivePayment).toHaveBeenCalledTimes(1);
-    assert.strictEqual(invoiceIntervalCount(), 0);
-    expect(screen.getByText('bc1qtestonchain')).toBeTruthy();
-    expect(screen.queryByTestId('SuccessView')).toBeNull();
-    screen.unmount();
-  });
-
-  it('rebuilds the Lightning invoice when returning from on-chain with an amount', async () => {
-    const wallet = makeSparkReceiveWallet('spark-receive-1');
-    wallet.depositAddress = 'bc1qtestonchain';
-    const screen = renderReceive(wallet);
-    await createInvoice(screen);
-    expect(mockSdk.receivePayment).toHaveBeenCalledTimes(1);
-    expect(screen.getByText(SAMPLE_INVOICE)).toBeTruthy();
-
-    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
-    expect(screen.getByText('bc1qtestonchain')).toBeTruthy();
-
-    fireEvent.press(screen.getByTestId('SparkReceiveLightning'));
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(mockSdk.receivePayment).toHaveBeenCalledTimes(2);
-    expect(screen.getByText(SAMPLE_INVOICE)).toBeTruthy();
-    expect(screen.queryByText('spark@test')).toBeNull();
-    screen.unmount();
-  });
-
-  it('does not create another invoice when the Lightning tab is pressed while already selected', async () => {
-    const wallet = makeSparkReceiveWallet('spark-receive-1');
-    const screen = renderReceive(wallet);
-    await createInvoice(screen);
-    expect(mockSdk.receivePayment).toHaveBeenCalledTimes(1);
-    expect(screen.getByText(SAMPLE_INVOICE)).toBeTruthy();
-
-    fireEvent.press(screen.getByTestId('SparkReceiveLightning'));
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(mockSdk.receivePayment).toHaveBeenCalledTimes(1);
-    expect(screen.getByText(SAMPLE_INVOICE)).toBeTruthy();
-    screen.unmount();
-  });
-
-  it('does not create an invoice when returning to Lightning with no amount', async () => {
-    const wallet = makeSparkReceiveWallet('spark-receive-1');
-    wallet.depositAddress = 'bc1qtestonchain';
-    const screen = renderReceive(wallet);
-    expect(screen.getByText('spark@test')).toBeTruthy();
-
-    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
-    fireEvent.press(screen.getByTestId('SparkReceiveLightning'));
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(mockSdk.receivePayment).not.toHaveBeenCalled();
-    expect(screen.getByText('spark@test')).toBeTruthy();
     screen.unmount();
   });
 
@@ -700,90 +549,24 @@ describe('LNDReceive with SparkWallet', () => {
       const json = JSON.parse(fs.readFileSync(path.join(repoRoot, `loc/${locale}.json`), 'utf8'));
       assert.strictEqual(typeof json.wallets.lightning_spark_address_unavailable, 'string');
       assert.ok(json.wallets.lightning_spark_address_unavailable.length > 0);
-      assert.ok(json.wallets.lightning_spark_receive_lightning);
-      assert.ok(json.wallets.lightning_spark_receive_onchain);
-      assert.ok(json.wallets.lightning_spark_onchain_confirmations);
-      assert.ok(json.wallets.lightning_spark_unclaimed_deposits);
+      assert.strictEqual(json.wallets.lightning_spark_receive_lightning, undefined);
+      assert.strictEqual(json.wallets.lightning_spark_receive_onchain, undefined);
+      assert.strictEqual(json.wallets.lightning_spark_onchain_confirmations, undefined);
+      assert.strictEqual(json.wallets.lightning_spark_unclaimed_deposits, undefined);
     }
   });
 
-  it('does not show the Lightning/On-chain switch on an LNDHub wallet', () => {
-    const screen = renderReceive(makeLdsReceiveWallet('lds-receive-1'));
-    expect(screen.queryByTestId('SparkReceiveMethodSwitch')).toBeNull();
-  });
+  it('does not offer an on-chain deposit on Spark or LNDHub', () => {
+    const sparkScreen = renderReceive(makeSparkReceiveWallet('spark-receive-1'));
+    expect(sparkScreen.queryByTestId('SparkReceiveMethodSwitch')).toBeNull();
+    expect(sparkScreen.queryByTestId('SparkReceiveOnchain')).toBeNull();
+    expect(sparkScreen.getByPlaceholderText('Amount (optional)')).toBeTruthy();
+    expect(sparkScreen.getByText('spark@test')).toBeTruthy();
+    sparkScreen.unmount();
 
-  it('shows the on-chain deposit address as QR and copyable text', async () => {
-    const address = 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
-    const wallet = makeSparkReceiveWallet('spark-receive-1');
-    wallet.depositAddress = address;
-    const screen = renderReceive(wallet);
-
-    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(screen.getByTestId('QRCode')).toBeTruthy();
-    expect(screen.getByText(address)).toBeTruthy();
-    expect(screen.getByText(loc.wallets.lightning_spark_onchain_confirmations)).toBeTruthy();
-    expect(screen.queryByText(loc.wallets.lightning_spark_unclaimed_deposits)).toBeNull();
-    expect(screen.queryByPlaceholderText('Amount (optional)')).toBeNull();
-    expect(mockSdk.receivePayment).not.toHaveBeenCalled();
-  });
-
-  it('shows the unclaimed-deposits hint instead of confirmations when deposits remain unclaimed', async () => {
-    mockUseSparkContext.mockReturnValue({
-      isConnected: true,
-      isConnecting: false,
-      isCreating: false,
-      createSparkWallet: jest.fn(),
-      outgoingPayment: null,
-      hasUnclaimedDeposits: true,
-    });
-    const address = 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
-    const wallet = makeSparkReceiveWallet('spark-receive-1');
-    wallet.depositAddress = address;
-    const screen = renderReceive(wallet);
-
-    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(screen.getByText(loc.wallets.lightning_spark_unclaimed_deposits)).toBeTruthy();
-    expect(screen.queryByText(loc.wallets.lightning_spark_onchain_confirmations)).toBeNull();
-  });
-
-  it('loads the deposit address through the wallet when none is cached', async () => {
-    const address = 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
-    mockSdk.receivePayment.mockResolvedValue({ paymentRequest: address, fee: 0n });
-    const wallet = makeSparkReceiveWallet('spark-receive-1');
-    assert.strictEqual(wallet.depositAddress, undefined);
-    const screen = renderReceive(wallet);
-
-    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(screen.getByTestId('QRCode')).toBeTruthy();
-    expect(screen.getByText(address)).toBeTruthy();
-    expect(mockSdk.receivePayment).toHaveBeenCalled();
-    assert.strictEqual(wallet.depositAddress, address);
-  });
-
-  it('shows a missing-address state instead of a QR when the on-chain address is absent', async () => {
-    mockSdk.receivePayment.mockResolvedValue({ paymentRequest: '', fee: 0n });
-    const wallet = makeSparkReceiveWallet('spark-receive-1');
-    const screen = renderReceive(wallet);
-
-    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(screen.queryByTestId('QRCode')).toBeNull();
-    expect(screen.getByText(loc.wallets.lightning_spark_address_unavailable)).toBeTruthy();
+    const ldsScreen = renderReceive(makeLdsReceiveWallet('lds-receive-1'));
+    expect(ldsScreen.queryByTestId('SparkReceiveMethodSwitch')).toBeNull();
+    expect(ldsScreen.queryByTestId('SparkReceiveOnchain')).toBeNull();
   });
 
   it('clears the loading state and shows the error when addInvoice rejects', async () => {
@@ -1443,110 +1226,6 @@ describe('LNDReceive with SparkWallet', () => {
     expect(__nfc.startReading).toHaveBeenCalledTimes(1);
   });
 
-  it('shows the on-chain spinner while the deposit address is loading', async () => {
-    const wallet = makeSparkReceiveWallet('spark-receive-1');
-    let resolveAddress;
-    wallet.getDepositAddress = jest.fn(
-      () =>
-        new Promise(resolve => {
-          resolveAddress = resolve;
-        }),
-    );
-    const screen = renderReceive(wallet);
-    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(screen.UNSAFE_queryAllByType(ActivityIndicator).length).toBeGreaterThan(0);
-    await act(async () => {
-      resolveAddress('bc1qloaded');
-      await Promise.resolve();
-    });
-    await waitFor(() => screen.getByText('bc1qloaded'));
-  });
-
-  it('does not apply a deposit address that arrives after leaving on-chain receive', async () => {
-    const wallet = makeSparkReceiveWallet('spark-receive-1');
-    let resolveAddress;
-    wallet.getDepositAddress = jest.fn(
-      () =>
-        new Promise(resolve => {
-          resolveAddress = resolve;
-        }),
-    );
-    const screen = renderReceive(wallet);
-    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
-    await act(async () => {
-      await Promise.resolve();
-    });
-    fireEvent.press(screen.getByTestId('SparkReceiveLightning'));
-    await act(async () => {
-      resolveAddress('bc1qlate');
-      await Promise.resolve();
-    });
-
-    expect(screen.queryByText('bc1qlate')).toBeNull();
-    expect(screen.getByPlaceholderText('Amount (optional)')).toBeTruthy();
-  });
-
-  it('shows a missing-address state when getDepositAddress rejects', async () => {
-    const wallet = makeSparkReceiveWallet('spark-receive-1');
-    wallet.getDepositAddress = jest.fn().mockRejectedValue(new Error('no address'));
-    const screen = renderReceive(wallet);
-    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(screen.queryByTestId('QRCode')).toBeNull();
-    expect(screen.getByText(loc.wallets.lightning_spark_address_unavailable)).toBeTruthy();
-    expect(screen.UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0);
-  });
-
-  it('does not apply a rejected deposit address after leaving on-chain receive', async () => {
-    const wallet = makeSparkReceiveWallet('spark-receive-1');
-    let rejectAddress;
-    wallet.getDepositAddress = jest.fn(
-      () =>
-        new Promise((_resolve, reject) => {
-          rejectAddress = reject;
-        }),
-    );
-    const screen = renderReceive(wallet);
-    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
-    await act(async () => {
-      await Promise.resolve();
-    });
-    fireEvent.press(screen.getByTestId('SparkReceiveLightning'));
-    await act(async () => {
-      rejectAddress(new Error('late fail'));
-      await Promise.resolve();
-    });
-
-    expect(screen.getByPlaceholderText('Amount (optional)')).toBeTruthy();
-    expect(screen.queryByText(loc.wallets.lightning_spark_address_unavailable)).toBeNull();
-  });
-
-  it('shares the on-chain address and swallows a rejected share', async () => {
-    const address = 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
-    const wallet = makeSparkReceiveWallet('spark-receive-1');
-    wallet.depositAddress = address;
-    const screen = renderReceive(wallet);
-    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    const shareIcon = screen.UNSAFE_getAllByType(Image).find(node => node.props.resizeMode === 'stretch');
-    Share.open.mockRejectedValueOnce(new Error('share cancelled'));
-    fireEvent.press(shareIcon.parent);
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(Share.open).toHaveBeenCalledWith({ message: address });
-  });
-
   it('shares an empty message when the Lightning copy text is missing', async () => {
     const wallet = makeLdsReceiveWallet('lds-receive-noshare');
     wallet.lnAddress = undefined;
@@ -1671,21 +1350,6 @@ describe('LNDReceive with SparkWallet', () => {
     fireEvent.press(screen.UNSAFE_getByType(TouchableWithoutFeedback));
     expect(dismiss).toHaveBeenCalled();
     dismiss.mockRestore();
-  });
-
-  it('fetches a deposit address when the cached value is not a string', async () => {
-    const address = 'bc1qfromfetch';
-    mockSdk.receivePayment.mockResolvedValue({ paymentRequest: address, fee: 0n });
-    const wallet = makeSparkReceiveWallet('spark-receive-1');
-    wallet.depositAddress = null;
-    const screen = renderReceive(wallet);
-    fireEvent.press(screen.getByTestId('SparkReceiveOnchain'));
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(mockSdk.receivePayment).toHaveBeenCalled();
-    expect(screen.getByText(address)).toBeTruthy();
   });
 
   it('titles the navigation header Receive and goes back from the close button', () => {

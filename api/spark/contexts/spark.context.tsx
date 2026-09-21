@@ -68,7 +68,6 @@ export interface SparkContextInterface {
   isCreating: boolean;
   createSparkWallet: () => Promise<SparkWallet | null>;
   outgoingPayment: OutgoingPayment | null;
-  hasUnclaimedDeposits: boolean;
 }
 
 const SparkContext = createContext<SparkContextInterface | undefined>(undefined);
@@ -165,7 +164,6 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
   const [isConnecting, setIsConnecting] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [outgoingPayment, setOutgoingPayment] = useState<OutgoingPayment | null>(getOutgoingPayment);
-  const [hasUnclaimedDeposits, setHasUnclaimedDeposits] = useState(false);
   const connectingCountRef = useRef(0);
   const isCreatingRef = useRef(false);
   const sparkWalletRef = useRef<SparkWallet | undefined>(undefined);
@@ -237,12 +235,6 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
         event.tag === SdkEvent_Tags.ClaimedDeposits ||
         event.tag === SdkEvent_Tags.UnclaimedDeposits
       ) {
-        if (event.tag === SdkEvent_Tags.UnclaimedDeposits) {
-          console.warn('SparkContext: unclaimed deposits remain');
-          setHasUnclaimedDeposits(true);
-        } else if (event.tag === SdkEvent_Tags.ClaimedDeposits) {
-          setHasUnclaimedDeposits(false);
-        }
         await refreshSparkWallet();
       }
     },
@@ -307,7 +299,6 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
   // Connect when a Spark wallet exists, and again when that wallet is replaced.
   useEffect(() => {
     lnAddressRegisterAttemptedRef.current = false;
-    setHasUnclaimedDeposits(false);
     if (!walletsInitialized) return;
     const spark = getSparkWallet(walletsRef.current);
     if (!spark) {
@@ -474,9 +465,8 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
       isCreating,
       createSparkWallet,
       outgoingPayment,
-      hasUnclaimedDeposits,
     }),
-    [isConnected, isConnecting, isCreating, createSparkWallet, outgoingPayment, hasUnclaimedDeposits],
+    [isConnected, isConnecting, isCreating, createSparkWallet, outgoingPayment],
   );
 
   return <SparkContext.Provider value={value}>{props.children}</SparkContext.Provider>;
