@@ -1282,8 +1282,9 @@ export class SparkWallet extends AbstractWallet {
     // so an empty invoice still has a merge key.
     let paymentHash = payment.id;
 
-    const lightningDetails = payment.details && payment.details.tag === PaymentDetails_Tags.Lightning;
-    if (lightningDetails) {
+    let lightningDetails = false;
+    if (payment.details && payment.details.tag === PaymentDetails_Tags.Lightning) {
+      lightningDetails = true;
       paymentRequest = payment.details.inner.invoice;
       description = payment.details.inner.description || '';
       const htlcHash = payment.details.inner.htlcDetails?.paymentHash;
