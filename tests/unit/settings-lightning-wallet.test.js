@@ -72,7 +72,7 @@ describe('Settings Lightning wallet entry', () => {
     expect(mockNavigate).toHaveBeenCalledWith('WalletDetails', { walletID: 'spark-wallet-id' });
   });
 
-  it('prefers the LDS wallet over Spark when both are present, even if Spark is listed first', () => {
+  it('uses the Spark wallet when both Spark and LDS are present', () => {
     const sparkWallet = {
       type: SparkWallet.type,
       getID: () => 'spark-wallet-id',
@@ -81,13 +81,13 @@ describe('Settings Lightning wallet entry', () => {
       type: LightningLdsWallet.type,
       getID: () => 'lds-wallet-id',
     };
-    const screen = renderSettings([sparkWallet, ldsWallet]);
+    const screen = renderSettings([ldsWallet, sparkWallet]);
     const item = screen.getByTestId('WalletDetailsLnd');
 
     expect(item).not.toBeDisabled();
     fireEvent.press(item);
-    expect(mockNavigate).toHaveBeenCalledWith('WalletDetails', { walletID: 'lds-wallet-id' });
-    expect(mockNavigate).not.toHaveBeenCalledWith('WalletDetails', { walletID: 'spark-wallet-id' });
+    expect(mockNavigate).toHaveBeenCalledWith('WalletDetails', { walletID: 'spark-wallet-id' });
+    expect(mockNavigate).not.toHaveBeenCalledWith('WalletDetails', { walletID: 'lds-wallet-id' });
   });
 
   it('keeps the Lightning entry disabled when neither LDS nor Spark is present', () => {
@@ -96,7 +96,7 @@ describe('Settings Lightning wallet entry', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it('enables the Lightning entry for an LDS-only wallet and navigates to its details', () => {
+  it('keeps the Spark entry disabled when only an LDS wallet is present', () => {
     const ldsWallet = {
       type: LightningLdsWallet.type,
       getID: () => 'lds-only-id',
@@ -104,11 +104,11 @@ describe('Settings Lightning wallet entry', () => {
     const screen = renderSettings([ldsWallet]);
     const item = screen.getByTestId('WalletDetailsLnd');
 
-    expect(item).not.toBeDisabled();
-    expect(screen.getByText(loc.wallets.lightning_wallet_label)).toBeTruthy();
-    expect(screen.queryByText(loc.wallets.lightning_spark_wallet_label)).toBeNull();
+    expect(item).toBeDisabled();
+    expect(screen.getByText(loc.wallets.lightning_spark_wallet_label)).toBeTruthy();
+    expect(screen.queryByText(loc.wallets.lightning_wallet_label)).toBeNull();
     fireEvent.press(item);
-    expect(mockNavigate).toHaveBeenCalledWith('WalletDetails', { walletID: 'lds-only-id' });
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('does not navigate when the disabled Lightning row is pressed', () => {

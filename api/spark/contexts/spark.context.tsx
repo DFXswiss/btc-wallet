@@ -1,6 +1,5 @@
 import React, { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, AppStateStatus } from 'react-native';
-import createHash from 'create-hash';
 import { SdkEvent_Tags, type SdkEvent } from '@breeztech/breez-sdk-spark-react-native';
 import { BlueStorageContext } from '../../../blue_modules/storage-context';
 import { HDLegacyBreadwalletWallet, HDLegacyP2PKHWallet, HDSegwitBech32Wallet, HDSegwitP2SHWallet } from '../../../class';
@@ -13,7 +12,6 @@ import {
   isSparkSdkConnected,
   SparkSessionStaleError,
   syncSparkWallet,
-  type SparkSessionLease,
 } from '../spark-sdk';
 import { deriveSparkMnemonic } from '../spark-seed';
 import { applyOutgoingSdkEvent, getOutgoingPayment, subscribeOutgoingPayment, type OutgoingPayment } from '../outgoing-payment';
@@ -25,41 +23,9 @@ const BIP39_HD_WALLET_TYPES = new Set([
   HDLegacyBreadwalletWallet.type,
 ]);
 
-const LIGHTNING_ADDRESS_USERNAME_LENGTH = 16;
-const LIGHTNING_ADDRESS_REGISTER_ATTEMPTS = 5;
-
 /** Class/kind only — safe for crash-report breadcrumbs and console.error issues. */
 function errorClass(e: unknown): string {
   return e instanceof Error ? e.name : typeof e;
-}
-
-function lightningAddressUsername(identityPubkey: string, attempt: number): string {
-  const base = createHash('sha256').update(identityPubkey).digest().toString('hex').slice(0, LIGHTNING_ADDRESS_USERNAME_LENGTH);
-  return attempt === 0 ? base : `${base}${attempt + 1}`;
-}
-
-async function registerLightningAddressOnce(
-  identityPubkey: string,
-  description: string,
-  lease: SparkSessionLease,
-): Promise<string | undefined> {
-  for (let attempt = 0; attempt < LIGHTNING_ADDRESS_REGISTER_ATTEMPTS; attempt++) {
-    const username = lightningAddressUsername(identityPubkey, attempt);
-    const available = await lease.requireSdk().checkLightningAddressAvailable({ username });
-    const sdk = lease.requireSdk();
-    if (!available) continue;
-    try {
-      const info = await sdk.registerLightningAddress({ username, description });
-      lease.requireSdk();
-      return info?.lightningAddress;
-    } catch (e) {
-      if (e instanceof SparkSessionStaleError) {
-        throw e;
-      }
-      console.warn('SparkContext: registerLightningAddress failed', errorClass(e));
-    }
-  }
-  return undefined;
 }
 
 export interface SparkContextInterface {
@@ -154,10 +120,6 @@ function getSparkWallet(wallets: { type: string }[]): SparkWallet | undefined {
   return wallets.find(w => w.type === SparkWallet.type) as SparkWallet | undefined;
 }
 
-function writeLightningAddress(wallet: SparkWallet, address: string): void {
-  wallet.lnAddress = address;
-}
-
 export function SparkContextProvider(props: PropsWithChildren): React.JSX.Element {
   const { wallets, walletsInitialized, addAndSaveWallet, saveToDisk, deleteWallet } = useContext(BlueStorageContext);
   const [isConnected, setIsConnected] = useState(false);
@@ -168,7 +130,6 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
   const isCreatingRef = useRef(false);
   const sparkWalletRef = useRef<SparkWallet | undefined>(undefined);
   const walletsRef = useRef(wallets);
-  const lnAddressRegisterAttemptedRef = useRef(false);
   const createSparkWalletRef = useRef<(() => Promise<SparkWallet | null>) | undefined>(undefined);
   const connectExistingSparkRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
@@ -185,30 +146,6 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
         await target.fetchBalance();
         await target.fetchTransactions();
         await target.fetchUserInvoices();
-        const lease = acquireSparkSessionLease();
-        if (lease.identity !== target.identityPubkey) {
-          return;
-        }
-        const lnInfo = await lease.requireSdk().getLightningAddress();
-        lease.requireSdk();
-        if (lnInfo?.lightningAddress) {
-          writeLightningAddress(target, lnInfo.lightningAddress);
-        } else if (!target.lnAddress && !lnAddressRegisterAttemptedRef.current && target.identityPubkey) {
-          lnAddressRegisterAttemptedRef.current = true;
-          try {
-            const registered = await registerLightningAddressOnce(target.identityPubkey, loc.wallets.lightning_spark_wallet_label, lease);
-            lease.requireSdk();
-            if (registered) {
-              writeLightningAddress(target, registered);
-            }
-          } catch (e) {
-            if (e instanceof SparkSessionStaleError) {
-              // Same wallet identity: the connect effect does not re-run, so retry must be re-enabled here.
-              lnAddressRegisterAttemptedRef.current = false;
-            }
-            throw e;
-          }
-        }
         await saveToDisk();
       } catch (e) {
         if (e instanceof SparkSessionStaleError) {
@@ -298,7 +235,6 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
 
   // Connect when a Spark wallet exists, and again when that wallet is replaced.
   useEffect(() => {
-    lnAddressRegisterAttemptedRef.current = false;
     if (!walletsInitialized) return;
     const spark = getSparkWallet(walletsRef.current);
     if (!spark) {
@@ -387,33 +323,14 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
       const mnemonic = sparkMnemonicFromWallet(source);
       const sourceId = sourceWalletIdOf(source);
       if (!sourceId) {
-        throw new Error('On-chain wallet is required to create a Spark Lightning wallet');
+        throw new Error('On-chain wallet is required to create a Spark wallet');
       }
       await ensureConnected(mnemonic);
 
       const lease = acquireSparkSessionLease();
       const info = await lease.requireSdk().getInfo({ ensureSynced: false });
-      const session = lease.requireSdk();
-
-      // Lightning address is optional; a failed lookup or name conflict must not abort create.
-      let lnAddress: string | undefined;
-      try {
-        const lnInfo = await session.getLightningAddress();
-        lease.requireSdk();
-        lnAddress = lnInfo?.lightningAddress;
-        if (!lnAddress) {
-          lnAddress = await registerLightningAddressOnce(info.identityPubkey, loc.wallets.lightning_spark_wallet_label, lease);
-        }
-      } catch (e) {
-        if (e instanceof SparkSessionStaleError) {
-          throw e;
-        }
-        console.warn('SparkContext: getLightningAddress failed; wallet remains usable without lnAddress', errorClass(e));
-      }
-      lnAddressRegisterAttemptedRef.current = true;
-
       lease.requireSdk();
-      created = SparkWallet.create(info.identityPubkey, lnAddress);
+      created = SparkWallet.create(info.identityPubkey);
       created.setLabel(loc.wallets.lightning_spark_wallet_label);
       // Never write the recovery phrase into the Spark wallet record.
       created.secret = '';

@@ -153,8 +153,18 @@ const ScanLndInvoice = () => {
     setIsTxFree(false);
   };
 
+  const isLightningDestination = destinationString =>
+    Lnurl.isLnurl(destinationString) ||
+    Lnurl.isLightningAddress(destinationString) ||
+    DeeplinkSchemaMatch.isLightningInvoice(destinationString) ||
+    DeeplinkSchemaMatch.isBothBitcoinAndLightning(destinationString) ||
+    DeeplinkSchemaMatch.isTestnetLightningInvoice(destinationString);
+
   const processDestination = destinationString => {
     Keyboard.dismiss();
+    if (wallet?.type === SparkWallet.type && isLightningDestination(destinationString)) {
+      throw new Error(loc.wallets.lightning_spark_only);
+    }
     if (Lnurl.isLnurl(destinationString)) return setLnurlDestination(destinationString);
     if (Lnurl.isLightningAddress(destinationString)) return setLightningAddressDestination(destinationString);
     if (wallet?.type === SparkWallet.type && DeeplinkSchemaMatch.isSparkAddress(destinationString))
@@ -286,6 +296,9 @@ const ScanLndInvoice = () => {
   };
 
   const next = () => {
+    if (wallet?.type === SparkWallet.type && isLightningDestination(destination)) {
+      return showError(loc.wallets.lightning_spark_only);
+    }
     if (Lnurl.isLnurl(destination) || Lnurl.isLightningAddress(destination)) return processLnurlPay();
     if (wallet?.type === SparkWallet.type && DeeplinkSchemaMatch.isSparkAddress(destination)) return processSparkAddressPay();
     if (

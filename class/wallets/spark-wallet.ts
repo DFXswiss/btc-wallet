@@ -131,7 +131,7 @@ function invoiceDedupeKeys(tx: SparkInvoiceRecord): string[] {
 
 export class SparkWallet extends AbstractWallet {
   static type = 'sparkWallet';
-  static typeReadable = 'Lightning (Spark)';
+  static typeReadable = 'Spark';
   /**
    * Wait this long for Lightning to settle before returning a pending result.
    * Pending is not failure: the SDK may still complete the payment afterwards
@@ -227,6 +227,7 @@ export class SparkWallet extends AbstractWallet {
     const wallet = super.fromJson(obj) as unknown as SparkWallet;
     // Older builds stored a Bitcoin deposit address. v1 does not receive on-chain.
     delete (wallet as { depositAddress?: string }).depositAddress;
+    wallet.lnAddress = undefined;
     return wallet;
   }
 

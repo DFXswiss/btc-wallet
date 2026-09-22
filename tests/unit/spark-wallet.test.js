@@ -194,7 +194,7 @@ beforeEach(() => {
 describe('SparkWallet', () => {
   it('exposes the spark type and readable label', () => {
     assert.strictEqual(SparkWallet.type, 'sparkWallet');
-    assert.strictEqual(SparkWallet.typeReadable, 'Lightning (Spark)');
+    assert.strictEqual(SparkWallet.typeReadable, 'Spark');
   });
 
   it('recognizes raw and URI-wrapped bech32m Spark invoices without confusing other payment inputs', () => {
@@ -2727,7 +2727,7 @@ describe('SparkWallet', () => {
     const restored = SparkWallet.fromJson(JSON.stringify(stored));
     assert.strictEqual(restored.type, SparkWallet.type);
     assert.strictEqual(restored.identityPubkey, 'round-trip-pk');
-    assert.strictEqual(restored.lnAddress, 'a@b.c');
+    assert.strictEqual(restored.lnAddress, undefined);
     assert.strictEqual(restored.depositAddress, undefined);
     assert.strictEqual(restored.weOwnAddress('bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'), false);
     assert.strictEqual(restored.getSecret(), '');

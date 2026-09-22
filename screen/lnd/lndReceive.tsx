@@ -33,6 +33,7 @@ import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { AbstractWallet } from '../../class';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
+import { SparkWallet } from '../../class/wallets/spark-wallet';
 import { majorTomToGroundControl, tryToObtainPermissions } from '../../blue_modules/notifications';
 import useInputAmount from '../../hooks/useInputAmount';
 import { SuccessView } from '../send/success';
@@ -65,9 +66,12 @@ const LNDReceive = () => {
   const generateInvoiceRef = useRef<(() => Promise<void>) | undefined>(undefined);
   const [invoiceGenerationRequest, setInvoiceGenerationRequest] = useState(0);
   const [isPaid, setIsPaid] = useState(false);
+  const [sparkAddress, setSparkAddress] = useState<string | undefined>();
+  const [isSparkAddressLoading, setIsSparkAddressLoading] = useState(false);
   const inputAmountRef = useRef<TextInput | null>(null);
   const inputDescriptionRef = useRef<TextInput | null>(null);
   const { isNfcActive, startReading, stopReading } = useNFC();
+  const isSpark = wallet?.type === SparkWallet.type;
   const latestInvoiceValues = useRef({ amountSats, description });
   latestInvoiceValues.current = { amountSats, description };
 
@@ -106,6 +110,34 @@ const LNDReceive = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletID]);
+
+  useEffect(() => {
+    if (!isSpark || !wallet) return;
+    if (typeof wallet.sparkAddress === 'string' && wallet.sparkAddress) {
+      setSparkAddress(wallet.sparkAddress);
+      setIsSparkAddressLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setIsSparkAddressLoading(true);
+    setSparkAddress(undefined);
+    (async () => {
+      try {
+        const address = await wallet.getSparkAddress();
+        if (cancelled) return;
+        setSparkAddress(address || undefined);
+        if (address) await saveToDisk();
+      } catch {
+        if (!cancelled) setSparkAddress(undefined);
+      } finally {
+        if (!cancelled) setIsSparkAddressLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSpark, walletID]);
 
   const cancelInvoicePolling = () => {
     pollGeneration.current += 1;
@@ -301,12 +333,12 @@ const LNDReceive = () => {
     });
   };
 
-  const copyText = invoiceRequest || wallet?.lnAddress;
-  const qrValue = invoiceRequest || wallet?.getLnurl?.() || wallet?.lnAddress;
-  const isQrLoading = isInvoiceLoading;
+  const copyText = isSpark ? sparkAddress : invoiceRequest || wallet?.lnAddress;
+  const qrValue = isSpark ? sparkAddress : invoiceRequest || wallet?.getLnurl?.() || wallet?.lnAddress;
+  const isQrLoading = isSpark ? isSparkAddressLoading && !sparkAddress : isInvoiceLoading;
 
   const handleShareButtonPressed = () => {
-    Share.open({ message: invoiceRequest || wallet.lnAddress || '' }).catch(() => {});
+    Share.open({ message: (isSpark ? sparkAddress : invoiceRequest || wallet.lnAddress) || '' }).catch(() => {});
   };
 
   if (isPaid) {
@@ -337,7 +369,7 @@ const LNDReceive = () => {
                   <>
                     <QRCodeComponent value={qrValue} />
                     <View style={styles.shareContainer}>
-                      <BlueCopyTextToClipboard text={copyText || ''} truncated={Boolean(invoiceRequest)} textStyle={styles.copyText} />
+                      <BlueCopyTextToClipboard text={copyText || ''} truncated={Boolean(invoiceRequest) && !isSpark} textStyle={styles.copyText} />
                       <TouchableOpacity accessibilityRole="button" onPress={handleShareButtonPressed}>
                         <Image resizeMode="stretch" source={require('../../img/share-icon.png')} style={styles.shareIcon} />
                       </TouchableOpacity>
@@ -348,6 +380,8 @@ const LNDReceive = () => {
                 )}
               </View>
               <View style={styles.share}>
+                {isSpark ? null : (
+                <>
                 <View style={[styles.customAmount, styleHooks.customAmount]}>
                   <TextInput
                     ref={inputAmountRef}
@@ -380,6 +414,8 @@ const LNDReceive = () => {
                     onBlur={handleOnBlur}
                   />
                 </View>
+                </>
+                )}
                 {invoiceRequest && wallet.type === LightningLdsWallet.type ? (
                   <View>
                     {Platform.select({

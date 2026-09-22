@@ -31,7 +31,6 @@ import TransactionsNavigationHeader from '../../components/TransactionsNavigatio
 import PropTypes from 'prop-types';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
-import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import { SparkWallet } from '../../class/wallets/spark-wallet';
 import BoltCard from '../../class/boltcard';
 import scanqrHelper from '../../helpers/scan-qr';
@@ -51,11 +50,7 @@ const WalletHome = ({ navigation }) => {
   const { createSparkWallet, isCreating } = useSparkContext();
   const walletID = useMemo(() => wallets[0]?.getID(), [wallets]);
   const multisigWallet = useMemo(() => wallets.find(w => w.type === MultisigHDWallet.type), [wallets]);
-  // Prefer existing LNDHub Lightning; otherwise Spark. Existing LDS users are unchanged.
-  const lnWallet = useMemo(
-    () => wallets.find(w => w.type === LightningLdsWallet.type) || wallets.find(w => w.type === SparkWallet.type),
-    [wallets],
-  );
+  const sparkWallet = useMemo(() => wallets.find(w => w.type === SparkWallet.type), [wallets]);
   const [, setIsLoading] = useState(false);
   const { name, params } = useRoute();
   const { setParams, navigate } = useNavigation();
@@ -153,7 +148,7 @@ const WalletHome = ({ navigation }) => {
 
     if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(value)) {
       const uri = DeeplinkSchemaMatch.isBothBitcoinAndLightning(value);
-      const walletSelected = lnWallet || wallet;
+      const walletSelected = wallet;
       const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(walletSelected, uri);
       ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
       navigate(...route);
@@ -248,10 +243,10 @@ const WalletHome = ({ navigation }) => {
 
   const onReceiveButtonPressed = () => {
     if (multisigWallet) return navigate('ReceiveDetailsRoot', { screen: 'ReceiveDetails', params: { walletID: multisigWallet.getID() } });
-    if (lnWallet)
+    if (sparkWallet)
       return navigate('ReceiveDetailsRoot', {
-        screen: lnWallet.isPosMode ? 'PosReceive' : 'LNDReceive',
-        params: { walletID: lnWallet.getID() },
+        screen: 'LNDReceive',
+        params: { walletID: sparkWallet.getID() },
       });
     return navigate('ReceiveDetailsRoot', { screen: 'ReceiveDetails', params: { walletID: wallet.getID() } });
   };
@@ -297,21 +292,18 @@ const WalletHome = ({ navigation }) => {
       walletID: onChainWallet?.getID?.(),
     });
 
-    const LnWallet = wallets.find(w => w.type === LightningLdsWallet.type) || wallets.find(w => w.type === SparkWallet.type);
-    const lightningSubtitle =
-      LnWallet?.type === SparkWallet.type ? loc.wallets.lightning_spark_wallet_label : loc.wallets.lightning_wallet_label;
     tmpWallets.push({
-      wallet: LnWallet,
+      wallet: sparkWallet,
       title: 'Bitcoin',
       isActivated: true,
-      subtitle: lightningSubtitle,
-      walletID: LnWallet?.getID?.(),
+      subtitle: loc.wallets.lightning_spark_wallet_label,
+      walletID: sparkWallet?.getID?.(),
       onDummyPress: onAddLightningPress,
-      isCreatingLightning: isCreating && !LnWallet,
+      isCreatingLightning: isCreating && !sparkWallet,
     });
 
     return tmpWallets;
-  }, [wallets, isCreating, createSparkWallet]);
+  }, [wallets, isCreating, createSparkWallet, sparkWallet]);
 
   return (
     <View style={styles.flex}>
