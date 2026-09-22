@@ -53,6 +53,7 @@ const _cacheFiatToSat = {};
 const SPARK_SEED_STORAGE_KEY = 'sparkUnresolvedPaymentSeeds';
 const unresolvedSparkSeeds = new Map();
 const sparkSeedKeyByPaymentId = new Map();
+const unsentSparkSeeds = new Set();
 let sparkSeedsLoaded = null;
 let sparkSeedsPersisted = false;
 
@@ -79,18 +80,15 @@ function applySparkSeedStorage(raw) {
   if (unresolvedSparkSeeds.size > 0) sparkSeedsPersisted = true;
 }
 
-function loadSparkSeeds() {
-  if (!sparkSeedsLoaded) {
-    sparkSeedsLoaded = AsyncStorage.getItem(SPARK_SEED_STORAGE_KEY)
-      .then(raw => {
-        try {
-          applySparkSeedStorage(raw);
-        } catch {
-          // A damaged record must not mint a second payment. The next attempt
-          // still reads whatever this process already holds.
-        }
-      })
-      .catch(() => {});
+async function loadSparkSeeds() {
+  if (sparkSeedsLoaded) return sparkSeedsLoaded;
+  try {
+    const raw = await AsyncStorage.getItem(SPARK_SEED_STORAGE_KEY);
+    applySparkSeedStorage(raw);
+    sparkSeedsLoaded = Promise.resolve();
+  } catch (error) {
+    sparkSeedsLoaded = null;
+    throw error;
   }
   return sparkSeedsLoaded;
 }
@@ -113,6 +111,7 @@ function keyForSparkSeed(seed) {
 }
 
 function dropSparkSeed(seed) {
+  unsentSparkSeeds.delete(seed);
   const key = keyForSparkSeed(seed);
   if (!key) return;
   unresolvedSparkSeeds.delete(key);
@@ -135,11 +134,14 @@ async function createSparkPaymentSeed(seedRef, destination, amountSats) {
   const seed = (await randomBytes(16)).toString('hex');
   seedRef.current = seed;
   unresolvedSparkSeeds.set(key, seed);
+  unsentSparkSeeds.add(seed);
+  await persistSparkSeeds();
   return seed;
 }
 
 function keepUnresolvedSparkSeed(seedRef, paymentId, paymentHash) {
   const seed = seedRef?.current;
+  if (seed) unsentSparkSeeds.delete(seed);
   const key = seed && keyForSparkSeed(seed);
   if (key && paymentId) sparkSeedKeyByPaymentId.set(paymentId, key);
   if (key && paymentHash) sparkSeedKeyByPaymentId.set(paymentHash, key);
@@ -171,6 +173,7 @@ subscribeOutgoingPayment(payment => {
 export function __resetSparkPaymentSeedsForTests() {
   unresolvedSparkSeeds.clear();
   sparkSeedKeyByPaymentId.clear();
+  unsentSparkSeeds.clear();
   sparkSeedsLoaded = null;
   sparkSeedsPersisted = false;
 }
@@ -722,6 +725,8 @@ const LnurlPay = () => {
       // A fee or balance error is thrown before sendPayment. Forgetting the seed
       // there drops the key of a send that may already be in flight.
       if (Err?.message === loc.wallets.lightning_spark_payment_failed) {
+        await forgetSparkPaymentSeed(sparkPaymentSeedRef);
+      } else if (preSendFailure && unsentSparkSeeds.has(sparkPaymentSeedRef.current)) {
         await forgetSparkPaymentSeed(sparkPaymentSeedRef);
       } else if (sparkPaymentSeedRef.current && !preSendFailure) {
         await keepUnresolvedSparkSeed(sparkPaymentSeedRef);
