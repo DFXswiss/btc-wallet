@@ -3001,6 +3001,37 @@ describe('SparkWallet', () => {
     assert.strictEqual(wallet.transactions_raw[0].memo, 'Spark payment');
   });
 
+  it('mapPayment labels a deposit and a withdrawal by their own kind', async () => {
+    mockSdk.listPayments.mockResolvedValue({
+      payments: [
+        {
+          id: 'dep',
+          paymentType: PaymentType.Receive,
+          status: PaymentStatus.Completed,
+          amount: 4n,
+          fees: 0n,
+          timestamp: 4n,
+          method: {},
+          details: { tag: PaymentDetails_Tags.Deposit, inner: {} },
+        },
+        {
+          id: 'wd',
+          paymentType: PaymentType.Send,
+          status: PaymentStatus.Completed,
+          amount: 5n,
+          fees: 0n,
+          timestamp: 5n,
+          method: {},
+          details: { tag: PaymentDetails_Tags.Withdraw, inner: {} },
+        },
+      ],
+    });
+    const wallet = new SparkWallet();
+    await wallet.fetchTransactions();
+    assert.strictEqual(wallet.transactions_raw[0].memo, 'Deposit');
+    assert.strictEqual(wallet.transactions_raw[1].memo, 'Withdraw');
+  });
+
   it('decodeInvoice maps millisatoshis and the remaining bolt11 tags', () => {
     const bolt11 = require('bolt11');
     const spy = jest.spyOn(bolt11, 'decode').mockReturnValue({

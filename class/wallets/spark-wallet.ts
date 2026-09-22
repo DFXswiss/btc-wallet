@@ -1269,6 +1269,15 @@ export class SparkWallet extends AbstractWallet {
     return decoded;
   }
 
+  private paymentMemo(tag: string | undefined, isSend: boolean): string {
+    if (tag === PaymentDetails_Tags.Lightning) return isSend ? 'Lightning payment' : 'Lightning invoice';
+    if (tag === PaymentDetails_Tags.Deposit) return 'Deposit';
+    if (tag === PaymentDetails_Tags.Withdraw) return 'Withdraw';
+    if (tag === PaymentDetails_Tags.Token) return isSend ? 'Token payment' : 'Token receive';
+    if (!tag || tag === PaymentDetails_Tags.Spark) return isSend ? 'Spark payment' : 'Spark receive';
+    return isSend ? `${String(tag)} payment` : `${String(tag)} receive`;
+  }
+
   private mapPayment(payment: Payment): SparkInvoiceRecord {
     const amount = Number(payment.amount);
     const fees = Number(payment.fees);
@@ -1282,9 +1291,7 @@ export class SparkWallet extends AbstractWallet {
     // so an empty invoice still has a merge key.
     let paymentHash = payment.id;
 
-    let lightningDetails = false;
     if (payment.details && payment.details.tag === PaymentDetails_Tags.Lightning) {
-      lightningDetails = true;
       paymentRequest = payment.details.inner.invoice;
       description = payment.details.inner.description || '';
       const htlcHash = payment.details.inner.htlcDetails?.paymentHash;
@@ -1297,7 +1304,7 @@ export class SparkWallet extends AbstractWallet {
       payment_request: paymentRequest,
       payment_hash: paymentHash,
       description,
-      memo: description || (lightningDetails ? (isSend ? 'Lightning payment' : 'Lightning invoice') : isSend ? 'Spark payment' : 'Spark receive'),
+      memo: description || this.paymentMemo(payment.details?.tag, isSend),
       amt: amount,
       value: isSend ? -(amount + fees) : amount,
       timestamp: Number(payment.timestamp),
