@@ -2,7 +2,7 @@ appId: swiss.dfx.bitcoin
 env:
   E2E_SPARK_RETURN_ADDRESS: ${E2E_SPARK_RETURN_ADDRESS || ''}
 ---
-# Abschluss-Hook fuer P14/P17. Liest den Spark-Saldo im Wallet-Detailkopf
+# Abschluss-Hook fuer P17. Liest den Spark-Saldo im Wallet-Detailkopf
 # (WalletLabel + WalletBalance). Fehlt der Kopf, Skip (gruen). Ist der gelesene
 # Saldo 0 oder unter der Gebuehrenreserve (4 sat), Skip (gruen) — bei 10 sat
 # Guthaben bleiben 6 sat rueckfuehrbar, bei Rest <= 4 sat faellt die

@@ -281,14 +281,13 @@ therefore not possible.
   historical P12 run: P17's stack points `FRICK_BASE_URL` at a discard port,
   so the helper writes the returning bank row and leaves matching and completion
   to the backend.
-- P14 and P17 return the visible Spark balance minus a 4 sat fee reserve in an
+- P17 returns the visible Spark balance minus a 4 sat fee reserve in an
   `onFlowComplete` hook (`_return-spark-balance.yaml`), so the return also runs
-  after a failed assertion. The return uses the wallet's Spark send path to
-  `E2E_SPARK_RETURN_ADDRESS`, not a Lightning counterpart, and does not use
-  `E2E_TREASURY_*`. If that address is unset the hook skips, logs that, and
-  does not fail the flow. At the default
-  10 sat credit that leaves 6 sat returnable. A completed P14 therefore costs
-  only the native Lightning fee.
+  after a failed assertion. P14 has no return hook. The return uses the wallet's
+  Spark send path to `E2E_SPARK_RETURN_ADDRESS`, not a Lightning counterpart, and
+  does not use `E2E_TREASURY_*`. If that address is unset the hook skips, logs
+  that, and does not fail the flow. At the default
+  10 sat credit that leaves 6 sat returnable.
   P17 returns only the Spark remainder after the sell; the sold amount does not
   come back. If the hook cannot read a Spark balance (0, missing, at or below
   the 4 sat reserve, or the app is not on the Spark wallet screen) it skips,
@@ -312,7 +311,7 @@ therefore not possible.
   the QR, not the pixels or whether they decode.
 - Persistence across app restarts, keychain entitlements, NFC, camera QR reads,
   hardware wallets and multi-device are not part of these 17 paths. The
-  P14/P15/P17 relaunch without wiping state only exists so the Spark row can
+  P16/P17 relaunch without wiping state only exists so the Spark row can
   show the new balance; it is not a persistence proof. P16 and P17 import the
   fixed identity after the runner's reset; that is not a persistence proof.
 - Dynamic Spark and DFX responses can turn the suite red. That is intended; the
