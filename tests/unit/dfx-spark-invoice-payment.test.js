@@ -181,7 +181,7 @@ afterEach(() => {
 });
 
 describe('DFX Spark invoice navigation', () => {
-  it('routes a Spark sell URI with the confirmed amount and preserves the LNURL fallback', async () => {
+  it('routes a Spark sell URI and refuses a Lightning deposit on a Spark wallet', async () => {
     mockSellGetInfo.mockResolvedValue(sellInfo(`spark:${SPARK_INVOICE}?amount=${URI_AMOUNT_BTC}`));
     let screen = renderScreen(Sell, makeSparkWallet());
 
@@ -197,14 +197,17 @@ describe('DFX Spark invoice navigation', () => {
     expect(mockNavigate.mock.calls[0][1].lnurl).toBeUndefined();
     screen.unmount();
     mockNavigate.mockClear();
+    mockAlert.mockClear();
     mockSellGetInfo.mockResolvedValue(sellInfo(LNURL));
     screen = renderScreen(Sell, makeSparkWallet());
 
     await waitFor(() => screen.getByTestId('SellConfirm'));
     fireEvent.press(screen.getByTestId('SellConfirm'));
 
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalled());
-    expect(mockNavigate.mock.calls[0]).toEqual(['LnurlPay', { lnurl: LNURL, walletID: 'spark-dfx-wallet', amountSat: AMOUNT_SATS }]);
+    await waitFor(() =>
+      expect(mockAlert).toHaveBeenCalledWith(loc.wallets.lightning_spark_wallet_label, loc.wallets.lightning_spark_only),
+    );
+    expect(mockNavigate).not.toHaveBeenCalled();
     screen.unmount();
     mockNavigate.mockClear();
     mockRouteParams['wallet-id'] = 'lds-dfx-wallet';
@@ -234,7 +237,7 @@ describe('DFX Spark invoice navigation', () => {
     expect(mockNavigate.mock.calls[0][1].sparkInvoice).toBeUndefined();
   });
 
-  it('routes a Spark swap URI with the confirmed amount and preserves the LNURL fallback', async () => {
+  it('routes a Spark swap URI and refuses a Lightning deposit on a Spark wallet', async () => {
     mockSwapGetInfo.mockResolvedValue(swapInfo(`spark:${SPARK_INVOICE}?amount=${URI_AMOUNT_BTC}`));
     let screen = renderScreen(Swap, makeSparkWallet());
 
@@ -250,14 +253,17 @@ describe('DFX Spark invoice navigation', () => {
     expect(mockNavigate.mock.calls[0][1].lnurl).toBeUndefined();
     screen.unmount();
     mockNavigate.mockClear();
+    mockAlert.mockClear();
     mockSwapGetInfo.mockResolvedValue(swapInfo(LNURL));
     screen = renderScreen(Swap, makeSparkWallet());
 
     await waitFor(() => screen.getByTestId(`Button-${loc.swap.confirm}`));
     fireEvent.press(screen.getByTestId(`Button-${loc.swap.confirm}`));
 
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalled());
-    expect(mockNavigate.mock.calls[0]).toEqual(['LnurlPay', { lnurl: LNURL, walletID: 'spark-dfx-wallet', amountSat: AMOUNT_SATS }]);
+    await waitFor(() =>
+      expect(mockAlert).toHaveBeenCalledWith(loc.wallets.lightning_spark_wallet_label, loc.wallets.lightning_spark_only),
+    );
+    expect(mockNavigate).not.toHaveBeenCalled();
     screen.unmount();
     mockNavigate.mockClear();
     mockRouteParams['wallet-id'] = 'lds-dfx-wallet';

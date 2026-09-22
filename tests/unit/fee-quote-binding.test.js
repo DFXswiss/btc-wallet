@@ -176,6 +176,7 @@ it('allows a lower Spark-Invoice fee after a real quote', async () => {
   mockSdk.prepareSendPayment.mockResolvedValueOnce(preparedSparkInvoice(2n)).mockResolvedValueOnce(preparedSparkInvoice(1n));
   mockSdk.sendPayment.mockResolvedValue({ payment: { id: 'spark-payment', status: PaymentStatus.Completed } });
   const wallet = SparkWallet.create('id-pk');
+  wallet.balance = 1_000_000;
   const quote = await wallet.getPaymentFeeQuote(SPARK_INVOICE, 12_345);
 
   await wallet.paySparkInvoice(SPARK_INVOICE, 12_345, 'spark-case', quote);
