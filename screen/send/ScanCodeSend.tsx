@@ -72,12 +72,10 @@ const ScanCodeSend: React.FC & { navigationOptions?: ReturnType<typeof navigatio
 
     if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(destinationString)) {
       const selectedWallet = wallets.find((w: AbstractWallet) => w.getID() === params?.walletID);
-      const lightningWallet =
-        wallets.find((w: AbstractWallet) => w.chain === Chain.OFFCHAIN && w.type !== SparkWallet.type) ||
-        wallets.find((w: AbstractWallet) => w.chain === Chain.OFFCHAIN);
+      const lightningOnly = wallets.find((w: AbstractWallet) => w.chain === Chain.OFFCHAIN && w.type !== SparkWallet.type);
       const uri = DeeplinkSchemaMatch.isBothBitcoinAndLightning(destinationString);
-      const selectedIsLightning = !!selectedWallet && selectedWallet.chain === Chain.OFFCHAIN && selectedWallet.type !== SparkWallet.type;
-      const destinationWallet = selectedIsLightning ? selectedWallet : lightningWallet || selectedWallet || mainWallet;
+      const destinationWallet =
+        selectedWallet?.type === SparkWallet.type && lightningOnly ? lightningOnly : selectedWallet || lightningOnly || mainWallet;
       const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(destinationWallet, uri) as NavigationRoute;
 
       delayedNavigationFunction(() => replace(...route));

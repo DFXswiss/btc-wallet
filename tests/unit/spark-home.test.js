@@ -724,19 +724,30 @@ describe('home screen scan and barcode', () => {
     expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', { screen: 'SendDetails', params: { uri: 'bitcoin:addr' } });
   });
 
-  it('routes a combined bitcoin+lightning payload through the lightning wallet when present', async () => {
+  it('keeps the on-chain wallet for a combined payload when that wallet is first', async () => {
     mockIsBoth.mockReturnValue({ bitcoin: 'bitcoin:addr', lndInvoice: 'lnbc1' });
     mockBothOnSelect.mockReturnValue(['SendDetailsRoot', { screen: 'ScanLndInvoice', params: { uri: 'lnbc1' } }]);
     mockScanQr.mockResolvedValue('bitcoin:addr&lightning=lnbc1');
-    const lds = makeLds('lds-both-scan');
-    const screen = renderHome([makeOnChain(), lds]);
+    const screen = renderHome([makeOnChain('onchain-both'), makeLds('lds-both-scan'), makeSpark('spark-also')]);
     await waitFor(() => expect(screen.getByText(loc.send.details_scan)).toBeTruthy());
     await act(async () => {
       fireEvent.press(screen.getByText(loc.send.details_scan));
     });
-    expect(mockBothOnSelect.mock.calls[0][0].getID()).toBe('lds-both-scan');
+    expect(mockBothOnSelect.mock.calls[0][0].getID()).toBe('onchain-both');
     expect(Haptic.trigger).toHaveBeenCalledWith('impactLight', { ignoreAndroidSystemSettings: false });
     expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', { screen: 'ScanLndInvoice', params: { uri: 'lnbc1' } });
+  });
+
+  it('keeps the on-chain wallet for a combined payload when Spark is the only off-chain wallet', async () => {
+    mockIsBoth.mockReturnValue({ bitcoin: 'bitcoin:addr', lndInvoice: 'lnbc1' });
+    mockBothOnSelect.mockReturnValue(['SendDetailsRoot', { screen: 'SendDetails', params: { uri: 'bitcoin:addr' } }]);
+    mockScanQr.mockResolvedValue('bitcoin:addr&lightning=lnbc1');
+    const screen = renderHome([makeOnChain('onchain-only'), makeSpark('spark-only')]);
+    await waitFor(() => expect(screen.getByText(loc.send.details_scan)).toBeTruthy());
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.send.details_scan));
+    });
+    expect(mockBothOnSelect.mock.calls[0][0].getID()).toBe('onchain-only');
   });
 
   it('routes a combined bitcoin+lightning payload to Lightning when Spark is listed first', async () => {

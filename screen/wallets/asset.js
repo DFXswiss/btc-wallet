@@ -248,7 +248,9 @@ const Asset = ({ navigation }) => {
       importPsbt(value);
     } else if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(value)) {
       const uri = DeeplinkSchemaMatch.isBothBitcoinAndLightning(value);
-      const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(wallet, uri);
+      const lightningOnly = wallets.find(w => w.chain === Chain.OFFCHAIN && w.type !== SparkWallet.type);
+      const walletSelected = wallet?.type === SparkWallet.type && lightningOnly ? lightningOnly : wallet;
+      const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(walletSelected, uri);
       ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
       navigate(...route);
     } else if (DeeplinkSchemaMatch.isLnUrl(value)) {

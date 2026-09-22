@@ -149,9 +149,8 @@ const WalletHome = ({ navigation }) => {
 
     if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(value)) {
       const uri = DeeplinkSchemaMatch.isBothBitcoinAndLightning(value);
-      const lightningWallet =
-        wallets.find(w => w.chain === Chain.OFFCHAIN && w.type !== SparkWallet.type) || wallets.find(w => w.chain === Chain.OFFCHAIN);
-      const walletSelected = lightningWallet || wallet;
+      const lightningOnly = wallets.find(w => w.chain === Chain.OFFCHAIN && w.type !== SparkWallet.type);
+      const walletSelected = wallet?.type === SparkWallet.type && lightningOnly ? lightningOnly : wallet;
       const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(walletSelected, uri);
       ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
       navigate(...route);

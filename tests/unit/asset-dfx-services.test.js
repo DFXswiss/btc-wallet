@@ -751,9 +751,22 @@ describe('wallet asset scan and barcode', () => {
     await act(async () => {
       fireEvent.press(screen.getByText(loc.send.details_scan));
     });
-    expect(mockBothOnSelect).toHaveBeenCalled();
+    expect(mockBothOnSelect.mock.calls[0][0].getID()).toBe('both-1');
     expect(Haptic.trigger).toHaveBeenCalledWith('impactLight', { ignoreAndroidSystemSettings: false });
     expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', { screen: 'SendDetails', params: { uri: 'bitcoin:addr' } });
+  });
+
+  it('routes a combined payload from a Spark wallet to Lightning when one exists', async () => {
+    mockIsBoth.mockReturnValue({ bitcoin: 'bitcoin:addr', lndInvoice: 'lnbc1' });
+    mockBothOnSelect.mockReturnValue(['SendDetailsRoot', { screen: 'ScanLndInvoice' }]);
+    mockScanQr.mockResolvedValue('bitcoin:addr&lightning=lnbc1');
+    const spark = makeWallet({ id: 'spark-asset', type: 'sparkWallet', chain: 'OFFCHAIN' });
+    const lightning = makeWallet({ id: 'lds-asset', type: 'lightningLdsWallet', chain: 'OFFCHAIN' });
+    const screen = renderAsset(spark, [lightning]);
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.send.details_scan));
+    });
+    expect(mockBothOnSelect.mock.calls[0][0].getID()).toBe('lds-asset');
   });
 
   it('forwards an LNURL to LnurlNavigationForwarder with the current wallet id', async () => {
