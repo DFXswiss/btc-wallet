@@ -51,7 +51,8 @@ const ManualAddressSend: React.FC & { navigationOptions?: ReturnType<typeof navi
         wallets.find((w: AbstractWallet) => w.chain === Chain.OFFCHAIN && w.type !== SparkWallet.type) ||
         wallets.find((w: AbstractWallet) => w.chain === Chain.OFFCHAIN);
       const uri = DeeplinkSchemaMatch.isBothBitcoinAndLightning(address);
-      const destinationWallet = selectedWallet || lightningWallet || mainWallet;
+      const selectedIsLightning = !!selectedWallet && selectedWallet.chain === Chain.OFFCHAIN && selectedWallet.type !== SparkWallet.type;
+      const destinationWallet = selectedIsLightning ? selectedWallet : lightningWallet || selectedWallet || mainWallet;
       const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(destinationWallet, uri) as NavigationRoute;
       ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
       navigate(...route);

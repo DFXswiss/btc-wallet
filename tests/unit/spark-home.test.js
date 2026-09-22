@@ -195,6 +195,7 @@ function makeOnChain(id = 'onchain-1') {
 function makeLds(id = 'lds-1', balance = 50) {
   return {
     type: LightningLdsWallet.type,
+    chain: 'OFFCHAIN',
     getID: () => id,
     getBalance: () => balance,
     getPreferredBalanceUnit: () => 'sats',
@@ -733,9 +734,21 @@ describe('home screen scan and barcode', () => {
     await act(async () => {
       fireEvent.press(screen.getByText(loc.send.details_scan));
     });
-    expect(mockBothOnSelect).toHaveBeenCalled();
+    expect(mockBothOnSelect.mock.calls[0][0].getID()).toBe('lds-both-scan');
     expect(Haptic.trigger).toHaveBeenCalledWith('impactLight', { ignoreAndroidSystemSettings: false });
     expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', { screen: 'ScanLndInvoice', params: { uri: 'lnbc1' } });
+  });
+
+  it('routes a combined bitcoin+lightning payload to Lightning when Spark is listed first', async () => {
+    mockIsBoth.mockReturnValue({ bitcoin: 'bitcoin:addr', lndInvoice: 'lnbc1' });
+    mockBothOnSelect.mockReturnValue(['SendDetailsRoot', { screen: 'ScanLndInvoice', params: { uri: 'lnbc1' } }]);
+    mockScanQr.mockResolvedValue('bitcoin:addr&lightning=lnbc1');
+    const screen = renderHome([makeSpark('spark-first'), makeLds('lds-after-spark')]);
+    await waitFor(() => expect(screen.getByText(loc.send.details_scan)).toBeTruthy());
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.send.details_scan));
+    });
+    expect(mockBothOnSelect.mock.calls[0][0].getID()).toBe('lds-after-spark');
   });
 
   it('forwards an LNURL to LnurlNavigationForwarder with the first wallet id', async () => {

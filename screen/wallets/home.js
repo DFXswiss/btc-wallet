@@ -32,6 +32,7 @@ import PropTypes from 'prop-types';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { SparkWallet } from '../../class/wallets/spark-wallet';
+import { Chain } from '../../models/bitcoinUnits';
 import BoltCard from '../../class/boltcard';
 import scanqrHelper from '../../helpers/scan-qr';
 import DfxServicesButtons from '../../components/DfxServicesButtons';
@@ -148,7 +149,9 @@ const WalletHome = ({ navigation }) => {
 
     if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(value)) {
       const uri = DeeplinkSchemaMatch.isBothBitcoinAndLightning(value);
-      const walletSelected = wallet;
+      const lightningWallet =
+        wallets.find(w => w.chain === Chain.OFFCHAIN && w.type !== SparkWallet.type) || wallets.find(w => w.chain === Chain.OFFCHAIN);
+      const walletSelected = lightningWallet || wallet;
       const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(walletSelected, uri);
       ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
       navigate(...route);

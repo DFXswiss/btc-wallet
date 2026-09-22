@@ -25,9 +25,9 @@ const LnurlAuth = () => {
   const { walletID, lnurl } = useRoute().params;
   const { goBack } = useNavigation();
   const wallet = useMemo(() => {
-    const w = wallets.find(w => w.getID() === walletID);
-    if (w && w.chain === Chain.OFFCHAIN) {
-      return w;
+    const named = wallets.find(w => w.getID() === walletID);
+    if (named && named.chain === Chain.OFFCHAIN && named.type !== SparkWallet.type) {
+      return named;
     }
     return (
       wallets.find(w => w.chain === Chain.OFFCHAIN && w.type !== SparkWallet.type) || wallets.find(w => w.chain === Chain.OFFCHAIN)
