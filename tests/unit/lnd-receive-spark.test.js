@@ -174,7 +174,6 @@ const Lnurl = require('../../class/lnurl').default;
 const haptic = require('react-native-haptic-feedback');
 const NavigationService = require('../../NavigationService');
 const AmountInput = require('../../components/AmountInput').default;
-const { majorTomToGroundControl, tryToObtainPermissions } = require('../../blue_modules/notifications');
 const BoltCard = require('../../class/boltcard').default;
 const { BlueDarkTheme } = require('../../components/themes');
 
@@ -1350,6 +1349,12 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     return wallet;
   }
 
+  async function expectSparkRefusesCreate(wallet) {
+    await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith(loc.alert.default, loc.wallets.lightning_spark_only));
+    expect(wallet.addInvoice).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalledWith('LNDViewInvoice', expect.anything());
+  }
+
   function withdrawPayload(overrides = {}) {
     return {
       tag: Lnurl.TAG_WITHDRAW_REQUEST,
@@ -1447,11 +1452,8 @@ describe('LNDCreateInvoice with SparkWallet', () => {
       await Promise.resolve();
     });
 
-    expect(wallet.addInvoice).toHaveBeenCalledWith(1000, 'coffee');
-    expect(tryToObtainPermissions).toHaveBeenCalled();
-    expect(majorTomToGroundControl).toHaveBeenCalledWith([], ['ph-1'], []);
-    expect(haptic.trigger).toHaveBeenCalledWith('notificationSuccess', { ignoreAndroidSystemSettings: false });
-    expect(mockNavigate).toHaveBeenCalledWith('LNDViewInvoice', { invoice: SAMPLE_INVOICE, walletID: wallet.getID() });
+    await expectSparkRefusesCreate(wallet);
+    expect(haptic.trigger).toHaveBeenCalledWith('notificationError', { ignoreAndroidSystemSettings: false });
   });
 
   it('converts a BTC custom amount to sats before creating the invoice', async () => {
@@ -1468,7 +1470,7 @@ describe('LNDCreateInvoice with SparkWallet', () => {
       await Promise.resolve();
     });
 
-    expect(wallet.addInvoice).toHaveBeenCalledWith(100000, '');
+    await expectSparkRefusesCreate(wallet);
   });
 
   it('uses cached sats for a LOCAL_CURRENCY custom amount when the cache hits', async () => {
@@ -1485,7 +1487,7 @@ describe('LNDCreateInvoice with SparkWallet', () => {
       await Promise.resolve();
     });
 
-    expect(wallet.addInvoice).toHaveBeenCalledWith(2500, '');
+    await expectSparkRefusesCreate(wallet);
   });
 
   it('falls back to fiatToBTC when a LOCAL_CURRENCY amount is not cached', async () => {
@@ -1501,7 +1503,7 @@ describe('LNDCreateInvoice with SparkWallet', () => {
       await Promise.resolve();
     });
 
-    expect(wallet.addInvoice).toHaveBeenCalledWith(0, '');
+    await expectSparkRefusesCreate(wallet);
   });
 
   it('alerts the addInvoice error and leaves the custom-amount modal usable', async () => {
@@ -1518,8 +1520,7 @@ describe('LNDCreateInvoice with SparkWallet', () => {
       await Promise.resolve();
     });
 
-    await waitFor(() => expect(wallet.addInvoice).toHaveBeenCalled());
-    await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith(loc.alert.default, 'node down'));
+    await expectSparkRefusesCreate(wallet);
     expect(haptic.trigger).toHaveBeenCalledWith('notificationError', { ignoreAndroidSystemSettings: false });
     // createInvoice does not dismiss the modal on error; SetCustomAmountButton sits
     // behind the open Modal and is not queryable. The Create button in the modal is.
@@ -1547,12 +1548,9 @@ describe('LNDCreateInvoice with SparkWallet', () => {
         fireEvent.press(screen.getByTestId('CustomAmountSaveButton'));
         await Promise.resolve();
       });
-      expect(scheduled).toHaveLength(1);
-      await act(async () => {
-        await scheduled[0]();
-      });
-      expect(wallet.fetchUserInvoices).toHaveBeenCalledWith(1);
-      expect(saveToDisk.mock.calls.length).toBeGreaterThan(1);
+      expect(scheduled).toHaveLength(0);
+      await expectSparkRefusesCreate(wallet);
+      expect(wallet.fetchUserInvoices).not.toHaveBeenCalled();
     } finally {
       setTimeoutSpy.mockRestore();
     }
@@ -1580,13 +1578,9 @@ describe('LNDCreateInvoice with SparkWallet', () => {
         fireEvent.press(screen.getByTestId('CustomAmountSaveButton'));
         await Promise.resolve();
       });
-      expect(scheduled).toHaveLength(1);
-      await act(async () => {
-        await scheduled[0]();
-      });
-      expect(reportError).toHaveBeenCalledWith('lndCreateInvoice: failed to persist invoice', fetchError);
-      expect(Alert.alert).not.toHaveBeenCalled();
-      expect(mockNavigate).toHaveBeenCalledWith('LNDViewInvoice', { invoice: SAMPLE_INVOICE, walletID: wallet.getID() });
+      expect(scheduled).toHaveLength(0);
+      await expectSparkRefusesCreate(wallet);
+      expect(reportError).not.toHaveBeenCalledWith('lndCreateInvoice: failed to persist invoice', fetchError);
     } finally {
       setTimeoutSpy.mockRestore();
     }
@@ -1882,10 +1876,8 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     const wallet = makeCreateWallet();
     renderCreateInvoiceScreen(wallet, { uri: lnurl });
 
-    await waitFor(() => expect(wallet.addInvoice).toHaveBeenCalledWith(5000, 'withdraw'));
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('LNDViewInvoice', expect.any(Object)));
-    const callbackUrl = global.fetch.mock.calls.find(call => String(call[0]).includes('k1='))[0];
-    assert.ok(String(callbackUrl).startsWith('https://lnurl.example.com/cb?k1=k1-secret&pr='));
+    await expectSparkRefusesCreate(wallet);
+    expect(global.fetch.mock.calls.find(call => String(call[0]).includes('k1='))).toBeUndefined();
   });
 
   it('appends k1 with an ampersand when the withdraw callback already has a query', async () => {
@@ -1900,9 +1892,8 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     const wallet = makeCreateWallet();
     renderCreateInvoiceScreen(wallet, { uri: lnurl });
 
-    await waitFor(() => expect(wallet.addInvoice).toHaveBeenCalled());
-    const callbackUrl = global.fetch.mock.calls.find(call => String(call[0]).includes('k1='))[0];
-    assert.ok(String(callbackUrl).startsWith('https://lnurl.example.com/cb?foo=1&k1=k1-secret&pr='));
+    await expectSparkRefusesCreate(wallet);
+    expect(global.fetch.mock.calls.find(call => String(call[0]).includes('k1='))).toBeUndefined();
   });
 
   it('alerts the callback body when the withdraw callback returns a non-success status', async () => {
@@ -1916,8 +1907,7 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     const wallet = makeCreateWallet();
     renderCreateInvoiceScreen(wallet, { uri: lnurl });
 
-    await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith(loc.alert.default, 'callback failed'));
-    expect(mockNavigate).not.toHaveBeenCalled();
+    await expectSparkRefusesCreate(wallet);
   });
 
   it('alerts when the withdraw callback JSON has status ERROR', async () => {
@@ -1931,7 +1921,7 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     const wallet = makeCreateWallet();
     renderCreateInvoiceScreen(wallet, { uri: lnurl });
 
-    await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith(loc.alert.default, 'Reply from server: empty'));
+    await expectSparkRefusesCreate(wallet);
   });
 
   it('alerts the SATS minimum when the custom amount is below the withdraw min', async () => {
@@ -2020,9 +2010,7 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     });
     renderCreateInvoiceScreen(wallet, { uri: lnurl });
 
-    await waitFor(() => expect(wallet.addInvoice).toHaveBeenCalled());
-    const amountArg = wallet.addInvoice.mock.calls[0][0];
-    assert.strictEqual(amountArg, 0);
+    await expectSparkRefusesCreate(wallet);
   });
 
   it('converts the withdraw amount to local currency and caches the sats', async () => {
@@ -2035,11 +2023,7 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     });
     renderCreateInvoiceScreen(wallet, { uri: lnurl });
 
-    await waitFor(() => expect(wallet.addInvoice).toHaveBeenCalled());
-    // Default export is the styled wrapper; conversionCache lives on the class.
-    // setCachedSatoshis writes there — assert through the same helper the screen uses.
-    assert.strictEqual(AmountInput.getCachedSatoshis('0'), '5000');
-    expect(wallet.addInvoice).toHaveBeenCalledWith('5000', 'withdraw');
+    await expectSparkRefusesCreate(wallet);
   });
 
   it('treats a missing minWithdrawable as zero so the max amount is still accepted', async () => {
@@ -2051,8 +2035,7 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     const wallet = makeCreateWallet();
     renderCreateInvoiceScreen(wallet, { uri: lnurl });
 
-    await waitFor(() => expect(wallet.addInvoice).toHaveBeenCalledWith(5000, 'withdraw'));
-    expect(mockNavigate).toHaveBeenCalledWith('LNDViewInvoice', expect.any(Object));
+    await expectSparkRefusesCreate(wallet);
   });
 
   it('disables the amount field when the withdraw amount is fixed', async () => {
