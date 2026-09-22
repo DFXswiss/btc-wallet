@@ -81,9 +81,9 @@
     },
     {
       "id": "lightning",
-      "title": "Lightning",
+      "title": "Spark",
       "summary": "De petits paiements instantanés ; comme les frais ne dépendent pas du montant, leur poids relatif est plus important pour les très petits paiements.",
-      "intro": "Lightning est une seconde couche sur bitcoin pour les petits paiements rapides. Les nouveaux utilisateurs créent Lightning (Spark) d'un tap sur la ligne de l'aperçu. Achat et vente sont là comme pour les autres portefeuilles ; il n'y a pas de carte de paiement. La vente ouvre le service DFX dans le navigateur, puis ramène dans l'application, où le montant est confirmé une dernière fois. L'adresse Lightning se trouve chez Breez. Pour des montants plus élevés, le portefeuille sur la blockchain reste le bon endroit.",
+      "intro": "Spark est le portefeuille pour les petits paiements bitcoin rapides. Les nouveaux utilisateurs le créent d'un tap sur la ligne Spark de l'aperçu. Achat et vente sont là comme pour les autres portefeuilles ; il n'y a pas de carte de paiement. La vente ouvre le service DFX dans le navigateur, puis ramène dans l'application, où le montant est confirmé une dernière fois. La réception affiche une adresse Spark. Elle ne crée ni facture Lightning ni adresse Lightning.",
       "groups": [
         "08-lightning"
       ]
@@ -91,8 +91,8 @@
     {
       "id": "weitere-wallets",
       "title": "Autres portefeuilles : ajouter et importer",
-      "summary": "Un portefeuille sur trois appareils, un portefeuille supplémentaire pour Lightning, la lecture d'un portefeuille existant.",
-      "intro": "Outre le portefeuille du premier lancement, vous pouvez en créer d'autres : un portefeuille réparti sur trois appareils, dont deux approuvent chaque paiement, ou Lightning (Spark) d'un tap sur la ligne de l'aperçu. Il n'y a pas de choix de fournisseur. Un portefeuille créé ailleurs se lit à partir de la phrase de récupération, d'une clé privée ou d'un code.",
+      "summary": "Un portefeuille sur trois appareils, un portefeuille Spark, la lecture d'un portefeuille existant.",
+      "intro": "Outre le portefeuille du premier lancement, vous pouvez en créer d'autres : un portefeuille réparti sur trois appareils, dont deux approuvent chaque paiement, ou Spark d'un tap sur la ligne de l'aperçu. Il n'y a pas de choix de fournisseur. Un portefeuille créé ailleurs se lit à partir de la phrase de récupération, d'une clé privée ou d'un code.",
       "groups": [
         "06-wallet-hinzufuegen",
         "07-multi-device",
@@ -248,7 +248,7 @@
     },
     "08-lightning/03-rechnung-erstellen": {
       "title": "Adresse Spark",
-      "text": "La page affiche l'adresse Spark. Elle ne demande pas de montant et ne crée pas de facture Lightning. L'image enregistrée montre encore l'ancienne facture Lightning, pour ne pas publier une adresse Spark réelle."
+      "text": "La page affiche l'adresse Spark. Elle ne demande pas de montant et ne crée pas de facture Lightning. L'adresse dans l'image est masquée, pour ne pas publier une adresse Spark réelle."
     },
     "09-import/01-scanner": {
       "title": "Importer avec le scanner",
@@ -270,7 +270,7 @@
     "04-empfangen-senden": "Réception et envoi",
     "06-wallet-hinzufuegen": "Ajouter un autre portefeuille",
     "07-multi-device": "Configurer un portefeuille sur trois appareils",
-    "08-lightning": "Portefeuille pour Lightning",
+    "08-lightning": "Spark",
     "09-import": "Importer un portefeuille"
   }
 }

@@ -411,9 +411,10 @@ Voraussetzung: `zbarimg` (zbar-tools) und `tesseract` auf dem PATH sowie
 `marked` und `bip39` unter `_handbook-deps/` — beide in EINEM `npm install`,
 sonst raeumt der zweite Aufruf den ersten weg.
 
-Erlaubt sind genau zwei Treffer: die On-Chain-Empfangsadresse in
-`04-empfangen-senden/01-erhalten.png` und die Lightning-Rechnung in
-`08-lightning/03-rechnung-erstellen.png`. Jeder weitere Treffer ist ein Fund.
+Erlaubt ist genau ein Treffer: die On-Chain-Empfangsadresse in
+`04-empfangen-senden/01-erhalten.png`. Der Spark-Empfang
+`08-lightning/03-rechnung-erstellen.png` darf keinen QR enthalten. Jeder weitere
+Treffer ist ein Fund.
 
 Zusaetzlich geschwaerzt, weil sie Anmeldematerial bzw. dauerhaft gueltige
 Schluessel zeigen: das Feld „DFX-Adressen-Besitznachweis" in
@@ -491,14 +492,10 @@ ab), ein echtes Geraet mit NFC und eine Boltcard (Ursache 2), drei Geraete
 Die Zaehlung oben geht ueber Routen. Zwei **Varianten** von Screens, die im Satz
 sind, fehlen aus Gruenden, die keine der drei Ursachen trifft:
 
-Der Empfangs-Bildschirm **ohne** Betrag zeigt die Lightning-Adresse als QR und
-darunter im Klartext, und die gilt dauerhaft — anders als eine Rechnung mit
-Ablauf. Die Redaktionspruefung (`scripts/handbook/content-gate.js`) verbietet
-diesen Inhalt ausdruecklich. Eine Aufnahme mit geschwaerztem QR wurde probiert
-und verworfen: der Code nimmt die halbe Seite ein, geschwaerzt bleibt eine
-Flaeche ohne Aussage. Die Bildunterschrift zu
-`08-lightning/03-rechnung-erstellen` beschreibt den Zustand stattdessen. Das ist
-eine Redaktionsentscheidung, kein fehlendes Artefakt.
+Der Spark-Empfang zeigt eine Spark-Adresse und keinen Betrag. Eine echte
+Adresse darf hier nicht stehen. Das Bild deckt Adresse und Code ab; die
+Bildunterschrift zu `08-lightning/03-rechnung-erstellen` sagt das. Die
+Redaktionspruefung lehnt einen QR auf diesem Bild ab.
 
 Die Wallet-Einstellungen einer Lightning-(Spark)-Wallet fehlen als Aufnahme,
 nicht mehr als Weg: Der Eintrag „Lightning (Spark)" in den Einstellungen fuehrt

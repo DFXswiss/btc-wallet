@@ -16,9 +16,9 @@ Spark identity through `_setup-import.yaml` instead of creating a random wallet.
 - Homebrew OpenJDK has to be installed at
   `/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home`. The runner sets
   `JAVA_HOME` and extends `PATH`; if Java is missing it aborts with exit 2.
-- Network access to Spark/Breez and to the DFX API. P9 uses the `@breez.tips`
-  address registered by the freshly created Spark wallet instead of a foreign
-  LNURL test service. P11/P12/P16/P17 need a reachable DFX web flow.
+- Network access to Spark/Breez and to the DFX API. P9 opens Spark receive and
+  checks that a `spark1` address is visible. It does not use a Lightning address.
+  P11/P12/P16/P17 need a reachable DFX web flow.
 - P11, P12, P16 and P17 additionally require an account that is tradable on the
   API side (verified status, a non-zero limit, deposit addresses). That state is
   set outside the suite; without it those flows fail rather than silently pass.
@@ -39,19 +39,15 @@ Spark identity through `_setup-import.yaml` instead of creating a random wallet.
   and otherwise behaves as before. `SETTLE_PORT` optionally overrides port
   `18790`. `SETTLE_DB_CONTAINER` selects the local database container used by
   the helper and defaults to `spark276-db-1`.
-- P14 and P15 need a Lightning counterpart, configured only through the
-  runner's environment (`E2E_TREASURY_URL`, `E2E_TREASURY_KEY`, optional
-  `E2E_TREASURY_MAX_SAT` default 1000, optional `E2E_TREASURY_MAX_FEE_SAT` default
-  100). `E2E_TREASURY_*` applies only to those two Lightning flows. The
-  payment amount those two flows type and assert is `E2E_PAYMENT_SAT`
-  (default 10). It must end in 0: the amount field keeps a zero after the
-  cursor, so backspace deletes the last typed digit. P15 sends one tenth of that amount so the Spark fee still fits
-  in the remaining balance. P16 and P17 also need `E2E_API_URL` and
+- P14 and P15 only open Spark receive and assert a visible `spark1` address.
+  They do not pay a Lightning invoice and do not use `E2E_TREASURY_*`.
+  P16 and P17 need `E2E_API_URL` and
   `E2E_DFX_JWT` (see the backend-API section below). P17 has no Lightning
   counterpart funding and does not use `E2E_TREASURY_*`. The wallet must
   already hold the amount; it does because P16 runs first and buys it. P16
   therefore has to run before P17. P17's sell amount is
-  `E2E_PAYMENT_SAT` (default 10). P16's buy amount is
+  `E2E_PAYMENT_SAT` (default 10). It must end in 0: the amount field keeps a zero after the
+  cursor, so backspace deletes the last typed digit. P16's buy amount is
   `E2E_BUY_CHF` (default 0.20). Maestro's `runScript` sandbox does not see the shell
   environment, so the runner forwards `E2E_PAYMENT_SAT` (always, default 10) and
   each treasury variable that is set, plus `E2E_SPARK_MNEMONIC`,
@@ -249,24 +245,15 @@ runtime, and both `runFlow` calls pulled inline — the before-value arrived
 as `undefined` every time. A before/after comparison across a restart is
 therefore not possible.
 
-- P8–P10 still send no money. With a reproducible expired BOLT11 vector P8 checks
-  parsing, amount, the rendering of the invoice itself (`lnbc2500u`) and the
-  expected expiry error. P9 captures the Lightning address created in the same
-  flow, encodes its LNURL-pay target and ends at the amount entry. P10 checks
-  the authentication prompt and the rejection expected for Spark. All three hand
-  the QR content to the registered deeplink through `openLink`; camera and
-  optical QR recognition are not tested in the simulator.
-- P14 and P15 complete Lightning payments against the treasury counterpart: P14
-  receives `E2E_PAYMENT_SAT` (default 10) until the Spark detail header shows
-  that amount on `WalletBalance` under `WalletLabel` `Lightning (Spark)`. P15
-  sends one tenth of that amount until the counterpart reports the invoice paid
-  and the Spark row is no longer the funded amount and not `0 sats`. They are
-  not hermetic; without the treasury environment they fail rather than skip.
-  After a payment the Spark row only showed the new balance after an app
-  restart without wiping state (`launchApp` with `clearState: false`); waiting
-  on the still-open screen was not enough. P14, P15, P16 and P17 therefore relaunch
-  that way before every wallet-row assertion that follows a payment. That is a
-  product observation, not a persistence test.
+- P8, P9, P14 and P15 only open Spark receive and assert a visible `spark1`
+  address. They do not create a Lightning address, a BOLT11 invoice, or an
+  on-chain deposit, and they do not pay. P10 checks the authentication prompt
+  and the rejection expected for Spark.
+- P16 and P17 are the payment flows. After a payment the Spark row only showed
+  the new balance after an app restart without wiping state (`launchApp` with
+  `clearState: false`); waiting on the still-open screen was not enough. P16 and
+  P17 therefore relaunch that way before every wallet-row assertion that follows
+  a payment. That is a product observation, not a persistence test.
 - P16 and P17 import a fixed Spark identity (`E2E_SPARK_MNEMONIC`) and need the
   local DFX stack plus a tradable backend account for that identity (the
   fixture above), plus `E2E_API_URL` and `E2E_DFX_JWT`. P16 asserts the buy

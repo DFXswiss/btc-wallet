@@ -81,9 +81,9 @@
     },
     {
       "id": "lightning",
-      "title": "Lightning",
+      "title": "Spark",
       "summary": "Small payments, instantly; because the fee does not depend on the amount, it weighs more proportionally on very small payments.",
-      "intro": "Lightning is a second layer on top of bitcoin for small, fast payments. New users create Lightning (Spark) with a tap on the row in the overview. Buying and selling are there as on the other wallets; there is no payment card. Selling opens the DFX service in the browser and then returns to the app, where the amount is confirmed once more. The Lightning address lives on Breez. For larger amounts the wallet on the blockchain is the right place.",
+      "intro": "Spark is the wallet for small, fast bitcoin payments. New users create it with a tap on the Spark row in the overview. Buying and selling are there as on the other wallets; there is no payment card. Selling opens the DFX service in the browser and then returns to the app, where the amount is confirmed once more. Receiving shows a Spark address. It does not create a Lightning invoice and it does not register a Lightning address.",
       "groups": [
         "08-lightning"
       ]
@@ -91,8 +91,8 @@
     {
       "id": "weitere-wallets",
       "title": "More wallets: adding and importing",
-      "summary": "A wallet across three devices, another wallet for Lightning, reading in an existing wallet.",
-      "intro": "Besides the wallet from the first launch you can create more: a wallet spread across three devices, where two of them approve every payment, or Lightning (Spark) with a tap on the row in the overview. There is no choice of provider. A wallet created elsewhere can be read in from the recovery phrase, a private key or a code.",
+      "summary": "A wallet across three devices, a Spark wallet, reading in an existing wallet.",
+      "intro": "Besides the wallet from the first launch you can create more: a wallet spread across three devices, where two of them approve every payment, or Spark with a tap on the row in the overview. There is no choice of provider. A wallet created elsewhere can be read in from the recovery phrase, a private key or a code.",
       "groups": [
         "06-wallet-hinzufuegen",
         "07-multi-device",
@@ -248,7 +248,7 @@
     },
     "08-lightning/03-rechnung-erstellen": {
       "title": "Spark address",
-      "text": "The screen shows the Spark address. It does not ask for an amount and it does not create a Lightning invoice. The stored picture still shows the previous Lightning invoice, so a live Spark address is not published here."
+      "text": "The screen shows the Spark address. It does not ask for an amount and it does not create a Lightning invoice. The address in the picture is covered, so a live Spark address is not published here."
     },
     "09-import/01-scanner": {
       "title": "Import with the scanner",
@@ -270,7 +270,7 @@
     "04-empfangen-senden": "Receiving and sending",
     "06-wallet-hinzufuegen": "Adding another wallet",
     "07-multi-device": "Setting up a wallet across three devices",
-    "08-lightning": "Wallet for Lightning",
+    "08-lightning": "Spark",
     "09-import": "Importing a wallet"
   }
 }

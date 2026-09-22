@@ -58,8 +58,8 @@ async function createSparkPaymentSeed(seedRef) {
 }
 
 /**
- * Spark address a Spark wallet pays directly instead of requesting an invoice. A max amount is sized
- * by the LNURL callback and a comment only travels with the invoice request, so both keep the invoice path.
+ * Spark address a Spark wallet pays directly. A max amount and a comment have no Spark
+ * destination, so those payments are refused instead of falling back to Lightning.
  */
 function directSparkAddress(LN, fromWallet, isMax, description) {
   if (!LN || fromWallet.type !== SparkWallet.type || isMax) return undefined;
@@ -567,9 +567,13 @@ const LnurlPay = () => {
       }
 
       if (wallet?.type === SparkWallet.type && !sparkAddress && !sparkInvoice) {
-        payInFlightRef.current = false;
-        setPayButtonDisabled(false);
-        return alert(loc.wallets.lightning_spark_only);
+        const discoveredSparkAddress = directSparkAddress(_LN, wallet, isMax, description);
+        const payingDiscoveredSpark = Boolean(discoveredSparkAddress) && sparkFeeQuote?.method === SendPaymentMethod_Tags.SparkAddress;
+        if (!payingDiscoveredSpark) {
+          payInFlightRef.current = false;
+          setPayButtonDisabled(false);
+          return alert(loc.wallets.lightning_spark_only);
+        }
       }
 
       if (sparkAddress || sparkInvoice) {

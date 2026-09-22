@@ -30,12 +30,12 @@
  * Three checks run over that set, plus one check on the checking:
  *
  *   QR — a decodable QR in a screenshot is an address, a payment request or,
- *   worst case, an encoded seed. Exactly two screens may carry one, each with
- *   its own payload shape: the on-chain receive screen
- *   (`screenshots/04-empfangen-senden/01-erhalten.png`, a Bitcoin receive
- *   address) and the Spark receive screen with an amount
- *   (`screenshots/08-lightning/03-rechnung-erstellen.png`, a mainnet BOLT11
- *   invoice).
+ *   worst case, an encoded seed. Exactly one screen may carry one: the on-chain
+ *   receive screen (`screenshots/04-empfangen-senden/01-erhalten.png`, a Bitcoin
+ *   receive address). The Spark receive screen
+ *   (`screenshots/08-lightning/03-rechnung-erstellen.png`) must not carry a QR.
+ *   Its address is covered, so a live spark1 address and a BOLT11 invoice are
+ *   not published.
  *
  *   Seed phrase — a QR gate is blind to the higher risk: a recovery phrase
  *   printed as plain text on a backup screen. OCR every image and look for a
@@ -83,16 +83,6 @@ const QR_ALLOWLIST = {
     // allowing it would make this a path-only allowlist again. Re-take the
     // screenshot without an amount, or widen this with a shape for the
     // parameters, not with `.*`.
-  },
-  'screenshots/08-lightning/03-rechnung-erstellen.png': {
-    // The stored picture is the previous Lightning invoice. The current Spark
-    // receive screen shows a spark1 address and no amount. That address is not
-    // published here. The allowlist still matches the stored invoice image.
-    // Mainnet only (`lnbc`), optional amount, bech32 body. No `lightning:`
-    // prefix: the screen encodes the raw invoice. No testnet (`lntb`). No `m`
-    // flag: a second QR on the next line must fail, same as the address entry.
-    payload: /^lnbc(?:[1-9][0-9]*[munp]?)?1[02-9ac-hj-np-z]{50,}$/,
-    reason: 'Lightning invoice on the Spark receive screen — the QR is the subject of the screenshot',
   },
 };
 
