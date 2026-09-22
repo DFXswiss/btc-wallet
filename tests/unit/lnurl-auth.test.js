@@ -135,6 +135,24 @@ describe('LnurlAuth without Lightning wallet', () => {
     expect(Alert.alert).not.toHaveBeenCalled();
   });
 
+  it('uses a Lightning wallet for LNURL auth when a Spark wallet is listed first', () => {
+    const spark = {
+      getID: () => 'spark-1',
+      chain: Chain.OFFCHAIN,
+      type: 'sparkWallet',
+      lnAddress: 'spark@example.com',
+    };
+    const lightning = makeOffchainWallet({ getID: () => 'ln-after-spark' });
+    mockParams = { walletID: undefined, lnurl: SAMPLE_LNURL };
+    mockWallets = [spark, lightning];
+    const screen = renderScreen();
+
+    expect(screen.getByText(loc.lnurl_auth.authenticate)).toBeTruthy();
+    expect(screen.queryByText(loc.wallets.lightning_spark_lnurl_auth_unsupported)).toBeNull();
+    fireEvent.press(screen.getByText(loc.lnurl_auth.authenticate));
+    expect(lightning.authenticate).toHaveBeenCalledTimes(1);
+  });
+
   it('shows a localized error when the wallet cannot authenticate, instead of throwing', () => {
     const sparkLikeWallet = {
       getID: () => 'spark-1',

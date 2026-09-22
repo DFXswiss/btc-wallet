@@ -633,6 +633,22 @@ describe('ScanLndInvoice fee mark', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
+  it('pays a bolt11 with the Lightning wallet when Spark is listed first', async () => {
+    const spark = makeSparkWallet();
+    const lightning = makeLndhubWallet();
+    lightning.decodeInvoice = jest.fn().mockReturnValue(futureDecodedInvoice());
+    const screen = renderScan(spark, { uri: SAMPLE_INVOICE, walletID: undefined, wallets: [spark, lightning] });
+
+    await waitFor(() => screen.getByText(/Expires in \d+ minutes/));
+    expect(lightning.decodeInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE);
+    expect(alert).not.toHaveBeenCalledWith(loc.wallets.lightning_spark_only);
+    fireEvent.press(screen.getByText(loc.lnd.next));
+    expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', {
+      screen: 'LnurlPay',
+      params: expect.objectContaining({ invoice: SAMPLE_INVOICE, walletID: lightning.getID() }),
+    });
+  });
+
   it('pays a spark1 address with the Spark wallet when an older Lightning wallet is listed first', async () => {
     const spark = makeSparkWallet();
     const lightning = makeLndhubWallet();

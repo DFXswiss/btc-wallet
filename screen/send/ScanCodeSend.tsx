@@ -13,6 +13,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { AbstractWallet } from '../../class';
+import { SparkWallet } from '../../class/wallets/spark-wallet';
 import { Chain } from '../../models/bitcoinUnits';
 import { useWalletContext } from '../../contexts/wallet.context';
 import loc from '../../loc';
@@ -71,7 +72,9 @@ const ScanCodeSend: React.FC & { navigationOptions?: ReturnType<typeof navigatio
 
     if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(destinationString)) {
       const selectedWallet = wallets.find((w: AbstractWallet) => w.getID() === params?.walletID);
-      const lightningWallet = wallets.find((w: AbstractWallet) => w.chain === Chain.OFFCHAIN);
+      const lightningWallet =
+        wallets.find((w: AbstractWallet) => w.chain === Chain.OFFCHAIN && w.type !== SparkWallet.type) ||
+        wallets.find((w: AbstractWallet) => w.chain === Chain.OFFCHAIN);
       const uri = DeeplinkSchemaMatch.isBothBitcoinAndLightning(destinationString);
       const destinationWallet = selectedWallet || lightningWallet || mainWallet;
       const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(destinationWallet, uri) as NavigationRoute;

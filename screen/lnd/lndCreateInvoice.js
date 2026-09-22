@@ -43,7 +43,11 @@ const currency = require('../../blue_modules/currency');
 const LNDCreateInvoice = () => {
   const { wallets, saveToDisk, setSelectedWallet } = useContext(BlueStorageContext);
   const { walletID, uri } = useRoute().params;
-  const wallet = useRef(wallets.find(item => item.getID() === walletID) || wallets.find(item => item.chain === Chain.OFFCHAIN));
+  const wallet = useRef(
+    wallets.find(item => item.getID() === walletID) ||
+      wallets.find(item => item.chain === Chain.OFFCHAIN && item.type !== SparkWallet.type) ||
+      wallets.find(item => item.chain === Chain.OFFCHAIN),
+  );
   const { colors } = useTheme();
   const { navigate, getParent, goBack, setParams, replace } = useNavigation();
   const [unit, setUnit] = useState(wallet.current?.getPreferredBalanceUnit() || BitcoinUnit.BTC);

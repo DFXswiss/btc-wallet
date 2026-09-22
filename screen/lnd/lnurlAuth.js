@@ -10,6 +10,7 @@ import { useFocusEffect, useNavigation, useRoute, useTheme } from '@react-naviga
 import URL from 'url';
 import { SuccessView } from '../send/success';
 import { Chain } from '../../models/bitcoinUnits';
+import { SparkWallet } from '../../class/wallets/spark-wallet';
 import alert from '../../components/Alert';
 
 const AuthState = {
@@ -28,7 +29,9 @@ const LnurlAuth = () => {
     if (w && w.chain === Chain.OFFCHAIN) {
       return w;
     }
-    return wallets.find(w => w.chain === Chain.OFFCHAIN);
+    return (
+      wallets.find(w => w.chain === Chain.OFFCHAIN && w.type !== SparkWallet.type) || wallets.find(w => w.chain === Chain.OFFCHAIN)
+    );
   }, [wallets, walletID]);
   const LN = useMemo(() => new Lnurl(lnurl), [lnurl]);
   const parsedLnurl = useMemo(

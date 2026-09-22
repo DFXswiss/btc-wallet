@@ -10,6 +10,7 @@ import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { useWalletContext } from '../../contexts/wallet.context';
 import { AbstractWallet } from '../../class';
+import { SparkWallet } from '../../class/wallets/spark-wallet';
 import { Chain } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 
@@ -46,7 +47,9 @@ const ManualAddressSend: React.FC & { navigationOptions?: ReturnType<typeof navi
     // replace does not leave ScanCodeSendStack; SendDetailsRoot is on the parent.
     if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(address)) {
       const selectedWallet = wallets.find((w: AbstractWallet) => w.getID() === params?.walletID);
-      const lightningWallet = wallets.find((w: AbstractWallet) => w.chain === Chain.OFFCHAIN);
+      const lightningWallet =
+        wallets.find((w: AbstractWallet) => w.chain === Chain.OFFCHAIN && w.type !== SparkWallet.type) ||
+        wallets.find((w: AbstractWallet) => w.chain === Chain.OFFCHAIN);
       const uri = DeeplinkSchemaMatch.isBothBitcoinAndLightning(address);
       const destinationWallet = selectedWallet || lightningWallet || mainWallet;
       const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(destinationWallet, uri) as NavigationRoute;

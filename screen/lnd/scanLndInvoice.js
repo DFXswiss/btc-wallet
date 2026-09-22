@@ -45,7 +45,10 @@ const ScanLndInvoice = () => {
     if (sparkDestination) {
       return wallets.find(item => item.type === SparkWallet.type) || wallets.find(item => item.chain === Chain.OFFCHAIN);
     }
-    return wallets.find(item => item.chain === Chain.OFFCHAIN);
+    return (
+      wallets.find(item => item.chain === Chain.OFFCHAIN && item.type !== SparkWallet.type) ||
+      wallets.find(item => item.chain === Chain.OFFCHAIN)
+    );
   }, [walletID, wallets, uri]);
   const suitableWallets = useMemo(() => wallets.filter(item => item.chain === Chain.OFFCHAIN), [wallets]);
   const { navigate, setParams, goBack } = useNavigation();
