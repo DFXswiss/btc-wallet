@@ -3,7 +3,7 @@
   "label": "Français",
   "meta": {
     "title": "DFX BTC Taro Wallet — Manuel",
-    "description": "Guide illustré du DFX BTC Taro Wallet : créer un portefeuille, recevoir et envoyer des bitcoins, sécuriser la sauvegarde, utiliser Lightning.",
+    "description": "Guide illustré du DFX BTC Taro Wallet : créer un portefeuille, recevoir et envoyer des bitcoins, sécuriser la sauvegarde, utiliser Spark.",
     "lede": "Ce guide parcourt l'application image par image, dans l'ordre où les étapes apparaissent dans le portefeuille. Chaque image est une capture réelle de l'application."
   },
   "ui": {
@@ -248,7 +248,7 @@
     },
     "08-lightning/03-rechnung-erstellen": {
       "title": "Adresse Spark",
-      "text": "La page affiche l'adresse Spark. Elle ne demande pas de montant et ne crée pas de facture Lightning. L'adresse dans l'image est masquée, pour ne pas publier une adresse Spark réelle."
+      "text": "La page est la réception Spark. Elle ne demande pas de montant et ne crée pas de facture Lightning. L'image ne montre pas d'adresse, pour ne rien publier qui soit payable."
     },
     "09-import/01-scanner": {
       "title": "Importer avec le scanner",

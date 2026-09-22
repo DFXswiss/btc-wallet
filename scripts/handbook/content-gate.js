@@ -34,8 +34,7 @@
  *   receive screen (`screenshots/04-empfangen-senden/01-erhalten.png`, a Bitcoin
  *   receive address). The Spark receive screen
  *   (`screenshots/08-lightning/03-rechnung-erstellen.png`) must not carry a QR.
- *   Its address is covered, so a live spark1 address and a BOLT11 invoice are
- *   not published.
+ *   The stored picture shows no address, so nothing payable is published.
  *
  *   Seed phrase — a QR gate is blind to the higher risk: a recovery phrase
  *   printed as plain text on a backup screen. OCR every image and look for a

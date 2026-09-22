@@ -389,6 +389,18 @@ describe('WatchConnectivity', () => {
     await waitFor(() => expect(reply).toHaveBeenCalledWith({}));
   });
 
+  it('does not create a Lightning invoice for a Spark wallet', async () => {
+    pairWatch();
+    const wallet = makeOffchain({ type: 'sparkWallet' });
+    renderWatch(storage({ wallets: [wallet] }));
+    const reply = jest.fn();
+    await act(async () => {
+      onMessage({ request: 'createInvoice', walletIndex: 0, amount: 1, description: 'x' }, reply);
+    });
+    await waitFor(() => expect(reply).toHaveBeenCalledWith({ invoicePaymentRequest: undefined }));
+    expect(wallet.addInvoice).not.toHaveBeenCalled();
+  });
+
   it('does not call addInvoice when the wallet does not allow receive', async () => {
     pairWatch();
     const wallet = makeOffchain({ allowReceive: () => false });
