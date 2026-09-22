@@ -487,9 +487,8 @@ describe('ScanLndInvoice fee mark', () => {
     expect(haptic.trigger).toHaveBeenCalledWith('notificationError', { ignoreAndroidSystemSettings: false });
     expect(screen.getByText(loc.lnd.next)).toBeTruthy();
     expect(screen.getByText('-')).toBeTruthy();
-    // next() reads destination without a null check; after clearAllInputs it is
-    // undefined and Lnurl.isLnurl / isLightningInvoice call toLowerCase on it.
-    expect(() => fireEvent.press(screen.getByText(loc.lnd.next))).toThrow(/toLowerCase/);
+    expect(() => fireEvent.press(screen.getByText(loc.lnd.next))).not.toThrow();
+    expect(alert).toHaveBeenCalledWith(loc.send.details_address_field_is_not_valid);
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 

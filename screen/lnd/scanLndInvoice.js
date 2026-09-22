@@ -196,7 +196,7 @@ const ScanLndInvoice = () => {
     Keyboard.dismiss();
     setAmount();
     setAmountSat();
-    setDestination();
+    setDestination('');
     setExpiresIn();
     setDecoded();
     setDesc();
@@ -311,6 +311,7 @@ const ScanLndInvoice = () => {
   };
 
   const next = () => {
+    if (!destination) return alert(loc.send.details_address_field_is_not_valid);
     if (wallet?.type === SparkWallet.type && isLightningDestination(destination)) {
       return showError(loc.wallets.lightning_spark_only);
     }
