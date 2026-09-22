@@ -67,7 +67,8 @@ describe('Settings Lightning wallet entry', () => {
 
     expect(item).not.toBeDisabled();
     expect(screen.getByText(loc.wallets.lightning_spark_wallet_label)).toBeTruthy();
-    expect(screen.queryByText(loc.wallets.lightning_wallet_label)).toBeNull();
+    expect(screen.queryByText('Lightning Wallet')).toBeNull();
+    expect(screen.queryByText('Lightning-Wallet')).toBeNull();
     fireEvent.press(item);
     expect(mockNavigate).toHaveBeenCalledWith('WalletDetails', { walletID: 'spark-wallet-id' });
   });
@@ -106,7 +107,8 @@ describe('Settings Lightning wallet entry', () => {
 
     expect(item).toBeDisabled();
     expect(screen.getByText(loc.wallets.lightning_spark_wallet_label)).toBeTruthy();
-    expect(screen.queryByText(loc.wallets.lightning_wallet_label)).toBeNull();
+    expect(screen.queryByText('Lightning Wallet')).toBeNull();
+    expect(screen.queryByText('Lightning-Wallet')).toBeNull();
     fireEvent.press(item);
     expect(mockNavigate).not.toHaveBeenCalled();
   });

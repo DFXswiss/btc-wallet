@@ -517,7 +517,6 @@
     "external_services": "Externe Services",
     "coming_soon": "Bald verfügbar",
     "main_wallet_label": "On-Chain-Wallet",
-    "lightning_wallet_label": "Lightning-Wallet",
     "lightning_spark_wallet_label": "Spark",
     "lightning_spark_only": "Dieses Wallet nutzt nur Spark, nicht Lightning.",
     "lightning_spark_payment_failed": "Zahlung fehlgeschlagen",

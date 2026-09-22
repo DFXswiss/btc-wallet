@@ -322,7 +322,8 @@ describe('home screen Spark Lightning add path (render)', () => {
 
     const screen = renderHome([makeOnChain()]);
     await waitFor(() => expect(screen.getByText(loc.wallets.lightning_spark_wallet_label)).toBeTruthy());
-    expect(screen.queryByText(loc.wallets.lightning_wallet_label)).toBeNull();
+    expect(screen.queryByText('Lightning Wallet')).toBeNull();
+    expect(screen.queryByText('Lightning-Wallet')).toBeNull();
 
     await act(async () => {
       pressLightningAdd(screen);
@@ -383,7 +384,8 @@ describe('home screen Spark Lightning add path (render)', () => {
   it('does not put an existing LDS wallet in the Spark row', async () => {
     const screen = renderHome([makeOnChain(), makeLds()]);
     await waitFor(() => expect(screen.getByText(loc.wallets.lightning_spark_wallet_label)).toBeTruthy());
-    expect(screen.queryByText(loc.wallets.lightning_wallet_label)).toBeNull();
+    expect(screen.queryByText('Lightning Wallet')).toBeNull();
+    expect(screen.queryByText('Lightning-Wallet')).toBeNull();
     expect(screen.queryAllByText(loc._.add).length).toBeGreaterThan(0);
     expect(mockConnect).not.toHaveBeenCalled();
   });
@@ -394,7 +396,8 @@ describe('home screen Spark Lightning add path (render)', () => {
     mockIsConnected.mockReturnValue(true);
     const screen = renderHome([makeOnChain(), spark, lds]);
     await waitFor(() => expect(screen.getByText(loc.wallets.lightning_spark_wallet_label)).toBeTruthy());
-    expect(screen.queryByText(loc.wallets.lightning_wallet_label)).toBeNull();
+    expect(screen.queryByText('Lightning Wallet')).toBeNull();
+    expect(screen.queryByText('Lightning-Wallet')).toBeNull();
   });
 
   it('shows an alert on create failure, persists nothing, and leaves the row usable', async () => {
@@ -412,7 +415,8 @@ describe('home screen Spark Lightning add path (render)', () => {
     expect(String(alert.mock.calls[0][1])).toBe(loc.formatString(loc.wallets.lightning_spark_generic_error, { kind: 'Error' }));
     expect(String(alert.mock.calls[0][1])).not.toMatch(/spark connect failed/);
     expect(screen.getByText(loc.wallets.lightning_spark_wallet_label)).toBeTruthy();
-    expect(screen.queryByText(loc.wallets.lightning_wallet_label)).toBeNull();
+    expect(screen.queryByText('Lightning Wallet')).toBeNull();
+    expect(screen.queryByText('Lightning-Wallet')).toBeNull();
     expect(screen.getAllByText(loc._.add).length).toBeGreaterThanOrEqual(1);
 
     // Row remains operable: another press triggers create again.
@@ -502,8 +506,7 @@ describe('loc keys for Spark label', () => {
       assert.strictEqual(json.wallets.lightning_spark_wallet_label, 'Spark');
       assert.ok(json.wallets.lightning_spark_source_missing.includes('{label}'));
       assert.ok(json.wallets.lightning_spark_address_unavailable);
-      assert.ok(json.wallets.lightning_wallet_label);
-      assert.notStrictEqual(json.wallets.lightning_wallet_label, json.wallets.lightning_spark_wallet_label);
+      assert.strictEqual(json.wallets.lightning_wallet_label, undefined);
     });
   }
 });
@@ -533,7 +536,8 @@ describe('home screen wallet rows and receive/send', () => {
     mockIsConnected.mockReturnValue(true);
     const screen = renderHome([makeOnChain(), makeSpark('spark-stored', 1)]);
     await waitFor(() => expect(screen.getByText(loc.wallets.lightning_spark_wallet_label)).toBeTruthy());
-    expect(screen.queryByText(loc.wallets.lightning_wallet_label)).toBeNull();
+    expect(screen.queryByText('Lightning Wallet')).toBeNull();
+    expect(screen.queryByText('Lightning-Wallet')).toBeNull();
   });
 
   it('excludes dummy wallets from the header total', async () => {

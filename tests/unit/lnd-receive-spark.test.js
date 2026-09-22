@@ -4,7 +4,6 @@ import fs from 'fs';
 import path from 'path';
 import { ActivityIndicator } from 'react-native';
 import { fireEvent, render, act, waitFor } from '@testing-library/react-native';
-import { PaymentDetails_Tags, PaymentStatus, PaymentType } from '@breeztech/breez-sdk-spark-react-native';
 
 jest.mock('../../blue_modules/BlueElectrum', () => ({ connectMain: jest.fn() }));
 jest.mock('../../blue_modules/currency', () => ({
@@ -186,22 +185,6 @@ function paidUserInvoice() {
     description: 'coffee',
     timestamp: 1700000000,
     expire_time: 3600,
-  };
-}
-
-function paidPayment() {
-  return {
-    id: 'recv-1',
-    paymentType: PaymentType.Receive,
-    status: PaymentStatus.Completed,
-    amount: 1000n,
-    fees: 0n,
-    timestamp: 1700000000n,
-    method: {},
-    details: {
-      tag: PaymentDetails_Tags.Lightning,
-      inner: { description: 'coffee', invoice: SAMPLE_INVOICE, destinationPubkey: 'x', htlcDetails: {} },
-    },
   };
 }
 

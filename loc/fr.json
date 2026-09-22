@@ -517,7 +517,6 @@
     "details_export_history": "Exporter l'historique au format CSV",
     "import_success_watchonly": "Votre portefeuille a été importé avec succès. AVERTISSEMENT : Il s'agit d'un portefeuille de montre uniquement, vous ne pouvez PAS dépenser à partir de celui-ci.",
     "main_wallet_label": "Portefeuille On-Chain",
-    "lightning_wallet_label": "Portefeuille Lightning",
     "lightning_spark_wallet_label": "Spark",
     "lightning_spark_only": "Ce portefeuille n'utilise que Spark, pas Lightning.",
     "lightning_spark_payment_failed": "Le paiement a échoué",

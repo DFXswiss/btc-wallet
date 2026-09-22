@@ -517,7 +517,6 @@
     "external_services": "Servizi esterni",
     "coming_soon": "Disponibile a breve",
     "main_wallet_label": "Portafoglio on-chain",
-    "lightning_wallet_label": "Portafoglio Lightning",
     "lightning_spark_wallet_label": "Spark",
     "lightning_spark_only": "Questo portafoglio usa solo Spark, non Lightning.",
     "lightning_spark_payment_failed": "Pagamento non riuscito",

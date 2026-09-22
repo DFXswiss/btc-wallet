@@ -381,7 +381,6 @@
   },
   "wallets": {
     "main_wallet_label": "On-Chain Wallet",
-    "lightning_wallet_label": "Lightning Wallet",
     "lightning_spark_wallet_label": "Spark",
     "lightning_spark_only": "This wallet only uses Spark, not Lightning.",
     "lightning_spark_payment_failed": "Payment failed",

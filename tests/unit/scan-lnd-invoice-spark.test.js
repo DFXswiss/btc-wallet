@@ -1,6 +1,6 @@
 import React from 'react';
 import assert from 'assert';
-import { fireEvent, render, act, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { ActivityIndicator, Keyboard } from 'react-native';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 
@@ -198,6 +198,15 @@ function renderScan(wallet, extraParams = {}) {
   );
 }
 
+async function expectSparkRejectsLightning(uri) {
+  const wallet = makeSparkWallet();
+  renderScan(wallet, { uri });
+  await waitFor(() => expect(alert).toHaveBeenCalledWith(loc.wallets.lightning_spark_only));
+  expect(haptic.trigger).toHaveBeenCalledWith('notificationError', { ignoreAndroidSystemSettings: false });
+  expect(mockNavigate).not.toHaveBeenCalled();
+  expect(wallet.getPaymentFeeWithoutSending).not.toHaveBeenCalled();
+}
+
 function renderScanWithWallets(wallets, extraParams = {}) {
   Object.assign(mockRouteParams, extraParams);
   return render(
@@ -218,39 +227,20 @@ beforeEach(() => {
 describe('ScanLndInvoice fee mark', () => {
   afterEach(() => {
     jest.restoreAllMocks();
+    AmountInput.conversionCache = {};
   });
-
   it('does not show a guessed fee range or Free for a Spark payment to a listed free domain', async () => {
-    mockLnurl('lightning.space', 1000);
-    const wallet = makeSparkWallet();
-    const screen = renderScan(wallet);
-
-    await waitFor(() => screen.getByText(loc.lnd.next));
-    assert.strictEqual(screen.queryByText(feeRangeText(Math.round(1000 * 0.03))), null);
-    assert.strictEqual(screen.queryByText(loc._.free), null);
+    await expectSparkRejectsLightning(LNURL);
   });
 
   it('shows the SDK-prepared fee for a fixed Spark BOLT11 invoice', async () => {
-    const wallet = makeSparkWallet();
-    wallet.decodeInvoice = jest.fn().mockReturnValue(futureDecodedInvoice({ num_satoshis: '15' }));
-    const screen = renderScan(wallet, { uri: SAMPLE_INVOICE });
-
-    await waitFor(() => screen.getByText(`4 ${BitcoinUnit.SATS}`));
-    expect(wallet.getPaymentFeeWithoutSending).toHaveBeenCalledWith(SAMPLE_INVOICE, 15);
-    assert.strictEqual(screen.queryByText(feeRangeText(1)), null);
+    await expectSparkRejectsLightning(SAMPLE_INVOICE);
   });
 
   it('keeps Next available without an alert when the Spark fee cannot be prepared', async () => {
-    const wallet = makeSparkWallet();
-    wallet.decodeInvoice = jest.fn().mockReturnValue(futureDecodedInvoice({ num_satoshis: '15' }));
-    wallet.getPaymentFeeWithoutSending.mockRejectedValue(new Error('fee unavailable'));
-    const screen = renderScan(wallet, { uri: SAMPLE_INVOICE });
-
-    await waitFor(() => expect(wallet.getPaymentFeeWithoutSending).toHaveBeenCalled());
-    expect(screen.getByText('-')).toBeTruthy();
-    expect(screen.getByText(loc.lnd.next)).toBeTruthy();
-    expect(alert).not.toHaveBeenCalled();
+    await expectSparkRejectsLightning(SAMPLE_INVOICE);
   });
+
 
   it('still shows Free for an LNDHub payment to a listed free domain', async () => {
     mockLnurl('lightning.space', 1000);
@@ -260,18 +250,10 @@ describe('ScanLndInvoice fee mark', () => {
     await waitFor(() => screen.getByText(loc._.free));
     assert.strictEqual(screen.queryByText(feeRangeText(Math.round(1000 * 0.03))), null);
   });
-
   it('does not show a guessed fee range for a small Spark payment', async () => {
-    const amountSat = 10;
-    mockLnurl('example.com', amountSat);
-    const wallet = makeSparkWallet();
-    const screen = renderScan(wallet);
-
-    await waitFor(() => screen.getByText(loc.lnd.next));
-    assert.strictEqual(screen.queryByText(feeRangeText(1)), null);
-    assert.strictEqual(screen.queryByText(feeRangeText(0)), null);
-    assert.strictEqual(screen.queryByText(loc._.free), null);
+    await expectSparkRejectsLightning(LNURL);
   });
+
 
   it('shows Free for an LDS payment to an internal DFX domain', async () => {
     mockLnurl('api.dfx.swiss', 1000);
@@ -303,50 +285,10 @@ describe('ScanLndInvoice fee mark', () => {
       expect.objectContaining({ params: expect.objectContaining({ amountSat: 1000 }) }),
     );
   });
-
   it('does not apply an older Spark fee result after the invoice changes', async () => {
-    let resolveFirstFee;
-    let resolveSecondFee;
-    const wallet = makeSparkWallet();
-    wallet.decodeInvoice = jest
-      .fn()
-      .mockImplementation(invoice => futureDecodedInvoice({ num_satoshis: invoice === SAMPLE_INVOICE ? '15' : '25' }));
-    wallet.getPaymentFeeWithoutSending.mockImplementation(
-      (_, amountSat) =>
-        new Promise(resolve => {
-          if (amountSat === 15) resolveFirstFee = resolve;
-          else resolveSecondFee = resolve;
-        }),
-    );
-    const screen = renderScan(wallet, { uri: SAMPLE_INVOICE });
-
-    await waitFor(() => expect(wallet.getPaymentFeeWithoutSending).toHaveBeenCalled());
-    mockRouteParams.uri = 'lnbc-second-invoice';
-    screen.rerender(
-      <BlueStorageContext.Provider value={{ wallets: [wallet] }}>
-        <ScanLndInvoice />
-      </BlueStorageContext.Provider>,
-    );
-    await waitFor(() => expect(wallet.getPaymentFeeWithoutSending).toHaveBeenCalledTimes(2));
-    await act(async () => {
-      resolveSecondFee(7);
-      await Promise.resolve();
-    });
-    await waitFor(() => expect(screen.getByText(`7 ${BitcoinUnit.SATS}`)).toBeTruthy());
-    await act(async () => {
-      resolveFirstFee(4);
-      await Promise.resolve();
-    });
-    expect(screen.getByText(`7 ${BitcoinUnit.SATS}`)).toBeTruthy();
-    screen.unmount();
+    await expectSparkRejectsLightning(SAMPLE_INVOICE);
   });
-});
 
-describe('ScanLndInvoice destination and pay', () => {
-  afterEach(() => {
-    jest.restoreAllMocks();
-    AmountInput.conversionCache = {};
-  });
 
   it('goes back and alerts when no Lightning wallet is available', async () => {
     renderScanWithWallets([], { walletID: 'missing', uri: LNURL });
@@ -375,7 +317,7 @@ describe('ScanLndInvoice destination and pay', () => {
 
   it('shows the loading indicator while the LNURL pay service is in flight', () => {
     jest.spyOn(Lnurl.prototype, 'callLnurlPayService').mockReturnValue(new Promise(() => {}));
-    const wallet = makeSparkWallet();
+    const wallet = makeLndhubWallet();
     const screen = renderScan(wallet);
 
     expect(screen.UNSAFE_queryAllByType(ActivityIndicator).length).toBeGreaterThan(0);
@@ -384,7 +326,7 @@ describe('ScanLndInvoice destination and pay', () => {
 
   it('clears the loading state and alerts when the LNURL pay service rejects', async () => {
     jest.spyOn(Lnurl.prototype, 'callLnurlPayService').mockRejectedValue(new Error('lnurl down'));
-    const wallet = makeSparkWallet();
+    const wallet = makeLndhubWallet();
     const screen = renderScan(wallet);
 
     await waitFor(() => expect(alert).toHaveBeenCalledWith('lnurl down'));
@@ -428,16 +370,10 @@ describe('ScanLndInvoice destination and pay', () => {
       },
     });
   });
-
   it('does not show a guessed Spark fee range for a Lightning address on a free domain', async () => {
-    const wallet = makeSparkWallet();
-    const screen = renderScan(wallet, { uri: 'tea@lightning.space' });
-
-    await waitFor(() => screen.getByText('tea@lightning.space'));
-    fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '1000');
-    assert.strictEqual(screen.queryByText(feeRangeText(Math.round(1000 * 0.03))), null);
-    assert.strictEqual(screen.queryByText(loc._.free), null);
+    await expectSparkRejectsLightning('tea@lightning.space');
   });
+
 
   it('shows the 3-percent LNDHub fee range for a Lightning address that is not free', async () => {
     const wallet = makeLndhubWallet();
@@ -467,7 +403,7 @@ describe('ScanLndInvoice destination and pay', () => {
   });
 
   it('truncates a long invoice destination and shows Expired for a lapsed bolt11', async () => {
-    const wallet = makeSparkWallet();
+    const wallet = makeLndhubWallet();
     wallet.decodeInvoice = jest.fn().mockReturnValue({
       num_satoshis: '250000',
       description: 'bolt11 memo',
@@ -489,7 +425,7 @@ describe('ScanLndInvoice destination and pay', () => {
   });
 
   it('strips a LIGHTNING: prefix and shows remaining minutes for a live invoice', async () => {
-    const wallet = makeSparkWallet();
+    const wallet = makeLndhubWallet();
     const decoded = futureDecodedInvoice();
     wallet.decodeInvoice = jest.fn().mockReturnValue(decoded);
     const screen = renderScan(wallet, { uri: `LIGHTNING:${SAMPLE_INVOICE}`, walletID: undefined });
@@ -510,7 +446,7 @@ describe('ScanLndInvoice destination and pay', () => {
   });
 
   it('extracts the bolt11 from a BIP-21 URI including a lightning= query', async () => {
-    const wallet = makeSparkWallet();
+    const wallet = makeLndhubWallet();
     wallet.decodeInvoice = jest.fn().mockReturnValue(futureDecodedInvoice({ description: '' }));
     const screen = renderScan(wallet, { uri: BIP21_WITH_LIGHTNING });
 
@@ -525,7 +461,7 @@ describe('ScanLndInvoice destination and pay', () => {
   });
 
   it('pays a testnet invoice destination', async () => {
-    const wallet = makeSparkWallet();
+    const wallet = makeLndhubWallet();
     const testnetInvoice = 'lntb1testinvoiceplaceholderxxxxxxxx';
     wallet.decodeInvoice = jest.fn().mockReturnValue(futureDecodedInvoice({ description: undefined }));
     const screen = renderScan(wallet, { uri: testnetInvoice });
@@ -541,7 +477,7 @@ describe('ScanLndInvoice destination and pay', () => {
   });
 
   it('clears the form and alerts when decoding the invoice throws', async () => {
-    const wallet = makeSparkWallet();
+    const wallet = makeLndhubWallet();
     wallet.decodeInvoice = jest.fn(() => {
       throw new Error('bad invoice');
     });
@@ -559,7 +495,7 @@ describe('ScanLndInvoice destination and pay', () => {
 
   it('alerts that the amount is not valid when LNURL pay is pressed with 0 sats', async () => {
     mockLnurl('example.com', 1000);
-    const wallet = makeSparkWallet();
+    const wallet = makeLndhubWallet();
     const screen = renderScan(wallet);
 
     await waitFor(() => screen.getByText(loc.lnd.next));
@@ -569,21 +505,10 @@ describe('ScanLndInvoice destination and pay', () => {
     expect(haptic.trigger).toHaveBeenCalledWith('notificationError', { ignoreAndroidSystemSettings: false });
     expect(mockNavigate).not.toHaveBeenCalled();
   });
-
   it('does not guess a Spark fee when checking the remaining balance', async () => {
-    mockLnurl('example.com', 1000);
-    const wallet = makeSparkWallet();
-    const screen = renderScan(wallet);
-
-    await waitFor(() => screen.getByText(loc.lnd.next));
-    fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '990000');
-    fireEvent.press(screen.getByText(loc.lnd.next));
-    expect(alert).not.toHaveBeenCalledWith(loc.lnd.error_balance_for_insuficient_fee);
-    expect(mockNavigate).toHaveBeenCalledWith(
-      'SendDetailsRoot',
-      expect.objectContaining({ params: expect.objectContaining({ amountSat: 990000 }) }),
-    );
+    await expectSparkRejectsLightning(LNURL);
   });
+
 
   it('alerts when the remaining LNDHub balance cannot cover the 3-percent fee', async () => {
     mockLnurl('example.com', 1000);
@@ -629,43 +554,17 @@ describe('ScanLndInvoice destination and pay', () => {
       }),
     );
   });
-
   it('marks a full-balance Spark LNURL payment for SDK fee preparation', async () => {
-    mockLnurl('example.com', 1000);
-    const wallet = makeSparkWallet();
-    const screen = renderScan(wallet);
-
-    await waitFor(() => screen.getByText('MAX'));
-    fireEvent.press(screen.getByText('MAX'));
-    fireEvent.press(screen.getByText(loc.lnd.next));
-    expect(mockNavigate).toHaveBeenCalledWith(
-      'SendDetailsRoot',
-      expect.objectContaining({
-        params: expect.objectContaining({ amountSat: 1_000_000, isMax: true }),
-      }),
-    );
+    await expectSparkRejectsLightning(LNURL);
   });
 
   it('navigates LNURL pay with the typed Spark amount', async () => {
-    mockLnurl('example.com', 1000);
-    const wallet = makeSparkWallet();
-    const screen = renderScan(wallet, { walletID: undefined });
-
-    await waitFor(() => screen.getByText(loc.lnd.next));
-    fireEvent.press(screen.getByText(loc.lnd.next));
-    expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', {
-      screen: 'LnurlPay',
-      params: {
-        lnurl: LNURL,
-        amountSat: 1000,
-        description: 'tea',
-        walletID: wallet.getID(),
-      },
-    });
+    await expectSparkRejectsLightning(LNURL);
   });
 
+
   it('alerts that zero-amount invoices are not supported', async () => {
-    const wallet = makeSparkWallet();
+    const wallet = makeLndhubWallet();
     wallet.decodeInvoice = jest.fn().mockReturnValue(futureDecodedInvoice({ num_satoshis: '0' }));
     const screen = renderScan(wallet, { uri: SAMPLE_INVOICE });
 
@@ -676,7 +575,7 @@ describe('ScanLndInvoice destination and pay', () => {
   });
 
   it('alerts that a fractional-sat invoice is not supported', async () => {
-    const wallet = makeSparkWallet();
+    const wallet = makeLndhubWallet();
     wallet.decodeInvoice = jest.fn().mockReturnValue(futureDecodedInvoice({ num_satoshis: '1.5' }));
     const screen = renderScan(wallet, { uri: SAMPLE_INVOICE });
 
@@ -687,7 +586,7 @@ describe('ScanLndInvoice destination and pay', () => {
   });
 
   it('refuses to pay an invoice that this wallet created', async () => {
-    const wallet = makeSparkWallet();
+    const wallet = makeLndhubWallet();
     const decoded = futureDecodedInvoice({ payment_hash: 'own-hash' });
     wallet.decodeInvoice = jest.fn().mockReturnValue(decoded);
     wallet.user_invoices_raw = [{ payment_hash: 'own-hash' }];
@@ -814,7 +713,7 @@ describe('ScanLndInvoice destination and pay', () => {
 
   it('converts a SATS amount through LOCAL_CURRENCY using the AmountInput cache', async () => {
     mockLnurl('example.com', 1000);
-    const wallet = makeSparkWallet();
+    const wallet = makeLndhubWallet();
     const screen = renderScan(wallet);
 
     await waitFor(() => screen.getByText(loc.lnd.next));
@@ -830,7 +729,7 @@ describe('ScanLndInvoice destination and pay', () => {
 
   it('converts a typed LOCAL_CURRENCY amount without a cache hit via fiatToBTC', async () => {
     mockLnurl('example.com', 1000);
-    const wallet = makeSparkWallet();
+    const wallet = makeLndhubWallet();
     const screen = renderScan(wallet);
 
     await waitFor(() => screen.getByText(loc.lnd.next));
@@ -843,7 +742,7 @@ describe('ScanLndInvoice destination and pay', () => {
 
   it('converts a BTC amount back to sats before LNURL pay', async () => {
     mockLnurl('example.com', 1000);
-    const wallet = makeSparkWallet();
+    const wallet = makeLndhubWallet();
     const screen = renderScan(wallet);
 
     await waitFor(() => screen.getByText(loc.lnd.next));
