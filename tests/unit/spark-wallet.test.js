@@ -2982,6 +2982,25 @@ describe('SparkWallet', () => {
     assert.strictEqual(wallet.transactions_raw[1].memo, 'Lightning invoice');
   });
 
+  it('mapPayment does not label a non-Lightning payment as Lightning', async () => {
+    mockSdk.listPayments.mockResolvedValue({
+      payments: [
+        {
+          id: 's-spark',
+          paymentType: PaymentType.Send,
+          status: PaymentStatus.Completed,
+          amount: 2n,
+          fees: 1n,
+          timestamp: 2n,
+          method: {},
+        },
+      ],
+    });
+    const wallet = new SparkWallet();
+    await wallet.fetchTransactions();
+    assert.strictEqual(wallet.transactions_raw[0].memo, 'Spark payment');
+  });
+
   it('decodeInvoice maps millisatoshis and the remaining bolt11 tags', () => {
     const bolt11 = require('bolt11');
     const spy = jest.spyOn(bolt11, 'decode').mockReturnValue({
