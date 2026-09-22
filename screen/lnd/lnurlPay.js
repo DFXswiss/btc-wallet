@@ -57,8 +57,8 @@ const unsentSparkSeeds = new Set();
 let sparkSeedsLoaded = null;
 let sparkSeedsPersisted = false;
 
-function sparkSeedKey(destination, amountSats) {
-  return `${destination}\0${amountSats}`;
+function sparkSeedKey(destination, amountSats, operationId) {
+  return `${destination}\0${amountSats}\0${operationId || ''}`;
 }
 
 function sparkSeedStoragePayload() {
@@ -120,10 +120,10 @@ function dropSparkSeed(seed) {
   }
 }
 
-async function createSparkPaymentSeed(seedRef, destination, amountSats) {
+async function createSparkPaymentSeed(seedRef, destination, amountSats, operationId) {
   await loadSparkSeeds();
   if (seedRef.current) return seedRef.current;
-  const key = sparkSeedKey(destination, amountSats);
+  const key = sparkSeedKey(destination, amountSats, operationId);
   const kept = unresolvedSparkSeeds.get(key);
   if (kept) {
     seedRef.current = kept;
@@ -192,7 +192,7 @@ const LnurlPay = () => {
   const { wallets, refreshAllWalletTransactions } = useContext(BlueStorageContext);
   const { outgoingPayment } = useSparkContext();
   const { params } = useRoute();
-  const { walletID, lnurl, amountSat, destination, invoice, sparkInvoice, sparkAddress, amountUnit, description, free, isMax } = params;
+  const { walletID, lnurl, amountSat, destination, invoice, sparkInvoice, sparkAddress, amountUnit, description, free, isMax, routeId } = params;
   /** @type {LightningCustodianWallet} */
   const wallet = wallets.find(w => w.getID() === walletID);
   const [unit, setUnit] = useState(wallet.getPreferredBalanceUnit());
@@ -589,7 +589,7 @@ const LnurlPay = () => {
   };
 
   const handleSparkAddress = async (amountSats, destination) => {
-    const seed = await createSparkPaymentSeed(sparkPaymentSeedRef, destination, amountSats);
+    const seed = await createSparkPaymentSeed(sparkPaymentSeedRef, destination, amountSats, routeId);
     const result = await wallet.paySparkAddress(destination, amountSats, seed, sparkFeeQuote);
     const decoded = {};
     if (result && result.status === 'pending') {
@@ -618,7 +618,7 @@ const LnurlPay = () => {
   };
 
   const handleSparkInvoice = async (amountSats, destination) => {
-    const seed = await createSparkPaymentSeed(sparkPaymentSeedRef, destination, amountSats);
+    const seed = await createSparkPaymentSeed(sparkPaymentSeedRef, destination, amountSats, routeId);
     const result = await wallet.paySparkInvoice(destination, amountSats, seed, sparkFeeQuote);
     const decoded = {};
     if (result && result.status === 'pending') {

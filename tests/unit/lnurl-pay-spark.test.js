@@ -586,6 +586,37 @@ describe('LnurlPay Spark invoice mode', () => {
     expect(mockRandomBytes).toHaveBeenCalledTimes(2);
   });
 
+  it('uses a new Spark idempotency seed for a second DFX route with the same address and amount', async () => {
+    const wallet = makeWallet();
+    wallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'spark-payment-route-a' });
+    const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined, routeId: 'sell-1' });
+
+    await waitFor(() => screen.getByText(loc.lnd.payButton));
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+    await waitFor(() => expect(wallet.paySparkInvoice).toHaveBeenCalledTimes(1));
+    const firstSeed = wallet.paySparkInvoice.mock.calls[0][2];
+
+    screen.unmount();
+    const otherWallet = makeWallet();
+    otherWallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'spark-payment-route-b' });
+    const otherScreen = renderPay(otherWallet, {
+      invoice: undefined,
+      sparkInvoice: SPARK_INVOICE,
+      amountUnit: undefined,
+      routeId: 'sell-2',
+    });
+
+    await waitFor(() => otherScreen.getByText(loc.lnd.payButton));
+    await act(async () => {
+      fireEvent.press(otherScreen.getByText(loc.lnd.payButton));
+    });
+    await waitFor(() => expect(otherWallet.paySparkInvoice).toHaveBeenCalledTimes(1));
+    assert.notStrictEqual(firstSeed, otherWallet.paySparkInvoice.mock.calls[0][2]);
+    expect(mockRandomBytes).toHaveBeenCalledTimes(2);
+  });
+
   it('creates different Spark idempotency seeds for different invoices even when the navigation key is reused', async () => {
     const wallet = makeWallet();
     wallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'spark-payment-route-1' });
