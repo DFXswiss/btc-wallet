@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { ParamListBase, RouteProp, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -6,13 +6,12 @@ import { BlueButton, SafeBlueArea } from '../../BlueComponents';
 import { navigationStyleTx } from '../../components/navigationStyle';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
-import { AbstractWallet, HDSegwitBech32Wallet, WatchOnlyWallet } from '../../class';
+import { HDSegwitBech32Wallet, WatchOnlyWallet } from '../../class';
 import { AbstractHDElectrumWallet } from '../../class/wallets/abstract-hd-electrum-wallet';
 import NetworkTransactionFees from '../../models/networkTransactionFees';
 import BigNumber from 'bignumber.js';
 import { Chain } from '../../models/bitcoinUnits';
 import { useSwap } from '../../api/dfx/hooks/swap.hook';
-import { useWalletContext } from '../../contexts/wallet.context';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import { SparkWallet } from '../../class/wallets/spark-wallet';
 import { SwapInfo } from '../../api/dfx/definitions/swap';
@@ -43,14 +42,6 @@ const Swap = () => {
   const [swapInfo, setSwapInfo] = useState<SwapInfo>();
   const [changeAddress, setChangeAddress] = useState<string>();
 
-  const { walletID: onchainWalletId } = useWalletContext();
-  const lnWallet = useMemo(
-    () =>
-      wallets.find((w: AbstractWallet) => w.type === LightningLdsWallet.type) ||
-      wallets.find((w: AbstractWallet) => w.type === SparkWallet.type),
-    [wallets],
-  );
-
   const stylesHook = StyleSheet.create({
     container: {
       backgroundColor: colors.elevated,
@@ -65,11 +56,9 @@ const Swap = () => {
 
   useEffect(() => {
     (async () => {
-      if (!routeId) return;
+      if (!routeId || !walletId) return;
 
-      const swapOnchainInfo = await getInfo(onchainWalletId as string, Number(routeId)).catch(() => null);
-      const swapLnInfo = lnWallet && (await getInfo(lnWallet?.getID() as string, Number(routeId)).catch(() => null));
-      const swap = swapOnchainInfo || swapLnInfo;
+      const swap = await getInfo(walletId, Number(routeId)).catch(() => null);
 
       if (swap) {
         setSwapInfo(swap);

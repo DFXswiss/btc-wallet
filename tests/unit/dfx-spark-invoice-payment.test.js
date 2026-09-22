@@ -295,6 +295,30 @@ describe('DFX Spark invoice navigation', () => {
 });
 
 describe('DFX swap Lightning wallet selection', () => {
+  it('quotes the Spark wallet named by the route when an LDS wallet is also installed', async () => {
+    const ldsDeposit = 'LNURL-LDS-DEPOSIT';
+    mockSwapGetInfo.mockImplementation(async id => {
+      if (id === 'lds-dfx-wallet') return swapInfo(ldsDeposit);
+      if (id === 'spark-dfx-wallet') return swapInfo(SPARK_ADDRESS);
+      return null;
+    });
+    mockRouteParams['wallet-id'] = 'spark-dfx-wallet';
+
+    const screen = renderScreen(Swap, [makeLdsWallet(), makeSparkWallet()]);
+
+    await waitFor(() => screen.getByTestId(`Button-${loc.swap.confirm}`));
+    expect(screen.getByText(SPARK_ADDRESS)).toBeTruthy();
+    expect(screen.queryByText(ldsDeposit)).toBeNull();
+    const requestedWalletIds = mockSwapGetInfo.mock.calls.map(call => call[0]);
+    expect(requestedWalletIds).toContain('spark-dfx-wallet');
+    expect(requestedWalletIds).not.toContain('lds-dfx-wallet');
+
+    fireEvent.press(screen.getByTestId(`Button-${loc.swap.confirm}`));
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalled());
+    expect(mockNavigate.mock.calls[0][1].sparkAddress).toBe(SPARK_ADDRESS);
+    expect(mockAlert).not.toHaveBeenCalled();
+  });
+
   it('prefers the LDS wallet over Spark when both are present, even if Spark is listed first', async () => {
     const ldsDeposit = 'LNURL-LDS-DEPOSIT';
     const sparkDeposit = 'LNURL-SPARK-DEPOSIT';
