@@ -968,8 +968,30 @@ onFlowComplete:
                   - tapOn: 'Fertig'
             - waitForAnimationToEnd:
                 timeout: 15000
-            # Momentaufnahme nach der Maskenstrecke. MIN_TX_ID ist die
-            # env-Bindung dieses runFlow (ueberlebt Relounches, output nicht).
+            # Die Maske dauert laenger, als der Auszahlungsposten zum Entstehen
+            # braucht. Der Wartebereich davor ruft den Bank-Helfer dann auf,
+            # bevor der Posten da ist, und ein Neustart loescht output. Deshalb
+            # hier neu: Verkaufskennung wieder lesen, Helfer rufen, erst dann
+            # Abschluss. Sechs gleiche Bloecke, keine Schleife. MIN_TX_ID ist
+            # die env-Bindung und ueberlebt den Neustart.
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-booked
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendTxId != null && output.backendTxId != '' && output.backendTxId != 'undefined'}
+                commands:
+                  - runScript:
+                      file: ../scripts/dfx-settle-fiat.js
+                      env:
+                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
+                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
+                        TRANSACTION_ID: "${output.backendTxId}"
             - runScript:
                 file: ../scripts/backend-state.js
                 env:
@@ -992,6 +1014,24 @@ onFlowComplete:
                 env:
                   E2E_API_URL: ${E2E_API_URL || ''}
                   E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-booked
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendTxId != null && output.backendTxId != '' && output.backendTxId != 'undefined'}
+                commands:
+                  - runScript:
+                      file: ../scripts/dfx-settle-fiat.js
+                      env:
+                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
+                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
+                        TRANSACTION_ID: "${output.backendTxId}"
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
                   STATE_KIND: sell-complete
                   MIN_TX_ID: "${MIN_TX_ID}"
                   POLL_ONCE: "true"
@@ -1004,6 +1044,129 @@ onFlowComplete:
                         id: E2EBackendPollPause
                       timeout: 32000
                       optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-booked
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendTxId != null && output.backendTxId != '' && output.backendTxId != 'undefined'}
+                commands:
+                  - runScript:
+                      file: ../scripts/dfx-settle-fiat.js
+                      env:
+                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
+                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
+                        TRANSACTION_ID: "${output.backendTxId}"
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-complete
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendState !== 'ok'}
+                commands:
+                  - extendedWaitUntil:
+                      visible:
+                        id: E2EBackendPollPause
+                      timeout: 32000
+                      optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-booked
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendTxId != null && output.backendTxId != '' && output.backendTxId != 'undefined'}
+                commands:
+                  - runScript:
+                      file: ../scripts/dfx-settle-fiat.js
+                      env:
+                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
+                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
+                        TRANSACTION_ID: "${output.backendTxId}"
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-complete
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendState !== 'ok'}
+                commands:
+                  - extendedWaitUntil:
+                      visible:
+                        id: E2EBackendPollPause
+                      timeout: 32000
+                      optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-booked
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendTxId != null && output.backendTxId != '' && output.backendTxId != 'undefined'}
+                commands:
+                  - runScript:
+                      file: ../scripts/dfx-settle-fiat.js
+                      env:
+                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
+                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
+                        TRANSACTION_ID: "${output.backendTxId}"
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-complete
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendState !== 'ok'}
+                commands:
+                  - extendedWaitUntil:
+                      visible:
+                        id: E2EBackendPollPause
+                      timeout: 32000
+                      optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: sell-booked
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow:
+                when:
+                  true: ${output.backendTxId != null && output.backendTxId != '' && output.backendTxId != 'undefined'}
+                commands:
+                  - runScript:
+                      file: ../scripts/dfx-settle-fiat.js
+                      env:
+                        E2E_SETTLE_URL: ${E2E_SETTLE_URL || ''}
+                        E2E_SETTLE_KEY: ${E2E_SETTLE_KEY || ''}
+                        TRANSACTION_ID: "${output.backendTxId}"
             - runScript:
                 file: ../scripts/backend-state.js
                 env:
