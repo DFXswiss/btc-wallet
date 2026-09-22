@@ -231,24 +231,24 @@
       "text": "Un portafoglio distribuito su tre dispositivi: due di essi approvano ogni pagamento. Evita che un solo dispositivo perso costi il denaro."
     },
     "06-wallet-hinzufuegen/02-lightning-spark": {
-      "title": "Riga Lightning con Aggiungi",
-      "text": "Un tocco su « Aggiungi » in questa riga crea Lightning (Spark). Non c'è un'altra scelta."
+      "title": "Riga Spark con Aggiungi",
+      "text": "Un tocco su « Aggiungi » in questa riga crea un portafoglio Spark. Non c'è un'altra scelta."
     },
     "07-multi-device/01-erstellung-qr": {
       "title": "Primo passo della configurazione",
       "text": "Ciascuno dei tre dispositivi mostra un codice proprio e scansiona gli altri due. L'indicatore in alto segue l'avanzamento."
     },
     "08-lightning/01-uebersicht-mit-lightning": {
-      "title": "Panoramica con Lightning (Spark)",
-      "text": "La schermata iniziale quando accanto al portafoglio sulla blockchain c'è Lightning (Spark)."
+      "title": "Panoramica con Spark",
+      "text": "La schermata iniziale quando accanto al portafoglio sulla blockchain c'è Spark."
     },
     "08-lightning/02-lightning-wallet": {
-      "title": "Lightning (Spark)",
-      "text": "Saldo e pagamenti di questo portafoglio. Acquisto e vendita stanno sotto; qui non c'è una carta di pagamento. L'indirizzo Lightning si trova presso Breez."
+      "title": "Spark",
+      "text": "Saldo e pagamenti di questo portafoglio. Acquisto e vendita stanno sotto. Non ci sono un indirizzo Lightning né una carta di pagamento."
     },
     "08-lightning/03-rechnung-erstellen": {
-      "title": "Creare una fattura",
-      "text": "Con un importo la pagina crea una fattura Lightning. Senza importo mostrerebbe l'indirizzo Lightning presso Breez, se è stato possibile registrarne uno; vale in modo permanente e non appartiene a un manuale pubblico."
+      "title": "Indirizzo Spark",
+      "text": "La pagina mostra l'indirizzo Spark. Non chiede un importo e non crea una fattura Lightning. L'immagine salvata mostra ancora la vecchia fattura Lightning, così non viene pubblicato un indirizzo Spark reale."
     },
     "09-import/01-scanner": {
       "title": "Importare con lo scanner",

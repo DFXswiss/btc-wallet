@@ -233,11 +233,11 @@ describe('ScanLndInvoice fee mark', () => {
     await expectSparkRejectsLightning(LNURL);
   });
 
-  it('shows the SDK-prepared fee for a fixed Spark BOLT11 invoice', async () => {
+  it('rejects a BOLT11 invoice on a Spark wallet', async () => {
     await expectSparkRejectsLightning(SAMPLE_INVOICE);
   });
 
-  it('keeps Next available without an alert when the Spark fee cannot be prepared', async () => {
+  it('rejects a BOLT11 invoice on a Spark wallet when a fee would have been prepared', async () => {
     await expectSparkRejectsLightning(SAMPLE_INVOICE);
   });
 
@@ -285,7 +285,7 @@ describe('ScanLndInvoice fee mark', () => {
       expect.objectContaining({ params: expect.objectContaining({ amountSat: 1000 }) }),
     );
   });
-  it('does not apply an older Spark fee result after the invoice changes', async () => {
+  it('rejects a changed BOLT11 invoice on a Spark wallet', async () => {
     await expectSparkRejectsLightning(SAMPLE_INVOICE);
   });
 

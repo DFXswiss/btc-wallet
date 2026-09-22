@@ -231,24 +231,24 @@
       "text": "One wallet spread across three devices: two of them approve every payment. That protects you from a single lost device costing you the money."
     },
     "06-wallet-hinzufuegen/02-lightning-spark": {
-      "title": "Lightning row with Add",
-      "text": "A tap on “Add” in this row creates Lightning (Spark). There is no further choice."
+      "title": "Spark row with Add",
+      "text": "A tap on “Add” in this row creates a Spark wallet. There is no further choice."
     },
     "07-multi-device/01-erstellung-qr": {
       "title": "First step of the setup",
       "text": "Each of the three devices shows its own code and scans the other two. The indicator at the top follows the progress."
     },
     "08-lightning/01-uebersicht-mit-lightning": {
-      "title": "Overview with Lightning (Spark)",
-      "text": "The home screen once Lightning (Spark) sits next to the wallet on the blockchain."
+      "title": "Overview with Spark",
+      "text": "The home screen once Spark sits next to the wallet on the blockchain."
     },
     "08-lightning/02-lightning-wallet": {
-      "title": "Lightning (Spark)",
-      "text": "Balance and payments of this wallet. Buy and sell sit below; there is no payment card here. The Lightning address lives on Breez."
+      "title": "Spark",
+      "text": "Balance and payments of this wallet. Buy and sell sit below. There is no Lightning address and no payment card."
     },
     "08-lightning/03-rechnung-erstellen": {
-      "title": "Creating an invoice",
-      "text": "With an amount the page creates a Lightning invoice. Without an amount it would show the Lightning address on Breez, if one could be registered; it is permanent and does not belong in a public handbook."
+      "title": "Spark address",
+      "text": "The screen shows the Spark address. It does not ask for an amount and it does not create a Lightning invoice. The stored picture still shows the previous Lightning invoice, so a live Spark address is not published here."
     },
     "09-import/01-scanner": {
       "title": "Import with the scanner",

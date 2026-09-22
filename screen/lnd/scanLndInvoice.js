@@ -55,6 +55,7 @@ const ScanLndInvoice = () => {
   const [expiresIn, setExpiresIn] = useState();
   const [isTxFree, setIsTxFree] = useState(false);
   const [sparkFee, setSparkFee] = useState();
+  const [sparkPaymentIsInvoice, setSparkPaymentIsInvoice] = useState(false);
 
   const stylesHook = StyleSheet.create({
     root: {
@@ -167,6 +168,11 @@ const ScanLndInvoice = () => {
     }
     if (Lnurl.isLnurl(destinationString)) return setLnurlDestination(destinationString);
     if (Lnurl.isLightningAddress(destinationString)) return setLightningAddressDestination(destinationString);
+    if (wallet?.type === SparkWallet.type && SparkWallet.isSparkPaymentUri(destinationString)) {
+      const { invoice } = SparkWallet.parseSparkPaymentUri(destinationString);
+      setSparkPaymentIsInvoice(true);
+      return setSparkAddressDestination(invoice);
+    }
     if (wallet?.type === SparkWallet.type && DeeplinkSchemaMatch.isSparkAddress(destinationString))
       return setSparkAddressDestination(destinationString);
     if (
@@ -300,6 +306,18 @@ const ScanLndInvoice = () => {
       return showError(loc.wallets.lightning_spark_only);
     }
     if (Lnurl.isLnurl(destination) || Lnurl.isLightningAddress(destination)) return processLnurlPay();
+    if (wallet?.type === SparkWallet.type && sparkPaymentIsInvoice) {
+      if (!Number.isInteger(amountSat) || amountSat === 0) return showError(loc.lnd.error_tip_invoice_not_supported);
+      return navigate('SendDetailsRoot', {
+        screen: 'LnurlPay',
+        params: {
+          sparkInvoice: destination,
+          amountSat,
+          amountUnit: BitcoinUnit.SATS,
+          walletID: walletID || wallet.getID(),
+        },
+      });
+    }
     if (wallet?.type === SparkWallet.type && DeeplinkSchemaMatch.isSparkAddress(destination)) return processSparkAddressPay();
     if (
       DeeplinkSchemaMatch.isLightningInvoice(destination) ||

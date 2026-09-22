@@ -145,7 +145,7 @@ class DeeplinkSchemaMatch {
           },
         },
       ]);
-    } else if (DeeplinkSchemaMatch.isSparkAddress(event.url)) {
+    } else if (DeeplinkSchemaMatch.isSparkAddress(event.url) || DeeplinkSchemaMatch.isSparkPaymentUri(event.url)) {
       completionHandler([
         'SendDetailsRoot',
         {
@@ -405,6 +405,11 @@ class DeeplinkSchemaMatch {
     return isValidLightningInvoice;
   }
 
+  static isSparkPaymentUri(text) {
+    const { SparkWallet } = require('./wallets/spark-wallet');
+    return SparkWallet.isSparkPaymentUri(text);
+  }
+
   static isSparkAddress(address) {
     const { SparkWallet } = require('./wallets/spark-wallet');
     return SparkWallet.isSparkAddress(address);
@@ -519,7 +524,7 @@ class DeeplinkSchemaMatch {
     if (Lnurl.isLightningAddress(text)) return true;
     if (DeeplinkSchemaMatch.isLightningInvoice(text)) return true;
     if (DeeplinkSchemaMatch.isTestnetLightningInvoice(text)) return true;
-    if (DeeplinkSchemaMatch.isSparkAddress(text)) return true;
+    if (DeeplinkSchemaMatch.isSparkAddress(text) || DeeplinkSchemaMatch.isSparkPaymentUri(text)) return true;
 
     if (options.includeDualFormats) {
       if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(text)) return true;

@@ -136,6 +136,8 @@ const Sell = () => {
           amountSat: currency.btcToSatoshi(amount),
           routeId,
         });
+      } else if (wallet.type === SparkWallet.type) {
+        Alert.alert(loc.wallets.lightning_spark_wallet_label, loc.wallets.lightning_spark_only);
       } else {
         navigation.navigate('LnurlPay', {
           lnurl: depositAddress,

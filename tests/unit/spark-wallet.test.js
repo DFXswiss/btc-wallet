@@ -161,6 +161,7 @@ async function payInvoiceWithExplicitQuote(wallet, invoice, amountSats = 0, quot
 }
 
 async function paySparkInvoiceWithExplicitQuote(wallet, invoice, amountSats, seed, quote) {
+  if (!Number.isSafeInteger(wallet.balance) || wallet.balance === 0) wallet.balance = 10_000_000;
   const preparedQuote = quote || {
     invoice,
     amountSats,
@@ -201,6 +202,10 @@ describe('SparkWallet', () => {
     assert.strictEqual(SparkWallet.isSparkInvoice(SPARK_INVOICE), true);
     assert.strictEqual(SparkWallet.isSparkInvoice(SPARK_INVOICE.toUpperCase()), true);
     assert.strictEqual(SparkWallet.isSparkInvoice(`spark:${SPARK_INVOICE}?amount=0.00012345`), true);
+    assert.strictEqual(SparkWallet.isSparkPaymentUri(`spark:${SPARK_INVOICE}?amount=0.00012345`), true);
+    assert.strictEqual(SparkWallet.isSparkPaymentUri(SPARK_INVOICE), false);
+    const DeeplinkSchemaMatch = require('../../class/deeplink-schema-match').default;
+    assert.strictEqual(DeeplinkSchemaMatch.isPossiblyLightningDestination(`spark:${SPARK_INVOICE}?amount=0.00012345`), true);
     assert.strictEqual(SparkWallet.isSparkInvoice(SAMPLE_INVOICE), false);
     assert.strictEqual(SparkWallet.isSparkInvoice('LNURL1TEST'), false);
     assert.strictEqual(SparkWallet.isSparkInvoice('user@example.com'), false);
@@ -786,6 +791,26 @@ describe('SparkWallet', () => {
       new RegExp(loc.wallets.lightning_spark_payment_failed),
     );
     assert.strictEqual(getOutgoingPayment(), null);
+  });
+
+  it('paySparkInvoice rejects amount plus fee above the balance before sending', async () => {
+    mockSdk.prepareSendPayment.mockResolvedValue(sparkInvoicePrepareResponse({ amount: 100n, fee: 10n }));
+    mockSessionIdentity = 'id-pk';
+    const wallet = SparkWallet.create('id-pk');
+    wallet.balance = 105;
+
+    await assert.rejects(
+      () =>
+        paySparkInvoiceWithExplicitQuote(wallet, SPARK_INVOICE, 100, 'over-balance-invoice', {
+          invoice: SPARK_INVOICE,
+          amountSats: 100,
+          walletIdentity: 'id-pk',
+          method: SendPaymentMethod_Tags.SparkInvoice,
+          feeSats: 10,
+        }),
+      new RegExp(loc.send.insufficient_funds),
+    );
+    expect(mockSdk.sendPayment).not.toHaveBeenCalled();
   });
 
   it('paySparkAddress rejects amount plus fee above the balance before sending', async () => {

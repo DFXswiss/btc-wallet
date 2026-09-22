@@ -139,6 +139,8 @@ P8–P10 exercise the processing of the content a QR scan hands to
 `dfxtaro:lightning:` scheme. The camera and the optical QR recognition itself
 are not tested in the simulator.
 
+Flows 03, 05, 06, 07, 08, 09, 14 and 15 now only open Spark receive and assert a `spark1` address. They no longer register a Lightning address, create a BOLT11 invoice, or show an on-chain deposit. Rows below that still describe those older checks are the previous measurement, not the current file.
+
 | Path                                   | Flow                                               | State assertion                                                                                                                                                            | Measured run                                  | Limit / not covered                                                                                   |
 | -------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | P1 Onboarding to on-chain wallet       | `flows/01-onboarding-onchain-wallet.yaml`          | `Wallet Backup`, `On-Chain-Wallet` and `Lightning-Wallet` visible                                                                                                          | **green**, P01-P07 batch                     | Ends in the wallet list. No persistence check after restart.                                          |

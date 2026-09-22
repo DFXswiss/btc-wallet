@@ -231,24 +231,24 @@
       "text": "Un portefeuille réparti sur trois appareils : deux d'entre eux approuvent chaque paiement. Cela évite qu'un seul appareil perdu vous coûte l'argent."
     },
     "06-wallet-hinzufuegen/02-lightning-spark": {
-      "title": "Ligne Lightning avec Ajouter",
-      "text": "Un tap sur « Ajouter » dans cette ligne crée Lightning (Spark). Il n'y a pas d'autre choix."
+      "title": "Ligne Spark avec Ajouter",
+      "text": "Un tap sur « Ajouter » dans cette ligne crée un portefeuille Spark. Il n'y a pas d'autre choix."
     },
     "07-multi-device/01-erstellung-qr": {
       "title": "Première étape de la configuration",
       "text": "Chacun des trois appareils affiche son propre code et scanne les deux autres. L'indicateur en haut suit la progression."
     },
     "08-lightning/01-uebersicht-mit-lightning": {
-      "title": "Aperçu avec Lightning (Spark)",
-      "text": "L'écran d'accueil lorsque Lightning (Spark) côtoie le portefeuille sur la blockchain."
+      "title": "Aperçu avec Spark",
+      "text": "L'écran d'accueil lorsque Spark côtoie le portefeuille sur la blockchain."
     },
     "08-lightning/02-lightning-wallet": {
-      "title": "Lightning (Spark)",
-      "text": "Solde et paiements de ce portefeuille. Achat et vente sont en dessous ; il n'y a pas de carte de paiement ici. L'adresse Lightning se trouve chez Breez."
+      "title": "Spark",
+      "text": "Solde et paiements de ce portefeuille. Achat et vente sont en dessous. Il n'y a ni adresse Lightning ni carte de paiement."
     },
     "08-lightning/03-rechnung-erstellen": {
-      "title": "Créer une facture",
-      "text": "Avec un montant, la page crée une facture Lightning. Sans montant, elle afficherait l'adresse Lightning chez Breez, si elle a pu être enregistrée ; elle vaut de façon permanente et n'a pas sa place dans un manuel public."
+      "title": "Adresse Spark",
+      "text": "La page affiche l'adresse Spark. Elle ne demande pas de montant et ne crée pas de facture Lightning. L'image enregistrée montre encore l'ancienne facture Lightning, pour ne pas publier une adresse Spark réelle."
     },
     "09-import/01-scanner": {
       "title": "Importer avec le scanner",

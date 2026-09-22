@@ -566,6 +566,12 @@ const LnurlPay = () => {
           break;
       }
 
+      if (wallet?.type === SparkWallet.type && !sparkAddress && !sparkInvoice) {
+        payInFlightRef.current = false;
+        setPayButtonDisabled(false);
+        return alert(loc.wallets.lightning_spark_only);
+      }
+
       if (sparkAddress || sparkInvoice) {
         const sparkDestination = sparkAddress || sparkInvoice;
         if (sparkFeeQuote?.method === SendPaymentMethod_Tags.SparkAddress) {

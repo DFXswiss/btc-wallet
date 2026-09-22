@@ -1035,6 +1035,11 @@ export class SparkWallet extends AbstractWallet {
       fee,
     );
 
+    const balance = this.getBalance();
+    if (!Number.isSafeInteger(balance) || amountSats + fee > balance) {
+      throw new Error(loc.send.insufficient_funds);
+    }
+
     // A reusable deposit invoice may receive the same amount more than once. The per-payment
     // seed keeps separate payments distinct while preserving SDK deduplication for retries.
     const idempotencyKey = invoiceIdempotencyKey(`${invoice}\0${amountSats}\0${idempotencySeed}`);

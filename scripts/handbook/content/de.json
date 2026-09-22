@@ -231,24 +231,24 @@
       "text": "Eine Wallet über drei Geräte verteilt: Zwei davon müssen jede Zahlung freigeben. Das schützt davor, dass ein einzelnes verlorenes Gerät das Geld kostet."
     },
     "06-wallet-hinzufuegen/02-lightning-spark": {
-      "title": "Lightning-Zeile mit Hinzufügen",
-      "text": "Ein Tipp auf „Hinzufügen“ in dieser Zeile legt Lightning (Spark) an. Eine weitere Auswahl gibt es nicht."
+      "title": "Spark-Zeile mit Hinzufügen",
+      "text": "Ein Tipp auf „Hinzufügen“ in dieser Zeile legt eine Spark-Wallet an. Eine weitere Auswahl gibt es nicht."
     },
     "07-multi-device/01-erstellung-qr": {
       "title": "Erster Schritt der Einrichtung",
       "text": "Jedes der drei Geräte zeigt einen eigenen Code und scannt die beiden anderen. Die Anzeige oben verfolgt den Fortschritt."
     },
     "08-lightning/01-uebersicht-mit-lightning": {
-      "title": "Übersicht mit Lightning (Spark)",
-      "text": "Die Startseite, sobald neben der Wallet auf der Blockchain auch Lightning (Spark) angelegt ist."
+      "title": "Übersicht mit Spark",
+      "text": "Die Startseite, sobald neben der Wallet auf der Blockchain auch Spark angelegt ist."
     },
     "08-lightning/02-lightning-wallet": {
-      "title": "Lightning (Spark)",
-      "text": "Guthaben und Zahlungen dieser Wallet. Darunter liegen Kaufen und Verkaufen; eine Bezahlkarte gibt es hier nicht. Die Lightning-Adresse liegt bei Breez."
+      "title": "Spark",
+      "text": "Guthaben und Zahlungen dieser Wallet. Darunter liegen Kaufen und Verkaufen. Eine Lightning-Adresse und eine Bezahlkarte gibt es hier nicht."
     },
     "08-lightning/03-rechnung-erstellen": {
-      "title": "Rechnung erstellen",
-      "text": "Mit Betrag erzeugt die Seite eine Rechnung für Lightning. Ohne Betrag stünde hier die Lightning-Adresse bei Breez, sofern eine registriert werden konnte; sie gilt dauerhaft und gehört nicht in ein öffentliches Handbuch."
+      "title": "Spark-Adresse",
+      "text": "Die Seite zeigt die Spark-Adresse. Sie fragt keinen Betrag ab und erzeugt keine Lightning-Rechnung. Das gespeicherte Bild zeigt noch die frühere Lightning-Rechnung, damit hier keine echte Spark-Adresse veröffentlicht wird."
     },
     "09-import/01-scanner": {
       "title": "Import über den Scanner",

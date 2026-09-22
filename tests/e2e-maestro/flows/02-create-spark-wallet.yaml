@@ -8,7 +8,7 @@ appId: swiss.dfx.bitcoin
 - waitForAnimationToEnd:
     timeout: 90000
 - extendedWaitUntil:
-    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    visible: 'Bitcoin, Spark, 0 sats, .*'
     timeout: 90000
-- assertVisible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+- assertVisible: 'Bitcoin, Spark, 0 sats, .*'
 - assertNotVisible: '.*Lightning-Wallet.*Hinzufügen.*'

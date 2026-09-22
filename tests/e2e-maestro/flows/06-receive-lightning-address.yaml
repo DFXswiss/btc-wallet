@@ -1,12 +1,13 @@
 appId: swiss.dfx.bitcoin
 ---
+# Spark receive shows a spark1 address. There is no Lightning address and no invoice.
 - runFlow: ../_setup.yaml
 - tapOn:
     point: '85%,58%'
 - waitForAnimationToEnd:
     timeout: 90000
 - extendedWaitUntil:
-    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    visible: 'Bitcoin, Spark, 0 sats, .*'
     timeout: 90000
 - tapOn:
     point: '50%,58%'
@@ -15,9 +16,11 @@ appId: swiss.dfx.bitcoin
 - tapOn:
     point: '16%,93%'
 - extendedWaitUntil:
-    visible: '.*@breez\.tips.*'
-    timeout: 30000
-# Ohne Betrag ist die sichtbare Adresse zugleich die Quelle des QR-Werts.
-- assertVisible: '.*@breez\.tips.*'
+    visible: '.*spark1.*'
+    timeout: 60000
+- assertVisible: '.*spark1.*'
+- assertNotVisible: '.*@breez\.tips.*'
+- assertNotVisible: 'Amount (optional)'
+- assertNotVisible: 'On-Chain'
 - assertNotVisible: '.*lnbc.*'
-- assertNotVisible: 'Eine Empfangsadresse ist noch nicht vorhanden.*'
+- assertNotVisible: '.*bc1.*'

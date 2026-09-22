@@ -85,10 +85,9 @@ const QR_ALLOWLIST = {
     // parameters, not with `.*`.
   },
   'screenshots/08-lightning/03-rechnung-erstellen.png': {
-    // Spark receive screen with an amount: the QR is a BOLT11 invoice, not a
-    // Lightning address. Without an amount that screen shows the Breez address
-    // instead — that payload must not pass here, or the handbook would publish
-    // a permanent receive address under an invoice caption.
+    // The stored picture is the previous Lightning invoice. The current Spark
+    // receive screen shows a spark1 address and no amount. That address is not
+    // published here. The allowlist still matches the stored invoice image.
     // Mainnet only (`lnbc`), optional amount, bech32 body. No `lightning:`
     // prefix: the screen encodes the raw invoice. No testnet (`lntb`). No `m`
     // flag: a second QR on the next line must fail, same as the address entry.

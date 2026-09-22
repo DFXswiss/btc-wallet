@@ -11,6 +11,7 @@ import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import { useWalletContext } from '../../contexts/wallet.context';
 import Lnurl from '../../class/lnurl';
 import { AbstractWallet, HDSegwitBech32Wallet, LegacyWallet } from '../../class';
+import { SparkWallet } from '../../class/wallets/spark-wallet';
 import BigNumber from 'bignumber.js';
 import { AbstractHDElectrumWallet } from '../../class/wallets/abstract-hd-electrum-wallet';
 import { isInternalDomain } from '../../helpers/freeLightningDomains';
@@ -33,7 +34,7 @@ const LnurlNavigationForwarder = () => {
   const getSuitableLightningWallet = (paymentLink: OpenCryptoPayPaymentLink) => {
     const lnDetails = paymentLink.getLightningPaymentRequestDetails();
     const amountLn = lnDetails?.amountSat;
-    const lnWallet = wallets.find((w: any) => w.chain === Chain.OFFCHAIN);
+    const lnWallet = wallets.find((w: any) => w.chain === Chain.OFFCHAIN && w.type !== SparkWallet.type);
     return lnWallet && Number(amountLn) < Number(lnWallet.getBalance()) ? lnWallet : null;
   };
 
@@ -164,7 +165,7 @@ const LnurlNavigationForwarder = () => {
           });
         }
 
-        const lnWallet = wallets.find((w: any) => w.chain === Chain.OFFCHAIN);
+        const lnWallet = wallets.find((w: any) => w.chain === Chain.OFFCHAIN && w.type !== SparkWallet.type);
         if (lnWallet) {
           return navigation.replace('SendDetailsRoot', {
             screen: 'LnurlPay',
