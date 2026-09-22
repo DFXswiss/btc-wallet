@@ -516,7 +516,7 @@
     "multi_sig_wallet_label": "Cartera Multidispositivo",
     "chf_taproot_wallet_label": "Cartera CHF Taproot",
     "add_lndhub_DFXswiss_not_available": "Este servicio estará disponible en breve",
-    "details_are_you_sure_main_wallet": "¿Estás seguro?\nSi eliminas la cartera on-chain, se reiniciará toda la aplicación. La cartera multi-dispositivo y la cartera Lightning también se eliminarán de este dispositivo.",
+    "details_are_you_sure_main_wallet": "¿Estás seguro?\nSi eliminas la cartera on-chain, se reiniciará toda la aplicación. La cartera multi-dispositivo y la cartera Spark también se eliminarán de este dispositivo.",
     "ownership_proof": "Prueba de propiedad de la dirección DFX",
     "warning": "¡Atención!",
     "rbf_warning": "Está utilizando una cartera obsoleto sin función RBF.",

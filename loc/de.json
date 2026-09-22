@@ -535,7 +535,7 @@
     "multi_sig_wallet_label": "Multi-Device-Wallet",
     "chf_taproot_wallet_label": "CHF Taproot-Wallet",
     "add_lndhub_DFXswiss_not_available": "Dieser Dienst wird bald verfügbar sein",
-    "details_are_you_sure_main_wallet": "Bist du sicher?\nWenn du die On-Chain-Wallet löschst, wird die gesamte App zurückgesetzt. Die Multi-Device Wallet und Lightning Wallet werden ebenfalls von diesem Gerät entfernt.",
+    "details_are_you_sure_main_wallet": "Bist du sicher?\nWenn du die On-Chain-Wallet löschst, wird die gesamte App zurückgesetzt. Die Multi-Device Wallet und die Spark-Wallet werden ebenfalls von diesem Gerät entfernt.",
     "ownership_proof": "DFX-Adressen-Besitznachweis",
     "warning": "Warnung!",
     "rbf_warning": "Du verwendest eine veraltete Wallet ohne RBF-Funktion.",

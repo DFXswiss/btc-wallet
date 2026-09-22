@@ -30,6 +30,7 @@ import loc from '../../loc';
 import Biometric from '../../class/biometrics';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { useSparkContext } from '../../api/spark/contexts/spark.context';
+import { subscribeOutgoingPayment } from '../../api/spark/outgoing-payment';
 import alert from '../../components/Alert';
 import { Text } from 'react-native-elements';
 import { isFreeDomain, isInternalDomain } from '../../helpers/freeLightningDomains';
@@ -48,14 +49,80 @@ function walletWaivesDomainFees(fromWallet) {
  */
 const _cacheFiatToSat = {};
 
-/** Unresolved Spark attempts, including after the pay screen closes. */
+/** Unresolved Spark attempts. Survives leaving the screen and an app restart. */
+const SPARK_SEED_STORAGE_KEY = 'sparkUnresolvedPaymentSeeds';
 const unresolvedSparkSeeds = new Map();
+const sparkSeedKeyByPaymentId = new Map();
+let sparkSeedsLoaded = null;
+let sparkSeedsPersisted = false;
 
 function sparkSeedKey(destination, amountSats) {
   return `${destination}\0${amountSats}`;
 }
 
+function sparkSeedStoragePayload() {
+  return JSON.stringify({
+    seeds: Object.fromEntries(unresolvedSparkSeeds),
+    payments: Object.fromEntries(sparkSeedKeyByPaymentId),
+  });
+}
+
+function applySparkSeedStorage(raw) {
+  if (!raw) return;
+  const parsed = JSON.parse(raw);
+  for (const [key, seed] of Object.entries(parsed.seeds || {})) {
+    if (!unresolvedSparkSeeds.has(key)) unresolvedSparkSeeds.set(key, seed);
+  }
+  for (const [id, key] of Object.entries(parsed.payments || {})) {
+    if (!sparkSeedKeyByPaymentId.has(id)) sparkSeedKeyByPaymentId.set(id, key);
+  }
+  if (unresolvedSparkSeeds.size > 0) sparkSeedsPersisted = true;
+}
+
+function loadSparkSeeds() {
+  if (!sparkSeedsLoaded) {
+    sparkSeedsLoaded = AsyncStorage.getItem(SPARK_SEED_STORAGE_KEY)
+      .then(raw => {
+        try {
+          applySparkSeedStorage(raw);
+        } catch {
+          // A damaged record must not mint a second payment. The next attempt
+          // still reads whatever this process already holds.
+        }
+      })
+      .catch(() => {});
+  }
+  return sparkSeedsLoaded;
+}
+
+function persistSparkSeeds() {
+  if (unresolvedSparkSeeds.size === 0) {
+    if (!sparkSeedsPersisted) return Promise.resolve();
+    sparkSeedsPersisted = false;
+    return AsyncStorage.removeItem(SPARK_SEED_STORAGE_KEY);
+  }
+  sparkSeedsPersisted = true;
+  return AsyncStorage.setItem(SPARK_SEED_STORAGE_KEY, sparkSeedStoragePayload());
+}
+
+function keyForSparkSeed(seed) {
+  for (const [key, kept] of unresolvedSparkSeeds) {
+    if (kept === seed) return key;
+  }
+  return undefined;
+}
+
+function dropSparkSeed(seed) {
+  const key = keyForSparkSeed(seed);
+  if (!key) return;
+  unresolvedSparkSeeds.delete(key);
+  for (const [id, storedKey] of sparkSeedKeyByPaymentId) {
+    if (storedKey === key) sparkSeedKeyByPaymentId.delete(id);
+  }
+}
+
 async function createSparkPaymentSeed(seedRef, destination, amountSats) {
+  await loadSparkSeeds();
   if (seedRef.current) return seedRef.current;
   const key = sparkSeedKey(destination, amountSats);
   const kept = unresolvedSparkSeeds.get(key);
@@ -71,17 +138,41 @@ async function createSparkPaymentSeed(seedRef, destination, amountSats) {
   return seed;
 }
 
+function keepUnresolvedSparkSeed(seedRef, paymentId, paymentHash) {
+  const seed = seedRef?.current;
+  const key = seed && keyForSparkSeed(seed);
+  if (key && paymentId) sparkSeedKeyByPaymentId.set(paymentId, key);
+  if (key && paymentHash) sparkSeedKeyByPaymentId.set(paymentHash, key);
+  return persistSparkSeeds();
+}
+
 function forgetSparkPaymentSeed(seedRef) {
   const seed = seedRef?.current;
   if (seedRef) seedRef.current = undefined;
-  if (!seed) return;
-  for (const [key, kept] of unresolvedSparkSeeds) {
-    if (kept === seed) unresolvedSparkSeeds.delete(key);
-  }
+  if (!seed) return persistSparkSeeds();
+  dropSparkSeed(seed);
+  return persistSparkSeeds();
 }
+
+subscribeOutgoingPayment(payment => {
+  if (!payment || payment.status === 'pending') return;
+  const ids = [payment.paymentId, payment.paymentHash].filter(Boolean);
+  let dropped = false;
+  for (const id of ids) {
+    const key = sparkSeedKeyByPaymentId.get(id);
+    const seed = key && unresolvedSparkSeeds.get(key);
+    if (!seed) continue;
+    dropSparkSeed(seed);
+    dropped = true;
+  }
+  if (dropped) persistSparkSeeds();
+});
 
 export function __resetSparkPaymentSeedsForTests() {
   unresolvedSparkSeeds.clear();
+  sparkSeedKeyByPaymentId.clear();
+  sparkSeedsLoaded = null;
+  sparkSeedsPersisted = false;
 }
 
 /**
@@ -509,6 +600,7 @@ const LnurlPay = () => {
       };
       setIsPaymentPending(true);
       setPayButtonDisabled(true);
+      await keepUnresolvedSparkSeed(sparkPaymentSeedRef, result.paymentId, result.paymentHash);
       return;
     }
     if (result && result.status !== 'completed') {
@@ -537,6 +629,7 @@ const LnurlPay = () => {
       };
       setIsPaymentPending(true);
       setPayButtonDisabled(true);
+      await keepUnresolvedSparkSeed(sparkPaymentSeedRef, result.paymentId, result.paymentHash);
       return;
     }
     if (result && result.status !== 'completed') {
@@ -622,13 +715,16 @@ const LnurlPay = () => {
       setIsLoading(false);
     } catch (Err) {
       console.log(Err.message);
-      const definiteFailure =
+      const preSendFailure =
         Err instanceof SparkPaymentFeeQuoteError ||
         Err?.message === loc.send.insufficient_funds ||
-        Err?.message === loc.wallets.lightning_spark_payment_failed ||
         Err?.message === loc.lnd.error_tip_invoice_not_supported;
-      if (definiteFailure) {
-        forgetSparkPaymentSeed(sparkPaymentSeedRef);
+      // A fee or balance error is thrown before sendPayment. Forgetting the seed
+      // there drops the key of a send that may already be in flight.
+      if (Err?.message === loc.wallets.lightning_spark_payment_failed) {
+        await forgetSparkPaymentSeed(sparkPaymentSeedRef);
+      } else if (sparkPaymentSeedRef.current && !preSendFailure) {
+        await keepUnresolvedSparkSeed(sparkPaymentSeedRef);
       }
       setLnurlInvoiceQuote(undefined);
       if (Err instanceof SparkPaymentFeeQuoteError) {

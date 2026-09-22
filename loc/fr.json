@@ -535,7 +535,7 @@
     "multi_sig_wallet_label": "Portefeuille multi-appareils",
     "chf_taproot_wallet_label": "Portefeuille Taproot en CHF",
     "add_lndhub_DFXswiss_not_available": "Ce service sera bientôt disponible",
-    "details_are_you_sure_main_wallet": "Êtes-vous sûr ? Si vous supprimez le portefeuille on-chain, toute l'application sera réinitialisée. Le portefeuille multi-appareils et le portefeuille Lightning seront également supprimés de cet appareil.",
+    "details_are_you_sure_main_wallet": "Êtes-vous sûr ? Si vous supprimez le portefeuille on-chain, toute l'application sera réinitialisée. Le portefeuille multi-appareils et le portefeuille Spark seront également supprimés de cet appareil.",
     "ownership_proof": "Preuve de propriété de l'adresse DFX",
     "warning": "Attention !",
     "rbf_warning": "Vous utilisez un portefeuille obsolète sans fonction RBF.",

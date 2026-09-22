@@ -50,7 +50,7 @@ Ausgabe pro Build:
 
 Guards (Build bricht ab bei Verletzung):
 
-- **Floor:** mindestens `MIN_SCREENSHOTS` (35) PNGs (aktuell 39 committiert;
+- **Floor:** mindestens `MIN_SCREENSHOTS` (35) PNGs (aktuell 38 committiert;
   Boden bei Bestandszuwachs anheben)
 - **Floor:** mindestens `MIN_DOCS` (8) Markdown-Dokumente (nach Ausschlussregeln)
 - **Floor:** mindestens `MIN_STORE_FIELDS` (25) Store-Textfelder — der Boden
@@ -364,7 +364,7 @@ Die beobachtete native Verifikation nutzte ein frisches Xcode-26.6-/iOS-26.5-Sim
 Jedes committete PNG hat genau einen erzeugenden `takeScreenshot:`-Schritt, und
 kein Flow zielt auf einen Namen, den es im Satz nicht gibt — nachpruefbar, indem
 man alle `takeScreenshot: shots/<pfad>` gegen `docs/handbook/screenshots/**.png`
-abgleicht (Soll: 39 Treffer, 0 verwaist, 0 ohne Flow). Wer den Satz erweitert,
+abgleicht (Soll: 38 Treffer, 0 verwaist, 0 ohne Flow). Wer den Satz erweitert,
 haelt diese Zuordnung mit; sonst ist die Wiederholbarkeit nur behauptet.
 
 `_setup.yaml` ist der gemeinsame Vorlauf fuer die meisten Flows: frischer
@@ -440,7 +440,7 @@ schwaerzen.
 Das Issue verlangt „jeden Screen, in jeder Variante, in jedem Szenario". Dieser
 Stand erfuellt das **nicht**. Die Zahlen, damit die Luecke nachpruefbar ist statt
 ungefaehr: `navigation/` registriert **109** Routen, davon 17 reine
-Stack-Wrapper (Endung `Root`), bleiben **92 echte Screens**. Die **39**
+Stack-Wrapper (Endung `Root`), bleiben **92 echte Screens**. Die **38**
 committeten PNGs bilden davon **32 verschiedene Screens** ab — fünf Screens
 sind mehrfach abgebildet, weil sie in mehreren Varianten vorkommen:
 `WalletTransactions` (3 Bilder), `ReceiveDetails`,

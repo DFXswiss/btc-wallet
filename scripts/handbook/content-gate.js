@@ -164,12 +164,12 @@ const MIN_OCR_TOKENS = 700;
  * other.
  *
  * Screenshots do not have that problem — the thinnest returned 5 tokens on
- * both versions on an earlier 42-screenshot set, and all 39 today clear it.
+ * both versions on an earlier 42-screenshot set, and all 38 today clear it.
  * Assets are borderline by nature: 21 of 28 returned nothing at all on that
  * run and the rest one to four words.
  *
  * What is left uncovered is narrow: a tool that goes blind for one asset and
- * nothing else. Real blindness shows up across all 39 screenshots at once, and
+ * nothing else. Real blindness shows up across all 38 screenshots at once, and
  * the token floor catches the bulk case — so the residue is a failure mode
  * nobody has seen, traded against a check that provably cannot hold.
  */

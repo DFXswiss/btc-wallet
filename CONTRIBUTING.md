@@ -15,3 +15,4 @@ In the commit where you up version you can have the commit message as
 
 
 Do *not* add new dependencies. Bonus points if you manage to actually remove a dependency.
+The Spark wallet is the exception: `@breeztech/breez-sdk-spark-react-native` is the wallet itself and stays.
