@@ -55,10 +55,10 @@
     },
     "06-wallet-hinzufuegen": {
       "title": "Weitere Wallet anlegen",
-      "description": "Einstiegsseite für die Multi-Device-Wallet (3-Geräte-Setup) und die Übersicht mit der Lightning-Zeile, auf der noch „Hinzufügen“ steht. Die Lightning-Wallet entsteht mit einem Tipp darauf, ohne weitere Auswahl.",
+      "description": "Einstiegsseite für die Multi-Device-Wallet (3-Geräte-Setup) und die Übersicht mit der Spark-Zeile, auf der noch „Hinzufügen“ steht. Die Spark-Wallet entsteht mit einem Tipp darauf, ohne weitere Auswahl.",
       "captions": {
         "01-multi-device": "Multi-Device-Wallet anlegen",
-        "02-lightning-spark": "Lightning-Zeile mit Hinzufügen"
+        "02-lightning-spark": "Spark-Zeile mit Hinzufügen"
       }
     },
     "07-multi-device": {

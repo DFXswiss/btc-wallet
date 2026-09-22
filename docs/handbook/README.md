@@ -369,8 +369,8 @@ haelt diese Zuordnung mit; sonst ist die Wiederholbarkeit nur behauptet.
 
 `_setup.yaml` ist der gemeinsame Vorlauf fuer die meisten Flows: frischer
 App-Start, Wallet anlegen und den Mitteilungs-Dialog einmal abraeumen. Die
-Wallet-Anlage fuehrt direkt auf die Uebersicht — die Lightning-Wallet ist opt-in
-und wird ueber „Hinzufuegen" in der Lightning-Zeile angelegt. Den Einstieg
+Wallet-Anlage fuehrt direkt auf die Uebersicht — die Spark-Wallet ist opt-in
+und wird ueber „Hinzufuegen" in der Spark-Zeile angelegt. Den Einstieg
 zeigt `06b-wallet-lightning.yaml`, das Ergebnis `08b-lightning-spark.yaml`.
 Zwei Flows starten selbst mit `launchApp: clearState` und ohne `_setup.yaml`:
 `01-onboarding.yaml` und `16-import.yaml` (sie brauchen den frischen
@@ -440,7 +440,7 @@ schwaerzen.
 Das Issue verlangt „jeden Screen, in jeder Variante, in jedem Szenario". Dieser
 Stand erfuellt das **nicht**. Die Zahlen, damit die Luecke nachpruefbar ist statt
 ungefaehr: `navigation/` registriert **109** Routen, davon 17 reine
-Stack-Wrapper (Endung `Root`), bleiben **92 echte Screens**. Die **38**
+Stack-Wrapper (Endung `Root`), bleiben **92 echte Screens**. Die **39**
 committeten PNGs bilden davon **32 verschiedene Screens** ab — fünf Screens
 sind mehrfach abgebildet, weil sie in mehreren Varianten vorkommen:
 `WalletTransactions` (3 Bilder), `ReceiveDetails`,
