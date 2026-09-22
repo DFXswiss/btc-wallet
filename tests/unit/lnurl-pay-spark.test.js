@@ -1759,7 +1759,7 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
     expect(mockNavigate).toHaveBeenCalledWith('Success', expect.objectContaining({ amount: 1000, fee: 2 }));
   });
 
-  it('retries an LNURL MAX fee quote error and sends with the new quote', async () => {
+  it('retries an LNURL MAX fee quote and does not send the payment', async () => {
     jest.spyOn(Lnurl.prototype, 'getLnurlPayRequestDetails').mockReturnValue({ callback: 'https://example.com/callback' });
     mockLnurlPay({ getMin: 1000 });
     const wallet = makeWallet();
@@ -1997,7 +1997,7 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
     await expectSparkRefusesLightning(screen, wallet);
   });
 
-  it('shows an in-transit state for a pending Spark MAX payment', async () => {
+  it('refuses a pending Spark MAX payment instead of showing it in transit', async () => {
     jest.spyOn(Lnurl.prototype, 'getLnurlPayRequestDetails').mockReturnValue({ callback: 'https://example.com/callback' });
     mockLnurlPay({ getMin: 1000 });
     const wallet = makeWallet();
@@ -2011,7 +2011,7 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
     await expectSparkRefusesLightning(screen, wallet);
   });
 
-  it('restores the button when a Spark MAX payment returns a non-completed status', async () => {
+  it('refuses a Spark MAX payment that would return a non-completed status', async () => {
     jest.spyOn(Lnurl.prototype, 'getLnurlPayRequestDetails').mockReturnValue({ callback: 'https://example.com/callback' });
     mockLnurlPay({ getMin: 1000 });
     const wallet = makeWallet();
@@ -2071,7 +2071,7 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
     await expectSparkRefusesLightning(screen, wallet);
   });
 
-  it('reports a success-display failure and still navigates after payment', async () => {
+  it('does not navigate when Spark refuses the payment before a success display', async () => {
     mockLnurlPay();
     const displayError = new Error('success display unavailable');
     Lnurl.prototype.getDisposable.mockImplementationOnce(() => {

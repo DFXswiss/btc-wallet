@@ -1439,7 +1439,7 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     await waitFor(() => expect(reportError).toHaveBeenCalledWith('lndCreateInvoice: failed to prepare receive details', saveError));
   });
 
-  it('creates a SATS invoice from the custom amount modal and subscribes to the payment hash', async () => {
+  it('does not create a Spark invoice from the custom amount modal', async () => {
     const wallet = makeCreateWallet();
     const screen = renderCreateInvoiceScreen(wallet);
 
@@ -1527,7 +1527,7 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     expect(screen.getByTestId('CustomAmountSaveButton')).toBeTruthy();
   });
 
-  it('refetches user invoices after creating one', async () => {
+  it('does not refetch invoices when Spark refuses to create one', async () => {
     const wallet = makeCreateWallet();
     const saveToDisk = jest.fn().mockResolvedValue(undefined);
     const screen = renderCreateInvoiceScreen(wallet, { saveToDisk });
@@ -1864,7 +1864,7 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith(loc.alert.default, 'Unsupported lnurl'));
   });
 
-  it('creates a withdraw invoice and appends k1 to a callback without a query string', async () => {
+  it('does not create a withdraw invoice or call the callback for a Spark wallet', async () => {
     const lnurl = Lnurl.encode(WITHDRAW_URL);
     const payload = withdrawPayload();
     jest.spyOn(global, 'fetch').mockImplementation(async url => {
@@ -1880,7 +1880,7 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     expect(global.fetch.mock.calls.find(call => String(call[0]).includes('k1='))).toBeUndefined();
   });
 
-  it('appends k1 with an ampersand when the withdraw callback already has a query', async () => {
+  it('does not append k1 when Spark refuses a withdraw whose callback already has a query', async () => {
     const lnurl = Lnurl.encode(WITHDRAW_URL);
     const payload = withdrawPayload({ callback: 'https://lnurl.example.com/cb?foo=1' });
     jest.spyOn(global, 'fetch').mockImplementation(async url => {
@@ -1896,7 +1896,7 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     expect(global.fetch.mock.calls.find(call => String(call[0]).includes('k1='))).toBeUndefined();
   });
 
-  it('alerts the callback body when the withdraw callback returns a non-success status', async () => {
+  it('does not call a failing withdraw callback for a Spark wallet', async () => {
     const lnurl = Lnurl.encode(WITHDRAW_URL);
     jest.spyOn(global, 'fetch').mockImplementation(async url => {
       if (String(url).includes('k1=')) {
@@ -1910,7 +1910,7 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     await expectSparkRefusesCreate(wallet);
   });
 
-  it('alerts when the withdraw callback JSON has status ERROR', async () => {
+  it('does not call a withdraw callback that would return an error for a Spark wallet', async () => {
     const lnurl = Lnurl.encode(WITHDRAW_URL);
     jest.spyOn(global, 'fetch').mockImplementation(async url => {
       if (String(url).includes('k1=')) {
