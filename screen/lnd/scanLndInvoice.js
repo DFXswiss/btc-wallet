@@ -37,10 +37,16 @@ const ScanLndInvoice = () => {
   const { colors } = useTheme();
   const { walletID, uri } = useRoute().params;
   /** @type {LightningCustodianWallet} */
-  const wallet = useMemo(
-    () => wallets.find(item => item.getID() === walletID) || wallets.find(item => item.chain === Chain.OFFCHAIN),
-    [walletID, wallets],
-  );
+  const wallet = useMemo(() => {
+    const selected = wallets.find(item => item.getID() === walletID);
+    if (selected) return selected;
+    const sparkDestination =
+      typeof uri === 'string' && (DeeplinkSchemaMatch.isSparkAddress(uri) || DeeplinkSchemaMatch.isSparkPaymentUri(uri));
+    if (sparkDestination) {
+      return wallets.find(item => item.type === SparkWallet.type) || wallets.find(item => item.chain === Chain.OFFCHAIN);
+    }
+    return wallets.find(item => item.chain === Chain.OFFCHAIN);
+  }, [walletID, wallets, uri]);
   const suitableWallets = useMemo(() => wallets.filter(item => item.chain === Chain.OFFCHAIN), [wallets]);
   const { navigate, setParams, goBack } = useNavigation();
   const [isLoading, setIsLoading] = useState(false);
