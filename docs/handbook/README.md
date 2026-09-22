@@ -497,8 +497,8 @@ Adresse darf hier nicht stehen. Das Bild deckt Adresse und Code ab; die
 Bildunterschrift zu `08-lightning/03-rechnung-erstellen` sagt das. Die
 Redaktionspruefung lehnt einen QR auf diesem Bild ab.
 
-Die Wallet-Einstellungen einer Lightning-(Spark)-Wallet fehlen als Aufnahme,
-nicht mehr als Weg: Der Eintrag „Lightning (Spark)" in den Einstellungen fuehrt
-seit `3e799f57f` auch fuer diesen Wallet-Typ nach `WalletDetails` — der Screen
-kennt Spark und bietet dort auch das Loeschen an. Was hier fehlt, ist allein das
-Bild dazu; #269 ist geschlossen.
+Die Wallet-Einstellungen einer Spark-Wallet fehlen als Aufnahme, nicht mehr als
+Weg: Der Eintrag „Spark" in den Einstellungen fuehrt seit `3e799f57f` auch fuer
+diesen Wallet-Typ nach `WalletDetails` — der Screen kennt Spark und bietet dort
+auch das Loeschen an. Was hier fehlt, ist allein das Bild dazu; #269 ist
+geschlossen.

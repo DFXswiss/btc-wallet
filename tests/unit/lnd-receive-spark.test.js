@@ -384,7 +384,7 @@ describe('LNDReceive with SparkWallet', () => {
   });
 
   it('shows the Spark address and does not create a Lightning invoice', async () => {
-    const address = 'spark1pgss8mxwdhm08cr6l4kvd0kw9en567m4cql8dsd89jnsnvdsew0k078j255ec0';
+    const address = 'spark1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqsy8n8c';
     mockSdk.receivePayment.mockResolvedValue({ paymentRequest: address, fee: 0n });
     const wallet = SparkWallet.create('pk-receive-1');
     wallet.getID = () => 'spark-receive-1';

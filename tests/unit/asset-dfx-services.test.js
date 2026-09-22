@@ -456,6 +456,12 @@ describe('wallet asset empty list copy', () => {
     expect(screen.getByText(loc.wallets.list_empty_txs1_lightning)).toBeTruthy();
     expect(screen.queryByText(loc.wallets.list_empty_txs1)).toBeNull();
   });
+
+  it('shows the plain empty copy for a Spark wallet', () => {
+    const screen = renderAsset(makeWallet({ id: 'spark-empty', type: 'sparkWallet', chain: 'OFFCHAIN', txs: [] }));
+    expect(screen.getByText(loc.wallets.list_empty_txs1)).toBeTruthy();
+    expect(screen.queryByText(loc.wallets.list_empty_txs1_lightning)).toBeNull();
+  });
 });
 
 describe('wallet asset testnet banner', () => {
