@@ -34,7 +34,7 @@ const LnurlNavigationForwarder = () => {
   const getSuitableLightningWallet = (paymentLink: OpenCryptoPayPaymentLink) => {
     const lnDetails = paymentLink.getLightningPaymentRequestDetails();
     const amountLn = lnDetails?.amountSat;
-    const lnWallet = wallets.find((w: any) => w.chain === Chain.OFFCHAIN && w.type !== SparkWallet.type);
+    const lnWallet = wallets.find((w: AbstractWallet) => w.chain === Chain.OFFCHAIN && w.type !== SparkWallet.type);
     return lnWallet && Number(amountLn) < Number(lnWallet.getBalance()) ? lnWallet : null;
   };
 
@@ -165,7 +165,7 @@ const LnurlNavigationForwarder = () => {
           });
         }
 
-        const lnWallet = wallets.find((w: any) => w.chain === Chain.OFFCHAIN && w.type !== SparkWallet.type);
+        const lnWallet = wallets.find((w: AbstractWallet) => w.chain === Chain.OFFCHAIN && w.type !== SparkWallet.type);
         if (lnWallet) {
           return navigation.replace('SendDetailsRoot', {
             screen: 'LnurlPay',
