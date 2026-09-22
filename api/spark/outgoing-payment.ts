@@ -221,7 +221,9 @@ export function attachOutgoingPaymentId(identity: OutgoingPaymentIdentity & { pa
       };
 
   track(attached);
-  if (current) return attached;
+  // A different payment that is still in flight stays on screen. A finished one
+  // does not, or the next send never becomes the payment the screen watches.
+  if (current && !isTerminal(current.status)) return attached;
 
   current = attached;
   notify(current);

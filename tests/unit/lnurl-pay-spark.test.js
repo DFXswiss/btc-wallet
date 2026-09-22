@@ -106,6 +106,7 @@ const { BlueStorageContext } = require('../../blue_modules/storage-context');
 const { LightningCustodianWallet } = require('../../class');
 const { LightningLdsWallet } = require('../../class/wallets/lightning-lds-wallet');
 const LnurlPay = require('../../screen/lnd/lnurlPay').default;
+const { __resetSparkPaymentSeedsForTests } = require('../../screen/lnd/lnurlPay');
 const Lnurl = require('../../class/lnurl').default;
 const loc = require('../../loc').default;
 const alert = require('../../components/Alert');
@@ -130,6 +131,7 @@ const {
 const SAMPLE_INVOICE =
   'lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp';
 const SPARK_INVOICE = bech32m.encode('spark', bech32m.toWords(Buffer.from('dfx reusable sats invoice')), 10000);
+const OTHER_SPARK_INVOICE = bech32m.encode('spark', bech32m.toWords(Buffer.from('dfx other sats invoice')), 10000);
 const SPARK_ADDRESS = bech32m.encode('spark', bech32m.toWords(Buffer.from('spark-address-identity-key-32')), 10000);
 
 function makeWallet() {
@@ -230,6 +232,7 @@ function getPayButton(screen) {
 }
 
 beforeEach(async () => {
+  __resetSparkPaymentSeedsForTests();
   jest.clearAllMocks();
   mockSparkSdk.prepareSendPayment.mockReset();
   mockSparkSdk.sendPayment.mockReset();
@@ -419,7 +422,7 @@ describe('LnurlPay Spark invoice mode', () => {
     expect(mockRandomBytes).toHaveBeenCalledTimes(2);
   });
 
-  it('uses a new Spark idempotency seed when the screen is reopened', async () => {
+  it('keeps the Spark idempotency seed when the screen is reopened during an unresolved payment', async () => {
     const wallet = makeWallet();
     wallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'spark-payment-first-open' });
     const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
@@ -450,8 +453,8 @@ describe('LnurlPay Spark invoice mode', () => {
     assert.strictEqual(secondCall[0], SPARK_INVOICE);
     assert.strictEqual(secondCall[1], 1000);
     assert.match(secondCall[2], /^[0-9a-f]{32}$/);
-    assert.notStrictEqual(firstCall[2], secondCall[2]);
-    expect(mockRandomBytes).toHaveBeenCalledTimes(2);
+    assert.strictEqual(firstCall[2], secondCall[2]);
+    expect(mockRandomBytes).toHaveBeenCalledTimes(1);
   });
 
   it('creates a new Spark idempotency seed after the previous operation completed', async () => {
@@ -481,7 +484,7 @@ describe('LnurlPay Spark invoice mode', () => {
     expect(mockRandomBytes).toHaveBeenCalledTimes(2);
   });
 
-  it('creates different Spark idempotency seeds for different operations even when the navigation key is reused', async () => {
+  it('creates different Spark idempotency seeds for different invoices even when the navigation key is reused', async () => {
     const wallet = makeWallet();
     wallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'spark-payment-route-1' });
     const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined, routeId: 'route-1' });
@@ -498,7 +501,7 @@ describe('LnurlPay Spark invoice mode', () => {
     otherWallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'spark-payment-route-2' });
     const otherScreen = renderPay(otherWallet, {
       invoice: undefined,
-      sparkInvoice: SPARK_INVOICE,
+      sparkInvoice: OTHER_SPARK_INVOICE,
       amountUnit: undefined,
       routeId: 'route-2',
     });

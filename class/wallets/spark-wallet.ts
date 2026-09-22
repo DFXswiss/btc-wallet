@@ -1000,13 +1000,6 @@ export class SparkWallet extends AbstractWallet {
     }
 
     const lease = this.holdMatchingSession();
-    const trackingHash = createHash('sha256')
-      .update(invoice)
-      .update('\0')
-      .update(String(amountSats))
-      .update('\0')
-      .update(idempotencySeed)
-      .digest('hex');
     const prepareResponse = await lease.requireSdk().prepareSendPayment({
       paymentRequest: new PaymentRequest.Input({ input: invoice }),
       amount: BigInt(amountSats),
@@ -1053,21 +1046,18 @@ export class SparkWallet extends AbstractWallet {
       const sent = await sdk.sendPayment(sendRequest);
       payment = sent.payment;
     } catch (e) {
-      if (!(e instanceof SparkSessionStaleError || this.sessionGone(lease))) {
-        try {
-          const sent = await sdk.sendPayment(sendRequest);
-          payment = sent.payment;
-        } catch {
-          beginOutgoingPayment({ paymentHash: trackingHash });
-          return { status: SparkPayInvoiceStatus.Pending, paymentHash: trackingHash, fee };
-        }
-      } else {
-        beginOutgoingPayment({ paymentHash: trackingHash });
-        return { status: SparkPayInvoiceStatus.Pending, paymentHash: trackingHash, fee };
+      if (e instanceof SparkSessionStaleError || this.sessionGone(lease)) {
+        throw e;
       }
+      const sent = await sdk.sendPayment(sendRequest);
+      payment = sent.payment;
     }
 
-    const paymentHash = payment.id || trackingHash;
+    if (!payment) {
+      throw new Error(loc.wallets.lightning_spark_payment_in_transit);
+    }
+
+    const paymentHash = payment.id || '';
     const tracked = payment.id
       ? attachOutgoingPaymentId({ paymentHash, paymentId: payment.id })
       : getOutgoingPayment();
@@ -1098,11 +1088,10 @@ export class SparkWallet extends AbstractWallet {
       settleOutgoingPayment({ status: 'failed', paymentHash, paymentId: payment.id });
       throw new Error(loc.wallets.lightning_spark_payment_failed);
     }
-    // Without a payment id no SDK event can settle this send. Leave it pending on the
-    // same seed instead of telling the caller the payment failed.
+    // No SDK payment id means nothing later can settle a tracker. Say the attempt is
+    // unresolved instead of a pending payment the screen will wait on forever.
     if (!payment.id) {
-      beginOutgoingPayment({ paymentHash: trackingHash });
-      return { status: SparkPayInvoiceStatus.Pending, paymentHash: trackingHash, fee };
+      throw new Error(loc.wallets.lightning_spark_payment_in_transit);
     }
     return { status: SparkPayInvoiceStatus.Pending, paymentHash, paymentId: payment.id, fee };
   }
@@ -1118,13 +1107,6 @@ export class SparkWallet extends AbstractWallet {
     }
 
     const lease = this.holdMatchingSession();
-    const trackingHash = createHash('sha256')
-      .update(address)
-      .update('\0')
-      .update(String(amountSats))
-      .update('\0')
-      .update(idempotencySeed)
-      .digest('hex');
     const prepareResponse = await lease.requireSdk().prepareSendPayment({
       paymentRequest: new PaymentRequest.Input({ input: address }),
       amount: BigInt(amountSats),
@@ -1169,21 +1151,18 @@ export class SparkWallet extends AbstractWallet {
       const sent = await sdk.sendPayment(sendRequest);
       payment = sent.payment;
     } catch (e) {
-      if (!(e instanceof SparkSessionStaleError || this.sessionGone(lease))) {
-        try {
-          const sent = await sdk.sendPayment(sendRequest);
-          payment = sent.payment;
-        } catch {
-          beginOutgoingPayment({ paymentHash: trackingHash });
-          return { status: SparkPayInvoiceStatus.Pending, paymentHash: trackingHash, fee };
-        }
-      } else {
-        beginOutgoingPayment({ paymentHash: trackingHash });
-        return { status: SparkPayInvoiceStatus.Pending, paymentHash: trackingHash, fee };
+      if (e instanceof SparkSessionStaleError || this.sessionGone(lease)) {
+        throw e;
       }
+      const sent = await sdk.sendPayment(sendRequest);
+      payment = sent.payment;
     }
 
-    const paymentHash = payment.id || trackingHash;
+    if (!payment) {
+      throw new Error(loc.wallets.lightning_spark_payment_in_transit);
+    }
+
+    const paymentHash = payment.id || '';
     const tracked = payment.id
       ? attachOutgoingPaymentId({ paymentHash, paymentId: payment.id })
       : getOutgoingPayment();
@@ -1215,8 +1194,7 @@ export class SparkWallet extends AbstractWallet {
       throw new Error(loc.wallets.lightning_spark_payment_failed);
     }
     if (!payment.id) {
-      beginOutgoingPayment({ paymentHash: trackingHash });
-      return { status: SparkPayInvoiceStatus.Pending, paymentHash: trackingHash, fee };
+      throw new Error(loc.wallets.lightning_spark_payment_in_transit);
     }
     return { status: SparkPayInvoiceStatus.Pending, paymentHash, paymentId: payment.id, fee };
   }

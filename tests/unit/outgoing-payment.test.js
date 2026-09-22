@@ -420,6 +420,22 @@ describe('outgoing payment tracker', () => {
     assert.strictEqual(running.status, 'pending');
   });
 
+  it('replaces a finished current payment when a new payment id is attached', () => {
+    beginOutgoingPayment({ paymentHash: 'h-old', paymentId: 'p-old' });
+    settleOutgoingPayment({ status: 'completed', paymentHash: 'h-old', paymentId: 'p-old' });
+    const seen = [];
+    const unsubscribe = subscribeOutgoingPayment(payment => seen.push(payment));
+
+    const attached = attachOutgoingPaymentId({ paymentHash: 'h-new', paymentId: 'p-new' });
+
+    assert.strictEqual(attached.paymentId, 'p-new');
+    assert.strictEqual(attached.status, 'pending');
+    assert.strictEqual(getOutgoingPayment().paymentId, 'p-new');
+    assert.strictEqual(getOutgoingPayment().status, 'pending');
+    assert.strictEqual(seen.at(-1).paymentId, 'p-new');
+    unsubscribe();
+  });
+
   it('does not keep a settlement that has no hash and no payment id', () => {
     beginOutgoingPayment({ paymentHash: 'h-b', paymentId: 'p-b' });
     settleOutgoingPayment({ status: 'completed', preimage: 'pre-orphan' });
