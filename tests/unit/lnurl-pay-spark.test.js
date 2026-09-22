@@ -348,7 +348,7 @@ describe('LnurlPay Spark invoice mode', () => {
     });
   });
 
-  it('uses a new Spark idempotency seed after a send error reaches the catch path', async () => {
+  it('keeps the Spark idempotency seed after an unknown send error', async () => {
     const wallet = makeWallet();
     const quote = {
       invoice: SPARK_INVOICE,
@@ -385,8 +385,8 @@ describe('LnurlPay Spark invoice mode', () => {
     assert.strictEqual(secondCall[1], 1000);
     assert.match(secondCall[2], /^[0-9a-f]{32}$/);
     assert.strictEqual(secondCall[3], quote);
-    assert.notStrictEqual(firstCall[2], secondCall[2]);
-    expect(mockRandomBytes).toHaveBeenCalledTimes(2);
+    assert.strictEqual(firstCall[2], secondCall[2]);
+    expect(mockRandomBytes).toHaveBeenCalledTimes(1);
   });
 
   it('uses a new Spark idempotency seed after a non-completed result', async () => {

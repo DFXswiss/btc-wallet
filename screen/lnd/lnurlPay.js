@@ -601,7 +601,14 @@ const LnurlPay = () => {
       setIsLoading(false);
     } catch (Err) {
       console.log(Err.message);
-      sparkPaymentSeedRef.current = undefined;
+      const definiteFailure =
+        Err instanceof SparkPaymentFeeQuoteError ||
+        Err?.message === loc.send.insufficient_funds ||
+        Err?.message === loc.wallets.lightning_spark_payment_failed ||
+        Err?.message === loc.lnd.error_tip_invoice_not_supported;
+      if (definiteFailure) {
+        sparkPaymentSeedRef.current = undefined;
+      }
       setLnurlInvoiceQuote(undefined);
       if (Err instanceof SparkPaymentFeeQuoteError) {
         setSparkFee(undefined);

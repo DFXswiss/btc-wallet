@@ -528,16 +528,17 @@ describe('SparkWallet', () => {
     assert.notStrictEqual(keys[0], keys[4]);
   });
 
-  it('paySparkInvoice throws when sendPayment reports a stale session', async () => {
+  it('paySparkInvoice stays pending when sendPayment reports a stale session', async () => {
     const stale = new SparkSessionStaleError();
     mockSdk.prepareSendPayment.mockResolvedValue(sparkInvoicePrepareResponse());
     mockSdk.sendPayment.mockRejectedValue(stale);
     mockSessionIdentity = 'id-pk';
     const wallet = SparkWallet.create('id-pk');
 
-    await expect(paySparkInvoiceWithExplicitQuote(wallet, SPARK_INVOICE, 12_345, 'sell-stale-session')).rejects.toBe(stale);
+    const result = await paySparkInvoiceWithExplicitQuote(wallet, SPARK_INVOICE, 12_345, 'sell-stale-session');
+    assert.strictEqual(result.status, SparkPayInvoiceStatus.Pending);
     expect(mockSdk.sendPayment).toHaveBeenCalledTimes(1);
-    assert.strictEqual(getOutgoingPayment(), null);
+    assert.ok(getOutgoingPayment());
   });
 
   it('paySparkInvoice throws when the session disappears during sendPayment', async () => {
@@ -550,22 +551,25 @@ describe('SparkWallet', () => {
     mockSessionIdentity = 'id-pk';
     const wallet = SparkWallet.create('id-pk');
 
-    await expect(paySparkInvoiceWithExplicitQuote(wallet, SPARK_INVOICE, 12_345, 'sell-session-gone')).rejects.toBe(gone);
+    const result = await paySparkInvoiceWithExplicitQuote(wallet, SPARK_INVOICE, 12_345, 'sell-session-gone');
+    assert.strictEqual(result.status, SparkPayInvoiceStatus.Pending);
     expect(mockSdk.sendPayment).toHaveBeenCalledTimes(1);
-    assert.strictEqual(getOutgoingPayment(), null);
+    assert.ok(getOutgoingPayment());
   });
 
-  it('paySparkInvoice retries a definite sendPayment error once, then rethrows the original error and leaves no tracker', async () => {
-    const sendError = new Error('insufficient funds');
+  it('paySparkInvoice retries an unknown sendPayment error once, then stays pending on the same attempt', async () => {
+    const sendError = new Error('transport failed');
     const retryError = new Error('retry failed');
     mockSdk.prepareSendPayment.mockResolvedValue(sparkInvoicePrepareResponse());
     mockSdk.sendPayment.mockRejectedValueOnce(sendError).mockRejectedValueOnce(retryError);
     mockSessionIdentity = 'id-pk';
     const wallet = SparkWallet.create('id-pk');
 
-    await expect(paySparkInvoiceWithExplicitQuote(wallet, SPARK_INVOICE, 12_345, 'sell-hard-failure')).rejects.toBe(sendError);
+    const result = await paySparkInvoiceWithExplicitQuote(wallet, SPARK_INVOICE, 12_345, 'sell-unknown-failure');
+    assert.strictEqual(result.status, SparkPayInvoiceStatus.Pending);
     expect(mockSdk.sendPayment).toHaveBeenCalledTimes(2);
-    assert.strictEqual(getOutgoingPayment(), null);
+    assert.strictEqual(mockSdk.sendPayment.mock.calls[0][0].idempotencyKey, mockSdk.sendPayment.mock.calls[1][0].idempotencyKey);
+    assert.ok(getOutgoingPayment());
   });
 
   it('paySparkInvoice returns completed when a success event beats a sendPayment error and the retry returns the payment', async () => {
@@ -779,18 +783,16 @@ describe('SparkWallet', () => {
     assert.strictEqual(mockSdk.sendPayment.mock.calls.length, 1);
   });
 
-  it('paySparkAddress throws when the SDK omits a payment id on a pending send', async () => {
+  it('paySparkAddress stays pending when the SDK omits a payment id', async () => {
     mockSdk.prepareSendPayment.mockResolvedValue(sparkAddressPrepareResponse());
     mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Pending } });
     mockSessionIdentity = 'id-pk';
     const wallet = SparkWallet.create('id-pk');
     wallet.balance = 1_000_000;
 
-    await assert.rejects(
-      () => paySparkAddressWithExplicitQuote(wallet, SPARK_ADDRESS, 12_345, 'missing-id'),
-      new RegExp(loc.wallets.lightning_spark_payment_failed),
-    );
-    assert.strictEqual(getOutgoingPayment(), null);
+    const result = await paySparkAddressWithExplicitQuote(wallet, SPARK_ADDRESS, 12_345, 'missing-id');
+    assert.strictEqual(result.status, SparkPayInvoiceStatus.Pending);
+    assert.ok(getOutgoingPayment());
   });
 
   it('paySparkInvoice rejects amount plus fee above the balance before sending', async () => {
@@ -3442,15 +3444,14 @@ describe('SparkWallet', () => {
     );
   });
 
-  it('paySparkInvoice throws when the SDK omits a payment id', async () => {
+  it('paySparkInvoice stays pending when the SDK omits a payment id', async () => {
     mockSessionIdentity = 'id-pk';
     const wallet = SparkWallet.create('id-pk');
     mockSdk.prepareSendPayment.mockResolvedValue(sparkInvoicePrepareResponse());
     mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Pending } });
-    await assert.rejects(
-      () => paySparkInvoiceWithExplicitQuote(wallet, SPARK_INVOICE, 12_345, 'missing-id'),
-      new RegExp(loc.wallets.lightning_spark_payment_failed),
-    );
+    const result = await paySparkInvoiceWithExplicitQuote(wallet, SPARK_INVOICE, 12_345, 'missing-id');
+    assert.strictEqual(result.status, SparkPayInvoiceStatus.Pending);
+    assert.ok(getOutgoingPayment());
   });
 
   it('paySparkInvoice keeps a completed SDK result separate from a reset current payment', async () => {

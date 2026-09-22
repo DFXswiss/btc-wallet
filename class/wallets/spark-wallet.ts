@@ -1048,26 +1048,22 @@ export class SparkWallet extends AbstractWallet {
       options: undefined,
       idempotencyKey,
     };
-
     let payment: Payment | undefined;
     try {
       const sent = await sdk.sendPayment(sendRequest);
       payment = sent.payment;
     } catch (e) {
-      if (e instanceof SparkSessionStaleError || this.sessionGone(lease)) {
-        // Without a payment id no SDK event can settle this send. The caller uses a
-        // fresh nonce for the next attempt so this one cannot block it; consequently,
-        // a retry after a lost response is no longer deduplicated by the SDK.
-        throw e;
-      }
-      // This immediate retry is part of the same attempt and reuses its idempotency key.
-      // A later caller retry gets a fresh nonce so a failed or abandoned attempt cannot
-      // block it, at the cost of losing SDK deduplication after a lost response.
-      try {
-        const sent = await sdk.sendPayment(sendRequest);
-        payment = sent.payment;
-      } catch {
-        throw e;
+      if (!(e instanceof SparkSessionStaleError || this.sessionGone(lease))) {
+        try {
+          const sent = await sdk.sendPayment(sendRequest);
+          payment = sent.payment;
+        } catch {
+          beginOutgoingPayment({ paymentHash: trackingHash });
+          return { status: SparkPayInvoiceStatus.Pending, paymentHash: trackingHash, fee };
+        }
+      } else {
+        beginOutgoingPayment({ paymentHash: trackingHash });
+        return { status: SparkPayInvoiceStatus.Pending, paymentHash: trackingHash, fee };
       }
     }
 
@@ -1102,9 +1098,11 @@ export class SparkWallet extends AbstractWallet {
       settleOutgoingPayment({ status: 'failed', paymentHash, paymentId: payment.id });
       throw new Error(loc.wallets.lightning_spark_payment_failed);
     }
-    // Without a payment id no SDK event can settle this send.
+    // Without a payment id no SDK event can settle this send. Leave it pending on the
+    // same seed instead of telling the caller the payment failed.
     if (!payment.id) {
-      throw new Error(loc.wallets.lightning_spark_payment_failed);
+      beginOutgoingPayment({ paymentHash: trackingHash });
+      return { status: SparkPayInvoiceStatus.Pending, paymentHash: trackingHash, fee };
     }
     return { status: SparkPayInvoiceStatus.Pending, paymentHash, paymentId: payment.id, fee };
   }
@@ -1166,26 +1164,22 @@ export class SparkWallet extends AbstractWallet {
       options: undefined,
       idempotencyKey,
     };
-
     let payment: Payment | undefined;
     try {
       const sent = await sdk.sendPayment(sendRequest);
       payment = sent.payment;
     } catch (e) {
-      if (e instanceof SparkSessionStaleError || this.sessionGone(lease)) {
-        // Without a payment id no SDK event can settle this send. The caller uses a
-        // fresh nonce for the next attempt so this one cannot block it; consequently,
-        // a retry after a lost response is no longer deduplicated by the SDK.
-        throw e;
-      }
-      // This immediate retry is part of the same attempt and reuses its idempotency key.
-      // A later caller retry gets a fresh nonce so a failed or abandoned attempt cannot
-      // block it, at the cost of losing SDK deduplication after a lost response.
-      try {
-        const sent = await sdk.sendPayment(sendRequest);
-        payment = sent.payment;
-      } catch {
-        throw e;
+      if (!(e instanceof SparkSessionStaleError || this.sessionGone(lease))) {
+        try {
+          const sent = await sdk.sendPayment(sendRequest);
+          payment = sent.payment;
+        } catch {
+          beginOutgoingPayment({ paymentHash: trackingHash });
+          return { status: SparkPayInvoiceStatus.Pending, paymentHash: trackingHash, fee };
+        }
+      } else {
+        beginOutgoingPayment({ paymentHash: trackingHash });
+        return { status: SparkPayInvoiceStatus.Pending, paymentHash: trackingHash, fee };
       }
     }
 
@@ -1220,9 +1214,9 @@ export class SparkWallet extends AbstractWallet {
       settleOutgoingPayment({ status: 'failed', paymentHash, paymentId: payment.id });
       throw new Error(loc.wallets.lightning_spark_payment_failed);
     }
-    // Without a payment id no SDK event can settle this send.
     if (!payment.id) {
-      throw new Error(loc.wallets.lightning_spark_payment_failed);
+      beginOutgoingPayment({ paymentHash: trackingHash });
+      return { status: SparkPayInvoiceStatus.Pending, paymentHash: trackingHash, fee };
     }
     return { status: SparkPayInvoiceStatus.Pending, paymentHash, paymentId: payment.id, fee };
   }
