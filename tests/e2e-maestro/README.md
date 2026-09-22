@@ -57,23 +57,20 @@ Spark identity through `_setup-import.yaml` instead of creating a random wallet.
   `maestro test` as `-e NAME=VALUE` (unset names are omitted). The flows bind those names in the
   `runScript` `env` map, and `treasury.js` / `dfx-simulate-payment.js` /
   `backend-state.js` read the script
-  bindings first, then `process.env`. If the URL or the key is missing,
-  `tests/e2e-maestro/scripts/treasury.js` exits 2 and the flow fails. If
-  `E2E_API_URL` or `E2E_DFX_JWT` is missing,
-  `tests/e2e-maestro/scripts/dfx-simulate-payment.js` or
-  `tests/e2e-maestro/scripts/backend-state.js` exits 2 and the flow fails. It does
-  not skip the payment or report success. Amounts above `E2E_TREASURY_MAX_SAT`
-  are rejected before anything is sent. The helpers never print the key or the
-  JWT; BOLT11
-  values they print are the invoices the app has to pay (P15 send, P14
-  receive). P14 and P17 return leftover Spark through the wallet's Spark
-  send path to `E2E_SPARK_RETURN_ADDRESS`; if that name is unset the hook
-  skips without failing. The return does not use `E2E_TREASURY_*`. The
-  runner does not echo the forwarded values.
+  bindings first, then `process.env`. No flow calls `treasury.js`, so a
+  missing treasury URL or key does not fail a flow. If `E2E_API_URL` or
+  `E2E_DFX_JWT` is missing, `dfx-simulate-payment.js` or `backend-state.js`
+  exits 2 and the P16 or P17 flow fails. It does not skip the payment or
+  report success. The helpers never print the key or the JWT. P14 and P15
+  do not pay a BOLT11 invoice and do not relaunch. Only P17 returns leftover
+  Spark, through `onFlowComplete` (`_return-spark-balance.yaml`) to
+  `E2E_SPARK_RETURN_ADDRESS`; if that name is unset the hook skips without
+  failing. The return does not use `E2E_TREASURY_*`. The runner does not
+  echo the forwarded values.
 - The given simulator must not hold any wallet state worth protecting for
   P01–P15. Before every flow the runner terminates and uninstalls the app,
   resets the simulator keychain and installs the given bundle anew. On top of
-  that P01–P15 start with `clearState: true`. P14, P15, P16 and P17 later relaunch
+  that P01–P15 start with `clearState: true`. Only P16 and P17 later relaunch
   with `clearState: false` so the Spark row can show the balance after a
   payment. P16 and P17 start from `_setup-import.yaml` (`clearState: true`) and
   re-import the same identity after that reset.
