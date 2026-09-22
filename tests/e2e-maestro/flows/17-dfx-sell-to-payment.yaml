@@ -43,7 +43,7 @@ onFlowComplete:
       E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
 - evalScript: "${output.paymentBtc = (Number(output.paymentSat) / 100000000).toFixed(8)}"
 - extendedWaitUntil:
-    visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+    visible: 'Bitcoin, Spark, .*sats, .*'
     timeout: 90000
 # 0 sats nach dem Import ist der Zwischenzustand vor der Spark-Synchronisation,
 # kein Befund. Warten, bis eine Ziffer ungleich null steht. Der sichtbare
@@ -51,17 +51,17 @@ onFlowComplete:
 # Auszahlung aus P16, nicht eine Gegenstelle. Reicht er nicht, bricht der
 # Flow hier ab.
 - extendedWaitUntil:
-    visible: 'Bitcoin, Lightning \(Spark\), [1-9].*sats, .*'
+    visible: 'Bitcoin, Spark, [1-9].*sats, .*'
     timeout: 90000
     optional: true
-- copyTextFrom: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+- copyTextFrom: 'Bitcoin, Spark, .*sats, .*'
 - evalScript: "${output.balanceRead = String(maestro.copiedText || '').replace(/[^0-9]/g, '')}"
 - evalScript: "${output.balanceOk = (output.balanceRead !== '' && Number(output.balanceRead) >= Number(output.paymentSat || 10)) ? 'true' : 'false'}"
 - assertTrue:
     condition: ${output.balanceOk === 'true'}
     label: Spark balance is below E2E_PAYMENT_SAT. Run P16 first so the wallet holds the Spark payout to sell.
 - extendedWaitUntil:
-    visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+    visible: 'Bitcoin, Spark, .*sats, .*'
     timeout: 90000
 - tapOn:
     point: '50%,58%'
@@ -70,7 +70,7 @@ onFlowComplete:
 - extendedWaitUntil:
     visible:
       id: WalletLabel
-      text: 'Lightning \(Spark\)'
+      text: 'Spark'
     timeout: 60000
 - extendedWaitUntil:
     visible:
@@ -878,7 +878,7 @@ onFlowComplete:
             # weiterlaufen; die Schlusszusicherung kommt danach.
             - runFlow: ../_relaunch-keep-state.yaml
             - extendedWaitUntil:
-                visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+                visible: 'Bitcoin, Spark, .*sats, .*'
                 timeout: 180000
             - tapOn:
                 point: '50%,58%'
@@ -887,7 +887,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: WalletLabel
-                  text: 'Lightning \(Spark\)'
+                  text: 'Spark'
                 timeout: 60000
             - extendedWaitUntil:
                 visible: 'Externe Services'
@@ -950,7 +950,7 @@ onFlowComplete:
                 timeout: 15000
             - runFlow: ../_relaunch-keep-state.yaml
             - extendedWaitUntil:
-                visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+                visible: 'Bitcoin, Spark, .*sats, .*'
                 timeout: 180000
             - tapOn:
                 point: '50%,58%'
@@ -959,7 +959,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: WalletLabel
-                  text: 'Lightning \(Spark\)'
+                  text: 'Spark'
                 timeout: 60000
             - runFlow:
                 when:
@@ -1031,7 +1031,7 @@ onFlowComplete:
                 label: expectedBalanceRegex missing after payment-amount.js
             - runFlow: ../_relaunch-keep-state.yaml
             - extendedWaitUntil:
-                visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+                visible: 'Bitcoin, Spark, .*sats, .*'
                 timeout: 90000
             - tapOn:
                 point: '50%,58%'
@@ -1040,7 +1040,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: WalletLabel
-                  text: 'Lightning \(Spark\)'
+                  text: 'Spark'
                 timeout: 60000
             - extendedWaitUntil:
                 visible:
@@ -1050,7 +1050,7 @@ onFlowComplete:
                 optional: true
             - runFlow: ../_relaunch-keep-state.yaml
             - extendedWaitUntil:
-                visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+                visible: 'Bitcoin, Spark, .*sats, .*'
                 timeout: 90000
             - tapOn:
                 point: '50%,58%'
@@ -1059,7 +1059,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: WalletLabel
-                  text: 'Lightning \(Spark\)'
+                  text: 'Spark'
                 timeout: 60000
             - extendedWaitUntil:
                 visible:

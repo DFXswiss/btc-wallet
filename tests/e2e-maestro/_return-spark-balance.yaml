@@ -35,7 +35,7 @@ env:
             - runFlow: _relaunch-keep-state.yaml
             - runFlow:
                 when:
-                  visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+                  visible: 'Bitcoin, Spark, .*sats, .*'
                 commands:
                   - tapOn:
                       point: '50%,58%'
@@ -44,7 +44,7 @@ env:
                   - extendedWaitUntil:
                       visible:
                         id: WalletLabel
-                        text: 'Lightning \(Spark\)'
+                        text: 'Spark'
                       timeout: 60000
                   - extendedWaitUntil:
                       visible:
@@ -54,7 +54,7 @@ env:
           when:
             visible:
               id: WalletLabel
-              text: 'Lightning \(Spark\)'
+              text: 'Spark'
           commands:
             - runFlow:
                 when:
