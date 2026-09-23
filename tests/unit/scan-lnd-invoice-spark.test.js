@@ -24,7 +24,6 @@ jest.mock('../../BlueComponents', () => {
   const ReactModule = require('react');
   const { TouchableOpacity, View } = require('react-native');
   const actual = jest.requireActual('../../BlueComponents');
-  /* eslint-disable react/prop-types */
   function BlueWalletSelect({ wallets, onChange }) {
     return ReactModule.createElement(
       View,
@@ -55,7 +54,6 @@ jest.mock('../../BlueComponents', () => {
       ),
     );
   }
-  /* eslint-enable react/prop-types */
   return { ...actual, BlueWalletSelect };
 });
 
@@ -240,8 +238,6 @@ describe('ScanLndInvoice fee mark', () => {
   it('rejects a BOLT11 invoice on a Spark wallet when a fee would have been prepared', async () => {
     await expectSparkRejectsLightning(SAMPLE_INVOICE);
   });
-
-
   it('still shows Free for an LNDHub payment to a listed free domain', async () => {
     mockLnurl('lightning.space', 1000);
     const wallet = makeLndhubWallet();
@@ -253,8 +249,6 @@ describe('ScanLndInvoice fee mark', () => {
   it('does not show a guessed fee range for a small Spark payment', async () => {
     await expectSparkRejectsLightning(LNURL);
   });
-
-
   it('shows Free for an LDS payment to an internal DFX domain', async () => {
     mockLnurl('api.dfx.swiss', 1000);
     const wallet = makeLdsWallet();
@@ -288,8 +282,6 @@ describe('ScanLndInvoice fee mark', () => {
   it('rejects a changed BOLT11 invoice on a Spark wallet', async () => {
     await expectSparkRejectsLightning(SAMPLE_INVOICE);
   });
-
-
   it('goes back and alerts when no Lightning wallet is available', async () => {
     renderScanWithWallets([], { walletID: 'missing', uri: LNURL });
 
@@ -373,8 +365,6 @@ describe('ScanLndInvoice fee mark', () => {
   it('does not show a guessed Spark fee range for a Lightning address on a free domain', async () => {
     await expectSparkRejectsLightning('tea@lightning.space');
   });
-
-
   it('shows the 3-percent LNDHub fee range for a Lightning address that is not free', async () => {
     const wallet = makeLndhubWallet();
     const screen = renderScan(wallet, { uri: 'tea@example.com' });
@@ -507,8 +497,6 @@ describe('ScanLndInvoice fee mark', () => {
   it('does not guess a Spark fee when checking the remaining balance', async () => {
     await expectSparkRejectsLightning(LNURL);
   });
-
-
   it('alerts when the remaining LNDHub balance cannot cover the 3-percent fee', async () => {
     mockLnurl('example.com', 1000);
     const wallet = makeLndhubWallet();
@@ -560,8 +548,6 @@ describe('ScanLndInvoice fee mark', () => {
   it('navigates LNURL pay with the typed Spark amount', async () => {
     await expectSparkRejectsLightning(LNURL);
   });
-
-
   it('alerts that zero-amount invoices are not supported', async () => {
     const wallet = makeLndhubWallet();
     wallet.decodeInvoice = jest.fn().mockReturnValue(futureDecodedInvoice({ num_satoshis: '0' }));

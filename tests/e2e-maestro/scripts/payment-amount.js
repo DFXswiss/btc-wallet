@@ -4,14 +4,14 @@
 // (same ratio as the previous 100-of-1000 send) so the Spark fee still fits.
 
 function readPaymentSat() {
-  var raw = '';
+  let raw = '';
   try {
     if (typeof E2E_PAYMENT_SAT !== 'undefined' && E2E_PAYMENT_SAT !== null) {
       raw = String(E2E_PAYMENT_SAT).trim();
     }
   } catch (error) {}
   if (!raw) raw = '10';
-  var sat = Number(raw);
+  const sat = Number(raw);
   if (!Number.isInteger(sat) || sat <= 0) {
     throw new Error('E2E_PAYMENT_SAT must be a positive integer');
   }
@@ -44,13 +44,11 @@ var preservedHash = readOptionalBinding('TREASURY_HASH');
 output.paymentSat = String(paymentSat);
 output.sendSat = String(sendSat);
 output.walletBalanceText = walletBalanceText;
-output.walletBalanceRegex = visibleBalance
-  ? '^' + visibleBalance.replace(/[.]/g, '[.,]') + '$'
-  : '^' + walletBalanceText + '$';
+output.walletBalanceRegex = visibleBalance ? '^' + visibleBalance.replace(/[.]/g, '[.,]') + '$' : '^' + walletBalanceText + '$';
 if (visibleBalance) {
-  var beforeMatch = visibleBalance.match(/([0-9][0-9., ]*)sats/i);
-  var beforeSat = beforeMatch ? Number(String(beforeMatch[1]).replace(/[^0-9]/g, '')) : NaN;
-  var expectedSat = beforeSat - paymentSat;
+  const beforeMatch = visibleBalance.match(/([0-9][0-9., ]*)sats/i);
+  const beforeSat = beforeMatch ? Number(String(beforeMatch[1]).replace(/[^0-9]/g, '')) : NaN;
+  const expectedSat = beforeSat - paymentSat;
   if (!Number.isInteger(beforeSat) || beforeSat < 0 || !Number.isInteger(expectedSat) || expectedSat < 0) {
     throw new Error(
       'WALLET_BALANCE_TEXT must parse to a sat amount at least E2E_PAYMENT_SAT so the expected post-payment balance is a non-negative integer',

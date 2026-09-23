@@ -259,10 +259,7 @@ describe('AppStorage.setItem, getItem and migrateKeys', () => {
     await withNavigatorProduct('ReactNative', async () => {
       RNSecureKeyStore.get.mockReset();
       RNSecureKeyStore.remove.mockReset();
-      RNSecureKeyStore.get
-        .mockRejectedValueOnce(new Error('not found'))
-        .mockResolvedValueOnce('dnt')
-        .mockResolvedValueOnce('');
+      RNSecureKeyStore.get.mockRejectedValueOnce(new Error('not found')).mockResolvedValueOnce('dnt').mockResolvedValueOnce('');
       RNSecureKeyStore.remove.mockResolvedValue(undefined);
       AsyncStorage.setItem.mockClear();
       AsyncStorage.setItem.mockResolvedValue(undefined);
@@ -334,7 +331,10 @@ describe('AppStorage.getItemWithFallbackToRealm, storageIsEncrypted, isPasswordI
     const readError = new Error('unavailable');
     jest.spyOn(storage, 'getItemWithFallbackToRealm').mockRejectedValueOnce(readError);
     await expect(storage.storageIsEncrypted()).resolves.toBe(false);
-    expect(warn).toHaveBeenCalledWith(`storageIsEncrypted: failed to read "${AppStorage.FLAG_ENCRYPTED}", assuming not encrypted`, readError);
+    expect(warn).toHaveBeenCalledWith(
+      `storageIsEncrypted: failed to read "${AppStorage.FLAG_ENCRYPTED}", assuming not encrypted`,
+      readError,
+    );
   });
 
   it('isPasswordInUse is true only for a password that decrypts a bucket, and false when the read throws', async () => {
@@ -616,9 +616,9 @@ describe('AppStorage.loadFromDisk', () => {
     const realmError = new Error('realm unavailable');
     jest.spyOn(console, 'error').mockImplementation(() => {});
     jest.spyOn(storage, 'getRealm').mockRejectedValueOnce(realmError);
-    jest.spyOn(storage, 'getItemWithFallbackToRealm').mockResolvedValueOnce(
-      JSON.stringify({ wallets: [JSON.stringify({ type: LegacyWallet.type })], tx_metadata: {} }),
-    );
+    jest
+      .spyOn(storage, 'getItemWithFallbackToRealm')
+      .mockResolvedValueOnce(JSON.stringify({ wallets: [JSON.stringify({ type: LegacyWallet.type })], tx_metadata: {} }));
 
     await expect(storage.loadFromDisk()).resolves.toBe(true);
     expect(storage.wallets).toHaveLength(1);
@@ -635,9 +635,9 @@ describe('AppStorage.loadFromDisk', () => {
     });
     jest.spyOn(console, 'error').mockImplementation(() => {});
     jest.spyOn(storage, 'getRealm').mockResolvedValueOnce(makeRealm());
-    jest.spyOn(storage, 'getItemWithFallbackToRealm').mockResolvedValueOnce(
-      JSON.stringify({ wallets: [JSON.stringify({ type: LegacyWallet.type })], tx_metadata: {} }),
-    );
+    jest
+      .spyOn(storage, 'getItemWithFallbackToRealm')
+      .mockResolvedValueOnce(JSON.stringify({ wallets: [JSON.stringify({ type: LegacyWallet.type })], tx_metadata: {} }));
 
     await expect(storage.loadFromDisk()).resolves.toBe(true);
     expect(storage.wallets).toEqual([wallet]);
@@ -851,9 +851,7 @@ describe('AppStorage.saveToDisk', () => {
     expect(next[1]).not.toBe(buckets[1]);
     const replaced = JSON.parse(encryption.decrypt(next[1], 'pw-b'));
     expect(replaced.wallets).toHaveLength(1);
-    expect(JSON.parse(replaced.wallets[0])).toEqual(
-      expect.objectContaining({ id: 'saved', type: LegacyWallet.type }),
-    );
+    expect(JSON.parse(replaced.wallets[0])).toEqual(expect.objectContaining({ id: 'saved', type: LegacyWallet.type }));
     expect(saved[AppStorage.FLAG_ENCRYPTED]).toBe('1');
   });
 
@@ -875,9 +873,7 @@ describe('AppStorage.saveToDisk', () => {
     expect(next[0]).toBe('not-our-bucket');
     const replaced = JSON.parse(encryption.decrypt(next[1], 'later-password'));
     expect(replaced.wallets).toHaveLength(1);
-    expect(JSON.parse(replaced.wallets[0])).toEqual(
-      expect.objectContaining({ id: 'after-fake', type: LegacyWallet.type }),
-    );
+    expect(JSON.parse(replaced.wallets[0])).toEqual(expect.objectContaining({ id: 'after-fake', type: LegacyWallet.type }));
   });
 
   it('still saves wallet data when getRealm throws', async () => {
@@ -939,11 +935,7 @@ describe('AppStorage.saveToDisk', () => {
     for (let i = 0; i < 10; i++) {
       rest.push(storage.saveToDisk());
     }
-    expect(error).toHaveBeenCalledWith(
-      'saveToDisk: too many concurrent save attempts, last actions were not saved',
-      expect.any(Error),
-      11,
-    );
+    expect(error).toHaveBeenCalledWith('saveToDisk: too many concurrent save attempts, last actions were not saved', expect.any(Error), 11);
 
     release();
     await expect(first).resolves.toBe(true);
@@ -1117,17 +1109,20 @@ describe('AppStorage preference flags', () => {
     { get: 'isDoNotTrackEnabled', set: 'setDoNotTrack', key: AppStorage.DO_NOT_TRACK, failDefault: false },
   ];
 
-  it.each(flags)('$get is true when the stored flag is set, false when it is empty, and $failDefault when the read throws', async ({ get, key, failDefault }) => {
-    const storage = new AppStorage();
-    const getItem = jest.spyOn(AsyncStorage, 'getItem');
-    getItem.mockResolvedValueOnce('1');
-    await expect(storage[get]()).resolves.toBe(true);
-    expect(getItem).toHaveBeenCalledWith(key);
-    getItem.mockResolvedValueOnce('');
-    await expect(storage[get]()).resolves.toBe(false);
-    getItem.mockRejectedValueOnce(new Error('read failed'));
-    await expect(storage[get]()).resolves.toBe(failDefault);
-  });
+  it.each(flags)(
+    '$get is true when the stored flag is set, false when it is empty, and $failDefault when the read throws',
+    async ({ get, key, failDefault }) => {
+      const storage = new AppStorage();
+      const getItem = jest.spyOn(AsyncStorage, 'getItem');
+      getItem.mockResolvedValueOnce('1');
+      await expect(storage[get]()).resolves.toBe(true);
+      expect(getItem).toHaveBeenCalledWith(key);
+      getItem.mockResolvedValueOnce('');
+      await expect(storage[get]()).resolves.toBe(false);
+      getItem.mockRejectedValueOnce(new Error('read failed'));
+      await expect(storage[get]()).resolves.toBe(failDefault);
+    },
+  );
 
   it.each(flags)('$set writes "1" when enabled and an empty string when disabled', async ({ set, key }) => {
     const storage = new AppStorage();

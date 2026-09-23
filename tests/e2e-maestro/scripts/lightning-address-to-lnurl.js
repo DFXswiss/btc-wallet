@@ -51,7 +51,14 @@ function encodeLnurl(url) {
   const checksum = polymod(checksumInput) ^ 1;
   const checksumValues = [];
   for (let index = 0; index < 6; index++) checksumValues.push((checksum >>> (5 * (5 - index))) & 31);
-  return hrp + '1' + data.concat(checksumValues).map(value => charset[value]).join('');
+  return (
+    hrp +
+    '1' +
+    data
+      .concat(checksumValues)
+      .map(value => charset[value])
+      .join('')
+  );
 }
 
 const copied = String(maestro.copiedText || '').trim();

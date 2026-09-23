@@ -251,9 +251,9 @@ const LNDReceive = () => {
       }
       const invoiceAmount = amountSats;
       const invoiceDescription = description;
-      const invoiceRequest = await wallet.addInvoice(invoiceAmount, invoiceDescription);
+      const createdInvoiceRequest = await wallet.addInvoice(invoiceAmount, invoiceDescription);
       ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
-      const decoded = await wallet.decodeInvoice(invoiceRequest);
+      const decoded = await wallet.decodeInvoice(createdInvoiceRequest);
       await tryToObtainPermissions();
       majorTomToGroundControl([], [decoded.payment_hash], []);
 
@@ -269,7 +269,7 @@ const LNDReceive = () => {
         if (generation !== pollGeneration.current) {
           return;
         }
-        initInvoicePolling(invoiceRequest, decoded.payment_hash);
+        initInvoicePolling(createdInvoiceRequest, decoded.payment_hash);
         try {
           await saveToDisk();
         } catch (error) {
@@ -277,10 +277,10 @@ const LNDReceive = () => {
         }
       }, 1000);
 
-      setInvoiceRequest(invoiceRequest);
+      setInvoiceRequest(createdInvoiceRequest);
       setInvoiceAmountSats(invoiceAmount);
       if (Platform.OS === 'android' && wallet.type === LightningLdsWallet.type) {
-        startReading(handleNfcRead(invoiceRequest));
+        startReading(handleNfcRead(createdInvoiceRequest));
       }
     } catch (error) {
       ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
@@ -301,6 +301,7 @@ const LNDReceive = () => {
       invoiceCreationQueued.current = false;
     }
   };
+
   generateInvoiceRef.current = generateInvoice;
 
   useEffect(() => {

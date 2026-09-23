@@ -341,9 +341,7 @@ function applySuccess(tx, kind) {
   if (amountSat !== null) {
     setOutput('backendTxAmount', String(amountSat));
   }
-  writeStdout(
-    'backendState=ok id=' + id + ' state=' + state + (amountSat !== null ? ' amount=' + amountSat : ''),
-  );
+  writeStdout('backendState=ok id=' + id + ' state=' + state + (amountSat !== null ? ' amount=' + amountSat : ''));
   applyPassthrough();
 }
 

@@ -47,7 +47,6 @@ jest.mock('../../blue_modules/storage-context', () => {
 jest.mock('../../BlueComponents', () => {
   const ReactModule = require('react');
   const { Text, TouchableOpacity, View } = require('react-native');
-  /* eslint-disable react/prop-types */
   function BlueButton({ onPress, title, testID }) {
     return ReactModule.createElement(
       TouchableOpacity,
@@ -58,7 +57,6 @@ jest.mock('../../BlueComponents', () => {
   function SafeBlueArea({ children, style }) {
     return ReactModule.createElement(View, { style }, children);
   }
-  /* eslint-enable react/prop-types */
   return { BlueButton, SafeBlueArea };
 });
 
@@ -204,9 +202,7 @@ describe('DFX Spark invoice navigation', () => {
     await waitFor(() => screen.getByTestId('SellConfirm'));
     fireEvent.press(screen.getByTestId('SellConfirm'));
 
-    await waitFor(() =>
-      expect(mockAlert).toHaveBeenCalledWith(loc.wallets.lightning_spark_wallet_label, loc.wallets.lightning_spark_only),
-    );
+    await waitFor(() => expect(mockAlert).toHaveBeenCalledWith(loc.wallets.lightning_spark_wallet_label, loc.wallets.lightning_spark_only));
     expect(mockNavigate).not.toHaveBeenCalled();
     screen.unmount();
     mockNavigate.mockClear();
@@ -260,9 +256,7 @@ describe('DFX Spark invoice navigation', () => {
     await waitFor(() => screen.getByTestId(`Button-${loc.swap.confirm}`));
     fireEvent.press(screen.getByTestId(`Button-${loc.swap.confirm}`));
 
-    await waitFor(() =>
-      expect(mockAlert).toHaveBeenCalledWith(loc.wallets.lightning_spark_wallet_label, loc.wallets.lightning_spark_only),
-    );
+    await waitFor(() => expect(mockAlert).toHaveBeenCalledWith(loc.wallets.lightning_spark_wallet_label, loc.wallets.lightning_spark_only));
     expect(mockNavigate).not.toHaveBeenCalled();
     screen.unmount();
     mockNavigate.mockClear();

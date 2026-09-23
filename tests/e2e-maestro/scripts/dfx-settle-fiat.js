@@ -69,7 +69,7 @@ function loadConfig() {
   if (!Number.isInteger(transactionId) || transactionId <= 0) {
     fail('TRANSACTION_ID must be a positive integer', 2);
   }
-  return { url: url, key: key, transactionId: transactionId };
+  return { url, key, transactionId };
 }
 
 function hasMaestroHttp() {
@@ -196,7 +196,7 @@ function httpNode(config) {
         raw += chunk;
       });
       res.on('end', function () {
-        resolve({ status: res.statusCode, raw: raw, data: tryParseJson(raw) });
+        resolve({ status: res.statusCode, raw, data: tryParseJson(raw) });
       });
     });
     req.setTimeout(60000, function () {

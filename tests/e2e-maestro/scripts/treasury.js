@@ -78,7 +78,7 @@ function loadConfig() {
   if (!Number.isInteger(maxFeeSat) || maxFeeSat < 0) {
     fail('E2E_TREASURY_MAX_FEE_SAT must be a non-negative integer', 2);
   }
-  return { url: url, key: key, maxSat: maxSat, maxFeeSat: maxFeeSat };
+  return { url, key, maxSat, maxFeeSat };
 }
 
 function parseSat(value, label) {
@@ -160,9 +160,7 @@ function hasMaestroHttp() {
     return (
       typeof http !== 'undefined' &&
       http &&
-      (typeof http.request === 'function' ||
-        typeof http.get === 'function' ||
-        typeof http.post === 'function')
+      (typeof http.request === 'function' || typeof http.get === 'function' || typeof http.post === 'function')
     );
   } catch (error) {
     return false;
@@ -173,7 +171,12 @@ function parseJsonBody(raw) {
   try {
     return JSON.parse(raw);
   } catch (error) {
-    fail('Treasury counterpart returned a non-JSON response [' + (raw === undefined ? 'UNDEFINED' : (raw === null ? 'NULL' : String(raw).slice(0, 60))) + ']', 2);
+    fail(
+      'Treasury counterpart returned a non-JSON response [' +
+        (raw === undefined ? 'UNDEFINED' : raw === null ? 'NULL' : String(raw).slice(0, 60)) +
+        ']',
+      2,
+    );
   }
 }
 
@@ -184,7 +187,7 @@ function httpJsonMaestro(config, method, path, body) {
     Accept: 'application/json',
     'Content-Type': 'application/json',
   };
-  const options = { headers: headers };
+  const options = { headers };
   if (body) options.body = JSON.stringify(body);
   const verb = String(method || '').toUpperCase();
   let response;
@@ -215,7 +218,7 @@ function httpJsonNode(config, method, path, body) {
     hostname: target.hostname,
     port: target.port,
     path: target.pathname + target.search,
-    method: method,
+    method,
     headers: {
       'X-Api-Key': config.key,
       Accept: 'application/json',
@@ -325,7 +328,7 @@ function refundAmountFrom(text) {
   const reserve = readFeeReserveSat();
   const sat = visibleSat - reserve;
   if (sat <= 0) return { skip: 'below-reserve' };
-  return { visibleSat: visibleSat, sat: sat };
+  return { visibleSat, sat };
 }
 
 function applyRefundIfDue(config, text, memo) {
@@ -341,9 +344,7 @@ function applyRefundIfDue(config, text, memo) {
   setOutput('refundSkip', '');
   setOutput('visibleSat', String(parsed.visibleSat));
   setOutput('refundSat', String(parsed.sat));
-  applyInvoice(
-    httpJsonSync(config, 'POST', '/api/v1/payments', prepareInvoice(config, parsed.sat, memo || 'Maestro-E2E-return')),
-  );
+  applyInvoice(httpJsonSync(config, 'POST', '/api/v1/payments', prepareInvoice(config, parsed.sat, memo || 'Maestro-E2E-return')));
 }
 
 function refundText(parsed) {
@@ -379,7 +380,7 @@ function preparePay(config, invoice) {
   const sat = bolt11AmountSat(bolt11);
   if (sat === null) fail('BOLT11 amount is missing or not a whole-sat value', 2);
   assertWithinMax(sat, config.maxSat);
-  return { out: true, bolt11: bolt11 };
+  return { out: true, bolt11 };
 }
 
 function prepareStatus(hash) {
@@ -404,7 +405,7 @@ function parsedCommand() {
   const args = cliArgs();
   const command = args[0] || scriptBinding(typeof TREASURY_CMD !== 'undefined' ? TREASURY_CMD : '').trim();
   if (!command) usage();
-  return { args: args, command: command };
+  return { args, command };
 }
 
 function dispatchSync(config, parsed) {
@@ -419,8 +420,7 @@ function dispatchSync(config, parsed) {
     return;
   }
   if (parsed.command === 'pay') {
-    const invoice =
-      parsed.args[1] || scriptBinding(typeof TREASURY_BOLT11 !== 'undefined' ? TREASURY_BOLT11 : '') || readCopiedText();
+    const invoice = parsed.args[1] || scriptBinding(typeof TREASURY_BOLT11 !== 'undefined' ? TREASURY_BOLT11 : '') || readCopiedText();
     applyPay(config, httpJsonSync(config, 'POST', '/api/v1/payments', preparePay(config, invoice)));
     return;
   }
@@ -450,8 +450,7 @@ function dispatchAsync(config, parsed) {
     const memo = parsed.args.slice(2).join(' ') || scriptBinding(typeof TREASURY_MEMO !== 'undefined' ? TREASURY_MEMO : '');
     pending = httpJsonNode(config, 'POST', '/api/v1/payments', prepareInvoice(config, sat, memo)).then(applyInvoice);
   } else if (parsed.command === 'pay') {
-    const invoice =
-      parsed.args[1] || scriptBinding(typeof TREASURY_BOLT11 !== 'undefined' ? TREASURY_BOLT11 : '') || readCopiedText();
+    const invoice = parsed.args[1] || scriptBinding(typeof TREASURY_BOLT11 !== 'undefined' ? TREASURY_BOLT11 : '') || readCopiedText();
     pending = httpJsonNode(config, 'POST', '/api/v1/payments', preparePay(config, invoice)).then(function (result) {
       applyPay(config, result);
     });
@@ -479,12 +478,7 @@ function dispatchAsync(config, parsed) {
       pending = Promise.resolve();
     } else {
       const memo = refundMemo();
-      pending = httpJsonNode(
-        config,
-        'POST',
-        '/api/v1/payments',
-        prepareInvoice(config, parsedAmount.sat, memo),
-      ).then(function (result) {
+      pending = httpJsonNode(config, 'POST', '/api/v1/payments', prepareInvoice(config, parsedAmount.sat, memo)).then(function (result) {
         setOutput('refundDue', 'true');
         setOutput('refundSkip', '');
         setOutput('visibleSat', String(parsedAmount.visibleSat));
