@@ -40,6 +40,7 @@ import { SuccessView } from '../send/success';
 import { useNFC } from '../../hooks/nfc.hook';
 import BoltCard from '../../class/boltcard';
 import { reportError } from '../../helpers/errors';
+import { useSparkContext } from '../../api/spark/contexts/spark.context';
 
 interface RouteParams {
   walletID: string;
@@ -71,7 +72,9 @@ const LNDReceive = () => {
   const inputAmountRef = useRef<TextInput | null>(null);
   const inputDescriptionRef = useRef<TextInput | null>(null);
   const { isNfcActive, startReading, stopReading } = useNFC();
+  const { isConnected: isSparkConnected } = useSparkContext();
   const isSpark = wallet?.type === SparkWallet.type;
+  const [sparkAddressRetry, setSparkAddressRetry] = useState(0);
   const latestInvoiceValues = useRef({ amountSats, description });
   latestInvoiceValues.current = { amountSats, description };
 
@@ -118,6 +121,11 @@ const LNDReceive = () => {
       setIsSparkAddressLoading(false);
       return;
     }
+    if (!isSparkConnected) {
+      setSparkAddress(undefined);
+      setIsSparkAddressLoading(false);
+      return;
+    }
     let cancelled = false;
     setIsSparkAddressLoading(true);
     setSparkAddress(undefined);
@@ -137,7 +145,7 @@ const LNDReceive = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSpark, walletID]);
+  }, [isSpark, wallet, walletID, isSparkConnected, sparkAddressRetry]);
 
   const cancelInvoicePolling = () => {
     pollGeneration.current += 1;
@@ -377,7 +385,15 @@ const LNDReceive = () => {
                     </View>
                   </>
                 ) : (
-                  <Text style={[styles.missingAddress, styleHooks.missingAddress]}>{loc.wallets.lightning_spark_address_unavailable}</Text>
+                  <View>
+                    <Text style={[styles.missingAddress, styleHooks.missingAddress]}>{loc.wallets.lightning_spark_address_unavailable}</Text>
+                    {isSpark && (
+                      <BlueButton
+                        title={loc.wallets.list_tryagain}
+                        onPress={() => setSparkAddressRetry(retry => retry + 1)}
+                      />
+                    )}
+                  </View>
                 )}
               </View>
               <View style={styles.share}>

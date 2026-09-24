@@ -196,7 +196,15 @@ beforeEach(() => {
 describe('SparkWallet', () => {
   it('exposes the spark type and readable label', () => {
     assert.strictEqual(SparkWallet.type, 'sparkWallet');
-    assert.strictEqual(SparkWallet.typeReadable, 'Spark');
+    assert.strictEqual(SparkWallet.typeReadable, require('../../loc').default.wallets.lightning_spark_wallet_label);
+  });
+
+  it('upgrades the legacy default Spark label while preserving a custom label', () => {
+    const wallet = SparkWallet.create('pk-label');
+    wallet.setLabel('Spark');
+    assert.strictEqual(wallet.getLabel(), require('../../loc').default.wallets.lightning_spark_wallet_label);
+    wallet.setLabel('My Spark wallet');
+    assert.strictEqual(wallet.getLabel(), 'My Spark wallet');
   });
 
   it('recognizes raw and URI-wrapped bech32m Spark invoices without confusing other payment inputs', () => {

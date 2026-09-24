@@ -683,16 +683,6 @@ const LnurlPay = () => {
           break;
       }
 
-      if (wallet?.type === SparkWallet.type && !sparkAddress && !sparkInvoice) {
-        const discoveredSparkAddress = directSparkAddress(_LN, wallet, isMax, description);
-        const payingDiscoveredSpark = Boolean(discoveredSparkAddress) && sparkFeeQuote?.method === SendPaymentMethod_Tags.SparkAddress;
-        if (!payingDiscoveredSpark) {
-          payInFlightRef.current = false;
-          setPayButtonDisabled(false);
-          return alert(loc.wallets.lightning_spark_only);
-        }
-      }
-
       if (sparkAddress || sparkInvoice) {
         const sparkDestination = sparkAddress || sparkInvoice;
         if (sparkFeeQuote?.method === SendPaymentMethod_Tags.SparkAddress) {
@@ -717,7 +707,6 @@ const LnurlPay = () => {
       refreshAllWalletTransactions();
       setIsLoading(false);
     } catch (Err) {
-      console.log(Err.message);
       const preSendFailure =
         Err instanceof SparkPaymentFeeQuoteError ||
         Err?.message === loc.send.insufficient_funds ||

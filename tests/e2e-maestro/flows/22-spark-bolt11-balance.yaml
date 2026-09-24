@@ -1,0 +1,9 @@
+appId: swiss.dfx.bitcoin
+---
+# P22 is read-only and starts at the home screen after a state-preserving
+# relaunch of the same simulator. It does not navigate or send a payment.
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), 66 sats, .*'
+    timeout: 30000
+- assertVisible: 'Bitcoin, Lightning \(Spark\), 66 sats, .*'
+- takeScreenshot: .maestro-e2e-shots/22-spark/01-sender-balance-after-payment

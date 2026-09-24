@@ -131,7 +131,7 @@ function invoiceDedupeKeys(tx: SparkInvoiceRecord): string[] {
 
 export class SparkWallet extends AbstractWallet {
   static type = 'sparkWallet';
-  static typeReadable = 'Spark';
+  static typeReadable = loc.wallets.lightning_spark_wallet_label;
   /**
    * Wait this long for Lightning to settle before returning a pending result.
    * Pending is not failure: the SDK may still complete the payment afterwards
@@ -166,6 +166,11 @@ export class SparkWallet extends AbstractWallet {
     this.chain = Chain.OFFCHAIN;
     // Seed lives only in the on-chain wallet; never persist it here.
     this.secret = '';
+  }
+
+  getLabel(): string {
+    const label = super.getLabel();
+    return label === 'Spark' ? loc.wallets.lightning_spark_wallet_label : label;
   }
 
   static parseSparkPaymentUri(input: string): { invoice: string } {

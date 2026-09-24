@@ -163,18 +163,8 @@ const ScanLndInvoice = () => {
     setIsTxFree(false);
   };
 
-  const isLightningDestination = destinationString =>
-    Lnurl.isLnurl(destinationString) ||
-    Lnurl.isLightningAddress(destinationString) ||
-    DeeplinkSchemaMatch.isLightningInvoice(destinationString) ||
-    DeeplinkSchemaMatch.isBothBitcoinAndLightning(destinationString) ||
-    DeeplinkSchemaMatch.isTestnetLightningInvoice(destinationString);
-
   const processDestination = destinationString => {
     Keyboard.dismiss();
-    if (wallet?.type === SparkWallet.type && isLightningDestination(destinationString)) {
-      throw new Error(loc.wallets.lightning_spark_only);
-    }
     if (Lnurl.isLnurl(destinationString)) return setLnurlDestination(destinationString);
     if (Lnurl.isLightningAddress(destinationString)) return setLightningAddressDestination(destinationString);
     if (wallet?.type === SparkWallet.type && SparkWallet.isSparkPaymentUri(destinationString)) {
@@ -312,9 +302,6 @@ const ScanLndInvoice = () => {
 
   const next = () => {
     if (destination === undefined || destination === null) return alert(loc.send.details_address_field_is_not_valid);
-    if (wallet?.type === SparkWallet.type && isLightningDestination(destination)) {
-      return showError(loc.wallets.lightning_spark_only);
-    }
     if (Lnurl.isLnurl(destination) || Lnurl.isLightningAddress(destination)) return processLnurlPay();
     if (wallet?.type === SparkWallet.type && sparkPaymentIsInvoice) {
       if (!Number.isInteger(amountSat) || amountSat === 0) return showError(loc.lnd.error_tip_invoice_not_supported);

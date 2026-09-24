@@ -196,13 +196,15 @@ function renderScan(wallet, extraParams = {}) {
   );
 }
 
-async function expectSparkRejectsLightning(uri) {
+async function expectSparkAcceptsLightning(uri) {
   const wallet = makeSparkWallet();
-  renderScan(wallet, { uri });
-  await waitFor(() => expect(alert).toHaveBeenCalledWith(loc.wallets.lightning_spark_only));
-  expect(haptic.trigger).toHaveBeenCalledWith('notificationError', { ignoreAndroidSystemSettings: false });
+  wallet.decodeInvoice = jest.fn().mockReturnValue(futureDecodedInvoice());
+  mockLnurl('example.com', 1000);
+  const screen = renderScan(wallet, { uri });
+  await waitFor(() => screen.getByText(loc.lnd.next));
+  expect(alert).not.toHaveBeenCalledWith(loc.wallets.lightning_spark_only);
   expect(mockNavigate).not.toHaveBeenCalled();
-  expect(wallet.getPaymentFeeWithoutSending).not.toHaveBeenCalled();
+  return { wallet, screen };
 }
 
 function renderScanWithWallets(wallets, extraParams = {}) {
@@ -227,16 +229,18 @@ describe('ScanLndInvoice fee mark', () => {
     jest.restoreAllMocks();
     AmountInput.conversionCache = {};
   });
-  it('does not show a guessed fee range or Free for a Spark payment to a listed free domain', async () => {
-    await expectSparkRejectsLightning(LNURL);
+  it('does not guess a Lightning fee range or mark it free for a Spark wallet', async () => {
+    const { wallet } = await expectSparkAcceptsLightning(LNURL);
+    expect(wallet.getPaymentFeeWithoutSending).not.toHaveBeenCalled();
   });
 
-  it('rejects a BOLT11 invoice on a Spark wallet', async () => {
-    await expectSparkRejectsLightning(SAMPLE_INVOICE);
+  it('accepts a BOLT11 invoice on a Spark wallet', async () => {
+    await expectSparkAcceptsLightning(SAMPLE_INVOICE);
   });
 
-  it('rejects a BOLT11 invoice on a Spark wallet when a fee would have been prepared', async () => {
-    await expectSparkRejectsLightning(SAMPLE_INVOICE);
+  it('keeps Spark fee quotes for a BOLT11 invoice', async () => {
+    const { wallet } = await expectSparkAcceptsLightning(SAMPLE_INVOICE);
+    expect(wallet.getPaymentFeeWithoutSending).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000);
   });
   it('still shows Free for an LNDHub payment to a listed free domain', async () => {
     mockLnurl('lightning.space', 1000);
@@ -246,8 +250,9 @@ describe('ScanLndInvoice fee mark', () => {
     await waitFor(() => screen.getByText(loc._.free));
     assert.strictEqual(screen.queryByText(feeRangeText(Math.round(1000 * 0.03))), null);
   });
-  it('does not show a guessed fee range for a small Spark payment', async () => {
-    await expectSparkRejectsLightning(LNURL);
+  it('does not show a guessed fee range for a small Spark Lightning payment', async () => {
+    const { wallet } = await expectSparkAcceptsLightning(LNURL);
+    expect(wallet.getPaymentFeeWithoutSending).not.toHaveBeenCalled();
   });
   it('shows Free for an LDS payment to an internal DFX domain', async () => {
     mockLnurl('api.dfx.swiss', 1000);
@@ -278,9 +283,6 @@ describe('ScanLndInvoice fee mark', () => {
       'SendDetailsRoot',
       expect.objectContaining({ params: expect.objectContaining({ amountSat: 1000 }) }),
     );
-  });
-  it('rejects a changed BOLT11 invoice on a Spark wallet', async () => {
-    await expectSparkRejectsLightning(SAMPLE_INVOICE);
   });
   it('goes back and alerts when no Lightning wallet is available', async () => {
     renderScanWithWallets([], { walletID: 'missing', uri: LNURL });
@@ -363,7 +365,8 @@ describe('ScanLndInvoice fee mark', () => {
     });
   });
   it('does not show a guessed Spark fee range for a Lightning address on a free domain', async () => {
-    await expectSparkRejectsLightning('tea@lightning.space');
+    const { wallet } = await expectSparkAcceptsLightning('tea@lightning.space');
+    expect(wallet.getPaymentFeeWithoutSending).not.toHaveBeenCalled();
   });
   it('shows the 3-percent LNDHub fee range for a Lightning address that is not free', async () => {
     const wallet = makeLndhubWallet();
@@ -495,7 +498,8 @@ describe('ScanLndInvoice fee mark', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
   it('does not guess a Spark fee when checking the remaining balance', async () => {
-    await expectSparkRejectsLightning(LNURL);
+    const { wallet } = await expectSparkAcceptsLightning(LNURL);
+    expect(wallet.getPaymentFeeWithoutSending).not.toHaveBeenCalled();
   });
   it('alerts when the remaining LNDHub balance cannot cover the 3-percent fee', async () => {
     mockLnurl('example.com', 1000);
@@ -542,11 +546,29 @@ describe('ScanLndInvoice fee mark', () => {
     );
   });
   it('marks a full-balance Spark LNURL payment for SDK fee preparation', async () => {
-    await expectSparkRejectsLightning(LNURL);
+    mockLnurl('example.com', 1000);
+    const wallet = makeSparkWallet();
+    const screen = renderScan(wallet, { uri: LNURL });
+    await waitFor(() => screen.getByText(loc.lnd.next));
+    fireEvent.press(screen.getByText('MAX'));
+    fireEvent.press(screen.getByText(loc.lnd.next));
+    expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', {
+      screen: 'LnurlPay',
+      params: expect.objectContaining({ lnurl: LNURL, isMax: true, walletID: wallet.getID() }),
+    });
   });
 
   it('navigates LNURL pay with the typed Spark amount', async () => {
-    await expectSparkRejectsLightning(LNURL);
+    mockLnurl('example.com', 1000);
+    const wallet = makeSparkWallet();
+    const screen = renderScan(wallet, { uri: LNURL });
+    await waitFor(() => screen.getByText(loc.lnd.next));
+    fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '2500');
+    fireEvent.press(screen.getByText(loc.lnd.next));
+    expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', {
+      screen: 'LnurlPay',
+      params: expect.objectContaining({ lnurl: LNURL, amountSat: 2500, walletID: wallet.getID() }),
+    });
   });
   it('alerts that zero-amount invoices are not supported', async () => {
     const wallet = makeLndhubWallet();
@@ -616,6 +638,36 @@ describe('ScanLndInvoice fee mark', () => {
     fireEvent.press(screen.getByText(loc.lnd.next));
     expect(alert).toHaveBeenCalledWith(loc.send.details_address_field_is_not_valid);
     expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('routes a Lightning address from Spark to the quote and payment screen', async () => {
+    const wallet = makeSparkWallet();
+    const screen = renderScan(wallet, { uri: 'tea@example.com' });
+
+    await waitFor(() => screen.getByText('tea@example.com'));
+    fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '1000');
+    fireEvent.press(screen.getByText(loc.lnd.next));
+
+    expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', {
+      screen: 'LnurlPay',
+      params: expect.objectContaining({ lnurl: 'tea@example.com', amountSat: 1000, walletID: wallet.getID() }),
+    });
+    expect(alert).not.toHaveBeenCalledWith(loc.wallets.lightning_spark_only);
+  });
+
+  it('routes a BOLT11 invoice from Spark to the prepared Lightning payment flow', async () => {
+    const wallet = makeSparkWallet();
+    wallet.decodeInvoice = jest.fn().mockReturnValue(futureDecodedInvoice());
+    const screen = renderScan(wallet, { uri: SAMPLE_INVOICE });
+
+    await waitFor(() => screen.getByText(loc.lnd.next));
+    fireEvent.press(screen.getByText(loc.lnd.next));
+
+    expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', {
+      screen: 'LnurlPay',
+      params: expect.objectContaining({ invoice: SAMPLE_INVOICE, amountSat: 1000, walletID: wallet.getID() }),
+    });
+    expect(alert).not.toHaveBeenCalledWith(loc.wallets.lightning_spark_only);
   });
 
   it('pays a bolt11 with the Lightning wallet when Spark is listed first', async () => {
@@ -691,7 +743,7 @@ describe('ScanLndInvoice fee mark', () => {
     const wallet = makeSparkWallet();
     const screen = renderScan(wallet);
 
-    await waitFor(() => screen.getByText('Spark'));
+    await waitFor(() => screen.getByText(loc.wallets.lightning_spark_wallet_label));
     expect(screen.queryByTestId('WalletSelect')).toBeNull();
   });
 

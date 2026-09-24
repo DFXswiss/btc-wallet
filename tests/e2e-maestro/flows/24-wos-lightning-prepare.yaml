@@ -1,0 +1,99 @@
+appId: swiss.dfx.bitcoin
+env:
+  E2E_WOS_LIGHTNING_ADDRESS: ${E2E_WOS_LIGHTNING_ADDRESS || ''}
+  E2E_WOS_LIGHTNING_USER: "${E2E_WOS_LIGHTNING_ADDRESS ? E2E_WOS_LIGHTNING_ADDRESS.split('@')[0] : ''}"
+---
+# P24 prepares but never sends. The real WOS address is supplied only through
+# Maestro env and this flow does not screenshot the address-entry screen.
+# Run directly on the preserved clone; the suite wrapper resets its keychain.
+- runFlow:
+    when:
+      true: ${E2E_WOS_LIGHTNING_ADDRESS === ''}
+    commands:
+      - assertTrue:
+          condition: ${false}
+          label: E2E_WOS_LIGHTNING_ADDRESS is required for the isolated WOS fixture.
+- assertVisible: '.*76 sats.*'
+- tapOn:
+    point: '50%,58%'
+- waitForAnimationToEnd:
+    timeout: 12000
+- extendedWaitUntil:
+    visible:
+      id: SendButton
+    timeout: 30000
+- tapOn:
+    id: SendButton
+- waitForAnimationToEnd:
+    timeout: 10000
+- tapOn:
+    point: '50%,88%'
+- extendedWaitUntil:
+    visible: 'Fortsetzen'
+    timeout: 20000
+- tapOn:
+    point: '50%,23%'
+- inputText: ${E2E_WOS_LIGHTNING_ADDRESS}
+- tapOn: 'Fortsetzen'
+- runFlow:
+    when:
+      visible: 'Adresse eingeben'
+    commands:
+      - tapOn: 'Fortsetzen'
+- extendedWaitUntil:
+    visible:
+      id: BitcoinAmountInput
+    timeout: 30000
+- tapOn:
+    point: '44%,20%'
+- eraseText:
+    charactersToErase: 12
+- inputText: '10'
+- extendedWaitUntil:
+    visible:
+      id: BitcoinAmountInput
+      text: '^(10|100)$'
+    timeout: 5000
+- runFlow:
+    when:
+      visible:
+        id: BitcoinAmountInput
+        text: '^100$'
+    commands:
+      - tapOn:
+          point: '83%,88%'
+- tapOn:
+    point: '50%,35%'
+- runFlow:
+    when:
+      visible:
+        id: BitcoinAmountInput
+        text: '^100$'
+    commands:
+      - tapOn:
+          point: '44%,20%'
+      - tapOn:
+          point: '83%,88%'
+      - tapOn:
+          point: '50%,35%'
+- assertVisible:
+    id: BitcoinAmountInput
+    text: '^10$'
+- tapOn: 'Weiter'
+# Old builds show this false Spark-only rejection here; fail that countercheck
+# immediately before waiting for the quote. New builds proceed to LNURL quote.
+- assertNotVisible: 'This wallet only uses Spark, not Lightning'
+- assertNotVisible: 'Dieser Vorgang ist mit einer Lightning-(Spark-)Wallet nicht verfügbar.'
+- extendedWaitUntil:
+    visible: '^Gebühr: [0-9]+ sats$'
+    timeout: 90000
+- assertVisible:
+    id: BitcoinAmountInput
+    text: '^10$'
+- assertVisible: "${'Pay to Wallet of Satoshi user: ' + E2E_WOS_LIGHTNING_USER}"
+- assertVisible: 'livingroomofsatoshi.com'
+- assertVisible: '^Gebühr: [0-9]+ sats$'
+- assertVisible: '^Zahlen$'
+# The confirmation UI renders the callback domain, amount and fee, not the
+# entered Lightning address. Keep screenshots off the scanner/address screen.
+- takeScreenshot: .maestro-e2e-shots/24-wos/01-lightning-address-quote

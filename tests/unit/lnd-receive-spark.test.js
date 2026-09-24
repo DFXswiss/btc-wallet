@@ -400,6 +400,104 @@ describe('LNDReceive with SparkWallet', () => {
     assert.strictEqual(method.tag, 'SparkAddress');
   });
 
+  it('retries Spark address lookup when the app connection becomes ready', async () => {
+    const wallet = makeSparkReceiveWallet('spark-receive-connect-later');
+    const storage = {
+      wallets: [wallet],
+      saveToDisk: jest.fn().mockResolvedValue(undefined),
+      setSelectedWallet: jest.fn(),
+      fetchAndSaveWalletTransactions: jest.fn(),
+    };
+    mockRouteParams.walletID = wallet.getID();
+    mockUseSparkContext.mockReturnValue({ isConnected: false });
+    const screen = render(
+      <BlueStorageContext.Provider value={storage}>
+        <LNDReceive />
+      </BlueStorageContext.Provider>,
+    );
+
+    expect(screen.getByText(loc.wallets.lightning_spark_address_unavailable)).toBeTruthy();
+    expect(mockSdk.receivePayment).not.toHaveBeenCalled();
+    mockUseSparkContext.mockReturnValue({ isConnected: true });
+    await act(async () => {
+      screen.rerender(
+        <BlueStorageContext.Provider value={storage}>
+          <LNDReceive />
+        </BlueStorageContext.Provider>,
+      );
+    });
+
+    await waitFor(() => expect(mockSdk.receivePayment).toHaveBeenCalled());
+  });
+
+  it('retries Spark address lookup after a transient failure', async () => {
+    const wallet = makeSparkReceiveWallet('spark-receive-retry');
+    wallet.getSparkAddress = jest.fn().mockRejectedValueOnce(new Error('transient SDK failure')).mockResolvedValue('spark1retry');
+    const screen = renderReceive(wallet);
+
+    await waitFor(() => expect(screen.getByText(loc.wallets.lightning_spark_address_unavailable)).toBeTruthy());
+    fireEvent.press(screen.getByText(loc.wallets.list_tryagain));
+    await waitFor(() => expect(screen.getByText('spark1retry')).toBeTruthy());
+    expect(wallet.getSparkAddress).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores a delayed Spark address result after switching wallets', async () => {
+    let resolveOldAddress;
+    const oldWallet = makeSparkReceiveWallet('spark-receive-old');
+    oldWallet.getSparkAddress = jest.fn(
+      () =>
+        new Promise(resolve => {
+          resolveOldAddress = resolve;
+        }),
+    );
+    const newWallet = makeSparkReceiveWallet('spark-receive-new');
+    newWallet.getSparkAddress = jest.fn().mockResolvedValue('spark1newwallet');
+    const oldStorage = {
+      wallets: [oldWallet],
+      saveToDisk: jest.fn().mockResolvedValue(undefined),
+      setSelectedWallet: jest.fn(),
+      fetchAndSaveWalletTransactions: jest.fn(),
+    };
+    mockRouteParams.walletID = oldWallet.getID();
+    const screen = render(
+      <BlueStorageContext.Provider value={oldStorage}>
+        <LNDReceive />
+      </BlueStorageContext.Provider>,
+    );
+    await waitFor(() => expect(oldWallet.getSparkAddress).toHaveBeenCalled());
+
+    mockRouteParams.walletID = newWallet.getID();
+    await act(async () => {
+      screen.rerender(
+        <BlueStorageContext.Provider value={{ ...oldStorage, wallets: [oldWallet, newWallet] }}>
+          <LNDReceive />
+        </BlueStorageContext.Provider>,
+      );
+    });
+    await waitFor(() => expect(screen.getByText('spark1newwallet')).toBeTruthy());
+    await act(async () => resolveOldAddress('spark1stale'));
+    expect(screen.queryByText('spark1stale')).toBeNull();
+    expect(screen.getByText('spark1newwallet')).toBeTruthy();
+  });
+
+  it('ignores a delayed Spark address result after the receive screen unmounts', async () => {
+    let resolveAddress;
+    const wallet = makeSparkReceiveWallet('spark-receive-unmount');
+    wallet.getSparkAddress = jest.fn(
+      () =>
+        new Promise(resolve => {
+          resolveAddress = resolve;
+        }),
+    );
+    const saveToDisk = jest.fn().mockResolvedValue(undefined);
+    const screen = renderReceive(wallet, { saveToDisk });
+
+    await waitFor(() => expect(wallet.getSparkAddress).toHaveBeenCalled());
+    screen.unmount();
+    await act(async () => resolveAddress('spark1after-unmount'));
+    expect(saveToDisk).not.toHaveBeenCalled();
+  });
+
   it('hides Use Boltcard for Spark and keeps it for an LNDHub invoice', async () => {
     const sparkScreen = renderReceive(makeSparkReceiveWallet('spark-receive-1'));
     expect(sparkScreen.queryByText('Use Boltcard')).toBeNull();

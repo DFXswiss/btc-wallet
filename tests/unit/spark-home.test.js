@@ -504,7 +504,7 @@ describe('loc keys for Spark label', () => {
   for (const locale of ['en', 'de', 'fr', 'it']) {
     it(`${locale}.json defines lightning_spark_wallet_label`, () => {
       const json = JSON.parse(fs.readFileSync(path.join(repoRoot, `loc/${locale}.json`), 'utf8'));
-      assert.strictEqual(json.wallets.lightning_spark_wallet_label, 'Spark');
+      assert.strictEqual(json.wallets.lightning_spark_wallet_label, 'Lightning (Spark)');
       assert.ok(json.wallets.lightning_spark_source_missing.includes('{label}'));
       assert.ok(json.wallets.lightning_spark_address_unavailable);
       assert.strictEqual(json.wallets.lightning_wallet_label, undefined);

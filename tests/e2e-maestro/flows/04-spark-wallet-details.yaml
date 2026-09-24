@@ -6,7 +6,7 @@ appId: swiss.dfx.bitcoin
 - waitForAnimationToEnd:
     timeout: 90000
 - extendedWaitUntil:
-    visible: 'Bitcoin, Spark, 0 sats, .*'
+    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
     timeout: 90000
 # Das Drei-Punkte-Icon hat keinen sichtbaren Text; Position aus dem realen
 # Handbuch-Flow.
@@ -15,9 +15,9 @@ appId: swiss.dfx.bitcoin
 - extendedWaitUntil:
     visible: 'Allgemein'
     timeout: 60000
-- tapOn: '.*Spark.*'
+- tapOn: 'Lightning \(Spark\)'
 - extendedWaitUntil:
-    visible: 'Breez Spark'
+    visible: 'Lightning \(Spark\)'
     timeout: 20000
 - assertVisible: 'Typ'
-- assertVisible: 'Breez Spark'
+- assertVisible: 'Lightning \(Spark\)'

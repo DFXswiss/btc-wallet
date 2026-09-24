@@ -1,0 +1,39 @@
+appId: swiss.dfx.bitcoin
+---
+# Fresh, unfunded wallet. The phrase is revealed only for the semantic
+# presence assertion; no screenshot or text selector captures its words.
+- runFlow: ../_setup.yaml
+- tapOn:
+    point: '85%,58%'
+- waitForAnimationToEnd:
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    timeout: 90000
+- tapOn:
+    point: '90%,10%'
+- extendedWaitUntil:
+    visible: 'Allgemein'
+    timeout: 60000
+- tapOn: 'Lightning \(Spark\)'
+- extendedWaitUntil:
+    visible: 'Lightning \(Spark\)'
+    timeout: 30000
+- assertVisible: 'Typ'
+- assertVisible: 'Lightning \(Spark\)'
+- takeScreenshot: .maestro-e2e-shots/19-spark/01-wallet-details
+- tapOn:
+    id: WalletExport
+- extendedWaitUntil:
+    visible: 'Wallet exportieren'
+    timeout: 30000
+- assertVisible: 'Diese Lightning-\(Spark-\)Wiederherstellungsphrase unterscheidet sich.*'
+- extendedWaitUntil:
+    visible:
+      id: SparkRecoveryPhrase
+    timeout: 90000
+- assertVisible:
+    id: SparkRecoveryPhrase
+- back
+- assertNotVisible:
+    id: SparkRecoveryPhrase

@@ -565,12 +565,10 @@ const WalletDetails = () => {
                     <SecondButton onPress={navigateToBackupPayCardDetails} title="Backup Pay Card Details" chevron />
                   </>
                 )}
-                {!isSparkWallet && (
-                  <>
-                    <BlueSpacing20 />
-                    <SecondButton onPress={navigateToWalletExport} testID="WalletExport" title={loc.wallets.details_export_backup} />
-                  </>
-                )}
+                <>
+                  <BlueSpacing20 />
+                  <SecondButton onPress={navigateToWalletExport} testID="WalletExport" title={loc.wallets.details_export_backup} />
+                </>
                 {walletTransactionsLength > 0 && (
                   <>
                     <BlueSpacing20 />

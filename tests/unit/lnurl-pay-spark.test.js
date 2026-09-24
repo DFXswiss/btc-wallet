@@ -194,14 +194,47 @@ function freeFeeText() {
   return `${loc.send.create_fee}: ${loc._.free}`;
 }
 
-async function expectSparkRefusesLightning(screen, wallet) {
-  await waitFor(() => expect(alert).toHaveBeenCalledWith(loc.wallets.lightning_spark_only));
-  expect(wallet.payInvoice).not.toHaveBeenCalled();
-  expect(wallet.payLnurlMax).not.toHaveBeenCalled();
-  expect(wallet.paySparkAddress).not.toHaveBeenCalled();
-  expect(mockSparkSdk.sendPayment).not.toHaveBeenCalled();
-  expect(mockNavigate).not.toHaveBeenCalled();
-  expect(screen.getByText(loc.lnd.payButton)).toBeTruthy();
+async function expectSparkLightningPayment(wallet, { expectedInvoice, expectedAmountSats } = {}) {
+  const route = mockRouteParams.isMax ? wallet.payLnurlMax : wallet.payInvoice;
+  const unusedRoutes = mockRouteParams.isMax
+    ? [wallet.payInvoice, wallet.paySparkAddress, wallet.paySparkInvoice, mockSparkSdk.sendPayment]
+    : [wallet.payLnurlMax, wallet.paySparkAddress, wallet.paySparkInvoice, mockSparkSdk.sendPayment];
+  await waitFor(() => expect(route).toHaveBeenCalledTimes(1));
+  for (const unusedRoute of unusedRoutes) {
+    expect(unusedRoute).not.toHaveBeenCalled();
+  }
+  if (!mockRouteParams.isMax) {
+    const quoteCalls = wallet.getPaymentFeeQuote.mock.calls;
+    const quotedInvoice = quoteCalls.length ? quoteCalls[quoteCalls.length - 1][0] : undefined;
+    const amountSats = expectedAmountSats ?? mockRouteParams.amountSat ?? (mockRouteParams.lnurl ? Lnurl.prototype.getMin() : 1000);
+    expect(route.mock.calls[0][0]).toBe(expectedInvoice || mockRouteParams.invoice || quotedInvoice || SAMPLE_INVOICE);
+    expect(route.mock.calls[0][1]).toBe(amountSats);
+  } else {
+    expect(wallet.getLnurlMaxFeeQuote).toHaveBeenCalled();
+    const amountSats = expectedAmountSats ?? mockRouteParams.amountSat ?? Lnurl.prototype.getMin();
+    expect(route.mock.calls[0][1]).toBe(amountSats);
+  }
+  expect(alert).not.toHaveBeenCalledWith(loc.wallets.lightning_spark_only);
+
+  let result;
+  try {
+    result = await route.mock.results[0].value;
+  } catch (_error) {
+    expect(mockNavigate).not.toHaveBeenCalled();
+    return;
+  }
+  if (result == null || result.status === 'completed') {
+    const isLnurl = mockRouteParams.isMax || mockRouteParams.lnurl || mockRouteParams.destination;
+    await waitFor(() => {
+      if (isLnurl) {
+        expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', expect.objectContaining({ screen: 'LnurlPaySuccess' }));
+      } else {
+        expect(mockNavigate).toHaveBeenCalledWith('Success', expect.objectContaining({ amount: mockRouteParams.amountSat ?? 1000 }));
+      }
+    });
+  } else {
+    expect(mockNavigate).not.toHaveBeenCalled();
+  }
 }
 
 function renderPay(wallet, extraParams = {}) {
@@ -260,13 +293,16 @@ describe('LnurlPay Spark invoice mode', () => {
     jest.restoreAllMocks();
   });
 
-  it('refuses a BOLT11 invoice on a Spark wallet before sending', async () => {
+  it('pays a BOLT11 invoice from Spark through its quoted SDK payment', async () => {
     mockSparkSdk.prepareSendPayment.mockResolvedValue({
       amount: 250000n,
       paymentMethod: {
         tag: SendPaymentMethod_Tags.Bolt11Invoice,
         inner: { lightningFeeSats: 1n, sparkTransferFeeSats: undefined },
       },
+    });
+    mockSparkSdk.sendPayment.mockResolvedValue({
+      payment: { id: 'bolt11-payment-1', status: PaymentStatus.Completed, details: { tag: PaymentDetails_Tags.Lightning, inner: {} } },
     });
 
     const wallet = SparkWallet.create('pk-pay');
@@ -279,8 +315,9 @@ describe('LnurlPay Spark invoice mode', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await waitFor(() => expect(alert).toHaveBeenCalledWith(loc.wallets.lightning_spark_only));
-    assert.strictEqual(mockSparkSdk.sendPayment.mock.calls.length, 0);
+    await waitFor(() => expect(mockSparkSdk.sendPayment).toHaveBeenCalledTimes(1));
+    expect(alert).not.toHaveBeenCalledWith(loc.wallets.lightning_spark_only);
+    expect(mockNavigate).toHaveBeenCalledWith('Success', expect.objectContaining({ amount: 250000, fee: 1 }));
   });
 
   it('shows the prepared Spark fee before paying instead of a percentage range', async () => {
@@ -762,7 +799,7 @@ describe('LnurlPay Spark invoice mode', () => {
 });
 
 describe('LnurlPay Spark pending send', () => {
-  it('refuses a pending BOLT11 invoice on a Spark wallet', async () => {
+  it('tracks a pending BOLT11 invoice payment from a Spark wallet', async () => {
     const wallet = makeWallet();
     wallet.payInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'pending-hash' });
     const screen = renderPay(wallet);
@@ -772,11 +809,14 @@ describe('LnurlPay Spark pending send', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000, expect.anything());
+    expect(screen.getByText(loc.wallets.lightning_spark_payment_in_transit)).toBeTruthy();
   });
 
-  it('does not navigate when a BOLT11 invoice is refused on a Spark wallet', async () => {
+  it('pays a BOLT11 invoice from a Spark wallet', async () => {
     const wallet = makeWallet();
+    wallet.payInvoice.mockResolvedValue({ status: 'completed', fee: 4 });
     const screen = renderPay(wallet);
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
@@ -784,11 +824,14 @@ describe('LnurlPay Spark pending send', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000, expect.anything());
+    expect(mockNavigate).toHaveBeenCalledWith('Success', expect.objectContaining({ amount: 1000 }));
   });
 
-  it('keeps the pay button when a BOLT11 invoice is refused on a Spark wallet', async () => {
+  it('keeps the pay action available after a Spark BOLT11 payment completes', async () => {
     const wallet = makeWallet();
+    wallet.payInvoice.mockResolvedValue({ status: 'completed', fee: 4 });
     const screen = renderPay(wallet);
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
@@ -796,12 +839,14 @@ describe('LnurlPay Spark pending send', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
-    expect(screen.UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0);
+    await expectSparkLightningPayment(wallet);
+    expect(wallet.payInvoice).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledWith('Success', expect.objectContaining({ amount: 1000, fee: 4 }));
   });
 
-  it('does not stay in transit when a BOLT11 invoice is refused on a Spark wallet', async () => {
+  it('does not show pending status for a completed Spark BOLT11 payment', async () => {
     const wallet = makeWallet();
+    wallet.payInvoice.mockResolvedValue({ status: 'completed', fee: 4 });
     const screen = renderPay(wallet);
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
@@ -809,11 +854,12 @@ describe('LnurlPay Spark pending send', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(wallet.payInvoice).toHaveBeenCalledTimes(1);
     assert.strictEqual(screen.queryByText(loc.wallets.lightning_spark_payment_in_transit), null);
   });
 
-  it('refuses an LNURL BOLT11 payment on a Spark wallet instead of storing success', async () => {
+  it('handles a successful LNURL BOLT11 payment from Spark without relying on a Spark address', async () => {
     const wallet = makeWallet();
     jest.spyOn(Lnurl.prototype, 'callLnurlPayService').mockResolvedValue({ description: 'tea', domain: 'example.com' });
     jest.spyOn(Lnurl.prototype, 'getDomain').mockReturnValue('example.com');
@@ -824,6 +870,7 @@ describe('LnurlPay Spark pending send', () => {
     jest.spyOn(Lnurl.prototype, 'getCommentAllowed').mockReturnValue(false);
     jest.spyOn(Lnurl.prototype, 'requestBolt11FromLnurlPayService').mockResolvedValue({ pr: SAMPLE_INVOICE });
     const storeSuccess = jest.spyOn(Lnurl.prototype, 'storeSuccess').mockRejectedValue(new Error('storage unavailable'));
+    wallet.payInvoice.mockResolvedValue({ status: 'completed', paymentHash: 'lnurl-bolt11-hash', fee: 4 });
     const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST' });
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
@@ -831,7 +878,8 @@ describe('LnurlPay Spark pending send', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000, expect.anything());
     expect(storeSuccess).not.toHaveBeenCalled();
   });
 });
@@ -940,9 +988,16 @@ describe('LnurlPay remaining payment paths', () => {
     return jest.spyOn(Lnurl.prototype, 'storeSuccess').mockResolvedValue(undefined);
   }
 
-  it('refuses an LNURL invoice on a Spark wallet instead of paying it', async () => {
+  it('attempts a quoted LNURL invoice payment from Spark and reports invoice failure', async () => {
     mockLnurlPay();
     const wallet = makeWallet();
+    wallet.getPaymentFeeQuote.mockResolvedValue({
+      invoice: SAMPLE_INVOICE,
+      amountSats: 1000,
+      walletIdentity: 'pk-pay',
+      method: SendPaymentMethod_Tags.Bolt11Invoice,
+      feeSats: 4,
+    });
     wallet.payInvoice.mockRejectedValue(new Error('invoice expired'));
     const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST' });
 
@@ -951,7 +1006,52 @@ describe('LnurlPay remaining payment paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(Lnurl.prototype.requestBolt11FromLnurlPayService).toHaveBeenCalledWith(1000, undefined);
+    expect(wallet.getPaymentFeeQuote).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000);
+    expect(wallet.payInvoice).toHaveBeenCalledWith(
+      SAMPLE_INVOICE,
+      1000,
+      expect.objectContaining({
+        invoice: SAMPLE_INVOICE,
+        amountSats: 1000,
+        method: SendPaymentMethod_Tags.Bolt11Invoice,
+      }),
+    );
+    expect(alert).toHaveBeenCalledWith('invoice expired');
+  });
+
+  it('pays a Wallet of Satoshi Lightning address through its quoted BOLT11 invoice', async () => {
+    mockLnurlPay({ domain: 'walletofsatoshi.com' });
+    const wallet = makeWallet();
+    const quote = {
+      invoice: SAMPLE_INVOICE,
+      amountSats: 1000,
+      walletIdentity: 'pk-pay',
+      method: SendPaymentMethod_Tags.Bolt11Invoice,
+      feeSats: 4,
+    };
+    wallet.getPaymentFeeQuote.mockResolvedValue(quote);
+    wallet.payInvoice.mockResolvedValue({ status: 'completed', paymentHash: 'wos-payment-hash', fee: 4 });
+    const screen = renderPay(wallet, {
+      invoice: undefined,
+      lnurl: undefined,
+      destination: 'alice@walletofsatoshi.com',
+    });
+
+    await waitFor(() => expect(wallet.getPaymentFeeQuote).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000));
+    expect(screen.getByText(`${loc.send.create_fee}: 4 ${BitcoinUnit.SATS}`)).toBeTruthy();
+    await act(async () => fireEvent.press(screen.getByText(loc.lnd.payButton)));
+
+    expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000, quote);
+    expect(mockNavigate).toHaveBeenCalledWith(
+      'SendDetailsRoot',
+      expect.objectContaining({
+        screen: 'LnurlPaySuccess',
+        params: expect.objectContaining({ fee: 4 }),
+      }),
+    );
+    expect(alert).not.toHaveBeenCalledWith(loc.wallets.lightning_spark_only);
   });
 
   it('pays a trusted Lightning address through its Spark address instead of requesting an invoice', async () => {
@@ -1027,7 +1127,7 @@ describe('LnurlPay remaining payment paths', () => {
     expect(Lnurl.prototype.requestBolt11FromLnurlPayService).not.toHaveBeenCalled();
   });
 
-  it('refuses Lightning when the published Spark address cannot be quoted', async () => {
+  it('falls back to the quoted BOLT11 invoice when the published Spark address cannot be quoted', async () => {
     mockLnurlPay({ domain: 'dev.lightning.space' });
     jest.spyOn(Lnurl.prototype, 'getSparkAddress').mockReturnValue(SPARK_ADDRESS);
     const wallet = makeWallet();
@@ -1045,10 +1145,11 @@ describe('LnurlPay remaining payment paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await waitFor(() => expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000, invoiceQuote));
+    expect(alert).not.toHaveBeenCalledWith(loc.wallets.lightning_spark_only);
   });
 
-  it('refuses a commented LNURL payment on a Spark wallet', async () => {
+  it('pays a commented LNURL invoice from a Spark wallet', async () => {
     mockLnurlPay({ domain: 'dev.lightning.space', getCommentAllowed: 100 });
     jest.spyOn(Lnurl.prototype, 'getSparkAddress').mockReturnValue(SPARK_ADDRESS);
     const wallet = makeWallet();
@@ -1061,10 +1162,12 @@ describe('LnurlPay remaining payment paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(Lnurl.prototype.requestBolt11FromLnurlPayService).toHaveBeenCalledWith(1000, 'tea');
+    expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', expect.objectContaining({ screen: 'LnurlPaySuccess' }));
   });
 
-  it('refuses an LNURL max payment on a Spark wallet', async () => {
+  it('pays a quoted LNURL MAX request from a Spark wallet', async () => {
     jest.spyOn(Lnurl.prototype, 'getLnurlPayRequestDetails').mockReturnValue({ callback: 'https://dev.lightning.space/callback' });
     mockLnurlPay({ domain: 'dev.lightning.space', getMin: 1000 });
     jest.spyOn(Lnurl.prototype, 'getSparkAddress').mockReturnValue(SPARK_ADDRESS);
@@ -1079,10 +1182,12 @@ describe('LnurlPay remaining payment paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(wallet.payLnurlMax).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', expect.objectContaining({ screen: 'LnurlPaySuccess' }));
   });
 
-  it('refuses an LNURL payment when the domain published no Spark address', async () => {
+  it('pays an LNURL invoice when its domain has no published Spark address', async () => {
     mockLnurlPay({ domain: 'dev.lightning.space' });
     const wallet = makeWallet();
     const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST' });
@@ -1092,7 +1197,9 @@ describe('LnurlPay remaining payment paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(Lnurl.prototype.requestBolt11FromLnurlPayService).toHaveBeenCalledWith(1000, undefined);
+    expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', expect.objectContaining({ screen: 'LnurlPaySuccess' }));
   });
 
   it('keeps the spinner up while the LNURL pay service has not returned an amount', () => {
@@ -1146,7 +1253,7 @@ describe('LnurlPay remaining payment paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
   });
 
   it('blocks a rendered LNURL payment when the returned invoice amount differs', async () => {
@@ -1182,7 +1289,7 @@ describe('LnurlPay remaining payment paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
   });
 
   it('pays with the cached satoshi amount after converting from local currency', async () => {
@@ -1208,16 +1315,21 @@ describe('LnurlPay remaining payment paths', () => {
     const wallet = makeWallet();
     wallet.payInvoice.mockResolvedValue({ status: 'completed' });
     const screen = renderPay(wallet, { amountUnit: BitcoinUnit.LOCAL_CURRENCY });
+    currency.btcToSatoshi.mockImplementation(value => Math.round(Number(value) * 100_000_000));
 
-    await waitFor(() => screen.getByText(loc.lnd.payButton));
-    await act(async () => {
-      fireEvent.press(screen.getByText(loc.lnd.payButton));
-    });
+    try {
+      await waitFor(() => screen.getByText(loc.lnd.payButton));
+      await act(async () => {
+        fireEvent.press(screen.getByText(loc.lnd.payButton));
+      });
 
-    await expectSparkRefusesLightning(screen, wallet);
+      await expectSparkLightningPayment(wallet);
+    } finally {
+      currency.btcToSatoshi.mockImplementation(value => Number(value));
+    }
   });
 
-  it('refuses an LNURL payment when the preferred unit is neither btc nor fiat', async () => {
+  it('pays the LNURL amount in sats when the preferred unit is MAX', async () => {
     mockLnurlPay();
     const wallet = makeWallet();
     wallet.getPreferredBalanceUnit = () => BitcoinUnit.MAX;
@@ -1228,7 +1340,9 @@ describe('LnurlPay remaining payment paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(Lnurl.prototype.requestBolt11FromLnurlPayService).toHaveBeenCalledWith(1000, undefined);
+    expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', expect.objectContaining({ screen: 'LnurlPaySuccess' }));
   });
 
   it('shows the payload image, domain, and a differing route description', async () => {
@@ -1259,7 +1373,7 @@ describe('LnurlPay remaining payment paths', () => {
     await waitFor(() => expect(Lnurl.prototype.requestBolt11FromLnurlPayService).toHaveBeenCalledWith(1000, 'please tea'));
   });
 
-  it('refuses a Spark MAX Lightning payment', async () => {
+  it('pays a Spark MAX Lightning request after preparing its quote', async () => {
     mockLnurlPay({ getCommentAllowed: 32 });
     const payRequest = { callback: 'https://example.com/callback' };
     jest.spyOn(Lnurl.prototype, 'getLnurlPayRequestDetails').mockReturnValue(payRequest);
@@ -1278,10 +1392,12 @@ describe('LnurlPay remaining payment paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(wallet.payLnurlMax).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', expect.objectContaining({ screen: 'LnurlPaySuccess' }));
   });
 
-  it('does not navigate when an LNURL payment is refused on a Spark wallet', async () => {
+  it('navigates to LNURL success after paying the quoted invoice from Spark', async () => {
     mockLnurlPay();
     const wallet = makeWallet();
     wallet.payInvoice.mockResolvedValue({ status: 'completed', fee: 2 });
@@ -1304,7 +1420,11 @@ describe('LnurlPay remaining payment paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(Lnurl.prototype.requestBolt11FromLnurlPayService).toHaveBeenCalledWith(1000, undefined);
+    expect(wallet.getPaymentFeeQuote).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000);
+    expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', expect.objectContaining({ screen: 'LnurlPaySuccess' }));
+    expect(refreshAllWalletTransactions).toHaveBeenCalled();
   });
 
   it('keeps an invalid AES success action out of the paid path and still navigates once', async () => {
@@ -1329,7 +1449,10 @@ describe('LnurlPay remaining payment paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(wallet.payInvoice).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', expect.objectContaining({ screen: 'LnurlPaySuccess' }));
   });
 
   it('navigates to LNURL success after an immediate pay even when storing the success rejects', async () => {
@@ -1344,13 +1467,13 @@ describe('LnurlPay remaining payment paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
   });
 
-  it('does not store LNURL success when a Spark wallet refuses the payment', async () => {
+  it('does not store LNURL success or navigate when Spark payment fails', async () => {
     mockLnurlPay();
     const wallet = makeWallet();
-    wallet.payInvoice.mockResolvedValue({ status: 'completed' });
+    wallet.payInvoice.mockRejectedValue(new Error('payment rejected'));
     const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST' });
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
@@ -1358,7 +1481,11 @@ describe('LnurlPay remaining payment paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await waitFor(() => expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000, expect.anything()));
+    expect(wallet.payLnurlMax).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(Lnurl.prototype.storeSuccess).not.toHaveBeenCalled();
+    expect(alert).toHaveBeenCalledWith('payment rejected');
   });
 
   it('navigates to the paid screen immediately when an invoice payment is not pending', async () => {
@@ -1371,7 +1498,8 @@ describe('LnurlPay remaining payment paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(mockNavigate).toHaveBeenCalledWith('Success', expect.objectContaining({ amount: 1000 }));
   });
 
   it('does not navigate to success when an invoice payment returns an unrecognized status', async () => {
@@ -1384,10 +1512,12 @@ describe('LnurlPay remaining payment paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(screen.getByText(loc.lnd.payButton)).toBeTruthy();
   });
 
-  it('refuses a pending BOLT11 result that has no payment hash', async () => {
+  it('shows pending status for a BOLT11 response without a payment hash', async () => {
     const wallet = makeWallet();
     wallet.payInvoice.mockResolvedValue({ status: 'pending' });
     const screen = renderPay(wallet);
@@ -1397,7 +1527,9 @@ describe('LnurlPay remaining payment paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(screen.getByText(loc.wallets.lightning_spark_payment_in_transit)).toBeTruthy();
   });
 
   it('does not finish a send when a completed SDK payment has a different payment hash', async () => {
@@ -1411,13 +1543,30 @@ describe('LnurlPay remaining payment paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    mockUseSparkContext.mockReturnValue({
+      isConnected: true,
+      isConnecting: false,
+      isCreating: false,
+      createSparkWallet: jest.fn(),
+      outgoingPayment: { status: 'completed', paymentHash: 'different-hash', preimage: 'pre-different' },
+    });
+    rerenderPay(screen, wallet);
+    await act(async () => Promise.resolve());
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('does not finish a send when the SDK reports a pending outgoing payment', async () => {
     const wallet = makeWallet();
     const decoded = wallet.decodeInvoice(SAMPLE_INVOICE);
     wallet.payInvoice.mockResolvedValue({ status: 'pending', paymentHash: decoded.payment_hash });
+    mockUseSparkContext.mockReturnValue({
+      isConnected: true,
+      isConnecting: false,
+      isCreating: false,
+      createSparkWallet: jest.fn(),
+      outgoingPayment: { status: 'pending', paymentHash: decoded.payment_hash },
+    });
     const screen = renderPay(wallet);
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
@@ -1425,10 +1574,12 @@ describe('LnurlPay remaining payment paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(screen.getByText(loc.wallets.lightning_spark_payment_in_transit)).toBeTruthy();
   });
 
-  it('finishes a pending invoice when neither the result nor the decode has a payment hash', async () => {
+  it('shows pending status when neither result nor decode has a payment hash', async () => {
     const wallet = makeWallet();
     wallet.decodeInvoice = jest.fn().mockReturnValue({ description: 'tea' });
     wallet.payInvoice.mockResolvedValue({ status: 'pending' });
@@ -1439,7 +1590,18 @@ describe('LnurlPay remaining payment paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(screen.getByText(loc.wallets.lightning_spark_payment_in_transit)).toBeTruthy();
+    mockUseSparkContext.mockReturnValue({
+      isConnected: true,
+      isConnecting: false,
+      isCreating: false,
+      createSparkWallet: jest.fn(),
+      outgoingPayment: { status: 'completed', paymentHash: 'late-completion', preimage: 'late-preimage' },
+    });
+    rerenderPay(screen, wallet);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('Success', expect.objectContaining({ amount: 1000 })));
   });
 
   it('ignores an SDK completion that arrives before this screen started a send', async () => {
@@ -1459,9 +1621,11 @@ describe('LnurlPay remaining payment paths', () => {
   });
 
   it('stores LNURL success from a later SDK completion when storeSuccess resolves', async () => {
-    mockLnurlPay();
+    const storeSuccess = mockLnurlPay();
     const wallet = makeWallet();
-    wallet.payInvoice.mockResolvedValue({ status: 'pending' });
+    const paymentHash = 'lnurl-pending-hash';
+    wallet.decodeInvoice = jest.fn().mockReturnValue({ payment_hash: paymentHash });
+    wallet.payInvoice.mockResolvedValue({ status: 'pending', paymentHash });
     const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST' });
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
@@ -1469,7 +1633,17 @@ describe('LnurlPay remaining payment paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    mockUseSparkContext.mockReturnValue({
+      isConnected: true,
+      isConnecting: false,
+      isCreating: false,
+      createSparkWallet: jest.fn(),
+      outgoingPayment: { status: 'completed', paymentHash, preimage: 'later-preimage' },
+    });
+    rerenderPay(screen, wallet);
+    await waitFor(() => expect(storeSuccess).toHaveBeenCalledWith(paymentHash, 'later-preimage'));
+    expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', expect.objectContaining({ screen: 'LnurlPaySuccess' }));
   });
 
   it('returns without paying when biometric unlock fails', async () => {
@@ -1493,10 +1667,10 @@ describe('LnurlPay remaining payment paths', () => {
     await act(async () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
   });
 
-  it('refuses Lightning after a successful biometric unlock', async () => {
+  it('pays the BOLT11 invoice after a successful biometric unlock', async () => {
     Biometric.isBiometricUseCapableAndEnabled.mockResolvedValue(true);
     Biometric.unlockWithBiometrics.mockResolvedValue(true);
     const wallet = makeWallet();
@@ -1508,7 +1682,9 @@ describe('LnurlPay remaining payment paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000, expect.anything());
+    expect(mockNavigate).toHaveBeenCalledWith('Success', expect.objectContaining({ amount: 1000 }));
   });
 
   it('alerts the pay error and restores the pay button when payInvoice rejects', async () => {
@@ -1521,7 +1697,11 @@ describe('LnurlPay remaining payment paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000, expect.anything());
+    expect(alert).toHaveBeenCalledWith('pay exploded');
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(getPayButton(screen).props.disabled).toBe(false);
   });
 
   it('admits only one payment while two taps are waiting on the same biometric check', async () => {
@@ -1547,7 +1727,7 @@ describe('LnurlPay remaining payment paths', () => {
       releaseBiometricCheck(true);
       await biometricCheck;
     });
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
     expect(Biometric.isBiometricUseCapableAndEnabled).toHaveBeenCalledTimes(1);
     expect(Biometric.unlockWithBiometrics).toHaveBeenCalledTimes(1);
   });
@@ -1759,7 +1939,7 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
     expect(mockNavigate).toHaveBeenCalledWith('Success', expect.objectContaining({ amount: 1000, fee: 2 }));
   });
 
-  it('retries an LNURL MAX fee quote and does not send the payment', async () => {
+  it('retries an LNURL MAX fee quote and pays after the quote recovers', async () => {
     jest.spyOn(Lnurl.prototype, 'getLnurlPayRequestDetails').mockReturnValue({ callback: 'https://example.com/callback' });
     mockLnurlPay({ getMin: 1000 });
     const wallet = makeWallet();
@@ -1783,7 +1963,14 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(wallet.getLnurlMaxFeeQuote).toHaveBeenCalledTimes(2);
+    expect(wallet.payLnurlMax).toHaveBeenCalledWith(
+      expect.anything(),
+      1000,
+      undefined,
+      expect.objectContaining({ requestKey: 'retry-request', amountSats: 1000, feeSats: 6 }),
+    );
   });
 
   it('keeps the newer LNURL MAX quote when an older result arrives late', async () => {
@@ -1820,7 +2007,8 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(wallet.payLnurlMax).toHaveBeenCalledWith({ callback: 'https://example.com/callback' }, 2000, 'new-comment', newQuote);
   });
 
   it('keeps the newer LNURL MAX quote when an older error arrives late', async () => {
@@ -1857,7 +2045,8 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(wallet.payLnurlMax).toHaveBeenCalledWith({ callback: 'https://example.com/callback' }, 2000, 'new-comment', newQuote);
   });
 
   it('keeps a newer fixed-invoice quote when an older result arrives late', async () => {
@@ -1903,7 +2092,8 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(wallet.payInvoice).toHaveBeenCalledWith('invoice-new', 2000, newQuote);
   });
 
   it('keeps a newer fixed-invoice quote when an older error arrives late', async () => {
@@ -1943,7 +2133,8 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(wallet.payInvoice).toHaveBeenCalledWith('invoice-new', 2000, newQuote);
   });
 
   it('keeps a newer LNURL invoice quote when an older error arrives late', async () => {
@@ -1994,10 +2185,11 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet, { expectedInvoice: newInvoice });
+    expect(wallet.payInvoice).toHaveBeenCalledWith(newInvoice, 1000, newQuote);
   });
 
-  it('refuses a pending Spark MAX payment instead of showing it in transit', async () => {
+  it('shows the pending state for a Spark MAX payment', async () => {
     jest.spyOn(Lnurl.prototype, 'getLnurlPayRequestDetails').mockReturnValue({ callback: 'https://example.com/callback' });
     mockLnurlPay({ getMin: 1000 });
     const wallet = makeWallet();
@@ -2008,10 +2200,18 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(wallet.payLnurlMax).toHaveBeenCalledWith(
+      expect.objectContaining({ callback: 'https://example.com/callback' }),
+      1000,
+      undefined,
+      expect.objectContaining({ amountSats: 1000, feeSats: 4 }),
+    );
+    expect(screen.getByText(loc.wallets.lightning_spark_payment_in_transit)).toBeTruthy();
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it('refuses a Spark MAX payment that would return a non-completed status', async () => {
+  it('keeps the pay action available after an unknown Spark MAX status', async () => {
     jest.spyOn(Lnurl.prototype, 'getLnurlPayRequestDetails').mockReturnValue({ callback: 'https://example.com/callback' });
     mockLnurlPay({ getMin: 1000 });
     const wallet = makeWallet();
@@ -2022,7 +2222,16 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(wallet.payLnurlMax).toHaveBeenCalledWith(
+      expect.objectContaining({ callback: 'https://example.com/callback' }),
+      1000,
+      undefined,
+      expect.objectContaining({ amountSats: 1000, feeSats: 4 }),
+    );
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(getPayButton(screen).props.disabled).toBe(false);
+    expect(screen.queryByText(loc.wallets.lightning_spark_payment_in_transit)).toBeNull();
   });
 
   it('keeps a newer LNURL invoice quote when an older result arrives late', async () => {
@@ -2068,10 +2277,11 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet, { expectedInvoice: newInvoice });
+    expect(wallet.payInvoice).toHaveBeenCalledWith(newInvoice, 1000, newQuote);
   });
 
-  it('does not navigate when Spark refuses the payment before a success display', async () => {
+  it('still navigates to LNURL success when preparing its display data fails', async () => {
     mockLnurlPay();
     const displayError = new Error('success display unavailable');
     Lnurl.prototype.getDisposable.mockImplementationOnce(() => {
@@ -2086,7 +2296,10 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000, expect.anything());
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', expect.objectContaining({ screen: 'LnurlPaySuccess' }));
   });
 
   it('reports a pending LNURL completion failure when wallet result access throws', async () => {
@@ -2100,7 +2313,8 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
       },
     });
     const decoded = wallet.decodeInvoice(SAMPLE_INVOICE);
-    wallet.payInvoice.mockResolvedValue({ status: 'pending', paymentHash: decoded.payment_hash });
+    const paymentHash = decoded.payment_hash;
+    wallet.payInvoice.mockResolvedValue({ status: 'pending', paymentHash });
     const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST' });
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
@@ -2108,7 +2322,19 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
+    mockUseSparkContext.mockReturnValue({
+      isConnected: true,
+      isConnecting: false,
+      isCreating: false,
+      createSparkWallet: jest.fn(),
+      outgoingPayment: { status: 'completed', paymentHash },
+    });
+    rerenderPay(screen, wallet);
+    await waitFor(() =>
+      expect(require('../../helpers/errors').reportError).toHaveBeenCalledWith('lnurlPay: failed to finish LNURL success', finishError),
+    );
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -2151,7 +2377,10 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
       getPayButton(screen).props.onPress();
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await waitFor(() => expect(wallet.getPaymentFeeQuote).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000));
+    expect(wallet.payInvoice).not.toHaveBeenCalled();
+    expect(mockSparkSdk.sendPayment).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('restores the Spark button after a quoted invoice returns an unknown status', async () => {
@@ -2165,7 +2394,7 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
       fireEvent.press(screen.getByText(loc.lnd.payButton));
     });
 
-    await expectSparkRefusesLightning(screen, wallet);
+    await expectSparkLightningPayment(wallet);
   });
 
   it('restores the Spark button after a reusable invoice returns an unknown status', async () => {

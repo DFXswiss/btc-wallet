@@ -1,9 +1,13 @@
 # Spark wallet E2E with Maestro
 
-This suite runs the 17 user paths listed in `coverage.md` individually on an iOS
+This suite documents the 25 user paths listed in `coverage.md` on an iOS
 simulator. P01–P15 start the app with cleared state, walk through onboarding
 themselves and check at least one visible state. P16 and P17 import a fixed
 Spark identity through `_setup-import.yaml` instead of creating a random wallet.
+P18 and P19 use a newly created, unfunded Spark wallet. Their screenshots are
+written beneath the ignored `.maestro-e2e-shots/` directory; they contain no
+recovery words. P19 asserts phrase presence by a semantic test ID and never
+selects, logs, or screenshots the phrase text.
 
 ## Prerequisites
 
@@ -210,6 +214,105 @@ bash scripts/e2e/run-maestro.sh \
   --flow '05-*'
 ```
 
+Run the new unfunded Spark checks separately after building the app bundle:
+
+```sh
+bash scripts/e2e/run-maestro.sh --device '<SIMULATOR-UDID>' --app '<PATH-TO-APP-BUNDLE>' --flow '18-*'
+bash scripts/e2e/run-maestro.sh --device '<SIMULATOR-UDID>' --app '<PATH-TO-APP-BUNDLE>' --flow '19-*'
+```
+
+P18 retries only if the transient no-address state actually appears; the flow
+does not inject an SDK failure. P19 waits for the recovery phrase container,
+which also means a configured biometric prompt must be completed on the
+simulator. With biometrics disabled, the phrase appears directly. The flow does
+not take a screenshot while the phrase is visible and uses no phrase text in
+selectors. P18 screenshots show the dynamic Spark receive address and should be
+handled as wallet receiving information even though the wallet is unfunded.
+
+P20 is an exception to the reset-based suite. It prepares a BOLT11 payment on
+the already funded simulator and stops at the quote confirmation screen. It
+requires `E2E_BOLT11_INVOICE`, a 10-sat invoice created by the isolated receiver
+fixture. **Never run P20 through `scripts/e2e/run-maestro.sh` or the full suite:**
+that runner uninstalls the app and resets the simulator keychain. Run only the
+flow directly against the preserved funded simulator:
+
+```sh
+maestro --device "$FUNDED_SIMULATOR_UDID" test \
+  -e "E2E_BOLT11_INVOICE=$E2E_BOLT11_INVOICE" \
+  tests/e2e-maestro/flows/20-spark-bolt11-prepare.yaml
+```
+
+Keep the invoice in the environment/session only; do not put it in the repo or
+share Maestro logs. P20 verifies the 78-sat precondition, the decoded 10-sat
+amount, and a visible Spark fee quote, then takes a confirmation screenshot.
+It does not tap `Zahlen` or claim a payment. P21 is the single payment follow-up
+for the reviewed 10-sat invoice and 2-sat quote. Run it directly, immediately
+after P20, while the app remains on that confirmation screen and on the same
+preserved simulator:
+
+```sh
+maestro --device "$FUNDED_SIMULATOR_UDID" test \
+  tests/e2e-maestro/flows/21-spark-bolt11-pay.yaml
+```
+
+P21 attempted the payment once. The payment completed and the success screenshot
+showed 10 sats, the expected description and 2-sat fee, but the flow exited 1
+because its standalone `sats` selector did not match the combined text. The
+selector was removed from the file; **do not rerun P21**, as the invoice was
+already paid. `Fertig` returned to address entry, so the root terminated and
+relaunched the same app without uninstalling or resetting the clone. Revised
+P22 is read-only: it starts on the resulting home screen and checks the 66-sat
+sender balance. Run directly after that state-preserving relaunch:
+
+```sh
+maestro --device "$FUNDED_SIMULATOR_UDID" test \
+  tests/e2e-maestro/flows/22-spark-bolt11-balance.yaml
+```
+
+P22 passed on the preserved simulator. P23 is also read-only with respect to
+payments. From the same home screen it opens Spark receive and taps the public
+`spark1` address to copy it to the simulator pasteboard for the receiver refund.
+It does not screenshot the address. P23 passed; the isolated receiver was then
+refunded 10 sats with 0-sat fee, leaving its balance at 0 and the sender at 76
+sats. Run P23 directly after P22:
+
+```sh
+maestro --device "$FUNDED_SIMULATOR_UDID" test \
+  tests/e2e-maestro/flows/23-spark-receive-address-copy.yaml
+```
+
+Neither flow resets or reinstalls the app; never use the suite wrapper on this
+simulator. Receiver credit for the earlier isolated BOLT11 test was verified
+separately from the isolated CLI.
+
+P24 and P25 exercise Lightning-address interoperability with an externally
+supplied Wallet of Satoshi recipient. The address is provided only through
+`E2E_WOS_LIGHTNING_ADDRESS`; do not put it in the repository or screenshots.
+Maestro may echo the entered address in its run log, so keep logs private and
+redact them before sharing. The old-build control reached the Spark-only alert,
+but the final P24 flow was not rerun against that build after its selector
+fixes. On the signed keyed candidate build, the final P24 flow exited 0: it
+showed a 10-sat quote,
+the Wallet of Satoshi recipient description, callback domain
+`livingroomofsatoshi.com`, and a 2-sat fee. P25 then paid once and exited 0;
+the success view showed the same recipient description/domain and fee. After a
+state-preserving relaunch, the sender showed 64 sats (76 minus 10 minus 2).
+The Wallet of Satoshi receiver balance was not independently checked, so this
+is app-side payment-success and sender-debit evidence, not receiver-credit
+verification. Run the two flows directly with Maestro against the preserved
+funded simulator; never use the suite wrapper, which resets wallet/keychain
+state. P25 is one-shot and must not be rerun for the same invoice.
+
+The isolated CLI also checked Lightning-address availability against the
+configured Spark address domain. An unknown username was reported available on
+the SDK's default Breez domain, unavailable on `dev.lightning.space`, and the
+`lightning.space` request failed with HTTP 404 `Cannot POST
+/lnurlpay/<identity>/available`. Do not present an `@lightning.space` address as
+available until the production LNURL availability and payment routes are
+implemented and verified. P24/P25 demonstrate a live Wallet of Satoshi
+Lightning-address send through the app, but do not establish receiver-side
+credit because that balance was not independently checked.
+
 The values are also accepted positionally as `UDID APP_BUNDLE [FLOW_GLOB]`. UDID
 and app path are mandatory; without them the runner aborts, because the fresh
 state cannot otherwise be guaranteed for P01–P15. The runner resets the
@@ -310,7 +413,7 @@ therefore not possible.
   therefore check the visible payload, which sits in the same render branch as
   the QR, not the pixels or whether they decode.
 - Persistence across app restarts, keychain entitlements, NFC, camera QR reads,
-  hardware wallets and multi-device are not part of these 17 paths. The
+  hardware wallets and multi-device are not part of these 25 paths. The
   P16/P17 relaunch without wiping state only exists so the Spark row can
   show the new balance; it is not a persistence proof. P16 and P17 import the
   fixed identity after the runner's reset; that is not a persistence proof.

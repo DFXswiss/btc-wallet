@@ -213,13 +213,13 @@ describe('WalletDetails Spark vs LNDHub blocks', () => {
     expect(screen.getByText(loc.wallets.details_export_backup)).toBeTruthy();
   });
 
-  it('hides ownership proof and export for a Spark wallet', async () => {
+  it('hides ownership proof and exposes backup export for a Lightning (Spark) wallet', async () => {
     const wallet = makeWallet('sparkWallet', { id: 'spark-details-1' });
     const screen = renderDetails(wallet);
     await waitFor(() => expect(screen.getByText(loc.wallets.details_type)).toBeTruthy());
     expect(screen.queryByText(loc.wallets.ownership_proof)).toBeNull();
-    expect(screen.queryByTestId('WalletExport')).toBeNull();
-    expect(screen.queryByText(loc.wallets.details_export_backup)).toBeNull();
+    expect(screen.getByTestId('WalletExport')).toBeTruthy();
+    expect(screen.getByText(loc.wallets.details_export_backup)).toBeTruthy();
   });
 
   it('shows POS toggle, cashier station and boltcard backup for an LNDHub wallet', async () => {

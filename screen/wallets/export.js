@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useContext, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useContext, useEffect, useRef } from 'react';
 import { InteractionManager, ScrollView, ActivityIndicator, StatusBar, View, StyleSheet, AppState, Text, I18nManager } from 'react-native';
 import { useTheme, useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { Icon } from 'react-native-elements';
@@ -7,11 +7,47 @@ import { BlueSpacing20, SafeBlueArea, BlueText, BlueCard } from '../../BlueCompo
 import navigationStyle from '../../components/navigationStyle';
 import Privacy from '../../blue_modules/Privacy';
 import Biometric from '../../class/biometrics';
-import { LegacyWallet, MultisigHDWallet, SegwitBech32Wallet, SegwitP2SHWallet } from '../../class';
+import {
+  HDLegacyBreadwalletWallet,
+  HDLegacyP2PKHWallet,
+  HDSegwitBech32Wallet,
+  HDSegwitP2SHWallet,
+  LegacyWallet,
+  MultisigHDWallet,
+  SegwitBech32Wallet,
+  SegwitP2SHWallet,
+} from '../../class';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import QRCodeComponent from '../../components/QRCodeComponent';
 import Secret from './secret';
+import { SparkWallet } from '../../class/wallets/spark-wallet';
+import { deriveSparkMnemonic } from '../../api/spark/spark-seed';
+
+const BIP39_HD_WALLET_TYPES = new Set([
+  HDSegwitBech32Wallet.type,
+  HDSegwitP2SHWallet.type,
+  HDLegacyP2PKHWallet.type,
+  HDLegacyBreadwalletWallet.type,
+]);
+
+function deriveBoundSparkMnemonic(sparkWallet, wallets) {
+  const sourceWalletId = sparkWallet.sourceWalletId;
+  if (typeof sourceWalletId !== 'string' || !sourceWalletId) throw new Error('Spark source wallet is unavailable');
+  const sources = wallets.filter(candidate => {
+    if (!BIP39_HD_WALLET_TYPES.has(candidate.type) || typeof candidate.getID !== 'function') return false;
+    try {
+      return candidate.getID() === sourceWalletId;
+    } catch {
+      return false;
+    }
+  });
+  if (sources.length !== 1) throw new Error('Spark source wallet is unavailable');
+  const source = sources[0];
+  const onChainMnemonic = source.getSecret();
+  if (typeof onChainMnemonic !== 'string' || !onChainMnemonic.trim()) throw new Error('Spark source wallet is unavailable');
+  return deriveSparkMnemonic(onChainMnemonic, source.getPassphrase?.() || undefined);
+}
 
 const WalletExport = () => {
   const { wallets, saveToDisk } = useContext(BlueStorageContext);
@@ -21,21 +57,32 @@ const WalletExport = () => {
   const { colors } = useTheme();
   const wallet = wallets.find(w => w.getID() === walletID);
   const [qrCodeSize, setQRCodeSize] = useState(90);
+  const [sparkMnemonic, setSparkMnemonic] = useState();
+  const [sparkExportError, setSparkExportError] = useState(false);
+  const isSparkWallet = wallet?.type === SparkWallet.type;
   const appState = useRef(AppState.currentState);
+  const sparkRevealGeneration = useRef(0);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {
-      if (!isLoading && nextAppState === 'background') {
+      if (isSparkWallet && (nextAppState === 'inactive' || nextAppState === 'background')) {
+        sparkRevealGeneration.current += 1;
+        setSparkMnemonic(undefined);
+      }
+      const wasSparkExportInterrupted = appState.current === 'inactive' || appState.current === 'background';
+      if (isSparkWallet && wasSparkExportInterrupted && nextAppState === 'active') {
         goBack();
       }
-
+      if (nextAppState === 'background' && (isSparkWallet || !isLoading)) {
+        goBack();
+      }
       appState.current = nextAppState;
     });
 
     return () => {
       subscription.remove();
     };
-  }, [goBack, isLoading]);
+  }, [goBack, isLoading, isSparkWallet]);
 
   const stylesHook = {
     loading: {
@@ -55,6 +102,8 @@ const WalletExport = () => {
   useFocusEffect(
     useCallback(() => {
       Privacy.enableBlur();
+      let isActive = true;
+      const revealGeneration = sparkRevealGeneration.current;
       const task = InteractionManager.runAfterInteractions(async () => {
         if (wallet) {
           const isBiometricsEnabled = await Biometric.isBiometricUseCapableAndEnabled();
@@ -64,18 +113,39 @@ const WalletExport = () => {
               return goBack();
             }
           }
-          if (!wallet.getUserHasSavedExport()) {
-            wallet.setUserHasSavedExport(true);
-            saveToDisk();
+          const sparkRevealWasInvalidated = revealGeneration !== sparkRevealGeneration.current;
+          const appIsActive = AppState.currentState === 'active';
+          if (!isActive || (wallet.type === SparkWallet.type && (!appIsActive || sparkRevealWasInvalidated))) {
+            return;
+          }
+          if (wallet.type === SparkWallet.type) {
+            try {
+              setSparkMnemonic({
+                wallet,
+                sourceWalletId: wallet.sourceWalletId,
+                mnemonic: deriveBoundSparkMnemonic(wallet, wallets),
+              });
+              setSparkExportError(false);
+            } catch {
+              setSparkMnemonic(undefined);
+              setSparkExportError(true);
+            }
+          } else {
+            if (!wallet.getUserHasSavedExport()) {
+              wallet.setUserHasSavedExport(true);
+              saveToDisk();
+            }
           }
           setIsLoading(false);
         }
       });
       return () => {
+        isActive = false;
         task.cancel();
+        setSparkMnemonic(undefined);
         Privacy.disableBlur();
       };
-    }, [goBack, saveToDisk, wallet]),
+    }, [goBack, saveToDisk, wallet, wallets]),
   );
 
   if (isLoading || !wallet)
@@ -84,6 +154,30 @@ const WalletExport = () => {
         <ActivityIndicator />
       </View>
     );
+
+  if (isSparkWallet) {
+    const visibleSparkMnemonic =
+      sparkMnemonic?.wallet === wallet && sparkMnemonic?.sourceWalletId === wallet.sourceWalletId ? sparkMnemonic.mnemonic : undefined;
+    return (
+      <SafeBlueArea style={[styles.root, stylesHook.root]}>
+        <StatusBar barStyle="light-content" />
+        <ScrollView contentContainerStyle={styles.scrollViewContent} testID="WalletExportScroll">
+          <BlueText style={[styles.type, stylesHook.type]}>{wallet.typeReadable}</BlueText>
+          <BlueSpacing20 />
+          <BlueCard>
+            <Text style={[styles.infoText, stylesHook.infoText]}>{loc.wallets.lightning_spark_recovery_explanation}</Text>
+            {sparkExportError ? (
+              <Text style={[styles.infoText, stylesHook.warning]}>{loc.wallets.lightning_spark_recovery_unavailable}</Text>
+            ) : visibleSparkMnemonic ? (
+              <View testID="SparkRecoveryPhrase">
+                <Secret secret={visibleSparkMnemonic} />
+              </View>
+            ) : null}
+          </BlueCard>
+        </ScrollView>
+      </SafeBlueArea>
+    );
+  }
 
   // for SLIP39 we need to show all shares
   let secrets = wallet.getSecret();
