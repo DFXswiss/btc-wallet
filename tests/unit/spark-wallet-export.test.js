@@ -61,7 +61,7 @@ const originalAppStateDescriptor = Object.getOwnPropertyDescriptor(AppState, 'cu
 function makeSparkWallet(sourceWalletId = 'source-hd') {
   return {
     type: 'sparkWallet',
-    typeReadable: 'Lightning (Spark)',
+    typeReadable: 'Lightning',
     sourceWalletId,
     getID: () => 'spark-export',
     getUserHasSavedExport: jest.fn(() => false),

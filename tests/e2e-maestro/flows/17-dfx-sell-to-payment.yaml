@@ -43,7 +43,7 @@ onFlowComplete:
       E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
 - evalScript: "${output.paymentBtc = (Number(output.paymentSat) / 100000000).toFixed(8)}"
 - extendedWaitUntil:
-    visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+    visible: 'Bitcoin, Lightning, .*sats, .*'
     timeout: 90000
 # 0 sats nach dem Import ist der Zwischenzustand vor der Spark-Synchronisation,
 # kein Befund. Warten, bis eine Ziffer ungleich null steht. Der sichtbare
@@ -51,17 +51,17 @@ onFlowComplete:
 # Auszahlung aus P16, nicht eine Gegenstelle. Reicht er nicht, bricht der
 # Flow hier ab.
 - extendedWaitUntil:
-    visible: 'Bitcoin, Lightning \(Spark\), [1-9].*sats, .*'
+    visible: 'Bitcoin, Lightning, [1-9].*sats, .*'
     timeout: 90000
     optional: true
-- copyTextFrom: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+- copyTextFrom: 'Bitcoin, Lightning, .*sats, .*'
 - evalScript: "${output.balanceRead = String(maestro.copiedText || '').replace(/[^0-9]/g, '')}"
 - evalScript: "${output.balanceOk = (output.balanceRead !== '' && Number(output.balanceRead) >= Number(output.paymentSat || 10)) ? 'true' : 'false'}"
 - assertTrue:
     condition: ${output.balanceOk === 'true'}
     label: Spark balance is below E2E_PAYMENT_SAT. Run P16 first so the wallet holds the Spark payout to sell.
 - extendedWaitUntil:
-    visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+    visible: 'Bitcoin, Lightning, .*sats, .*'
     timeout: 90000
 - tapOn:
     point: '50%,58%'
@@ -878,7 +878,7 @@ onFlowComplete:
             # weiterlaufen; die Schlusszusicherung kommt danach.
             - runFlow: ../_relaunch-keep-state.yaml
             - extendedWaitUntil:
-                visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+                visible: 'Bitcoin, Lightning, .*sats, .*'
                 timeout: 180000
             - tapOn:
                 point: '50%,58%'
@@ -939,7 +939,7 @@ onFlowComplete:
             # steht in `E2E_SPARK_DEPOSIT_ADDRESS` und wurde vor dem Wartebereich bezahlt;
             # die Verbuchung wird nach der Maske per sell-complete zugesichert.
             # Nach dem Deeplink steht die App auf der Spark-**Detailansicht**, nicht auf
-            # der Wallet-Liste (gemessen am Bildschirmfoto: Titel Lightning (Spark),
+            # der Wallet-Liste (gemessen am Bildschirmfoto: Titel Lightning,
             # Saldo, Transaktionsliste).
             # Was nach dem Deeplink im Vordergrund steht, ist nicht zuverlaessig vorherzusagen
             # (Browser, Wallet-Liste oder Detailansicht, je nach Timing). Statt darauf zu
@@ -950,7 +950,7 @@ onFlowComplete:
                 timeout: 15000
             - runFlow: ../_relaunch-keep-state.yaml
             - extendedWaitUntil:
-                visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+                visible: 'Bitcoin, Lightning, .*sats, .*'
                 timeout: 180000
             - tapOn:
                 point: '50%,58%'
@@ -1194,7 +1194,7 @@ onFlowComplete:
                 label: expectedBalanceRegex missing after payment-amount.js
             - runFlow: ../_relaunch-keep-state.yaml
             - extendedWaitUntil:
-                visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+                visible: 'Bitcoin, Lightning, .*sats, .*'
                 timeout: 90000
             - tapOn:
                 point: '50%,58%'
@@ -1213,7 +1213,7 @@ onFlowComplete:
                 optional: true
             - runFlow: ../_relaunch-keep-state.yaml
             - extendedWaitUntil:
-                visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+                visible: 'Bitcoin, Lightning, .*sats, .*'
                 timeout: 90000
             - tapOn:
                 point: '50%,58%'

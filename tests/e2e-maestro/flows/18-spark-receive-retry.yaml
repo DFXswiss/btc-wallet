@@ -8,9 +8,9 @@ appId: swiss.dfx.bitcoin
 - waitForAnimationToEnd:
     timeout: 90000
 - extendedWaitUntil:
-    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    visible: 'Bitcoin, Lightning, 0 sats, .*'
     timeout: 90000
-- assertVisible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+- assertVisible: 'Bitcoin, Lightning, 0 sats, .*'
 - takeScreenshot: .maestro-e2e-shots/18-spark/01-lightning-spark-wallet
 - tapOn:
     point: '50%,58%'

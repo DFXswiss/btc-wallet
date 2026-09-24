@@ -381,9 +381,9 @@
   },
   "wallets": {
     "main_wallet_label": "On-Chain Wallet",
-    "lightning_spark_wallet_label": "Lightning (Spark)",
-    "lightning_spark_only": "This operation is not available from a Lightning (Spark) wallet.",
-    "lightning_spark_recovery_explanation": "This Lightning (Spark) recovery phrase differs from the linked on-chain wallet's phrase. Store both securely.",
+    "lightning_spark_wallet_label": "Lightning",
+    "lightning_spark_only": "This operation is not available from a Lightning wallet.",
+    "lightning_spark_recovery_explanation": "This Lightning recovery phrase differs from the linked on-chain wallet's phrase. Store both securely.",
     "lightning_spark_recovery_unavailable": "The linked on-chain wallet or its recovery phrase is unavailable. No Spark recovery phrase was shown.",
     "lightning_spark_payment_failed": "Payment failed",
     "lightning_spark_payment_in_transit": "This payment is still on its way. Do not send it again.",

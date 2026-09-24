@@ -6,16 +6,16 @@ appId: swiss.dfx.bitcoin
 - waitForAnimationToEnd:
     timeout: 90000
 - extendedWaitUntil:
-    visible: 'Bitcoin, Lightning \(Spark\), 0 sats, .*'
+    visible: 'Bitcoin, Lightning, 0 sats, .*'
     timeout: 90000
 - tapOn:
     point: '90%,10%'
 - extendedWaitUntil:
     visible: 'Allgemein'
     timeout: 20000
-- tapOn: 'Lightning \(Spark\)'
+- tapOn: 'Lightning'
 - extendedWaitUntil:
-    visible: 'Lightning \(Spark\)'
+    visible: 'Lightning'
     timeout: 20000
 - assertVisible: 'Typ'
-- assertVisible: 'Lightning \(Spark\)'
+- assertVisible: 'Lightning'

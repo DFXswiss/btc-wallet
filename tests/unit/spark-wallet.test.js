@@ -199,10 +199,14 @@ describe('SparkWallet', () => {
     assert.strictEqual(SparkWallet.typeReadable, require('../../loc').default.wallets.lightning_spark_wallet_label);
   });
 
-  it('upgrades the legacy default Spark label while preserving a custom label', () => {
+  it('shows the current localized name for an unset or legacy default label while preserving a custom label', () => {
+    const name = require('../../loc').default.wallets.lightning_spark_wallet_label;
     const wallet = SparkWallet.create('pk-label');
-    wallet.setLabel('Spark');
-    assert.strictEqual(wallet.getLabel(), require('../../loc').default.wallets.lightning_spark_wallet_label);
+    assert.strictEqual(wallet.getLabel(), name);
+    for (const legacy of ['Spark', 'Lightning (Spark)', '  ']) {
+      wallet.setLabel(legacy);
+      assert.strictEqual(wallet.getLabel(), name);
+    }
     wallet.setLabel('My Spark wallet');
     assert.strictEqual(wallet.getLabel(), 'My Spark wallet');
   });

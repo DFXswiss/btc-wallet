@@ -309,7 +309,7 @@ beforeEach(() => {
 });
 
 describe('home screen Spark Lightning add path (render)', () => {
-  it('creates a Spark wallet in place: spinner while creating, then Lightning (Spark)', async () => {
+  it('creates a Spark wallet in place: spinner while creating, then Lightning', async () => {
     let resolveConnect;
     mockConnect.mockImplementation(
       () =>
@@ -504,7 +504,7 @@ describe('loc keys for Spark label', () => {
   for (const locale of ['en', 'de', 'fr', 'it']) {
     it(`${locale}.json defines lightning_spark_wallet_label`, () => {
       const json = JSON.parse(fs.readFileSync(path.join(repoRoot, `loc/${locale}.json`), 'utf8'));
-      assert.strictEqual(json.wallets.lightning_spark_wallet_label, 'Lightning (Spark)');
+      assert.strictEqual(json.wallets.lightning_spark_wallet_label, 'Lightning');
       assert.ok(json.wallets.lightning_spark_source_missing.includes('{label}'));
       assert.ok(json.wallets.lightning_spark_address_unavailable);
       assert.strictEqual(json.wallets.lightning_wallet_label, undefined);
@@ -533,7 +533,7 @@ describe('home screen wallet rows and receive/send', () => {
     });
   });
 
-  it('labels a stored Spark wallet as Lightning (Spark)', async () => {
+  it('labels a stored Spark wallet as Lightning', async () => {
     mockIsConnected.mockReturnValue(true);
     const screen = renderHome([makeOnChain(), makeSpark('spark-stored', 1)]);
     await waitFor(() => expect(screen.getByText(loc.wallets.lightning_spark_wallet_label)).toBeTruthy());

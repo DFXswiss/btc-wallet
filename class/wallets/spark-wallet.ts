@@ -129,6 +129,9 @@ function invoiceDedupeKeys(tx: SparkInvoiceRecord): string[] {
   return keys;
 }
 
+/** Default labels older builds stored on the wallet record; shown as the current localized name instead. */
+const LEGACY_DEFAULT_LABELS = ['Spark', 'Lightning (Spark)'];
+
 export class SparkWallet extends AbstractWallet {
   static type = 'sparkWallet';
   static typeReadable = loc.wallets.lightning_spark_wallet_label;
@@ -169,8 +172,9 @@ export class SparkWallet extends AbstractWallet {
   }
 
   getLabel(): string {
-    const label = super.getLabel();
-    return label === 'Spark' ? loc.wallets.lightning_spark_wallet_label : label;
+    const label = this.label.trim();
+    if (!label || LEGACY_DEFAULT_LABELS.includes(label)) return loc.wallets.lightning_spark_wallet_label;
+    return label;
   }
 
   static parseSparkPaymentUri(input: string): { invoice: string } {

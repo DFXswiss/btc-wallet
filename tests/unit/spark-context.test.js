@@ -165,6 +165,8 @@ describe('SparkContextProvider', () => {
     assert.strictEqual(created.type, SparkWallet.type);
     assert.strictEqual(created.getSecret(), '');
     assert.strictEqual(created.identityPubkey, 'pk-1');
+    assert.strictEqual(created.label, '');
+    assert.strictEqual(created.getLabel(), loc.wallets.lightning_spark_wallet_label);
     assert.strictEqual(created.lnAddress, undefined);
     expect(mockSdk.getLightningAddress).not.toHaveBeenCalled();
     assert.strictEqual(created.sourceWalletId, 'hd-default');

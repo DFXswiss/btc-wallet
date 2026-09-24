@@ -331,7 +331,6 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
       const info = await lease.requireSdk().getInfo({ ensureSynced: false });
       lease.requireSdk();
       created = SparkWallet.create(info.identityPubkey);
-      created.setLabel(loc.wallets.lightning_spark_wallet_label);
       // Never write the recovery phrase into the Spark wallet record.
       created.secret = '';
       created.balance = Number(info.balanceSats);

@@ -14,9 +14,9 @@ env:
           condition: ${false}
           label: E2E_BOLT11_INVOICE is missing; pass the isolated receiver's invoice outside the repository.
 - extendedWaitUntil:
-    visible: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+    visible: 'Bitcoin, Lightning, .*sats, .*'
     timeout: 30000
-- copyTextFrom: 'Bitcoin, Lightning \(Spark\), .*sats, .*'
+- copyTextFrom: 'Bitcoin, Lightning, .*sats, .*'
 - evalScript: "${output.startingBalance = Number(String(maestro.copiedText || '').replace(/[^0-9]/g, ''))}"
 - assertTrue:
     condition: ${output.startingBalance === 78}
