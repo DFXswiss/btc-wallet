@@ -488,7 +488,7 @@ describe('BlueApp deserializes Spark without LNDHub init', () => {
     assert.ok(restored instanceof SparkWallet);
     assert.strictEqual(restored.type, SparkWallet.type);
     assert.strictEqual(restored.identityPubkey, 'pk-disk-1');
-    assert.strictEqual(restored.lnAddress, undefined);
+    assert.strictEqual(restored.lnAddress, 'spark@breez.blitz');
     assert.strictEqual(restored.getLabel(), 'spark-saved');
     assert.strictEqual(restored.getBalance(), 42);
     assert.strictEqual(restored.getSecret(), '');

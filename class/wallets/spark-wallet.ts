@@ -236,7 +236,6 @@ export class SparkWallet extends AbstractWallet {
     const wallet = super.fromJson(obj) as unknown as SparkWallet;
     // Older builds stored a Bitcoin deposit address. v1 does not receive on-chain.
     delete (wallet as { depositAddress?: string }).depositAddress;
-    wallet.lnAddress = undefined;
     return wallet;
   }
 

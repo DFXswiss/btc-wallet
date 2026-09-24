@@ -26,8 +26,8 @@ appId: swiss.dfx.bitcoin
       - takeScreenshot: .maestro-e2e-shots/18-spark/02-receive-retry
       - tapOn: 'Nochmal versuchen'
 - extendedWaitUntil:
-    visible: '.*spark1.*'
+    visible: '[0-9a-f]{16}@.*'
     timeout: 90000
-- assertVisible: '.*spark1.*'
+- assertVisible: '[0-9a-f]{16}@.*'
 - assertNotVisible: 'Es ist noch keine Empfangsadresse verfügbar.*'
 - takeScreenshot: .maestro-e2e-shots/18-spark/03-receive-address-ready

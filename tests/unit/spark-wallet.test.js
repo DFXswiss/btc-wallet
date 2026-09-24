@@ -2767,7 +2767,7 @@ describe('SparkWallet', () => {
     });
   });
 
-  it('fromJson round-trips type and identity without inventing a secret', () => {
+  it('fromJson round-trips type, identity and Lightning address without inventing a secret', () => {
     const wallet = SparkWallet.create('round-trip-pk', 'a@b.c');
     wallet.balance = 7;
     const stored = JSON.parse(JSON.stringify(wallet));
@@ -2775,7 +2775,7 @@ describe('SparkWallet', () => {
     const restored = SparkWallet.fromJson(JSON.stringify(stored));
     assert.strictEqual(restored.type, SparkWallet.type);
     assert.strictEqual(restored.identityPubkey, 'round-trip-pk');
-    assert.strictEqual(restored.lnAddress, undefined);
+    assert.strictEqual(restored.lnAddress, 'a@b.c');
     assert.strictEqual(restored.depositAddress, undefined);
     assert.strictEqual(restored.weOwnAddress('bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'), false);
     assert.strictEqual(restored.getSecret(), '');

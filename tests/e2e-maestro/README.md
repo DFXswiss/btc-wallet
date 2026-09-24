@@ -21,7 +21,7 @@ selects, logs, or screenshots the phrase text.
   `/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home`. The runner sets
   `JAVA_HOME` and extends `PATH`; if Java is missing it aborts with exit 2.
 - Network access to Spark/Breez and to the DFX API. P9 opens Spark receive and
-  checks that a `spark1` address is visible. It does not use a Lightning address.
+  checks that the wallet's Lightning address is visible.
   P11/P12/P16/P17 need a reachable DFX web flow.
 - P11, P12, P16 and P17 additionally require an account that is tradable on the
   API side (verified status, a non-zero limit, deposit addresses). That state is
@@ -43,7 +43,7 @@ selects, logs, or screenshots the phrase text.
   and otherwise behaves as before. `SETTLE_PORT` optionally overrides port
   `18790`. `SETTLE_DB_CONTAINER` selects the local database container used by
   the helper and defaults to `spark276-db-1`.
-- P14 and P15 only open Spark receive and assert a visible `spark1` address.
+- P14 and P15 only open Spark receive and assert a visible Lightning address.
   They do not pay a Lightning invoice and do not use `E2E_TREASURY_*`.
   P16 and P17 need `E2E_API_URL` and
   `E2E_DFX_JWT` (see the backend-API section below). P17 has no Lightning
@@ -271,7 +271,7 @@ maestro --device "$FUNDED_SIMULATOR_UDID" test \
 
 P22 passed on the preserved simulator. P23 is also read-only with respect to
 payments. From the same home screen it opens Spark receive and taps the public
-`spark1` address to copy it to the simulator pasteboard for the receiver refund.
+receive address to copy it to the simulator pasteboard for the receiver refund.
 It does not screenshot the address. P23 passed; the isolated receiver was then
 refunded 10 sats with 0-sat fee, leaving its balance at 0 and the sender at 76
 sats. Run P23 directly after P22:
@@ -345,9 +345,9 @@ runtime, and both `runFlow` calls pulled inline — the before-value arrived
 as `undefined` every time. A before/after comparison across a restart is
 therefore not possible.
 
-- P8, P9, P14 and P15 only open Spark receive and assert a visible `spark1`
-  address. They do not create a Lightning address, a BOLT11 invoice, or an
-  on-chain deposit, and they do not pay. P10 checks the authentication prompt
+- P8, P9, P14 and P15 only open Spark receive and assert a visible Lightning
+  address. They do not create a BOLT11 invoice or an on-chain deposit, and they
+  do not pay. P10 checks the authentication prompt
   and the rejection expected for Spark.
 - P16 and P17 are the payment flows. After a payment the Spark row only showed
   the new balance after an app restart without wiping state (`launchApp` with

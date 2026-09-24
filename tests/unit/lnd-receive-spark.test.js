@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { ActivityIndicator } from 'react-native';
 import { fireEvent, render, act, waitFor } from '@testing-library/react-native';
+import { PaymentDetails_Tags, PaymentStatus, PaymentType } from '@breeztech/breez-sdk-spark-react-native';
 
 jest.mock('../../blue_modules/BlueElectrum', () => ({ connectMain: jest.fn() }));
 jest.mock('../../blue_modules/currency', () => ({
@@ -187,10 +188,25 @@ function paidUserInvoice() {
   };
 }
 
+function paidPayment() {
+  return {
+    id: 'recv-1',
+    paymentType: PaymentType.Receive,
+    status: PaymentStatus.Completed,
+    amount: 1000n,
+    fees: 0n,
+    timestamp: 1700000000n,
+    method: {},
+    details: {
+      tag: PaymentDetails_Tags.Lightning,
+      inner: { description: 'coffee', invoice: SAMPLE_INVOICE, destinationPubkey: 'x', htlcDetails: {} },
+    },
+  };
+}
+
 function makeSparkReceiveWallet(id) {
   const wallet = SparkWallet.create('pk-receive-1');
   wallet.getID = () => id;
-  wallet.lnAddress = 'spark@test';
   wallet.setLabel('Spark');
   return wallet;
 }
@@ -383,18 +399,23 @@ describe('LNDReceive with SparkWallet', () => {
     restoreInvoiceTimers();
   });
 
-  it('shows the Spark address and does not create a Lightning invoice', async () => {
-    const address = 'spark1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqsy8n8c';
-    mockSdk.receivePayment.mockResolvedValue({ paymentRequest: address, fee: 0n });
-    const wallet = SparkWallet.create('pk-receive-1');
-    wallet.getID = () => 'spark-receive-1';
+  it('shows the registered Lightning address and does not look up the Spark address', async () => {
+    const wallet = makeSparkReceiveWallet('spark-receive-ln');
     wallet.lnAddress = 'spark@test';
-    wallet.setLabel('Spark');
     const screen = renderReceive(wallet);
 
+    await waitFor(() => expect(screen.getByText('spark@test')).toBeTruthy());
+    expect(screen.getByTestId('QRCode')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Amount (optional)')).toBeTruthy();
+    expect(mockSdk.receivePayment).not.toHaveBeenCalled();
+  });
+
+  it('shows the Spark address while no Lightning address is registered and no amount is entered', async () => {
+    const address = 'spark1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqsy8n8c';
+    mockSdk.receivePayment.mockResolvedValue({ paymentRequest: address, fee: 0n });
+    const screen = renderReceive(makeSparkReceiveWallet('spark-receive-1'));
+
     await waitFor(() => expect(screen.getByText(address)).toBeTruthy());
-    expect(screen.queryByPlaceholderText('Amount (optional)')).toBeNull();
-    expect(screen.queryByText('spark@test')).toBeNull();
     expect(screen.queryByText(SAMPLE_INVOICE)).toBeNull();
     const method = mockSdk.receivePayment.mock.calls[0][0].paymentMethod;
     assert.strictEqual(method.tag, 'SparkAddress');
@@ -500,8 +521,8 @@ describe('LNDReceive with SparkWallet', () => {
 
   it('hides Use Boltcard for Spark and keeps it for an LNDHub invoice', async () => {
     const sparkScreen = renderReceive(makeSparkReceiveWallet('spark-receive-1'));
+    await createInvoice(sparkScreen);
     expect(sparkScreen.queryByText('Use Boltcard')).toBeNull();
-    expect(sparkScreen.queryByPlaceholderText('Amount (optional)')).toBeNull();
     sparkScreen.unmount();
 
     const ldsScreen = renderReceive(makeLdsReceiveWallet('lds-receive-1'));
@@ -515,6 +536,7 @@ describe('LNDReceive with SparkWallet', () => {
     try {
       const wallet = makeSparkReceiveWallet('spark-receive-nfc');
       const screen = renderReceive(wallet);
+      await createInvoice(screen);
       await waitFor(() => expect(mockSdk.receivePayment).toHaveBeenCalled());
       await act(async () => {
         await Promise.resolve();
@@ -542,7 +564,82 @@ describe('LNDReceive with SparkWallet', () => {
     }
   });
 
-  it('does not start an invoice poller for a Spark wallet', async () => {
+  it('starts invoice polling after creating a Spark invoice and marks it paid', async () => {
+    const wallet = SparkWallet.create('pk-receive-1');
+    wallet.getID = () => 'spark-receive-1';
+    wallet.lnAddress = 'spark@test';
+    wallet.setLabel('Spark');
+
+    const saveToDisk = jest.fn().mockResolvedValue(undefined);
+    const fetchAndSaveWalletTransactions = jest.fn();
+    const setSelectedWallet = jest.fn();
+
+    const screen = render(
+      <BlueStorageContext.Provider
+        value={{
+          wallets: [wallet],
+          saveToDisk,
+          setSelectedWallet,
+          fetchAndSaveWalletTransactions,
+        }}
+      >
+        <LNDReceive />
+      </BlueStorageContext.Provider>,
+    );
+
+    fireEvent.changeText(screen.getByPlaceholderText('Amount (optional)'), '1000');
+    fireEvent(screen.getByPlaceholderText('Amount (optional)'), 'blur');
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockSdk.receivePayment).toHaveBeenCalled();
+
+    await advanceTimers(1000);
+    expect(mockSdk.listPayments).toHaveBeenCalled();
+
+    mockSdk.listPayments.mockResolvedValue({ payments: [paidPayment()] });
+
+    await advanceTimers(3000);
+
+    expect(screen.getByTestId('SuccessView')).toBeTruthy();
+    expect(screen.getByText(loc.send.success_done)).toBeTruthy();
+    expect(fetchAndSaveWalletTransactions).toHaveBeenCalledWith('spark-receive-1');
+    assert.ok(typeof wallet.getUserInvoices === 'function');
+  });
+
+  it('shows the invoice amount on success even if the editor was changed after creating it', async () => {
+    const wallet = makeSparkReceiveWallet('spark-receive-1');
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    fireEvent.changeText(screen.getByPlaceholderText('Amount (optional)'), '2000');
+    await advanceTimers(1000);
+    mockSdk.listPayments.mockResolvedValue({ payments: [paidPayment()] });
+    await advanceTimers(3000);
+
+    expect(screen.getByTestId('SuccessView')).toBeTruthy();
+    expect(screen.getByText('1000')).toBeTruthy();
+    expect(screen.queryByText('2000')).toBeNull();
+    expect(screen.getByText(loc.send.success_done)).toBeTruthy();
+    screen.unmount();
+  });
+
+  it('stops invoice polling when the receive amount is cleared', async () => {
+    const wallet = makeSparkReceiveWallet('spark-receive-1');
+    const screen = renderReceive(wallet);
+    await createInvoice(screen);
+    await advanceTimers(1000);
+    assert.strictEqual(invoiceIntervalCount(), 1);
+    fireEvent.changeText(screen.getByPlaceholderText('Amount (optional)'), '');
+    fireEvent(screen.getByPlaceholderText('Amount (optional)'), 'blur');
+    await act(async () => {
+      await Promise.resolve();
+    });
+    assert.strictEqual(invoiceIntervalCount(), 0);
+    screen.unmount();
+  });
+
+  it('does not start an invoice poller for a Spark wallet before an amount is entered', async () => {
     const wallet = makeSparkReceiveWallet('spark-receive-1');
     const getUserInvoices = jest.spyOn(wallet, 'getUserInvoices');
     const screen = renderReceive(wallet);
@@ -554,6 +651,12 @@ describe('LNDReceive with SparkWallet', () => {
     expect(getUserInvoices).not.toHaveBeenCalled();
   });
 
+  it('clears the pending poll timeout on unmount so no poller starts (Spark)', async () => {
+    const wallet = makeSparkReceiveWallet('spark-receive-1');
+    const getUserInvoices = jest.spyOn(wallet, 'getUserInvoices');
+    await assertUnmountClearsInvoicePollTimeout(wallet, getUserInvoices);
+  });
+
   it('clears the pending poll timeout on unmount so no poller starts (LNDHub)', async () => {
     const wallet = makeLdsReceiveWallet('lds-receive-1');
     await assertUnmountClearsInvoicePollTimeout(wallet, wallet.getUserInvoices);
@@ -561,15 +664,9 @@ describe('LNDReceive with SparkWallet', () => {
 
   it('shows a missing-address state instead of a QR when Spark has no address', async () => {
     mockSdk.receivePayment.mockResolvedValue({ paymentRequest: '', fee: 0n });
-    const wallet = SparkWallet.create('pk-receive-1');
-    wallet.getID = () => 'spark-receive-1';
-    wallet.lnAddress = 'spark@test';
-    wallet.setLabel('Spark');
-
-    const screen = renderReceive(wallet);
+    const screen = renderReceive(makeSparkReceiveWallet('spark-receive-1'));
     await waitFor(() => expect(screen.getByText(loc.wallets.lightning_spark_address_unavailable)).toBeTruthy());
     expect(screen.queryByTestId('QRCode')).toBeNull();
-    expect(screen.queryByText('spark@test')).toBeNull();
   });
 
   it('defines lightning_spark_address_unavailable in en, de, fr, and it', () => {
@@ -586,12 +683,10 @@ describe('LNDReceive with SparkWallet', () => {
     }
   });
 
-  it('does not offer Lightning or on-chain receive on a Spark wallet', async () => {
+  it('does not offer on-chain receive on a Spark wallet', async () => {
     const sparkScreen = renderReceive(makeSparkReceiveWallet('spark-receive-1'));
     expect(sparkScreen.queryByTestId('SparkReceiveMethodSwitch')).toBeNull();
     expect(sparkScreen.queryByTestId('SparkReceiveOnchain')).toBeNull();
-    expect(sparkScreen.queryByPlaceholderText('Amount (optional)')).toBeNull();
-    expect(sparkScreen.queryByText('spark@test')).toBeNull();
     await waitFor(() => expect(sparkScreen.getByText(SAMPLE_INVOICE)).toBeTruthy());
     sparkScreen.unmount();
 

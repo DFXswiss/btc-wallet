@@ -1,6 +1,6 @@
 appId: swiss.dfx.bitcoin
 ---
-# P23 copies only the public Spark receive address into the simulator
+# P23 copies only the public Lightning receive address into the simulator
 # pasteboard so the isolated receiver can be refunded outside this flow.
 # It never displays, logs, or screenshots any recovery phrase or key.
 - assertVisible: 'Bitcoin, Lightning, 66 sats, .*'
@@ -17,11 +17,11 @@ appId: swiss.dfx.bitcoin
 - extendedWaitUntil:
     visible:
       id: AddressValue
-      text: '.*spark1.*'
+      text: '[0-9a-f]{16}@.*'
     timeout: 90000
 - assertVisible:
     id: AddressValue
-    text: '.*spark1.*'
+    text: '[0-9a-f]{16}@.*'
 - tapOn:
     id: BlueCopyTextToClipboard
 - assertVisible:

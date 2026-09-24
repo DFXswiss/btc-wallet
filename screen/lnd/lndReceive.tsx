@@ -116,6 +116,10 @@ const LNDReceive = () => {
 
   useEffect(() => {
     if (!isSpark || !wallet) return;
+    if (wallet.lnAddress) {
+      setIsSparkAddressLoading(false);
+      return;
+    }
     if (typeof wallet.sparkAddress === 'string' && wallet.sparkAddress) {
       setSparkAddress(wallet.sparkAddress);
       setIsSparkAddressLoading(false);
@@ -342,12 +346,14 @@ const LNDReceive = () => {
     });
   };
 
-  const copyText = isSpark ? sparkAddress : invoiceRequest || wallet?.lnAddress;
-  const qrValue = isSpark ? sparkAddress : invoiceRequest || wallet?.getLnurl?.() || wallet?.lnAddress;
-  const isQrLoading = isSpark ? isSparkAddressLoading && !sparkAddress : isInvoiceLoading;
+  // Without an amount, Spark receives on its Lightning address; the Spark address covers the time before one is registered.
+  const sparkReceiveAddress = wallet?.lnAddress || sparkAddress;
+  const copyText = invoiceRequest || (isSpark ? sparkReceiveAddress : wallet?.lnAddress);
+  const qrValue = invoiceRequest || (isSpark ? sparkReceiveAddress : wallet?.getLnurl?.() || wallet?.lnAddress);
+  const isQrLoading = isInvoiceLoading || (isSpark && !invoiceRequest && isSparkAddressLoading && !sparkReceiveAddress);
 
   const handleShareButtonPressed = () => {
-    Share.open({ message: (isSpark ? sparkAddress : invoiceRequest || wallet.lnAddress) || '' }).catch(() => {});
+    Share.open({ message: copyText || '' }).catch(() => {});
   };
 
   if (isPaid) {
@@ -378,7 +384,7 @@ const LNDReceive = () => {
                   <>
                     <QRCodeComponent value={qrValue} />
                     <View style={styles.shareContainer}>
-                      <BlueCopyTextToClipboard text={copyText || ''} truncated={Boolean(invoiceRequest) && !isSpark} textStyle={styles.copyText} />
+                      <BlueCopyTextToClipboard text={copyText || ''} truncated={Boolean(invoiceRequest)} textStyle={styles.copyText} />
                       <TouchableOpacity accessibilityRole="button" onPress={handleShareButtonPressed}>
                         <Image resizeMode="stretch" source={require('../../img/share-icon.png')} style={styles.shareIcon} />
                       </TouchableOpacity>
@@ -386,19 +392,14 @@ const LNDReceive = () => {
                   </>
                 ) : (
                   <View>
-                    <Text style={[styles.missingAddress, styleHooks.missingAddress]}>{loc.wallets.lightning_spark_address_unavailable}</Text>
-                    {isSpark && (
-                      <BlueButton
-                        title={loc.wallets.list_tryagain}
-                        onPress={() => setSparkAddressRetry(retry => retry + 1)}
-                      />
-                    )}
+                    <Text style={[styles.missingAddress, styleHooks.missingAddress]}>
+                      {loc.wallets.lightning_spark_address_unavailable}
+                    </Text>
+                    {isSpark && <BlueButton title={loc.wallets.list_tryagain} onPress={() => setSparkAddressRetry(retry => retry + 1)} />}
                   </View>
                 )}
               </View>
               <View style={styles.share}>
-                {isSpark ? null : (
-                <>
                 <View style={[styles.customAmount, styleHooks.customAmount]}>
                   <TextInput
                     ref={inputAmountRef}
@@ -431,8 +432,6 @@ const LNDReceive = () => {
                     onBlur={handleOnBlur}
                   />
                 </View>
-                </>
-                )}
                 {invoiceRequest && wallet.type === LightningLdsWallet.type ? (
                   <View>
                     {Platform.select({

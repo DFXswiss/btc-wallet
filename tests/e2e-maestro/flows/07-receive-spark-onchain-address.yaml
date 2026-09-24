@@ -1,6 +1,6 @@
 appId: swiss.dfx.bitcoin
 ---
-# Spark receive shows a spark1 address. There is no Lightning address and no invoice.
+# Spark receive shows the wallet's Lightning address (<16 hex>@domain) until an amount is entered.
 - runFlow: ../_setup.yaml
 - tapOn:
     point: '85%,58%'
@@ -16,11 +16,10 @@ appId: swiss.dfx.bitcoin
 - tapOn:
     point: '16%,93%'
 - extendedWaitUntil:
-    visible: '.*spark1.*'
+    visible: '[0-9a-f]{16}@.*'
     timeout: 60000
-- assertVisible: '.*spark1.*'
+- assertVisible: '[0-9a-f]{16}@.*'
 - assertNotVisible: '.*@breez\.tips.*'
-- assertNotVisible: 'Amount (optional)'
 - assertNotVisible: 'On-Chain'
 - assertNotVisible: '.*lnbc.*'
 - assertNotVisible: '.*bc1.*'
