@@ -51,7 +51,12 @@ jest.mock('../../components/DfxServicesButtons', () => {
   };
 });
 const mockScanQr = jest.fn().mockResolvedValue('');
-jest.mock('../../helpers/scan-qr', () => (...args) => mockScanQr(...args));
+jest.mock(
+  '../../helpers/scan-qr',
+  () =>
+    (...args) =>
+      mockScanQr(...args),
+);
 const mockIsBoltcard = jest.fn(() => false);
 jest.mock('../../class/boltcard', () => ({
   isPossiblyBoltcardTapDetails: (...args) => mockIsBoltcard(...args),
@@ -134,6 +139,23 @@ const mockDisconnect = jest.fn(() => Promise.resolve());
 const mockSync = jest.fn(() => Promise.resolve());
 const mockIsConnected = jest.fn(() => false);
 const mockRequireSdk = jest.fn();
+
+// The discovery itself is covered in lightning-recovery.test.js; here it only decides between an
+// existing lightning.space wallet and the real Spark creation.
+const mockAddExistingLds = jest.fn();
+jest.mock('../../hooks/lightningRecovery.hook', () => ({
+  useLightningRecovery: () => {
+    const { useSparkContext } = require('../../api/spark/contexts/spark.context');
+    const { createSparkWallet } = useSparkContext();
+    return {
+      recoverLightningWallet: jest.fn(),
+      addLightningWallet: async wallet => {
+        if (await mockAddExistingLds(wallet)) return;
+        await createSparkWallet();
+      },
+    };
+  },
+}));
 
 jest.mock('../../api/spark/spark-sdk', () => {
   class SparkSessionStaleError extends Error {
@@ -277,6 +299,7 @@ function pressLightningAdd(screen) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockAddExistingLds.mockResolvedValue(false);
   __resetOutgoingPaymentForTests();
   mockDisconnect.mockImplementation(() => Promise.resolve());
   mockSync.mockImplementation(() => Promise.resolve());
@@ -309,6 +332,41 @@ beforeEach(() => {
 });
 
 describe('home screen Spark Lightning add path (render)', () => {
+  it('adds an existing lightning.space wallet instead of creating a Spark wallet', async () => {
+    const onChain = makeOnChain('onchain-add');
+    mockAddExistingLds.mockResolvedValue(true);
+    const screen = renderHome([onChain]);
+
+    await waitFor(() => expect(screen.getAllByText(loc._.add).length).toBeGreaterThan(0));
+    await act(async () => {
+      pressLightningAdd(screen);
+    });
+
+    expect(mockAddExistingLds).toHaveBeenCalledWith(onChain);
+    expect(mockConnect).not.toHaveBeenCalled();
+  });
+
+  it('shows a retry alert and creates nothing when the lightning.space check fails', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockAddExistingLds.mockRejectedValue({ statusCode: 503 });
+    const screen = renderHome([makeOnChain('onchain-add')]);
+
+    await waitFor(() => expect(screen.getAllByText(loc._.add).length).toBeGreaterThan(0));
+    await act(async () => {
+      pressLightningAdd(screen);
+    });
+
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith(
+        loc.wallets.lightning_spark_wallet_label,
+        loc.wallets.lightning_account_check_failed,
+        expect.any(Array),
+      ),
+    );
+    expect(mockConnect).not.toHaveBeenCalled();
+    alert.mockRestore();
+  });
+
   it('creates a Spark wallet in place: spinner while creating, then Lightning', async () => {
     let resolveConnect;
     mockConnect.mockImplementation(
@@ -572,9 +630,8 @@ describe('home screen wallet rows and receive/send', () => {
     });
   });
 
-  it('opens LNDReceive for the Spark wallet and ignores an LDS wallet', async () => {
+  it('keeps an existing LDS wallet for receive when a Spark wallet also exists', async () => {
     const lds = makeLds('lds-recv');
-    lds.isPosMode = true;
     const spark = makeSpark('spark-recv');
     mockIsConnected.mockReturnValue(true);
     const screen = renderHome([makeOnChain(), lds, spark]);
@@ -582,19 +639,30 @@ describe('home screen wallet rows and receive/send', () => {
     fireEvent.press(screen.getByTestId('ReceiveButton'));
     expect(mockNavigate).toHaveBeenCalledWith('ReceiveDetailsRoot', {
       screen: 'LNDReceive',
-      params: { walletID: 'spark-recv' },
+      params: { walletID: 'lds-recv' },
     });
   });
 
-  it('does not open PosReceive when only an LDS wallet exists', async () => {
+  it('opens PosReceive for an LDS wallet in POS mode', async () => {
     const lds = makeLds('lds-pos');
     lds.isPosMode = true;
     const screen = renderHome([makeOnChain('onchain-pos'), lds]);
     await waitFor(() => expect(screen.getByTestId('ReceiveButton')).toBeTruthy());
     fireEvent.press(screen.getByTestId('ReceiveButton'));
     expect(mockNavigate).toHaveBeenCalledWith('ReceiveDetailsRoot', {
-      screen: 'ReceiveDetails',
-      params: { walletID: 'onchain-pos' },
+      screen: 'PosReceive',
+      params: { walletID: 'lds-pos' },
+    });
+  });
+
+  it('shows an existing LDS wallet in the Lightning row instead of offering a new Spark wallet', async () => {
+    const lds = makeLds('lds-row', 51);
+    const screen = renderHome([makeOnChain(), lds]);
+    await waitFor(() => expect(screen.getByText(loc.wallets.lightning_spark_wallet_label)).toBeTruthy());
+    fireEvent.press(screen.getByText(loc.wallets.lightning_spark_wallet_label));
+    expect(mockNavigate).toHaveBeenCalledWith('WalletsRoot', {
+      screen: 'WalletAsset',
+      params: { walletID: 'lds-row' },
     });
   });
 

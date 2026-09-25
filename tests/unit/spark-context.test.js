@@ -156,6 +156,76 @@ describe('useSparkContext', () => {
   });
 });
 
+describe('SparkContextProvider recoverSparkWallet', () => {
+  async function recover(source = hdWallet, wallets = [source]) {
+    renderWith(wallets);
+    await waitFor(() => assert.ok(latestCtx));
+    // The provider disconnects on mount while no Spark wallet exists; only calls made by the recovery count.
+    mockDisconnect.mockClear();
+    let result;
+    await act(async () => {
+      result = await latestCtx.recoverSparkWallet(source);
+    });
+    return result;
+  }
+
+  it('restores a used Spark wallet with its existing address and does not register a new one', async () => {
+    mockSdk.getInfo.mockResolvedValue({ identityPubkey: 'pk-1', balanceSats: 25n });
+    const recovered = await recover();
+
+    assert.ok(recovered);
+    assert.strictEqual(recovered.type, SparkWallet.type);
+    assert.strictEqual(recovered.getSecret(), '');
+    assert.strictEqual(recovered.lnAddress, 'user@breez.blitz');
+    assert.strictEqual(recovered.balance, 25);
+    assert.strictEqual(recovered.sourceWalletId, 'hd-default');
+    expect(mockSync).toHaveBeenCalled();
+    expect(addAndSaveWallet).toHaveBeenCalledWith(recovered);
+    expect(mockSdk.registerLightningAddress).not.toHaveBeenCalled();
+    expect(mockDisconnect).not.toHaveBeenCalled();
+  });
+
+  it('restores a Spark wallet that only has payment history', async () => {
+    mockSdk.getLightningAddress.mockResolvedValue(undefined);
+    mockSdk.listPayments.mockResolvedValue({ payments: [{ id: 'p1' }] });
+    const recovered = await recover();
+
+    assert.ok(recovered);
+    expect(addAndSaveWallet).toHaveBeenCalledWith(recovered);
+  });
+
+  it('creates nothing and disconnects when the Spark wallet was never used', async () => {
+    mockSdk.getLightningAddress.mockResolvedValue(undefined);
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const recovered = await recover();
+
+    assert.strictEqual(recovered, null);
+    expect(addAndSaveWallet).not.toHaveBeenCalled();
+    expect(mockDisconnect).toHaveBeenCalled();
+    expect(alert).not.toHaveBeenCalled();
+  });
+
+  it('creates nothing and stays silent when the check fails', async () => {
+    mockConnect.mockRejectedValue(new Error('offline'));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const recovered = await recover();
+
+    assert.strictEqual(recovered, null);
+    expect(addAndSaveWallet).not.toHaveBeenCalled();
+    expect(alert).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when a Spark wallet already exists or the source cannot derive one', async () => {
+    const existing = SparkWallet.create('stored-pk');
+    existing.fetchBalance = jest.fn().mockResolvedValue(undefined);
+    existing.fetchTransactions = jest.fn().mockResolvedValue(undefined);
+    existing.fetchUserInvoices = jest.fn().mockResolvedValue(undefined);
+    assert.strictEqual(await recover(hdWallet, [hdWallet, existing]), null);
+    assert.strictEqual(await recover({ ...hdWallet, type: 'watchOnly' }), null);
+    expect(addAndSaveWallet).not.toHaveBeenCalled();
+  });
+});
+
 describe('SparkContextProvider', () => {
   it('creates a Spark wallet from the on-chain seed without storing the phrase', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});

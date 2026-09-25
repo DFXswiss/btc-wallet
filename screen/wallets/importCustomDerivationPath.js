@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState, useRef, useMemo } from 'react';
-import { Alert, FlatList, StatusBar, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, StatusBar, StyleSheet, TextInput, View } from 'react-native';
 import { StackActions, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 
 import { BlueButton, BlueFormLabel, BlueSpacing20, BlueTextCentered, SafeBlueArea } from '../../BlueComponents';
@@ -11,6 +11,7 @@ import { HDLegacyP2PKHWallet, HDSegwitP2SHWallet, HDSegwitBech32Wallet } from '.
 import { validateBip32 } from '../../class/wallet-import';
 import debounce from '../../blue_modules/debounce';
 import { walletCreatedRoute } from '../../helpers/wallet-created-route';
+import { useLightningRecovery } from '../../hooks/lightningRecovery.hook';
 
 const WRONG_PATH = 'WRONG_PATH';
 const WALLET_FOUND = 'WALLET_FOUND';
@@ -25,7 +26,9 @@ const ImportCustomDerivationPath = () => {
   const route = useRoute();
   const importText = route.params.importText;
   const password = route.params.password;
-  const { addAndSaveWallet } = useContext(BlueStorageContext);
+  const { wallets: storedWallets, addAndSaveWallet } = useContext(BlueStorageContext);
+  const { waitForLightningRecovery } = useLightningRecovery();
+  const [recovering, setRecovering] = useState(false);
   const [path, setPath] = useState("m/84'/0'/0'");
   const [wallets, setWallets] = useState({});
   const [used, setUsed] = useState({});
@@ -94,7 +97,12 @@ const ImportCustomDerivationPath = () => {
     importing.current = true;
     try {
       const wallet = wallets[path][type];
+      const isFirstWallet = storedWallets.length === 0;
       await addAndSaveWallet(wallet);
+      if (isFirstWallet) {
+        setRecovering(true);
+        await waitForLightningRecovery(wallet);
+      }
       navigation.dispatch(StackActions.replace(...walletCreatedRoute()));
     } catch (e) {
       Alert.alert(e.message);
@@ -145,9 +153,15 @@ const ImportCustomDerivationPath = () => {
       />
 
       <View style={[styles.center, stylesHook.center]}>
+        {recovering && (
+          <>
+            <ActivityIndicator testID="Loading" />
+            <BlueFormLabel>{loc.wallets.import_lightning_recovery}</BlueFormLabel>
+          </>
+        )}
         <View style={styles.buttonContainer}>
           <BlueButton
-            disabled={wallets[path]?.[selected] === undefined}
+            disabled={recovering || wallets[path]?.[selected] === undefined}
             title={loc.wallets.import_do_import}
             testID="ImportButton"
             onPress={() => saveWallet(selected)}

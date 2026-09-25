@@ -73,7 +73,7 @@ describe('Settings Lightning wallet entry', () => {
     expect(mockNavigate).toHaveBeenCalledWith('WalletDetails', { walletID: 'spark-wallet-id' });
   });
 
-  it('uses the Spark wallet when both Spark and LDS are present', () => {
+  it('keeps the LDS wallet in the Lightning entry when both Spark and LDS are present', () => {
     const sparkWallet = {
       type: SparkWallet.type,
       getID: () => 'spark-wallet-id',
@@ -87,8 +87,8 @@ describe('Settings Lightning wallet entry', () => {
 
     expect(item).not.toBeDisabled();
     fireEvent.press(item);
-    expect(mockNavigate).toHaveBeenCalledWith('WalletDetails', { walletID: 'spark-wallet-id' });
-    expect(mockNavigate).not.toHaveBeenCalledWith('WalletDetails', { walletID: 'lds-wallet-id' });
+    expect(mockNavigate).toHaveBeenCalledWith('WalletDetails', { walletID: 'lds-wallet-id' });
+    expect(mockNavigate).not.toHaveBeenCalledWith('WalletDetails', { walletID: 'spark-wallet-id' });
   });
 
   it('keeps the Lightning entry disabled when neither LDS nor Spark is present', () => {
@@ -97,7 +97,7 @@ describe('Settings Lightning wallet entry', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it('keeps the Spark entry disabled when only an LDS wallet is present', () => {
+  it('opens an LDS wallet from the Lightning entry when it is the only Lightning wallet', () => {
     const ldsWallet = {
       type: LightningLdsWallet.type,
       getID: () => 'lds-only-id',
@@ -105,12 +105,10 @@ describe('Settings Lightning wallet entry', () => {
     const screen = renderSettings([ldsWallet]);
     const item = screen.getByTestId('WalletDetailsLnd');
 
-    expect(item).toBeDisabled();
+    expect(item).not.toBeDisabled();
     expect(screen.getByText(loc.wallets.lightning_spark_wallet_label)).toBeTruthy();
-    expect(screen.queryByText('Lightning Wallet')).toBeNull();
-    expect(screen.queryByText('Lightning-Wallet')).toBeNull();
     fireEvent.press(item);
-    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith('WalletDetails', { walletID: 'lds-only-id' });
   });
 
   it('does not navigate when the disabled Lightning row is pressed', () => {

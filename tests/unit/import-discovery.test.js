@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert } from 'react-native';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
 // Importing a wallet used to hand over to the LNDHub screen with
 // isOnboarding: true. It now replaces the stack with the wallet home screen —
@@ -68,6 +68,12 @@ jest.mock('../../class', () => ({
   WatchOnlyWallet: { type: 'watchOnly' },
 }));
 
+const mockRecoverLightningWallet = jest.fn().mockResolvedValue(undefined);
+jest.mock('../../hooks/lightningRecovery.hook', () => ({
+  useLightningRecovery: () => ({ waitForLightningRecovery: mockRecoverLightningWallet }),
+}));
+let mockStoredWallets = [];
+
 const ImportWalletDiscovery = require('../../screen/wallets/importDiscovery').default;
 const { BlueStorageContext } = require('../../blue_modules/storage-context');
 const loc = require('../../loc').default;
@@ -77,7 +83,7 @@ const addAndSaveWallet = jest.fn().mockResolvedValue(undefined);
 
 const renderScreen = () =>
   render(
-    <BlueStorageContext.Provider value={{ addAndSaveWallet }}>
+    <BlueStorageContext.Provider value={{ wallets: mockStoredWallets, addAndSaveWallet }}>
       <ImportWalletDiscovery />
     </BlueStorageContext.Provider>,
   );
@@ -94,6 +100,7 @@ beforeEach(() => {
   mockRouteParams = { importText: 'abandon abandon about', askPassphrase: false, searchAccounts: false };
   mockMultisigCosigners = [];
   mockMultisigSize = { n: 0, m: 0 };
+  mockStoredWallets = [];
   mockPrompt = jest.fn().mockResolvedValue('passphrase');
   mockImportPromise = Promise.resolve({ cancelled: false, wallets: [] });
 });
@@ -107,6 +114,43 @@ describe('ImportWalletDiscovery', () => {
     await waitFor(() => expect(addAndSaveWallet).toHaveBeenCalledWith(wallet));
     expect(mockDispatch).toHaveBeenCalledWith(StackActions.replace('WalletsRoot', { screen: 'WalletTransactions' }));
     expect(JSON.stringify(mockDispatch.mock.calls)).not.toMatch(/AddLightning|isOnboarding/);
+  });
+
+  it('starts Lightning recovery for the first imported wallet', async () => {
+    const wallet = foundWallet('found-1');
+    mockImportPromise = Promise.resolve({ cancelled: false, wallets: [wallet] });
+    renderScreen();
+
+    await waitFor(() => expect(mockRecoverLightningWallet).toHaveBeenCalledWith(wallet));
+    expect(mockRecoverLightningWallet).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the overview only after the Lightning recovery has finished', async () => {
+    let finishRecovery;
+    mockRecoverLightningWallet.mockReturnValueOnce(
+      new Promise(resolve => {
+        finishRecovery = resolve;
+      }),
+    );
+    const wallet = foundWallet('found-1');
+    mockImportPromise = Promise.resolve({ cancelled: false, wallets: [wallet] });
+    const screen = renderScreen();
+
+    await waitFor(() => expect(mockRecoverLightningWallet).toHaveBeenCalledWith(wallet));
+    expect(mockDispatch).not.toHaveBeenCalled();
+    expect(screen.getByText(loc.wallets.import_lightning_recovery)).toBeTruthy();
+    await act(async () => finishRecovery());
+    await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith(StackActions.replace('WalletsRoot', { screen: 'WalletTransactions' })));
+  });
+
+  it('does not start Lightning recovery when other wallets already exist', async () => {
+    mockStoredWallets = [foundWallet('existing')];
+    const wallet = foundWallet('found-1');
+    mockImportPromise = Promise.resolve({ cancelled: false, wallets: [wallet] });
+    renderScreen();
+
+    await waitFor(() => expect(addAndSaveWallet).toHaveBeenCalledWith(wallet));
+    expect(mockRecoverLightningWallet).not.toHaveBeenCalled();
   });
 
   it('stores the multisig wallet found in a backup alongside the main wallet', async () => {

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useContext, useRef, useMemo } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   InteractionManager,
   PixelRatio,
@@ -31,6 +32,7 @@ import TransactionsNavigationHeader from '../../components/TransactionsNavigatio
 import PropTypes from 'prop-types';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
+import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import { SparkWallet } from '../../class/wallets/spark-wallet';
 import { Chain } from '../../models/bitcoinUnits';
 import BoltCard from '../../class/boltcard';
@@ -38,6 +40,8 @@ import scanqrHelper from '../../helpers/scan-qr';
 import DfxServicesButtons from '../../components/DfxServicesButtons';
 import { usePrivateText } from '../../hooks/usePrivateText';
 import { useSparkContext } from '../../api/spark/contexts/spark.context';
+import { useLightningRecovery } from '../../hooks/lightningRecovery.hook';
+import { reportError } from '../../helpers/errors';
 
 const fs = require('../../blue_modules/fs');
 
@@ -48,10 +52,16 @@ const buttonFontSize =
 
 const WalletHome = ({ navigation }) => {
   const { wallets, saveToDisk, setSelectedWallet, revalidateBalancesInterval } = useContext(BlueStorageContext);
-  const { createSparkWallet, isCreating } = useSparkContext();
+  const { isCreating } = useSparkContext();
+  const { addLightningWallet } = useLightningRecovery();
+  const [isAddingLightning, setIsAddingLightning] = useState(false);
   const walletID = useMemo(() => wallets[0]?.getID(), [wallets]);
   const multisigWallet = useMemo(() => wallets.find(w => w.type === MultisigHDWallet.type), [wallets]);
-  const sparkWallet = useMemo(() => wallets.find(w => w.type === SparkWallet.type), [wallets]);
+  // An existing lightning.space wallet keeps the Lightning slot; Spark fills it otherwise.
+  const lnWallet = useMemo(
+    () => wallets.find(w => w.type === LightningLdsWallet.type) || wallets.find(w => w.type === SparkWallet.type),
+    [wallets],
+  );
   const [, setIsLoading] = useState(false);
   const { name, params } = useRoute();
   const { setParams, navigate } = useNavigation();
@@ -245,10 +255,10 @@ const WalletHome = ({ navigation }) => {
 
   const onReceiveButtonPressed = () => {
     if (multisigWallet) return navigate('ReceiveDetailsRoot', { screen: 'ReceiveDetails', params: { walletID: multisigWallet.getID() } });
-    if (sparkWallet)
+    if (lnWallet)
       return navigate('ReceiveDetailsRoot', {
-        screen: 'LNDReceive',
-        params: { walletID: sparkWallet.getID() },
+        screen: lnWallet.isPosMode ? 'PosReceive' : 'LNDReceive',
+        params: { walletID: lnWallet.getID() },
       });
     return navigate('ReceiveDetailsRoot', { screen: 'ReceiveDetails', params: { walletID: wallet.getID() } });
   };
@@ -266,10 +276,22 @@ const WalletHome = ({ navigation }) => {
     });
   };
 
-  const onAddLightningPress = () => {
-    // New users create a self-custodial Spark wallet in place — no provider screen.
+  const onAddLightningPress = async () => {
+    // Adds the seed's existing lightning.space wallet, otherwise the Spark wallet, in place — no provider screen.
     // AddLightning remains in the navigator for Taproot-asset wallets only.
-    createSparkWallet();
+    if (isAddingLightning) return;
+    setIsAddingLightning(true);
+    try {
+      await addLightningWallet(wallets[0]);
+    } catch (e) {
+      reportError('home: Lightning account check failed', e);
+      Alert.alert(loc.wallets.lightning_spark_wallet_label, loc.wallets.lightning_account_check_failed, [
+        { text: loc._.cancel, style: 'cancel' },
+        { text: loc._.repeat, onPress: () => onAddLightningPress() },
+      ]);
+    } finally {
+      setIsAddingLightning(false);
+    }
   };
 
   const displayWallets = useMemo(() => {
@@ -295,17 +317,17 @@ const WalletHome = ({ navigation }) => {
     });
 
     tmpWallets.push({
-      wallet: sparkWallet,
+      wallet: lnWallet,
       title: 'Bitcoin',
       isActivated: true,
       subtitle: loc.wallets.lightning_spark_wallet_label,
-      walletID: sparkWallet?.getID?.(),
+      walletID: lnWallet?.getID?.(),
       onDummyPress: onAddLightningPress,
-      isCreatingLightning: isCreating && !sparkWallet,
+      isCreatingLightning: (isCreating || isAddingLightning) && !lnWallet,
     });
 
     return tmpWallets;
-  }, [wallets, isCreating, createSparkWallet, sparkWallet]);
+  }, [wallets, isCreating, isAddingLightning, addLightningWallet, lnWallet]);
 
   return (
     <View style={styles.flex}>
