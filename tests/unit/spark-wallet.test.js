@@ -771,6 +771,26 @@ describe('SparkWallet', () => {
     expect(mockSdk.sendPayment).not.toHaveBeenCalled();
   });
 
+  it('paySparkAddress reports a completed result after a failure event as unresolved, not failed', async () => {
+    __resetOutgoingPaymentForTests();
+    mockSdk.prepareSendPayment.mockResolvedValue(sparkAddressPrepareResponse());
+    mockSdk.sendPayment.mockImplementationOnce(async () => {
+      applyOutgoingSdkEvent({
+        tag: SdkEvent_Tags.PaymentFailed,
+        inner: { payment: { ...completedSend('spark-address-race'), status: PaymentStatus.Failed } },
+      });
+      return { payment: { id: 'spark-address-race', status: PaymentStatus.Completed } };
+    });
+    mockSessionIdentity = 'id-pk';
+    const wallet = SparkWallet.create('id-pk');
+    wallet.balance = 1_000_000;
+
+    await assert.rejects(
+      () => paySparkAddressWithExplicitQuote(wallet, SPARK_ADDRESS, 12_345, 'sell-address-race'),
+      new RegExp(loc.wallets.lightning_spark_payment_in_transit),
+    );
+  });
+
   it('paySparkAddress prepares the address with an explicit bigint amount and holds the quoted fee', async () => {
     const prepareResponse = sparkAddressPrepareResponse();
     mockSdk.prepareSendPayment.mockResolvedValue(prepareResponse);
@@ -1093,7 +1113,7 @@ describe('SparkWallet', () => {
     assert.strictEqual(getOutgoingPayment().status, 'completed');
   });
 
-  it('payInvoice keeps a failure event when sendPayment later returns completed', async () => {
+  it('payInvoice reports a completed result after a failure event as unresolved, not failed', async () => {
     mockSessionIdentity = 'id-pk';
     const wallet = SparkWallet.create('id-pk');
     const paymentHash = wallet.decodeInvoice(SAMPLE_INVOICE).payment_hash;
@@ -1127,7 +1147,7 @@ describe('SparkWallet', () => {
 
     await assert.rejects(
       () => payInvoiceWithExplicitQuote(wallet, SAMPLE_INVOICE, 0),
-      new RegExp(loc.wallets.lightning_spark_payment_failed),
+      new RegExp(loc.wallets.lightning_spark_payment_in_transit),
     );
     assert.strictEqual(getOutgoingPayment().status, 'failed');
     assert.strictEqual(wallet.last_paid_invoice_result, undefined);
@@ -1749,7 +1769,10 @@ describe('SparkWallet', () => {
     const wallet = SparkWallet.create('id-pk');
     const quote = await wallet.getLnurlMaxFeeQuote(payRequest, 10, 'tea please');
 
-    await assert.rejects(() => wallet.payLnurlMax(payRequest, 10, 'tea please', quote), /unexpected LNURL MAX preparation/);
+    await assert.rejects(
+      () => wallet.payLnurlMax(payRequest, 10, 'tea please', quote),
+      new RegExp(loc.wallets.lightning_spark_amount_mismatch),
+    );
     expect(mockSdk.lnurlPay).not.toHaveBeenCalled();
   });
 
@@ -3337,7 +3360,7 @@ describe('SparkWallet', () => {
     });
   });
 
-  it('payLnurlMax rejects a completed SDK result after a failure event', async () => {
+  it('payLnurlMax reports a completed SDK result after a failure event as unresolved', async () => {
     const payRequest = { callback: 'https://example.com/callback', commentAllowed: 32 };
     const prepareResponse = {
       amountSats: 10n,
@@ -3363,7 +3386,10 @@ describe('SparkWallet', () => {
     mockSessionIdentity = 'id-pk';
     const wallet = SparkWallet.create('id-pk');
     const quote = await wallet.getLnurlMaxFeeQuote(payRequest, 10, 'tea');
-    await assert.rejects(() => wallet.payLnurlMax(payRequest, 10, 'tea', quote), new RegExp(loc.wallets.lightning_spark_payment_failed));
+    await assert.rejects(
+      () => wallet.payLnurlMax(payRequest, 10, 'tea', quote),
+      new RegExp(loc.wallets.lightning_spark_payment_in_transit),
+    );
   });
 
   it('payLnurlMax rejects a tracked failure attached to a pending SDK result', async () => {
@@ -3475,8 +3501,18 @@ describe('SparkWallet', () => {
     const wallet = SparkWallet.create('id-pk');
     const terminalCases = [
       ['failed result after success event', PaymentStatus.Failed, SdkEvent_Tags.PaymentSucceeded, SparkPayInvoiceStatus.Completed],
-      ['completed result after failure event', PaymentStatus.Completed, SdkEvent_Tags.PaymentFailed, 'throws'],
-      ['pending result after failure event', PaymentStatus.Pending, SdkEvent_Tags.PaymentFailed, 'throws'],
+      [
+        'completed result after failure event',
+        PaymentStatus.Completed,
+        SdkEvent_Tags.PaymentFailed,
+        loc.wallets.lightning_spark_payment_in_transit,
+      ],
+      [
+        'pending result after failure event',
+        PaymentStatus.Pending,
+        SdkEvent_Tags.PaymentFailed,
+        loc.wallets.lightning_spark_payment_failed,
+      ],
     ];
     for (const [label, resultStatus, eventTag, expected] of terminalCases) {
       __resetOutgoingPaymentForTests();
@@ -3497,7 +3533,7 @@ describe('SparkWallet', () => {
       if (expected === SparkPayInvoiceStatus.Completed) {
         await expect(call).resolves.toMatchObject({ status: SparkPayInvoiceStatus.Completed, paymentId: `spark-race-${label}` });
       } else {
-        await expect(call).rejects.toThrow(loc.wallets.lightning_spark_payment_failed);
+        await expect(call).rejects.toThrow(expected);
       }
       mockSdk.prepareSendPayment.mockReset();
       mockSdk.sendPayment.mockReset();

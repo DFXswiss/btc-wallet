@@ -890,6 +890,18 @@ describe('WalletDetails delete', () => {
     Alert.alert.mockRestore();
   });
 
+  it('refuses to delete a non-main wallet that a Spark wallet is bound to', async () => {
+    const deleteWallet = jest.fn();
+    const wallet = makeWallet('HDsegwitBech32', { id: 'spark-source', chain: 'ONCHAIN' });
+    const spark = makeWallet('sparkWallet', { id: 'spark-bound', sourceWalletId: 'spark-source' });
+    const screen = renderDetails(wallet, { deleteWallet, wallets: [wallet, spark] });
+    await waitFor(() => expect(screen.getByTestId('DeleteButton')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('DeleteButton'));
+    expect(Alert.alert).toHaveBeenCalledWith(loc.wallets.details_delete_wallet, loc.wallets.lightning_spark_source_delete_blocked);
+    expect(Alert.alert.mock.calls[0][2]).toBeUndefined();
+    expect(deleteWallet).not.toHaveBeenCalled();
+  });
+
   it('does nothing when the cancel button is pressed', async () => {
     const deleteWallet = jest.fn();
     const wallet = makeWallet('HDsegwitBech32', { id: 'del-cancel', chain: 'ONCHAIN' });

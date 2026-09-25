@@ -661,7 +661,7 @@ export class SparkWallet extends AbstractWallet {
     const sdk = this.requireHeld(lease);
 
     if (prepareResponse.amountSats !== totalAmount || prepareResponse.feePolicy !== FeePolicy.FeesIncluded) {
-      throw new Error('Spark SDK returned an unexpected LNURL MAX preparation');
+      throw new Error(loc.wallets.lightning_spark_amount_mismatch);
     }
 
     if (prepareResponse.feeSats >= totalAmount) {
@@ -743,7 +743,9 @@ export class SparkWallet extends AbstractWallet {
         preimage: lightningDetails?.htlcDetails?.preimage,
       });
       if (settled?.paymentHash === paymentHash && settled.status === 'failed') {
-        throw new Error(loc.wallets.lightning_spark_payment_failed);
+        // The send result and an earlier event disagree. Report it unresolved so the retry key is kept and a
+        // second tap cannot pay again.
+        throw new Error(loc.wallets.lightning_spark_payment_in_transit);
       }
       this.recordPaidInvoice(payment, settled?.paymentHash === paymentHash ? settled.preimage : undefined);
       return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: payment.id, fee, lnurlSuccessAction };
@@ -873,7 +875,9 @@ export class SparkWallet extends AbstractWallet {
         preimage: lightningDetails?.htlcDetails?.preimage,
       });
       if (settled?.paymentHash === paymentHash && settled.status === 'failed') {
-        throw new Error(loc.wallets.lightning_spark_payment_failed);
+        // The send result and an earlier event disagree. Report it unresolved so the retry key is kept and a
+        // second tap cannot pay again.
+        throw new Error(loc.wallets.lightning_spark_payment_in_transit);
       }
       this.recordPaidInvoice(payment, settled?.paymentHash === paymentHash ? settled.preimage : undefined);
       return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: payment.id, fee };
@@ -1077,7 +1081,9 @@ export class SparkWallet extends AbstractWallet {
     if (payment.status === PaymentStatus.Completed) {
       const settled = settleOutgoingPayment({ status: 'completed', paymentHash, paymentId: payment.id });
       if (settled?.paymentHash === paymentHash && settled.status === 'failed') {
-        throw new Error(loc.wallets.lightning_spark_payment_failed);
+        // The send result and an earlier event disagree. Report it unresolved so the retry key is kept and a
+        // second tap cannot pay again.
+        throw new Error(loc.wallets.lightning_spark_payment_in_transit);
       }
       this.recordPaidInvoice(payment, settled?.paymentHash === paymentHash ? settled.preimage : undefined);
       return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: payment.id, fee };
@@ -1177,7 +1183,9 @@ export class SparkWallet extends AbstractWallet {
     if (payment.status === PaymentStatus.Completed) {
       const settled = settleOutgoingPayment({ status: 'completed', paymentHash, paymentId: payment.id });
       if (settled?.paymentHash === paymentHash && settled.status === 'failed') {
-        throw new Error(loc.wallets.lightning_spark_payment_failed);
+        // The send result and an earlier event disagree. Report it unresolved so the retry key is kept and a
+        // second tap cannot pay again.
+        throw new Error(loc.wallets.lightning_spark_payment_in_transit);
       }
       this.recordPaidInvoice(payment, settled?.paymentHash === paymentHash ? settled.preimage : undefined);
       return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: payment.id, fee };

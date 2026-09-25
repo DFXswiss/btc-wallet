@@ -328,6 +328,12 @@ const WalletDetails = () => {
 
   const handleDeleteButtonTapped = () => {
     ReactNativeHapticFeedback.trigger('notificationWarning', { ignoreAndroidSystemSettings: false });
+    // The Spark phrase is derived from this wallet's seed; deleting it would make the Spark funds unreachable.
+    const hasBoundSparkWallet = !isMainWallet && wallets.some(w => w.type === SparkWallet.type && w.sourceWalletId === wallet.getID());
+    if (hasBoundSparkWallet) {
+      Alert.alert(loc.wallets.details_delete_wallet, loc.wallets.lightning_spark_source_delete_blocked);
+      return;
+    }
     const warningMessage = isMainWallet ? loc.wallets.details_are_you_sure_main_wallet : loc.wallets.details_are_you_sure;
     Alert.alert(
       loc.wallets.details_delete_wallet,
