@@ -404,7 +404,11 @@ const LnurlPay = () => {
     });
   };
 
-  const showPending = isPaymentPending && outgoingPayment?.status !== 'completed' && outgoingPayment?.status !== 'failed';
+  // Only a terminal status of the watched payment ends the pending state; another payment's settlement must not.
+  const watchedHash = pendingPayRef.current?.paymentHash;
+  const outgoingIsWatched = !watchedHash || !outgoingPayment?.paymentHash || watchedHash === outgoingPayment.paymentHash;
+  const watchedIsTerminal = outgoingIsWatched && (outgoingPayment?.status === 'completed' || outgoingPayment?.status === 'failed');
+  const showPending = isPaymentPending && !watchedIsTerminal;
 
   useEffect(() => {
     if (!outgoingPayment || outgoingPayment.status === 'pending') return;

@@ -1554,6 +1554,7 @@ describe('LnurlPay remaining payment paths', () => {
     rerenderPay(screen, wallet);
     await act(async () => Promise.resolve());
     expect(mockNavigate).not.toHaveBeenCalled();
+    expect(screen.getByText(loc.wallets.lightning_spark_payment_in_transit)).toBeTruthy();
   });
 
   it('does not finish a send when the SDK reports a pending outgoing payment', async () => {
