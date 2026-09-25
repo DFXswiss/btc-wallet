@@ -532,6 +532,14 @@ describe('outgoing payment tracker', () => {
     assert.strictEqual(getOutgoingPayment().status, 'failed');
   });
 
+  it('lets the completed send result override an earlier failed settlement', () => {
+    beginOutgoingPayment({ paymentHash: 'h1', paymentId: 'p1' });
+    settleOutgoingPayment({ status: 'failed', paymentHash: 'h1' });
+    const settled = settleOutgoingPayment({ status: 'completed', paymentHash: 'h1', paymentId: 'p1', fromSendResult: true });
+    assert.strictEqual(settled.status, 'completed');
+    assert.strictEqual(getOutgoingPayment().status, 'completed');
+  });
+
   it('does not let a later PaymentFailed event overwrite a completed payment', () => {
     beginOutgoingPayment({ paymentHash: 'h1', paymentId: 'p1' });
     applyOutgoingSdkEvent({

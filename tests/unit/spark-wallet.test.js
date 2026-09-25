@@ -771,7 +771,7 @@ describe('SparkWallet', () => {
     expect(mockSdk.sendPayment).not.toHaveBeenCalled();
   });
 
-  it('paySparkAddress reports a completed result after a failure event as unresolved, not failed', async () => {
+  it('paySparkAddress trusts a completed send result over an earlier failure event', async () => {
     __resetOutgoingPaymentForTests();
     mockSdk.prepareSendPayment.mockResolvedValue(sparkAddressPrepareResponse());
     mockSdk.sendPayment.mockImplementationOnce(async () => {
@@ -785,10 +785,9 @@ describe('SparkWallet', () => {
     const wallet = SparkWallet.create('id-pk');
     wallet.balance = 1_000_000;
 
-    await assert.rejects(
-      () => paySparkAddressWithExplicitQuote(wallet, SPARK_ADDRESS, 12_345, 'sell-address-race'),
-      new RegExp(loc.wallets.lightning_spark_payment_in_transit),
-    );
+    const result = await paySparkAddressWithExplicitQuote(wallet, SPARK_ADDRESS, 12_345, 'sell-address-race');
+    assert.strictEqual(result.status, SparkPayInvoiceStatus.Completed);
+    assert.strictEqual(getOutgoingPayment().status, 'completed');
   });
 
   it('paySparkAddress prepares the address with an explicit bigint amount and holds the quoted fee', async () => {
@@ -1113,7 +1112,7 @@ describe('SparkWallet', () => {
     assert.strictEqual(getOutgoingPayment().status, 'completed');
   });
 
-  it('payInvoice reports a completed result after a failure event as unresolved, not failed', async () => {
+  it('payInvoice trusts a completed send result over an earlier failure event', async () => {
     mockSessionIdentity = 'id-pk';
     const wallet = SparkWallet.create('id-pk');
     const paymentHash = wallet.decodeInvoice(SAMPLE_INVOICE).payment_hash;
@@ -1145,12 +1144,10 @@ describe('SparkWallet', () => {
       return { payment: { id: 'pay-lose', status: PaymentStatus.Completed } };
     });
 
-    await assert.rejects(
-      () => payInvoiceWithExplicitQuote(wallet, SAMPLE_INVOICE, 0),
-      new RegExp(loc.wallets.lightning_spark_payment_in_transit),
-    );
-    assert.strictEqual(getOutgoingPayment().status, 'failed');
-    assert.strictEqual(wallet.last_paid_invoice_result, undefined);
+    const result = await payInvoiceWithExplicitQuote(wallet, SAMPLE_INVOICE, 0);
+    assert.strictEqual(result.status, SparkPayInvoiceStatus.Completed);
+    assert.strictEqual(getOutgoingPayment().status, 'completed');
+    assert.ok(wallet.last_paid_invoice_result);
   });
 
   it('payInvoice treats a teardown during send as pending, not failed', async () => {
@@ -3360,7 +3357,7 @@ describe('SparkWallet', () => {
     });
   });
 
-  it('payLnurlMax reports a completed SDK result after a failure event as unresolved', async () => {
+  it('payLnurlMax trusts a completed SDK result over an earlier failure event', async () => {
     const payRequest = { callback: 'https://example.com/callback', commentAllowed: 32 };
     const prepareResponse = {
       amountSats: 10n,
@@ -3386,10 +3383,8 @@ describe('SparkWallet', () => {
     mockSessionIdentity = 'id-pk';
     const wallet = SparkWallet.create('id-pk');
     const quote = await wallet.getLnurlMaxFeeQuote(payRequest, 10, 'tea');
-    await assert.rejects(
-      () => wallet.payLnurlMax(payRequest, 10, 'tea', quote),
-      new RegExp(loc.wallets.lightning_spark_payment_in_transit),
-    );
+    const result = await wallet.payLnurlMax(payRequest, 10, 'tea', quote);
+    assert.strictEqual(result.status, SparkPayInvoiceStatus.Completed);
   });
 
   it('payLnurlMax rejects a tracked failure attached to a pending SDK result', async () => {
@@ -3501,12 +3496,7 @@ describe('SparkWallet', () => {
     const wallet = SparkWallet.create('id-pk');
     const terminalCases = [
       ['failed result after success event', PaymentStatus.Failed, SdkEvent_Tags.PaymentSucceeded, SparkPayInvoiceStatus.Completed],
-      [
-        'completed result after failure event',
-        PaymentStatus.Completed,
-        SdkEvent_Tags.PaymentFailed,
-        loc.wallets.lightning_spark_payment_in_transit,
-      ],
+      ['completed result after failure event', PaymentStatus.Completed, SdkEvent_Tags.PaymentFailed, SparkPayInvoiceStatus.Completed],
       [
         'pending result after failure event',
         PaymentStatus.Pending,

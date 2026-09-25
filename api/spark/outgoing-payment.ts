@@ -235,6 +235,8 @@ export function settleOutgoingPayment(update: {
   paymentHash?: string;
   paymentId?: string;
   preimage?: string;
+  /** The send call's own completed result. It overrides an earlier failed event for the same payment. */
+  fromSendResult?: boolean;
 }): OutgoingPayment | null {
   const identity = identityOf(update);
   const index = trackedIndex(identity);
@@ -242,7 +244,7 @@ export function settleOutgoingPayment(update: {
     const previous = tracked[index];
     const settled = {
       ...previous,
-      status: firstTerminalWins(previous.status, update.status),
+      status: update.fromSendResult && update.status === 'completed' ? 'completed' : firstTerminalWins(previous.status, update.status),
       paymentId: update.paymentId || previous.paymentId,
       paymentHash: update.paymentHash || previous.paymentHash,
       preimage: update.preimage || previous.preimage,
