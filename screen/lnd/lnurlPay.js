@@ -406,7 +406,7 @@ const LnurlPay = () => {
 
   // Only a terminal status of the watched payment ends the pending state; another payment's settlement must not.
   const watchedHash = pendingPayRef.current?.paymentHash;
-  const outgoingIsWatched = !watchedHash || !outgoingPayment?.paymentHash || watchedHash === outgoingPayment.paymentHash;
+  const outgoingIsWatched = !watchedHash || watchedHash === outgoingPayment?.paymentHash;
   const watchedIsTerminal = outgoingIsWatched && (outgoingPayment?.status === 'completed' || outgoingPayment?.status === 'failed');
   const showPending = isPaymentPending && !watchedIsTerminal;
 
@@ -414,7 +414,7 @@ const LnurlPay = () => {
     if (!outgoingPayment || outgoingPayment.status === 'pending') return;
     const watching = pendingPayRef.current;
     if (!watching) return;
-    if (watching.paymentHash && outgoingPayment.paymentHash && watching.paymentHash !== outgoingPayment.paymentHash) {
+    if (watching.paymentHash && watching.paymentHash !== outgoingPayment.paymentHash) {
       return;
     }
 
@@ -423,6 +423,8 @@ const LnurlPay = () => {
         wallet.last_paid_invoice_result = { payment_preimage: outgoingPayment.preimage };
       }
       pendingPayRef.current = undefined;
+      setIsPaymentPending(false);
+      payInFlightRef.current = false;
       refreshAllWalletTransactions();
       if (watching.kind === 'lnurl') {
         finishLnurlSuccess(watching.paymentHash, watching.fee, watching.LN).catch(error => {

@@ -1557,6 +1557,55 @@ describe('LnurlPay remaining payment paths', () => {
     expect(screen.getByText(loc.wallets.lightning_spark_payment_in_transit)).toBeTruthy();
   });
 
+  it('does not treat a terminal payment with an empty hash as the watched payment', async () => {
+    const wallet = makeWallet();
+    wallet.decodeInvoice = jest.fn().mockReturnValue({ payment_hash: 'hash-watch', description: 'tea' });
+    wallet.payInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'hash-watch' });
+    const screen = renderPay(wallet);
+
+    await waitFor(() => screen.getByText(loc.lnd.payButton));
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+
+    await expectSparkLightningPayment(wallet);
+    mockUseSparkContext.mockReturnValue({
+      isConnected: true,
+      isConnecting: false,
+      isCreating: false,
+      createSparkWallet: jest.fn(),
+      outgoingPayment: { status: 'completed', paymentHash: '' },
+    });
+    rerenderPay(screen, wallet);
+    await act(async () => Promise.resolve());
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(screen.getByText(loc.wallets.lightning_spark_payment_in_transit)).toBeTruthy();
+  });
+
+  it('clears the pending state once the watched payment completes', async () => {
+    const wallet = makeWallet();
+    wallet.decodeInvoice = jest.fn().mockReturnValue({ payment_hash: 'hash-watch', description: 'tea' });
+    wallet.payInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'hash-watch' });
+    const screen = renderPay(wallet);
+
+    await waitFor(() => screen.getByText(loc.lnd.payButton));
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+
+    await expectSparkLightningPayment(wallet);
+    const context = { isConnected: true, isConnecting: false, isCreating: false, createSparkWallet: jest.fn() };
+    mockUseSparkContext.mockReturnValue({ ...context, outgoingPayment: { status: 'completed', paymentHash: 'hash-watch' } });
+    rerenderPay(screen, wallet);
+    await act(async () => Promise.resolve());
+    expect(mockNavigate).toHaveBeenCalled();
+
+    mockUseSparkContext.mockReturnValue({ ...context, outgoingPayment: { status: 'pending', paymentHash: 'another-payment' } });
+    rerenderPay(screen, wallet);
+    await act(async () => Promise.resolve());
+    expect(screen.queryByText(loc.wallets.lightning_spark_payment_in_transit)).toBeNull();
+  });
+
   it('does not finish a send when the SDK reports a pending outgoing payment', async () => {
     const wallet = makeWallet();
     const decoded = wallet.decodeInvoice(SAMPLE_INVOICE);
