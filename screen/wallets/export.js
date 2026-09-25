@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useContext, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useContext, useRef, useEffect } from 'react';
 import { InteractionManager, ScrollView, ActivityIndicator, StatusBar, View, StyleSheet, AppState, Text, I18nManager } from 'react-native';
 import { useTheme, useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { Icon } from 'react-native-elements';
@@ -61,28 +61,25 @@ const WalletExport = () => {
   const [sparkExportError, setSparkExportError] = useState(false);
   const isSparkWallet = wallet?.type === SparkWallet.type;
   const appState = useRef(AppState.currentState);
-  const sparkRevealGeneration = useRef(0);
+  // Read at reveal time only: Spark saves refresh the wallet list, which must not restart the unlock.
+  const walletsRef = useRef(wallets);
+  useEffect(() => {
+    walletsRef.current = wallets;
+  }, [wallets]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {
-      if (isSparkWallet && (nextAppState === 'inactive' || nextAppState === 'background')) {
-        sparkRevealGeneration.current += 1;
-        setSparkMnemonic(undefined);
-      }
-      const wasSparkExportInterrupted = appState.current === 'inactive' || appState.current === 'background';
-      if (isSparkWallet && wasSparkExportInterrupted && nextAppState === 'active') {
+      if (!isLoading && nextAppState === 'background') {
         goBack();
       }
-      if (nextAppState === 'background' && (isSparkWallet || !isLoading)) {
-        goBack();
-      }
+
       appState.current = nextAppState;
     });
 
     return () => {
       subscription.remove();
     };
-  }, [goBack, isLoading, isSparkWallet]);
+  }, [goBack, isLoading]);
 
   const stylesHook = {
     loading: {
@@ -93,7 +90,6 @@ const WalletExport = () => {
     },
     type: { color: colors.foregroundColor },
     secret: { color: colors.foregroundColor },
-    warning: { color: colors.failedColor },
     infoText: {
       color: colors.brandingColor,
     },
@@ -102,8 +98,6 @@ const WalletExport = () => {
   useFocusEffect(
     useCallback(() => {
       Privacy.enableBlur();
-      let isActive = true;
-      const revealGeneration = sparkRevealGeneration.current;
       const task = InteractionManager.runAfterInteractions(async () => {
         if (wallet) {
           const isBiometricsEnabled = await Biometric.isBiometricUseCapableAndEnabled();
@@ -113,39 +107,28 @@ const WalletExport = () => {
               return goBack();
             }
           }
-          const sparkRevealWasInvalidated = revealGeneration !== sparkRevealGeneration.current;
-          const appIsActive = AppState.currentState === 'active';
-          if (!isActive || (wallet.type === SparkWallet.type && (!appIsActive || sparkRevealWasInvalidated))) {
-            return;
-          }
           if (wallet.type === SparkWallet.type) {
+            // The Spark phrase is derived on demand from the bound on-chain wallet and never stored.
             try {
-              setSparkMnemonic({
-                wallet,
-                sourceWalletId: wallet.sourceWalletId,
-                mnemonic: deriveBoundSparkMnemonic(wallet, wallets),
-              });
+              setSparkMnemonic(deriveBoundSparkMnemonic(wallet, walletsRef.current));
               setSparkExportError(false);
             } catch {
               setSparkMnemonic(undefined);
               setSparkExportError(true);
             }
-          } else {
-            if (!wallet.getUserHasSavedExport()) {
-              wallet.setUserHasSavedExport(true);
-              saveToDisk();
-            }
+          } else if (!wallet.getUserHasSavedExport()) {
+            wallet.setUserHasSavedExport(true);
+            saveToDisk();
           }
           setIsLoading(false);
         }
       });
       return () => {
-        isActive = false;
         task.cancel();
         setSparkMnemonic(undefined);
         Privacy.disableBlur();
       };
-    }, [goBack, saveToDisk, wallet, wallets]),
+    }, [goBack, saveToDisk, wallet]),
   );
 
   if (isLoading || !wallet)
@@ -155,35 +138,12 @@ const WalletExport = () => {
       </View>
     );
 
-  if (isSparkWallet) {
-    const visibleSparkMnemonic =
-      sparkMnemonic?.wallet === wallet && sparkMnemonic?.sourceWalletId === wallet.sourceWalletId ? sparkMnemonic.mnemonic : undefined;
-    return (
-      <SafeBlueArea style={[styles.root, stylesHook.root]}>
-        <StatusBar barStyle="light-content" />
-        <ScrollView contentContainerStyle={styles.scrollViewContent} testID="WalletExportScroll">
-          <BlueText style={[styles.type, stylesHook.type]}>{wallet.typeReadable}</BlueText>
-          <BlueSpacing20 />
-          <BlueCard>
-            <Text style={[styles.infoText, stylesHook.infoText]}>{loc.wallets.lightning_spark_recovery_explanation}</Text>
-            {sparkExportError ? (
-              <Text style={[styles.infoText, stylesHook.warning]}>{loc.wallets.lightning_spark_recovery_unavailable}</Text>
-            ) : visibleSparkMnemonic ? (
-              <View testID="SparkRecoveryPhrase">
-                <Secret secret={visibleSparkMnemonic} />
-              </View>
-            ) : null}
-          </BlueCard>
-        </ScrollView>
-      </SafeBlueArea>
-    );
-  }
-
   // for SLIP39 we need to show all shares
-  let secrets = wallet.getSecret();
+  let secrets = isSparkWallet ? sparkMnemonic : wallet.getSecret();
   if (typeof secrets === 'string') {
     secrets = [secrets];
   }
+  if (!secrets) secrets = [];
 
   const onLayout = e => {
     const { height, width } = e.nativeEvent.layout;
@@ -214,6 +174,14 @@ const WalletExport = () => {
           </BlueCard>
         )}
         <BlueSpacing20 />
+        {isSparkWallet && (
+          <View style={styles.infoContainer}>
+            <Icon name="info-outline" type="material" color={colors.brandingColor} size={18} />
+            <Text style={[styles.infoText, stylesHook.infoText]}>
+              {sparkExportError ? loc.wallets.lightning_spark_recovery_unavailable : loc.wallets.lightning_spark_recovery_explanation}
+            </Text>
+          </View>
+        )}
         {secrets.map(s => (
           <React.Fragment key={s}>
             <View style={styles.infoContainer}>
@@ -222,7 +190,7 @@ const WalletExport = () => {
             </View>
             {wallet.type !== MultisigHDWallet.type && <Secret secret={s} />}
             <BlueSpacing20 />
-            <QRCodeComponent isMenuAvailable={false} value={wallet.getSecret()} size={qrCodeSize} logoSize={70} />
+            <QRCodeComponent isMenuAvailable={false} value={isSparkWallet ? s : wallet.getSecret()} size={qrCodeSize} logoSize={70} />
             {renderCosigners()}
             <View style={styles.grow} />
           </React.Fragment>

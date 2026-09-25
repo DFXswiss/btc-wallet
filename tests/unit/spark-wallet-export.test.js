@@ -21,7 +21,11 @@ jest.mock('../../class', () => ({
   SegwitP2SHWallet: { type: 'segwitP2SH' },
 }));
 jest.mock('../../class/wallets/spark-wallet', () => ({ SparkWallet: { type: 'sparkWallet' } }));
-jest.mock('../../components/QRCodeComponent', () => () => null);
+jest.mock('../../components/QRCodeComponent', () => props => {
+  const ReactModule = require('react');
+  const { Text: RNText } = require('react-native');
+  return ReactModule.createElement(RNText, { testID: 'QRCode' }, props.value);
+});
 jest.mock('../../components/navigationStyle', () => (_options, format) => {
   return theme => deps => (format ? format(_options, { theme, ...deps }) : _options);
 });
@@ -116,7 +120,8 @@ it('reveals the derived Spark phrase from only the exact bound on-chain wallet',
 
   await waitFor(() => expect(screen.getByText(/1\. spark/)).toBeTruthy());
   expect(deriveSparkMnemonic).toHaveBeenCalledWith('bound on-chain mnemonic', 'bound passphrase');
-  expect(screen.queryByTestId('QRCode')).toBeNull();
+  expect(screen.getByTestId('QRCode').props.children).toBe('spark child phrase words here');
+  expect(screen.getByText(require('../../loc').default.wallets.lightning_spark_recovery_explanation)).toBeTruthy();
   expect(saveToDisk).not.toHaveBeenCalled();
   expect(spark.setUserHasSavedExport).not.toHaveBeenCalled();
   expect(Privacy.enableBlur).toHaveBeenCalled();
@@ -129,6 +134,7 @@ it('fails closed when the bound source wallet is missing and never chooses anoth
 
   await waitFor(() => expect(screen.getByText(require('../../loc').default.wallets.lightning_spark_recovery_unavailable)).toBeTruthy());
   expect(screen.queryByText(/1\. spark/)).toBeNull();
+  expect(screen.queryByTestId('QRCode')).toBeNull();
   expect(deriveSparkMnemonic).not.toHaveBeenCalled();
   expect(spark.setUserHasSavedExport).not.toHaveBeenCalled();
 });
@@ -143,7 +149,7 @@ it('fails closed when the Spark source binding is absent', async () => {
   expect(spark.setUserHasSavedExport).not.toHaveBeenCalled();
 });
 
-it('does not reveal after the app becomes inactive during biometric unlock', async () => {
+it('reveals the phrase after Face ID although the prompt makes the app briefly inactive', async () => {
   let resolveUnlock;
   let onAppStateChange;
   jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, callback) => {
@@ -166,7 +172,50 @@ it('does not reveal after the app becomes inactive during biometric unlock', asy
   await act(async () => resolveUnlock(true));
   await act(async () => onAppStateChange('active'));
 
-  expect(screen.queryByText(/1\. spark/)).toBeNull();
+  await waitFor(() => expect(screen.getByText(/1\. spark/)).toBeTruthy());
+  expect(mockGoBack).not.toHaveBeenCalled();
+});
+
+it('does not reveal and closes when Face ID fails', async () => {
+  Biometric.isBiometricUseCapableAndEnabled.mockResolvedValue(true);
+  Biometric.unlockWithBiometrics.mockResolvedValue(false);
+  const screen = renderExport([makeSparkWallet('bound-source'), makeSource('bound-source')]);
+
+  await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
   expect(deriveSparkMnemonic).not.toHaveBeenCalled();
+  expect(screen.queryByText(/1\. spark/)).toBeNull();
+});
+
+it('closes when the app goes to the background after the phrase is shown', async () => {
+  let onAppStateChange;
+  jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, callback) => {
+    onAppStateChange = callback;
+    return { remove: jest.fn() };
+  });
+  const screen = renderExport([makeSparkWallet('bound-source'), makeSource('bound-source')]);
+
+  await waitFor(() => expect(screen.getByText(/1\. spark/)).toBeTruthy());
+  await act(async () => onAppStateChange('background'));
   expect(mockGoBack).toHaveBeenCalled();
+});
+
+it('keeps the phrase and does not ask for Face ID again when a save refreshes the wallet list', async () => {
+  Biometric.isBiometricUseCapableAndEnabled.mockResolvedValue(true);
+  const spark = makeSparkWallet('bound-source');
+  const source = makeSource('bound-source');
+  const saveToDisk = jest.fn();
+  const screen = renderExport([spark, source], saveToDisk);
+
+  await waitFor(() => expect(screen.getByText(/1\. spark/)).toBeTruthy());
+  await act(async () => {
+    screen.rerender(
+      <BlueStorageContext.Provider value={{ wallets: [spark, source], saveToDisk }}>
+        <WalletExport />
+      </BlueStorageContext.Provider>,
+    );
+  });
+
+  expect(screen.getByText(/1\. spark/)).toBeTruthy();
+  expect(Biometric.unlockWithBiometrics).toHaveBeenCalledTimes(1);
+  expect(mockGoBack).not.toHaveBeenCalled();
 });
