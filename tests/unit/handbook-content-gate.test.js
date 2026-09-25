@@ -139,17 +139,42 @@ describe('unit - handbook content gate', () => {
       assert.match(problems[0], /pointless QR allowlist entry/);
     });
 
-    it('names the allowlisted receive screen and refuses a QR on the Spark receive screen', function () {
+    it('names both allowlisted receive screens', function () {
       const src = require('fs').readFileSync(path.resolve(__dirname, '../../scripts/handbook/content-gate.js'), 'utf8');
       const header = src.slice(0, src.indexOf('const fs = require'));
       assert.match(header, /04-empfangen-senden\/01-erhalten\.png/);
       assert.match(header, /08-lightning\/03-rechnung-erstellen\.png/);
-      assert.match(header, /must not carry a QR/);
-      assert.doesNotMatch(header, /Only the receive-address screen may carry one/);
-      assert.ok(!Object.prototype.hasOwnProperty.call(gate.QR_ALLOWLIST, 'screenshots/08-lightning/03-rechnung-erstellen.png'));
+      assert.deepStrictEqual(Object.keys(gate.QR_ALLOWLIST).sort(), [
+        'screenshots/04-empfangen-senden/01-erhalten.png',
+        'screenshots/08-lightning/03-rechnung-erstellen.png',
+      ]);
     });
 
-    it('rejects a bolt11 invoice on the Spark receive screenshot', function () {
+    it('accepts only a bare Lightning address on the Lightning receive screenshot', function () {
+      const receive = 'screenshots/04-empfangen-senden/01-erhalten.png';
+      const lightningShot = 'screenshots/08-lightning/03-rechnung-erstellen.png';
+      const address = 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4';
+      const published = new Set([receive, lightningShot]);
+      const scan = payload =>
+        gate.qrProblems(
+          new Map([
+            [receive, address],
+            [lightningShot, payload],
+          ]),
+          published,
+          gate.QR_ALLOWLIST,
+        );
+
+      assert.deepStrictEqual(scan('0123456789abcdef@breez.tips'), []);
+      assert.deepStrictEqual(scan('0123456789abcdef@lightning.space'), []);
+      for (const payload of ['0123456789abcdef@evil.example', 'lightning:0123456789abcdef@breez.tips', address]) {
+        const problems = scan(payload);
+        assert.strictEqual(problems.length, 1, payload);
+        assert.match(problems[0], /does not match what the allowlist permits/);
+      }
+    });
+
+    it('rejects a bolt11 invoice on the Lightning receive screenshot', function () {
       const receive = 'screenshots/04-empfangen-senden/01-erhalten.png';
       const invoiceShot = 'screenshots/08-lightning/03-rechnung-erstellen.png';
       const address = 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4';
@@ -166,7 +191,7 @@ describe('unit - handbook content gate', () => {
         gate.QR_ALLOWLIST,
       );
       assert.strictEqual(problems.length, 1);
-      assert.match(problems[0], /non-allowlisted image/);
+      assert.match(problems[0], /does not match what the allowlist permits/);
       assert.match(problems[0], /08-lightning\/03-rechnung-erstellen\.png/);
       assert.ok(!problems[0].includes(invoice), 'the payload must not be echoed');
     });
@@ -382,8 +407,7 @@ describe('unit - handbook content gate', () => {
     const SCRIPT = path.resolve(__dirname, '../../scripts/handbook/content-gate.js');
     const ALLOWED = Object.keys(gate.QR_ALLOWLIST);
     const ADDRESS = 'bitcoin:bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4';
-    const INVOICE =
-      'lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp';
+    const LN_ADDRESS = '0123456789abcdef@breez.tips';
 
     let tmp;
 
@@ -407,7 +431,7 @@ describe('unit - handbook content gate', () => {
         bin,
         'zbarimg',
         qrBody ||
-          `case "$*" in *--version*) echo "zbarimg 0.23";; *01-erhalten.png*) echo '${ADDRESS}';; *03-rechnung-erstellen.png*) echo '${INVOICE}';; *) exit 4;; esac`,
+          `case "$*" in *--version*) echo "zbarimg 0.23";; *01-erhalten.png*) echo '${ADDRESS}';; *03-rechnung-erstellen.png*) echo '${LN_ADDRESS}';; *) exit 4;; esac`,
       );
       stub(
         bin,
@@ -440,7 +464,7 @@ describe('unit - handbook content gate', () => {
     it('exits 0 on a clean payload', function () {
       const r = runScript(fixture());
       assert.strictEqual(r.status, 0, `${r.stdout}\n${r.stderr}`);
-      assert.match(r.stdout, /scanned 2 published PNGs/);
+      assert.match(r.stdout, /scanned 3 published PNGs/);
     });
 
     it('exits non-zero when an image ships without being declared', function () {
@@ -454,7 +478,7 @@ describe('unit - handbook content gate', () => {
       // passed those as clean, and nothing but this catch holds the difference.
       const r = runScript(
         fixture({
-          qrBody: `case "$*" in *--version*) echo "zbarimg 0.23";; *plain.png*) exit 1;; *01-erhalten.png*) echo '${ADDRESS}';; *03-rechnung-erstellen.png*) echo '${INVOICE}';; *) exit 4;; esac`,
+          qrBody: `case "$*" in *--version*) echo "zbarimg 0.23";; *plain.png*) exit 1;; *01-erhalten.png*) echo '${ADDRESS}';; *03-rechnung-erstellen.png*) echo '${LN_ADDRESS}';; *) exit 4;; esac`,
         }),
       );
       assert.notStrictEqual(r.status, 0, r.stdout);

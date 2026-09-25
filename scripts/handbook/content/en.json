@@ -3,7 +3,7 @@
   "label": "English",
   "meta": {
     "title": "DFX BTC Taro Wallet — Handbook",
-    "description": "Illustrated guide to the DFX BTC Taro Wallet: create a wallet, receive and send bitcoin, secure your backup, use Spark.",
+    "description": "Illustrated guide to the DFX BTC Taro Wallet: create a wallet, receive and send bitcoin, secure your backup, use Lightning.",
     "lede": "This guide walks through the app picture by picture, in the order the steps appear in the wallet. Every image is a real capture from the app."
   },
   "ui": {
@@ -81,9 +81,9 @@
     },
     {
       "id": "lightning",
-      "title": "Spark",
+      "title": "Lightning",
       "summary": "Small payments, instantly; because the fee does not depend on the amount, it weighs more proportionally on very small payments.",
-      "intro": "Spark is the wallet for small, fast bitcoin payments. New users create it with a tap on the Spark row in the overview. Buying and selling are there as on the other wallets; there is no payment card. Selling opens the DFX service in the browser and then returns to the app, where the amount is confirmed once more. Receiving shows a Spark address. It does not create a Lightning invoice and it does not register a Lightning address.",
+      "intro": "The Lightning wallet is for small, fast bitcoin payments; it runs on Spark. New users create it with a tap on “Add” in the Lightning row of the overview. Buying and selling are there as on the other wallets; there is no payment card. Selling opens the DFX service in the browser and then returns to the app, where the amount is confirmed once more. Receiving shows the wallet's Lightning address; with an amount and a description it creates a Lightning invoice instead.",
       "groups": [
         "08-lightning"
       ]
@@ -91,8 +91,8 @@
     {
       "id": "weitere-wallets",
       "title": "More wallets: adding and importing",
-      "summary": "A wallet across three devices, a Spark wallet, reading in an existing wallet.",
-      "intro": "Besides the wallet from the first launch you can create more: a wallet spread across three devices, where two of them approve every payment, or Spark with a tap on the row in the overview. There is no choice of provider. A wallet created elsewhere can be read in from the recovery phrase, a private key or a code.",
+      "summary": "A wallet across three devices, a Lightning wallet, reading in an existing wallet.",
+      "intro": "Besides the wallet from the first launch you can create more: a wallet spread across three devices, where two of them approve every payment, or the Lightning wallet with a tap on the row in the overview. There is no choice of provider. A wallet created elsewhere can be read in from the recovery phrase, a private key or a code.",
       "groups": [
         "06-wallet-hinzufuegen",
         "07-multi-device",
@@ -231,24 +231,24 @@
       "text": "One wallet spread across three devices: two of them approve every payment. That protects you from a single lost device costing you the money."
     },
     "06-wallet-hinzufuegen/02-lightning-spark": {
-      "title": "Spark row with Add",
-      "text": "A tap on “Add” in this row creates a Spark wallet. There is no further choice."
+      "title": "Lightning row with Add",
+      "text": "A tap on “Add” in this row creates the Lightning wallet. There is no further choice."
     },
     "07-multi-device/01-erstellung-qr": {
       "title": "First step of the setup",
       "text": "Each of the three devices shows its own code and scans the other two. The indicator at the top follows the progress."
     },
     "08-lightning/01-uebersicht-mit-lightning": {
-      "title": "Overview with Spark",
-      "text": "The home screen once Spark sits next to the wallet on the blockchain."
+      "title": "Overview with Lightning",
+      "text": "The home screen once the Lightning wallet sits next to the wallet on the blockchain."
     },
     "08-lightning/02-lightning-wallet": {
-      "title": "Spark",
-      "text": "Balance and payments of this wallet. Buy and sell sit below. There is no Lightning address and no payment card."
+      "title": "Lightning",
+      "text": "Balance and payments of this wallet. Buy and sell sit below. There is no payment card."
     },
     "08-lightning/03-rechnung-erstellen": {
-      "title": "Spark address",
-      "text": "The screen is Spark receive. It does not ask for an amount and it does not create a Lightning invoice. This picture shows no address, so nothing payable is published here."
+      "title": "Lightning address",
+      "text": "The code holds the wallet's Lightning address. With an amount and a description it becomes a Lightning invoice instead."
     },
     "09-import/01-scanner": {
       "title": "Import with the scanner",
@@ -270,7 +270,7 @@
     "04-empfangen-senden": "Receiving and sending",
     "06-wallet-hinzufuegen": "Adding another wallet",
     "07-multi-device": "Setting up a wallet across three devices",
-    "08-lightning": "Spark",
+    "08-lightning": "Lightning",
     "09-import": "Importing a wallet"
   }
 }

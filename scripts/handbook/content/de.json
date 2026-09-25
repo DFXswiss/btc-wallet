@@ -3,7 +3,7 @@
   "label": "Deutsch",
   "meta": {
     "title": "DFX BTC Taro Wallet — Handbuch",
-    "description": "Bebilderte Anleitung zur DFX BTC Taro Wallet: Wallet anlegen, Bitcoin empfangen und senden, Backup sichern, Spark nutzen.",
+    "description": "Bebilderte Anleitung zur DFX BTC Taro Wallet: Wallet anlegen, Bitcoin empfangen und senden, Backup sichern, Lightning nutzen.",
     "lede": "Diese Anleitung führt durch die App, Bild für Bild, in der Reihenfolge, in der die Schritte in der Wallet vorkommen. Jedes Bild ist eine echte Aufnahme aus der App."
   },
   "ui": {
@@ -81,9 +81,9 @@
     },
     {
       "id": "lightning",
-      "title": "Spark",
+      "title": "Lightning",
       "summary": "Kleine Zahlungen sofort; da die Gebühr nicht vom Betrag abhängt, fällt sie bei sehr kleinen Zahlungen anteilig stärker ins Gewicht.",
-      "intro": "Spark ist die Wallet für kleine, schnelle Bitcoin-Zahlungen. Neue Nutzer legen sie mit einem Tipp auf die Spark-Zeile in der Übersicht an. Kaufen und Verkaufen gibt es dort wie bei den anderen Wallets; eine Bezahlkarte gibt es nicht. Beim Verkaufen öffnet sich der DFX-Dienst im Browser und führt danach zurück in die App, wo der Betrag noch einmal zu bestätigen ist. Empfangen zeigt eine Spark-Adresse. Eine Lightning-Rechnung und eine Lightning-Adresse gibt es hier nicht.",
+      "intro": "Die Lightning-Wallet ist für kleine, schnelle Bitcoin-Zahlungen; sie läuft auf Spark. Neue Nutzer legen sie mit einem Tipp auf „Hinzufügen“ in der Lightning-Zeile der Übersicht an. Kaufen und Verkaufen gibt es dort wie bei den anderen Wallets; eine Bezahlkarte gibt es nicht. Beim Verkaufen öffnet sich der DFX-Dienst im Browser und führt danach zurück in die App, wo der Betrag noch einmal zu bestätigen ist. Empfangen zeigt die Lightning-Adresse der Wallet; mit Betrag und Beschreibung entsteht stattdessen eine Lightning-Rechnung.",
       "groups": [
         "08-lightning"
       ]
@@ -91,8 +91,8 @@
     {
       "id": "weitere-wallets",
       "title": "Weitere Wallets anlegen und importieren",
-      "summary": "Eine Wallet auf drei Geräten, eine Spark-Wallet, eine bestehende Wallet einlesen.",
-      "intro": "Neben der Wallet aus dem ersten Start lassen sich weitere anlegen: eine Wallet, die auf drei Geräten verteilt liegt und für jede Zahlung zwei davon braucht, oder Spark mit einem Tipp auf die Zeile in der Übersicht. Eine Auswahl des Anbieters gibt es dabei nicht. Eine anderswo angelegte Wallet lässt sich über die Wiederherstellungsphrase, einen privaten Schlüssel oder einen Code einlesen.",
+      "summary": "Eine Wallet auf drei Geräten, eine Lightning-Wallet, eine bestehende Wallet einlesen.",
+      "intro": "Neben der Wallet aus dem ersten Start lassen sich weitere anlegen: eine Wallet, die auf drei Geräten verteilt liegt und für jede Zahlung zwei davon braucht, oder die Lightning-Wallet mit einem Tipp auf die Zeile in der Übersicht. Eine Auswahl des Anbieters gibt es dabei nicht. Eine anderswo angelegte Wallet lässt sich über die Wiederherstellungsphrase, einen privaten Schlüssel oder einen Code einlesen.",
       "groups": [
         "06-wallet-hinzufuegen",
         "07-multi-device",
@@ -231,24 +231,24 @@
       "text": "Eine Wallet über drei Geräte verteilt: Zwei davon müssen jede Zahlung freigeben. Das schützt davor, dass ein einzelnes verlorenes Gerät das Geld kostet."
     },
     "06-wallet-hinzufuegen/02-lightning-spark": {
-      "title": "Spark-Zeile mit Hinzufügen",
-      "text": "Ein Tipp auf „Hinzufügen“ in dieser Zeile legt eine Spark-Wallet an. Eine weitere Auswahl gibt es nicht."
+      "title": "Lightning-Zeile mit Hinzufügen",
+      "text": "Ein Tipp auf „Hinzufügen“ in dieser Zeile legt die Lightning-Wallet an. Eine weitere Auswahl gibt es nicht."
     },
     "07-multi-device/01-erstellung-qr": {
       "title": "Erster Schritt der Einrichtung",
       "text": "Jedes der drei Geräte zeigt einen eigenen Code und scannt die beiden anderen. Die Anzeige oben verfolgt den Fortschritt."
     },
     "08-lightning/01-uebersicht-mit-lightning": {
-      "title": "Übersicht mit Spark",
-      "text": "Die Startseite, sobald neben der Wallet auf der Blockchain auch Spark angelegt ist."
+      "title": "Übersicht mit Lightning",
+      "text": "Die Startseite, sobald neben der Wallet auf der Blockchain auch die Lightning-Wallet angelegt ist."
     },
     "08-lightning/02-lightning-wallet": {
-      "title": "Spark",
-      "text": "Guthaben und Zahlungen dieser Wallet. Darunter liegen Kaufen und Verkaufen. Eine Lightning-Adresse und eine Bezahlkarte gibt es hier nicht."
+      "title": "Lightning",
+      "text": "Guthaben und Zahlungen dieser Wallet. Darunter liegen Kaufen und Verkaufen. Eine Bezahlkarte gibt es hier nicht."
     },
     "08-lightning/03-rechnung-erstellen": {
-      "title": "Spark-Adresse",
-      "text": "Die Seite ist der Spark-Empfang. Sie fragt keinen Betrag ab und erzeugt keine Lightning-Rechnung. Das Bild zeigt keine Adresse, damit hier nichts Zahlbares veröffentlicht wird."
+      "title": "Lightning-Adresse",
+      "text": "Der Code enthält die Lightning-Adresse der Wallet. Mit Betrag und Beschreibung entsteht stattdessen eine Lightning-Rechnung."
     },
     "09-import/01-scanner": {
       "title": "Import über den Scanner",
@@ -270,7 +270,7 @@
     "04-empfangen-senden": "Empfangen und Senden",
     "06-wallet-hinzufuegen": "Weitere Wallet anlegen",
     "07-multi-device": "Wallet auf drei Geräten einrichten",
-    "08-lightning": "Spark",
+    "08-lightning": "Lightning",
     "09-import": "Wallet importieren"
   }
 }

@@ -30,11 +30,12 @@
  * Three checks run over that set, plus one check on the checking:
  *
  *   QR — a decodable QR in a screenshot is an address, a payment request or,
- *   worst case, an encoded seed. Exactly one screen may carry one: the on-chain
+ *   worst case, an encoded seed. Exactly two screens may carry one, each only
+ *   with a bare receive address of the unfunded handbook wallet: the on-chain
  *   receive screen (`screenshots/04-empfangen-senden/01-erhalten.png`, a Bitcoin
- *   receive address). The Spark receive screen
- *   (`screenshots/08-lightning/03-rechnung-erstellen.png`) must not carry a QR.
- *   The stored picture shows no address, so nothing payable is published.
+ *   address) and the Lightning receive screen
+ *   (`screenshots/08-lightning/03-rechnung-erstellen.png`, a Lightning address).
+ *   An invoice or any other payload on either screen fails.
  *
  *   Seed phrase — a QR gate is blind to the higher risk: a recovery phrase
  *   printed as plain text on a backup screen. OCR every image and look for a
@@ -82,6 +83,14 @@ const QR_ALLOWLIST = {
     // allowing it would make this a path-only allowlist again. Re-take the
     // screenshot without an amount, or widen this with a shape for the
     // parameters, not with `.*`.
+  },
+  'screenshots/08-lightning/03-rechnung-erstellen.png': {
+    // Same rule for the Lightning receive screen: only the wallet's registered
+    // Lightning address (16 hex name, Breez or lightning.space domain). An
+    // amount turns the screen into a BOLT11 invoice, which fails here on
+    // purpose — its description is free text.
+    payload: /^[0-9a-f]{16}@(breez\.tips|lightning\.space)$/,
+    reason: 'receive screen — the QR is the subject of the screenshot',
   },
 };
 

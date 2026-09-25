@@ -3,7 +3,7 @@
   "label": "Français",
   "meta": {
     "title": "DFX BTC Taro Wallet — Manuel",
-    "description": "Guide illustré du DFX BTC Taro Wallet : créer un portefeuille, recevoir et envoyer des bitcoins, sécuriser la sauvegarde, utiliser Spark.",
+    "description": "Guide illustré du DFX BTC Taro Wallet : créer un portefeuille, recevoir et envoyer des bitcoins, sécuriser la sauvegarde, utiliser Lightning.",
     "lede": "Ce guide parcourt l'application image par image, dans l'ordre où les étapes apparaissent dans le portefeuille. Chaque image est une capture réelle de l'application."
   },
   "ui": {
@@ -81,9 +81,9 @@
     },
     {
       "id": "lightning",
-      "title": "Spark",
+      "title": "Lightning",
       "summary": "De petits paiements instantanés ; comme les frais ne dépendent pas du montant, leur poids relatif est plus important pour les très petits paiements.",
-      "intro": "Spark est le portefeuille pour les petits paiements bitcoin rapides. Les nouveaux utilisateurs le créent d'un tap sur la ligne Spark de l'aperçu. Achat et vente sont là comme pour les autres portefeuilles ; il n'y a pas de carte de paiement. La vente ouvre le service DFX dans le navigateur, puis ramène dans l'application, où le montant est confirmé une dernière fois. La réception affiche une adresse Spark. Elle ne crée ni facture Lightning ni adresse Lightning.",
+      "intro": "Le portefeuille Lightning sert aux petits paiements bitcoin rapides ; il fonctionne sur Spark. Les nouveaux utilisateurs le créent d'un tap sur « Ajouter » dans la ligne Lightning de l'aperçu. Achat et vente sont là comme pour les autres portefeuilles ; il n'y a pas de carte de paiement. La vente ouvre le service DFX dans le navigateur, puis ramène dans l'application, où le montant est confirmé une dernière fois. La réception affiche l'adresse Lightning du portefeuille ; avec un montant et une description, elle crée plutôt une facture Lightning.",
       "groups": [
         "08-lightning"
       ]
@@ -91,8 +91,8 @@
     {
       "id": "weitere-wallets",
       "title": "Autres portefeuilles : ajouter et importer",
-      "summary": "Un portefeuille sur trois appareils, un portefeuille Spark, la lecture d'un portefeuille existant.",
-      "intro": "Outre le portefeuille du premier lancement, vous pouvez en créer d'autres : un portefeuille réparti sur trois appareils, dont deux approuvent chaque paiement, ou Spark d'un tap sur la ligne de l'aperçu. Il n'y a pas de choix de fournisseur. Un portefeuille créé ailleurs se lit à partir de la phrase de récupération, d'une clé privée ou d'un code.",
+      "summary": "Un portefeuille sur trois appareils, un portefeuille Lightning, la lecture d'un portefeuille existant.",
+      "intro": "Outre le portefeuille du premier lancement, vous pouvez en créer d'autres : un portefeuille réparti sur trois appareils, dont deux approuvent chaque paiement, ou le portefeuille Lightning d'un tap sur la ligne de l'aperçu. Il n'y a pas de choix de fournisseur. Un portefeuille créé ailleurs se lit à partir de la phrase de récupération, d'une clé privée ou d'un code.",
       "groups": [
         "06-wallet-hinzufuegen",
         "07-multi-device",
@@ -231,24 +231,24 @@
       "text": "Un portefeuille réparti sur trois appareils : deux d'entre eux approuvent chaque paiement. Cela évite qu'un seul appareil perdu vous coûte l'argent."
     },
     "06-wallet-hinzufuegen/02-lightning-spark": {
-      "title": "Ligne Spark avec Ajouter",
-      "text": "Un tap sur « Ajouter » dans cette ligne crée un portefeuille Spark. Il n'y a pas d'autre choix."
+      "title": "Ligne Lightning avec Ajouter",
+      "text": "Un tap sur « Ajouter » dans cette ligne crée le portefeuille Lightning. Il n'y a pas d'autre choix."
     },
     "07-multi-device/01-erstellung-qr": {
       "title": "Première étape de la configuration",
       "text": "Chacun des trois appareils affiche son propre code et scanne les deux autres. L'indicateur en haut suit la progression."
     },
     "08-lightning/01-uebersicht-mit-lightning": {
-      "title": "Aperçu avec Spark",
-      "text": "L'écran d'accueil lorsque Spark côtoie le portefeuille sur la blockchain."
+      "title": "Aperçu avec Lightning",
+      "text": "L'écran d'accueil lorsque le portefeuille Lightning côtoie le portefeuille sur la blockchain."
     },
     "08-lightning/02-lightning-wallet": {
-      "title": "Spark",
-      "text": "Solde et paiements de ce portefeuille. Achat et vente sont en dessous. Il n'y a ni adresse Lightning ni carte de paiement."
+      "title": "Lightning",
+      "text": "Solde et paiements de ce portefeuille. Achat et vente sont en dessous. Il n'y a pas de carte de paiement."
     },
     "08-lightning/03-rechnung-erstellen": {
-      "title": "Adresse Spark",
-      "text": "La page est la réception Spark. Elle ne demande pas de montant et ne crée pas de facture Lightning. L'image ne montre pas d'adresse, pour ne rien publier qui soit payable."
+      "title": "Adresse Lightning",
+      "text": "Le code contient l'adresse Lightning du portefeuille. Avec un montant et une description, il devient plutôt une facture Lightning."
     },
     "09-import/01-scanner": {
       "title": "Importer avec le scanner",
@@ -270,7 +270,7 @@
     "04-empfangen-senden": "Réception et envoi",
     "06-wallet-hinzufuegen": "Ajouter un autre portefeuille",
     "07-multi-device": "Configurer un portefeuille sur trois appareils",
-    "08-lightning": "Spark",
+    "08-lightning": "Lightning",
     "09-import": "Importer un portefeuille"
   }
 }

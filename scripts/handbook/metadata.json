@@ -2,7 +2,7 @@
   "screenshots": {
     "01-onboarding": {
       "title": "Erststart und Wallet-Anlage",
-      "description": "Haftungsausschluss mit „Erstellen\" und „Wallet importieren\", Wallet-Übersicht direkt nach der Anlage und die Mitteilungs-Berechtigung beim ersten Öffnen von „Erhalten\". Die Spark-Wallet ist nicht Teil des Erststarts — sie wird über „Hinzufügen\" auf der Wallet-Übersicht angelegt (siehe „Weitere Wallet anlegen\").",
+      "description": "Haftungsausschluss mit „Erstellen\" und „Wallet importieren\", Wallet-Übersicht direkt nach der Anlage und die Mitteilungs-Berechtigung beim ersten Öffnen von „Erhalten\". Die Lightning-Wallet ist nicht Teil des Erststarts — sie wird über „Hinzufügen\" auf der Wallet-Übersicht angelegt (siehe „Weitere Wallet anlegen\").",
       "captions": {
         "01-start": "Haftungsausschluss beim Erststart",
         "02-wallet-uebersicht": "Wallet-Übersicht nach der Anlage",
@@ -55,10 +55,10 @@
     },
     "06-wallet-hinzufuegen": {
       "title": "Weitere Wallet anlegen",
-      "description": "Einstiegsseite für die Multi-Device-Wallet (3-Geräte-Setup) und die Übersicht mit der Spark-Zeile, auf der noch „Hinzufügen“ steht. Die Spark-Wallet entsteht mit einem Tipp darauf, ohne weitere Auswahl.",
+      "description": "Einstiegsseite für die Multi-Device-Wallet (3-Geräte-Setup) und die Übersicht mit der Lightning-Zeile, auf der noch „Hinzufügen“ steht. Die Lightning-Wallet entsteht mit einem Tipp darauf, ohne weitere Auswahl.",
       "captions": {
         "01-multi-device": "Multi-Device-Wallet anlegen",
-        "02-lightning-spark": "Spark-Zeile mit Hinzufügen"
+        "02-lightning-spark": "Lightning-Zeile mit Hinzufügen"
       }
     },
     "07-multi-device": {
@@ -69,12 +69,12 @@
       }
     },
     "08-lightning": {
-      "title": "Spark",
-      "description": "Übersicht mit angelegter Spark-Wallet, Wallet-Seite mit Kaufen und Verkaufen aber ohne Bezahlkarte, Empfangsseite mit abgedeckter Spark-Adresse. Eine Lightning-Adresse gibt es nicht.",
+      "title": "Lightning",
+      "description": "Übersicht mit angelegter Lightning-Wallet, Wallet-Seite mit Kaufen und Verkaufen aber ohne Bezahlkarte, Empfangsseite mit der Lightning-Adresse als QR-Code.",
       "captions": {
-        "01-uebersicht-mit-lightning": "Übersicht mit Spark",
-        "02-lightning-wallet": "Spark",
-        "03-rechnung-erstellen": "Spark-Adresse"
+        "01-uebersicht-mit-lightning": "Übersicht mit Lightning",
+        "02-lightning-wallet": "Lightning",
+        "03-rechnung-erstellen": "Lightning-Adresse"
       }
     },
     "09-import": {

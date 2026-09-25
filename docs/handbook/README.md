@@ -294,7 +294,7 @@ iOS-Simulator-Lauf, nicht aus einer CI-Visual-Regression. Die verwendeten
 Maestro-Flows liegen unter `scripts/handbook/screenshots/` und sind damit
 nachvollziehbar und wiederholbar.
 
-Fuer die Lightning-(Spark)-Wallet muss der Build einen privaten `ENVFILE`-Overlay
+Fuer die Lightning-Wallet (Spark) muss der Build einen privaten `ENVFILE`-Overlay
 erhalten. Der Overlay wird aus `.env.prd` in einem eigenen, nur fuer den
 aktuellen Benutzer lesbaren Temp-Verzeichnis erstellt; der Breez-Schluessel wird
 weder in eine getrackte Datei geschrieben noch ausgegeben. Das entspricht dem
@@ -369,8 +369,8 @@ haelt diese Zuordnung mit; sonst ist die Wiederholbarkeit nur behauptet.
 
 `_setup.yaml` ist der gemeinsame Vorlauf fuer die meisten Flows: frischer
 App-Start, Wallet anlegen und den Mitteilungs-Dialog einmal abraeumen. Die
-Wallet-Anlage fuehrt direkt auf die Uebersicht — die Spark-Wallet ist opt-in
-und wird ueber „Hinzufuegen" in der Spark-Zeile angelegt. Den Einstieg
+Wallet-Anlage fuehrt direkt auf die Uebersicht — die Lightning-Wallet ist opt-in
+und wird ueber „Hinzufuegen" in der Lightning-Zeile angelegt. Den Einstieg
 zeigt `06b-wallet-lightning.yaml`, das Ergebnis `08b-lightning-spark.yaml`.
 Zwei Flows starten selbst mit `launchApp: clearState` und ohne `_setup.yaml`:
 `01-onboarding.yaml` und `16-import.yaml` (sie brauchen den frischen
@@ -411,10 +411,11 @@ Voraussetzung: `zbarimg` (zbar-tools) und `tesseract` auf dem PATH sowie
 `marked` und `bip39` unter `_handbook-deps/` — beide in EINEM `npm install`,
 sonst raeumt der zweite Aufruf den ersten weg.
 
-Erlaubt ist genau ein Treffer: die On-Chain-Empfangsadresse in
-`04-empfangen-senden/01-erhalten.png`. Der Spark-Empfang
-`08-lightning/03-rechnung-erstellen.png` darf keinen QR enthalten. Jeder weitere
-Treffer ist ein Fund.
+Erlaubt sind genau zwei Treffer, beide die blanke Empfangsadresse der leeren
+Handbuch-Wallet: die On-Chain-Adresse in `04-empfangen-senden/01-erhalten.png`
+und die Lightning-Adresse in `08-lightning/03-rechnung-erstellen.png`. Eine
+Rechnung oder jeder andere Inhalt auf diesen Bildern und jeder weitere Treffer
+ist ein Fund.
 
 Zusaetzlich geschwaerzt, weil sie Anmeldematerial bzw. dauerhaft gueltige
 Schluessel zeigen: das Feld „DFX-Adressen-Besitznachweis" in
@@ -492,13 +493,13 @@ ab), ein echtes Geraet mit NFC und eine Boltcard (Ursache 2), drei Geraete
 Die Zaehlung oben geht ueber Routen. Zwei **Varianten** von Screens, die im Satz
 sind, fehlen aus Gruenden, die keine der drei Ursachen trifft:
 
-Der Spark-Empfang zeigt eine Spark-Adresse und keinen Betrag. Eine echte
-Adresse darf hier nicht stehen. Das Bild deckt Adresse und Code ab; die
-Bildunterschrift zu `08-lightning/03-rechnung-erstellen` sagt das. Die
-Redaktionspruefung lehnt einen QR auf diesem Bild ab.
+Der Lightning-Empfang mit Betrag und Beschreibung, also mit einer
+Lightning-Rechnung, fehlt als Aufnahme. Die Redaktionspruefung laesst auf
+`08-lightning/03-rechnung-erstellen.png` nur die blanke Lightning-Adresse zu,
+weil die Beschreibung einer Rechnung freier Text ist.
 
-Die Wallet-Einstellungen einer Spark-Wallet fehlen als Aufnahme, nicht mehr als
-Weg: Der Eintrag „Spark" in den Einstellungen fuehrt seit `3e799f57f` auch fuer
+Die Wallet-Einstellungen einer Lightning-Wallet fehlen als Aufnahme, nicht mehr als
+Weg: Der Eintrag „Lightning" in den Einstellungen fuehrt seit `3e799f57f` auch fuer
 diesen Wallet-Typ nach `WalletDetails` — der Screen kennt Spark und bietet dort
 auch das Loeschen an. Was hier fehlt, ist allein das Bild dazu; #269 ist
 geschlossen.
