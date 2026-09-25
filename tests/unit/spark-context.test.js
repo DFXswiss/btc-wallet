@@ -226,6 +226,47 @@ describe('SparkContextProvider recoverSparkWallet', () => {
   });
 });
 
+describe('SparkContextProvider signLnurlAuthK1', () => {
+  const { sparkIdentityKey } = jest.requireActual('../../api/spark/spark-seed');
+  const K1 = 'e2af6254a8df433264fa23f67eb8188635d15ce883e8fc020989d5f82ae6f11e';
+
+  function stored(identityPubkey) {
+    const spark = SparkWallet.create(identityPubkey);
+    spark.sourceWalletId = 'hd-default';
+    spark.fetchBalance = jest.fn().mockResolvedValue(undefined);
+    spark.fetchTransactions = jest.fn().mockResolvedValue(undefined);
+    spark.fetchUserInvoices = jest.fn().mockResolvedValue(undefined);
+    return spark;
+  }
+
+  it('signs k1 with the identity key of the wallet', async () => {
+    const identity = sparkIdentityKey(SPARK_MNEMONIC).publicKey;
+    renderWith([hdWallet, stored(identity)]);
+    await waitFor(() => assert.ok(latestCtx));
+
+    const signed = await latestCtx.signLnurlAuthK1(K1);
+    assert.strictEqual(signed.key, identity);
+    const secp256k1 = require('secp256k1');
+    assert.ok(
+      secp256k1.verify(Buffer.from(K1, 'hex'), secp256k1.signatureImport(Buffer.from(signed.sig, 'hex')), Buffer.from(identity, 'hex')),
+    );
+  });
+
+  it('refuses to sign when the derived key is not the identity of the wallet', async () => {
+    renderWith([hdWallet, stored('02' + '11'.repeat(32))]);
+    await waitFor(() => assert.ok(latestCtx));
+
+    await assert.rejects(() => latestCtx.signLnurlAuthK1(K1), new RegExp(loc.wallets.lightning_spark_lnurl_auth_unsupported));
+  });
+
+  it('refuses to sign without a Spark wallet', async () => {
+    renderWith([hdWallet]);
+    await waitFor(() => assert.ok(latestCtx));
+
+    await assert.rejects(() => latestCtx.signLnurlAuthK1(K1), new RegExp(loc.wallets.lightning_spark_lnurl_auth_unsupported));
+  });
+});
+
 describe('SparkContextProvider', () => {
   it('creates a Spark wallet from the on-chain seed without storing the phrase', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});

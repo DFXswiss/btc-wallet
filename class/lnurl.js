@@ -444,6 +444,33 @@ export default class Lnurl {
     });
   }
 
+  /** LNURL-auth signature: DER over the raw k1 bytes with the given private key, plus its compressed public key, hex. */
+  static signK1(k1Hex, privateKey) {
+    const { signature } = secp256k1.sign(Buffer.from(k1Hex, 'hex'), privateKey);
+    return {
+      sig: secp256k1.signatureExport(signature).toString('hex'),
+      key: secp256k1.publicKeyCreate(privateKey).toString('hex'),
+    };
+  }
+
+  /**
+   * LNURL-auth with a caller-provided signer instead of the LndHub-derived key.
+   * sign(k1Hex) returns the DER signature over the raw k1 bytes and the compressed public key, both hex.
+   */
+  async authenticateSigned(sign, additionalParams) {
+    if (!this._lnurl) throw new Error('this._lnurl is not set');
+    const url = parse(Lnurl.getUrlFromLnurl(this._lnurl) || '', true);
+    if (!url.hostname || !url.query.k1) throw new Error('Invalid LNURL-auth URL');
+
+    const { sig, key } = await sign(url.query.k1);
+    let replyUrl = `${url.href}&sig=${sig}&key=${key}`;
+    for (const [param, value] of Object.entries(additionalParams || {})) {
+      replyUrl += `&${param}=${encodeURIComponent(value)}`;
+    }
+    const reply = await this.fetchGet(replyUrl);
+    if (reply.status !== 'OK') throw new Error(reply.reason);
+  }
+
   static isLightningAddress(address) {
     // ensure only 1 `@` present:
     if (address.replace('mailto:', '').split('@').length !== 2) return false;

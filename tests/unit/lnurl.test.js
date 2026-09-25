@@ -790,3 +790,42 @@ describe('LNURL edge cases', function () {
     });
   });
 });
+
+describe('Lnurl LNURL-auth with a provided signer', () => {
+  const secp256k1 = require('secp256k1');
+  const K1 = 'e2af6254a8df433264fa23f67eb8188635d15ce883e8fc020989d5f82ae6f11e';
+  const AUTH_URL = `https://api.dfx.swiss/v1/lnurla?tag=login&k1=${K1}&action=login`;
+
+  it('signK1 returns a DER signature over the raw k1 that verifies with the returned key', () => {
+    const privateKey = Buffer.alloc(32, 7);
+    const { sig, key } = Lnurl.signK1(K1, privateKey);
+    const signature = secp256k1.signatureImport(Buffer.from(sig, 'hex'));
+    expect(secp256k1.verify(Buffer.from(K1, 'hex'), signature, Buffer.from(key, 'hex'))).toBe(true);
+    expect(key).toBe(secp256k1.publicKeyCreate(privateKey).toString('hex'));
+  });
+
+  it('authenticateSigned calls back with sig, key and the encoded extra params', async () => {
+    const LN = new Lnurl(AUTH_URL);
+    jest.spyOn(Lnurl, 'getUrlFromLnurl').mockReturnValue(AUTH_URL);
+    const fetchGet = jest.fn().mockResolvedValue({ status: 'OK' });
+    LN.fetchGet = fetchGet;
+    const sign = jest.fn().mockResolvedValue({ sig: 'deadbeef', key: '02ab' });
+
+    await LN.authenticateSigned(sign, { address: 'spark1address', signature: 'a+b/c', wallet: 'DFX Bitcoin' });
+
+    expect(sign).toHaveBeenCalledWith(K1);
+    expect(fetchGet).toHaveBeenCalledWith(
+      `${AUTH_URL}&sig=deadbeef&key=02ab&address=spark1address&signature=a%2Bb%2Fc&wallet=DFX%20Bitcoin`,
+    );
+    Lnurl.getUrlFromLnurl.mockRestore();
+  });
+
+  it('authenticateSigned rejects with the service reason', async () => {
+    const LN = new Lnurl(AUTH_URL);
+    jest.spyOn(Lnurl, 'getUrlFromLnurl').mockReturnValue(AUTH_URL);
+    LN.fetchGet = jest.fn().mockResolvedValue({ status: 'ERROR', reason: 'invalid auth signature' });
+
+    await expect(LN.authenticateSigned(async () => ({ sig: '00', key: '02' }))).rejects.toThrow('invalid auth signature');
+    Lnurl.getUrlFromLnurl.mockRestore();
+  });
+});

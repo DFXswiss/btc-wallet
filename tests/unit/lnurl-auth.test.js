@@ -12,6 +12,10 @@ const mockGoBack = jest.fn();
 let mockWallets = [];
 let mockParams = {};
 
+const mockSignLnurlAuthK1 = jest.fn();
+jest.mock('../../api/spark/contexts/spark.context', () => ({ useSparkContext: () => ({ signLnurlAuthK1: mockSignLnurlAuthK1 }) }));
+jest.mock('../../api/dfx/hooks/auth.hook', () => ({ useAuth: () => ({ getSignMessage: address => `dfx-login:${address}` }) }));
+
 jest.mock('react-native-haptic-feedback', () => ({
   trigger: jest.fn(),
 }));
@@ -254,9 +258,7 @@ describe('LnurlAuth authenticate', () => {
     fireEvent.press(screen.getByText(loc.lnurl_auth.authenticate));
 
     await waitFor(() => screen.getByTestId('SuccessView'));
-    expect(
-      screen.getByText(loc.formatString(loc.lnurl_auth.auth_answer, { hostname: 'lntxbot.bigsun.xyz' })),
-    ).toBeTruthy();
+    expect(screen.getByText(loc.formatString(loc.lnurl_auth.auth_answer, { hostname: 'lntxbot.bigsun.xyz' }))).toBeTruthy();
     expect(screen.queryByText(loc.lnurl_auth.authenticate)).toBeNull();
     expect(wallet.authenticate).toHaveBeenCalledWith(expect.any(Lnurl), undefined);
   });
@@ -280,9 +282,51 @@ describe('LnurlAuth authenticate', () => {
       signature: 'proof',
       wallet: 'DFX Bitcoin',
     });
-    expect(
-      screen.getByText(loc.formatString(loc.lnurl_auth.login_answer, { hostname: 'api.dfx.swiss' })),
-    ).toBeTruthy();
+    expect(screen.getByText(loc.formatString(loc.lnurl_auth.login_answer, { hostname: 'api.dfx.swiss' }))).toBeTruthy();
+  });
+
+  it('logs a Spark wallet in to DFX with its identity key, Spark address and DFX signature', async () => {
+    const spark = {
+      getID: () => 'spark-1',
+      chain: Chain.OFFCHAIN,
+      type: 'sparkWallet',
+      getSparkAddress: jest.fn().mockResolvedValue('spark1address'),
+      signCompactMessage: jest.fn().mockResolvedValue('compact-sig'),
+    };
+    const authenticateSigned = jest.spyOn(Lnurl.prototype, 'authenticateSigned').mockResolvedValue(undefined);
+    mockParams = { walletID: 'spark-1', lnurl: DFX_LOGIN_LNURL };
+    mockWallets = [spark];
+    const screen = renderScreen();
+
+    fireEvent.press(screen.getByText(loc.lnurl_auth.authenticate));
+
+    await waitFor(() => screen.getByTestId('SuccessView'));
+    expect(spark.signCompactMessage).toHaveBeenCalledWith('dfx-login:spark1address');
+    expect(authenticateSigned).toHaveBeenCalledWith(mockSignLnurlAuthK1, {
+      address: 'spark1address',
+      signature: 'compact-sig',
+      wallet: 'DFX Bitcoin',
+    });
+    authenticateSigned.mockRestore();
+  });
+
+  it('shows the error when the Spark DFX login fails', async () => {
+    const spark = {
+      getID: () => 'spark-1',
+      chain: Chain.OFFCHAIN,
+      type: 'sparkWallet',
+      getSparkAddress: jest.fn().mockResolvedValue('spark1address'),
+      signCompactMessage: jest.fn().mockResolvedValue('compact-sig'),
+    };
+    const authenticateSigned = jest.spyOn(Lnurl.prototype, 'authenticateSigned').mockRejectedValue(new Error('invalid auth signature'));
+    mockParams = { walletID: 'spark-1', lnurl: DFX_LOGIN_LNURL };
+    mockWallets = [spark];
+    const screen = renderScreen();
+
+    fireEvent.press(screen.getByText(loc.lnurl_auth.authenticate));
+
+    await waitFor(() => screen.getByText('invalid auth signature'));
+    authenticateSigned.mockRestore();
   });
 
   it('omits DFX extra params when the Lightning address is missing', async () => {
@@ -330,9 +374,7 @@ describe('LnurlAuth authenticate', () => {
     fireEvent.press(screen.getByText(loc.lnurl_auth.authenticate));
 
     await waitFor(() => screen.getByText('auth denied'));
-    expect(
-      screen.getByText(loc.formatString(loc.lnurl_auth.could_not_auth, { hostname: 'lntxbot.bigsun.xyz' })),
-    ).toBeTruthy();
+    expect(screen.getByText(loc.formatString(loc.lnurl_auth.could_not_auth, { hostname: 'lntxbot.bigsun.xyz' }))).toBeTruthy();
     expect(screen.queryByText(loc.lnurl_auth.authenticate)).toBeNull();
   });
 
@@ -347,9 +389,7 @@ describe('LnurlAuth authenticate', () => {
     fireEvent.press(screen.getByText(loc.lnurl_auth.authenticate));
 
     await waitFor(() => screen.getByText(`${err}`));
-    expect(
-      screen.getByText(loc.formatString(loc.lnurl_auth.could_not_auth, { hostname: 'lntxbot.bigsun.xyz' })),
-    ).toBeTruthy();
+    expect(screen.getByText(loc.formatString(loc.lnurl_auth.could_not_auth, { hostname: 'lntxbot.bigsun.xyz' }))).toBeTruthy();
   });
 
   it('stringifies a non-Error rejection from authenticate', async () => {
@@ -361,9 +401,7 @@ describe('LnurlAuth authenticate', () => {
     fireEvent.press(screen.getByText(loc.lnurl_auth.authenticate));
 
     await waitFor(() => screen.getByText('42'));
-    expect(
-      screen.getByText(loc.formatString(loc.lnurl_auth.could_not_auth, { hostname: 'lntxbot.bigsun.xyz' })),
-    ).toBeTruthy();
+    expect(screen.getByText(loc.formatString(loc.lnurl_auth.could_not_auth, { hostname: 'lntxbot.bigsun.xyz' }))).toBeTruthy();
   });
 
   it('pops to the top of the parent stack from the close button', () => {

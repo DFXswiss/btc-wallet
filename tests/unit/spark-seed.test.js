@@ -2,7 +2,13 @@ import assert from 'assert';
 import BIP32Factory from 'bip32';
 import * as bip39 from 'bip39';
 import ecc from '../../blue_modules/noble_ecc';
-import { deriveSparkMnemonic, sparkMnemonicFromRoot, SPARK_BIP85_PATH } from '../../api/spark/spark-seed';
+import {
+  deriveSparkMnemonic,
+  sparkIdentityKey,
+  sparkMnemonicFromRoot,
+  SPARK_BIP85_PATH,
+  SPARK_IDENTITY_PATH,
+} from '../../api/spark/spark-seed';
 
 const bip32 = BIP32Factory(ecc);
 
@@ -62,5 +68,18 @@ describe('spark-seed', () => {
     const child = deriveSparkMnemonic(input);
     assert.strictEqual(child, 'panda lesson setup coffee uncle beyond night burger hello artist sick hawk');
     assert.ok(bip39.validateMnemonic(child));
+  });
+});
+
+describe('sparkIdentityKey', () => {
+  const phrase = 'prosper short ramp prepare exchange stove life snack client enough purpose fold';
+
+  it('derives the key at the Spark identity path of the Spark phrase', () => {
+    const node = BIP32Factory(ecc).fromSeed(bip39.mnemonicToSeedSync(phrase)).derivePath(SPARK_IDENTITY_PATH);
+    const key = sparkIdentityKey(phrase);
+    assert.strictEqual(SPARK_IDENTITY_PATH, "m/8797555'/1'/0'");
+    assert.strictEqual(key.publicKey, Buffer.from(node.publicKey).toString('hex'));
+    assert.ok(key.privateKey.equals(Buffer.from(node.privateKey)));
+    assert.match(key.publicKey, /^0[23][0-9a-f]{64}$/);
   });
 });

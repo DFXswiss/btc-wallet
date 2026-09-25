@@ -5,6 +5,7 @@ import { SdkEvent_Tags, type SdkEvent } from '@breeztech/breez-sdk-spark-react-n
 import { BlueStorageContext } from '../../../blue_modules/storage-context';
 import { HDLegacyBreadwalletWallet, HDLegacyP2PKHWallet, HDSegwitBech32Wallet, HDSegwitP2SHWallet } from '../../../class';
 import { SparkWallet } from '../../../class/wallets/spark-wallet';
+import Lnurl from '../../../class/lnurl';
 import loc from '../../../loc';
 import {
   acquireSparkSessionLease,
@@ -15,7 +16,7 @@ import {
   syncSparkWallet,
   type SparkSessionLease,
 } from '../spark-sdk';
-import { deriveSparkMnemonic } from '../spark-seed';
+import { deriveSparkMnemonic, sparkIdentityKey } from '../spark-seed';
 import { applyOutgoingSdkEvent, getOutgoingPayment, subscribeOutgoingPayment, type OutgoingPayment } from '../outgoing-payment';
 
 const BIP39_HD_WALLET_TYPES = new Set([
@@ -69,6 +70,8 @@ export interface SparkContextInterface {
   createSparkWallet: () => Promise<SparkWallet | null>;
   /** Restores the Spark wallet of an imported on-chain wallet if it was used before; never registers or alerts. */
   recoverSparkWallet: (source: OnChainMnemonicWallet) => Promise<SparkWallet | null>;
+  /** Signs an LNURL-auth k1 with the Spark identity key: DER signature over the raw k1 bytes and the pubkey, hex. */
+  signLnurlAuthK1: (k1Hex: string) => Promise<{ sig: string; key: string }>;
   outgoingPayment: OutgoingPayment | null;
 }
 
@@ -505,6 +508,16 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
     [ensureConnected, addAndSaveWallet, refreshSparkWallet],
   );
 
+  const signLnurlAuthK1 = useCallback(async (k1Hex: string): Promise<{ sig: string; key: string }> => {
+    const spark = getSparkWallet(walletsRef.current);
+    if (!spark?.identityPubkey) throw new Error(loc.wallets.lightning_spark_lnurl_auth_unsupported);
+    const { privateKey } = sparkIdentityKey(getSparkMnemonic(walletsRef.current, spark.sourceWalletId, spark.sourceWalletLabel));
+    const signed = Lnurl.signK1(k1Hex, privateKey);
+    // Only the key inside the wallet's Spark address may log in; anything else would bind a foreign key.
+    if (signed.key !== spark.identityPubkey) throw new Error(loc.wallets.lightning_spark_lnurl_auth_unsupported);
+    return signed;
+  }, []);
+
   useEffect(() => {
     createSparkWalletRef.current = createSparkWallet;
   }, [createSparkWallet]);
@@ -520,9 +533,10 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
       isCreating,
       createSparkWallet,
       recoverSparkWallet,
+      signLnurlAuthK1,
       outgoingPayment,
     }),
-    [isConnected, isConnecting, isCreating, createSparkWallet, recoverSparkWallet, outgoingPayment],
+    [isConnected, isConnecting, isCreating, createSparkWallet, recoverSparkWallet, signLnurlAuthK1, outgoingPayment],
   );
 
   return <SparkContext.Provider value={value}>{props.children}</SparkContext.Provider>;

@@ -25,3 +25,15 @@ export function deriveSparkMnemonic(mnemonic: string, passphrase?: string): stri
   }
   return sparkMnemonicFromRoot(bip32.fromSeed(bip39.mnemonicToSeedSync(mnemonic, passphrase || undefined)));
 }
+
+// Breez Spark SDK identity key on mainnet: m/8797555'/1'/0' of the Spark phrase (account 0 is testnet/regtest).
+export const SPARK_IDENTITY_PATH = "m/8797555'/1'/0'";
+
+/** Identity key pair of a Spark wallet; its public key is the identity pubkey inside the wallet's Spark address. */
+export function sparkIdentityKey(sparkMnemonic: string): { privateKey: Buffer; publicKey: string } {
+  const node = bip32.fromSeed(bip39.mnemonicToSeedSync(sparkMnemonic)).derivePath(SPARK_IDENTITY_PATH);
+  if (!node.privateKey) {
+    throw new Error('Spark identity key is not available');
+  }
+  return { privateKey: Buffer.from(node.privateKey), publicKey: Buffer.from(node.publicKey).toString('hex') };
+}
