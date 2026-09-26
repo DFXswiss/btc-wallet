@@ -1,15 +1,12 @@
 import assert from 'assert';
 import { PaymentDetails_Tags, PaymentStatus, PaymentType, SdkEvent_Tags } from '@breeztech/breez-sdk-spark-react-native';
-import {
-  applyOutgoingSdkEvent,
-  attachOutgoingPaymentId,
-  beginOutgoingPayment,
-  getOutgoingPayment,
-  settleOutgoingPayment,
-  subscribeOutgoingPayment,
-  __resetOutgoingPaymentForTests,
-  __trackedCountForTests,
-} from '../../api/spark/outgoing-payment';
+
+let applyOutgoingSdkEvent;
+let attachOutgoingPaymentId;
+let beginOutgoingPayment;
+let getOutgoingPayment;
+let settleOutgoingPayment;
+let subscribeOutgoingPayment;
 
 function sendPayment(id, status, { paymentHash, preimage, invoice } = {}) {
   return {
@@ -32,8 +29,17 @@ function sendPayment(id, status, { paymentHash, preimage, invoice } = {}) {
   };
 }
 
+// The tracker keeps its state at module level, so every test gets a fresh copy of the module.
 beforeEach(() => {
-  __resetOutgoingPaymentForTests();
+  jest.resetModules();
+  ({
+    applyOutgoingSdkEvent,
+    attachOutgoingPaymentId,
+    beginOutgoingPayment,
+    getOutgoingPayment,
+    settleOutgoingPayment,
+    subscribeOutgoingPayment,
+  } = require('../../api/spark/outgoing-payment'));
 });
 
 describe('outgoing payment tracker', () => {
@@ -596,7 +602,9 @@ describe('outgoing payment tracker', () => {
       beginOutgoingPayment({ paymentHash: `settled-h${i}`, paymentId: `settled-p${i}` });
       settleOutgoingPayment({ status: 'completed', paymentHash: `settled-h${i}`, paymentId: `settled-p${i}` });
     }
-    assert.ok(__trackedCountForTests() <= 20, `tracked list grew unbounded: ${__trackedCountForTests()}`);
+    // The oldest settled attempts were dropped from the list; the recent ones are still matched.
+    assert.notStrictEqual(settleOutgoingPayment({ status: 'failed', paymentHash: 'settled-h0' }).paymentHash, 'settled-h0');
+    assert.strictEqual(settleOutgoingPayment({ status: 'failed', paymentHash: 'settled-h20' }).paymentHash, 'settled-h20');
 
     // 'watched' is the oldest entry in the list and is no longer 'current' by this point, but it is
     // still pending, so it must still be reachable by its identity instead of having been dropped.

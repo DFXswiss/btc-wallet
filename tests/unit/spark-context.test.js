@@ -50,7 +50,7 @@ jest.mock('../../class', () => ({
 const { SparkWallet } = require('../../class/wallets/spark-wallet');
 const { BlueStorageContext } = require('../../blue_modules/storage-context');
 const { SparkContextProvider, useSparkContext } = require('../../api/spark/contexts/spark.context');
-const { beginOutgoingPayment, __resetOutgoingPaymentForTests } = require('../../api/spark/outgoing-payment');
+const { beginOutgoingPayment } = require('../../api/spark/outgoing-payment');
 const loc = require('../../loc').default;
 
 function expectedUserFacingError(e) {
@@ -121,7 +121,6 @@ function stubSparkMethods(wallet) {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  __resetOutgoingPaymentForTests();
   mockIsConnected.mockReturnValue(false);
   mockConnect.mockImplementation(async (_mnemonic, onEvent) => {
     mockIsConnected.mockReturnValue(true);

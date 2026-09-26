@@ -37,7 +37,6 @@ let teardownInFlight = false;
 
 /** Bound on each lifecycle transition. A hang poisons the session instead of wedging the queue. */
 export const SPARK_LIFECYCLE_TIMEOUT_MS = 60_000;
-let lifecycleTimeoutMs = SPARK_LIFECYCLE_TIMEOUT_MS;
 
 export class SparkSessionStaleError extends Error {
   constructor() {
@@ -114,7 +113,7 @@ async function runLifecycle<T>(op: () => Promise<T>): Promise<T> {
     timer = setTimeout(() => {
       abandonOnTimeout();
       reject(new SparkLifecycleHungError());
-    }, lifecycleTimeoutMs);
+    }, SPARK_LIFECYCLE_TIMEOUT_MS);
   });
   // Race observes this reject. The extra handler keeps it from becoming an
   // unhandled rejection when the race consumer attaches after a timer flush.
@@ -372,29 +371,4 @@ export async function connectSparkSdk(mnemonic: string, onEvent?: (event: SdkEve
 export async function syncSparkWallet(): Promise<void> {
   if (!sdk) return;
   await sdk.syncWallet({});
-}
-
-/** Test-only: drop in-memory session without calling native disconnect. */
-export function __resetSparkSdkForTests(): void {
-  sdk = null;
-  listenerId = null;
-  connectedSeedFingerprint = null;
-  connectedIdentityPubkey = null;
-  poisonedSdk = null;
-  lifecycleTail = Promise.resolve();
-  lifecycleEpoch = 0;
-  inFlightInstance = null;
-  pendingNativeConnect = null;
-  teardownInFlight = false;
-  lifecycleTimeoutMs = SPARK_LIFECYCLE_TIMEOUT_MS;
-}
-
-/** Test-only: shorten the lifecycle hang bound. Omit to restore the default. */
-export function __setLifecycleTimeoutMsForTests(ms?: number): void {
-  lifecycleTimeoutMs = ms === undefined ? SPARK_LIFECYCLE_TIMEOUT_MS : ms;
-}
-
-/** Test-only: whether teardownInstance is awaiting a native remove/disconnect. */
-export function __isTeardownInFlightForTests(): boolean {
-  return teardownInFlight;
 }

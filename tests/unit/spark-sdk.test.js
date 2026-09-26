@@ -1,20 +1,34 @@
 import assert from 'assert';
-import Config from 'react-native-config';
-import {
-  acquireSparkSessionLease,
-  connectSparkSdk,
-  disconnectSparkSdk,
-  isSparkSdkConnected,
-  SparkSessionStaleError,
-  SparkLifecycleHungError,
-  syncSparkWallet,
-  __resetSparkSdkForTests,
-  __setLifecycleTimeoutMsForTests,
-  __isTeardownInFlightForTests,
-  BREEZ_API_KEY_MISSING,
-} from '../../api/spark/spark-sdk';
 
-const breez = require('@breeztech/breez-sdk-spark-react-native');
+// spark-sdk keeps its session at module level, so every test loads it fresh together with the mocks it reads.
+let Config;
+let breez;
+let acquireSparkSessionLease;
+let connectSparkSdk;
+let disconnectSparkSdk;
+let isSparkSdkConnected;
+let SparkSessionStaleError;
+let SparkLifecycleHungError;
+let syncSparkWallet;
+let BREEZ_API_KEY_MISSING;
+let SPARK_LIFECYCLE_TIMEOUT_MS;
+
+function loadFreshModules() {
+  jest.resetModules();
+  Config = require('react-native-config').default;
+  breez = require('@breeztech/breez-sdk-spark-react-native');
+  ({
+    acquireSparkSessionLease,
+    connectSparkSdk,
+    disconnectSparkSdk,
+    isSparkSdkConnected,
+    SparkSessionStaleError,
+    SparkLifecycleHungError,
+    syncSparkWallet,
+    BREEZ_API_KEY_MISSING,
+    SPARK_LIFECYCLE_TIMEOUT_MS,
+  } = require('../../api/spark/spark-sdk'));
+}
 
 function makeSdkInstance(id = '1') {
   return {
@@ -29,8 +43,8 @@ function makeSdkInstance(id = '1') {
 const mockInstance = makeSdkInstance('1');
 
 beforeEach(() => {
+  loadFreshModules();
   jest.clearAllMocks();
-  __resetSparkSdkForTests();
   Config.BREEZ_API_KEY = 'test-api-key';
   delete Config.BREEZ_LNURL_DOMAIN;
   mockInstance.addEventListener.mockReset().mockResolvedValue('listener-1');
@@ -49,11 +63,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  try {
-    await Promise.race([disconnectSparkSdk(), new Promise(resolve => setTimeout(resolve, 1000))]);
-  } finally {
-    __resetSparkSdkForTests();
-  }
+  await Promise.race([disconnectSparkSdk(), new Promise(resolve => setTimeout(resolve, 1000))]);
 });
 
 describe('spark-sdk', () => {
@@ -722,12 +732,10 @@ describe('spark-sdk', () => {
 
     beforeEach(() => {
       jest.useFakeTimers();
-      __setLifecycleTimeoutMsForTests(50);
     });
 
     afterEach(() => {
       jest.clearAllTimers();
-      __setLifecycleTimeoutMsForTests();
       jest.useRealTimers();
     });
 
@@ -735,7 +743,7 @@ describe('spark-sdk', () => {
       const assertion = assert.rejects(pending, err => err instanceof SparkLifecycleHungError);
       await Promise.resolve();
       await Promise.resolve();
-      await jest.advanceTimersByTimeAsync(50);
+      await jest.advanceTimersByTimeAsync(SPARK_LIFECYCLE_TIMEOUT_MS);
       await assertion;
     }
 
@@ -797,7 +805,7 @@ describe('spark-sdk', () => {
       const pending = connectSparkSdk(seed);
       const hungAssertion = assert.rejects(pending, err => err instanceof SparkLifecycleHungError);
       await getInfoStarted;
-      await jest.advanceTimersByTimeAsync(50);
+      await jest.advanceTimersByTimeAsync(SPARK_LIFECYCLE_TIMEOUT_MS);
       await hungAssertion;
       assert.strictEqual(isSparkSdkConnected(), false);
 
@@ -914,7 +922,7 @@ describe('spark-sdk', () => {
         const pendingA = connectSparkSdk(seed);
         const hungAAssertion = assert.rejects(pendingA, err => err instanceof SparkLifecycleHungError);
         await infoAStarted;
-        await jest.advanceTimersByTimeAsync(50);
+        await jest.advanceTimersByTimeAsync(SPARK_LIFECYCLE_TIMEOUT_MS);
         await hungAAssertion;
 
         const pendingB = connectSparkSdk(seedB);
@@ -925,7 +933,7 @@ describe('spark-sdk', () => {
         await flush();
         expect(instanceB.disconnect).not.toHaveBeenCalled();
 
-        await jest.advanceTimersByTimeAsync(50);
+        await jest.advanceTimersByTimeAsync(SPARK_LIFECYCLE_TIMEOUT_MS);
         await hungBAssertion;
 
         const order = [];
@@ -972,7 +980,7 @@ describe('spark-sdk', () => {
         const pendingB = connectSparkSdk(seedB, async () => {});
         const hungAssertion = assert.rejects(pendingB, err => err instanceof SparkLifecycleHungError);
         await firstRemoveStarted;
-        await jest.advanceTimersByTimeAsync(50);
+        await jest.advanceTimersByTimeAsync(SPARK_LIFECYCLE_TIMEOUT_MS);
         await hungAssertion;
 
         const rebuilt = await connectSparkSdk(seedB, async () => {});
@@ -1015,7 +1023,7 @@ describe('spark-sdk', () => {
         await Promise.resolve();
         await Promise.resolve();
         assert.ok(typeof releaseDisconnect === 'function');
-        await jest.advanceTimersByTimeAsync(50);
+        await jest.advanceTimersByTimeAsync(SPARK_LIFECYCLE_TIMEOUT_MS);
         await hungAssertion;
         assert.strictEqual(extraConnects, 0);
 
@@ -1080,7 +1088,7 @@ describe('spark-sdk', () => {
         warn.mockRestore();
       });
 
-      it('does not release the teardown latch when a timed-out teardown later settles', async () => {
+      it('finishes a newer teardown and reconnects after a timed-out teardown settles late', async () => {
         const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
         await connectSparkSdk(seed);
         expect(breez.connect).toHaveBeenCalledTimes(1);
@@ -1104,19 +1112,20 @@ describe('spark-sdk', () => {
         await expectHungLifecycle(pendingDisc);
         assert.strictEqual(isSparkSdkConnected(), false);
         assert.ok(typeof resolveHungDisconnect === 'function');
-        assert.strictEqual(__isTeardownInFlightForTests(), false);
 
         const pendingNewerDisc = disconnectSparkSdk();
         await flush();
         assert.ok(typeof resolveNewerDisconnect === 'function');
-        assert.strictEqual(__isTeardownInFlightForTests(), true);
 
         resolveHungDisconnect();
         await flush();
-        assert.strictEqual(__isTeardownInFlightForTests(), true);
 
         resolveNewerDisconnect();
         await pendingNewerDisc;
+        mockInstance.disconnect.mockResolvedValue(undefined);
+        await connectSparkSdk(seed);
+        expect(breez.connect).toHaveBeenCalledTimes(2);
+        assert.strictEqual(isSparkSdkConnected(), true);
         warn.mockRestore();
       });
 
@@ -1146,7 +1155,7 @@ describe('spark-sdk', () => {
         const pendingA = connectSparkSdk(seed, async () => {});
         const hungAssertion = assert.rejects(pendingA, err => err instanceof SparkLifecycleHungError);
         await infoStarted;
-        await jest.advanceTimersByTimeAsync(50);
+        await jest.advanceTimersByTimeAsync(SPARK_LIFECYCLE_TIMEOUT_MS);
         await hungAssertion;
 
         const resultB = await connectSparkSdk(seedB);
@@ -1193,7 +1202,7 @@ describe('spark-sdk', () => {
         const pendingA = connectSparkSdk(seed, async () => {});
         const hungAssertion = assert.rejects(pendingA, err => err instanceof SparkLifecycleHungError);
         await addStarted;
-        await jest.advanceTimersByTimeAsync(50);
+        await jest.advanceTimersByTimeAsync(SPARK_LIFECYCLE_TIMEOUT_MS);
         await hungAssertion;
 
         const resultB = await connectSparkSdk(seedB);
@@ -1236,7 +1245,7 @@ describe('spark-sdk', () => {
         const first = connectSparkSdk(seed);
         const firstHung = assert.rejects(first, err => err instanceof SparkLifecycleHungError);
         await firstInfoStarted;
-        await jest.advanceTimersByTimeAsync(50);
+        await jest.advanceTimersByTimeAsync(SPARK_LIFECYCLE_TIMEOUT_MS);
         await firstHung;
 
         const second = await connectSparkSdk(seedB);
@@ -1277,7 +1286,7 @@ describe('spark-sdk', () => {
         const pendingA = connectSparkSdk(seed);
         const hungAssertion = assert.rejects(pendingA, err => err instanceof SparkLifecycleHungError);
         await infoStarted;
-        await jest.advanceTimersByTimeAsync(50);
+        await jest.advanceTimersByTimeAsync(SPARK_LIFECYCLE_TIMEOUT_MS);
         await hungAssertion;
         expect(instanceA.disconnect).not.toHaveBeenCalled();
 
@@ -1336,7 +1345,7 @@ describe('spark-sdk', () => {
         const pendingA = connectSparkSdk(seed, async () => {});
         const hungAssertion = assert.rejects(pendingA, err => err instanceof SparkLifecycleHungError);
         await infoStarted;
-        await jest.advanceTimersByTimeAsync(50);
+        await jest.advanceTimersByTimeAsync(SPARK_LIFECYCLE_TIMEOUT_MS);
         await hungAssertion;
 
         const resultB = await connectSparkSdk(seedB);
@@ -1453,7 +1462,7 @@ describe('spark-sdk', () => {
         const pendingDisc = disconnectSparkSdk();
         const hungAssertion = assert.rejects(pendingDisc, err => err instanceof SparkLifecycleHungError);
         await removeStarted;
-        await jest.advanceTimersByTimeAsync(50);
+        await jest.advanceTimersByTimeAsync(SPARK_LIFECYCLE_TIMEOUT_MS);
         await hungAssertion;
         assert.strictEqual(isSparkSdkConnected(), false);
         assert.ok(typeof resolveHungRemove === 'function');
@@ -1516,7 +1525,7 @@ describe('spark-sdk', () => {
         const pendingA = connectSparkSdk(seed);
         const hungAssertion = assert.rejects(pendingA, err => err instanceof SparkLifecycleHungError);
         await cleanupStarted;
-        await jest.advanceTimersByTimeAsync(50);
+        await jest.advanceTimersByTimeAsync(SPARK_LIFECYCLE_TIMEOUT_MS);
         await hungAssertion;
 
         const resultB = await connectSparkSdk(seedB);

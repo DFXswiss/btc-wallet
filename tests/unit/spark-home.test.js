@@ -186,7 +186,6 @@ const { LightningLdsWallet } = require('../../class/wallets/lightning-lds-wallet
 const loc = require('../../loc').default;
 const BlueApp = require('../../BlueApp');
 const AppStorage = BlueApp.AppStorage;
-const { __resetOutgoingPaymentForTests } = require('../../api/spark/outgoing-payment');
 const Haptic = require('react-native-haptic-feedback');
 const { BlueDarkTheme } = require('../../components/themes');
 
@@ -300,7 +299,6 @@ function pressLightningAdd(screen) {
 beforeEach(() => {
   jest.clearAllMocks();
   mockAddExistingLds.mockResolvedValue(false);
-  __resetOutgoingPaymentForTests();
   mockDisconnect.mockImplementation(() => Promise.resolve());
   mockSync.mockImplementation(() => Promise.resolve());
   mockIsConnected.mockReturnValue(false);

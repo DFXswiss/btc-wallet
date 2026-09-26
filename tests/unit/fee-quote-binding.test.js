@@ -20,7 +20,6 @@ jest.mock('../../api/spark/spark-sdk', () => ({
 }));
 
 const { SparkWallet } = require('../../class/wallets/spark-wallet');
-const { __resetOutgoingPaymentForTests } = require('../../api/spark/outgoing-payment');
 
 const SAMPLE_INVOICE =
   'lnbc2500u1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpuaztrnwngzn3kdzw5hydlzf03qdgm2hdq27cqv3agm2awhz5se903vruatfhq77w3ls4evs3ch9zw97j25emudupq63nyw24cg27h2rspfj9srp';
@@ -75,7 +74,6 @@ beforeEach(() => {
   mockSdk.prepareLnurlPay.mockReset();
   mockSdk.lnurlPay.mockReset();
   mockSessionIdentity = 'id-pk';
-  __resetOutgoingPaymentForTests();
 });
 
 it('does not send a previously quoted payment at a higher fee without fresh confirmation', async () => {

@@ -138,17 +138,30 @@ function lightningReceive(id, invoice = `inv-${id}`) {
   };
 }
 
-const { SparkWallet, SparkPayInvoiceStatus } = require('../../class/wallets/spark-wallet');
 const { BitcoinUnit, Chain } = require('../../models/bitcoinUnits');
 const loc = require('../../loc').default;
-const { SparkSessionStaleError } = require('../../api/spark/spark-sdk');
-const {
-  applyOutgoingSdkEvent,
-  beginOutgoingPayment,
-  getOutgoingPayment,
-  settleOutgoingPayment,
-  __resetOutgoingPaymentForTests,
-} = require('../../api/spark/outgoing-payment');
+
+// The outgoing-payment tracker keeps its state at module level, so every test loads the wallet and the
+// tracker fresh from one module registry.
+let SparkWallet;
+let SparkPayInvoiceStatus;
+let SparkSessionStaleError;
+let applyOutgoingSdkEvent;
+let beginOutgoingPayment;
+let getOutgoingPayment;
+let settleOutgoingPayment;
+
+function loadFreshModules() {
+  jest.resetModules();
+  ({ SparkWallet, SparkPayInvoiceStatus } = require('../../class/wallets/spark-wallet'));
+  ({ SparkSessionStaleError } = require('../../api/spark/spark-sdk'));
+  ({
+    applyOutgoingSdkEvent,
+    beginOutgoingPayment,
+    getOutgoingPayment,
+    settleOutgoingPayment,
+  } = require('../../api/spark/outgoing-payment'));
+}
 
 async function payInvoiceWithExplicitQuote(wallet, invoice, amountSats = 0, quote) {
   const preparedQuote = quote || {
@@ -185,12 +198,12 @@ async function paySparkAddressWithExplicitQuote(wallet, address, amountSats, see
 }
 
 beforeEach(() => {
+  loadFreshModules();
   jest.clearAllMocks();
   mockSessionIdentity = null;
   mockLeaseValid = true;
   mockSdkConnected = true;
   mockLeaseSdkOverride = null;
-  __resetOutgoingPaymentForTests();
 });
 
 describe('SparkWallet', () => {
@@ -770,7 +783,6 @@ describe('SparkWallet', () => {
   });
 
   it('paySparkAddress trusts a completed send result over an earlier failure event', async () => {
-    __resetOutgoingPaymentForTests();
     mockSdk.prepareSendPayment.mockResolvedValue(sparkAddressPrepareResponse());
     mockSdk.sendPayment.mockImplementationOnce(async () => {
       applyOutgoingSdkEvent({
@@ -3500,7 +3512,6 @@ describe('SparkWallet', () => {
       ],
     ];
     for (const [label, resultStatus, eventTag, expected] of terminalCases) {
-      __resetOutgoingPaymentForTests();
       mockSdk.prepareSendPayment.mockResolvedValue(sparkInvoicePrepareResponse());
       mockSdk.sendPayment.mockImplementationOnce(async () => {
         applyOutgoingSdkEvent({
@@ -3583,7 +3594,6 @@ describe('SparkWallet', () => {
     const wallet = SparkWallet.create('id-pk');
     mockSdk.prepareSendPayment.mockResolvedValue(sparkInvoicePrepareResponse());
     mockSdk.sendPayment.mockImplementation(async () => {
-      __resetOutgoingPaymentForTests();
       beginOutgoingPayment({ paymentHash: 'other-current-payment' });
       return { payment: { status: PaymentStatus.Completed } };
     });
@@ -3639,7 +3649,6 @@ describe('SparkWallet', () => {
       invoiceDetails: { paymentHash: 'lnurl-replaced-current', invoice: { bolt11: SAMPLE_INVOICE } },
     });
     mockSdk.lnurlPay.mockImplementation(async () => {
-      __resetOutgoingPaymentForTests();
       beginOutgoingPayment({ paymentHash: 'other-current-lnurl' });
       return { payment: { ...completedSend('lnurl-replaced-current-id'), status: PaymentStatus.Completed } };
     });
@@ -3677,7 +3686,6 @@ describe('SparkWallet', () => {
     const wallet = SparkWallet.create('id-pk');
     mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
     mockSdk.sendPayment.mockImplementation(async () => {
-      __resetOutgoingPaymentForTests();
       beginOutgoingPayment({ paymentHash: 'other-current-invoice' });
       return { payment: { status: PaymentStatus.Completed } };
     });

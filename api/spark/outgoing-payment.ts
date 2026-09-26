@@ -27,9 +27,9 @@ type Listener = (payment: OutgoingPayment | null) => void;
 
 let current: OutgoingPayment | null = null;
 /** Payments that can still receive SDK events, including attempts replaced as the current one. */
-let tracked: OutgoingPayment[] = [];
+const tracked: OutgoingPayment[] = [];
 /** Terminal events that arrived before the matching send was registered. */
-let unclaimed: OutgoingPayment[] = [];
+const unclaimed: OutgoingPayment[] = [];
 const listeners = new Set<Listener>();
 
 function present(value?: string): value is string {
@@ -320,15 +320,4 @@ export function applyOutgoingSdkEvent(event: SdkEvent): OutgoingPayment | null {
     });
   }
   return current;
-}
-
-export function __resetOutgoingPaymentForTests(): void {
-  current = null;
-  tracked = [];
-  unclaimed = [];
-  listeners.clear();
-}
-
-export function __trackedCountForTests(): number {
-  return tracked.length;
 }

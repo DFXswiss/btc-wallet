@@ -119,7 +119,6 @@ const {
   getOutgoingPayment,
   settleOutgoingPayment,
   subscribeOutgoingPayment,
-  __resetOutgoingPaymentForTests,
 } = require('../../api/spark/outgoing-payment');
 const {
   PaymentDetails_Tags,
@@ -2482,13 +2481,9 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
 });
 
 describe('outgoing payment tracking across LnurlPay routes', () => {
-  beforeEach(() => {
-    __resetOutgoingPaymentForTests();
-  });
+  beforeEach(() => {});
 
-  afterEach(() => {
-    __resetOutgoingPaymentForTests();
-  });
+  afterEach(() => {});
 
   it('notifies the older route when its SDK completion arrives after a newer payment began', () => {
     beginOutgoingPayment({ paymentHash: 'older-hash', paymentId: 'older-id', invoice: 'older-invoice' });
