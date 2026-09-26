@@ -343,11 +343,9 @@ const ScanLndInvoice = () => {
       case BitcoinUnit.LOCAL_CURRENCY:
         sats = AmountInput.getCachedSatoshis(text) || currency.btcToSatoshi(currency.fiatToBTC(text));
         break;
-      case BitcoinUnit.SATS: {
-        const parsed = Number(text);
-        sats = Number.isInteger(parsed) ? parsed : NaN;
+      case BitcoinUnit.SATS:
+        sats = parseInt(text, 10);
         break;
-      }
     }
     setAmountSat(sats);
   };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useRef } from 'react';
+import React, { useState, useEffect, useContext, useMemo, useRef } from 'react';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image, ScrollView, StyleSheet, View } from 'react-native';
@@ -192,7 +192,8 @@ const LnurlPay = () => {
   const { wallets, refreshAllWalletTransactions } = useContext(BlueStorageContext);
   const { outgoingPayment } = useSparkContext();
   const { params } = useRoute();
-  const { walletID, lnurl, amountSat, destination, invoice, sparkInvoice, sparkAddress, amountUnit, description, free, isMax, routeId } = params;
+  const { walletID, lnurl, amountSat, destination, invoice, sparkInvoice, sparkAddress, amountUnit, description, free, isMax, routeId } =
+    params;
   /** @type {LightningCustodianWallet} */
   const wallet = wallets.find(w => w.getID() === walletID);
   const [unit, setUnit] = useState(wallet.getPreferredBalanceUnit());
@@ -213,6 +214,16 @@ const LnurlPay = () => {
   const [sparkMaxFeeQuote, setSparkMaxFeeQuote] = useState();
   const [sparkFeeQuoteError, setSparkFeeQuoteError] = useState();
   const [quoteRetry, setQuoteRetry] = useState(0);
+  // Spark pays an invoice that carries its own amount exactly as it stands (it may not be a whole satoshi); a typed
+  // amount only applies to an invoice without one. LNDHub already ignores the amount for such invoices.
+  const invoiceHasAmount = useMemo(() => {
+    if (!invoice || wallet.type !== SparkWallet.type) return false;
+    try {
+      return Number(wallet.decodeInvoice(invoice).num_millisatoshis) > 0;
+    } catch (_) {
+      return false;
+    }
+  }, [invoice, wallet]);
   const [lnurlInvoiceQuote, setLnurlInvoiceQuote] = useState();
   const { colors } = useTheme();
   const stylesHook = StyleSheet.create({
@@ -283,7 +294,7 @@ const LnurlPay = () => {
     }
 
     wallet
-      .getPaymentFeeQuote(paymentRequest, amountSat)
+      .getPaymentFeeQuote(paymentRequest, invoice && invoiceHasAmount ? 0 : amountSat)
       .then(quote => {
         if (isCurrent) {
           setSparkFeeQuote(quote);
@@ -297,7 +308,7 @@ const LnurlPay = () => {
     return () => {
       isCurrent = false;
     };
-  }, [amountSat, description, invoice, isMax, payload, sparkInvoice, sparkAddress, wallet, _LN, quoteRetry]);
+  }, [amountSat, description, invoice, invoiceHasAmount, isMax, payload, sparkInvoice, sparkAddress, wallet, _LN, quoteRetry]);
 
   useEffect(() => {
     const quoteAmountSats = amountSat ?? _LN?.getMin();
@@ -571,7 +582,7 @@ const LnurlPay = () => {
   };
 
   const handleLnInvoice = async amountSats => {
-    const result = await wallet.payInvoice(invoice, amountSats, sparkFeeQuote);
+    const result = await wallet.payInvoice(invoice, invoiceHasAmount ? 0 : amountSats, sparkFeeQuote);
     const decoded = wallet.decodeInvoice(invoice);
     if (result && result.status === 'pending') {
       pendingPayRef.current = {
@@ -670,12 +681,7 @@ const LnurlPay = () => {
       let amountSats = amount;
       switch (unit) {
         case BitcoinUnit.SATS:
-          amountSats = Number(amountSats);
-          if (!Number.isInteger(amountSats)) {
-            payInFlightRef.current = false;
-            setPayButtonDisabled(false);
-            return alert(loc.lnd.error_tip_invoice_not_supported);
-          }
+          amountSats = parseInt(amountSats, 10); // nop
           break;
         case BitcoinUnit.BTC:
           amountSats = currency.btcToSatoshi(amountSats);

@@ -581,15 +581,18 @@ describe('ScanLndInvoice fee mark', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it('alerts that a fractional-sat invoice is not supported', async () => {
+  it('lets a fractional-sat invoice be paid, as on develop', async () => {
     const wallet = makeLndhubWallet();
     wallet.decodeInvoice = jest.fn().mockReturnValue(futureDecodedInvoice({ num_satoshis: '1.5' }));
     const screen = renderScan(wallet, { uri: SAMPLE_INVOICE });
 
     await waitFor(() => screen.getByText(loc.lnd.next));
     fireEvent.press(screen.getByText(loc.lnd.next));
-    expect(alert).toHaveBeenCalledWith(loc.lnd.error_tip_invoice_not_supported);
-    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(alert).not.toHaveBeenCalledWith(loc.lnd.error_tip_invoice_not_supported);
+    expect(mockNavigate).toHaveBeenCalledWith(
+      'SendDetailsRoot',
+      expect.objectContaining({ params: expect.objectContaining({ amountSat: 1 }) }),
+    );
   });
 
   it('refuses to pay an invoice that this wallet created', async () => {

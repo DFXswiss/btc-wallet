@@ -206,9 +206,17 @@ async function expectSparkLightningPayment(wallet, { expectedInvoice, expectedAm
   if (!mockRouteParams.isMax) {
     const quoteCalls = wallet.getPaymentFeeQuote.mock.calls;
     const quotedInvoice = quoteCalls.length ? quoteCalls[quoteCalls.length - 1][0] : undefined;
-    const amountSats = expectedAmountSats ?? mockRouteParams.amountSat ?? (mockRouteParams.lnurl ? Lnurl.prototype.getMin() : 1000);
+    // Spark pays an invoice that carries its own amount as it stands, so no typed amount is passed for it.
+    const paysOwnAmount =
+      wallet.type === 'sparkWallet' &&
+      Boolean(mockRouteParams.invoice) &&
+      route.mock.calls[0][0] === mockRouteParams.invoice &&
+      Number(wallet.decodeInvoice(mockRouteParams.invoice).num_millisatoshis) > 0;
+    const amountSats =
+      expectedAmountSats ?? (paysOwnAmount ? 0 : (mockRouteParams.amountSat ?? (mockRouteParams.lnurl ? Lnurl.prototype.getMin() : 1000)));
     expect(route.mock.calls[0][0]).toBe(expectedInvoice || mockRouteParams.invoice || quotedInvoice || SAMPLE_INVOICE);
     expect(route.mock.calls[0][1]).toBe(amountSats);
+    if (paysOwnAmount) expect(quoteCalls[quoteCalls.length - 1][1]).toBe(0);
   } else {
     expect(wallet.getLnurlMaxFeeQuote).toHaveBeenCalled();
     const amountSats = expectedAmountSats ?? mockRouteParams.amountSat ?? Lnurl.prototype.getMin();
@@ -810,7 +818,7 @@ describe('LnurlPay Spark pending send', () => {
     });
 
     await expectSparkLightningPayment(wallet);
-    expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000, expect.anything());
+    expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 0, expect.anything());
     expect(screen.getByText(loc.wallets.lightning_spark_payment_in_transit)).toBeTruthy();
   });
 
@@ -825,7 +833,7 @@ describe('LnurlPay Spark pending send', () => {
     });
 
     await expectSparkLightningPayment(wallet);
-    expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000, expect.anything());
+    expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 0, expect.anything());
     expect(mockNavigate).toHaveBeenCalledWith('Success', expect.objectContaining({ amount: 1000 }));
   });
 
@@ -1733,7 +1741,7 @@ describe('LnurlPay remaining payment paths', () => {
     });
 
     await expectSparkLightningPayment(wallet);
-    expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000, expect.anything());
+    expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 0, expect.anything());
     expect(mockNavigate).toHaveBeenCalledWith('Success', expect.objectContaining({ amount: 1000 }));
   });
 
@@ -1748,7 +1756,7 @@ describe('LnurlPay remaining payment paths', () => {
     });
 
     await expectSparkLightningPayment(wallet);
-    expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000, expect.anything());
+    expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 0, expect.anything());
     expect(alert).toHaveBeenCalledWith('pay exploded');
     expect(mockNavigate).not.toHaveBeenCalled();
     expect(getPayButton(screen).props.disabled).toBe(false);
@@ -1782,18 +1790,25 @@ describe('LnurlPay remaining payment paths', () => {
     expect(Biometric.unlockWithBiometrics).toHaveBeenCalledTimes(1);
   });
 
-  it('releases the synchronous guard after invalid satoshi input', async () => {
+  it('pays a fractional sats amount as whole sats, as on develop', async () => {
     const wallet = makeWallet();
     const screen = renderPay(wallet, { amountSat: 1000.5 });
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
     fireEvent.press(screen.getByText(loc.lnd.payButton));
-    await waitFor(() => expect(alert).toHaveBeenCalledWith(loc.lnd.error_tip_invoice_not_supported));
-    await waitFor(() => screen.getByText(loc.lnd.payButton));
-    fireEvent.press(screen.getByText(loc.lnd.payButton));
+    await waitFor(() => expect(wallet.payInvoice).toHaveBeenCalled());
+    expect(alert).not.toHaveBeenCalledWith(loc.lnd.error_tip_invoice_not_supported);
+  });
 
-    await waitFor(() => expect(alert).toHaveBeenCalledTimes(2));
-    expect(wallet.payInvoice).not.toHaveBeenCalled();
+  it('pays an invoice for a fractional sat amount as it stands', async () => {
+    const wallet = makeWallet();
+    wallet.decodeInvoice = jest.fn().mockReturnValue({ num_satoshis: 1, num_millisatoshis: '1500', description: 'tea' });
+    const screen = renderPay(wallet, { amountSat: 1 });
+
+    await waitFor(() => screen.getByText(loc.lnd.payButton));
+    expect(wallet.getPaymentFeeQuote).toHaveBeenLastCalledWith(SAMPLE_INVOICE, 0);
+    fireEvent.press(screen.getByText(loc.lnd.payButton));
+    await waitFor(() => expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 0, expect.anything()));
   });
 
   it('shows insufficient funds and goes back from cancel when the amount exceeds the balance', async () => {
