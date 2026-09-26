@@ -82,8 +82,8 @@
     {
       "id": "lightning",
       "title": "Lightning",
-      "summary": "Small amounts, instantly and at very low cost.",
-      "intro": "Lightning is a second layer on top of bitcoin for small, fast payments. In this app the wallet for Lightning runs through a provider, called an LNDHub. lightning.space is preselected, and DFX.swiss can be chosen as well. Unlike the wallet on the blockchain, the balance is held by that provider. For larger amounts the wallet on the blockchain is the right place.",
+      "summary": "Small payments, instantly; because the fee does not depend on the amount, it weighs more proportionally on very small payments.",
+      "intro": "The Lightning wallet is for small, fast bitcoin payments; it runs on Spark. New users create it with a tap on “Add” in the Lightning row of the overview. Buying and selling are there as on the other wallets; there is no payment card. Selling opens the DFX service in the browser and then returns to the app, where the amount is confirmed once more. Receiving shows the wallet's Lightning address; with an amount and a description it creates a Lightning invoice instead.",
       "groups": [
         "08-lightning"
       ]
@@ -91,8 +91,8 @@
     {
       "id": "weitere-wallets",
       "title": "More wallets: adding and importing",
-      "summary": "A wallet across three devices, another wallet for Lightning, reading in an existing wallet.",
-      "intro": "Besides the wallet from the first launch you can create more: a wallet spread across three devices, where two of them approve every payment, or another wallet for Lightning. A wallet created elsewhere can be read in from the recovery phrase, a private key or a code.",
+      "summary": "A wallet across three devices, a Lightning wallet, reading in an existing wallet.",
+      "intro": "Besides the wallet from the first launch you can create more: a wallet spread across three devices, where two of them approve every payment, or the Lightning wallet with a tap on the row in the overview. There is no choice of provider. A wallet created elsewhere can be read in from the recovery phrase, a private key or a code.",
       "groups": [
         "06-wallet-hinzufuegen",
         "07-multi-device",
@@ -113,14 +113,6 @@
     "01-onboarding/01-start": {
       "title": "Disclaimer on first launch",
       "text": "Before the first wallet the app points out that it keeps the keys itself: they live on the device, not with DFX."
-    },
-    "06-wallet-hinzufuegen/03-lightning-benutzerdefiniert": {
-      "title": "Your own provider",
-      "text": "If you run your own LNDHub, enter its address here."
-    },
-    "06-wallet-hinzufuegen/04-lightning-dfx-swiss": {
-      "title": "The provider DFX.swiss",
-      "text": "The service run by DFX.swiss can be selected instead."
     },
     "01-onboarding/02-wallet-uebersicht": {
       "title": "The overview after setup",
@@ -226,10 +218,6 @@
       "title": "Broadcast a transaction",
       "text": "Push a transaction that was signed elsewhere into the network."
     },
-    "03-einstellungen/19-lightning-wallet": {
-      "title": "Settings for Lightning",
-      "text": "Settings of the wallet for Lightning, among them the connected provider."
-    },
     "04-empfangen-senden/01-erhalten": {
       "title": "Receiving",
       "text": "The code holds the address for receiving. Amount and description are optional."
@@ -242,9 +230,9 @@
       "title": "Creating a wallet across three devices",
       "text": "One wallet spread across three devices: two of them approve every payment. That protects you from a single lost device costing you the money."
     },
-    "06-wallet-hinzufuegen/02-lightning": {
-      "title": "Creating a wallet for Lightning",
-      "text": "An additional wallet for Lightning through a provider."
+    "06-wallet-hinzufuegen/02-lightning-spark": {
+      "title": "Lightning row with Add",
+      "text": "A tap on “Add” in this row creates the Lightning wallet. There is no further choice."
     },
     "07-multi-device/01-erstellung-qr": {
       "title": "First step of the setup",
@@ -252,15 +240,15 @@
     },
     "08-lightning/01-uebersicht-mit-lightning": {
       "title": "Overview with Lightning",
-      "text": "The home screen once a wallet for Lightning sits next to the wallet on the blockchain."
+      "text": "The home screen once the Lightning wallet sits next to the wallet on the blockchain."
     },
     "08-lightning/02-lightning-wallet": {
-      "title": "The wallet for Lightning",
-      "text": "Balance, payments and the way to the payment card."
+      "title": "Lightning",
+      "text": "Balance and payments of this wallet. Buy and sell sit below. There is no payment card."
     },
     "08-lightning/03-rechnung-erstellen": {
-      "title": "Creating an invoice",
-      "text": "Receiving over Lightning means creating an invoice, usually with a fixed amount and limited validity."
+      "title": "Lightning address",
+      "text": "The code holds the wallet's Lightning address. With an amount and a description it becomes a Lightning invoice instead."
     },
     "09-import/01-scanner": {
       "title": "Import with the scanner",
@@ -282,7 +270,7 @@
     "04-empfangen-senden": "Receiving and sending",
     "06-wallet-hinzufuegen": "Adding another wallet",
     "07-multi-device": "Setting up a wallet across three devices",
-    "08-lightning": "Wallet for Lightning",
+    "08-lightning": "Lightning",
     "09-import": "Importing a wallet"
   }
 }

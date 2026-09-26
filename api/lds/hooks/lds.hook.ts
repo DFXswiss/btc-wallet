@@ -4,22 +4,23 @@ import { useApi } from './api.hook';
 
 export interface LdsInterface {
   getUser: (address: string, signMessage: (message: string) => Promise<string>) => Promise<User>;
+  findUser: (address: string, signMessage: (message: string) => Promise<string>) => Promise<User | undefined>;
 }
 
 export function useLds(): LdsInterface {
   const { call } = useApi();
-  const getMessage = (address: string) => `By_signing_this_message,_you_confirm_to_lightning.space_that_you_are_the_sole_owner_of_the_provided_Blockchain_address._Your_ID:_${address}`;
+  const getMessage = (address: string) =>
+    `By_signing_this_message,_you_confirm_to_lightning.space_that_you_are_the_sole_owner_of_the_provided_Blockchain_address._Your_ID:_${address}`;
 
   async function createSession(address: string, signature: string): Promise<string> {
     const data = { address, signature, wallet: 'DFX Bitcoin' };
 
-    return call<{ accessToken: string }>({ method: 'POST', url: 'auth', data })
-      .then(r => r.accessToken);
+    return call<{ accessToken: string }>({ method: 'POST', url: 'auth', data }).then(r => r.accessToken);
   }
 
-  async function getUser(address: string, signMessage: (message: string) => Promise<string>): Promise<User> {    
+  async function getUser(address: string, signMessage: (message: string) => Promise<string>): Promise<User> {
     // sign up/in
-    const message  = getMessage(address);
+    const message = getMessage(address);
     const signature = await signMessage(message);
     const token = await createSession(address, signature);
 
@@ -27,6 +28,21 @@ export function useLds(): LdsInterface {
     return call<User>({ method: 'GET', url: UserUrl.get, token });
   }
 
+  /** Sign-in only: resolves undefined when no account exists for the address and never creates one. */
+  async function findUser(address: string, signMessage: (message: string) => Promise<string>): Promise<User | undefined> {
+    const signature = await signMessage(getMessage(address));
+    let token: string;
+    try {
+      token = await call<{ accessToken: string }>({ method: 'POST', url: 'auth/sign-in', data: { address, signature } }).then(
+        r => r.accessToken,
+      );
+    } catch (e) {
+      if ((e as { statusCode?: number })?.statusCode === 404) return undefined;
+      throw e;
+    }
+    return call<User>({ method: 'GET', url: UserUrl.get, token });
+  }
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  return useMemo(() => ({ getUser }), [call]);
+  return useMemo(() => ({ getUser, findUser }), [call]);
 }

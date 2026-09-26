@@ -23,7 +23,7 @@ import NetworkTransactionFees, { NetworkTransactionFee } from '../models/network
 import { AbstractHDElectrumWallet } from '../class/wallets/abstract-hd-electrum-wallet';
 import { Utxo } from '../class/wallets/types';
 import { BlueText } from '../BlueComponents';
-import { LightningLdsWallet } from '../class/wallets/lightning-lds-wallet';
+import { getLightningWallet } from '../helpers/lightning-wallet';
 import { useWalletContext } from '../contexts/wallet.context';
 import { DfxMaxAmount } from '../helpers/dfxMaxAmount';
 import { Utils } from '../helpers/utils';
@@ -35,15 +35,15 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
   const { wallets, isDfxPos, isDfxSwap } = useContext(BlueStorageContext);
   const { navigate } = useNavigation<any>();
   const { colors } = useTheme();
-  const { isAvailable: isDfxAvailable, openServices } = useDfxSessionContext();
+  const { isAvailableFor, openServices } = useDfxSessionContext();
   const [isHandlingOpenServices, setIsHandlingOpenServices] = useState(false);
   const [changeAddress, setChangeAddress] = useState('');
 
   const wallet = useMemo(() => {
     const selectedWallet = wallets.find((w: AbstractHDElectrumWallet) => w.getID() === walletID);
-    const lndWallet = wallets.find((w: AbstractHDElectrumWallet) => w.type === LightningLdsWallet.type);
-    return selectedWallet || lndWallet || mainWallet;
+    return selectedWallet || getLightningWallet(wallets) || mainWallet;
   }, [wallets, walletID]);
+  const isDfxAvailable = Boolean(wallet) && isAvailableFor(wallet.getID());
 
   const getButtonImages = (lang: string) => {
     switch (lang) {
@@ -121,6 +121,8 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
     }
 
     const balance = wallet.getBalance();
+    // 3% haircut buffers the Spark fee charged on top of the amount. An exact
+    // value needs the fee quote, which is not available at this entry point.
     const maxBalance = service === DfxService.SELL || service === DfxService.SWAP ? balance - balance * 0.03 : balance;
     return { maxBalance, sweepableBalance: balance };
   };

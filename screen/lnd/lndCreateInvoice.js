@@ -37,12 +37,13 @@ import { majorTomToGroundControl, tryToObtainPermissions } from '../../blue_modu
 import alert from '../../components/Alert';
 import { parse } from 'url'; // eslint-disable-line n/no-deprecated-api
 import { reportError } from '../../helpers/errors';
+import { getLightningWallet } from '../../helpers/lightning-wallet';
 const currency = require('../../blue_modules/currency');
 
 const LNDCreateInvoice = () => {
   const { wallets, saveToDisk, setSelectedWallet } = useContext(BlueStorageContext);
   const { walletID, uri } = useRoute().params;
-  const wallet = useRef(wallets.find(item => item.getID() === walletID) || wallets.find(item => item.chain === Chain.OFFCHAIN));
+  const wallet = useRef(wallets.find(item => item.getID() === walletID) || getLightningWallet(wallets));
   const { colors } = useTheme();
   const { navigate, getParent, goBack, setParams, replace } = useNavigation();
   const [unit, setUnit] = useState(wallet.current?.getPreferredBalanceUnit() || BitcoinUnit.BTC);
@@ -193,8 +194,12 @@ const LNDCreateInvoice = () => {
 
       setTimeout(async () => {
         // wallet object doesnt have this fresh invoice in its internals, so we refetch it and only then save
-        await wallet.current.fetchUserInvoices(1);
-        await saveToDisk();
+        try {
+          await wallet.current.fetchUserInvoices(1);
+          await saveToDisk();
+        } catch (e) {
+          reportError('lndCreateInvoice: failed to persist invoice', e);
+        }
       }, 1000);
 
       dismissCustomAmountModal();
@@ -212,11 +217,6 @@ const LNDCreateInvoice = () => {
 
   const processLnurl = async data => {
     setIsLoading(true);
-    if (!wallet.current) {
-      ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
-      alert(loc.wallets.no_ln_wallet_error);
-      return goBack();
-    }
 
     // decoding the lnurl
     const url = Lnurl.getUrlFromLnurl(data);
@@ -386,28 +386,24 @@ const LNDCreateInvoice = () => {
           <BlueWalletSelect wallets={wallets} value={wallet.current?.getID()} onChange={onWalletChange} />
         </View>
 
-        {wallet.current ? (
-          <ScrollView contentContainerStyle={styles.root} keyboardShouldPersistTaps="always">
-            <View style={styles.scrollBody}>
-              <QRCodeComponent value={wallet.current.lnAddress} />
-              <BlueCopyTextToClipboard text={wallet.current.lnAddress} />
-            </View>
-            <View style={styles.share}>
-              <BlueCard>
-                <BlueButtonLink
-                  style={styles.link}
-                  testID="SetCustomAmountButton"
-                  title={loc.receive.details_setAmount}
-                  onPress={showCustomAmountModal}
-                />
-                <BlueButton onPress={handleShareButtonPressed} title={loc.receive.details_share} />
-              </BlueCard>
-            </View>
-            {renderCustomAmountModal()}
-          </ScrollView>
-        ) : (
-          <BlueLoading />
-        )}
+        <ScrollView contentContainerStyle={styles.root} keyboardShouldPersistTaps="always">
+          <View style={styles.scrollBody}>
+            {wallet.current.lnAddress ? <QRCodeComponent value={wallet.current.lnAddress} /> : null}
+            <BlueCopyTextToClipboard text={wallet.current.lnAddress} />
+          </View>
+          <View style={styles.share}>
+            <BlueCard>
+              <BlueButtonLink
+                style={styles.link}
+                testID="SetCustomAmountButton"
+                title={loc.receive.details_setAmount}
+                onPress={showCustomAmountModal}
+              />
+              <BlueButton onPress={handleShareButtonPressed} title={loc.receive.details_share} />
+            </BlueCard>
+          </View>
+          {renderCustomAmountModal()}
+        </ScrollView>
       </View>
     </TouchableWithoutFeedback>
   );

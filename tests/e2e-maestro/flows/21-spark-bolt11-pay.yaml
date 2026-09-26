@@ -1,0 +1,20 @@
+appId: swiss.dfx.bitcoin
+---
+# P21 is the one-shot payment follow-up to P20. The app must still be on the
+# reviewed confirmation screen on the preserved funded simulator. Run directly
+# with Maestro; never use the reset/uninstall suite wrapper. This flow has one
+# and only one `Zahlen` tap and never retries the payment.
+- assertVisible:
+    id: BitcoinAmountInput
+    text: '^10$'
+- assertVisible: '^Gebühr: 2 sats$'
+- assertVisible: '^pr276-isolated-interop-test-2$'
+- assertVisible: '^Zahlen$'
+- tapOn: 'Zahlen'
+- extendedWaitUntil:
+    visible: 'Fertig'
+    timeout: 120000
+- assertVisible: '^10$'
+- assertVisible: '^gebühr: 2 sats$'
+- assertVisible: '^pr276-isolated-interop-test-2$'
+- takeScreenshot: .maestro-e2e-shots/21-spark/01-bolt11-payment-success

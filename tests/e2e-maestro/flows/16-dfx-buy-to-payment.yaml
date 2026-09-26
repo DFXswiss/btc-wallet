@@ -1,0 +1,495 @@
+appId: swiss.dfx.bitcoin
+env:
+  E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
+  E2E_SPARK_MNEMONIC: ${E2E_SPARK_MNEMONIC || ''}
+  E2E_SPARK_WALLET_ADDRESS: ${E2E_SPARK_WALLET_ADDRESS || ''}
+  E2E_API_URL: ${E2E_API_URL || ''}
+  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+  E2E_BUY_CHF: ${E2E_BUY_CHF || '0.20'}
+---
+# P16 prueft die Kaufmaske der Wallet ueber Spark: die Maske nennt die
+# gekuerzte eigene Wallet-Adresse und Spark, die Zahlungsinformation zeigt
+# IBAN und BIC, Invalid signature bleibt aus.
+#
+# Danach loest der Flow ueber die API eine eingehende Zahlung auf der
+# Kaufroute aus, wartet in zwoelf gleichen Bloecken aus Neustart plus
+# kurzer Backend-Abfrage, bis das Backend diesen Kauf als Completed
+# verbucht (id groesser als der Snapshot vor dem Ausloesen), und sichert
+# danach den sichtbaren Spark-Saldo gegen den Auszahlungsbetrag dieses
+# Laufs zu. Belegt ist die durchgaengige Verbuchung: Fiat-Eingang auf der
+# Kaufroute, abgeschlossener Kauf, Spark-Gutschrift in der Wallet.
+# Die Vorgabe E2E_BUY_CHF=0,20 ergibt bei den Kursen dieses Aufbaus rund
+# 260 Satoshi und ist damit aus dem vorhandenen Bestand zahlbar.
+# Die Schlusszusicherung liest den Spark-Saldo nach dem letzten Neustart
+# und vergleicht ihn mit outputAmount der Backend-Transaktion dieses Laufs
+# (in Satoshi). Ein Vorher-Wert ueberlebt den App-Neustart in Maestro nicht.
+- runFlow:
+    when:
+      true: ${E2E_SPARK_WALLET_ADDRESS === ''}
+    commands:
+      - assertTrue:
+          condition: ${false}
+          label: E2E_SPARK_WALLET_ADDRESS is missing. Set the identity's own Spark address (user.address on the local stack) outside the repository and pass it to maestro test as -e E2E_SPARK_WALLET_ADDRESS. See tests/e2e-maestro/README.md. Do not use E2E_SPARK_DEPOSIT_ADDRESS; that is DFX's sell deposit, not the wallet's receive address.
+- runFlow:
+    file: ../_setup-import.yaml
+    env:
+      E2E_SPARK_MNEMONIC: ${E2E_SPARK_MNEMONIC || ''}
+- runScript:
+    file: ../scripts/payment-amount.js
+    env:
+      E2E_PAYMENT_SAT: ${E2E_PAYMENT_SAT || '10'}
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning, .*sats, .*'
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Externe Services'
+    timeout: 90000
+# Die Kaufen-Kachel ist ein Bitmap in ImageButton ohne testID oder
+# accessibilityLabel. Der Punkt wurde am gerenderten Handbuchbild gemessen.
+- tapOn:
+    point: '38%,34%'
+- waitForAnimationToEnd:
+    timeout: 30000
+- runFlow:
+    when:
+      visible: 'NUTZERDATEN EINGEBEN'
+    commands:
+      - assertTrue:
+          condition: ${false}
+          label: P16 needs a tradable local-stack account. Run tests/e2e-maestro/scripts/seed-local-backend.sql against the local stack only (see tests/e2e-maestro/README.md).
+# Die DFX-Seite laedt im In-App-Browser des Simulators deutlich langsamer als
+# im Browser des Hosts; 30 s waren wiederholt zu knapp.
+- extendedWaitUntil:
+    visible: '^Kaufen$'
+    timeout: 120000
+- assertVisible: '^DFX\.swiss \| Buy & Sell directly into your wallet$'
+- assertVisible: '^Kaufen$'
+- assertNotVisible: '^Login bei DFX Services$'
+- assertNotVisible: 'Invalid signature'
+- waitForAnimationToEnd:
+    timeout: 8000
+# Das Neuladen-Icon des In-App-Browsers hat keinen semantischen Selektor. Der
+# Punkt wurde im Simulator am gerenderten Browser gemessen. Ohne diesen Reload
+# behaelt die Seite den verfruehten KYC-Zustand.
+- tapOn:
+    point: '72%,93%'
+# Adresse und Netz stehen in einem Element, zeilenumbruchgetrennt. Das Muster
+# kommt von E2E_SPARK_WALLET_ADDRESS (erste und letzte zwoelf Zeichen), wie
+# P17 die Einzahlungsadresse kuerzt; (?s) laesst den Punkt den Umbruch
+# ueberqueren. Erst danach zur Zahlungsinformation.
+- extendedWaitUntil:
+    visible: ${'(?s)' + E2E_SPARK_WALLET_ADDRESS.slice(0, 12) + '.*' + E2E_SPARK_WALLET_ADDRESS.slice(-12) + '.*Spark'}
+    timeout: 180000
+- assertVisible: ${'(?s)' + E2E_SPARK_WALLET_ADDRESS.slice(0, 12) + '.*' + E2E_SPARK_WALLET_ADDRESS.slice(-12) + '.*Spark'}
+- scrollUntilVisible:
+    element: 'IBAN'
+    direction: DOWN
+    timeout: 20000
+- assertVisible: '^Zahlungsinformation$'
+- assertVisible: 'IBAN'
+- assertVisible: 'BIC'
+- assertNotVisible: 'Invalid signature'
+- assertNotVisible: '^KYC VERVOLLSTÄNDIGEN$'
+- assertNotVisible: 'NUTZERDATEN EINGEBEN'
+- runFlow:
+    when:
+      visible: 'Schließen'
+    commands:
+      - tapOn: 'Schließen'
+- runFlow:
+    when:
+      visible: 'Zurück zu BTC Taro'
+    commands:
+      - tapOn: 'Zurück zu BTC Taro'
+- runFlow:
+    when:
+      visible: 'Fertig'
+    commands:
+      - tapOn: 'Fertig'
+- waitForAnimationToEnd:
+    timeout: 15000
+- runFlow:
+    when:
+      notVisible: 'Bitcoin, Lightning, .*sats, .*'
+    commands:
+      - runFlow: ../_relaunch-keep-state.yaml
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning, .*sats, .*'
+    timeout: 90000
+- tapOn:
+    point: '50%,58%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: WalletLabel
+      text: 'Spark'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: WalletBalance
+      text: '.*sats'
+    timeout: 60000
+# runScript ersetzt output. MIN_TX_ID bleibt die env-Bindung des inneren runFlow.
+- runFlow:
+    commands:
+      - runScript:
+          file: ../scripts/backend-state.js
+          env:
+            E2E_API_URL: ${E2E_API_URL || ''}
+            E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+            STATE_KIND: snapshot
+      - assertTrue:
+          condition: ${output.backendMaxTxId != null && output.backendMaxTxId != '' && output.backendMaxTxId != 'undefined'}
+          label: backendMaxTxId missing after snapshot
+      - runFlow:
+          env:
+            MIN_TX_ID: "${Number(output.backendMaxTxId) > 0 ? String(output.backendMaxTxId) : ''}"
+          commands:
+            - evalScript: "${output.simIdempotencyKey = 'p16-' + Date.now()}"
+            - runScript:
+                file: ../scripts/dfx-simulate-payment.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  SIM_AMOUNT: ${E2E_BUY_CHF || '0.20'}
+                  SIM_IDEMPOTENCY_KEY: ${output.simIdempotencyKey}
+            - assertTrue:
+                condition: ${output.simulatedPayment === 'ok'}
+                label: simulatedPayment is not ok
+            # Zwoelf gleiche Bloecke, keine Schleife: repeat/while endete
+            # im Lauf vom 17.09.2026 nach zwei Durchgaengen, obwohl die
+            # Bedingung noch galt. MIN_TX_ID bleibt die env-Bindung dieses
+            # runFlow. Jeder Block startet neu und fragt das Backend einmal
+            # (POLL_ONCE), nie lange.
+            - runFlow: ../_relaunch-keep-state.yaml
+            - extendedWaitUntil:
+                visible: 'Bitcoin, Lightning, .*sats, .*'
+                timeout: 60000
+            # E2EBackendPollPause gibt es in der App nicht. Der Schritt
+            # laeuft seine 30 s ab (optional: true) und beschaeftigt den
+            # Treiber mit Hierarchie-Abfragen; das ist die Pause, kein Fehler.
+            - extendedWaitUntil:
+                visible:
+                  id: E2EBackendPollPause
+                timeout: 15000
+                optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: buy-complete
+                  PASSTHROUGH: ${output.passthrough}
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow: ../_relaunch-keep-state.yaml
+            - extendedWaitUntil:
+                visible: 'Bitcoin, Lightning, .*sats, .*'
+                timeout: 60000
+            # E2EBackendPollPause gibt es in der App nicht. Der Schritt
+            # laeuft seine 30 s ab (optional: true) und beschaeftigt den
+            # Treiber mit Hierarchie-Abfragen; das ist die Pause, kein Fehler.
+            - extendedWaitUntil:
+                visible:
+                  id: E2EBackendPollPause
+                timeout: 15000
+                optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: buy-complete
+                  PASSTHROUGH: ${output.passthrough}
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow: ../_relaunch-keep-state.yaml
+            - extendedWaitUntil:
+                visible: 'Bitcoin, Lightning, .*sats, .*'
+                timeout: 60000
+            # E2EBackendPollPause gibt es in der App nicht. Der Schritt
+            # laeuft seine 30 s ab (optional: true) und beschaeftigt den
+            # Treiber mit Hierarchie-Abfragen; das ist die Pause, kein Fehler.
+            - extendedWaitUntil:
+                visible:
+                  id: E2EBackendPollPause
+                timeout: 15000
+                optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: buy-complete
+                  PASSTHROUGH: ${output.passthrough}
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow: ../_relaunch-keep-state.yaml
+            - extendedWaitUntil:
+                visible: 'Bitcoin, Lightning, .*sats, .*'
+                timeout: 60000
+            # E2EBackendPollPause gibt es in der App nicht. Der Schritt
+            # laeuft seine 30 s ab (optional: true) und beschaeftigt den
+            # Treiber mit Hierarchie-Abfragen; das ist die Pause, kein Fehler.
+            - extendedWaitUntil:
+                visible:
+                  id: E2EBackendPollPause
+                timeout: 15000
+                optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: buy-complete
+                  PASSTHROUGH: ${output.passthrough}
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow: ../_relaunch-keep-state.yaml
+            - extendedWaitUntil:
+                visible: 'Bitcoin, Lightning, .*sats, .*'
+                timeout: 60000
+            # E2EBackendPollPause gibt es in der App nicht. Der Schritt
+            # laeuft seine 30 s ab (optional: true) und beschaeftigt den
+            # Treiber mit Hierarchie-Abfragen; das ist die Pause, kein Fehler.
+            - extendedWaitUntil:
+                visible:
+                  id: E2EBackendPollPause
+                timeout: 15000
+                optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: buy-complete
+                  PASSTHROUGH: ${output.passthrough}
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow: ../_relaunch-keep-state.yaml
+            - extendedWaitUntil:
+                visible: 'Bitcoin, Lightning, .*sats, .*'
+                timeout: 60000
+            # E2EBackendPollPause gibt es in der App nicht. Der Schritt
+            # laeuft seine 30 s ab (optional: true) und beschaeftigt den
+            # Treiber mit Hierarchie-Abfragen; das ist die Pause, kein Fehler.
+            - extendedWaitUntil:
+                visible:
+                  id: E2EBackendPollPause
+                timeout: 15000
+                optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: buy-complete
+                  PASSTHROUGH: ${output.passthrough}
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow: ../_relaunch-keep-state.yaml
+            - extendedWaitUntil:
+                visible: 'Bitcoin, Lightning, .*sats, .*'
+                timeout: 60000
+            # E2EBackendPollPause gibt es in der App nicht. Der Schritt
+            # laeuft seine 30 s ab (optional: true) und beschaeftigt den
+            # Treiber mit Hierarchie-Abfragen; das ist die Pause, kein Fehler.
+            - extendedWaitUntil:
+                visible:
+                  id: E2EBackendPollPause
+                timeout: 15000
+                optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: buy-complete
+                  PASSTHROUGH: ${output.passthrough}
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow: ../_relaunch-keep-state.yaml
+            - extendedWaitUntil:
+                visible: 'Bitcoin, Lightning, .*sats, .*'
+                timeout: 60000
+            # E2EBackendPollPause gibt es in der App nicht. Der Schritt
+            # laeuft seine 30 s ab (optional: true) und beschaeftigt den
+            # Treiber mit Hierarchie-Abfragen; das ist die Pause, kein Fehler.
+            - extendedWaitUntil:
+                visible:
+                  id: E2EBackendPollPause
+                timeout: 15000
+                optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: buy-complete
+                  PASSTHROUGH: ${output.passthrough}
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow: ../_relaunch-keep-state.yaml
+            - extendedWaitUntil:
+                visible: 'Bitcoin, Lightning, .*sats, .*'
+                timeout: 60000
+            # E2EBackendPollPause gibt es in der App nicht. Der Schritt
+            # laeuft seine 30 s ab (optional: true) und beschaeftigt den
+            # Treiber mit Hierarchie-Abfragen; das ist die Pause, kein Fehler.
+            - extendedWaitUntil:
+                visible:
+                  id: E2EBackendPollPause
+                timeout: 15000
+                optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: buy-complete
+                  PASSTHROUGH: ${output.passthrough}
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow: ../_relaunch-keep-state.yaml
+            - extendedWaitUntil:
+                visible: 'Bitcoin, Lightning, .*sats, .*'
+                timeout: 60000
+            # E2EBackendPollPause gibt es in der App nicht. Der Schritt
+            # laeuft seine 30 s ab (optional: true) und beschaeftigt den
+            # Treiber mit Hierarchie-Abfragen; das ist die Pause, kein Fehler.
+            - extendedWaitUntil:
+                visible:
+                  id: E2EBackendPollPause
+                timeout: 15000
+                optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: buy-complete
+                  PASSTHROUGH: ${output.passthrough}
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow: ../_relaunch-keep-state.yaml
+            - extendedWaitUntil:
+                visible: 'Bitcoin, Lightning, .*sats, .*'
+                timeout: 60000
+            # E2EBackendPollPause gibt es in der App nicht. Der Schritt
+            # laeuft seine 30 s ab (optional: true) und beschaeftigt den
+            # Treiber mit Hierarchie-Abfragen; das ist die Pause, kein Fehler.
+            - extendedWaitUntil:
+                visible:
+                  id: E2EBackendPollPause
+                timeout: 15000
+                optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: buy-complete
+                  PASSTHROUGH: ${output.passthrough}
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - runFlow: ../_relaunch-keep-state.yaml
+            - extendedWaitUntil:
+                visible: 'Bitcoin, Lightning, .*sats, .*'
+                timeout: 60000
+            # E2EBackendPollPause gibt es in der App nicht. Der Schritt
+            # laeuft seine 30 s ab (optional: true) und beschaeftigt den
+            # Treiber mit Hierarchie-Abfragen; das ist die Pause, kein Fehler.
+            - extendedWaitUntil:
+                visible:
+                  id: E2EBackendPollPause
+                timeout: 15000
+                optional: true
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: buy-complete
+                  PASSTHROUGH: ${output.passthrough}
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - assertTrue:
+                condition: ${output.backendState === 'ok'}
+                label: backendState is not ok after buy-complete
+            - launchApp:
+                clearState: false
+            - waitForAnimationToEnd:
+                timeout: 15000
+            - tapOn:
+                text: 'Nicht erlauben'
+                optional: true
+            - extendedWaitUntil:
+                visible: 'Bitcoin, Lightning, .*sats, .*'
+                timeout: 90000
+            - tapOn:
+                point: '50%,58%'
+            - waitForAnimationToEnd:
+                timeout: 15000
+            - extendedWaitUntil:
+                visible:
+                  id: WalletLabel
+                  text: 'Spark'
+                timeout: 60000
+            - extendedWaitUntil:
+                visible:
+                  id: WalletBalance
+                  text: '.*sats'
+                timeout: 60000
+            - launchApp:
+                clearState: false
+            - waitForAnimationToEnd:
+                timeout: 15000
+            - tapOn:
+                text: 'Nicht erlauben'
+                optional: true
+            - extendedWaitUntil:
+                visible: 'Bitcoin, Lightning, .*sats, .*'
+                timeout: 90000
+            - copyTextFrom: 'Bitcoin, Lightning, .*sats, .*'
+            - evalScript: "${output.walletBalanceAfterText = String(maestro.copiedText || '').trim(); output.walletBalanceAfterSat = !String(output.walletBalanceAfterText || '').match(/([0-9][0-9., ]*)sats/i) ? 'NaN' : String(Number(String(String(output.walletBalanceAfterText || '').match(/([0-9][0-9., ]*)sats/i)[1]).replace(/[^0-9]/g, '')))}"
+            - runScript:
+                file: ../scripts/backend-state.js
+                env:
+                  E2E_API_URL: ${E2E_API_URL || ''}
+                  E2E_DFX_JWT: ${E2E_DFX_JWT || ''}
+                  STATE_KIND: buy-complete
+                  PASSTHROUGH: ${output.walletBalanceAfterSat}
+                  MIN_TX_ID: "${MIN_TX_ID}"
+                  POLL_ONCE: "true"
+            - evalScript: "${console.log('passthrough=' + output.passthrough)}"
+            - evalScript: "${console.log('backendTxAmount=' + output.backendTxAmount)}"
+            - assertTrue:
+                condition: ${output.backendState === 'ok'}
+                label: backendState is not ok after buy-complete
+            - assertTrue:
+                condition: "${Number(output.backendTxAmount) > 0 && Number(output.backendTxAmount) == Math.floor(Number(output.backendTxAmount))}"
+                label: backendTxAmount is not a positive integer
+            - assertTrue:
+                condition: "${Number(output.passthrough) >= Number(output.backendTxAmount)}"
+                label: "${'Spark balance after buy is below the backend payout amount passthrough=' + output.passthrough + ' backendTxAmount=' + output.backendTxAmount}"
+            - tapOn:
+                point: '50%,58%'
+            - waitForAnimationToEnd:
+                timeout: 15000
+            - extendedWaitUntil:
+                visible:
+                  id: WalletLabel
+                  text: 'Spark'
+                timeout: 60000
+            - extendedWaitUntil:
+                visible:
+                  id: WalletBalance
+                  text: '.*sats'
+                timeout: 60000
+            - assertVisible:
+                id: WalletLabel
+                text: 'Spark'
+            - assertVisible:
+                id: WalletBalance
+                text: '[0-9][0-9., ]*sats'

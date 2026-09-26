@@ -1,0 +1,45 @@
+appId: swiss.dfx.bitcoin
+---
+# Fresh, unfunded wallet. The phrase is revealed only for the semantic
+# presence assertion; no screenshot or text selector captures its words.
+- runFlow: ../_setup.yaml
+- tapOn:
+    point: '85%,58%'
+- waitForAnimationToEnd:
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning, 0 sats, .*'
+    timeout: 90000
+- tapOn:
+    point: '90%,10%'
+- extendedWaitUntil:
+    visible: 'Allgemein'
+    timeout: 60000
+- tapOn: 'Lightning'
+- extendedWaitUntil:
+    visible: 'Lightning'
+    timeout: 30000
+- assertVisible: 'Typ'
+- assertVisible: 'Lightning'
+- takeScreenshot: .maestro-e2e-shots/19-spark/01-wallet-details
+- tapOn:
+    id: WalletExport
+- extendedWaitUntil:
+    visible: 'Brauchst du diese Wörter\?'
+    timeout: 30000
+- assertVisible: 'Um deine Lightning-Wallet in dieser App wiederherzustellen.*'
+- tapOn:
+    id: SparkBackupNoticeContinue
+- assertVisible: 'Brauchst du diese Wörter\?'
+- tapOn: 'Ich habe verstanden'
+- tapOn:
+    id: SparkBackupNoticeContinue
+- extendedWaitUntil:
+    visible: 'Nur für die Nutzung deiner Lightning-Wallet in einer anderen App.*'
+    timeout: 90000
+- assertVisible:
+    id: WalletExportScroll
+- tapOn:
+    id: NavigationCloseButton
+- assertNotVisible:
+    id: WalletExportScroll

@@ -18,10 +18,9 @@ import {
 import { ParamListBase, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useLds } from '../../../api/lds/hooks/lds.hook';
+import { openLightningLdsWallet } from '../../../api/lds/lightning-lds-wallet-factory';
 import { useWalletContext } from '../../../contexts/wallet.context';
 import { BlueStorageContext } from '../../../blue_modules/storage-context';
-import { Chain, WalletLabel } from '../../../models/bitcoinUnits';
-import { LightningLdsWallet } from '../../../class/wallets/lightning-lds-wallet';
 import Lnurl from '../../../class/lnurl';
 import { AssetDetails, TaprootLdsWallet, TaprootLdsWalletType } from '../../../class/wallets/taproot-lds-wallet';
 
@@ -95,20 +94,7 @@ const AddLightning = () => {
   };
 
   const createWallet = async (lndhubAdminUrl: string, lnAddress: string, addressOwnershipProof: string): Promise<void> => {
-    const [secret, baseUri] = lndhubAdminUrl.split('@');
-
-    const wallet = LightningLdsWallet.create(lnAddress, addressOwnershipProof);
-    wallet.setLabel(WalletLabel[Chain.OFFCHAIN]);
-    wallet.setBaseURI(baseUri);
-    wallet.setSecret(secret);
-    await wallet.init();
-    await wallet.authorize();
-    await wallet.fetchTransactions();
-    await wallet.fetchUserInvoices();
-    await wallet.fetchPendingTransactions();
-    await wallet.fetchBalance();
-
-    await addAndSaveWallet(wallet);
+    await addAndSaveWallet(await openLightningLdsWallet(lndhubAdminUrl, lnAddress, addressOwnershipProof));
   };
 
   const createTaprootAsset = async (

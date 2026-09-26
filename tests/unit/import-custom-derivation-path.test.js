@@ -51,6 +51,12 @@ jest.mock('../../class/wallet-import', () => ({
 }));
 
 const ImportCustomDerivationPath = require('../../screen/wallets/importCustomDerivationPath').default;
+const mockRecoverLightningWallet = jest.fn().mockResolvedValue(undefined);
+jest.mock('../../hooks/lightningRecovery.hook', () => ({
+  useLightningRecovery: () => ({ waitForLightningRecovery: mockRecoverLightningWallet }),
+}));
+let mockStoredWallets = [];
+
 const { BlueStorageContext } = require('../../blue_modules/storage-context');
 const { StackActions } = require('@react-navigation/native');
 
@@ -58,7 +64,7 @@ const addAndSaveWallet = jest.fn();
 
 const renderScreen = () =>
   render(
-    <BlueStorageContext.Provider value={{ addAndSaveWallet }}>
+    <BlueStorageContext.Provider value={{ wallets: mockStoredWallets, addAndSaveWallet }}>
       <ImportCustomDerivationPath />
     </BlueStorageContext.Provider>,
   );
@@ -66,6 +72,7 @@ const renderScreen = () =>
 beforeEach(() => {
   jest.clearAllMocks();
   mockRouteParams = { importText: 'abandon abandon about', password: undefined };
+  mockStoredWallets = [];
 });
 
 describe('ImportCustomDerivationPath', () => {
@@ -88,6 +95,19 @@ describe('ImportCustomDerivationPath', () => {
     expect(mockDispatch).not.toHaveBeenCalled();
     resolveSave();
     await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith(StackActions.replace('WalletsRoot', { screen: 'WalletTransactions' })));
+    expect(mockRecoverLightningWallet).toHaveBeenCalledWith(addAndSaveWallet.mock.calls[0][0]);
+  });
+
+  it('does not start Lightning recovery when other wallets already exist', async () => {
+    mockStoredWallets = [{ type: 'HDsegwitBech32' }];
+    const screen = renderScreen();
+
+    await waitFor(() => expect(screen.getByText('HD SegWit (BIP84 Bech32 Native)')).toBeTruthy());
+    fireEvent.press(screen.getByText('HD SegWit (BIP84 Bech32 Native)'));
+    fireEvent.press(screen.getByTestId('ImportButton'));
+
+    await waitFor(() => expect(mockDispatch).toHaveBeenCalled());
+    expect(mockRecoverLightningWallet).not.toHaveBeenCalled();
   });
 
   // addAndSaveWallet cannot reject on a storage failure: BlueApp.saveToDisk

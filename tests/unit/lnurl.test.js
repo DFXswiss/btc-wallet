@@ -1,5 +1,8 @@
 import Lnurl from '../../class/lnurl';
 const assert = require('assert');
+const bolt11 = require('bolt11');
+const loc = require('../../loc').default;
+const { bech32m } = require('bech32');
 
 describe('LNURL', function () {
   it('can findlnurl', () => {
@@ -37,6 +40,8 @@ describe('LNURL', function () {
       ),
       'https://lnbits.com/withdraw/api/v1/lnurl/6Y73HgHovThYPvs7aPLwYV',
     );
+    const encoded = Lnurl.encode('https://example.com/lnurlp/user');
+    assert.strictEqual(Lnurl.getUrlFromLnurl(encoded), 'https://example.com/lnurlp/user');
     assert.strictEqual(Lnurl.getUrlFromLnurl('bs'), false);
   });
 
@@ -125,6 +130,17 @@ describe('LNURL', function () {
       metadata: '[["text/plain","Fund @overtorment account on t.me/lntxbot."]]',
       min: 1,
     });
+    const payRequest = LN.getLnurlPayRequestDetails();
+    assert.strictEqual(payRequest.callback, 'https://lntxbot.bigsun.xyz/lnurl/pay/callback?userid=7116');
+    assert.strictEqual(payRequest.minSendable, 1000n);
+    assert.strictEqual(payRequest.maxSendable, 1000000000n);
+    assert.strictEqual(payRequest.metadataStr, '[["text/plain","Fund @overtorment account on t.me/lntxbot."]]');
+    assert.strictEqual(payRequest.commentAllowed, 0);
+    assert.strictEqual(payRequest.url, Lnurl.getUrlFromLnurl(LN.getLnurl()));
+    assert.strictEqual(payRequest.domain, new URL(payRequest.url).hostname);
+    LN.setSdkSuccessAction({ tag: 'Message', inner: { data: { message: 'paid' } } });
+    assert.deepStrictEqual(LN.getSuccessAction(), { tag: 'message', message: 'paid' });
+    assert.strictEqual(LN.getDisposable(), true);
 
     // mock:
     LN.fetchGet = () => {
@@ -152,6 +168,24 @@ describe('LNURL', function () {
     assert.strictEqual(LN.getLnurl(), 'LNURL1DP68GURN8GHJ7MRWW3UXYMM59E3XJEMNW4HZU7RE0GHKCMN4WFKZ7URP0YLH2UM9WF5KG0FHXYCNV9G9W58');
     assert.strictEqual(LN.getDisposable(), false);
     assert.strictEqual(LN.getCommentAllowed(), false);
+
+    const callbackPayload = { ...rez };
+    delete callbackPayload.disposable;
+    const callbackResponses = [
+      callbackPayload,
+      { ...callbackPayload, disposable: null },
+      { ...callbackPayload, disposable: false },
+      { ...callbackPayload, disposable: true },
+    ];
+    const observedDisposableValues = [];
+
+    for (const response of callbackResponses) {
+      LN.fetchGet = () => response;
+      await LN.requestBolt11FromLnurlPayService(2);
+      observedDisposableValues.push(LN.getDisposable());
+    }
+
+    assert.deepStrictEqual(observedDisposableValues, [true, true, false, true]);
   });
 
   it('can requestBolt11FromLnurlPayService() when the invoice has no description_hash', async () => {
@@ -420,5 +454,378 @@ describe('lightning address', function () {
     });
 
     assert.strictEqual(requestedUri, 'http://st5owtpsa2e62yf64luxogbecj7lk3t5vmesshsnrzu2untyf2i4t4ad.onion/.well-known/lnurlp/avatar');
+  });
+});
+
+describe('LNURL edge cases', function () {
+  const TEST_PRIVATE_KEY = 'e126f68f7eafcc8b74f54d269fe206be715000f94dac067d1c04a8ca3b2db734';
+  const TEST_PAYMENT_HASH = '0001020304050607080900010203040506070809000102030405060708090102';
+
+  function makeInvoice(millisatoshis, addDefaults = true) {
+    const invoice = {
+      timestamp: 1496314658,
+      tags: [
+        { tagName: 'payment_hash', data: TEST_PAYMENT_HASH },
+        { tagName: 'description', data: 'fractional test invoice' },
+      ],
+    };
+    if (millisatoshis !== undefined) invoice.millisatoshis = String(millisatoshis);
+    return bolt11.sign(bolt11.encode(invoice, addDefaults), TEST_PRIVATE_KEY).paymentRequest;
+  }
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('rejects onion, HTTP error, and protocol error responses in fetchGet', async () => {
+    const ln = new Lnurl('https://example.com');
+    await assert.rejects(ln.fetchGet('http://hidden.onion/path'), new RegExp(loc.settings.tor_unsupported));
+
+    jest.spyOn(global, 'fetch').mockResolvedValueOnce({ status: 500 });
+    await assert.rejects(ln.fetchGet('https://example.com'), /Bad response from server/);
+
+    jest.spyOn(global, 'fetch').mockResolvedValueOnce({ status: 200, json: async () => ({ status: 'ERROR', reason: 'denied' }) });
+    await assert.rejects(ln.fetchGet('https://example.com'), /Reply from server: denied/);
+
+    jest.spyOn(global, 'fetch').mockResolvedValueOnce({ status: 200, json: async () => ({ status: 'OK' }) });
+    expect(await ln.fetchGet('https://example.com')).toEqual({ status: 'OK' });
+  });
+
+  it('decodes a millisatoshi invoice and supplies its default expiry', () => {
+    const decoded = new Lnurl().decodeInvoice(makeInvoice(2001));
+    assert.strictEqual(decoded.num_satoshis, '2.001');
+    assert.strictEqual(decoded.num_millisatoshis, '2001');
+    assert.strictEqual(decoded.expiry, '3600');
+    assert.strictEqual(decoded.description, 'fractional test invoice');
+  });
+
+  it('keeps zero millisatoshi invoices at zero satoshis', () => {
+    const decoded = new Lnurl().decodeInvoice(makeInvoice(undefined, false));
+    expect(decoded.num_satoshis).toBe('0');
+    expect(decoded.num_millisatoshis).toBe('0');
+  });
+
+  it('rejects requestBolt11 calls before a payload or callback is available', async () => {
+    const ln = new Lnurl();
+    await assert.rejects(ln.requestBolt11FromLnurlPayService(1), /_lnurlPayServicePayload is not set/);
+
+    const service = new Lnurl('user@example.com');
+    service.fetchGet = jest.fn().mockResolvedValue({
+      callback: 'https://example.com/callback',
+      tag: 'payRequest',
+      minSendable: 1000,
+      maxSendable: 2000,
+      metadata: '[["text/plain","test"]]',
+    });
+    const servicePayload = await service.callLnurlPayService();
+    servicePayload.callback = undefined;
+    await assert.rejects(service.requestBolt11FromLnurlPayService(1), /callback is not set/);
+  });
+
+  it('truncates an overlong comment before requesting a callback invoice', async () => {
+    const ln = new Lnurl('user@example.com');
+    ln.fetchGet = jest
+      .fn()
+      .mockResolvedValueOnce({
+        callback: 'https://example.com/callback',
+        tag: 'payRequest',
+        minSendable: 1000,
+        maxSendable: 2000,
+        commentAllowed: 3,
+        metadata: '[["text/plain","test"]]',
+      })
+      .mockResolvedValueOnce({ status: 'ERROR', reason: 'stop before invoice decoding' });
+    await ln.callLnurlPayService();
+    await assert.rejects(ln.requestBolt11FromLnurlPayService(1, 'abcdef'), /stop before invoice decoding/);
+    expect(ln.fetchGet.mock.calls[1][0]).toContain('comment=abc');
+  });
+
+  it('rejects callback errors and invoices whose amount does not match', async () => {
+    const ln = new Lnurl('user@example.com');
+    const invoice =
+      'lnbc20n1p03s853pp58v9lrqahj2zyuzsdqqm3wnt2damlnkkuzwm8s7jkmnauhtkq4fjshp5z766racq95ncpk27nksev2ntu8wte77zd46g8uvzlnm5hhwukjrqcqzysxq9p5hsqrzjq29zewx4rezd04lpprpwsz5cesrfz30qtfkjqfw0249a3pn0uv5exzdefqqqxecqqqqqqqlgqqqq03sq9qsp52guktgy9u0xpky06n7slhjcvkassj0xpc3t9wadfsa0sl5x4fz9s9qy9qsqff5ycjg6xh3cc0vf8wxzxdajrdl9pka3nl3v37vcqj0qrdkzhsqxs8atfnxm2xenlkz7fpghlnuypux7hdp63zct3fr9px2e349kyqspu3gswx';
+    ln.fetchGet = jest
+      .fn()
+      .mockResolvedValueOnce({
+        callback: 'https://example.com/callback',
+        tag: 'payRequest',
+        minSendable: 1000,
+        maxSendable: 5000,
+        metadata: '[["text/plain","test"]]',
+      })
+      .mockResolvedValueOnce({ status: 'ERROR', reason: 'callback denied' });
+    await ln.callLnurlPayService();
+    await assert.rejects(ln.requestBolt11FromLnurlPayService(1), /callback denied/);
+
+    ln.fetchGet.mockResolvedValue({ status: 'OK', pr: invoice });
+    await assert.rejects(ln.requestBolt11FromLnurlPayService(3), /doesn't match specified amount/);
+
+    ln.fetchGet.mockResolvedValue({ status: 'ERROR' });
+    await assert.rejects(ln.requestBolt11FromLnurlPayService(1), /requestBolt11FromLnurlPayService\(\) error/);
+  });
+
+  it('rejects a non-pay response and an LNURL URL without a hostname', async () => {
+    const wrongTag = new Lnurl('user@example.com');
+    wrongTag.fetchGet = jest.fn().mockResolvedValue({
+      callback: 'https://example.com/callback',
+      tag: 'withdrawRequest',
+      minSendable: 1000,
+      maxSendable: 2000,
+      metadata: '[["text/plain","test"]]',
+    });
+    await assert.rejects(wrongTag.callLnurlPayService(), /expected, found tag withdrawRequest/);
+
+    const noHost = new Lnurl(Lnurl.encode('file:///tmp/lnurl'));
+    noHost.fetchGet = jest.fn().mockResolvedValue({ tag: 'payRequest', metadata: '[]' });
+    await assert.rejects(noHost.callLnurlPayService(), /Invalid LNURL domain/);
+  });
+
+  it('uses the JPEG metadata image and defaults missing sendable bounds to zero', async () => {
+    const ln = new Lnurl('user@example.com');
+    ln.fetchGet = jest.fn().mockResolvedValue({
+      callback: 'https://example.com/callback',
+      tag: 'payRequest',
+      metadata: '[["image/jpeg;base64","abc"]]',
+    });
+    const payload = await ln.callLnurlPayService();
+    assert.strictEqual(payload.min, 0);
+    assert.strictEqual(payload.max, 0);
+    assert.strictEqual(payload.image, 'data:image/jpeg;base64,abc');
+    assert.strictEqual(ln.getCommentAllowed(), false);
+    assert.strictEqual(ln.getMin(), false);
+    assert.strictEqual(ln.getMax(), false);
+    assert.strictEqual(ln.getAmount(), false);
+  });
+
+  it('returns false for invalid LNURL addresses and callLnurlPayService without a URL', async () => {
+    expect(Lnurl.getLnurlFromAddress('invalid')).toBe(false);
+    expect(Lnurl.getLnurlFromAddress('user@example.com')).toBe(Lnurl.encode('https://example.com/.well-known/lnurlp/user'));
+    await assert.rejects(new Lnurl().callLnurlPayService(), /this._lnurl is not set/);
+  });
+
+  it('loads, stores, and exposes a successful payment through AsyncStorage', async () => {
+    const storage = { getItem: jest.fn(), setItem: jest.fn().mockResolvedValue(undefined) };
+    const ln = new Lnurl('user@example.com', storage);
+    await ln.storeSuccess('hash', { data: [1, 2, 3] });
+    expect(storage.setItem).toHaveBeenCalledWith('lnurlpay_success_data_hash', expect.stringContaining('010203'));
+
+    const storedData = storage.setItem.mock.calls[0][1];
+    storage.getItem.mockResolvedValue(storedData);
+    const loaded = new Lnurl(false, storage);
+    expect(await loaded.loadSuccessfulPayment('hash')).toBe(true);
+    expect(loaded.getLnurl()).toBe('user@example.com');
+    expect(loaded.getPreimage()).toBe('010203');
+    await assert.rejects(loaded.loadSuccessfulPayment(''), /No paymentHash provided/);
+    storage.getItem.mockResolvedValue(null);
+    expect(await loaded.loadSuccessfulPayment('missing')).toBe(false);
+
+    await ln.storeSuccess('text', 'plain');
+    expect(storage.setItem).toHaveBeenLastCalledWith('lnurlpay_success_data_text', expect.stringContaining('"preimage":"plain"'));
+  });
+
+  it('returns false for malformed and empty stored payment data', async () => {
+    const storage = { getItem: jest.fn().mockResolvedValue('{') };
+    const ln = new Lnurl(false, storage);
+    expect(await ln.loadSuccessfulPayment('bad')).toBe(false);
+    storage.getItem.mockResolvedValue('null');
+    expect(await ln.loadSuccessfulPayment('empty')).toBe(false);
+    storage.getItem.mockRejectedValue(new Error('storage down'));
+    expect(await ln.loadSuccessfulPayment('error')).toBe(false);
+  });
+
+  it('requires a loaded pay request before returning its details', async () => {
+    const ln = new Lnurl('user@example.com');
+    expect(() => ln.getLnurlPayRequestDetails()).toThrow(/not loaded/);
+    ln.fetchGet = jest.fn().mockResolvedValue({
+      callback: 'https://example.com/callback',
+      tag: 'payRequest',
+      minSendable: 1000,
+      maxSendable: 2000,
+      metadata: '[]',
+    });
+    await ln.callLnurlPayService();
+    expect(ln.getLnurlPayRequestDetails().domain).toBe('example.com');
+  });
+
+  it('maps every supported SDK success action and rejects unknown tags', () => {
+    const ln = new Lnurl();
+    for (const [tag, expected] of [
+      ['Aes', 'aes'],
+      ['Message', 'message'],
+      ['Url', 'url'],
+    ]) {
+      ln.setSdkSuccessAction({ tag, inner: { data: { value: tag } } });
+      expect(ln.getSuccessAction()).toEqual({ tag: expected, value: tag });
+    }
+    ln.setSdkSuccessAction(undefined);
+    expect(ln.getSuccessAction()).toBeUndefined();
+    expect(() => ln.setSdkSuccessAction({ tag: 'Unknown', inner: { data: {} } })).toThrow(/Unsupported LNURL success action/);
+  });
+
+  it('rejects authenticate without an LNURL and includes additional parameters', async () => {
+    await assert.rejects(new Lnurl(false).authenticate('secret'), /this._lnurl is not set/);
+    const ln = new Lnurl(
+      'LNURL1DP68GURN8GHJ7MRFVA58GMNFDENKCMM8D9HZUMRFWEJJ7MR0VA5KU0MTXY7NYVFEX93X2DFK8P3KVEFKVSEXZWR98PSNJVRRV5CRGCE3X4JKGE3HXPNXGCMPV5MXXVTZ89NXZENXXCURGCTRV93RVE35XQCXVCFSVSN8GCT884KX7EMFDCDKKXQ0',
+    );
+    ln.fetchGet = jest.fn().mockResolvedValue({ status: 'OK' });
+    await ln.authenticate('lndhub://dc56b8cf8ef3b60060cf:94eac57510de2738451d', { foo: 'bar' });
+    await new Promise(resolve => setImmediate(resolve));
+    expect(ln.fetchGet.mock.calls[0][0]).toContain('&foo=bar');
+  });
+
+  it('rejects authenticate when the callback request throws and rejects invalid domains', async () => {
+    const ln = new Lnurl(
+      'LNURL1DP68GURN8GHJ7MRFVA58GMNFDENKCMM8D9HZUMRFWEJJ7MR0VA5KU0MTXY7NYVFEX93X2DFK8P3KVEFKVSEXZWR98PSNJVRRV5CRGCE3X4JKGE3HXPNXGCMPV5MXXVTZ89NXZENXXCURGCTRV93RVE35XQCXVCFSVSN8GCT884KX7EMFDCDKKXQ0',
+    );
+    const callbackError = new Error('network failure');
+    ln.fetchGet = jest.fn().mockRejectedValue(callbackError);
+    await assert.rejects(ln.authenticate('lndhub://dc56b8cf8ef3b60060cf:94eac57510de2738451d'), error => {
+      assert.strictEqual(error, callbackError);
+      return true;
+    });
+    expect(Lnurl.getDomainFromLightningAddress('invalid')).toBe('');
+  });
+  it('assertAmountInRange accepts the advertised range and rejects anything outside it', async () => {
+    const LN = new Lnurl('0123456789abcdef@dev.lightning.space');
+    assert.throws(() => LN.assertAmountInRange(1), /_lnurlPayServicePayload is not set/);
+    LN.fetchGet = () => ({
+      status: 'OK',
+      callback: 'https://dev.lightning.space/lnurlp/0123456789abcdef/invoice',
+      tag: 'payRequest',
+      maxSendable: 500000,
+      minSendable: 2000,
+      metadata: '[["text/plain","range test"]]',
+    });
+    await LN.callLnurlPayService();
+    assert.throws(() => LN.assertAmountInRange(1), /The specified amount is invalid, 1 it should be between 2 and 500/);
+    assert.throws(() => LN.assertAmountInRange(501), /The specified amount is invalid, 501 it should be between 2 and 500/);
+    assert.doesNotThrow(() => LN.assertAmountInRange(2));
+    assert.doesNotThrow(() => LN.assertAmountInRange(500));
+  });
+
+  describe('sparkAddress in the pay response', () => {
+    const sparkAddress = bech32m.encode('spark', bech32m.toWords(Buffer.from('spark-address-identity-key-32')), 10000);
+
+    function payResponse(extra) {
+      return {
+        status: 'OK',
+        callback: 'https://dev.lightning.space/lnurlp/0123456789abcdef/invoice',
+        tag: 'payRequest',
+        maxSendable: 1000000000,
+        minSendable: 1000,
+        metadata: '[["text/plain","spark test"]]',
+        ...extra,
+      };
+    }
+
+    function answerFrom(url, extra) {
+      jest.spyOn(global, 'fetch').mockResolvedValueOnce({ status: 200, url, json: async () => payResponse(extra) });
+    }
+
+    function payResponseFrom(address, extra) {
+      const [username, host] = address.split('@');
+      answerFrom(`https://${host}/.well-known/lnurlp/${username}`, { callback: `https://${host}/lnurlp/${username}/invoice`, ...extra });
+      return new Lnurl(address);
+    }
+
+    it.each(['lightning.space', 'dev.lightning.space'])('keeps a valid sparkAddress from the trusted domain %s', async host => {
+      const LN = payResponseFrom(`0123456789abcdef@${host}`, { sparkAddress });
+      const payload = await LN.callLnurlPayService();
+      assert.strictEqual(payload.sparkAddress, sparkAddress);
+      assert.strictEqual(LN.getSparkAddress(), sparkAddress);
+    });
+
+    it('drops a sparkAddress from any other domain', async () => {
+      const LN = payResponseFrom('alice@example.com', { sparkAddress });
+      const payload = await LN.callLnurlPayService();
+      assert.strictEqual('sparkAddress' in payload, false);
+      assert.strictEqual(LN.getSparkAddress(), undefined);
+    });
+
+    it.each(['alice@evil-lightning.space', 'alice@lightning.space.evil.com', 'alice@sub.lightning.space', 'alice@lightning.space.'])(
+      'drops a sparkAddress from the lookalike domain of %s',
+      async address => {
+        const LN = payResponseFrom(address, { sparkAddress });
+        const payload = await LN.callLnurlPayService();
+        assert.strictEqual('sparkAddress' in payload, false);
+      },
+    );
+
+    it('drops a sparkAddress fetched from a trusted domain without TLS', async () => {
+      const url = 'http://dev.lightning.space/.well-known/lnurlp/0123456789abcdef';
+      answerFrom(url, { sparkAddress });
+      const payload = await new Lnurl(Lnurl.encode(url)).callLnurlPayService();
+      assert.strictEqual('sparkAddress' in payload, false);
+    });
+
+    it('drops a sparkAddress when the request was redirected to another host', async () => {
+      answerFrom('https://example.com/.well-known/lnurlp/0123456789abcdef', { sparkAddress });
+      const payload = await new Lnurl('0123456789abcdef@dev.lightning.space').callLnurlPayService();
+      assert.strictEqual('sparkAddress' in payload, false);
+    });
+
+    it('drops a sparkAddress when the trusted host answered without TLS', async () => {
+      answerFrom('http://dev.lightning.space/.well-known/lnurlp/0123456789abcdef', { sparkAddress });
+      const payload = await new Lnurl('0123456789abcdef@dev.lightning.space').callLnurlPayService();
+      assert.strictEqual('sparkAddress' in payload, false);
+    });
+
+    it.each(['', undefined])('drops a sparkAddress when the response does not say where it came from (%p)', async url => {
+      answerFrom(url, { sparkAddress });
+      const payload = await new Lnurl('0123456789abcdef@dev.lightning.space').callLnurlPayService();
+      assert.strictEqual('sparkAddress' in payload, false);
+    });
+
+    it('drops a sparkAddress that is not a Spark address', async () => {
+      const LN = payResponseFrom('0123456789abcdef@dev.lightning.space', { sparkAddress: 'lnbc1notaspark' });
+      const payload = await LN.callLnurlPayService();
+      assert.strictEqual('sparkAddress' in payload, false);
+    });
+
+    it('has no sparkAddress when the response carries none', async () => {
+      const LN = payResponseFrom('0123456789abcdef@dev.lightning.space', {});
+      const payload = await LN.callLnurlPayService();
+      assert.strictEqual('sparkAddress' in payload, false);
+      assert.strictEqual(LN.getSparkAddress(), undefined);
+    });
+  });
+});
+
+describe('Lnurl LNURL-auth with a provided signer', () => {
+  const secp256k1 = require('secp256k1');
+  const K1 = 'e2af6254a8df433264fa23f67eb8188635d15ce883e8fc020989d5f82ae6f11e';
+  const AUTH_URL = `https://api.dfx.swiss/v1/lnurla?tag=login&k1=${K1}&action=login`;
+
+  it('signK1 returns a DER signature over the raw k1 that verifies with the returned key', () => {
+    const privateKey = Buffer.alloc(32, 7);
+    const { sig, key } = Lnurl.signK1(K1, privateKey);
+    const signature = secp256k1.signatureImport(Buffer.from(sig, 'hex'));
+    expect(secp256k1.verify(Buffer.from(K1, 'hex'), signature, Buffer.from(key, 'hex'))).toBe(true);
+    expect(key).toBe(secp256k1.publicKeyCreate(privateKey).toString('hex'));
+  });
+
+  it('authenticateSigned calls back with sig, key and the encoded extra params', async () => {
+    const LN = new Lnurl(AUTH_URL);
+    jest.spyOn(Lnurl, 'getUrlFromLnurl').mockReturnValue(AUTH_URL);
+    const fetchGet = jest.fn().mockResolvedValue({ status: 'OK' });
+    LN.fetchGet = fetchGet;
+    const sign = jest.fn().mockResolvedValue({ sig: 'deadbeef', key: '02ab' });
+
+    await LN.authenticateSigned(sign, { address: 'spark1address', signature: 'a+b/c', wallet: 'DFX Bitcoin' });
+
+    expect(sign).toHaveBeenCalledWith(K1);
+    expect(fetchGet).toHaveBeenCalledWith(
+      `${AUTH_URL}&sig=deadbeef&key=02ab&address=spark1address&signature=a%2Bb%2Fc&wallet=DFX%20Bitcoin`,
+    );
+    Lnurl.getUrlFromLnurl.mockRestore();
+  });
+
+  it('authenticateSigned rejects with the service reason', async () => {
+    const LN = new Lnurl(AUTH_URL);
+    jest.spyOn(Lnurl, 'getUrlFromLnurl').mockReturnValue(AUTH_URL);
+    LN.fetchGet = jest.fn().mockResolvedValue({ status: 'ERROR', reason: 'invalid auth signature' });
+
+    await expect(LN.authenticateSigned(async () => ({ sig: '00', key: '02' }))).rejects.toThrow('invalid auth signature');
+    Lnurl.getUrlFromLnurl.mockRestore();
   });
 });

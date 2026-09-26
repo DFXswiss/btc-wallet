@@ -38,7 +38,9 @@ import alert from '../../components/Alert';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import { writeFileAndExport } from '../../blue_modules/fs';
 import { useDfxSessionContext } from '../../api/dfx/contexts/session.context';
+import { useSparkContext } from '../../api/spark/contexts/spark.context';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
+import { SparkWallet } from '../../class/wallets/spark-wallet';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useWalletContext } from '../../contexts/wallet.context';
 
@@ -93,6 +95,7 @@ const styles = StyleSheet.create({
 const WalletDetails = () => {
   const { saveToDisk, wallets, deleteWallet, setSelectedWallet, txMetadata, isPosMode } = useContext(BlueStorageContext);
   const { reset } = useDfxSessionContext();
+  const { isConnected: isSparkConnected } = useSparkContext();
   const { walletID } = useRoute().params;
   const [isLoading, setIsLoading] = useState(false);
   const [backdoorPressed, setBackdoorPressed] = useState(0);
@@ -325,6 +328,12 @@ const WalletDetails = () => {
 
   const handleDeleteButtonTapped = () => {
     ReactNativeHapticFeedback.trigger('notificationWarning', { ignoreAndroidSystemSettings: false });
+    // The Spark phrase is derived from this wallet's seed; deleting it would make the Spark funds unreachable.
+    const hasBoundSparkWallet = !isMainWallet && wallets.some(w => w.type === SparkWallet.type && w.sourceWalletId === wallet.getID());
+    if (hasBoundSparkWallet) {
+      Alert.alert(loc.wallets.details_delete_wallet, loc.wallets.lightning_spark_source_delete_blocked);
+      return;
+    }
     const warningMessage = isMainWallet ? loc.wallets.details_are_you_sure_main_wallet : loc.wallets.details_are_you_sure;
     Alert.alert(
       loc.wallets.details_delete_wallet,
@@ -370,6 +379,38 @@ const WalletDetails = () => {
   };
 
   const showPosModeOptions = wallet.isPosMode || isPosMode;
+  const isSparkWallet = wallet.type === SparkWallet.type;
+  const [sparkPrivateMode, setSparkPrivateMode] = useState();
+  const [isSparkPrivateModeUpdating, setIsSparkPrivateModeUpdating] = useState(false);
+
+  useEffect(() => {
+    // The setting can only be read from a connected session. It is read until it is known and not
+    // again after that, so a reconnect never overwrites a change the user just made.
+    if (!isSparkWallet || !isSparkConnected || sparkPrivateMode !== undefined) return;
+    let isCurrent = true;
+    wallet
+      .isPrivateModeEnabled()
+      .then(enabled => {
+        if (isCurrent) setSparkPrivateMode(enabled);
+      })
+      .catch(e => console.error('walletDetails: failed to read Spark private mode', e));
+    return () => {
+      isCurrent = false;
+    };
+  }, [isSparkWallet, isSparkConnected, sparkPrivateMode, wallet]);
+
+  const toggleSparkPrivateMode = async enabled => {
+    setSparkPrivateMode(enabled);
+    setIsSparkPrivateModeUpdating(true);
+    try {
+      await wallet.setPrivateModeEnabled(enabled);
+    } catch (e) {
+      setSparkPrivateMode(!enabled);
+      alert(loc.wallets.lightning_spark_private_mode_error);
+    } finally {
+      setIsSparkPrivateModeUpdating(false);
+    }
+  };
 
   return (
     <ScrollView
@@ -418,7 +459,7 @@ const WalletDetails = () => {
                 </>
               )}
 
-              {[LightningCustodianWallet.type, LightningLdsWallet.type].includes(wallet.type) && (
+              {[LightningCustodianWallet.type, LightningLdsWallet.type, SparkWallet.type].includes(wallet.type) && (
                 <>
                   <Text style={[styles.textLabel1, stylesHook.textLabel1]}>{loc.wallets.details_connected_to}</Text>
                   <BlueText>{wallet.getBaseURI()}</BlueText>
@@ -478,7 +519,7 @@ const WalletDetails = () => {
                   </View>
                 )}
               </View>
-              {wallet.type !== MultisigHDWallet.type && (
+              {wallet.type !== MultisigHDWallet.type && !isSparkWallet && (
                 <>
                   <Text style={[styles.textLabel2, stylesHook.textLabel2]}>{loc.wallets.ownership_proof}</Text>
                   <View style={styles.addressProofContainer}>
@@ -497,6 +538,15 @@ const WalletDetails = () => {
             </BlueCard>
             {(wallet instanceof AbstractHDElectrumWallet || (wallet.type === WatchOnlyWallet.type && wallet.isHd())) && (
               <BlueListItem onPress={navigateToAddresses} title={loc.wallets.details_show_addresses} chevron />
+            )}
+            {isSparkWallet && sparkPrivateMode !== undefined && (
+              <BlueListItem
+                Component={Pressable}
+                testID="SparkPrivateModeSwitch"
+                title={loc.wallets.lightning_spark_private_mode}
+                subtitle={loc.wallets.lightning_spark_private_mode_hint}
+                switch={{ onValueChange: toggleSparkPrivateMode, value: sparkPrivateMode, disabled: isSparkPrivateModeUpdating }}
+              />
             )}
             {showPosModeOptions && wallet.type === LightningLdsWallet.type && (
               <BlueListItem
@@ -521,8 +571,10 @@ const WalletDetails = () => {
                     <SecondButton onPress={navigateToBackupPayCardDetails} title="Backup Pay Card Details" chevron />
                   </>
                 )}
-                <BlueSpacing20 />
-                <SecondButton onPress={navigateToWalletExport} testID="WalletExport" title={loc.wallets.details_export_backup} />
+                <>
+                  <BlueSpacing20 />
+                  <SecondButton onPress={navigateToWalletExport} testID="WalletExport" title={loc.wallets.details_export_backup} />
+                </>
                 {walletTransactionsLength > 0 && (
                   <>
                     <BlueSpacing20 />

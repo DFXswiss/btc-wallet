@@ -1,0 +1,17 @@
+diff --git a/node_modules/react-native-config/ios/ReactNativeConfig/BuildDotenvConfig.rb b/node_modules/react-native-config/ios/ReactNativeConfig/BuildDotenvConfig.rb
+index bdd609a..3125e78 100755
+--- a/node_modules/react-native-config/ios/ReactNativeConfig/BuildDotenvConfig.rb
++++ b/node_modules/react-native-config/ios/ReactNativeConfig/BuildDotenvConfig.rb
+@@ -16,1 +16,1 @@
+-puts "read dotenv #{dotenv}"
++puts "read dotenv keys #{dotenv.keys.sort.join(',')}"
+diff --git a/node_modules/react-native-config/ios/ReactNativeConfig/ReadDotEnv.rb b/node_modules/react-native-config/ios/ReactNativeConfig/ReadDotEnv.rb
+index 6f80914..97aa6f9 100755
+--- a/node_modules/react-native-config/ios/ReactNativeConfig/ReadDotEnv.rb
++++ b/node_modules/react-native-config/ios/ReactNativeConfig/ReadDotEnv.rb
+@@ -15,1 +15,4 @@
+-  if File.exist?('/tmp/envfile')
++  if ENV['ENVFILE'] && !ENV['ENVFILE'].empty?
++    custom_env = true
++    file = ENV['ENVFILE']
++  elsif File.exist?('/tmp/envfile')

@@ -1,0 +1,486 @@
+# Spark wallet E2E with Maestro
+
+This suite documents the 25 user paths listed in `coverage.md` on an iOS
+simulator. P01–P15 start the app with cleared state, walk through onboarding
+themselves and check at least one visible state. P16 and P17 import a fixed
+Spark identity through `_setup-import.yaml` instead of creating a random wallet.
+P18 and P19 use a newly created, unfunded Spark wallet. Their screenshots are
+written beneath the ignored `.maestro-e2e-shots/` directory; they contain no
+recovery words. P19 asserts phrase presence by a semantic test ID and never
+selects, logs, or screenshots the phrase text.
+
+## Prerequisites
+
+- A booted iOS simulator able to run the app under test with the app ID
+  `swiss.dfx.bitcoin`, plus the path to the already built `.app` bundle. The
+  runner does not build the app.
+- The app has to render in German. The selectors match the language of the
+  existing simulator build and of the handbook flows already in use.
+- Maestro has to be on `PATH` as `maestro`.
+- Homebrew OpenJDK has to be installed at
+  `/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home`. The runner sets
+  `JAVA_HOME` and extends `PATH`; if Java is missing it aborts with exit 2.
+- Network access to Spark/Breez and to the DFX API. P9 opens Spark receive and
+  checks that the wallet's Lightning address is visible.
+  P11/P12/P16/P17 need a reachable DFX web flow.
+- P11, P12, P16 and P17 additionally require an account that is tradable on the
+  API side (verified status, a non-zero limit, deposit addresses). That state is
+  set outside the suite; without it those flows fail rather than silently pass.
+  P16 and P17 import a fixed Spark identity (`E2E_SPARK_MNEMONIC`) and need that
+  identity to be tradable on the local stack (see the fixture section below).
+  Without the mnemonic they fail rather than skip. P16 and P17 also need
+  `E2E_API_URL` (local API origin) and `E2E_DFX_JWT` (bearer token for that
+  identity). `E2E_DFX_JWT` is a secret; the runner forwards it to `maestro test`
+  only when set and never prints it. The helpers do not print it either. If
+  either name is missing, `dfx-simulate-payment.js` or `backend-state.js` exits
+  2 and the flow fails rather than skip.
+- P17 needs the repository-owned local bank-return helper in
+  `tests/e2e-maestro/scripts/settle-service.mjs`. Set `SETTLE_KEY` outside the
+  repository together with the local `E2E_API_URL`; the key has no default.
+  When both names are set, `run-maestro.sh` starts the helper, forwards its
+  loopback URL and key to Maestro, and stops it when the run exits, including
+  failed runs. If either name is absent, the runner does not start the helper
+  and otherwise behaves as before. `SETTLE_PORT` optionally overrides port
+  `18790`. `SETTLE_DB_CONTAINER` selects the local database container used by
+  the helper and defaults to `spark276-db-1`.
+- P14 and P15 only open Spark receive and assert a visible Lightning address.
+  They do not pay a Lightning invoice and do not use `E2E_TREASURY_*`.
+  P16 and P17 need `E2E_API_URL` and
+  `E2E_DFX_JWT` (see the backend-API section below). P17 has no Lightning
+  counterpart funding and does not use `E2E_TREASURY_*`. The wallet must
+  already hold the amount; it does because P16 runs first and buys it. P16
+  therefore has to run before P17. P17's sell amount is
+  `E2E_PAYMENT_SAT` (default 10). It must end in 0: the amount field keeps a zero after the
+  cursor, so backspace deletes the last typed digit. P16's buy amount is
+  `E2E_BUY_CHF` (default 0.20). Maestro's `runScript` sandbox does not see the shell
+  environment, so the runner forwards `E2E_PAYMENT_SAT` (always, default 10) and
+  each treasury variable that is set, plus `E2E_SPARK_MNEMONIC`,
+  `E2E_SPARK_DEPOSIT_ADDRESS`, `E2E_SPARK_WALLET_ADDRESS`,
+  `E2E_SPARK_RETURN_ADDRESS`, `E2E_API_URL`,
+  `E2E_DFX_JWT` and `E2E_BUY_CHF` when set, to
+  `maestro test` as `-e NAME=VALUE` (unset names are omitted). The flows bind those names in the
+  `runScript` `env` map, and `treasury.js` / `dfx-simulate-payment.js` /
+  `backend-state.js` read the script
+  bindings first, then `process.env`. No flow calls `treasury.js`, so a
+  missing treasury URL or key does not fail a flow. If `E2E_API_URL` or
+  `E2E_DFX_JWT` is missing, `dfx-simulate-payment.js` or `backend-state.js`
+  exits 2 and the P16 or P17 flow fails. It does not skip the payment or
+  report success. The helpers never print the key or the JWT. P14 and P15
+  do not pay a BOLT11 invoice and do not relaunch. Only P17 returns leftover
+  Spark, through `onFlowComplete` (`_return-spark-balance.yaml`) to
+  `E2E_SPARK_RETURN_ADDRESS`; if that name is unset the hook skips without
+  failing. The return does not use `E2E_TREASURY_*`. The runner does not
+  echo the forwarded values.
+- The given simulator must not hold any wallet state worth protecting for
+  P01–P15. Before every flow the runner terminates and uninstalls the app,
+  resets the simulator keychain and installs the given bundle anew. On top of
+  that P01–P15 start with `clearState: true`. Only P16 and P17 later relaunch
+  with `clearState: false` so the Spark row can show the balance after a
+  payment. P16 and P17 start from `_setup-import.yaml` (`clearState: true`) and
+  re-import the same identity after that reset.
+
+## Local DFX stack for P11/P12/P16/P17
+
+The distinguishable buy and sell screens, and the P16/P17 payment extensions,
+require a complete local stack. The
+tracked defaults remain `3000`/`3001`. The owned verification stack uses a
+private, uncommitted `ENVFILE` overlay with:
+
+```text
+REACT_APP_API_URL=http://127.0.0.1:3300/v1
+REACT_APP_SRV_URL=http://127.0.0.1:3301
+DFX_ENV=loc
+```
+
+Keep that overlay private and do not print its environment values in logs.
+
+## Fixed Spark identity for P16/P17
+
+P16 and P17 import one Spark identity so the local backend can see the same
+user on every run. The mnemonic is **not** in this repository.
+
+- Set `E2E_SPARK_MNEMONIC` outside the repo and pass it to `maestro test` as
+  `-e E2E_SPARK_MNEMONIC=...`. The flows declare it in their `env:` block;
+  without that declaration Maestro types the literal `${E2E_SPARK_MNEMONIC}`.
+  If the variable is missing, `_setup-import.yaml` fails with an assertion
+  that names the variable and this section. There is no skip. `run-maestro.sh`
+  forwards the name only when it is set; it does not print the value.
+  Maestro writes the `inputText` of the import step into its run log, so that
+  log contains the identity and must not be shared. The identity is disposable
+  and exists only for the local stack.
+- P17 needs `E2E_SPARK_DEPOSIT_ADDRESS`: DFX's reusable Spark **deposit**
+  address for that identity on the local stack (sell destination, always the
+  same for Spark payouts to the fixture IBAN). P16 needs
+  `E2E_SPARK_WALLET_ADDRESS`: the identity's **own** Spark address — the
+  value in `user.address` with which the wallet signs in to the backend
+  (buy destination). Do not swap them. Both are declared in `env:`; the
+  runner forwards each only when set and does not print the value. If the
+  one a flow needs is missing, that flow fails with an assertion that names
+  the variable and this section. Neither address is in the repository.
+- Before a run, seed **only** the local stack with that identity's Spark
+  address. Never run this against dev or prod:
+
+  ```sh
+  psql "$LOCAL_DATABASE_URL" \
+    -v addr="$SPARK_ADDRESS" \
+    -f tests/e2e-maestro/scripts/seed-local-backend.sql
+  ```
+
+  `$LOCAL_DATABASE_URL` is the local stack's connection string. `$SPARK_ADDRESS`
+  is the Spark address of the imported identity. Both stay outside the repo.
+- The stack must already have free Spark deposit addresses (`POST /v1/deposit`)
+  and `Spark/BTC` with `sellable = true`. The SQL does not create those.
+
+## Backend API for P16 and P17
+
+P16 and P17 talk to the local DFX API through
+`tests/e2e-maestro/scripts/dfx-simulate-payment.js` and
+`tests/e2e-maestro/scripts/backend-state.js`. They need `E2E_API_URL` (the
+local API origin, e.g. `http://127.0.0.1:3300`) and `E2E_DFX_JWT` (a bearer
+token for the imported identity). The runner forwards those names only when
+set and does not print the values. `E2E_DFX_JWT` is a secret. If either name
+is missing, the scripts exit 2 and the flow fails; they do not skip.
+
+P16 triggers an incoming payment on the identity's active buy route
+(`PUT /v1/buy/<id>/simulatePayment`) for `E2E_BUY_CHF` (default 0.20), waits
+until `GET /v1/transaction`
+shows a Buy in Completed with an id greater than the snapshot taken before
+that trigger, then asserts the visible Spark balance is at least the amount
+the backend paid out in this run (`backendTxAmount` from
+`backend-state.js`; the balance is returned as `passthrough` through the
+same script). Limitation: if the wallet already held at least this amount
+before the buy, the condition is also satisfied without the new credit. P17
+snapshots `GET /v1/transaction` before the wallet send, then waits for a
+Sell to be booked and then Completed, again only counting ids greater than
+the snapshot.
+
+The local stack must accept that JWT, expose those routes, process the buy
+through to a Spark credit, and process the sell through to Completed. Never
+run this against dev or prod.
+
+The selected local API stack must supply `FAUCET_LOW_BALANCE_THRESHOLD` at boot;
+do not silently omit this required variable. The frontend build needs sufficient
+Docker resources; `cannot allocate memory` is an environmental failure, not a
+fixed minimum established by this document.
+
+## Local bank-return helper for P17
+
+`tests/e2e-maestro/scripts/settle-service.mjs` is an E2E helper service, not a
+flow script. It uses only Node standard modules and invokes `docker exec` to run
+`psql` in the local `spark276-db-1` database container. Its `SETTLE_KEY` must be
+provided through the environment and has no default. The runner starts it when
+both `SETTLE_KEY` and `E2E_API_URL` are set, supplies the resulting
+`E2E_SETTLE_URL` and `E2E_SETTLE_KEY` bindings to Maestro, and terminates the
+process through its exit trap. `SETTLE_PORT` is optional and defaults to
+`18790`. `SETTLE_DB_CONTAINER` is optional, defaults to `spark276-db-1` and
+selects the local database container passed to `docker exec`.
+
+**This helper must never run against development or production.** At startup it
+requires `E2E_API_URL` to be plain HTTP on `127.0.0.1`, `localhost` or `::1`;
+it listens only on `127.0.0.1` and addresses the selected local Docker container.
+This rejects an obviously remote API origin. It cannot detect a loopback proxy
+to a foreign stack or a foreign database deliberately exposed under the same
+local container name, so the operator must still verify the selected Compose
+stack.
+
+The boundary differs from the reviewer's P12 reference. That historical P12
+bank payout ran against the declared Frick test service. The P17 local stack has
+no bank service attached: `FRICK_BASE_URL` points at a discard port. The helper
+therefore supplies the return that the absent bank would have supplied. It
+fills the missing `valutaDate`, `frickReference`, `remittanceInfo`,
+`frickCustomId` and `isReadyDate` payout fields and inserts the matching `DBIT`
+`bank_tx` row. It does not
+attach that row to `fiat_output` or complete `buy_fiat`; the backend's
+`searchOutgoingBankTx` path must find and attach it and complete the sale.
+Repeated calls first reuse a matching unattached bank row, and incomplete
+positions return HTTP 409 so the flow continues to read them as not ready.
+
+## Running
+
+All flows on a specific booted simulator:
+
+```sh
+bash scripts/e2e/run-maestro.sh \
+  --device '<SIMULATOR-UDID>' \
+  --app '<PATH-TO-APP-BUNDLE>'
+```
+
+Run only matching flow files; the filter is a basename glob:
+
+```sh
+bash scripts/e2e/run-maestro.sh \
+  --device '<SIMULATOR-UDID>' \
+  --app '<PATH-TO-APP-BUNDLE>' \
+  --flow '05-*'
+```
+
+Run the new unfunded Spark checks separately after building the app bundle:
+
+```sh
+bash scripts/e2e/run-maestro.sh --device '<SIMULATOR-UDID>' --app '<PATH-TO-APP-BUNDLE>' --flow '18-*'
+bash scripts/e2e/run-maestro.sh --device '<SIMULATOR-UDID>' --app '<PATH-TO-APP-BUNDLE>' --flow '19-*'
+```
+
+P18 retries only if the transient no-address state actually appears; the flow
+does not inject an SDK failure. P19 waits for the recovery phrase container,
+which also means a configured biometric prompt must be completed on the
+simulator. With biometrics disabled, the phrase appears directly. The flow does
+not take a screenshot while the phrase is visible and uses no phrase text in
+selectors. P18 screenshots show the dynamic Spark receive address and should be
+handled as wallet receiving information even though the wallet is unfunded.
+
+P20 is an exception to the reset-based suite. It prepares a BOLT11 payment on
+the already funded simulator and stops at the quote confirmation screen. It
+requires `E2E_BOLT11_INVOICE`, a 10-sat invoice created by the isolated receiver
+fixture. **Never run P20 through `scripts/e2e/run-maestro.sh` or the full suite:**
+that runner uninstalls the app and resets the simulator keychain. Run only the
+flow directly against the preserved funded simulator:
+
+```sh
+maestro --device "$FUNDED_SIMULATOR_UDID" test \
+  -e "E2E_BOLT11_INVOICE=$E2E_BOLT11_INVOICE" \
+  tests/e2e-maestro/flows/20-spark-bolt11-prepare.yaml
+```
+
+Keep the invoice in the environment/session only; do not put it in the repo or
+share Maestro logs. P20 verifies the 78-sat precondition, the decoded 10-sat
+amount, and a visible Spark fee quote, then takes a confirmation screenshot.
+It does not tap `Zahlen` or claim a payment. P21 is the single payment follow-up
+for the reviewed 10-sat invoice and 2-sat quote. Run it directly, immediately
+after P20, while the app remains on that confirmation screen and on the same
+preserved simulator:
+
+```sh
+maestro --device "$FUNDED_SIMULATOR_UDID" test \
+  tests/e2e-maestro/flows/21-spark-bolt11-pay.yaml
+```
+
+P21 attempted the payment once. The payment completed and the success screenshot
+showed 10 sats, the expected description and 2-sat fee, but the flow exited 1
+because its standalone `sats` selector did not match the combined text. The
+selector was removed from the file; **do not rerun P21**, as the invoice was
+already paid. `Fertig` returned to address entry, so the root terminated and
+relaunched the same app without uninstalling or resetting the clone. Revised
+P22 is read-only: it starts on the resulting home screen and checks the 66-sat
+sender balance. Run directly after that state-preserving relaunch:
+
+```sh
+maestro --device "$FUNDED_SIMULATOR_UDID" test \
+  tests/e2e-maestro/flows/22-spark-bolt11-balance.yaml
+```
+
+P22 passed on the preserved simulator. P23 is also read-only with respect to
+payments. From the same home screen it opens Spark receive and taps the public
+receive address to copy it to the simulator pasteboard for the receiver refund.
+It does not screenshot the address. P23 passed; the isolated receiver was then
+refunded 10 sats with 0-sat fee, leaving its balance at 0 and the sender at 76
+sats. Run P23 directly after P22:
+
+```sh
+maestro --device "$FUNDED_SIMULATOR_UDID" test \
+  tests/e2e-maestro/flows/23-spark-receive-address-copy.yaml
+```
+
+Neither flow resets or reinstalls the app; never use the suite wrapper on this
+simulator. Receiver credit for the earlier isolated BOLT11 test was verified
+separately from the isolated CLI.
+
+P24 and P25 exercise Lightning-address interoperability with an externally
+supplied Wallet of Satoshi recipient. The address is provided only through
+`E2E_WOS_LIGHTNING_ADDRESS`; do not put it in the repository or screenshots.
+Maestro may echo the entered address in its run log, so keep logs private and
+redact them before sharing. The old-build control reached the Spark-only alert,
+but the final P24 flow was not rerun against that build after its selector
+fixes. On the signed keyed candidate build, the final P24 flow exited 0: it
+showed a 10-sat quote,
+the Wallet of Satoshi recipient description, callback domain
+`livingroomofsatoshi.com`, and a 2-sat fee. P25 then paid once and exited 0;
+the success view showed the same recipient description/domain and fee. After a
+state-preserving relaunch, the sender showed 64 sats (76 minus 10 minus 2).
+The Wallet of Satoshi receiver balance was not independently checked, so this
+is app-side payment-success and sender-debit evidence, not receiver-credit
+verification. Run the two flows directly with Maestro against the preserved
+funded simulator; never use the suite wrapper, which resets wallet/keychain
+state. P25 is one-shot and must not be rerun for the same invoice.
+
+The isolated CLI also checked Lightning-address availability against the
+configured Spark address domain. An unknown username was reported available on
+the SDK's default Breez domain, unavailable on `dev.lightning.space`, and the
+`lightning.space` request failed with HTTP 404 `Cannot POST
+/lnurlpay/<identity>/available`. Do not present an `@lightning.space` address as
+available until the production LNURL availability and payment routes are
+implemented and verified. P24/P25 demonstrate a live Wallet of Satoshi
+Lightning-address send through the app, but do not establish receiver-side
+credit because that balance was not independently checked.
+
+The values are also accepted positionally as `UDID APP_BUNDLE [FLOW_GLOB]`. UDID
+and app path are mandatory; without them the runner aborts, because the fresh
+state cannot otherwise be guaranteed for P01–P15. The runner resets the
+simulator before every match, installs the bundle and then starts its own
+`maestro test`. P16 and P17 re-import the fixed identity after that reset.
+Between two flows it waits 12 seconds so the repeated simulator resets do not overload
+the CoreSimulator services. Before and after every reset `simctl bootstatus -b`
+checks whether the device is booted and ready, and boots a crashed simulator
+again; because of the reproduced series crashes these two safeguards must not be
+removed.
+
+After failures the runner continues with the remaining flows. A failed reset or
+readiness check is recorded as flow exit 125 and `run-aborted`. For every flow
+`tests/e2e-maestro/last-run.json` holds name, exit code, duration and one of the
+outcomes `passed`, `assertion-failed` or `run-aborted`. Telling the two failure
+kinds apart reads the flow log and is therefore a heuristic: it classifies the
+failure but does not decide success. Both kinds count as a failure and set the
+suite exit to 1, so a misclassification cannot turn a red run green. The
+manifest and the final line count successful flows, failed assertions and
+aborted runs separately. If every failure is an abort, the suite outcome is
+explicitly `environment-error`; assertions and aborts together yield
+`mixed-failure`. The runner exits 1 as soon as a flow was not successful, and 2
+on a configuration error or an empty filter.
+
+## Deliberate limits
+
+In Maestro no value survives an app restart (`launchApp`). Measured on four
+paths — `env` binding, `output.passthrough`, a file across the script
+runtime, and both `runFlow` calls pulled inline — the before-value arrived
+as `undefined` every time. A before/after comparison across a restart is
+therefore not possible.
+
+- P8, P9, P14 and P15 only open Spark receive and assert a visible Lightning
+  address. They do not create a BOLT11 invoice or an on-chain deposit, and they
+  do not pay. P10 checks the authentication prompt
+  and the rejection expected for Spark.
+- P16 and P17 are the payment flows. After a payment the Spark row only showed
+  the new balance after an app restart without wiping state (`launchApp` with
+  `clearState: false`); waiting on the still-open screen was not enough. P16 and
+  P17 therefore relaunch that way before every wallet-row assertion that follows
+  a payment. That is a product observation, not a persistence test.
+- P16 and P17 import a fixed Spark identity (`E2E_SPARK_MNEMONIC`) and need the
+  local DFX stack plus a tradable backend account for that identity (the
+  fixture above), plus `E2E_API_URL` and `E2E_DFX_JWT`. P16 asserts the buy
+  mask shows the truncated `E2E_SPARK_WALLET_ADDRESS` plus `Spark`, then
+  `IBAN` and `BIC`, and that `Invalid signature` is absent. It then triggers
+  an incoming payment on the buy route, waits for the backend to complete
+  that buy (id greater than the snapshot taken before the trigger), and
+  asserts the visible Spark balance is at least the amount the backend paid
+  out in this run (`backendTxAmount` from `backend-state.js`; the balance
+  is returned as `passthrough` through the same script). Limitation: if the
+  wallet already held at least this amount before the buy, the condition is
+  also satisfied without the new credit. In a green run the visible balance
+  was 211 sat and the payout 45 sat. The incoming payment is raised through
+  the API helper (`dfx-simulate-payment.js`, `E2E_BUY_CHF` default 0.20), not a
+  transfer from a real bank. P17 has no Lightning counterpart funding: the
+  wallet must already hold the amount, and it does because P16 runs first
+  and buys it. P16 therefore has to run before P17. P17 asserts the visible
+  Spark balance is at least `E2E_PAYMENT_SAT` (default 10) and fails rather
+  than skip if it is not. It then pays
+  `E2E_SPARK_DEPOSIT_ADDRESS` through the wallet send path, asserts
+  `WalletBalance` has fallen, and waits for the backend to book and then
+  complete a Sell with id greater than the snapshot taken before the send.
+  Missing trade approval fails on
+  `NUTZERDATEN EINGEBEN` with a pointer to the fixture, not a skip. The
+  flows do not open a bank app, do not inspect an IBAN credit, and do not
+  read a camera QR. P17 also uses the repository-owned local bank-return helper
+  described above. This is not the Frick test-service boundary used by the
+  historical P12 run: P17's stack points `FRICK_BASE_URL` at a discard port,
+  so the helper writes the returning bank row and leaves matching and completion
+  to the backend.
+- P17 returns the visible Spark balance minus a 4 sat fee reserve in an
+  `onFlowComplete` hook (`_return-spark-balance.yaml`), so the return also runs
+  after a failed assertion. P14 has no return hook. The return uses the wallet's
+  Spark send path to `E2E_SPARK_RETURN_ADDRESS`, not a Lightning counterpart, and
+  does not use `E2E_TREASURY_*`. If that address is unset the hook skips, logs
+  that, and does not fail the flow. At the default
+  10 sat credit that leaves 6 sat returnable.
+  P17 returns only the Spark remainder after the sell; the sold amount does not
+  come back. If the hook cannot read a Spark balance (0, missing, at or below
+  the 4 sat reserve, or the app is not on the Spark wallet screen) it skips,
+  logs that, and does not fail the flow. If a balance was readable and the
+  return then fails, the hook fails and the flow is red. An abort before the
+  hook still leaves credit on the Spark identity; the next P16/P17 run re-imports
+  that same identity.
+- No current physical-device payment proof is claimed here. An earlier note
+  about a 10-sat payment on an iPhone is historical and unverified, so it is
+  excluded from this suite's evidence.
+- The DFX web surface and its API are not part of this repository. P11 and P12
+  use disjoint mode markers plus the exact DFX page title to check the external
+  transition. Later fixture-assisted observations recorded in `coverage.md`
+  were limited to a local quote/payment-information view for P11 and the IBAN
+  form for P12. Those two paths still do not prove settlement. P16 and P17 are
+  the payment extensions; they are not hermetic. The owned verification stack
+  uses the private overlay shown above; that configuration must not be
+  conflated with the dated historical series record below.
+- The QR component has neither `testID` nor `accessibilityLabel`. P5–P7
+  therefore check the visible payload, which sits in the same render branch as
+  the QR, not the pixels or whether they decode.
+- Persistence across app restarts, keychain entitlements, NFC, camera QR reads,
+  hardware wallets and multi-device are not part of these 25 paths. The
+  P16/P17 relaunch without wiping state only exists so the Spark row can
+  show the new balance; it is not a persistence proof. P16 and P17 import the
+  fixed identity after the runner's reset; that is not a persistence proof.
+- Dynamic Spark and DFX responses can turn the suite red. That is intended; the
+  runner does not treat missing external prerequisites as success.
+
+## Current native verification checkpoint (2026-09-06)
+
+The current combined Release artifact was built on the MacBook Pro from wallet
+source `d59482e759303bda45793134c86b9452c55211b3` plus 46 local, uncommitted
+changes and exercised on simulator `7BB44EC7-9799-4EA0-B34E-DC9A3FEA3043` (iPhone 16 Pro,
+iOS 26.5, German). The selected stack heads were API
+`138286fbf0658240d535322c2f1834fb7f0e65f0` and frontend
+`42c4f875f45e6949fb032dacf34e009ee8e34fe2`. The build used Node 24.19,
+CocoaPods 1.14.3 / ActiveSupport 7.0.8.7 and Xcode 26.6; code-sign
+verification exited 0. The executable SHA-256 is
+`106a7fb3af8560c32df1362a63085edb9d5fd342422fa2104adaf8ff4d5f2b24` and
+the installed bundle JavaScript SHA-256 is
+`50a395c977e8be1cd16ba1f257402de669ba1407e83b4902dd6c124b5cd775ad`.
+
+The private `ENVFILE` overlay used the owned local API/services stack on
+ports 3300/3301. Native flows ran in separate batches: P01–P03 3/3,
+P04–P07 4/4, P08–P09 2/2, P10 1/1 and P12–P13 2/2, each exit 0. P11 was
+0/1, exit 1 at the exact `^Kaufen$` assertion. Its exact failure screenshot
+visually showed `Kaufen`, `KYC VERVOLLSTÄNDIGEN` and a Safari tooltip, while
+the associated accessibility hierarchy reported `Kaufen=false`,
+`KYC=false` and `Safari=true`; the visual/accessibility disagreement has no
+established cause. The one separately authorized unchanged retry exited 1:
+`^Kaufen$` passed but the later `^Zahlungsinformation$` assertion failed.
+The retry is not green P11 evidence. The aggregate is 12/13 across separate
+batches, not a single 13/13 run. The final unit gate reported 1,632 passed
+and 1 skipped across 87 suites; the 31 runtime files were source-map
+matched, not counted as 31 tests. No payment or settlement is evidenced.
+
+## Historical measurement
+
+The versions of these flows — including the mode-specific P11/P12 assertions —
+were measured as one complete series on 2026-09-04 against a local API and
+services instance with `DFX_ENV=loc`: `Flows: 13, passed: 13, assertion
+failures: 0, aborted: 0`, with suite outcome `passed`. This is a dated
+historical repository record, not a current native-E2E or release claim and
+not evidence that the run used the private `3300`/`3301` overlay described
+above. The current combined-app installation and exercise are documented in
+the checkpoint above; later fixture-assisted P11/P12 observations are
+described separately in `coverage.md`; neither proves settlement or payout.
+Details, flow mappings and the known P11 load-timing flake remain in
+`coverage.md`.
+
+The exact mapping of path, flow and assertion is in `coverage.md`.
+
+## Dated P16/P17 run (2026-09-16)
+
+P16 and P17 were run on this head against the local stack on
+`http://127.0.0.1:3300`, simulator `762EC3AB-2EE7-47D8-AE37-FC1357CC0B33`, with
+`E2E_API_URL`, `E2E_DFX_JWT`, `E2E_SPARK_MNEMONIC`, `E2E_SPARK_WALLET_ADDRESS`
+(P16) and `E2E_SPARK_DEPOSIT_ADDRESS` (P17) set. Both were red in
+`_setup-import.yaml`: after the Lightning-add tap the app showed
+`Lightning konnte nicht gestartet werden. (Error)` and two `Wiederholen` taps
+still left no Spark row. Neither flow reached the buy/sell mask or the backend
+booking. last-run for P16 (third attempt) was exit 1, 159 s,
+`assertion-failed`; for P17 (one attempt) exit 1, 167 s, `assertion-failed`.
+`E2E_TREASURY_URL` was not set, so the Lightning counterpart that the
+return hook still used in that version of P17's `onFlowComplete` was
+missing; that hook ran after the failed
+assertion and skipped (`refund skipped: not-visible`) because no Spark
+`WalletBalance` was on screen. The counterpart was therefore not the blocking
+failure of this run. The hook now sends leftover Spark to
+`E2E_SPARK_RETURN_ADDRESS` instead; that dated skip reason is from the
+Lightning-return version. The first P16 attempt aborted at YAML parse of the
+unquoted `MIN_TX_ID` ternary; those three `MIN_TX_ID` lines are now quoted.

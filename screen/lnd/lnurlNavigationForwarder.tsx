@@ -15,6 +15,7 @@ import BigNumber from 'bignumber.js';
 import { AbstractHDElectrumWallet } from '../../class/wallets/abstract-hd-electrum-wallet';
 import { isInternalDomain } from '../../helpers/freeLightningDomains';
 import { reportError } from '../../helpers/errors';
+import { getLightningWallet } from '../../helpers/lightning-wallet';
 import { Utils } from '../../helpers/utils';
 
 type RouteParams = {
@@ -33,7 +34,7 @@ const LnurlNavigationForwarder = () => {
   const getSuitableLightningWallet = (paymentLink: OpenCryptoPayPaymentLink) => {
     const lnDetails = paymentLink.getLightningPaymentRequestDetails();
     const amountLn = lnDetails?.amountSat;
-    const lnWallet = wallets.find((w: any) => w.chain === Chain.OFFCHAIN);
+    const lnWallet = getLightningWallet<AbstractWallet>(wallets);
     return lnWallet && Number(amountLn) < Number(lnWallet.getBalance()) ? lnWallet : null;
   };
 
@@ -164,7 +165,7 @@ const LnurlNavigationForwarder = () => {
           });
         }
 
-        const lnWallet = wallets.find((w: any) => w.chain === Chain.OFFCHAIN);
+        const lnWallet = getLightningWallet<AbstractWallet>(wallets);
         if (lnWallet) {
           return navigation.replace('SendDetailsRoot', {
             screen: 'LnurlPay',

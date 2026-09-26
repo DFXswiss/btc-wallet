@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useContext, useRef, useMemo } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Dimensions,
   InteractionManager,
   PixelRatio,
@@ -30,11 +32,14 @@ import TransactionsNavigationHeader from '../../components/TransactionsNavigatio
 import PropTypes from 'prop-types';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
-import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
+import { getLightningWallet } from '../../helpers/lightning-wallet';
 import BoltCard from '../../class/boltcard';
 import scanqrHelper from '../../helpers/scan-qr';
 import DfxServicesButtons from '../../components/DfxServicesButtons';
 import { usePrivateText } from '../../hooks/usePrivateText';
+import { defaultSparkSourceWallet, useSparkContext } from '../../api/spark/contexts/spark.context';
+import { useLightningRecovery } from '../../hooks/lightningRecovery.hook';
+import { reportError } from '../../helpers/errors';
 
 const fs = require('../../blue_modules/fs');
 
@@ -45,9 +50,12 @@ const buttonFontSize =
 
 const WalletHome = ({ navigation }) => {
   const { wallets, saveToDisk, setSelectedWallet, revalidateBalancesInterval } = useContext(BlueStorageContext);
+  const { isCreating } = useSparkContext();
+  const { addLightningWallet } = useLightningRecovery();
+  const [isAddingLightning, setIsAddingLightning] = useState(false);
   const walletID = useMemo(() => wallets[0]?.getID(), [wallets]);
   const multisigWallet = useMemo(() => wallets.find(w => w.type === MultisigHDWallet.type), [wallets]);
-  const lnWallet = useMemo(() => wallets.find(w => w.type === LightningLdsWallet.type), [wallets]);
+  const lnWallet = useMemo(() => getLightningWallet(wallets), [wallets]);
   const [, setIsLoading] = useState(false);
   const { name, params } = useRoute();
   const { setParams, navigate } = useNavigation();
@@ -261,22 +269,34 @@ const WalletHome = ({ navigation }) => {
     });
   };
 
-  const navigateToAddLightning = () => {
-    navigate('WalletsRoot', {
-      screen: 'AddLightning',
-    });
+  const onAddLightningPress = async () => {
+    // Adds the seed's existing lightning.space wallet, otherwise the Spark wallet, in place — no provider screen.
+    // AddLightning remains in the navigator for Taproot-asset wallets only.
+    if (isAddingLightning) return;
+    setIsAddingLightning(true);
+    try {
+      await addLightningWallet(defaultSparkSourceWallet(wallets));
+    } catch (e) {
+      reportError('home: Lightning account check failed', e);
+      Alert.alert(loc.wallets.lightning_spark_wallet_label, loc.wallets.lightning_account_check_failed, [
+        { text: loc._.cancel, style: 'cancel' },
+        { text: loc._.repeat, onPress: () => onAddLightningPress() },
+      ]);
+    } finally {
+      setIsAddingLightning(false);
+    }
   };
 
   const displayWallets = useMemo(() => {
     const tmpWallets = [];
 
-    const multisigWallet = wallets.find(w => w.type === MultisigHDWallet.type);
+    const multisigWalletItem = wallets.find(w => w.type === MultisigHDWallet.type);
     tmpWallets.push({
-      wallet: multisigWallet,
+      wallet: multisigWalletItem,
       title: 'Bitcoin',
       isActivated: true,
       subtitle: loc.wallets.multi_sig_wallet_label,
-      walletID: multisigWallet?.getID?.(),
+      walletID: multisigWalletItem?.getID?.(),
       onDummyPress: navigateToAddMultisig,
     });
 
@@ -286,21 +306,21 @@ const WalletHome = ({ navigation }) => {
       title: 'Bitcoin',
       isActivated: true,
       subtitle: loc.wallets.main_wallet_label,
-      walletID: onChainWallet.getID?.(),
+      walletID: onChainWallet?.getID?.(),
     });
 
-    const LnWallet = wallets.find(w => w.type === LightningLdsWallet.type);
     tmpWallets.push({
-      wallet: LnWallet,
+      wallet: lnWallet,
       title: 'Bitcoin',
       isActivated: true,
-      subtitle: loc.wallets.lightning_wallet_label,
-      walletID: LnWallet?.getID?.(),
-      onDummyPress: navigateToAddLightning,
+      subtitle: loc.wallets.lightning_spark_wallet_label,
+      walletID: lnWallet?.getID?.(),
+      onDummyPress: onAddLightningPress,
+      isCreatingLightning: (isCreating || isAddingLightning) && !lnWallet,
     });
 
     return tmpWallets;
-  }, [wallets]);
+  }, [wallets, isCreating, isAddingLightning, addLightningWallet, lnWallet]);
 
   return (
     <View style={styles.flex}>
@@ -310,7 +330,7 @@ const WalletHome = ({ navigation }) => {
         wallet={totalWallet}
         width={width}
         headerOverlayHeight={headerOverlayHeight}
-        showRBFWarning={!wallet.allowRBF()}
+        showRBFWarning={!!wallet && !wallet.allowRBF()}
         onWalletChange={total =>
           InteractionManager.runAfterInteractions(async () => {
             wallets.forEach(w => {
@@ -371,7 +391,9 @@ const WalletHome = ({ navigation }) => {
                 Component={View}
                 {...(item.isActivated
                   ? {
-                      rightElement: (
+                      rightElement: item.isCreatingLightning ? (
+                        <ActivityIndicator />
+                      ) : (
                         <SecondButton
                           title={loc._.add}
                           icon={{ name: 'plus', type: 'font-awesome', color: 'white', size: 12 }}
@@ -389,7 +411,7 @@ const WalletHome = ({ navigation }) => {
         ))}
       </View>
       <FContainer ref={walletActionButtonsRef}>
-        {wallet.allowReceive() && (
+        {wallet?.allowReceive() && (
           <FButton
             testID="ReceiveButton"
             text={loc.receive.header}
@@ -412,7 +434,7 @@ const WalletHome = ({ navigation }) => {
           }
           text={loc.send.details_scan}
         />
-        {(wallet.allowSend() || (wallet.type === WatchOnlyWallet.type && wallet.isHd())) && (
+        {(wallet?.allowSend() || (wallet?.type === WatchOnlyWallet.type && wallet?.isHd())) && (
           <FButton
             onLongPress={sendButtonLongPress}
             onPress={sendButtonPress}

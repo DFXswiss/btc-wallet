@@ -13,6 +13,7 @@ import { BlueStorageContext } from './blue_modules/storage-context';
 import { isNotificationsEnabled, majorTomToGroundControl } from './blue_modules/notifications';
 import { FiatUnit } from './models/fiatUnit';
 import { MultisigHDWallet } from './class';
+import { SparkWallet } from './class/wallets/spark-wallet';
 
 function WatchConnectivity() {
   const { walletsInitialized, wallets, fetchWalletTransactions, saveToDisk, txMetadata, preferredFiatCurrency } =
@@ -89,6 +90,9 @@ function WatchConnectivity() {
 
   const handleLightningInvoiceCreateRequest = async (walletIndex, amount, description = loc.lnd.placeholder) => {
     const wallet = wallets[walletIndex];
+    if (wallet?.type === SparkWallet.type) {
+      return;
+    }
     if (wallet.allowReceive() && amount > 0) {
       try {
         const invoiceRequest = await wallet.addInvoice(amount, description);
@@ -134,7 +138,11 @@ function WatchConnectivity() {
         } catch (_) {}
         if (!receiveAddress) {
           // either sleep expired or getAddressAsync threw an exception
-          receiveAddress = wallet.getAddress();
+          try {
+            receiveAddress = wallet.getAddress();
+          } catch (_) {
+            // SparkWallet inherits AbstractWallet.getAddress(), which throws; it still reaches the watch.
+          }
         }
       }
       const transactions = wallet.getTransactions(10);

@@ -7,21 +7,65 @@ import { BlueSpacing20, SafeBlueArea, BlueText, BlueCard } from '../../BlueCompo
 import navigationStyle from '../../components/navigationStyle';
 import Privacy from '../../blue_modules/Privacy';
 import Biometric from '../../class/biometrics';
-import { LegacyWallet, MultisigHDWallet, SegwitBech32Wallet, SegwitP2SHWallet } from '../../class';
+import {
+  HDLegacyBreadwalletWallet,
+  HDLegacyP2PKHWallet,
+  HDSegwitBech32Wallet,
+  HDSegwitP2SHWallet,
+  LegacyWallet,
+  MultisigHDWallet,
+  SegwitBech32Wallet,
+  SegwitP2SHWallet,
+} from '../../class';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import QRCodeComponent from '../../components/QRCodeComponent';
 import Secret from './secret';
+import { SparkWallet } from '../../class/wallets/spark-wallet';
+import { deriveSparkMnemonic } from '../../api/spark/spark-seed';
+
+const BIP39_HD_WALLET_TYPES = new Set([
+  HDSegwitBech32Wallet.type,
+  HDSegwitP2SHWallet.type,
+  HDLegacyP2PKHWallet.type,
+  HDLegacyBreadwalletWallet.type,
+]);
+
+function deriveBoundSparkMnemonic(sparkWallet, wallets) {
+  const sourceWalletId = sparkWallet.sourceWalletId;
+  if (typeof sourceWalletId !== 'string' || !sourceWalletId) throw new Error('Spark source wallet is unavailable');
+  const sources = wallets.filter(candidate => {
+    if (!BIP39_HD_WALLET_TYPES.has(candidate.type) || typeof candidate.getID !== 'function') return false;
+    try {
+      return candidate.getID() === sourceWalletId;
+    } catch {
+      return false;
+    }
+  });
+  if (sources.length !== 1) throw new Error('Spark source wallet is unavailable');
+  const source = sources[0];
+  const onChainMnemonic = source.getSecret();
+  if (typeof onChainMnemonic !== 'string' || !onChainMnemonic.trim()) throw new Error('Spark source wallet is unavailable');
+  return deriveSparkMnemonic(onChainMnemonic, source.getPassphrase?.() || undefined);
+}
 
 const WalletExport = () => {
   const { wallets, saveToDisk } = useContext(BlueStorageContext);
-  const { walletID } = useRoute().params;
+  const { walletID, noticeAccepted } = useRoute().params;
   const [isLoading, setIsLoading] = useState(true);
-  const { goBack } = useNavigation();
+  const { goBack, replace } = useNavigation();
   const { colors } = useTheme();
   const wallet = wallets.find(w => w.getID() === walletID);
   const [qrCodeSize, setQRCodeSize] = useState(90);
+  const [sparkMnemonic, setSparkMnemonic] = useState();
+  const [sparkExportError, setSparkExportError] = useState(false);
+  const isSparkWallet = wallet?.type === SparkWallet.type;
   const appState = useRef(AppState.currentState);
+  // Read at reveal time only: Spark saves refresh the wallet list, which must not restart the unlock.
+  const walletsRef = useRef(wallets);
+  useEffect(() => {
+    walletsRef.current = wallets;
+  }, [wallets]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {
@@ -46,7 +90,6 @@ const WalletExport = () => {
     },
     type: { color: colors.foregroundColor },
     secret: { color: colors.foregroundColor },
-    warning: { color: colors.failedColor },
     infoText: {
       color: colors.brandingColor,
     },
@@ -54,6 +97,10 @@ const WalletExport = () => {
 
   useFocusEffect(
     useCallback(() => {
+      if (isSparkWallet && !noticeAccepted) {
+        replace('SparkBackupNotice', { walletID });
+        return;
+      }
       Privacy.enableBlur();
       const task = InteractionManager.runAfterInteractions(async () => {
         if (wallet) {
@@ -64,7 +111,16 @@ const WalletExport = () => {
               return goBack();
             }
           }
-          if (!wallet.getUserHasSavedExport()) {
+          if (wallet.type === SparkWallet.type) {
+            // The Spark phrase is derived on demand from the bound on-chain wallet and never stored.
+            try {
+              setSparkMnemonic(deriveBoundSparkMnemonic(wallet, walletsRef.current));
+              setSparkExportError(false);
+            } catch {
+              setSparkMnemonic(undefined);
+              setSparkExportError(true);
+            }
+          } else if (!wallet.getUserHasSavedExport()) {
             wallet.setUserHasSavedExport(true);
             saveToDisk();
           }
@@ -73,9 +129,10 @@ const WalletExport = () => {
       });
       return () => {
         task.cancel();
+        setSparkMnemonic(undefined);
         Privacy.disableBlur();
       };
-    }, [goBack, saveToDisk, wallet]),
+    }, [goBack, isSparkWallet, noticeAccepted, replace, saveToDisk, wallet, walletID]),
   );
 
   if (isLoading || !wallet)
@@ -86,10 +143,11 @@ const WalletExport = () => {
     );
 
   // for SLIP39 we need to show all shares
-  let secrets = wallet.getSecret();
+  let secrets = isSparkWallet ? sparkMnemonic : wallet.getSecret();
   if (typeof secrets === 'string') {
     secrets = [secrets];
   }
+  if (!secrets) secrets = [];
 
   const onLayout = e => {
     const { height, width } = e.nativeEvent.layout;
@@ -120,6 +178,14 @@ const WalletExport = () => {
           </BlueCard>
         )}
         <BlueSpacing20 />
+        {isSparkWallet && (
+          <View style={styles.infoContainer}>
+            <Icon name="info-outline" type="material" color={colors.brandingColor} size={18} />
+            <Text style={[styles.infoText, stylesHook.infoText]}>
+              {sparkExportError ? loc.wallets.lightning_spark_recovery_unavailable : loc.wallets.lightning_spark_recovery_explanation}
+            </Text>
+          </View>
+        )}
         {secrets.map(s => (
           <React.Fragment key={s}>
             <View style={styles.infoContainer}>
@@ -128,7 +194,7 @@ const WalletExport = () => {
             </View>
             {wallet.type !== MultisigHDWallet.type && <Secret secret={s} />}
             <BlueSpacing20 />
-            <QRCodeComponent isMenuAvailable={false} value={wallet.getSecret()} size={qrCodeSize} logoSize={70} />
+            <QRCodeComponent isMenuAvailable={false} value={isSparkWallet ? s : wallet.getSecret()} size={qrCodeSize} logoSize={70} />
             {renderCosigners()}
             <View style={styles.grow} />
           </React.Fragment>
