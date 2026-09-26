@@ -74,6 +74,52 @@ function invoiceIdempotencyKey(paymentIdentity: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
 
+/** An LNURL-pay request as `Lnurl.getLnurlPayRequest()` returns it. */
+export type LnurlPayRequest = {
+  callback: string;
+  minSendable: number;
+  maxSendable: number;
+  metadata: string;
+  commentAllowed: number;
+  domain: string;
+  url: string;
+  address?: string;
+  allowsNostr?: boolean;
+  nostrPubkey?: string;
+};
+
+/** The Breez SDK form of a loaded LNURL-pay request. */
+export function sparkLnurlPayRequest(request: LnurlPayRequest): LnurlPayRequestDetails {
+  return {
+    callback: request.callback,
+    minSendable: BigInt(request.minSendable),
+    maxSendable: BigInt(request.maxSendable),
+    metadataStr: request.metadata,
+    commentAllowed: request.commentAllowed,
+    domain: request.domain,
+    url: request.url,
+    address: request.address,
+    allowsNostr: request.allowsNostr,
+    nostrPubkey: request.nostrPubkey,
+  };
+}
+
+/** The LUD-09 form of an SDK success action, as the Lnurl class stores it. */
+export function lnurlSuccessActionFromSdk(successAction?: SuccessAction): Record<string, unknown> | undefined {
+  if (!successAction) return undefined;
+  const { tag, inner } = successAction as unknown as { tag: string; inner: { data: Record<string, unknown> } };
+  switch (tag) {
+    case 'Aes':
+      return { tag: 'aes', ...inner.data };
+    case 'Message':
+      return { tag: 'message', ...inner.data };
+    case 'Url':
+      return { tag: 'url', ...inner.data };
+    default:
+      throw new Error('Unsupported LNURL success action');
+  }
+}
+
 function lnurlMaxQuoteKey(payRequest: LnurlPayRequestDetails, comment?: string): string {
   return createHash('sha256')
     .update(JSON.stringify([payRequest, comment ?? null], (_, value) => (typeof value === 'bigint' ? `${value}n` : value)))
@@ -196,6 +242,11 @@ export class SparkWallet extends AbstractWallet {
    * Raw Spark identity address (spark1…). Bech32m, lowercase only — never case-folded.
    * Does not accept a `spark:` URI; that form is the invoice wrapper parsed by parseSparkPaymentUri.
    */
+  /** Whether a fee quote pays a Spark address directly rather than through Lightning. */
+  static isSparkAddressQuote(quote?: { method?: string }): boolean {
+    return quote?.method === SendPaymentMethod_Tags.SparkAddress;
+  }
+
   static isSparkAddress(input: string): boolean {
     if (typeof input !== 'string') return false;
     const trimmed = input.trim();

@@ -130,15 +130,15 @@ describe('LNURL', function () {
       metadata: '[["text/plain","Fund @overtorment account on t.me/lntxbot."]]',
       min: 1,
     });
-    const payRequest = LN.getLnurlPayRequestDetails();
+    const payRequest = LN.getLnurlPayRequest();
     assert.strictEqual(payRequest.callback, 'https://lntxbot.bigsun.xyz/lnurl/pay/callback?userid=7116');
-    assert.strictEqual(payRequest.minSendable, 1000n);
-    assert.strictEqual(payRequest.maxSendable, 1000000000n);
-    assert.strictEqual(payRequest.metadataStr, '[["text/plain","Fund @overtorment account on t.me/lntxbot."]]');
+    assert.strictEqual(payRequest.minSendable, 1000);
+    assert.strictEqual(payRequest.maxSendable, 1000000000);
+    assert.strictEqual(payRequest.metadata, '[["text/plain","Fund @overtorment account on t.me/lntxbot."]]');
     assert.strictEqual(payRequest.commentAllowed, 0);
     assert.strictEqual(payRequest.url, Lnurl.getUrlFromLnurl(LN.getLnurl()));
     assert.strictEqual(payRequest.domain, new URL(payRequest.url).hostname);
-    LN.setSdkSuccessAction({ tag: 'Message', inner: { data: { message: 'paid' } } });
+    LN.setSuccessAction({ tag: 'message', message: 'paid' });
     assert.deepStrictEqual(LN.getSuccessAction(), { tag: 'message', message: 'paid' });
     assert.strictEqual(LN.getDisposable(), true);
 
@@ -635,7 +635,7 @@ describe('LNURL edge cases', function () {
 
   it('requires a loaded pay request before returning its details', async () => {
     const ln = new Lnurl('user@example.com');
-    expect(() => ln.getLnurlPayRequestDetails()).toThrow(/not loaded/);
+    expect(() => ln.getLnurlPayRequest()).toThrow(/not loaded/);
     ln.fetchGet = jest.fn().mockResolvedValue({
       callback: 'https://example.com/callback',
       tag: 'payRequest',
@@ -644,22 +644,16 @@ describe('LNURL edge cases', function () {
       metadata: '[]',
     });
     await ln.callLnurlPayService();
-    expect(ln.getLnurlPayRequestDetails().domain).toBe('example.com');
+    expect(ln.getLnurlPayRequest().domain).toBe('example.com');
   });
 
-  it('maps every supported SDK success action and rejects unknown tags', () => {
+  it('records a success action paid outside this class', () => {
     const ln = new Lnurl();
-    for (const [tag, expected] of [
-      ['Aes', 'aes'],
-      ['Message', 'message'],
-      ['Url', 'url'],
-    ]) {
-      ln.setSdkSuccessAction({ tag, inner: { data: { value: tag } } });
-      expect(ln.getSuccessAction()).toEqual({ tag: expected, value: tag });
-    }
-    ln.setSdkSuccessAction(undefined);
+    ln.setSuccessAction({ tag: 'url', url: 'https://example.com', description: 'receipt' });
+    expect(ln.getSuccessAction()).toEqual({ tag: 'url', url: 'https://example.com', description: 'receipt' });
+    expect(ln.getDisposable()).toBe(true);
+    ln.setSuccessAction(undefined);
     expect(ln.getSuccessAction()).toBeUndefined();
-    expect(() => ln.setSdkSuccessAction({ tag: 'Unknown', inner: { data: {} } })).toThrow(/Unsupported LNURL success action/);
   });
 
   it('rejects authenticate without an LNURL and includes additional parameters', async () => {

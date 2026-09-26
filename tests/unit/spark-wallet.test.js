@@ -206,6 +206,56 @@ beforeEach(() => {
   mockLeaseSdkOverride = null;
 });
 
+describe('Spark LNURL helpers', () => {
+  it('converts a loaded LNURL-pay request to the SDK form', () => {
+    const { sparkLnurlPayRequest } = require('../../class/wallets/spark-wallet');
+    const request = {
+      callback: 'https://example.com/callback',
+      minSendable: 1000,
+      maxSendable: 2000,
+      metadata: '[["text/plain","tea"]]',
+      commentAllowed: 32,
+      domain: 'example.com',
+      url: 'https://example.com/lnurlp',
+      address: 'tea@example.com',
+      allowsNostr: false,
+      nostrPubkey: undefined,
+    };
+    assert.deepStrictEqual(sparkLnurlPayRequest(request), {
+      callback: 'https://example.com/callback',
+      minSendable: 1000n,
+      maxSendable: 2000n,
+      metadataStr: '[["text/plain","tea"]]',
+      commentAllowed: 32,
+      domain: 'example.com',
+      url: 'https://example.com/lnurlp',
+      address: 'tea@example.com',
+      allowsNostr: false,
+      nostrPubkey: undefined,
+    });
+  });
+
+  it('maps every supported SDK success action and rejects unknown tags', () => {
+    const { lnurlSuccessActionFromSdk } = require('../../class/wallets/spark-wallet');
+    for (const [tag, expected] of [
+      ['Aes', 'aes'],
+      ['Message', 'message'],
+      ['Url', 'url'],
+    ]) {
+      assert.deepStrictEqual(lnurlSuccessActionFromSdk({ tag, inner: { data: { value: tag } } }), { tag: expected, value: tag });
+    }
+    assert.strictEqual(lnurlSuccessActionFromSdk(undefined), undefined);
+    assert.throws(() => lnurlSuccessActionFromSdk({ tag: 'Unknown', inner: { data: {} } }), /Unsupported LNURL success action/);
+  });
+
+  it('recognizes a fee quote that pays a Spark address directly', () => {
+    const { SparkWallet: Wallet } = require('../../class/wallets/spark-wallet');
+    assert.strictEqual(Wallet.isSparkAddressQuote({ method: SendPaymentMethod_Tags.SparkAddress }), true);
+    assert.strictEqual(Wallet.isSparkAddressQuote({ method: SendPaymentMethod_Tags.Bolt11Invoice }), false);
+    assert.strictEqual(Wallet.isSparkAddressQuote(undefined), false);
+  });
+});
+
 describe('SparkWallet', () => {
   it('exposes the spark type and readable label', () => {
     assert.strictEqual(SparkWallet.type, 'sparkWallet');

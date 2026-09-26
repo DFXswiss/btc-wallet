@@ -43,6 +43,7 @@ import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import { SparkWallet } from '../../class/wallets/spark-wallet';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useWalletContext } from '../../contexts/wallet.context';
+import { reportError } from '../../helpers/errors';
 
 const prompt = require('../../helpers/prompt');
 
@@ -393,7 +394,7 @@ const WalletDetails = () => {
       .then(enabled => {
         if (isCurrent) setSparkPrivateMode(enabled);
       })
-      .catch(e => console.error('walletDetails: failed to read Spark private mode', e));
+      .catch(e => reportError('walletDetails: failed to read Spark private mode', e));
     return () => {
       isCurrent = false;
     };

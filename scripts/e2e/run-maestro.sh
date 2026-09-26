@@ -3,7 +3,7 @@
 set -uo pipefail
 
 readonly E2E_JAVA_HOME='/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home'
-export JAVA_HOME="$E2E_JAVA_HOME"
+export JAVA_HOME="${JAVA_HOME:-$E2E_JAVA_HOME}"
 export PATH="$JAVA_HOME/bin:$PATH"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

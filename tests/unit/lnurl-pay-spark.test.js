@@ -106,6 +106,19 @@ const { BlueStorageContext } = require('../../blue_modules/storage-context');
 const { LightningCustodianWallet } = require('../../class');
 const { LightningLdsWallet } = require('../../class/wallets/lightning-lds-wallet');
 const LnurlPay = require('../../screen/lnd/lnurlPay').default;
+const { sparkLnurlPayRequest } = require('../../class/wallets/spark-wallet');
+
+function payRequestWith(callback) {
+  return {
+    callback,
+    minSendable: 1000,
+    maxSendable: 1_000_000_000,
+    metadata: '[]',
+    commentAllowed: 0,
+    domain: 'example.com',
+    url: 'https://example.com/lnurlp',
+  };
+}
 const { __resetSparkPaymentSeedsForTests } = require('../../screen/lnd/lnurlPay');
 const Lnurl = require('../../class/lnurl').default;
 const loc = require('../../loc').default;
@@ -1175,7 +1188,7 @@ describe('LnurlPay remaining payment paths', () => {
   });
 
   it('pays a quoted LNURL MAX request from a Spark wallet', async () => {
-    jest.spyOn(Lnurl.prototype, 'getLnurlPayRequestDetails').mockReturnValue({ callback: 'https://dev.lightning.space/callback' });
+    jest.spyOn(Lnurl.prototype, 'getLnurlPayRequest').mockReturnValue(payRequestWith('https://dev.lightning.space/callback'));
     mockLnurlPay({ domain: 'dev.lightning.space', getMin: 1000 });
     jest.spyOn(Lnurl.prototype, 'getSparkAddress').mockReturnValue(SPARK_ADDRESS);
     const wallet = makeWallet();
@@ -1382,8 +1395,7 @@ describe('LnurlPay remaining payment paths', () => {
 
   it('pays a Spark MAX Lightning request after preparing its quote', async () => {
     mockLnurlPay({ getCommentAllowed: 32 });
-    const payRequest = { callback: 'https://example.com/callback' };
-    jest.spyOn(Lnurl.prototype, 'getLnurlPayRequestDetails').mockReturnValue(payRequest);
+    jest.spyOn(Lnurl.prototype, 'getLnurlPayRequest').mockReturnValue(payRequestWith('https://example.com/callback'));
     const wallet = makeWallet();
     wallet.payLnurlMax.mockResolvedValue({ status: 'completed', paymentHash: 'max-payment-hash', fee: 2 });
     const screen = renderPay(wallet, {
@@ -1917,7 +1929,7 @@ describe('LnurlPay remaining payment paths', () => {
   });
 
   it('keeps the Spark MAX pay button enabled when the amount equals the balance and a fee quote is present', async () => {
-    jest.spyOn(Lnurl.prototype, 'getLnurlPayRequestDetails').mockReturnValue({ callback: 'https://example.com/callback' });
+    jest.spyOn(Lnurl.prototype, 'getLnurlPayRequest').mockReturnValue(payRequestWith('https://example.com/callback'));
     mockLnurlPay({ getMin: 1000 });
     const wallet = makeWallet();
     wallet.balance = 1000;
@@ -2004,7 +2016,7 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
   });
 
   it('retries an LNURL MAX fee quote and pays after the quote recovers', async () => {
-    jest.spyOn(Lnurl.prototype, 'getLnurlPayRequestDetails').mockReturnValue({ callback: 'https://example.com/callback' });
+    jest.spyOn(Lnurl.prototype, 'getLnurlPayRequest').mockReturnValue(payRequestWith('https://example.com/callback'));
     mockLnurlPay({ getMin: 1000 });
     const wallet = makeWallet();
     wallet.getLnurlMaxFeeQuote.mockRejectedValueOnce(new Error('max quote unavailable')).mockResolvedValueOnce({
@@ -2038,7 +2050,7 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
   });
 
   it('keeps the newer LNURL MAX quote when an older result arrives late', async () => {
-    jest.spyOn(Lnurl.prototype, 'getLnurlPayRequestDetails').mockReturnValue({ callback: 'https://example.com/callback' });
+    jest.spyOn(Lnurl.prototype, 'getLnurlPayRequest').mockReturnValue(payRequestWith('https://example.com/callback'));
     mockLnurlPay({ getMin: 1000, getCommentAllowed: true });
     Lnurl.prototype.callLnurlPayService.mockImplementation(() => Promise.resolve({ description: 'tea', domain: 'example.com' }));
     let resolveOldQuote;
@@ -2072,11 +2084,16 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
     });
 
     await expectSparkLightningPayment(wallet);
-    expect(wallet.payLnurlMax).toHaveBeenCalledWith({ callback: 'https://example.com/callback' }, 2000, 'new-comment', newQuote);
+    expect(wallet.payLnurlMax).toHaveBeenCalledWith(
+      sparkLnurlPayRequest(payRequestWith('https://example.com/callback')),
+      2000,
+      'new-comment',
+      newQuote,
+    );
   });
 
   it('keeps the newer LNURL MAX quote when an older error arrives late', async () => {
-    jest.spyOn(Lnurl.prototype, 'getLnurlPayRequestDetails').mockReturnValue({ callback: 'https://example.com/callback' });
+    jest.spyOn(Lnurl.prototype, 'getLnurlPayRequest').mockReturnValue(payRequestWith('https://example.com/callback'));
     mockLnurlPay({ getMin: 1000, getCommentAllowed: true });
     Lnurl.prototype.callLnurlPayService.mockImplementation(() => Promise.resolve({ description: 'tea', domain: 'example.com' }));
     let rejectOldQuote;
@@ -2110,7 +2127,12 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
     });
 
     await expectSparkLightningPayment(wallet);
-    expect(wallet.payLnurlMax).toHaveBeenCalledWith({ callback: 'https://example.com/callback' }, 2000, 'new-comment', newQuote);
+    expect(wallet.payLnurlMax).toHaveBeenCalledWith(
+      sparkLnurlPayRequest(payRequestWith('https://example.com/callback')),
+      2000,
+      'new-comment',
+      newQuote,
+    );
   });
 
   it('keeps a newer fixed-invoice quote when an older result arrives late', async () => {
@@ -2254,7 +2276,7 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
   });
 
   it('shows the pending state for a Spark MAX payment', async () => {
-    jest.spyOn(Lnurl.prototype, 'getLnurlPayRequestDetails').mockReturnValue({ callback: 'https://example.com/callback' });
+    jest.spyOn(Lnurl.prototype, 'getLnurlPayRequest').mockReturnValue(payRequestWith('https://example.com/callback'));
     mockLnurlPay({ getMin: 1000 });
     const wallet = makeWallet();
     wallet.payLnurlMax.mockResolvedValue({ status: 'pending', paymentHash: 'max-pending', fee: 4 });
@@ -2276,7 +2298,7 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
   });
 
   it('keeps the pay action available after an unknown Spark MAX status', async () => {
-    jest.spyOn(Lnurl.prototype, 'getLnurlPayRequestDetails').mockReturnValue({ callback: 'https://example.com/callback' });
+    jest.spyOn(Lnurl.prototype, 'getLnurlPayRequest').mockReturnValue(payRequestWith('https://example.com/callback'));
     mockLnurlPay({ getMin: 1000 });
     const wallet = makeWallet();
     wallet.payLnurlMax.mockResolvedValue({ status: 'unknown', paymentHash: 'max-unknown', fee: 4 });

@@ -23,8 +23,7 @@ import { lnurlPaySuccessDisplay } from './lnurlPaySuccess';
 import { randomBytes } from '../../class/rng';
 import { LightningCustodianWallet } from '../../class/wallets/lightning-custodian-wallet';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
-import { SendPaymentMethod_Tags } from '@breeztech/breez-sdk-spark-react-native';
-import { SparkPaymentFeeQuoteError, SparkWallet } from '../../class/wallets/spark-wallet';
+import { lnurlSuccessActionFromSdk, SparkPaymentFeeQuoteError, SparkWallet, sparkLnurlPayRequest } from '../../class/wallets/spark-wallet';
 import { BitcoinUnit } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 import Biometric from '../../class/biometrics';
@@ -350,7 +349,7 @@ const LnurlPay = () => {
     }
     if (isMax) {
       wallet
-        .getLnurlMaxFeeQuote(_LN.getLnurlPayRequestDetails(), quoteAmountSats, comment)
+        .getLnurlMaxFeeQuote(sparkLnurlPayRequest(_LN.getLnurlPayRequest()), quoteAmountSats, comment)
         .then(quote => {
           if (!isCurrent) return;
           setSparkMaxFeeQuote(quote);
@@ -502,8 +501,8 @@ const LnurlPay = () => {
     }
 
     if (isMax && wallet.type === SparkWallet.type) {
-      const result = await wallet.payLnurlMax(LN.getLnurlPayRequestDetails(), amountSats, comment, sparkMaxFeeQuote);
-      LN.setSdkSuccessAction(result?.lnurlSuccessAction);
+      const result = await wallet.payLnurlMax(sparkLnurlPayRequest(LN.getLnurlPayRequest()), amountSats, comment, sparkMaxFeeQuote);
+      LN.setSuccessAction(lnurlSuccessActionFromSdk(result?.lnurlSuccessAction));
       if (result && result.status === 'pending') {
         pendingPayRef.current = {
           kind: 'lnurl',
@@ -697,14 +696,14 @@ const LnurlPay = () => {
 
       if (sparkAddress || sparkInvoice) {
         const sparkDestination = sparkAddress || sparkInvoice;
-        if (sparkFeeQuote?.method === SendPaymentMethod_Tags.SparkAddress) {
+        if (SparkWallet.isSparkAddressQuote(sparkFeeQuote)) {
           await handleSparkAddress(amountSats, sparkDestination);
         } else {
           await handleSparkInvoice(amountSats, sparkDestination);
         }
       } else if (invoice) {
         await handleLnInvoice(amountSats);
-      } else if (sparkFeeQuote?.method === SendPaymentMethod_Tags.SparkAddress && directSparkAddress(_LN, wallet, isMax, description)) {
+      } else if (SparkWallet.isSparkAddressQuote(sparkFeeQuote) && directSparkAddress(_LN, wallet, isMax, description)) {
         _LN.assertAmountInRange(amountSats);
         await handleSparkAddress(amountSats, directSparkAddress(_LN, wallet, isMax, description));
       } else {

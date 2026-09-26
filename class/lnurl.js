@@ -22,8 +22,7 @@ export default class Lnurl {
     this._lnurl = url;
     this._lnurlPayServiceBolt11Payload = false;
     this._lnurlPayServicePayload = false;
-    /** @type {import('@breeztech/breez-sdk-spark-react-native').LnurlPayRequestDetails | undefined} */
-    this._lnurlPayRequestDetails = undefined;
+    this._lnurlPayRequest = undefined;
     this._AsyncStorage = AsyncStorage;
     this._preimage = false;
   }
@@ -246,11 +245,11 @@ export default class Lnurl {
         ? data.sparkAddress.trim()
         : undefined;
 
-    this._lnurlPayRequestDetails = {
+    this._lnurlPayRequest = {
       callback: data.callback,
-      minSendable: BigInt(data.minSendable ?? 0),
-      maxSendable: BigInt(data.maxSendable ?? 0),
-      metadataStr: data.metadata,
+      minSendable: data.minSendable ?? 0,
+      maxSendable: data.maxSendable ?? 0,
+      metadata: data.metadata,
       commentAllowed: Number(data.commentAllowed ?? 0),
       domain,
       url,
@@ -326,34 +325,16 @@ export default class Lnurl {
     return this._lnurlPayServicePayload?.sparkAddress;
   }
 
-  getLnurlPayRequestDetails() {
-    if (!this._lnurlPayRequestDetails) throw new Error('LNURL pay request is not loaded');
-    return this._lnurlPayRequestDetails;
+  /** The loaded LNURL-pay request (LUD-06), with its domain, URL and Lightning address. */
+  getLnurlPayRequest() {
+    if (!this._lnurlPayRequest) throw new Error('LNURL pay request is not loaded');
+    return this._lnurlPayRequest;
   }
 
-  setSdkSuccessAction(successAction) {
-    let mappedSuccessAction;
-    if (successAction) {
-      const data = successAction.inner.data;
-      let tag;
-      switch (successAction.tag) {
-        case 'Aes':
-          tag = 'aes';
-          break;
-        case 'Message':
-          tag = 'message';
-          break;
-        case 'Url':
-          tag = 'url';
-          break;
-        default:
-          throw new Error('Unsupported LNURL success action');
-      }
-      mappedSuccessAction = { tag, ...data };
-    }
-
+  /** Records the LUD-09 success action of a payment that was not paid through this class. */
+  setSuccessAction(successAction) {
     // The SDK response has no disposable flag. Do not offer a repeat action without evidence that the endpoint supports it.
-    this._lnurlPayServiceBolt11Payload = { successAction: mappedSuccessAction, disposable: true };
+    this._lnurlPayServiceBolt11Payload = { successAction, disposable: true };
   }
 
   getDescription() {

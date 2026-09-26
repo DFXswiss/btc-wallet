@@ -376,12 +376,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
       reconnectSpark().catch(e => console.warn('SparkContext: foreground reconnect failed', errorClass(e)));
     };
     const sub = AppState.addEventListener('change', onChange);
-    return () => {
-      // RN's test mock may not return a subscription object.
-      if (sub && typeof sub.remove === 'function') {
-        sub.remove();
-      }
-    };
+    return () => sub.remove();
   }, [refreshSparkWallet, reconnectSpark]);
 
   const createSparkWallet = useCallback(
