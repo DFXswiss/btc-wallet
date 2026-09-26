@@ -513,7 +513,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
     if (!spark?.identityPubkey) throw new Error(loc.wallets.lightning_spark_lnurl_auth_unsupported);
     const { privateKey } = sparkIdentityKey(getSparkMnemonic(walletsRef.current, spark.sourceWalletId, spark.sourceWalletLabel));
     const signed = Lnurl.signK1(k1Hex, privateKey);
-    // Only the key inside the wallet's Spark address may log in; anything else would bind a foreign key.
+    // Sign only with the key whose public key is the identity inside the wallet's Spark address.
     if (signed.key !== spark.identityPubkey) throw new Error(loc.wallets.lightning_spark_lnurl_auth_unsupported);
     return signed;
   }, []);
