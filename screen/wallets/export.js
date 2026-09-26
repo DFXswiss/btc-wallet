@@ -51,9 +51,9 @@ function deriveBoundSparkMnemonic(sparkWallet, wallets) {
 
 const WalletExport = () => {
   const { wallets, saveToDisk } = useContext(BlueStorageContext);
-  const { walletID } = useRoute().params;
+  const { walletID, noticeAccepted } = useRoute().params;
   const [isLoading, setIsLoading] = useState(true);
-  const { goBack } = useNavigation();
+  const { goBack, replace } = useNavigation();
   const { colors } = useTheme();
   const wallet = wallets.find(w => w.getID() === walletID);
   const [qrCodeSize, setQRCodeSize] = useState(90);
@@ -97,6 +97,10 @@ const WalletExport = () => {
 
   useFocusEffect(
     useCallback(() => {
+      if (isSparkWallet && !noticeAccepted) {
+        replace('SparkBackupNotice', { walletID });
+        return;
+      }
       Privacy.enableBlur();
       const task = InteractionManager.runAfterInteractions(async () => {
         if (wallet) {
@@ -128,7 +132,7 @@ const WalletExport = () => {
         setSparkMnemonic(undefined);
         Privacy.disableBlur();
       };
-    }, [goBack, saveToDisk, wallet]),
+    }, [goBack, isSparkWallet, noticeAccepted, replace, saveToDisk, wallet, walletID]),
   );
 
   if (isLoading || !wallet)

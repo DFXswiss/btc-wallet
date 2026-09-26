@@ -4,6 +4,7 @@ import { act, render, waitFor } from '@testing-library/react-native';
 
 const mockRoute = { params: { walletID: 'spark-export' } };
 const mockGoBack = jest.fn();
+const mockReplace = jest.fn();
 jest.mock('../../api/spark/spark-seed', () => ({ deriveSparkMnemonic: jest.fn(() => 'spark child phrase words here') }));
 jest.mock('../../blue_modules/Privacy', () => ({ enableBlur: jest.fn(), disableBlur: jest.fn() }));
 jest.mock('../../class/biometrics', () => ({
@@ -49,7 +50,7 @@ jest.mock('@react-navigation/native', () => {
   return {
     ...actual,
     useRoute: () => mockRoute,
-    useNavigation: () => ({ goBack: mockGoBack }),
+    useNavigation: () => ({ goBack: mockGoBack, replace: mockReplace }),
     useTheme: () => require('../../components/themes').BlueDarkTheme,
     useFocusEffect: callback => ReactModule.useEffect(() => callback(), [callback]),
   };
@@ -82,8 +83,8 @@ function makeSource(id, secret = 'on-chain mnemonic', passphrase = 'source passp
   };
 }
 
-function renderExport(wallets, saveToDisk = jest.fn()) {
-  mockRoute.params = { walletID: 'spark-export' };
+function renderExport(wallets, saveToDisk = jest.fn(), params = { walletID: 'spark-export', noticeAccepted: true }) {
+  mockRoute.params = params;
   return render(
     <BlueStorageContext.Provider value={{ wallets, saveToDisk }}>
       <WalletExport />
@@ -109,6 +110,15 @@ afterEach(() => {
   } else {
     delete AppState.currentState;
   }
+});
+
+it('sends a Spark wallet to the backup notice first and reveals nothing', async () => {
+  const spark = makeSparkWallet('bound-source');
+  renderExport([spark, makeSource('bound-source')], jest.fn(), { walletID: 'spark-export' });
+
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('SparkBackupNotice', { walletID: 'spark-export' }));
+  expect(Biometric.isBiometricUseCapableAndEnabled).not.toHaveBeenCalled();
+  expect(deriveSparkMnemonic).not.toHaveBeenCalled();
 });
 
 it('reveals the derived Spark phrase from only the exact bound on-chain wallet', async () => {

@@ -25,15 +25,21 @@ appId: swiss.dfx.bitcoin
 - tapOn:
     id: WalletExport
 - extendedWaitUntil:
-    visible: 'Wallet exportieren'
+    visible: 'Brauchst du diese Wörter\?'
     timeout: 30000
-- assertVisible: 'Diese Lightning-\(Spark-\)Wiederherstellungsphrase unterscheidet sich.*'
+- assertVisible: 'Um deine Lightning-Wallet in dieser App wiederherzustellen.*'
+- tapOn:
+    id: SparkBackupNoticeContinue
+- assertVisible: 'Brauchst du diese Wörter\?'
+- tapOn: 'Ich habe verstanden'
+- tapOn:
+    id: SparkBackupNoticeContinue
 - extendedWaitUntil:
-    visible:
-      id: SparkRecoveryPhrase
+    visible: 'Nur für die Nutzung deiner Lightning-Wallet in einer anderen App.*'
     timeout: 90000
 - assertVisible:
-    id: SparkRecoveryPhrase
-- back
+    id: WalletExportScroll
+- tapOn:
+    id: NavigationCloseButton
 - assertNotVisible:
-    id: SparkRecoveryPhrase
+    id: WalletExportScroll
