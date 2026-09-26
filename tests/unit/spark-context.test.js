@@ -268,6 +268,40 @@ describe('SparkContextProvider signLnurlAuthK1', () => {
 });
 
 describe('SparkContextProvider', () => {
+  it('creates nothing when the main wallet has no recovery phrase, even if a later wallet has one', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    renderWith([{ type: 'watchOnly', getSecret: () => 'xpub', getID: () => 'watch-main' }, hdWallet]);
+    await waitFor(() => assert.ok(latestCtx));
+
+    let created;
+    await act(async () => {
+      created = await latestCtx.createSparkWallet();
+    });
+
+    assert.strictEqual(created, null);
+    expect(mockConnect).not.toHaveBeenCalled();
+    expect(addAndSaveWallet).not.toHaveBeenCalled();
+    expect(alert).toHaveBeenCalled();
+    alert.mockRestore();
+  });
+
+  it('creates the Spark wallet from the on-chain wallet it is given', async () => {
+    const { deriveSparkMnemonic } = jest.requireActual('../../api/spark/spark-seed');
+    const otherMnemonic = 'legal winner thank year wave sausage worth useful legal winner thank yellow';
+    const other = { type: 'HDsegwitP2SH', getSecret: () => otherMnemonic, getID: () => 'hd-other', getLabel: () => 'Other' };
+    renderWith([hdWallet, other]);
+    await waitFor(() => assert.ok(latestCtx));
+
+    let created;
+    await act(async () => {
+      created = await latestCtx.createSparkWallet(other);
+    });
+
+    assert.strictEqual(created.sourceWalletId, 'hd-other');
+    expect(mockConnect).toHaveBeenCalledWith(deriveSparkMnemonic(otherMnemonic), expect.any(Function));
+    expect(mockConnect).not.toHaveBeenCalledWith(SPARK_MNEMONIC, expect.any(Function));
+  });
+
   it('creates a Spark wallet from the on-chain seed without storing the phrase', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     renderWith([hdWallet]);

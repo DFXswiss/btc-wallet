@@ -37,7 +37,7 @@ import BoltCard from '../../class/boltcard';
 import scanqrHelper from '../../helpers/scan-qr';
 import DfxServicesButtons from '../../components/DfxServicesButtons';
 import { usePrivateText } from '../../hooks/usePrivateText';
-import { useSparkContext } from '../../api/spark/contexts/spark.context';
+import { defaultSparkSourceWallet, useSparkContext } from '../../api/spark/contexts/spark.context';
 import { useLightningRecovery } from '../../hooks/lightningRecovery.hook';
 import { reportError } from '../../helpers/errors';
 
@@ -275,7 +275,7 @@ const WalletHome = ({ navigation }) => {
     if (isAddingLightning) return;
     setIsAddingLightning(true);
     try {
-      await addLightningWallet(wallets[0]);
+      await addLightningWallet(defaultSparkSourceWallet(wallets));
     } catch (e) {
       reportError('home: Lightning account check failed', e);
       Alert.alert(loc.wallets.lightning_spark_wallet_label, loc.wallets.lightning_account_check_failed, [

@@ -151,7 +151,7 @@ jest.mock('../../hooks/lightningRecovery.hook', () => ({
       recoverLightningWallet: jest.fn(),
       addLightningWallet: async wallet => {
         if (await mockAddExistingLds(wallet)) return;
-        await createSparkWallet();
+        await createSparkWallet(wallet);
       },
     };
   },
@@ -344,6 +344,24 @@ describe('home screen Spark Lightning add path (render)', () => {
 
     expect(mockAddExistingLds).toHaveBeenCalledWith(onChain);
     expect(mockConnect).not.toHaveBeenCalled();
+  });
+
+  it('checks and creates Lightning from the main wallet, even when a native SegWit wallet comes later', async () => {
+    const { deriveSparkMnemonic } = require('../../api/spark/spark-seed');
+    const mainMnemonic = 'legal winner thank year wave sausage worth useful legal winner thank yellow';
+    const main = { ...makeOnChain('onchain-main'), type: 'HDsegwitP2SH', getSecret: () => mainMnemonic };
+    const laterBech32 = makeOnChain('onchain-bech32');
+    mockAddExistingLds.mockResolvedValue(false);
+    const screen = renderHome([main, laterBech32]);
+
+    await waitFor(() => expect(screen.getAllByText(loc._.add).length).toBeGreaterThan(0));
+    await act(async () => {
+      pressLightningAdd(screen);
+    });
+
+    expect(mockAddExistingLds).toHaveBeenCalledWith(main);
+    await waitFor(() => expect(mockConnect).toHaveBeenCalledWith(deriveSparkMnemonic(mainMnemonic), expect.any(Function)));
+    expect(mockConnect).not.toHaveBeenCalledWith(deriveSparkMnemonic(MNEMONIC), expect.any(Function));
   });
 
   it('shows a retry alert and creates nothing when the lightning.space check fails', async () => {

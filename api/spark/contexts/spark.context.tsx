@@ -67,7 +67,7 @@ export interface SparkContextInterface {
   isConnected: boolean;
   isConnecting: boolean;
   isCreating: boolean;
-  createSparkWallet: () => Promise<SparkWallet | null>;
+  createSparkWallet: (source?: OnChainMnemonicWallet) => Promise<SparkWallet | null>;
   /** Restores the Spark wallet of an imported on-chain wallet if it was used before; never registers or alerts. */
   recoverSparkWallet: (source: OnChainMnemonicWallet) => Promise<SparkWallet | null>;
   /** Signs an LNURL-auth k1 with the Spark identity key: DER signature over the raw k1 bytes and the pubkey, hex. */
@@ -132,6 +132,12 @@ function sparkMnemonicFromWallet(hd: OnChainMnemonicWallet): string {
   return deriveSparkMnemonic(secret, hd.getPassphrase?.() || undefined);
 }
 
+/** A new Spark wallet always derives from the main wallet; none when the main wallet has no recovery phrase. */
+export function defaultSparkSourceWallet<T extends { type: string }>(wallets: T[]): T | undefined {
+  const main = wallets[0];
+  return main && BIP39_HD_WALLET_TYPES.has(main.type) ? main : undefined;
+}
+
 function resolveOnChainWallet(
   wallets: OnChainMnemonicWallet[],
   sourceWalletId?: string,
@@ -144,7 +150,7 @@ function resolveOnChainWallet(
     }
     return bound;
   }
-  const hd = wallets.find(w => w.type === HDSegwitBech32Wallet.type) || wallets.find(w => BIP39_HD_WALLET_TYPES.has(w.type));
+  const hd = defaultSparkSourceWallet(wallets);
   if (!hd) {
     throw new Error('On-chain wallet is required to create a Spark Lightning wallet');
   }
@@ -174,7 +180,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
   const sparkWalletRef = useRef<SparkWallet | undefined>(undefined);
   const walletsRef = useRef(wallets);
   const lnAddressRegisterAttemptedRef = useRef(false);
-  const createSparkWalletRef = useRef<(() => Promise<SparkWallet | null>) | undefined>(undefined);
+  const createSparkWalletRef = useRef<((source?: OnChainMnemonicWallet) => Promise<SparkWallet | null>) | undefined>(undefined);
   const connectExistingSparkRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
   useEffect(() => {
@@ -378,81 +384,84 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
     };
   }, [refreshSparkWallet, reconnectSpark]);
 
-  const createSparkWallet = useCallback(async (): Promise<SparkWallet | null> => {
-    if (getSparkWallet(wallets)) {
-      return getSparkWallet(wallets) as SparkWallet;
-    }
-    if (isCreatingRef.current) return null;
-
-    isCreatingRef.current = true;
-    setIsCreating(true);
-    let created: SparkWallet | undefined;
-    try {
-      const source = resolveOnChainWallet(walletsRef.current);
-      const mnemonic = sparkMnemonicFromWallet(source);
-      const sourceId = sourceWalletIdOf(source);
-      if (!sourceId) {
-        throw new Error('On-chain wallet is required to create a Spark wallet');
+  const createSparkWallet = useCallback(
+    async (source?: OnChainMnemonicWallet): Promise<SparkWallet | null> => {
+      if (getSparkWallet(wallets)) {
+        return getSparkWallet(wallets) as SparkWallet;
       }
-      await ensureConnected(mnemonic);
+      if (isCreatingRef.current) return null;
 
-      const lease = acquireSparkSessionLease();
-      const info = await lease.requireSdk().getInfo({ ensureSynced: false });
-      const session = lease.requireSdk();
-
-      // Lightning address is optional; a failed lookup or name conflict must not abort create.
-      let lnAddress: string | undefined;
+      isCreatingRef.current = true;
+      setIsCreating(true);
+      let created: SparkWallet | undefined;
       try {
-        const lnInfo = await session.getLightningAddress();
+        const sourceWallet = source ?? resolveOnChainWallet(walletsRef.current);
+        const mnemonic = sparkMnemonicFromWallet(sourceWallet);
+        const sourceId = sourceWalletIdOf(sourceWallet);
+        if (!sourceId) {
+          throw new Error('On-chain wallet is required to create a Spark wallet');
+        }
+        await ensureConnected(mnemonic);
+
+        const lease = acquireSparkSessionLease();
+        const info = await lease.requireSdk().getInfo({ ensureSynced: false });
+        const session = lease.requireSdk();
+
+        // Lightning address is optional; a failed lookup or name conflict must not abort create.
+        let lnAddress: string | undefined;
+        try {
+          const lnInfo = await session.getLightningAddress();
+          lease.requireSdk();
+          lnAddress = lnInfo?.lightningAddress;
+          if (!lnAddress) {
+            lnAddress = await registerLightningAddressOnce(info.identityPubkey, loc.wallets.lightning_spark_wallet_label, lease);
+          }
+        } catch (e) {
+          if (e instanceof SparkSessionStaleError) {
+            throw e;
+          }
+          console.warn('SparkContext: getLightningAddress failed; wallet remains usable without lnAddress', errorClass(e));
+        }
+        lnAddressRegisterAttemptedRef.current = true;
+
         lease.requireSdk();
-        lnAddress = lnInfo?.lightningAddress;
-        if (!lnAddress) {
-          lnAddress = await registerLightningAddressOnce(info.identityPubkey, loc.wallets.lightning_spark_wallet_label, lease);
-        }
-      } catch (e) {
-        if (e instanceof SparkSessionStaleError) {
-          throw e;
-        }
-        console.warn('SparkContext: getLightningAddress failed; wallet remains usable without lnAddress', errorClass(e));
-      }
-      lnAddressRegisterAttemptedRef.current = true;
+        created = SparkWallet.create(info.identityPubkey, lnAddress);
+        // Never write the recovery phrase into the Spark wallet record.
+        created.secret = '';
+        created.balance = Number(info.balanceSats);
+        created.sourceWalletId = sourceId;
+        created.sourceWalletLabel = sourceWallet.getLabel?.() || undefined;
 
-      lease.requireSdk();
-      created = SparkWallet.create(info.identityPubkey, lnAddress);
-      // Never write the recovery phrase into the Spark wallet record.
-      created.secret = '';
-      created.balance = Number(info.balanceSats);
-      created.sourceWalletId = sourceId;
-      created.sourceWalletLabel = source.getLabel?.() || undefined;
-
-      await addAndSaveWallet(created);
-      await refreshSparkWallet(created);
-      return created;
-    } catch (e: unknown) {
-      const leftover = getSparkWallet(walletsRef.current) ?? created;
-      if (leftover && typeof deleteWallet === 'function') {
-        deleteWallet(leftover);
-      }
-      await Promise.resolve(disconnectSparkSdk()).catch(() => {});
-      setIsConnected(false);
-      Alert.alert(loc.wallets.lightning_spark_wallet_label, userFacingError(e), [
-        { text: loc._.cancel, style: 'cancel' },
-        {
-          text: loc._.repeat,
-          onPress: () => {
-            const create = createSparkWalletRef.current;
-            if (create) {
-              create().catch(() => {});
-            }
+        await addAndSaveWallet(created);
+        await refreshSparkWallet(created);
+        return created;
+      } catch (e: unknown) {
+        const leftover = getSparkWallet(walletsRef.current) ?? created;
+        if (leftover && typeof deleteWallet === 'function') {
+          deleteWallet(leftover);
+        }
+        await Promise.resolve(disconnectSparkSdk()).catch(() => {});
+        setIsConnected(false);
+        Alert.alert(loc.wallets.lightning_spark_wallet_label, userFacingError(e), [
+          { text: loc._.cancel, style: 'cancel' },
+          {
+            text: loc._.repeat,
+            onPress: () => {
+              const create = createSparkWalletRef.current;
+              if (create) {
+                create(source).catch(() => {});
+              }
+            },
           },
-        },
-      ]);
-      return null;
-    } finally {
-      isCreatingRef.current = false;
-      setIsCreating(false);
-    }
-  }, [wallets, ensureConnected, addAndSaveWallet, refreshSparkWallet, deleteWallet]);
+        ]);
+        return null;
+      } finally {
+        isCreatingRef.current = false;
+        setIsCreating(false);
+      }
+    },
+    [wallets, ensureConnected, addAndSaveWallet, refreshSparkWallet, deleteWallet],
+  );
 
   const recoverSparkWallet = useCallback(
     async (source: OnChainMnemonicWallet): Promise<SparkWallet | null> => {

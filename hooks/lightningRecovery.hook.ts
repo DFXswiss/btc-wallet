@@ -57,7 +57,7 @@ export const LIGHTNING_RECOVERY_MAX_WAIT_MS = 30000;
 export function useLightningRecovery(): {
   recoverLightningWallet: (wallet: SigningHdWallet) => Promise<void>;
   waitForLightningRecovery: (wallet: SigningHdWallet) => Promise<void>;
-  addLightningWallet: (wallet: SigningHdWallet) => Promise<void>;
+  addLightningWallet: (wallet?: SigningHdWallet) => Promise<void>;
 } {
   const { findUser } = useLds();
   const { recoverSparkWallet, createSparkWallet } = useSparkContext();
@@ -112,9 +112,9 @@ export function useLightningRecovery(): {
   );
 
   const addLightningWallet = useCallback(
-    async (wallet: SigningHdWallet): Promise<void> => {
-      if (await addExistingLdsWallet(wallet)) return;
-      await createSparkWallet();
+    async (wallet?: SigningHdWallet): Promise<void> => {
+      if (wallet && (await addExistingLdsWallet(wallet))) return;
+      await createSparkWallet(wallet);
     },
     [addExistingLdsWallet, createSparkWallet],
   );

@@ -180,6 +180,7 @@ describe('useLightningRecovery addLightningWallet', () => {
 
     expect(mockFindUser).toHaveBeenCalledTimes(2);
     expect(mockCreateSparkWallet).toHaveBeenCalledTimes(1);
+    expect(mockCreateSparkWallet).toHaveBeenCalledWith(expect.objectContaining({ type: importedWallet().type }));
     expect(mockRecoverSparkWallet).not.toHaveBeenCalled();
   });
 
