@@ -10,8 +10,7 @@ import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { useWalletContext } from '../../contexts/wallet.context';
 import { AbstractWallet } from '../../class';
-import { SparkWallet } from '../../class/wallets/spark-wallet';
-import { Chain } from '../../models/bitcoinUnits';
+import { getLightningWallet } from '../../helpers/lightning-wallet';
 import loc from '../../loc';
 
 type SendRouteParams = { walletID?: string };
@@ -47,10 +46,8 @@ const ManualAddressSend: React.FC & { navigationOptions?: ReturnType<typeof navi
     // replace does not leave ScanCodeSendStack; SendDetailsRoot is on the parent.
     if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(address)) {
       const selectedWallet = wallets.find((w: AbstractWallet) => w.getID() === params?.walletID);
-      const lightningOnly = wallets.find((w: AbstractWallet) => w.chain === Chain.OFFCHAIN && w.type !== SparkWallet.type);
       const uri = DeeplinkSchemaMatch.isBothBitcoinAndLightning(address);
-      const destinationWallet =
-        selectedWallet?.type === SparkWallet.type && lightningOnly ? lightningOnly : selectedWallet || lightningOnly || mainWallet;
+      const destinationWallet = selectedWallet || getLightningWallet(wallets) || mainWallet;
       const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(destinationWallet, uri) as NavigationRoute;
       ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
       navigate(...route);

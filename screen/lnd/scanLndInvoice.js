@@ -25,6 +25,7 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import alert from '../../components/Alert';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import { isFreeDomain, isInternalDomain } from '../../helpers/freeLightningDomains';
+import { getLightningWallet } from '../../helpers/lightning-wallet';
 const currency = require('../../blue_modules/currency');
 
 /** LNDHub (custodian / LDS) waives fees for listed domains. Spark does not. */
@@ -38,18 +39,8 @@ const ScanLndInvoice = () => {
   const { walletID, uri } = useRoute().params;
   /** @type {LightningCustodianWallet} */
   const wallet = useMemo(() => {
-    const selected = wallets.find(item => item.getID() === walletID);
-    if (selected) return selected;
-    const sparkDestination =
-      typeof uri === 'string' && (DeeplinkSchemaMatch.isSparkAddress(uri) || DeeplinkSchemaMatch.isSparkPaymentUri(uri));
-    if (sparkDestination) {
-      return wallets.find(item => item.type === SparkWallet.type) || wallets.find(item => item.chain === Chain.OFFCHAIN);
-    }
-    return (
-      wallets.find(item => item.chain === Chain.OFFCHAIN && item.type !== SparkWallet.type) ||
-      wallets.find(item => item.chain === Chain.OFFCHAIN)
-    );
-  }, [walletID, wallets, uri]);
+    return wallets.find(item => item.getID() === walletID) || getLightningWallet(wallets);
+  }, [walletID, wallets]);
   const suitableWallets = useMemo(() => wallets.filter(item => item.chain === Chain.OFFCHAIN), [wallets]);
   const { navigate, setParams, goBack } = useNavigation();
   const [isLoading, setIsLoading] = useState(false);

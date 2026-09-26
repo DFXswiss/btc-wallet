@@ -103,7 +103,12 @@ jest.mock('../../components/FloatButtons', () => {
 });
 
 const mockScanQr = jest.fn().mockResolvedValue('');
-jest.mock('../../helpers/scan-qr', () => (...args) => mockScanQr(...args));
+jest.mock(
+  '../../helpers/scan-qr',
+  () =>
+    (...args) =>
+      mockScanQr(...args),
+);
 
 const mockIsBoltcard = jest.fn(() => false);
 jest.mock('../../class/boltcard', () => ({
@@ -603,9 +608,7 @@ describe('wallet asset receive and send', () => {
   });
 
   it('opens LNDReceive for an off-chain wallet that is not in POS mode', () => {
-    const screen = renderAsset(
-      makeWallet({ id: 'ln-recv', type: 'lightningLdsWallet', chain: 'OFFCHAIN', isPosMode: false }),
-    );
+    const screen = renderAsset(makeWallet({ id: 'ln-recv', type: 'lightningLdsWallet', chain: 'OFFCHAIN', isPosMode: false }));
     fireEvent.press(screen.getByTestId('ReceiveButton'));
     expect(mockNavigate).toHaveBeenCalledWith('ReceiveDetailsRoot', {
       screen: 'LNDReceive',
@@ -614,9 +617,7 @@ describe('wallet asset receive and send', () => {
   });
 
   it('opens PosReceive for an off-chain wallet in POS mode', () => {
-    const screen = renderAsset(
-      makeWallet({ id: 'ln-pos', type: 'lightningLdsWallet', chain: 'OFFCHAIN', isPosMode: true }),
-    );
+    const screen = renderAsset(makeWallet({ id: 'ln-pos', type: 'lightningLdsWallet', chain: 'OFFCHAIN', isPosMode: true }));
     fireEvent.press(screen.getByTestId('ReceiveButton'));
     expect(mockNavigate).toHaveBeenCalledWith('ReceiveDetailsRoot', {
       screen: 'PosReceive',
@@ -756,17 +757,16 @@ describe('wallet asset scan and barcode', () => {
     expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', { screen: 'SendDetails', params: { uri: 'bitcoin:addr' } });
   });
 
-  it('routes a combined payload from a Spark wallet to Lightning when one exists', async () => {
+  it('routes a combined payload with the wallet whose screen is open', async () => {
     mockIsBoth.mockReturnValue({ bitcoin: 'bitcoin:addr', lndInvoice: 'lnbc1' });
     mockBothOnSelect.mockReturnValue(['SendDetailsRoot', { screen: 'ScanLndInvoice' }]);
     mockScanQr.mockResolvedValue('bitcoin:addr&lightning=lnbc1');
     const spark = makeWallet({ id: 'spark-asset', type: 'sparkWallet', chain: 'OFFCHAIN' });
-    const lightning = makeWallet({ id: 'lds-asset', type: 'lightningLdsWallet', chain: 'OFFCHAIN' });
-    const screen = renderAsset(spark, [lightning]);
+    const screen = renderAsset(spark);
     await act(async () => {
       fireEvent.press(screen.getByText(loc.send.details_scan));
     });
-    expect(mockBothOnSelect.mock.calls[0][0].getID()).toBe('lds-asset');
+    expect(mockBothOnSelect.mock.calls[0][0].getID()).toBe('spark-asset');
   });
 
   it('forwards an LNURL to LnurlNavigationForwarder with the current wallet id', async () => {

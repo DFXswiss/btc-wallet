@@ -7,8 +7,7 @@ import { BlueListItem, BlueHeaderDefaultSub } from '../../BlueComponents';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { MultisigHDWallet } from '../../class';
-import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
-import { SparkWallet } from '../../class/wallets/spark-wallet';
+import { getLightningWallet } from '../../helpers/lightning-wallet';
 import { TaprootLdsWallet, TaprootLdsWalletType } from '../../class/wallets/taproot-lds-wallet';
 
 const styles = StyleSheet.create({
@@ -23,8 +22,7 @@ const Settings = () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { wallets, language, ldsDEV } = useContext(BlueStorageContext);
   const { walletID } = useWalletContext();
-  const lndWallet =
-    wallets.find(wallet => wallet.type === LightningLdsWallet.type) || wallets.find(wallet => wallet.type === SparkWallet.type);
+  const lndWallet = getLightningWallet(wallets);
   const multiDeviceWallet = wallets.find(wallet => wallet.type === MultisigHDWallet.type);
   const chfTaprootWallet = wallets.find(
     wallet => wallet.type === TaprootLdsWallet.type && wallet.getCurrencyName() === TaprootLdsWalletType.CHF,

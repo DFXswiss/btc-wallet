@@ -686,24 +686,6 @@ describe('ScanLndInvoice fee mark', () => {
     });
   });
 
-  it('pays a spark1 address with the Spark wallet when an older Lightning wallet is listed first', async () => {
-    const spark = makeSparkWallet();
-    const lightning = makeLndhubWallet();
-    const screen = renderScan(lightning, { uri: SPARK_ADDRESS, walletID: undefined, wallets: [lightning, spark] });
-    const truncated = `${SPARK_ADDRESS.substring(0, 18)}.....${SPARK_ADDRESS.substring(SPARK_ADDRESS.length - 18)}`;
-
-    await waitFor(() => screen.getByText(truncated));
-    fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '1000');
-    fireEvent.press(screen.getByText(loc.lnd.next));
-    expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', {
-      screen: 'LnurlPay',
-      params: expect.objectContaining({
-        sparkAddress: SPARK_ADDRESS,
-        walletID: spark.getID(),
-      }),
-    });
-  });
-
   it('recognizes a lowercase spark1 address as a payable destination', async () => {
     const wallet = makeSparkWallet();
     const screen = renderScan(wallet, { uri: SPARK_ADDRESS });

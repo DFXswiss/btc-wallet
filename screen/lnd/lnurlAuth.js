@@ -9,7 +9,7 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { useFocusEffect, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import URL from 'url';
 import { SuccessView } from '../send/success';
-import { Chain } from '../../models/bitcoinUnits';
+import { getLightningWallet } from '../../helpers/lightning-wallet';
 import { SparkWallet } from '../../class/wallets/spark-wallet';
 import alert from '../../components/Alert';
 import { useSparkContext } from '../../api/spark/contexts/spark.context';
@@ -24,17 +24,11 @@ const AuthState = {
 
 const LnurlAuth = () => {
   const { wallets } = useContext(BlueStorageContext);
-  const { walletID, lnurl } = useRoute().params;
+  const { lnurl } = useRoute().params;
   const { signLnurlAuthK1 } = useSparkContext();
   const { getSignMessage } = useAuth();
   const { goBack } = useNavigation();
-  const wallet = useMemo(() => {
-    const named = wallets.find(w => w.getID() === walletID);
-    if (named && named.chain === Chain.OFFCHAIN && named.type !== SparkWallet.type) {
-      return named;
-    }
-    return wallets.find(w => w.chain === Chain.OFFCHAIN && w.type !== SparkWallet.type) || wallets.find(w => w.chain === Chain.OFFCHAIN);
-  }, [wallets, walletID]);
+  const wallet = useMemo(() => getLightningWallet(wallets), [wallets]);
   const LN = useMemo(() => new Lnurl(lnurl), [lnurl]);
   const parsedLnurl = useMemo(
     () => (lnurl ? URL.parse(Lnurl.getUrlFromLnurl(lnurl), true) : {}), // eslint-disable-line n/no-deprecated-api

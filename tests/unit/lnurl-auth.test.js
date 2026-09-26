@@ -80,6 +80,7 @@ const SAMPLE_LNURL = 'LNURL1DP68GURN8GHJ7MRWW3UXYMM59E3XJEMNW4HZU7RE0GHKCMN4WFKZ
 function makeOffchainWallet(overrides = {}) {
   return {
     getID: () => 'ln-1',
+    type: 'lightningLdsWallet',
     chain: Chain.OFFCHAIN,
     lnAddress: 'user@example.com',
     addressOwnershipProof: 'proof',
@@ -180,6 +181,7 @@ describe('LnurlAuth without Lightning wallet', () => {
     const sparkLikeWallet = {
       getID: () => 'spark-1',
       chain: Chain.OFFCHAIN,
+      type: 'sparkWallet',
       lnAddress: 'spark@example.com',
     };
     mockWallets = [sparkLikeWallet];
@@ -215,18 +217,6 @@ describe('LnurlAuth without Lightning wallet', () => {
 
     expect(mockGoBack).not.toHaveBeenCalled();
     expect(screen.getByText(loc.lnurl_auth.authenticate)).toBeTruthy();
-  });
-
-  it('uses the named Lightning wallet when its id matches', () => {
-    const named = makeOffchainWallet({ getID: () => 'ln-named' });
-    const other = makeOffchainWallet({ getID: () => 'ln-other', authenticate: jest.fn() });
-    mockParams = { walletID: 'ln-named', lnurl: SAMPLE_LNURL };
-    mockWallets = [other, named];
-    const screen = renderScreen();
-
-    fireEvent.press(screen.getByText(loc.lnurl_auth.authenticate));
-    expect(named.authenticate).toHaveBeenCalledTimes(1);
-    expect(other.authenticate).not.toHaveBeenCalled();
   });
 
   it('still goes back when lnurl is missing and no Lightning wallet is available', () => {

@@ -32,9 +32,7 @@ import TransactionsNavigationHeader from '../../components/TransactionsNavigatio
 import PropTypes from 'prop-types';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
-import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
-import { SparkWallet } from '../../class/wallets/spark-wallet';
-import { Chain } from '../../models/bitcoinUnits';
+import { getLightningWallet } from '../../helpers/lightning-wallet';
 import BoltCard from '../../class/boltcard';
 import scanqrHelper from '../../helpers/scan-qr';
 import DfxServicesButtons from '../../components/DfxServicesButtons';
@@ -57,11 +55,7 @@ const WalletHome = ({ navigation }) => {
   const [isAddingLightning, setIsAddingLightning] = useState(false);
   const walletID = useMemo(() => wallets[0]?.getID(), [wallets]);
   const multisigWallet = useMemo(() => wallets.find(w => w.type === MultisigHDWallet.type), [wallets]);
-  // An existing lightning.space wallet keeps the Lightning slot; Spark fills it otherwise.
-  const lnWallet = useMemo(
-    () => wallets.find(w => w.type === LightningLdsWallet.type) || wallets.find(w => w.type === SparkWallet.type),
-    [wallets],
-  );
+  const lnWallet = useMemo(() => getLightningWallet(wallets), [wallets]);
   const [, setIsLoading] = useState(false);
   const { name, params } = useRoute();
   const { setParams, navigate } = useNavigation();
@@ -159,8 +153,7 @@ const WalletHome = ({ navigation }) => {
 
     if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(value)) {
       const uri = DeeplinkSchemaMatch.isBothBitcoinAndLightning(value);
-      const lightningOnly = wallets.find(w => w.chain === Chain.OFFCHAIN && w.type !== SparkWallet.type);
-      const walletSelected = wallet?.type === SparkWallet.type && lightningOnly ? lightningOnly : wallet;
+      const walletSelected = lnWallet || wallet;
       const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(walletSelected, uri);
       ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
       navigate(...route);

@@ -37,17 +37,14 @@ import { majorTomToGroundControl, tryToObtainPermissions } from '../../blue_modu
 import alert from '../../components/Alert';
 import { parse } from 'url'; // eslint-disable-line n/no-deprecated-api
 import { reportError } from '../../helpers/errors';
+import { getLightningWallet } from '../../helpers/lightning-wallet';
 import { SparkWallet } from '../../class/wallets/spark-wallet';
 const currency = require('../../blue_modules/currency');
 
 const LNDCreateInvoice = () => {
   const { wallets, saveToDisk, setSelectedWallet } = useContext(BlueStorageContext);
   const { walletID, uri } = useRoute().params;
-  const wallet = useRef(
-    wallets.find(item => item.getID() === walletID) ||
-      wallets.find(item => item.chain === Chain.OFFCHAIN && item.type !== SparkWallet.type) ||
-      wallets.find(item => item.chain === Chain.OFFCHAIN),
-  );
+  const wallet = useRef(wallets.find(item => item.getID() === walletID) || getLightningWallet(wallets));
   const { colors } = useTheme();
   const { navigate, getParent, goBack, setParams, replace } = useNavigation();
   const [unit, setUnit] = useState(wallet.current?.getPreferredBalanceUnit() || BitcoinUnit.BTC);
