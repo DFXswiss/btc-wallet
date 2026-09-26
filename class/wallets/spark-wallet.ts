@@ -336,11 +336,10 @@ export class SparkWallet extends AbstractWallet {
     this.user_invoices_raw = this.user_invoices_raw || [];
     this.transactions_raw = this.transactions_raw || [];
 
-    const invoicesWithoutSignInTx = this.user_invoices_raw.filter(invoice => invoice.amt !== 1 || invoice.ispaid);
     const concatenated: SparkInvoiceRecord[] = this.pending_transactions_raw
       .slice()
       .concat(this.transactions_raw.slice())
-      .concat(invoicesWithoutSignInTx);
+      .concat(this.user_invoices_raw);
 
     // Both fetchTransactions (all Bitcoin types) and getUserInvoices (Lightning
     // receives) write the same completed receive. Collapse on hash or request,

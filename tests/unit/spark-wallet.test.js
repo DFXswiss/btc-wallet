@@ -2904,7 +2904,7 @@ describe('SparkWallet', () => {
     expect(mockSdk.prepareSendPayment).not.toHaveBeenCalled();
   });
 
-  it('getTransactions fills missing lists and drops unpaid 1-sat sign-in invoices', () => {
+  it('getTransactions fills missing lists and keeps unpaid 1-sat invoices', () => {
     const wallet = SparkWallet.create('lists-pk');
     wallet.pending_transactions_raw = undefined;
     wallet.user_invoices_raw = undefined;
@@ -2912,17 +2912,17 @@ describe('SparkWallet', () => {
     assert.deepStrictEqual(wallet.getTransactions(), []);
 
     wallet.user_invoices_raw = [
-      { payment_request: 'signin', timestamp: 1, type: 'user_invoice', amt: 1, ispaid: false, expire_time: 3600 },
-      { payment_request: 'paid-signin', timestamp: 2, type: 'user_invoice', amt: 1, ispaid: true, expire_time: 3600 },
+      { payment_request: 'one-sat', timestamp: 1, type: 'user_invoice', amt: 1, ispaid: false, expire_time: 3600 },
+      { payment_request: 'paid-one-sat', timestamp: 2, type: 'user_invoice', amt: 1, ispaid: true, expire_time: 3600 },
       { payment_request: 'open', timestamp: 3, type: 'user_invoice', amt: 5, ispaid: false, expire_time: 3600 },
     ];
     const txs = wallet.getTransactions();
     assert.strictEqual(
-      txs.some(tx => tx.payment_request === 'signin'),
-      false,
+      txs.some(tx => tx.payment_request === 'one-sat'),
+      true,
     );
     assert.strictEqual(
-      txs.some(tx => tx.payment_request === 'paid-signin'),
+      txs.some(tx => tx.payment_request === 'paid-one-sat'),
       true,
     );
     assert.strictEqual(
