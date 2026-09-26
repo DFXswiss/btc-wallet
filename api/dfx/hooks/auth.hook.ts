@@ -19,11 +19,7 @@ export function useAuth(): AuthInterface {
   }
 
   async function auth(address: string, signature: string): Promise<Auth> {
-    return await call({
-      url: AuthUrl.auth,
-      method: 'POST',
-      data: { address, signature, wallet: 'DFX Bitcoin' },
-    });
+    return await call({ url: AuthUrl.auth, method: 'POST', data: { address, signature, wallet: 'DFX Bitcoin' } });
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
