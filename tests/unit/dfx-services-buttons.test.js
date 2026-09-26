@@ -15,7 +15,7 @@ let mockMainWallet;
 
 jest.mock('../../api/dfx/contexts/session.context', () => ({
   DfxService: { BUY: 'buy', SELL: 'sell', SWAP: 'swap' },
-  useDfxSessionContext: () => ({ isAvailable: availabilityState.value, openServices: mockOpenServices }),
+  useDfxSessionContext: () => ({ isAvailableFor: () => availabilityState.value, openServices: mockOpenServices }),
 }));
 jest.mock('../../contexts/wallet.context', () => ({ useWalletContext: () => ({ wallet: mockMainWallet }) }));
 jest.mock('../../blue_modules/storage-context', () => {

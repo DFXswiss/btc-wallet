@@ -34,6 +34,7 @@ jest.mock('../../api/dfx/contexts/language.context', () => ({ useLanguageContext
 jest.mock('../../api/dfx/dfx-connect-at-init', () => ({
   dfxAvailabilityFromSettled: (...args) => mockAvailability(...args),
   dfxConnectAtInit: (...args) => mockDfxConnectAtInit(...args),
+  dfxForbiddenWalletIds: () => [],
 }));
 jest.mock('../../class/lnurl', () => ({ __esModule: true, default: { getLnurlFromAddress: mockGetLnurlFromAddress } }));
 jest.mock('../../class/wallets/lightning-lds-wallet', () => ({ LightningLdsWallet: { type: 'lightningLdsWallet' } }));

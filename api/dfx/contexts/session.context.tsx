@@ -17,7 +17,7 @@ import { Auth } from '../definitions/auth';
 import { useLanguageContext } from './language.context';
 import { TaprootLdsWallet } from '../../../class/wallets/taproot-lds-wallet';
 import { SparkWallet } from '../../../class/wallets/spark-wallet';
-import { dfxAvailabilityFromSettled, dfxConnectAtInit } from '../dfx-connect-at-init';
+import { dfxAvailabilityFromSettled, dfxConnectAtInit, dfxForbiddenWalletIds } from '../dfx-connect-at-init';
 
 export enum DfxService {
   BUY = 'buy',
@@ -30,6 +30,7 @@ export interface SessionInterface {
   resetAccessToken: (walletId: string) => void;
   isProcessing: boolean;
   isAvailable: boolean;
+  isAvailableFor: (walletId: string) => boolean;
   isInitialized: boolean;
   openServices: (walletId: string, balance: string, service: DfxService) => Promise<void>;
   isUnavailable: boolean;
@@ -55,6 +56,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
   const [sessions, setSessions] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAvailable, setIsAvailable] = useState(false);
+  const [forbiddenWalletIds, setForbiddenWalletIds] = useState<string[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isUnavailable, setIsUnavailable] = useState(false);
 
@@ -159,6 +161,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
 
   async function connect(walletIds: string[]): Promise<void> {
     const results = await Promise.allSettled(walletIds.map(id => getAccessToken(id)));
+    setForbiddenWalletIds(dfxForbiddenWalletIds(walletIds, results));
     const availability = dfxAvailabilityFromSettled(results);
     if (availability === 'available') {
       setIsAvailable(true);
@@ -172,9 +175,13 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
     throw first?.reason;
   }
 
+  function isAvailableFor(walletId: string): boolean {
+    return isAvailable && !forbiddenWalletIds.includes(walletId);
+  }
+
   async function openServices(walletId: string, balance: string, service: DfxService): Promise<void> {
     try {
-      if (!isAvailable) return;
+      if (!isAvailableFor(walletId)) return;
 
       await refreshAccessToken(walletId);
       const token = encodeURIComponent(await getAccessToken(walletId));
@@ -228,6 +235,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
       getAccessToken,
       resetAccessToken,
       isAvailable,
+      isAvailableFor,
       isProcessing,
       isInitialized,
       isUnavailable,
@@ -245,6 +253,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
       sessions,
       isProcessing,
       isAvailable,
+      forbiddenWalletIds,
       isInitialized,
       isUnavailable,
     ],

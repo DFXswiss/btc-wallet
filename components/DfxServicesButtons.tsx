@@ -35,7 +35,7 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
   const { wallets, isDfxPos, isDfxSwap } = useContext(BlueStorageContext);
   const { navigate } = useNavigation<any>();
   const { colors } = useTheme();
-  const { isAvailable: isDfxAvailable, openServices } = useDfxSessionContext();
+  const { isAvailableFor, openServices } = useDfxSessionContext();
   const [isHandlingOpenServices, setIsHandlingOpenServices] = useState(false);
   const [changeAddress, setChangeAddress] = useState('');
 
@@ -43,6 +43,7 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
     const selectedWallet = wallets.find((w: AbstractHDElectrumWallet) => w.getID() === walletID);
     return selectedWallet || getLightningWallet(wallets) || mainWallet;
   }, [wallets, walletID]);
+  const isDfxAvailable = Boolean(wallet) && isAvailableFor(wallet.getID());
 
   const getButtonImages = (lang: string) => {
     switch (lang) {

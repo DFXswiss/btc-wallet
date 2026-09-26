@@ -1,7 +1,7 @@
 import assert from 'assert';
 import fs from 'fs';
 import path from 'path';
-import { dfxConnectAtInit, dfxAvailabilityFromSettled } from '../../api/dfx/dfx-connect-at-init';
+import { dfxConnectAtInit, dfxAvailabilityFromSettled, dfxForbiddenWalletIds } from '../../api/dfx/dfx-connect-at-init';
 import { SparkWallet } from '../../class/wallets/spark-wallet';
 
 describe('dfxConnectAtInit', () => {
@@ -40,5 +40,16 @@ describe('dfxAvailabilityFromSettled', () => {
   it('throws when nothing succeeded and the failure is not 403', () => {
     const results = [{ status: 'rejected', reason: new Error('network') }];
     assert.strictEqual(dfxAvailabilityFromSettled(results), 'throw');
+  });
+});
+
+describe('dfxForbiddenWalletIds', () => {
+  it('lists only the wallets DFX refused with 403', () => {
+    const results = [
+      { status: 'fulfilled', value: 'tok' },
+      { status: 'rejected', reason: { statusCode: 403 } },
+      { status: 'rejected', reason: new Error('network') },
+    ];
+    assert.deepStrictEqual(dfxForbiddenWalletIds(['ok', 'refused', 'offline'], results), ['refused']);
   });
 });
