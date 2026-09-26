@@ -54,7 +54,7 @@ const LnurlAuth = () => {
     }, [wallet]),
   );
 
-  const isDfxLogin = Boolean(parsedLnurl.hostname?.endsWith('dfx.swiss'));
+  const isDfxLogin = parsedLnurl.hostname === 'dfx.swiss' || Boolean(parsedLnurl.hostname?.endsWith('.dfx.swiss'));
 
   const onAuthResult = promise =>
     promise

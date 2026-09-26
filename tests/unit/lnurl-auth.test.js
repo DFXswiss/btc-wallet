@@ -91,6 +91,7 @@ function makeOffchainWallet(overrides = {}) {
 
 const DFX_LOGIN_LNURL = Lnurl.encode('https://api.dfx.swiss/lnurl?tag=login&k1=00&action=login');
 const HOSTLESS_LNURL = Lnurl.encode('not-a-url');
+const LOOKALIKE_LOGIN_LNURL = Lnurl.encode('https://notdfx.swiss/lnurl?tag=login&k1=00&action=login');
 
 const renderScreen = () =>
   render(React.createElement(BlueStorageContext.Provider, { value: { wallets: mockWallets } }, React.createElement(LnurlAuth)));
@@ -273,6 +274,39 @@ describe('LnurlAuth authenticate', () => {
       wallet: 'DFX Bitcoin',
     });
     expect(screen.getByText(loc.formatString(loc.lnurl_auth.login_answer, { hostname: 'api.dfx.swiss' }))).toBeTruthy();
+  });
+
+  it('sends no DFX credentials to a look-alike domain', async () => {
+    const wallet = makeOffchainWallet();
+    mockParams = { walletID: 'ln-1', lnurl: LOOKALIKE_LOGIN_LNURL };
+    mockWallets = [wallet];
+    const screen = renderScreen();
+
+    fireEvent.press(screen.getByText(loc.lnurl_auth.authenticate));
+
+    await waitFor(() => screen.getByTestId('SuccessView'));
+    expect(wallet.authenticate).toHaveBeenCalledWith(expect.any(Lnurl), undefined);
+  });
+
+  it('does not sign the DFX message with a Spark wallet for a look-alike domain', async () => {
+    const spark = {
+      getID: () => 'spark-1',
+      chain: Chain.OFFCHAIN,
+      type: 'sparkWallet',
+      getSparkAddress: jest.fn().mockResolvedValue('spark1address'),
+      signCompactMessage: jest.fn().mockResolvedValue('compact-sig'),
+    };
+    const authenticateSigned = jest.spyOn(Lnurl.prototype, 'authenticateSigned').mockResolvedValue(undefined);
+    mockParams = { walletID: 'spark-1', lnurl: LOOKALIKE_LOGIN_LNURL };
+    mockWallets = [spark];
+    const screen = renderScreen();
+
+    fireEvent.press(screen.getByText(loc.lnurl_auth.authenticate));
+
+    await waitFor(() => screen.getByText(loc.wallets.lightning_spark_lnurl_auth_unsupported));
+    expect(spark.signCompactMessage).not.toHaveBeenCalled();
+    expect(authenticateSigned).not.toHaveBeenCalled();
+    authenticateSigned.mockRestore();
   });
 
   it('logs a Spark wallet in to DFX with its identity key, Spark address and DFX signature', async () => {
