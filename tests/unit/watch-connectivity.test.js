@@ -365,7 +365,7 @@ describe('WatchConnectivity', () => {
     expect(majorTomToGroundControl).not.toHaveBeenCalled();
   });
 
-  it('replies with an empty object when addInvoice throws', async () => {
+  it('passes an addInvoice failure back to the watch', async () => {
     pairWatch();
     const invoiceError = new Error('invoice failed');
     const wallet = makeOffchain({
@@ -376,7 +376,7 @@ describe('WatchConnectivity', () => {
     await act(async () => {
       onMessage({ request: 'createInvoice', walletIndex: 0, amount: 1, description: 'x' }, reply);
     });
-    await waitFor(() => expect(reply).toHaveBeenCalledWith({}));
+    await waitFor(() => expect(reply).toHaveBeenCalledWith({ invoicePaymentRequest: invoiceError }));
   });
 
   it('replies with an empty object when createInvoice reads a missing wallet', async () => {
@@ -743,7 +743,7 @@ describe('WatchConnectivity', () => {
     ]);
   });
 
-  it('maps a paid unexpired user_invoice to received', async () => {
+  it('keeps a paid invoice pending until it expires, as before Spark', async () => {
     pairWatch();
     const received = FIXED_NOW.getTime();
     const wallet = makeOffchain({
@@ -762,7 +762,7 @@ describe('WatchConnectivity', () => {
     renderWatch(storage({ wallets: [wallet] }));
     const payload = await lastWalletsPayload();
     expect(payload.wallets[0].transactions[0]).toEqual({
-      type: 'received',
+      type: 'pendingConfirmation',
       amount: formatted(3333),
       memo: '',
       time: transactionTimeToReadable(received),
@@ -795,57 +795,19 @@ describe('WatchConnectivity', () => {
     });
   });
 
-  it('sends the remaining wallets to the watch when one wallet throws during sync', async () => {
+  it('sends a Spark wallet without a receive address in its place, so wallet indexes stay aligned', async () => {
     pairWatch();
-    const throwing = makeOnchain({
-      type: 'brokenWallet',
-      getLabel: () => 'Broken',
-      getTransactions: () => {
-        throw new Error('sync failed');
-      },
-    });
-    const healthy = makeOnchain({
-      getLabel: () => 'Healthy',
-      getAddressAsync: jest.fn().mockResolvedValue('bc1qhealthy'),
-    });
-    renderWatch(storage({ wallets: [throwing, healthy] }));
-    const payload = await lastWalletsPayload();
-    expect(payload.wallets.map(wallet => wallet.label)).toEqual(['Healthy']);
-    expect(payload.wallets[0].receiveAddress).toBe('bc1qhealthy');
-  });
-
-  it('warns with the skipped wallet type when watch sync skips a wallet', async () => {
-    pairWatch();
-    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    const err = new Error('sync failed');
-    err.name = 'WatchSyncError';
-    const throwing = makeOnchain({
+    const spark = makeOffchain({
       type: 'sparkWallet',
-      getTransactions: () => {
-        throw err;
-      },
+      getLabel: () => 'Spark',
+      getAddress: jest.fn(() => {
+        throw new Error('not supported');
+      }),
     });
-    renderWatch(storage({ wallets: [throwing] }));
-    await waitFor(() => {
-      expect(warn).toHaveBeenCalledWith('WatchConnectivity: skipped wallet for watch sync', 'sparkWallet', 'WatchSyncError');
-    });
+    const onchain = makeOnchain({ getLabel: () => 'On-chain' });
+    renderWatch(storage({ wallets: [onchain, spark] }));
     const payload = await lastWalletsPayload();
-    expect(payload.wallets).toEqual([]);
-  });
-
-  it('warns with the thrown value type when the skipped wallet did not throw an Error', async () => {
-    pairWatch();
-    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    const throwing = makeOnchain({
-      type: 'legacy',
-      getTransactions: () => {
-        const reason = 'nope';
-        throw reason;
-      },
-    });
-    renderWatch(storage({ wallets: [throwing] }));
-    await waitFor(() => {
-      expect(warn).toHaveBeenCalledWith('WatchConnectivity: skipped wallet for watch sync', 'legacy', 'string');
-    });
+    expect(payload.wallets.map(wallet => wallet.label)).toEqual(['On-chain', 'Spark']);
+    expect(payload.wallets[1].receiveAddress).toBeUndefined();
   });
 });
