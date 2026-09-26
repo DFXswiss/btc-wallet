@@ -38,7 +38,6 @@ import alert from '../../components/Alert';
 import { parse } from 'url'; // eslint-disable-line n/no-deprecated-api
 import { reportError } from '../../helpers/errors';
 import { getLightningWallet } from '../../helpers/lightning-wallet';
-import { SparkWallet } from '../../class/wallets/spark-wallet';
 const currency = require('../../blue_modules/currency');
 
 const LNDCreateInvoice = () => {
@@ -165,13 +164,6 @@ const LNDCreateInvoice = () => {
           setIsLoading(false);
           return;
         }
-      }
-
-      if (wallet.current?.type === SparkWallet.type) {
-        ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
-        alert(loc.wallets.lightning_spark_only);
-        setIsLoading(false);
-        return;
       }
 
       const invoiceRequest = await wallet.current.addInvoice(invoiceAmount, invoiceDescription);

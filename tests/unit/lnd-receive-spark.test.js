@@ -1557,10 +1557,14 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     return wallet;
   }
 
-  async function expectSparkRefusesCreate(wallet) {
-    await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith(loc.alert.default, loc.wallets.lightning_spark_only));
-    expect(wallet.addInvoice).not.toHaveBeenCalled();
-    expect(mockNavigate).not.toHaveBeenCalledWith('LNDViewInvoice', expect.anything());
+  async function expectSparkCreates(wallet, amountSats) {
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('LNDViewInvoice', { invoice: SAMPLE_INVOICE, walletID: wallet.getID() }));
+    expect(Number(wallet.addInvoice.mock.calls[0][0])).toBe(amountSats);
+    expect(Alert.alert).not.toHaveBeenCalled();
+  }
+
+  function withdrawCallbackCalls() {
+    return global.fetch.mock.calls.map(call => String(call[0])).filter(url => url.includes('k1='));
   }
 
   function withdrawPayload(overrides = {}) {
@@ -1647,7 +1651,7 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     await waitFor(() => expect(reportError).toHaveBeenCalledWith('lndCreateInvoice: failed to prepare receive details', saveError));
   });
 
-  it('does not create a Spark invoice from the custom amount modal', async () => {
+  it('creates a Spark invoice from the custom amount modal', async () => {
     const wallet = makeCreateWallet();
     const screen = renderCreateInvoiceScreen(wallet);
 
@@ -1660,8 +1664,9 @@ describe('LNDCreateInvoice with SparkWallet', () => {
       await Promise.resolve();
     });
 
-    await expectSparkRefusesCreate(wallet);
-    expect(haptic.trigger).toHaveBeenCalledWith('notificationError', { ignoreAndroidSystemSettings: false });
+    await expectSparkCreates(wallet, 1000);
+    expect(wallet.addInvoice).toHaveBeenCalledWith(1000, 'coffee');
+    expect(haptic.trigger).toHaveBeenCalledWith('notificationSuccess', { ignoreAndroidSystemSettings: false });
   });
 
   it('converts a BTC custom amount to sats before creating the invoice', async () => {
@@ -1678,7 +1683,7 @@ describe('LNDCreateInvoice with SparkWallet', () => {
       await Promise.resolve();
     });
 
-    await expectSparkRefusesCreate(wallet);
+    await expectSparkCreates(wallet, 100_000);
   });
 
   it('uses cached sats for a LOCAL_CURRENCY custom amount when the cache hits', async () => {
@@ -1695,7 +1700,7 @@ describe('LNDCreateInvoice with SparkWallet', () => {
       await Promise.resolve();
     });
 
-    await expectSparkRefusesCreate(wallet);
+    await expectSparkCreates(wallet, 2500);
   });
 
   it('falls back to fiatToBTC when a LOCAL_CURRENCY amount is not cached', async () => {
@@ -1711,7 +1716,9 @@ describe('LNDCreateInvoice with SparkWallet', () => {
       await Promise.resolve();
     });
 
-    await expectSparkRefusesCreate(wallet);
+    const currency = require('../../blue_modules/currency');
+    await waitFor(() => expect(wallet.addInvoice).toHaveBeenCalled());
+    expect(wallet.addInvoice.mock.calls[0][0]).toBe(currency.btcToSatoshi(currency.fiatToBTC('9.99')));
   });
 
   it('alerts the addInvoice error and leaves the custom-amount modal usable', async () => {
@@ -1728,14 +1735,15 @@ describe('LNDCreateInvoice with SparkWallet', () => {
       await Promise.resolve();
     });
 
-    await expectSparkRefusesCreate(wallet);
+    await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith(loc.alert.default, 'node down'));
+    expect(mockNavigate).not.toHaveBeenCalledWith('LNDViewInvoice', expect.anything());
     expect(haptic.trigger).toHaveBeenCalledWith('notificationError', { ignoreAndroidSystemSettings: false });
     // createInvoice does not dismiss the modal on error; SetCustomAmountButton sits
     // behind the open Modal and is not queryable. The Create button in the modal is.
     expect(screen.getByTestId('CustomAmountSaveButton')).toBeTruthy();
   });
 
-  it('does not refetch invoices when Spark refuses to create one', async () => {
+  it('refetches and saves the created Spark invoice a second later', async () => {
     const wallet = makeCreateWallet();
     const saveToDisk = jest.fn().mockResolvedValue(undefined);
     const screen = renderCreateInvoiceScreen(wallet, { saveToDisk });
@@ -1756,9 +1764,13 @@ describe('LNDCreateInvoice with SparkWallet', () => {
         fireEvent.press(screen.getByTestId('CustomAmountSaveButton'));
         await Promise.resolve();
       });
-      expect(scheduled).toHaveLength(0);
-      await expectSparkRefusesCreate(wallet);
-      expect(wallet.fetchUserInvoices).not.toHaveBeenCalled();
+      await expectSparkCreates(wallet, 1000);
+      expect(scheduled).toHaveLength(1);
+      await act(async () => {
+        await scheduled[0]();
+      });
+      expect(wallet.fetchUserInvoices).toHaveBeenCalledTimes(1);
+      expect(saveToDisk).toHaveBeenCalled();
     } finally {
       setTimeoutSpy.mockRestore();
     }
@@ -1786,9 +1798,12 @@ describe('LNDCreateInvoice with SparkWallet', () => {
         fireEvent.press(screen.getByTestId('CustomAmountSaveButton'));
         await Promise.resolve();
       });
-      expect(scheduled).toHaveLength(0);
-      await expectSparkRefusesCreate(wallet);
-      expect(reportError).not.toHaveBeenCalledWith('lndCreateInvoice: failed to persist invoice', fetchError);
+      await expectSparkCreates(wallet, 1000);
+      expect(scheduled).toHaveLength(1);
+      await act(async () => {
+        await scheduled[0]();
+      });
+      expect(reportError).toHaveBeenCalledWith('lndCreateInvoice: failed to persist invoice', fetchError);
     } finally {
       setTimeoutSpy.mockRestore();
     }
@@ -2072,7 +2087,7 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith(loc.alert.default, 'Unsupported lnurl'));
   });
 
-  it('does not create a withdraw invoice or call the callback for a Spark wallet', async () => {
+  it('claims a withdraw with a Spark invoice for the maximum amount', async () => {
     const lnurl = Lnurl.encode(WITHDRAW_URL);
     const payload = withdrawPayload();
     jest.spyOn(global, 'fetch').mockImplementation(async url => {
@@ -2084,11 +2099,11 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     const wallet = makeCreateWallet();
     renderCreateInvoiceScreen(wallet, { uri: lnurl });
 
-    await expectSparkRefusesCreate(wallet);
-    expect(global.fetch.mock.calls.find(call => String(call[0]).includes('k1='))).toBeUndefined();
+    await expectSparkCreates(wallet, 5000);
+    expect(withdrawCallbackCalls()).toEqual([`https://lnurl.example.com/cb?k1=k1-secret&pr=${SAMPLE_INVOICE}`]);
   });
 
-  it('does not append k1 when Spark refuses a withdraw whose callback already has a query', async () => {
+  it('appends k1 and the invoice to a withdraw callback that already has a query', async () => {
     const lnurl = Lnurl.encode(WITHDRAW_URL);
     const payload = withdrawPayload({ callback: 'https://lnurl.example.com/cb?foo=1' });
     jest.spyOn(global, 'fetch').mockImplementation(async url => {
@@ -2100,11 +2115,11 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     const wallet = makeCreateWallet();
     renderCreateInvoiceScreen(wallet, { uri: lnurl });
 
-    await expectSparkRefusesCreate(wallet);
-    expect(global.fetch.mock.calls.find(call => String(call[0]).includes('k1='))).toBeUndefined();
+    await expectSparkCreates(wallet, 5000);
+    expect(withdrawCallbackCalls()).toEqual([`https://lnurl.example.com/cb?foo=1&k1=k1-secret&pr=${SAMPLE_INVOICE}`]);
   });
 
-  it('does not call a failing withdraw callback for a Spark wallet', async () => {
+  it('alerts a failing withdraw callback and does not show the invoice', async () => {
     const lnurl = Lnurl.encode(WITHDRAW_URL);
     jest.spyOn(global, 'fetch').mockImplementation(async url => {
       if (String(url).includes('k1=')) {
@@ -2115,10 +2130,11 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     const wallet = makeCreateWallet();
     renderCreateInvoiceScreen(wallet, { uri: lnurl });
 
-    await expectSparkRefusesCreate(wallet);
+    await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith(loc.alert.default, 'callback failed'));
+    expect(mockNavigate).not.toHaveBeenCalledWith('LNDViewInvoice', expect.anything());
   });
 
-  it('does not call a withdraw callback that would return an error for a Spark wallet', async () => {
+  it('alerts a withdraw callback that replies with an error', async () => {
     const lnurl = Lnurl.encode(WITHDRAW_URL);
     jest.spyOn(global, 'fetch').mockImplementation(async url => {
       if (String(url).includes('k1=')) {
@@ -2129,7 +2145,8 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     const wallet = makeCreateWallet();
     renderCreateInvoiceScreen(wallet, { uri: lnurl });
 
-    await expectSparkRefusesCreate(wallet);
+    await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith(loc.alert.default, 'Reply from server: empty'));
+    expect(mockNavigate).not.toHaveBeenCalledWith('LNDViewInvoice', expect.anything());
   });
 
   it('alerts the SATS minimum when the custom amount is below the withdraw min', async () => {
@@ -2209,6 +2226,8 @@ describe('LNDCreateInvoice with SparkWallet', () => {
   });
 
   it('runs the BTC branch when converting a withdraw amount out of sats', async () => {
+    const currency = require('../../blue_modules/currency');
+    currency.satoshiToBTC.mockImplementation(sats => Number(sats) / 1e8);
     const lnurl = Lnurl.encode(WITHDRAW_URL);
     const wallet = makeCreateWallet();
     wallet.getPreferredBalanceUnit = () => BitcoinUnit.BTC;
@@ -2218,7 +2237,8 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     });
     renderCreateInvoiceScreen(wallet, { uri: lnurl });
 
-    await expectSparkRefusesCreate(wallet);
+    await expectSparkCreates(wallet, 5000);
+    currency.satoshiToBTC.mockImplementation(() => 0);
   });
 
   it('converts the withdraw amount to local currency and caches the sats', async () => {
@@ -2231,7 +2251,7 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     });
     renderCreateInvoiceScreen(wallet, { uri: lnurl });
 
-    await expectSparkRefusesCreate(wallet);
+    await expectSparkCreates(wallet, 5000);
   });
 
   it('treats a missing minWithdrawable as zero so the max amount is still accepted', async () => {
@@ -2243,7 +2263,7 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     const wallet = makeCreateWallet();
     renderCreateInvoiceScreen(wallet, { uri: lnurl });
 
-    await expectSparkRefusesCreate(wallet);
+    await expectSparkCreates(wallet, 5000);
   });
 
   it('disables the amount field when the withdraw amount is fixed', async () => {
