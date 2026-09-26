@@ -129,9 +129,6 @@ function invoiceDedupeKeys(tx: SparkInvoiceRecord): string[] {
   return keys;
 }
 
-/** Default labels older builds stored on the wallet record; shown as the current localized name instead. */
-const LEGACY_DEFAULT_LABELS = ['Spark', 'Lightning (Spark)'];
-
 export class SparkWallet extends AbstractWallet {
   static type = 'sparkWallet';
   static typeReadable = loc.wallets.lightning_spark_wallet_label;
@@ -173,7 +170,7 @@ export class SparkWallet extends AbstractWallet {
 
   getLabel(): string {
     const label = this.label.trim();
-    if (!label || LEGACY_DEFAULT_LABELS.includes(label)) return loc.wallets.lightning_spark_wallet_label;
+    if (!label) return loc.wallets.lightning_spark_wallet_label;
     return label;
   }
 
@@ -230,13 +227,6 @@ export class SparkWallet extends AbstractWallet {
     if (SparkWallet.isSparkAddress(input)) return 'address';
     if (SparkWallet.isSparkInvoice(input)) return 'invoice';
     return null;
-  }
-
-  static fromJson(obj: string): SparkWallet {
-    const wallet = super.fromJson(obj) as unknown as SparkWallet;
-    // Older builds stored a Bitcoin deposit address. v1 does not receive on-chain.
-    delete (wallet as { depositAddress?: string }).depositAddress;
-    return wallet;
   }
 
   static create(identityPubkey: string, lnAddress?: string): SparkWallet {

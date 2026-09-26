@@ -199,14 +199,12 @@ describe('SparkWallet', () => {
     assert.strictEqual(SparkWallet.typeReadable, require('../../loc').default.wallets.lightning_spark_wallet_label);
   });
 
-  it('shows the current localized name for an unset or legacy default label while preserving a custom label', () => {
+  it('shows the current localized name for an unset label while preserving a custom label', () => {
     const name = require('../../loc').default.wallets.lightning_spark_wallet_label;
     const wallet = SparkWallet.create('pk-label');
     assert.strictEqual(wallet.getLabel(), name);
-    for (const legacy of ['Spark', 'Lightning (Spark)', '  ']) {
-      wallet.setLabel(legacy);
-      assert.strictEqual(wallet.getLabel(), name);
-    }
+    wallet.setLabel('  ');
+    assert.strictEqual(wallet.getLabel(), name);
     wallet.setLabel('My Spark wallet');
     assert.strictEqual(wallet.getLabel(), 'My Spark wallet');
   });
@@ -2791,13 +2789,10 @@ describe('SparkWallet', () => {
     const wallet = SparkWallet.create('round-trip-pk', 'a@b.c');
     wallet.balance = 7;
     const stored = JSON.parse(JSON.stringify(wallet));
-    stored.depositAddress = 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
     const restored = SparkWallet.fromJson(JSON.stringify(stored));
     assert.strictEqual(restored.type, SparkWallet.type);
     assert.strictEqual(restored.identityPubkey, 'round-trip-pk');
     assert.strictEqual(restored.lnAddress, 'a@b.c');
-    assert.strictEqual(restored.depositAddress, undefined);
-    assert.strictEqual(restored.weOwnAddress('bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'), false);
     assert.strictEqual(restored.getSecret(), '');
     assert.strictEqual(restored.getBalance(), 7);
   });

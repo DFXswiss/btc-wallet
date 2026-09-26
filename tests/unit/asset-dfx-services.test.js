@@ -223,7 +223,6 @@ const { BlueDarkTheme } = require('../../components/themes');
 function makeSpark(id) {
   const wallet = SparkWallet.create('pk-asset-dfx');
   wallet.getID = () => id;
-  wallet.setLabel('Spark');
   return wallet;
 }
 

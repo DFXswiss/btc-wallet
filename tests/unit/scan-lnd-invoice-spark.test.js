@@ -120,7 +120,6 @@ function makeSparkWallet() {
   const wallet = SparkWallet.create('pk-scan');
   wallet.getID = () => 'spark-scan-1';
   wallet.balance = 1_000_000;
-  wallet.setLabel('Spark');
   wallet.getPaymentFeeWithoutSending = jest.fn().mockResolvedValue(4);
   return wallet;
 }

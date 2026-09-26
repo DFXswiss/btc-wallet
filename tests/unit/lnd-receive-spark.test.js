@@ -207,7 +207,6 @@ function paidPayment() {
 function makeSparkReceiveWallet(id) {
   const wallet = SparkWallet.create('pk-receive-1');
   wallet.getID = () => id;
-  wallet.setLabel('Spark');
   return wallet;
 }
 
@@ -583,7 +582,6 @@ describe('LNDReceive with SparkWallet', () => {
     const wallet = SparkWallet.create('pk-receive-1');
     wallet.getID = () => 'spark-receive-1';
     wallet.lnAddress = 'spark@test';
-    wallet.setLabel('Spark');
 
     const saveToDisk = jest.fn().mockResolvedValue(undefined);
     const fetchAndSaveWalletTransactions = jest.fn();
@@ -1548,7 +1546,6 @@ describe('LNDCreateInvoice with SparkWallet', () => {
   function makeCreateWallet(id = 'spark-create-invoice-1') {
     const wallet = SparkWallet.create('pk-receive-1');
     wallet.getID = () => id;
-    wallet.setLabel('Spark');
     wallet.setUserHasSavedExport(true);
     wallet.lnAddress = 'spark@test';
     wallet.addInvoice = jest.fn().mockResolvedValue(SAMPLE_INVOICE);
@@ -1605,7 +1602,6 @@ describe('LNDCreateInvoice with SparkWallet', () => {
   it('does not render the QR placeholder when the wallet has no Lightning address', async () => {
     const wallet = SparkWallet.create('pk-receive-1');
     wallet.getID = () => 'spark-create-invoice-1';
-    wallet.setLabel('Spark');
     wallet.setUserHasSavedExport(true);
     assert.strictEqual(wallet.lnAddress, undefined);
 
