@@ -32,7 +32,6 @@ import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { AbstractWallet } from '../../class';
-import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import { SparkWallet } from '../../class/wallets/spark-wallet';
 import { majorTomToGroundControl, tryToObtainPermissions } from '../../blue_modules/notifications';
 import useInputAmount from '../../hooks/useInputAmount';
@@ -291,7 +290,7 @@ const LNDReceive = () => {
 
       setInvoiceRequest(createdInvoiceRequest);
       setInvoiceAmountSats(invoiceAmount);
-      if (Platform.OS === 'android' && wallet.type === LightningLdsWallet.type) {
+      if (Platform.OS === 'android' && !isSpark) {
         startReading(handleNfcRead(createdInvoiceRequest));
       }
     } catch (error) {
@@ -432,7 +431,7 @@ const LNDReceive = () => {
                     onBlur={handleOnBlur}
                   />
                 </View>
-                {invoiceRequest && wallet.type === LightningLdsWallet.type ? (
+                {invoiceRequest && !isSpark ? (
                   <View>
                     {Platform.select({
                       ios: (

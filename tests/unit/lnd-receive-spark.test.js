@@ -530,6 +530,21 @@ describe('LNDReceive with SparkWallet', () => {
     expect(ldsScreen.getByText('Use Boltcard')).toBeTruthy();
   });
 
+  it('offers Boltcard for a custom LNDHub wallet, as on develop', async () => {
+    const previousOS = Platform.OS;
+    Platform.OS = 'android';
+    try {
+      const wallet = { ...makeLdsReceiveWallet('custom-lndhub'), type: 'lightningCustodianWallet' };
+      const screen = renderReceive(wallet);
+      await createInvoice(screen);
+      await waitFor(() => expect(__nfc.startReading).toHaveBeenCalledTimes(1));
+      expect(screen.getByText('Use Boltcard')).toBeTruthy();
+      screen.unmount();
+    } finally {
+      Platform.OS = previousOS;
+    }
+  });
+
   it('does not start the NFC reader for a Spark wallet on Android', async () => {
     const previousOS = Platform.OS;
     Platform.OS = 'android';
