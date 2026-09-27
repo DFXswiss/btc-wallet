@@ -63,7 +63,7 @@
     "jest": "jest -b tests/integration/*",
     "windowspatches": "./scripts/windows-patches.sh",
     "e2e:release-build": "detox build -c android.release",
-    "e2e:release-test": "detox test -c android.release --record-videos failing --record-logs failing --take-screenshots failing --headless -R 1",
+    "e2e:release-test": "./tests/e2e/run-ci.sh artifacts",
     "tslint": "tsc",
     "lint": " npm run tslint && node scripts/find-unused-loc.js && eslint --ext .js,.ts,.tsx '*.@(js|ts|tsx)' screen 'blue_modules/*.@(js|ts|tsx)' class models loc tests components api/spark api/dfx api/lds hooks",
     "lint:fix": "npm run lint -- --fix",
