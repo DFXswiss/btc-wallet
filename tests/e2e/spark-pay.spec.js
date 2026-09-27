@@ -36,9 +36,9 @@ describe('Spark Lightning payment', () => {
     await regularImport(mnemonic);
   });
 
-  it('pays a BOLT11 invoice and the balance drops by exactly the amount plus the shown fee', async () => {
+  it('pays a BOLT11 invoice and the balance drops by exactly the amount plus the charged fee', async () => {
     const before = await readLightningBalance();
-    assert.ok(before >= AMOUNT_SATS * 3, `Spark test wallet holds only ${before} sats; top it up`);
+    assert.ok(before >= AMOUNT_SATS * 10, `Spark test wallet holds only ${before} sats; top it up`);
 
     const invoice = await invoiceFromLightningAddress(lightningAddress, AMOUNT_SATS);
     await device.launchApp({ newInstance: true });
@@ -46,15 +46,18 @@ describe('Spark Lightning payment', () => {
     await waitForId('ScanLndInvoiceNext', 60_000);
     await element(by.id('ScanLndInvoiceNext')).tap();
     await waitForId('LnurlPayFee', 60_000);
-    const fee = await readQuotedFee();
+    const quotedFee = await readQuotedFee();
     await element(by.id('LnurlPayButton')).tap();
     await waitForId('SendSuccessDone', 120_000);
+    // The payment is re-prepared when sent; the app refuses a higher fee than quoted but may charge less.
+    const chargedFee = parseSats(await extractTextFromElementById('SuccessFee'));
+    assert.ok(chargedFee <= quotedFee, `charged fee ${chargedFee} exceeds the quoted ${quotedFee}`);
 
     let after = before;
     for (let i = 0; i < 12 && after === before; i++) {
       after = await readLightningBalance();
       if (after === before) await new Promise(resolve => setTimeout(resolve, 5000));
     }
-    assert.strictEqual(before - after, AMOUNT_SATS + fee, `balance went from ${before} to ${after}; shown fee was ${fee}`);
+    assert.strictEqual(before - after, AMOUNT_SATS + chargedFee, `balance went from ${before} to ${after}; charged fee was ${chargedFee}`);
   });
 });

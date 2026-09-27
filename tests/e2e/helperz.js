@@ -121,23 +121,10 @@ export async function waitForDialogText(text, timeout = 60_000) {
   }
 }
 
-/**
- * Answers the native password prompt (react-native-prompt-android). waitFor() does not see the dialog window,
- * so the input action itself is retried until the dialog is up.
- */
-export async function answerPasswordPrompt(password, timeout = 60_000) {
-  // An input attempt while the dialog is still opening loses the dialog; give it time to settle first.
-  await sleep(2000);
-  const deadline = Date.now() + timeout;
-  for (;;) {
-    try {
-      await typeTextIntoAlertInput(password);
-      break;
-    } catch (error) {
-      if (Date.now() > deadline) throw error;
-      await sleep(1000);
-    }
-  }
+/** Answers the native password prompt (react-native-prompt-android) that shows `dialogText`. */
+export async function answerPasswordPrompt(password, dialogText) {
+  await waitForDialogText(dialogText);
+  await typeTextIntoAlertInput(password);
   await element(by.text('OK')).tap();
 }
 

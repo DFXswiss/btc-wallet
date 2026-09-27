@@ -159,7 +159,7 @@ export const SuccessView = ({
         <BlueCard style={styles.amount}>
           {fee !== undefined && (
             <View style={styles.view}>
-              <Text style={styles.feeText}>
+              <Text style={styles.feeText} testID="SuccessFee">
                 {loc.send.create_fee.toLowerCase()}: {Math.abs(fee)} {loc.units[BitcoinUnit.SATS]}
               </Text>
             </View>
