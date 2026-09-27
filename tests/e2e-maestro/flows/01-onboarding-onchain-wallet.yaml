@@ -3,5 +3,5 @@ appId: swiss.dfx.bitcoin
 - runFlow: ../_setup.yaml
 - assertVisible: 'Wallet Backup'
 - assertVisible: '.*On-Chain-Wallet.*'
-- assertVisible: '.*Spark.*'
+- assertVisible: 'Bitcoin, Lightning, .*'
 - assertNotVisible: '.*Lightning-Wallet.*'
