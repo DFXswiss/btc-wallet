@@ -12,6 +12,7 @@ import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import QRCodeComponent from '../../components/QRCodeComponent';
 import Secret from './secret';
+import SparkBackupNotice from './sparkBackupNotice';
 import { SparkWallet } from '../../class/wallets/spark-wallet';
 import { BIP39_HD_WALLET_TYPES, sparkMnemonicFromWallet } from '../../api/spark/spark-seed';
 
@@ -34,7 +35,7 @@ const WalletExport = () => {
   const { wallets, saveToDisk } = useContext(BlueStorageContext);
   const { walletID, noticeAccepted } = useRoute().params;
   const [isLoading, setIsLoading] = useState(true);
-  const { goBack, replace } = useNavigation();
+  const { goBack } = useNavigation();
   const { colors } = useTheme();
   const wallet = wallets.find(w => w.getID() === walletID);
   const [qrCodeSize, setQRCodeSize] = useState(90);
@@ -78,10 +79,8 @@ const WalletExport = () => {
 
   useFocusEffect(
     useCallback(() => {
-      if (isSparkWallet && !noticeAccepted) {
-        replace('SparkBackupNotice', { walletID });
-        return;
-      }
+      // The notice renders in place: a navigation dispatched from this first focus is dropped on Android.
+      if (isSparkWallet && !noticeAccepted) return;
       Privacy.enableBlur();
       const task = InteractionManager.runAfterInteractions(async () => {
         if (wallet) {
@@ -113,8 +112,10 @@ const WalletExport = () => {
         setSparkMnemonic(undefined);
         Privacy.disableBlur();
       };
-    }, [goBack, isSparkWallet, noticeAccepted, replace, saveToDisk, wallet, walletID]),
+    }, [goBack, isSparkWallet, noticeAccepted, saveToDisk, wallet]),
   );
+
+  if (isSparkWallet && !noticeAccepted) return <SparkBackupNotice />;
 
   if (isLoading || !wallet)
     return (

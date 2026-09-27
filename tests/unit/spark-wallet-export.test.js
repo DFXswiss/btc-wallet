@@ -25,6 +25,11 @@ jest.mock('../../class', () => ({
   SegwitP2SHWallet: { type: 'segwitP2SH' },
 }));
 jest.mock('../../class/wallets/spark-wallet', () => ({ SparkWallet: { type: 'sparkWallet' } }));
+jest.mock('../../screen/wallets/sparkBackupNotice', () => () => {
+  const ReactModule = require('react');
+  const { Text: RNText } = require('react-native');
+  return ReactModule.createElement(RNText, { testID: 'SparkBackupNotice' });
+});
 jest.mock('../../components/QRCodeComponent', () => props => {
   const ReactModule = require('react');
   const { Text: RNText } = require('react-native');
@@ -115,11 +120,12 @@ afterEach(() => {
   }
 });
 
-it('sends a Spark wallet to the backup notice first and reveals nothing', async () => {
+it('shows a Spark wallet the backup notice in place first and reveals nothing', async () => {
   const spark = makeSparkWallet('bound-source');
-  renderExport([spark, makeSource('bound-source')], jest.fn(), { walletID: 'spark-export' });
+  const screen = renderExport([spark, makeSource('bound-source')], jest.fn(), { walletID: 'spark-export' });
 
-  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('SparkBackupNotice', { walletID: 'spark-export' }));
+  expect(screen.getByTestId('SparkBackupNotice')).toBeTruthy();
+  expect(mockReplace).not.toHaveBeenCalled();
   expect(Biometric.isBiometricUseCapableAndEnabled).not.toHaveBeenCalled();
   expect(sparkMnemonicFromWallet).not.toHaveBeenCalled();
 });

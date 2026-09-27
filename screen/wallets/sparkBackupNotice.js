@@ -3,7 +3,6 @@ import { View, Text, ScrollView, StyleSheet, I18nManager } from 'react-native';
 import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
 
 import { SafeBlueArea, BlueButton } from '../../BlueComponents';
-import navigationStyle from '../../components/navigationStyle';
 import loc from '../../loc';
 import { ThemedCheckbox } from '../../components/ThemedCheckbox';
 
@@ -44,14 +43,6 @@ const SparkBackupNotice = () => {
     </SafeBlueArea>
   );
 };
-
-SparkBackupNotice.navigationOptions = navigationStyle(
-  {
-    closeButton: true,
-    headerBackVisible: false,
-  },
-  opts => ({ ...opts, title: loc.wallets.export_title }),
-);
 
 const styles = StyleSheet.create({
   scrollableContainer: {
