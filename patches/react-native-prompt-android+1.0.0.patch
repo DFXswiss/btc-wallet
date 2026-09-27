@@ -1,0 +1,23 @@
+diff --git a/node_modules/react-native-prompt-android/android/src/main/java/im/shimo/react/prompt/RNPromptModule.java b/node_modules/react-native-prompt-android/android/src/main/java/im/shimo/react/prompt/RNPromptModule.java
+index 960b8d7..b0517f8 100644
+--- a/node_modules/react-native-prompt-android/android/src/main/java/im/shimo/react/prompt/RNPromptModule.java
++++ b/node_modules/react-native-prompt-android/android/src/main/java/im/shimo/react/prompt/RNPromptModule.java
+@@ -13,6 +13,7 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule;
+ import com.facebook.react.bridge.ReactMethod;
+ import com.facebook.react.bridge.ReadableArray;
+ import com.facebook.react.bridge.ReadableMap;
++import com.facebook.react.common.LifecycleState;
+ import com.facebook.react.common.MapBuilder;
+ import com.facebook.react.module.annotations.ReactModule;
+ import com.facebook.react.modules.dialog.DialogModule;
+@@ -139,7 +140,9 @@ public class RNPromptModule extends ReactContextBaseJavaModule implements Lifecy
+         if (options.hasKey(KEY_PLACEHOLDER)) {
+             args.putString(KEY_PLACEHOLDER, options.getString(KEY_PLACEHOLDER));
+         }
+-        fragmentManagerHelper.showNewAlert(mIsInForeground, args, callback);
++        // A module created while the host is already resumed never receives onHostResume.
++        boolean isInForeground = mIsInForeground || getReactApplicationContext().getLifecycleState() == LifecycleState.RESUMED;
++        fragmentManagerHelper.showNewAlert(isInForeground, args, callback);
+     }
+ 
+ 
