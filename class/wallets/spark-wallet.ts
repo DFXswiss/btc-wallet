@@ -17,6 +17,7 @@ import {
   type Payment,
   type PrepareSendPaymentResponse,
   type SuccessAction,
+  SuccessAction_Tags,
 } from '@breeztech/breez-sdk-spark-react-native';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import { acquireSparkSessionLease, isSparkSdkConnected, SparkSessionStaleError, type SparkSessionLease } from '../../api/spark/spark-sdk';
@@ -115,14 +116,13 @@ export function sparkLnurlPayRequest(request: LnurlPayRequest): LnurlPayRequestD
 /** The LUD-09 form of an SDK success action, as the Lnurl class stores it. */
 export function lnurlSuccessActionFromSdk(successAction?: SuccessAction): Record<string, unknown> | undefined {
   if (!successAction) return undefined;
-  const { tag, inner } = successAction as unknown as { tag: string; inner: { data: Record<string, unknown> } };
-  switch (tag) {
-    case 'Aes':
-      return { tag: 'aes', ...inner.data };
-    case 'Message':
-      return { tag: 'message', ...inner.data };
-    case 'Url':
-      return { tag: 'url', ...inner.data };
+  switch (successAction.tag) {
+    case SuccessAction_Tags.Aes:
+      return { tag: 'aes', ...successAction.inner.data };
+    case SuccessAction_Tags.Message:
+      return { tag: 'message', ...successAction.inner.data };
+    case SuccessAction_Tags.Url:
+      return { tag: 'url', ...successAction.inner.data };
     default:
       throw new Error('Unsupported LNURL success action');
   }

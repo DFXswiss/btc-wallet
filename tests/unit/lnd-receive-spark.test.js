@@ -455,10 +455,12 @@ describe('LNDReceive with SparkWallet', () => {
 
   it('retries Spark address lookup after a transient failure', async () => {
     const wallet = makeSparkReceiveWallet('spark-receive-retry');
-    wallet.getSparkAddress = jest.fn().mockRejectedValueOnce(new Error('transient SDK failure')).mockResolvedValue('spark1retry');
+    const addressError = new Error('transient SDK failure');
+    wallet.getSparkAddress = jest.fn().mockRejectedValueOnce(addressError).mockResolvedValue('spark1retry');
     const screen = renderReceive(wallet);
 
     await waitFor(() => expect(screen.getByText(loc.wallets.lightning_spark_address_unavailable)).toBeTruthy());
+    expect(reportError).toHaveBeenCalledWith('lndReceive: Spark address failed', addressError);
     fireEvent.press(screen.getByText(loc.wallets.list_tryagain));
     await waitFor(() => expect(screen.getByText('spark1retry')).toBeTruthy());
     expect(wallet.getSparkAddress).toHaveBeenCalledTimes(2);

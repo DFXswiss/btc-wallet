@@ -18,6 +18,8 @@ const unsentSparkSeeds = new Set<string>();
 const sparkSeedsBeingCreated = new Map<string, Promise<string>>();
 let sparkSeedsLoaded: Promise<void> | null = null;
 let sparkSeedsPersisted = false;
+/** Set when a write failed, so the next write is made even if nothing else changed. */
+let sparkSeedsWriteFailed = false;
 let sparkSeedWrites: Promise<void> = Promise.resolve();
 
 function sparkSeedKey(destination: string, amountSats: number, operationId?: string): string {
@@ -31,13 +33,20 @@ function sparkSeedStoragePayload(): string {
   });
 }
 
+/** The string entries of a stored map; anything else in it is ignored. */
+function storedStrings(value: unknown): [string, string][] {
+  if (!value || typeof value !== 'object') return [];
+  return Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === 'string');
+}
+
 function applySparkSeedStorage(raw: string | null): void {
   if (!raw) return;
-  const parsed = JSON.parse(raw);
-  for (const [key, seed] of Object.entries<string>(parsed.seeds || {})) {
+  const parsed: unknown = JSON.parse(raw);
+  const stored = parsed && typeof parsed === 'object' ? (parsed as { seeds?: unknown; payments?: unknown }) : {};
+  for (const [key, seed] of storedStrings(stored.seeds)) {
     if (!unresolvedSparkSeeds.has(key)) unresolvedSparkSeeds.set(key, seed);
   }
-  for (const [id, key] of Object.entries<string>(parsed.payments || {})) {
+  for (const [id, key] of storedStrings(stored.payments)) {
     if (!sparkSeedKeyByPaymentId.has(id)) sparkSeedKeyByPaymentId.set(id, key);
   }
   if (unresolvedSparkSeeds.size > 0) sparkSeedsPersisted = true;
@@ -56,16 +65,23 @@ async function loadSparkSeeds(): Promise<void> {
   return sparkSeedsLoaded;
 }
 
-/** The stored-state flag changes only after the write succeeded, so a failed removal is retried by the next write. */
+/** The stored-state flags change only after the write succeeded, so a failed write is retried by the next one. */
 async function writeSparkSeeds(): Promise<void> {
-  if (unresolvedSparkSeeds.size === 0) {
-    if (!sparkSeedsPersisted) return;
-    await AsyncStorage.removeItem(SPARK_SEED_STORAGE_KEY);
-    sparkSeedsPersisted = false;
-    return;
+  try {
+    if (unresolvedSparkSeeds.size === 0) {
+      if (sparkSeedsPersisted) {
+        await AsyncStorage.removeItem(SPARK_SEED_STORAGE_KEY);
+        sparkSeedsPersisted = false;
+      }
+    } else {
+      await AsyncStorage.setItem(SPARK_SEED_STORAGE_KEY, sparkSeedStoragePayload());
+      sparkSeedsPersisted = true;
+    }
+    sparkSeedsWriteFailed = false;
+  } catch (error) {
+    sparkSeedsWriteFailed = true;
+    throw error;
   }
-  await AsyncStorage.setItem(SPARK_SEED_STORAGE_KEY, sparkSeedStoragePayload());
-  sparkSeedsPersisted = true;
 }
 
 /** Writes run one at a time, each with the state current when it runs, so a late write cannot undo a newer one. */
@@ -180,14 +196,15 @@ function dropSeedsOfPayments(ids: string[]): boolean {
 /** Drops the seeds of payments the SDK lists as finished, also those that settled while the app was closed. */
 export async function forgetSettledSparkSeeds(paymentIds: string[]): Promise<void> {
   await loadSparkSeeds();
-  if (dropSeedsOfPayments(paymentIds)) await persistSparkSeeds();
+  if (dropSeedsOfPayments(paymentIds) || sparkSeedsWriteFailed) await persistSparkSeeds();
 }
 
 // A payment can settle after the pay screen closed; its seed is dropped here for the app's lifetime.
 subscribeOutgoingPayment(payment => {
   if (!payment || payment.status === 'pending') return;
   const ids = [payment.paymentId, payment.paymentHash].filter((id): id is string => Boolean(id));
-  if (dropSeedsOfPayments(ids)) persistSparkSeeds();
+  // A failed write is retried by the next one.
+  if (dropSeedsOfPayments(ids)) persistSparkSeeds().catch(() => undefined);
 });
 
 export function __resetSparkPaymentSeedsForTests(): void {

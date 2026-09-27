@@ -200,6 +200,27 @@ describe('Spark payment seeds', () => {
     assert.notStrictEqual(await seeds.createSparkPaymentSeed({}, 'spark1dest', 1000, 'op-1'), first);
   });
 
+  it('retries saving a settled seed removal on the next fetch after the save failed', async () => {
+    const first = await seeds.createSparkPaymentSeed({}, 'spark1dest', 1000, 'op-1');
+    await seeds.keepUnresolvedSparkSeed({ current: first }, 'pid-1');
+    jest.spyOn(AsyncStorage, 'removeItem').mockRejectedValueOnce(new Error('storage busy'));
+
+    await assert.rejects(seeds.forgetSettledSparkSeeds(['pid-1']), /storage busy/);
+    await seeds.forgetSettledSparkSeeds(['pid-1']);
+
+    assert.strictEqual(await AsyncStorage.getItem(STORAGE_KEY), null);
+  });
+
+  it('ignores stored entries that are not strings', async () => {
+    const key = 'spark1dest\u00001000\u0000op-1';
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ seeds: { [key]: { not: 'a seed' } }, payments: [42] }));
+
+    const seed = await seeds.createSparkPaymentSeed({}, 'spark1dest', 1000, 'op-1');
+
+    assert.strictEqual(typeof seed, 'string');
+    assert.match(seed, /^[0-9a-f]{32}$/);
+  });
+
   it('tells whether a seed was never handed to the SDK', async () => {
     const ref = {};
     const seed = await seeds.createSparkPaymentSeed(ref, 'spark1dest', 1000, 'op-1');

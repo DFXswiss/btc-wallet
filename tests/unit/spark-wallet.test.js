@@ -2166,6 +2166,9 @@ describe('SparkWallet', () => {
     const pendingRef = {};
     const pendingSeed = await seeds.createSparkPaymentSeed(pendingRef, 'spark1pending', 1000, 'route-2');
     await seeds.keepUnresolvedSparkSeed(pendingRef, 'pay-still-pending');
+    const failedRef = {};
+    const failedSeed = await seeds.createSparkPaymentSeed(failedRef, 'spark1failed', 1000, 'route-3');
+    await seeds.keepUnresolvedSparkSeed(failedRef, 'pay-failed-offline');
     const sparkSend = (id, status) => ({
       id,
       paymentType: PaymentType.Send,
@@ -2177,13 +2180,18 @@ describe('SparkWallet', () => {
       details: undefined,
     });
     mockSdk.listPayments.mockResolvedValue({
-      payments: [sparkSend('pay-settled-offline', PaymentStatus.Completed), sparkSend('pay-still-pending', PaymentStatus.Pending)],
+      payments: [
+        sparkSend('pay-settled-offline', PaymentStatus.Completed),
+        sparkSend('pay-still-pending', PaymentStatus.Pending),
+        sparkSend('pay-failed-offline', PaymentStatus.Failed),
+      ],
     });
 
     await new SparkWallet().fetchTransactions();
 
     assert.notStrictEqual(await seeds.createSparkPaymentSeed({}, 'spark1settled', 1000, 'route-1'), settledSeed);
     assert.strictEqual(await seeds.createSparkPaymentSeed({}, 'spark1pending', 1000, 'route-2'), pendingSeed);
+    assert.notStrictEqual(await seeds.createSparkPaymentSeed({}, 'spark1failed', 1000, 'route-3'), failedSeed);
   });
 
   it('fetchTransactions lists payments with the Bitcoin asset filter', async () => {

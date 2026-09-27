@@ -195,6 +195,17 @@ describe('DFX wallet session identity', () => {
     expect(Linking.openURL).not.toHaveBeenCalled();
   });
 
+  it('does not offer services for a wallet DFX cannot sign in, while the main wallet keeps them', async () => {
+    mockAuth.mockResolvedValue({ accessToken: 'access-token' });
+    const main = { type: 'HDsegwitBech32', getID: () => 'main-wallet-id' };
+    const other = { type: 'HDsegwitBech32', getID: () => 'other-hd-wallet' };
+    const { result } = renderSession([main, other]);
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+    expect(result.current.isAvailableFor('main-wallet-id')).toBe(true);
+    expect(result.current.isAvailableFor('other-hd-wallet')).toBe(false);
+  });
+
   it('keeps services for a Spark wallet when every start-up wallet is refused', async () => {
     mockAuth.mockRejectedValue(Object.assign(new Error('forbidden'), { statusCode: 403 }));
     mockGetLnurlFromAddress.mockReturnValue('lnurl1ldsaddress');

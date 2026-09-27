@@ -222,6 +222,7 @@ const ScanLndInvoice = () => {
       .then(fee => {
         if (isCurrent) setSparkFee(fee);
       })
+      // A failed quote leaves the fee blank; the pay screen quotes again before sending.
       .catch(() => {});
 
     return () => {

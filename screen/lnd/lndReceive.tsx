@@ -138,8 +138,9 @@ const LNDReceive = () => {
         if (cancelled) return;
         setSparkAddress(address || undefined);
         if (address) await saveToDisk();
-      } catch {
+      } catch (error) {
         if (!cancelled) setSparkAddress(undefined);
+        reportError('lndReceive: Spark address failed', error);
       } finally {
         if (!cancelled) setIsSparkAddressLoading(false);
       }
