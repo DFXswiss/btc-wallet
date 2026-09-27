@@ -1762,7 +1762,7 @@ describe('SparkWallet', () => {
         paymentHash: 'lnurl-max-hash',
         invoice: { bolt11: SAMPLE_INVOICE },
       },
-      successAction: undefined,
+      successAction: { tag: 'Message', inner: { data: { message: 'thanks' } } },
     };
     mockSdk.prepareLnurlPay.mockResolvedValue(prepareResponse);
     mockSdk.lnurlPay.mockResolvedValue({ payment: completedSend('lnurl-max-payment') });
@@ -1777,7 +1777,7 @@ describe('SparkWallet', () => {
       paymentHash: 'lnurl-max-hash',
       paymentId: 'lnurl-max-payment',
       fee: 2,
-      lnurlSuccessAction: undefined,
+      lnurlSuccessAction: { tag: 'Message', inner: { data: { message: 'thanks' } } },
     });
     expect(mockSdk.prepareLnurlPay).toHaveBeenCalledWith({
       amount: 10n,
