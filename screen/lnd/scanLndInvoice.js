@@ -33,8 +33,12 @@ const ScanLndInvoice = () => {
   const { walletID, uri } = useRoute().params;
   /** @type {LightningCustodianWallet | SparkWallet} */
   const wallet = useMemo(() => {
-    return wallets.find(item => item.getID() === walletID) || getLightningWallet(wallets);
-  }, [walletID, wallets]);
+    const chosen = wallets.find(item => item.getID() === walletID);
+    if (chosen) return chosen;
+    // A Spark destination without a chosen wallet goes to the Spark wallet, the only one that can pay it.
+    const sparkDestination = typeof uri === 'string' && (SparkWallet.isSparkPaymentUri(uri) || SparkWallet.isSparkAddress(uri));
+    return (sparkDestination && wallets.find(item => item.type === SparkWallet.type)) || getLightningWallet(wallets);
+  }, [uri, walletID, wallets]);
   const suitableWallets = useMemo(() => wallets.filter(item => item.chain === Chain.OFFCHAIN), [wallets]);
   const { navigate, setParams, goBack } = useNavigation();
   const [isLoading, setIsLoading] = useState(false);

@@ -334,6 +334,28 @@ describe('LnurlAuth authenticate', () => {
     authenticateSigned.mockRestore();
   });
 
+  it('logs the Spark wallet it was started from in to DFX when an LNDHub wallet exists too', async () => {
+    const spark = {
+      getID: () => 'spark-1',
+      chain: Chain.OFFCHAIN,
+      type: 'sparkWallet',
+      getSparkAddress: jest.fn().mockResolvedValue('spark1address'),
+      signCompactMessage: jest.fn().mockResolvedValue('compact-sig'),
+    };
+    const lightning = makeOffchainWallet();
+    const authenticateSigned = jest.spyOn(Lnurl.prototype, 'authenticateSigned').mockResolvedValue(undefined);
+    mockParams = { walletID: 'spark-1', lnurl: DFX_LOGIN_LNURL };
+    mockWallets = [lightning, spark];
+    const screen = renderScreen();
+
+    fireEvent.press(screen.getByText(loc.lnurl_auth.authenticate));
+
+    await waitFor(() => screen.getByTestId('SuccessView'));
+    expect(spark.signCompactMessage).toHaveBeenCalledWith('dfx-login:spark1address');
+    expect(lightning.authenticate).not.toHaveBeenCalled();
+    authenticateSigned.mockRestore();
+  });
+
   it('shows the error when the Spark DFX login fails', async () => {
     const spark = {
       getID: () => 'spark-1',

@@ -2158,6 +2158,34 @@ describe('SparkWallet', () => {
     assert.strictEqual(wallet.pending_transactions_raw[0].type, 'user_invoice');
   });
 
+  it('fetchTransactions drops the stored seeds of finished payments and keeps those still pending', async () => {
+    const seeds = require('../../api/spark/payment-seeds');
+    const settledRef = {};
+    const settledSeed = await seeds.createSparkPaymentSeed(settledRef, 'spark1settled', 1000, 'route-1');
+    await seeds.keepUnresolvedSparkSeed(settledRef, 'pay-settled-offline');
+    const pendingRef = {};
+    const pendingSeed = await seeds.createSparkPaymentSeed(pendingRef, 'spark1pending', 1000, 'route-2');
+    await seeds.keepUnresolvedSparkSeed(pendingRef, 'pay-still-pending');
+    const sparkSend = (id, status) => ({
+      id,
+      paymentType: PaymentType.Send,
+      status,
+      amount: 1000n,
+      fees: 0n,
+      timestamp: 1700000000n,
+      method: {},
+      details: undefined,
+    });
+    mockSdk.listPayments.mockResolvedValue({
+      payments: [sparkSend('pay-settled-offline', PaymentStatus.Completed), sparkSend('pay-still-pending', PaymentStatus.Pending)],
+    });
+
+    await new SparkWallet().fetchTransactions();
+
+    assert.notStrictEqual(await seeds.createSparkPaymentSeed({}, 'spark1settled', 1000, 'route-1'), settledSeed);
+    assert.strictEqual(await seeds.createSparkPaymentSeed({}, 'spark1pending', 1000, 'route-2'), pendingSeed);
+  });
+
   it('fetchTransactions lists payments with the Bitcoin asset filter', async () => {
     mockSdk.listPayments.mockResolvedValue({ payments: [] });
     const wallet = new SparkWallet();

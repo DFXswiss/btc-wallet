@@ -312,7 +312,7 @@ export const BlueStorageProvider = ({ children }) => {
     w.fetchBalance()
       .then(() => setWallets([...BlueApp.getWallets()]))
       .catch(e => console.warn('addAndSaveWallet: fetchBalance failed', e));
-    w.fetchTransactions();
+    w.fetchTransactions().catch(() => console.warn('addAndSaveWallet: fetchTransactions failed'));
     setWallets([...BlueApp.getWallets()]);
   };
 

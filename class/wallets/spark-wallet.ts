@@ -20,6 +20,7 @@ import {
 } from '@breeztech/breez-sdk-spark-react-native';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import { acquireSparkSessionLease, isSparkSdkConnected, SparkSessionStaleError, type SparkSessionLease } from '../../api/spark/spark-sdk';
+import { forgetSettledSparkSeeds } from '../../api/spark/payment-seeds';
 import {
   attachOutgoingPaymentId,
   beginOutgoingPayment,
@@ -182,7 +183,7 @@ function invoiceDedupeKeys(tx: SparkInvoiceRecord): string[] {
   return keys;
 }
 
-export class SparkWallet extends AbstractWallet {
+export class SparkWallet extends AbstractWallet<SparkInvoiceRecord> {
   static type = 'sparkWallet';
   static typeReadable = loc.wallets.lightning_spark_wallet_label;
   /**
@@ -383,11 +384,6 @@ export class SparkWallet extends AbstractWallet {
     }
   }
 
-  /**
-   * LND screens expect lightning invoice records, not on-chain Transaction shapes.
-   * AbstractWallet types this as Transaction[]; the override is intentional.
-   */
-  // @ts-expect-error -- off-chain list uses SparkInvoiceRecord, not on-chain Transaction
   getTransactions(): SparkInvoiceRecord[] {
     this.pending_transactions_raw = this.pending_transactions_raw || [];
     this.user_invoices_raw = this.user_invoices_raw || [];
@@ -478,6 +474,7 @@ export class SparkWallet extends AbstractWallet {
 
       const completed: SparkInvoiceRecord[] = [];
       const pending: SparkInvoiceRecord[] = [];
+      const settledIds: (string | undefined)[] = [];
 
       for (const payment of payments) {
         const mapped = this.mapPayment(payment);
@@ -486,12 +483,15 @@ export class SparkWallet extends AbstractWallet {
         } else if (payment.status === PaymentStatus.Completed) {
           completed.push(mapped);
         }
+        if (payment.status !== PaymentStatus.Pending) settledIds.push(payment.id, mapped.payment_hash);
       }
 
       this.assertHeld(lease);
       this.transactions_raw = completed;
       this.pending_transactions_raw = pending;
       this._lastTxFetch = +new Date();
+      // A failed save is retried by the next fetch.
+      await forgetSettledSparkSeeds(settledIds.filter((id): id is string => Boolean(id))).catch(() => undefined);
     } catch (e) {
       if (e instanceof SparkSessionStaleError || !isSparkSdkConnected()) {
         return;

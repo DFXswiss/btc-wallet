@@ -9,7 +9,7 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { useFocusEffect, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import URL from 'url';
 import { SuccessView } from '../send/success';
-import { getLightningWallet } from '../../helpers/lightning-wallet';
+import { getLightningWallet, LIGHTNING_WALLET_TYPES } from '../../helpers/lightning-wallet';
 import { SparkWallet } from '../../class/wallets/spark-wallet';
 import alert from '../../components/Alert';
 import { useSparkContext } from '../../api/spark/contexts/spark.context';
@@ -24,16 +24,21 @@ const AuthState = {
 
 const LnurlAuth = () => {
   const { wallets } = useContext(BlueStorageContext);
-  const { lnurl } = useRoute().params;
+  const { lnurl, walletID } = useRoute().params;
   const { signLnurlAuthK1 } = useSparkContext();
   const { getSignMessage } = useAuth();
   const { goBack } = useNavigation();
-  const wallet = useMemo(() => getLightningWallet(wallets), [wallets]);
   const LN = useMemo(() => new Lnurl(lnurl), [lnurl]);
   const parsedLnurl = useMemo(
     () => (lnurl ? URL.parse(Lnurl.getUrlFromLnurl(lnurl), true) : {}), // eslint-disable-line n/no-deprecated-api
     [lnurl],
   );
+  const isDfxLogin = parsedLnurl.hostname === 'dfx.swiss' || Boolean(parsedLnurl.hostname?.endsWith('.dfx.swiss'));
+  // A DFX login signs in the Lightning wallet it was started from; any other login uses the default one.
+  const wallet = useMemo(() => {
+    const chosen = isDfxLogin && wallets.find(w => w.getID() === walletID && LIGHTNING_WALLET_TYPES.includes(w.type));
+    return chosen || getLightningWallet(wallets);
+  }, [isDfxLogin, walletID, wallets]);
   const [authState, setAuthState] = useState(AuthState.USER_PROMPT);
   const [errMsg, setErrMsg] = useState('');
   const { colors } = useTheme();
@@ -53,8 +58,6 @@ const LnurlAuth = () => {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [wallet]),
   );
-
-  const isDfxLogin = parsedLnurl.hostname === 'dfx.swiss' || Boolean(parsedLnurl.hostname?.endsWith('.dfx.swiss'));
 
   const onAuthResult = promise =>
     promise

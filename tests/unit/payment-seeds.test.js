@@ -175,6 +175,31 @@ describe('Spark payment seeds', () => {
     assert.strictEqual(await AsyncStorage.getItem(STORAGE_KEY), null);
   });
 
+  it('does not hand the seed of an open payment to a different payment on the same screen', async () => {
+    const ref = {};
+    const first = await seeds.createSparkPaymentSeed(ref, 'spark1a', 1000, 'op-1');
+    await seeds.keepUnresolvedSparkSeed(ref, 'pid-a');
+
+    const second = await seeds.createSparkPaymentSeed(ref, 'spark1b', 1000, 'op-2');
+    await seeds.forgetSparkPaymentSeed(ref);
+
+    assert.notStrictEqual(second, first);
+    assert.strictEqual(await seeds.createSparkPaymentSeed({}, 'spark1a', 1000, 'op-1'), first);
+  });
+
+  it('drops the seed of a payment that finished while the app was closed', async () => {
+    const first = await seeds.createSparkPaymentSeed({}, 'spark1dest', 1000, 'op-1');
+    await seeds.keepUnresolvedSparkSeed({ current: first }, 'pid-1', 'hash-1');
+    const stored = await AsyncStorage.getItem(STORAGE_KEY);
+
+    load();
+    await AsyncStorage.setItem(STORAGE_KEY, stored);
+    await seeds.forgetSettledSparkSeeds(['pid-1']);
+
+    assert.strictEqual(await AsyncStorage.getItem(STORAGE_KEY), null);
+    assert.notStrictEqual(await seeds.createSparkPaymentSeed({}, 'spark1dest', 1000, 'op-1'), first);
+  });
+
   it('tells whether a seed was never handed to the SDK', async () => {
     const ref = {};
     const seed = await seeds.createSparkPaymentSeed(ref, 'spark1dest', 1000, 'op-1');

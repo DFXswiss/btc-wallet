@@ -7,7 +7,8 @@ import { subscribeOutgoingPayment } from './outgoing-payment';
  * seed, so the SDK recognises the resend instead of paying twice. The store survives leaving the pay screen
  * and an app restart, and drops a seed once its payment settles.
  */
-type SeedRef = { current?: string };
+/** The pay screen's seed and the payment it belongs to, so a different payment never picks it up. */
+type SeedRef = { current?: string; key?: string };
 
 const SPARK_SEED_STORAGE_KEY = 'sparkUnresolvedPaymentSeeds';
 const unresolvedSparkSeeds = new Map<string, string>();
@@ -114,14 +115,15 @@ export async function createSparkPaymentSeed(
   operationId?: string,
 ): Promise<string> {
   await loadSparkSeeds();
-  if (seedRef.current) return seedRef.current;
   const key = sparkSeedKey(destination, amountSats, operationId);
+  if (seedRef.current && seedRef.key === key) return seedRef.current;
   // A seed still being saved is shared, so every attempt at this payment waits for the same save.
   let creating = sparkSeedsBeingCreated.get(key);
   if (!creating) {
     const kept = unresolvedSparkSeeds.get(key);
     if (kept) {
       seedRef.current = kept;
+      seedRef.key = key;
       return kept;
     }
     // A finished attempt must not reuse its key. An unresolved one must, or a
@@ -132,6 +134,7 @@ export async function createSparkPaymentSeed(
   }
   const seed = await creating;
   seedRef.current = seed;
+  seedRef.key = key;
   return seed;
 }
 
@@ -153,16 +156,16 @@ export function keepUnresolvedSparkSeed(seedRef?: SeedRef, paymentId?: string, p
 /** Drops the seed of a payment that settled, so a later identical payment gets a new one. */
 export function forgetSparkPaymentSeed(seedRef?: SeedRef): Promise<void> {
   const seed = seedRef?.current;
-  if (seedRef) seedRef.current = undefined;
+  if (seedRef) {
+    seedRef.current = undefined;
+    seedRef.key = undefined;
+  }
   if (!seed) return persistSparkSeeds();
   dropSparkSeed(seed);
   return persistSparkSeeds();
 }
 
-// A payment can settle after the pay screen closed; its seed is dropped here for the app's lifetime.
-subscribeOutgoingPayment(payment => {
-  if (!payment || payment.status === 'pending') return;
-  const ids = [payment.paymentId, payment.paymentHash].filter((id): id is string => Boolean(id));
+function dropSeedsOfPayments(ids: string[]): boolean {
   let dropped = false;
   for (const id of ids) {
     const key = sparkSeedKeyByPaymentId.get(id);
@@ -171,7 +174,20 @@ subscribeOutgoingPayment(payment => {
     dropSparkSeed(seed);
     dropped = true;
   }
-  if (dropped) persistSparkSeeds();
+  return dropped;
+}
+
+/** Drops the seeds of payments the SDK lists as finished, also those that settled while the app was closed. */
+export async function forgetSettledSparkSeeds(paymentIds: string[]): Promise<void> {
+  await loadSparkSeeds();
+  if (dropSeedsOfPayments(paymentIds)) await persistSparkSeeds();
+}
+
+// A payment can settle after the pay screen closed; its seed is dropped here for the app's lifetime.
+subscribeOutgoingPayment(payment => {
+  if (!payment || payment.status === 'pending') return;
+  const ids = [payment.paymentId, payment.paymentHash].filter((id): id is string => Boolean(id));
+  if (dropSeedsOfPayments(ids)) persistSparkSeeds();
 });
 
 export function __resetSparkPaymentSeedsForTests(): void {

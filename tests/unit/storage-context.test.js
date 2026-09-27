@@ -977,6 +977,20 @@ describe('BlueStorageProvider', () => {
     expect(wallet.fetchTransactions).toHaveBeenCalled();
   });
 
+  it('handles a failed background transaction fetch after adding a wallet', async () => {
+    const wallet = makeWallet({ fetchTransactions: jest.fn().mockRejectedValue(new Error('sdk down')) });
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    await renderProvider();
+
+    await act(async () => {
+      await latestCtx.addAndSaveWallet(wallet);
+      await Promise.resolve();
+    });
+
+    expect(warn).toHaveBeenCalledWith('addAndSaveWallet: fetchTransactions failed');
+    warn.mockRestore();
+  });
+
   it('removes the wallet and rethrows when addAndSaveWallet persistence throws', async () => {
     const wallet = makeWallet();
     await renderProvider();
