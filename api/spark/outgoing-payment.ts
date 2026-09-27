@@ -11,14 +11,15 @@ export type OutgoingPaymentStatus = 'pending' | 'completed' | 'failed';
 
 export type OutgoingPayment = {
   status: OutgoingPaymentStatus;
-  paymentHash: string;
+  /** Lightning payment hash; absent for Spark transfers, which are identified by paymentId only. */
+  paymentHash?: string;
   paymentId?: string;
   invoice?: string;
   preimage?: string;
 };
 
 export type OutgoingPaymentIdentity = {
-  paymentHash: string;
+  paymentHash?: string;
   paymentId?: string;
   invoice?: string;
 };
@@ -111,7 +112,7 @@ function identityFromPayment(payment: Payment): OutgoingPaymentIdentity & { prei
   }
   return {
     paymentId: payment.id,
-    paymentHash: paymentHash || '',
+    paymentHash: paymentHash || undefined,
     invoice,
     preimage,
   };
@@ -141,7 +142,7 @@ function rememberUnclaimed(payment: OutgoingPayment): void {
 
 function identityOf(value: { paymentHash?: string; paymentId?: string; invoice?: string }): OutgoingPaymentIdentity {
   return {
-    paymentHash: value.paymentHash || '',
+    paymentHash: value.paymentHash || undefined,
     paymentId: value.paymentId,
     invoice: value.invoice,
   };
@@ -313,7 +314,7 @@ export function applyOutgoingSdkEvent(event: SdkEvent): OutgoingPayment | null {
   if (status === 'completed' || status === 'failed') {
     rememberUnclaimed({
       status,
-      paymentHash: extracted.paymentHash || '',
+      paymentHash: extracted.paymentHash || undefined,
       paymentId: extracted.paymentId,
       invoice: extracted.invoice,
       preimage: extracted.preimage,

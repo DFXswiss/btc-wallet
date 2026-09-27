@@ -43,6 +43,17 @@ const currency = require('../../blue_modules/currency');
 const _cacheFiatToSat = {};
 
 /**
+ * Whether an outgoing-payment update belongs to the payment the screen waits for. A Spark transfer is known by
+ * its payment id only, a Lightning payment by its hash; a watch without either accepts any update, as before.
+ */
+function isWatchedPayment(watching, payment) {
+  if (!watching?.paymentId && !watching?.paymentHash) return true;
+  if (!payment) return false;
+  if (watching.paymentId && payment.paymentId) return watching.paymentId === payment.paymentId;
+  return Boolean(watching.paymentHash) && watching.paymentHash === payment.paymentHash;
+}
+
+/**
  * Spark address a Spark wallet pays directly. A max amount and a comment have no Spark
  * destination, so those payments are refused instead of falling back to Lightning.
  */
@@ -280,8 +291,7 @@ const LnurlPay = () => {
   };
 
   // Only a terminal status of the watched payment ends the pending state; another payment's settlement must not.
-  const watchedHash = pendingPayRef.current?.paymentHash;
-  const outgoingIsWatched = !watchedHash || watchedHash === outgoingPayment?.paymentHash;
+  const outgoingIsWatched = isWatchedPayment(pendingPayRef.current, outgoingPayment);
   const watchedIsTerminal = outgoingIsWatched && (outgoingPayment?.status === 'completed' || outgoingPayment?.status === 'failed');
   const showPending = isPaymentPending && !watchedIsTerminal;
 
@@ -289,7 +299,7 @@ const LnurlPay = () => {
     if (!outgoingPayment || outgoingPayment.status === 'pending') return;
     const watching = pendingPayRef.current;
     if (!watching) return;
-    if (watching.paymentHash && watching.paymentHash !== outgoingPayment.paymentHash) {
+    if (!isWatchedPayment(watching, outgoingPayment)) {
       return;
     }
 
@@ -476,7 +486,7 @@ const LnurlPay = () => {
     if (result && result.status === 'pending') {
       pendingPayRef.current = {
         kind: 'sparkAddress',
-        paymentHash: result.paymentHash,
+        paymentId: result.paymentId,
         amountSats,
         fee: result.fee,
         decoded,
@@ -505,7 +515,7 @@ const LnurlPay = () => {
     if (result && result.status === 'pending') {
       pendingPayRef.current = {
         kind: 'sparkInvoice',
-        paymentHash: result.paymentHash,
+        paymentId: result.paymentId,
         amountSats,
         fee: result.fee,
         decoded,

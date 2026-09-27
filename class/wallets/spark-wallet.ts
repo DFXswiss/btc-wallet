@@ -31,7 +31,8 @@ export const SparkPayInvoiceStatus = {
 
 export type SparkPayInvoiceResult = {
   status: (typeof SparkPayInvoiceStatus)[keyof typeof SparkPayInvoiceStatus];
-  paymentHash: string;
+  /** Lightning payment hash; absent for Spark transfers, which carry only paymentId. */
+  paymentHash?: string;
   paymentId?: string;
   fee: number;
   lnurlSuccessAction?: SuccessAction;
@@ -1068,38 +1069,40 @@ export class SparkWallet extends AbstractWallet {
       throw new Error(loc.wallets.lightning_spark_payment_in_transit);
     }
 
-    const paymentHash = payment.id || '';
-    const tracked = payment.id ? attachOutgoingPaymentId({ paymentHash, paymentId: payment.id }) : getOutgoingPayment();
+    // A Spark transfer has no Lightning payment hash or preimage; the SDK payment id is its only identity.
+    const paymentId = payment.id;
+    const isThisPayment = (candidate?: { paymentId?: string } | null): boolean => Boolean(paymentId) && candidate?.paymentId === paymentId;
+    const tracked = paymentId ? attachOutgoingPaymentId({ paymentId }) : undefined;
 
     if (payment.status === PaymentStatus.Failed) {
-      const settled = settleOutgoingPayment({ status: 'failed', paymentHash, paymentId: payment.id });
-      if (settled?.paymentHash === paymentHash && settled.status === 'completed') {
+      const settled = settleOutgoingPayment({ status: 'failed', paymentId });
+      if (isThisPayment(settled) && settled?.status === 'completed') {
         this.recordPaidInvoice(payment, settled.preimage);
-        return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: settled.paymentId, fee };
+        return { status: SparkPayInvoiceStatus.Completed, paymentId: settled.paymentId, fee };
       }
       throw new Error(loc.wallets.lightning_spark_payment_failed);
     }
 
     if (payment.status === PaymentStatus.Completed) {
-      const settled = settleOutgoingPayment({ status: 'completed', paymentHash, paymentId: payment.id, fromSendResult: true });
-      this.recordPaidInvoice(payment, settled?.paymentHash === paymentHash ? settled.preimage : undefined);
-      return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: payment.id, fee };
+      const settled = settleOutgoingPayment({ status: 'completed', paymentId, fromSendResult: true });
+      this.recordPaidInvoice(payment, isThisPayment(settled) ? settled?.preimage : undefined);
+      return { status: SparkPayInvoiceStatus.Completed, paymentId, fee };
     }
 
-    if (tracked?.paymentHash === paymentHash && tracked.status === 'completed') {
+    if (isThisPayment(tracked) && tracked?.status === 'completed') {
       this.recordPaidInvoice(payment, tracked.preimage);
-      return { status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: payment.id, fee };
+      return { status: SparkPayInvoiceStatus.Completed, paymentId, fee };
     }
-    if (tracked?.paymentHash === paymentHash && tracked.status === 'failed') {
-      settleOutgoingPayment({ status: 'failed', paymentHash, paymentId: payment.id });
+    if (isThisPayment(tracked) && tracked?.status === 'failed') {
+      settleOutgoingPayment({ status: 'failed', paymentId });
       throw new Error(loc.wallets.lightning_spark_payment_failed);
     }
     // No SDK payment id means nothing later can settle a tracker. Say the attempt is
     // unresolved instead of a pending payment the screen will wait on forever.
-    if (!payment.id) {
+    if (!paymentId) {
       throw new Error(loc.wallets.lightning_spark_payment_in_transit);
     }
-    return { status: SparkPayInvoiceStatus.Pending, paymentHash, paymentId: payment.id, fee };
+    return { status: SparkPayInvoiceStatus.Pending, paymentId, fee };
   }
 
   /**

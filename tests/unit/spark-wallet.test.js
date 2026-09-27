@@ -569,7 +569,8 @@ describe('SparkWallet', () => {
     const result = await paySparkInvoiceWithExplicitQuote(wallet, SPARK_INVOICE, 12_345, 'sell-1');
 
     assert.strictEqual(result.status, SparkPayInvoiceStatus.Completed);
-    assert.strictEqual(result.paymentHash, 'spark-payment-1');
+    assert.strictEqual(result.paymentId, 'spark-payment-1');
+    assert.strictEqual(result.paymentHash, undefined);
     assert.strictEqual(result.fee, 1);
     const prepareArg = mockSdk.prepareSendPayment.mock.calls[0][0];
     assert.strictEqual(prepareArg.paymentRequest.tag, 'Input');
@@ -675,7 +676,6 @@ describe('SparkWallet', () => {
 
     expect(result).toEqual({
       status: SparkPayInvoiceStatus.Completed,
-      paymentHash: 'spark-payment-race',
       paymentId: 'spark-payment-race',
       fee: 1,
     });
@@ -699,11 +699,10 @@ describe('SparkWallet', () => {
 
     expect(result).toEqual({
       status: SparkPayInvoiceStatus.Pending,
-      paymentHash: 'spark-payment-pending',
       paymentId: 'spark-payment-pending',
       fee: 1,
     });
-    assert.strictEqual(getOutgoingPayment().paymentHash, 'spark-payment-pending');
+    assert.strictEqual(getOutgoingPayment().paymentHash, undefined);
     assert.strictEqual(getOutgoingPayment().paymentId, 'spark-payment-pending');
   });
 
@@ -725,7 +724,6 @@ describe('SparkWallet', () => {
 
     expect(result).toEqual({
       status: SparkPayInvoiceStatus.Completed,
-      paymentHash: 'spark-payment-event-first',
       paymentId: 'spark-payment-event-first',
       fee: 1,
     });
@@ -864,7 +862,8 @@ describe('SparkWallet', () => {
     const result = await paySparkAddressWithExplicitQuote(wallet, SPARK_ADDRESS, 12_345, 'sell-address-1');
 
     assert.strictEqual(result.status, SparkPayInvoiceStatus.Completed);
-    assert.strictEqual(result.paymentHash, 'spark-address-payment-1');
+    assert.strictEqual(result.paymentId, 'spark-address-payment-1');
+    assert.strictEqual(result.paymentHash, undefined);
     assert.strictEqual(result.fee, 1);
     const prepareArg = mockSdk.prepareSendPayment.mock.calls[0][0];
     assert.strictEqual(prepareArg.paymentRequest.tag, 'Input');
@@ -3596,6 +3595,20 @@ describe('SparkWallet', () => {
     mockSdk.sendPayment.mockResolvedValue({ payment: { id: 'spark-payment-failed', status: PaymentStatus.Failed } });
     await assert.rejects(
       () => paySparkInvoiceWithExplicitQuote(wallet, SPARK_INVOICE, 12_345, 'failed-without-race'),
+      new RegExp(loc.wallets.lightning_spark_payment_failed),
+    );
+  });
+
+  it('paySparkInvoice does not take a completed Lightning payment for its own failed transfer without an id', async () => {
+    mockSessionIdentity = 'id-pk';
+    const wallet = SparkWallet.create('id-pk');
+    beginOutgoingPayment({ paymentHash: 'unrelated-lightning-hash', invoice: 'lnbc-unrelated' });
+    settleOutgoingPayment({ status: 'completed', paymentHash: 'unrelated-lightning-hash' });
+    mockSdk.prepareSendPayment.mockResolvedValue(sparkInvoicePrepareResponse());
+    mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Failed } });
+
+    await assert.rejects(
+      () => paySparkInvoiceWithExplicitQuote(wallet, SPARK_INVOICE, 12_345, 'failed-without-id'),
       new RegExp(loc.wallets.lightning_spark_payment_failed),
     );
   });

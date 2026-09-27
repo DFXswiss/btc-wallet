@@ -380,7 +380,7 @@ describe('LnurlPay Spark invoice mode', () => {
 
   it('pays a fixed Spark invoice without creating or querying an LNURL', async () => {
     const wallet = makeWallet();
-    wallet.paySparkInvoice.mockResolvedValue({ status: 'completed', paymentHash: 'spark-payment-1', fee: 2 });
+    wallet.paySparkInvoice.mockResolvedValue({ status: 'completed', paymentId: 'spark-payment-1', fee: 2 });
     const callLnurlPayService = jest.spyOn(Lnurl.prototype, 'callLnurlPayService');
     const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
 
@@ -422,7 +422,7 @@ describe('LnurlPay Spark invoice mode', () => {
     wallet.getPaymentFeeQuote.mockResolvedValue(quote);
     wallet.paySparkInvoice.mockRejectedValueOnce(new Error('spark send failed')).mockResolvedValueOnce({
       status: 'pending',
-      paymentHash: 'spark-payment-retry',
+      paymentId: 'spark-payment-retry',
     });
     const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
 
@@ -455,7 +455,7 @@ describe('LnurlPay Spark invoice mode', () => {
     const wallet = makeWallet();
     wallet.paySparkInvoice
       .mockResolvedValueOnce({ status: 'unknown' })
-      .mockResolvedValueOnce({ status: 'pending', paymentHash: 'spark-payment-after-non-completed' });
+      .mockResolvedValueOnce({ status: 'pending', paymentId: 'spark-payment-after-non-completed' });
     const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
@@ -483,7 +483,7 @@ describe('LnurlPay Spark invoice mode', () => {
 
   it('keeps the Spark idempotency seed when the screen is reopened during an unresolved payment', async () => {
     const wallet = makeWallet();
-    wallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'spark-payment-first-open' });
+    wallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentId: 'spark-payment-first-open' });
     const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
@@ -499,7 +499,7 @@ describe('LnurlPay Spark invoice mode', () => {
     screen.unmount();
     mockRouteKey = 'lnurl-pay-test-route-2';
     const reopenedWallet = makeWallet();
-    reopenedWallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'spark-payment-reopened' });
+    reopenedWallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentId: 'spark-payment-reopened' });
     const reopenedScreen = renderPay(reopenedWallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
 
     await waitFor(() => reopenedScreen.getByText(loc.lnd.payButton));
@@ -520,7 +520,6 @@ describe('LnurlPay Spark invoice mode', () => {
     const wallet = makeWallet();
     wallet.paySparkInvoice.mockResolvedValue({
       status: 'pending',
-      paymentHash: 'spark-payment-left-open',
       paymentId: 'spark-payment-left-open',
     });
     const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
@@ -534,12 +533,12 @@ describe('LnurlPay Spark invoice mode', () => {
     screen.unmount();
 
     act(() => {
-      beginOutgoingPayment({ paymentHash: 'spark-payment-left-open', paymentId: 'spark-payment-left-open' });
-      settleOutgoingPayment({ status: 'completed', paymentHash: 'spark-payment-left-open', paymentId: 'spark-payment-left-open' });
+      beginOutgoingPayment({ paymentId: 'spark-payment-left-open' });
+      settleOutgoingPayment({ status: 'completed', paymentId: 'spark-payment-left-open' });
     });
 
     const nextWallet = makeWallet();
-    nextWallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'spark-payment-after-settle' });
+    nextWallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentId: 'spark-payment-after-settle' });
     const nextScreen = renderPay(nextWallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
     await waitFor(() => nextScreen.getByText(loc.lnd.payButton));
     await act(async () => {
@@ -566,7 +565,7 @@ describe('LnurlPay Spark invoice mode', () => {
     __resetSparkPaymentSeedsForTests();
 
     const nextWallet = makeWallet();
-    nextWallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'spark-payment-reloaded' });
+    nextWallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentId: 'spark-payment-reloaded' });
     const nextScreen = renderPay(nextWallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
     await waitFor(() => nextScreen.getByText(loc.lnd.payButton));
     await act(async () => {
@@ -598,7 +597,7 @@ describe('LnurlPay Spark invoice mode', () => {
     wallet.paySparkInvoice
       .mockRejectedValueOnce(new Error(loc.wallets.lightning_spark_payment_in_transit))
       .mockRejectedValueOnce(new Error(loc.send.insufficient_funds))
-      .mockResolvedValueOnce({ status: 'pending', paymentHash: 'spark-payment-after-balance' });
+      .mockResolvedValueOnce({ status: 'pending', paymentId: 'spark-payment-after-balance' });
     const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
@@ -619,7 +618,7 @@ describe('LnurlPay Spark invoice mode', () => {
 
   it('creates a new Spark idempotency seed after the previous operation completed', async () => {
     const wallet = makeWallet();
-    wallet.paySparkInvoice.mockResolvedValue({ status: 'completed', paymentHash: 'spark-payment-completed' });
+    wallet.paySparkInvoice.mockResolvedValue({ status: 'completed', paymentId: 'spark-payment-completed' });
     const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
@@ -632,7 +631,7 @@ describe('LnurlPay Spark invoice mode', () => {
 
     screen.unmount();
     const nextWallet = makeWallet();
-    nextWallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'spark-payment-next-sale' });
+    nextWallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentId: 'spark-payment-next-sale' });
     const nextScreen = renderPay(nextWallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
 
     await waitFor(() => nextScreen.getByText(loc.lnd.payButton));
@@ -646,7 +645,7 @@ describe('LnurlPay Spark invoice mode', () => {
 
   it('uses a new Spark idempotency seed for a second DFX route with the same address and amount', async () => {
     const wallet = makeWallet();
-    wallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'spark-payment-route-a' });
+    wallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentId: 'spark-payment-route-a' });
     const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined, routeId: 'sell-1' });
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
@@ -658,7 +657,7 @@ describe('LnurlPay Spark invoice mode', () => {
 
     screen.unmount();
     const otherWallet = makeWallet();
-    otherWallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'spark-payment-route-b' });
+    otherWallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentId: 'spark-payment-route-b' });
     const otherScreen = renderPay(otherWallet, {
       invoice: undefined,
       sparkInvoice: SPARK_INVOICE,
@@ -677,7 +676,7 @@ describe('LnurlPay Spark invoice mode', () => {
 
   it('creates different Spark idempotency seeds for different invoices even when the navigation key is reused', async () => {
     const wallet = makeWallet();
-    wallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'spark-payment-route-1' });
+    wallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentId: 'spark-payment-route-1' });
     const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined, routeId: 'route-1' });
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
@@ -689,7 +688,7 @@ describe('LnurlPay Spark invoice mode', () => {
 
     screen.unmount();
     const otherWallet = makeWallet();
-    otherWallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'spark-payment-route-2' });
+    otherWallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentId: 'spark-payment-route-2' });
     const otherScreen = renderPay(otherWallet, {
       invoice: undefined,
       sparkInvoice: OTHER_SPARK_INVOICE,
@@ -731,7 +730,7 @@ describe('LnurlPay Spark invoice mode', () => {
     Biometric.isBiometricUseCapableAndEnabled.mockResolvedValue(true);
     Biometric.unlockWithBiometrics.mockResolvedValue(true);
     const wallet = makeWallet();
-    wallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'spark-payment-pending' });
+    wallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentId: 'spark-payment-pending' });
     const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
@@ -747,7 +746,7 @@ describe('LnurlPay Spark invoice mode', () => {
 
   it('completes a pending Spark payment through an SDK event without generating another seed', async () => {
     const wallet = makeWallet();
-    wallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentHash: 'spark-payment-event-completed', fee: 2 });
+    wallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentId: 'spark-payment-event-completed', fee: 2 });
     const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
@@ -764,7 +763,7 @@ describe('LnurlPay Spark invoice mode', () => {
       isConnecting: false,
       isCreating: false,
       createSparkWallet: jest.fn(),
-      outgoingPayment: { status: 'completed', paymentHash: 'spark-payment-event-completed' },
+      outgoingPayment: { status: 'completed', paymentId: 'spark-payment-event-completed' },
     });
     screen.rerender(
       <BlueStorageContext.Provider value={{ wallets: [wallet], refreshAllWalletTransactions: jest.fn() }}>
@@ -777,11 +776,75 @@ describe('LnurlPay Spark invoice mode', () => {
     );
   });
 
+  it('follows a pending Spark transfer by its payment id, not by another payment settling', async () => {
+    const wallet = makeWallet();
+    wallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentId: 'spark-transfer-1', fee: 2 });
+    const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
+    const settle = outgoingPayment => {
+      mockUseSparkContext.mockReturnValue({
+        isConnected: true,
+        isConnecting: false,
+        isCreating: false,
+        createSparkWallet: jest.fn(),
+        outgoingPayment,
+      });
+      screen.rerender(
+        <BlueStorageContext.Provider value={{ wallets: [wallet], refreshAllWalletTransactions: jest.fn() }}>
+          <LnurlPay />
+        </BlueStorageContext.Provider>,
+      );
+    };
+
+    await waitFor(() => screen.getByText(loc.lnd.payButton));
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+    await waitFor(() => screen.getByText(loc.wallets.lightning_spark_payment_in_transit));
+
+    settle({ status: 'completed', paymentId: 'another-transfer' });
+    await act(async () => {});
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(screen.getByText(loc.wallets.lightning_spark_payment_in_transit)).toBeTruthy();
+
+    settle({ status: 'completed', paymentId: 'spark-transfer-1' });
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith('Success', expect.objectContaining({ amount: 1000, amountUnit: BitcoinUnit.SATS, fee: 2 })),
+    );
+  });
+
+  it('ends a pending Spark transfer that fails under its payment id', async () => {
+    const wallet = makeWallet();
+    wallet.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentId: 'spark-transfer-2', fee: 2 });
+    const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
+
+    await waitFor(() => screen.getByText(loc.lnd.payButton));
+    await act(async () => {
+      fireEvent.press(screen.getByText(loc.lnd.payButton));
+    });
+    await waitFor(() => screen.getByText(loc.wallets.lightning_spark_payment_in_transit));
+    mockUseSparkContext.mockReturnValue({
+      isConnected: true,
+      isConnecting: false,
+      isCreating: false,
+      createSparkWallet: jest.fn(),
+      outgoingPayment: { status: 'failed', paymentId: 'spark-transfer-2' },
+    });
+    screen.rerender(
+      <BlueStorageContext.Provider value={{ wallets: [wallet], refreshAllWalletTransactions: jest.fn() }}>
+        <LnurlPay />
+      </BlueStorageContext.Provider>,
+    );
+
+    await waitFor(() => expect(alert).toHaveBeenCalledWith(loc.wallets.lightning_spark_payment_failed));
+    await waitFor(() => expect(getPayButton(screen).props.disabled).toBe(false));
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
   it('uses a new Spark idempotency seed after a pending payment fails through an SDK event', async () => {
     const wallet = makeWallet();
     wallet.paySparkInvoice
-      .mockResolvedValueOnce({ status: 'pending', paymentHash: 'spark-payment-event-failed', fee: 2 })
-      .mockResolvedValueOnce({ status: 'pending', paymentHash: 'spark-payment-after-event-failure', fee: 2 });
+      .mockResolvedValueOnce({ status: 'pending', paymentId: 'spark-payment-event-failed', fee: 2 })
+      .mockResolvedValueOnce({ status: 'pending', paymentId: 'spark-payment-after-event-failure', fee: 2 });
     const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
@@ -797,7 +860,7 @@ describe('LnurlPay Spark invoice mode', () => {
       isConnecting: false,
       isCreating: false,
       createSparkWallet: jest.fn(),
-      outgoingPayment: { status: 'failed', paymentHash: 'spark-payment-event-failed' },
+      outgoingPayment: { status: 'failed', paymentId: 'spark-payment-event-failed' },
     });
     screen.rerender(
       <BlueStorageContext.Provider value={{ wallets: [wallet], refreshAllWalletTransactions: jest.fn() }}>
@@ -1858,7 +1921,7 @@ describe('LnurlPay remaining payment paths', () => {
       method: SendPaymentMethod_Tags.SparkAddress,
       feeSats: 4,
     });
-    wallet.paySparkAddress.mockResolvedValue({ status: 'completed', paymentHash: 'spark-address-from-quote', fee: 4 });
+    wallet.paySparkAddress.mockResolvedValue({ status: 'completed', paymentId: 'spark-address-from-quote', fee: 4 });
     const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
 
     await waitFor(() => screen.getByText(`${loc.send.create_fee}: 4 ${BitcoinUnit.SATS}`));
@@ -1881,7 +1944,7 @@ describe('LnurlPay remaining payment paths', () => {
       method: SendPaymentMethod_Tags.SparkAddress,
       feeSats: 4,
     });
-    wallet.paySparkAddress.mockResolvedValue({ status: 'completed', paymentHash: 'spark-address-1', fee: 4 });
+    wallet.paySparkAddress.mockResolvedValue({ status: 'completed', paymentId: 'spark-address-1', fee: 4 });
     const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: undefined, sparkAddress: SPARK_ADDRESS, amountUnit: undefined });
 
     await waitFor(() => screen.getByText(`${loc.send.create_fee}: 4 ${BitcoinUnit.SATS}`));
