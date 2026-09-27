@@ -140,6 +140,14 @@ function getSparkWallet(wallets: { type: string }[]): SparkWallet | undefined {
   return wallets.find(w => w.type === SparkWallet.type) as SparkWallet | undefined;
 }
 
+/** The alert shown when Lightning cannot be started or created, with a retry. */
+function alertSparkStartFailure(e: unknown, retry: () => void): void {
+  Alert.alert(loc.wallets.lightning_spark_wallet_label, userFacingError(e), [
+    { text: loc._.cancel, style: 'cancel' },
+    { text: loc._.repeat, onPress: retry },
+  ]);
+}
+
 // A function rather than an inline assignment: the React Compiler lint rejects mutating the wallet inside the provider.
 function writeLightningAddress(wallet: SparkWallet, address: string): void {
   wallet.lnAddress = address;
@@ -157,7 +165,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
   const walletsRef = useRef(wallets);
   const lnAddressRegisterAttemptedRef = useRef(false);
   const createSparkWalletRef = useRef<((source?: OnChainMnemonicWallet) => Promise<SparkWallet | null>) | undefined>(undefined);
-  const connectExistingSparkRef = useRef<(() => Promise<void>) | undefined>(undefined);
+  const connectExistingSparkRef = useRef<((isStale?: () => boolean) => Promise<void>) | undefined>(undefined);
 
   useEffect(() => {
     walletsRef.current = wallets;
@@ -257,29 +265,26 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
     await refreshSparkWallet(spark);
   }, [ensureConnected, refreshSparkWallet]);
 
-  const connectExistingSpark = useCallback(async (): Promise<void> => {
-    try {
-      await reconnectSpark();
-    } catch (e: unknown) {
-      // console.error is forwarded to crash reports; never log the raw message
-      // because connect receives the Spark child phrase and API key, and the error
-      // text can repeat those inputs. Log only a fixed tag and the error class.
-      console.error('SparkContext: failed to connect', errorClass(e));
-      setIsConnected(false);
-      Alert.alert(loc.wallets.lightning_spark_wallet_label, userFacingError(e), [
-        { text: loc._.cancel, style: 'cancel' },
-        {
-          text: loc._.repeat,
-          onPress: () => {
-            const reconnect = connectExistingSparkRef.current;
-            if (reconnect) {
-              reconnect().catch(() => {});
-            }
-          },
-        },
-      ]);
-    }
-  }, [reconnectSpark]);
+  /** Connects the stored Spark wallet; a failure is reported unless `isStale` says the attempt was replaced. */
+  const connectExistingSpark = useCallback(
+    async (isStale: () => boolean = () => false): Promise<void> => {
+      try {
+        await reconnectSpark();
+      } catch (e: unknown) {
+        if (isStale()) return;
+        // console.error is forwarded to crash reports; never log the raw message
+        // because connect receives the Spark child phrase and API key, and the error
+        // text can repeat those inputs. Log only a fixed tag and the error class.
+        console.error('SparkContext: failed to connect', errorClass(e));
+        setIsConnected(false);
+        // Missing API key must fail loudly — never leave a silent broken Lightning tab.
+        alertSparkStartFailure(e, () => {
+          connectExistingSparkRef.current?.().catch(() => {});
+        });
+      }
+    },
+    [reconnectSpark],
+  );
 
   const sparkIdentity = getSparkWallet(wallets)?.identityPubkey ?? '';
 
@@ -297,31 +302,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
     }
 
     let cancelled = false;
-    (async () => {
-      try {
-        await reconnectSpark();
-      } catch (e: unknown) {
-        if (cancelled) return;
-        // console.error is forwarded to crash reports; never log the raw message
-        // because connect receives the Spark child phrase and API key, and the error
-        // text can repeat those inputs. Log only a fixed tag and the error class.
-        console.error('SparkContext: failed to connect', errorClass(e));
-        setIsConnected(false);
-        // Missing API key must fail loudly — never leave a silent broken Lightning tab.
-        Alert.alert(loc.wallets.lightning_spark_wallet_label, userFacingError(e), [
-          { text: loc._.cancel, style: 'cancel' },
-          {
-            text: loc._.repeat,
-            onPress: () => {
-              const reconnect = connectExistingSparkRef.current;
-              if (reconnect) {
-                reconnect().catch(() => {});
-              }
-            },
-          },
-        ]);
-      }
-    })();
+    connectExistingSpark(() => cancelled);
 
     return () => {
       cancelled = true;
@@ -412,18 +393,9 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
         }
         await disconnectSparkSdk().catch(() => {});
         setIsConnected(false);
-        Alert.alert(loc.wallets.lightning_spark_wallet_label, userFacingError(e), [
-          { text: loc._.cancel, style: 'cancel' },
-          {
-            text: loc._.repeat,
-            onPress: () => {
-              const create = createSparkWalletRef.current;
-              if (create) {
-                create(source).catch(() => {});
-              }
-            },
-          },
-        ]);
+        alertSparkStartFailure(e, () => {
+          createSparkWalletRef.current?.(source).catch(() => {});
+        });
         return null;
       } finally {
         isCreatingRef.current = false;
