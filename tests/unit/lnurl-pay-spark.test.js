@@ -122,7 +122,7 @@ function payRequestWith(callback) {
     url: 'https://example.com/lnurlp',
   };
 }
-const { __resetSparkPaymentSeedsForTests } = require('../../screen/lnd/lnurlPay');
+const { __resetSparkPaymentSeedsForTests } = require('../../api/spark/payment-seeds');
 const Lnurl = require('../../class/lnurl').default;
 const loc = require('../../loc').default;
 const alert = require('../../components/Alert');
