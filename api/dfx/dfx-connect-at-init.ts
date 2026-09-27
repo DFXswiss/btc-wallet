@@ -1,5 +1,6 @@
 import { MultisigHDWallet } from '../../class';
 import { SparkWallet } from '../../class/wallets/spark-wallet';
+import { hasStatusCode } from '../../helpers/errors';
 
 /**
  * Wallets whose DFX session needs a live native SDK (Spark) or that DFX
@@ -11,9 +12,7 @@ export function dfxConnectAtInit(type: string): boolean {
 }
 
 function isForbidden(result: PromiseSettledResult<unknown>): boolean {
-  if (result.status !== 'rejected') return false;
-  const reason = result.reason;
-  return Boolean(reason) && typeof reason === 'object' && (reason as { statusCode?: number }).statusCode === 403;
+  return result.status === 'rejected' && hasStatusCode(result.reason, 403);
 }
 
 export function dfxAvailabilityFromSettled(results: PromiseSettledResult<unknown>[]): 'available' | 'forbidden' | 'throw' {

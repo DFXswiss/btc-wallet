@@ -52,15 +52,15 @@ function applySparkSeedStorage(raw: string | null): void {
   if (unresolvedSparkSeeds.size > 0) sparkSeedsPersisted = true;
 }
 
-async function loadSparkSeeds(): Promise<void> {
-  if (sparkSeedsLoaded) return sparkSeedsLoaded;
-  try {
-    const raw = await AsyncStorage.getItem(SPARK_SEED_STORAGE_KEY);
-    applySparkSeedStorage(raw);
-    sparkSeedsLoaded = Promise.resolve();
-  } catch (error) {
-    sparkSeedsLoaded = null;
-    throw error;
+/** Concurrent callers share one read, so a later read cannot bring back a seed another caller dropped. */
+function loadSparkSeeds(): Promise<void> {
+  if (!sparkSeedsLoaded) {
+    const loading = AsyncStorage.getItem(SPARK_SEED_STORAGE_KEY).then(applySparkSeedStorage);
+    sparkSeedsLoaded = loading;
+    // A failed read is tried again by the next caller.
+    loading.catch(() => {
+      if (sparkSeedsLoaded === loading) sparkSeedsLoaded = null;
+    });
   }
   return sparkSeedsLoaded;
 }

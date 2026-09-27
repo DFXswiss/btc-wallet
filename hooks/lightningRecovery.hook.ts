@@ -26,10 +26,7 @@ function loginCandidates(wallet: SigningHdWallet): SigningHdWallet[] {
   const candidates: SigningHdWallet[] = [wallet];
   for (const WalletClass of [HDSegwitBech32Wallet, HDSegwitP2SHWallet]) {
     if (WalletClass.type === wallet.type) continue;
-    const candidate = new WalletClass() as unknown as SigningHdWallet & {
-      setSecret: (s: string) => void;
-      setPassphrase: (p: string) => void;
-    };
+    const candidate = new WalletClass();
     candidate.setSecret(wallet.getSecret());
     const passphrase = wallet.getPassphrase();
     if (passphrase) candidate.setPassphrase(passphrase);

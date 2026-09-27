@@ -23,7 +23,8 @@ import NetworkTransactionFees, { NetworkTransactionFee } from '../models/network
 import { AbstractHDElectrumWallet } from '../class/wallets/abstract-hd-electrum-wallet';
 import { Utxo } from '../class/wallets/types';
 import { BlueText } from '../BlueComponents';
-import { getLightningWallet } from '../helpers/lightning-wallet';
+import { LightningLdsWallet } from '../class/wallets/lightning-lds-wallet';
+import { SparkWallet } from '../class/wallets/spark-wallet';
 import { useWalletContext } from '../contexts/wallet.context';
 import { DfxMaxAmount } from '../helpers/dfxMaxAmount';
 import { Utils } from '../helpers/utils';
@@ -41,7 +42,11 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
 
   const wallet = useMemo(() => {
     const selectedWallet = wallets.find((w: AbstractHDElectrumWallet) => w.getID() === walletID);
-    return selectedWallet || getLightningWallet(wallets) || mainWallet;
+    // Without a selected wallet, a Lightning wallet DFX can sign in, else the main wallet.
+    const dfxLightningWallet =
+      wallets.find((w: AbstractHDElectrumWallet) => w.type === LightningLdsWallet.type) ||
+      wallets.find((w: AbstractHDElectrumWallet) => w.type === SparkWallet.type);
+    return selectedWallet || dfxLightningWallet || mainWallet;
   }, [wallets, walletID]);
   const isDfxAvailable = Boolean(wallet) && isAvailableFor(wallet.getID());
 

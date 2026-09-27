@@ -160,6 +160,19 @@ describe('DfxServicesButtons rendered service actions', () => {
     expect(unavailable.queryByText('External services')).toBeNull();
   });
 
+  it('falls back to the main wallet, not a custom LNDHub wallet DFX cannot sign in', async () => {
+    const custodian = makeWallet({ type: 'lightningCustodianWallet', getID: () => 'custodian-wallet' });
+    const screen = render(
+      <BlueStorageContext.Provider value={{ wallets: [custodian], isDfxPos: false, isDfxSwap: false }}>
+        <DfxServicesButtons />
+      </BlueStorageContext.Provider>,
+    );
+
+    fireEvent.press(screen.getByTestId('dfx-buy-en'));
+
+    await waitFor(() => expect(mockOpenServices).toHaveBeenCalledWith('main-wallet', '1', 'buy'));
+  });
+
   it('haircuts Spark sell and swap by 3 percent like LDS', async () => {
     const spark = makeWallet({ type: SparkWallet.type });
     const sparkScreen = renderButtons(spark, { isDfxSwap: true });

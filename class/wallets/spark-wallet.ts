@@ -1156,10 +1156,10 @@ export class SparkWallet extends AbstractWallet<SparkInvoiceRecord> {
       const { tagName, data } = tags[i];
       switch (tagName) {
         case 'payment_hash':
-          decoded.payment_hash = data as string;
+          if (typeof data === 'string') decoded.payment_hash = data;
           break;
         case 'purpose_commit_hash':
-          decoded.description_hash = data as string;
+          if (typeof data === 'string') decoded.description_hash = data;
           break;
         case 'min_final_cltv_expiry':
           decoded.cltv_expiry = data.toString();
@@ -1168,7 +1168,7 @@ export class SparkWallet extends AbstractWallet<SparkInvoiceRecord> {
           decoded.expiry = data.toString();
           break;
         case 'description':
-          decoded.description = data as string;
+          if (typeof data === 'string') decoded.description = data;
           break;
       }
     }

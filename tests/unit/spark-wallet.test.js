@@ -240,13 +240,12 @@ describe('Spark LNURL helpers', () => {
 
   it('maps every supported SDK success action and rejects unknown tags', () => {
     const { lnurlSuccessActionFromSdk } = require('../../class/wallets/spark-wallet');
-    for (const [tag, expected] of [
-      ['Aes', 'aes'],
-      ['Message', 'message'],
-      ['Url', 'url'],
-    ]) {
-      assert.deepStrictEqual(lnurlSuccessActionFromSdk({ tag, inner: { data: { value: tag } } }), { tag: expected, value: tag });
-    }
+    const aes = { description: 'secret', ciphertext: 'c1pher', iv: 'iv0' };
+    const message = { message: 'thanks' };
+    const url = { description: 'receipt', url: 'https://example.com/receipt', matchesCallbackDomain: true };
+    assert.deepStrictEqual(lnurlSuccessActionFromSdk({ tag: 'Aes', inner: { data: aes } }), { tag: 'aes', ...aes });
+    assert.deepStrictEqual(lnurlSuccessActionFromSdk({ tag: 'Message', inner: { data: message } }), { tag: 'message', ...message });
+    assert.deepStrictEqual(lnurlSuccessActionFromSdk({ tag: 'Url', inner: { data: url } }), { tag: 'url', ...url });
     assert.strictEqual(lnurlSuccessActionFromSdk(undefined), undefined);
     assert.throws(() => lnurlSuccessActionFromSdk({ tag: 'Unknown', inner: { data: {} } }), /Unsupported LNURL success action/);
   });

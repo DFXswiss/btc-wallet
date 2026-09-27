@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { User, UserUrl } from '../definitions/user';
 import { useApi } from './api.hook';
+import { hasStatusCode } from '../../../helpers/errors';
 
 export interface LdsInterface {
   getUser: (address: string, signMessage: (message: string) => Promise<string>) => Promise<User>;
@@ -37,7 +38,7 @@ export function useLds(): LdsInterface {
         r => r.accessToken,
       );
     } catch (e) {
-      if ((e as { statusCode?: number })?.statusCode === 404) return undefined;
+      if (hasStatusCode(e, 404)) return undefined;
       throw e;
     }
     return call<User>({ method: 'GET', url: UserUrl.get, token });

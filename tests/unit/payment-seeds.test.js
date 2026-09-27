@@ -221,6 +221,32 @@ describe('Spark payment seeds', () => {
     assert.match(seed, /^[0-9a-f]{32}$/);
   });
 
+  it('does not bring back a settled seed when a payment starts during the first read after a restart', async () => {
+    const first = await seeds.createSparkPaymentSeed({}, 'spark1dest', 1000, 'op-1');
+    await seeds.keepUnresolvedSparkSeed({ current: first }, 'pid-1');
+    const stored = await AsyncStorage.getItem(STORAGE_KEY);
+
+    load();
+    // A second read, if one is made, answers only after the settlement was saved.
+    let releaseSecondRead;
+    const secondRead = new Promise(resolve => {
+      releaseSecondRead = resolve;
+    });
+    let reads = 0;
+    jest.spyOn(AsyncStorage, 'getItem').mockImplementation(async () => {
+      reads += 1;
+      if (reads > 1) await secondRead;
+      return stored;
+    });
+    const forgetting = seeds.forgetSettledSparkSeeds(['pid-1']);
+    const creating = seeds.createSparkPaymentSeed({}, 'spark1dest', 1000, 'op-1');
+    await forgetting;
+    releaseSecondRead();
+
+    assert.notStrictEqual(await creating, first);
+    assert.strictEqual(reads, 1);
+  });
+
   it('tells whether a seed was never handed to the SDK', async () => {
     const ref = {};
     const seed = await seeds.createSparkPaymentSeed(ref, 'spark1dest', 1000, 'op-1');
