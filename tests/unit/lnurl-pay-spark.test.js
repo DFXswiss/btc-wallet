@@ -237,7 +237,6 @@ async function expectSparkLightningPayment(wallet, { expectedInvoice, expectedAm
     const amountSats = expectedAmountSats ?? mockRouteParams.amountSat ?? Lnurl.prototype.getMin();
     expect(route.mock.calls[0][1]).toBe(amountSats);
   }
-  expect(alert).not.toHaveBeenCalledWith(loc.wallets.lightning_spark_only);
 
   let result;
   try {
@@ -339,7 +338,6 @@ describe('LnurlPay Spark invoice mode', () => {
     });
 
     await waitFor(() => expect(mockSparkSdk.sendPayment).toHaveBeenCalledTimes(1));
-    expect(alert).not.toHaveBeenCalledWith(loc.wallets.lightning_spark_only);
     expect(mockNavigate).toHaveBeenCalledWith('Success', expect.objectContaining({ amount: 250000, fee: 1 }));
   });
 
@@ -1074,7 +1072,6 @@ describe('LnurlPay remaining payment paths', () => {
         params: expect.objectContaining({ fee: 4 }),
       }),
     );
-    expect(alert).not.toHaveBeenCalledWith(loc.wallets.lightning_spark_only);
   });
 
   it('pays a trusted Lightning address through its Spark address instead of requesting an invoice', async () => {
@@ -1169,7 +1166,6 @@ describe('LnurlPay remaining payment paths', () => {
     });
 
     await waitFor(() => expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000, invoiceQuote));
-    expect(alert).not.toHaveBeenCalledWith(loc.wallets.lightning_spark_only);
   });
 
   it('pays a commented LNURL invoice from a Spark wallet', async () => {

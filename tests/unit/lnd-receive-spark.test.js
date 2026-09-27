@@ -695,7 +695,6 @@ describe('LNDReceive with SparkWallet', () => {
       assert.strictEqual(json.wallets.lightning_spark_receive_onchain, undefined);
       assert.strictEqual(json.wallets.lightning_spark_onchain_confirmations, undefined);
       assert.strictEqual(json.wallets.lightning_spark_unclaimed_deposits, undefined);
-      assert.ok(json.wallets.lightning_spark_only);
     }
   });
 

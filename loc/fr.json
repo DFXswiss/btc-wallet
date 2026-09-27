@@ -519,7 +519,6 @@
     "import_success_watchonly": "Votre portefeuille a été importé avec succès. AVERTISSEMENT : Il s'agit d'un portefeuille de montre uniquement, vous ne pouvez PAS dépenser à partir de celui-ci.",
     "main_wallet_label": "Portefeuille On-Chain",
     "lightning_spark_wallet_label": "Lightning",
-    "lightning_spark_only": "Cette opération n'est pas disponible depuis un portefeuille Lightning.",
     "lightning_spark_recovery_explanation": "Uniquement pour utiliser votre portefeuille Lightning dans une autre application. Dans cette application, la phrase de récupération de votre portefeuille Bitcoin suffit.",
     "lightning_spark_recovery_unavailable": "Le portefeuille on-chain associé ou sa phrase de récupération est indisponible. Aucune phrase Lightning n'a été affichée.",
     "lightning_spark_backup_notice_title": "Avez-vous besoin de ces mots ?",

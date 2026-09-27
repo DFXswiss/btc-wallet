@@ -519,7 +519,6 @@
     "coming_soon": "Disponibile a breve",
     "main_wallet_label": "Portafoglio on-chain",
     "lightning_spark_wallet_label": "Lightning",
-    "lightning_spark_only": "Questa operazione non è disponibile da un wallet Lightning.",
     "lightning_spark_recovery_explanation": "Solo per usare il tuo wallet Lightning in un'altra app. In questa app basta la frase di recupero del tuo wallet Bitcoin.",
     "lightning_spark_recovery_unavailable": "Il wallet on-chain collegato o la sua frase di recupero non è disponibile. Non è stata mostrata alcuna frase Lightning.",
     "lightning_spark_backup_notice_title": "Ti servono queste parole?",

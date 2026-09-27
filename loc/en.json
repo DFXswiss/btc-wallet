@@ -382,7 +382,6 @@
   "wallets": {
     "main_wallet_label": "On-Chain Wallet",
     "lightning_spark_wallet_label": "Lightning",
-    "lightning_spark_only": "This operation is not available from a Lightning wallet.",
     "lightning_spark_recovery_explanation": "Only for using your Lightning wallet in a different app. In this app, your Bitcoin wallet's recovery phrase is enough.",
     "lightning_spark_recovery_unavailable": "The linked on-chain wallet or its recovery phrase is unavailable. No Lightning recovery phrase was shown.",
     "lightning_spark_backup_notice_title": "Do you need these words?",

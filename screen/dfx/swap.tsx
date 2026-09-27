@@ -14,6 +14,7 @@ import { Chain } from '../../models/bitcoinUnits';
 import { useSwap } from '../../api/dfx/hooks/swap.hook';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import { SparkWallet } from '../../class/wallets/spark-wallet';
+import { lightningDepositPayParams } from '../../helpers/dfxLightningDeposit';
 import { SwapInfo } from '../../api/dfx/definitions/swap';
 import { Utils } from '../../helpers/utils';
 import { DfxService } from '../../api/dfx/contexts/session.context';
@@ -113,35 +114,7 @@ const Swap = () => {
         psbt,
       });
     } else if (wallet.type === LightningLdsWallet.type || wallet.type === SparkWallet.type) {
-      const depositAddress = swapInfo?.deposit.address;
-      const sparkKind =
-        wallet.type === SparkWallet.type && typeof depositAddress === 'string'
-          ? SparkWallet.sparkDepositKind(depositAddress)
-          : null;
-      if (sparkKind === 'address' && typeof depositAddress === 'string') {
-        navigation.navigate('LnurlPay', {
-          sparkAddress: depositAddress,
-          walletID: wallet.getID(),
-          amountSat: currency.btcToSatoshi(amount),
-          routeId,
-        });
-      } else if (sparkKind === 'invoice' && typeof depositAddress === 'string') {
-        const parsed = SparkWallet.parseSparkPaymentUri(depositAddress);
-        navigation.navigate('LnurlPay', {
-          sparkInvoice: parsed.invoice,
-          walletID: wallet.getID(),
-          amountSat: currency.btcToSatoshi(amount),
-          routeId,
-        });
-      } else if (wallet.type === SparkWallet.type) {
-        Alert.alert(loc.wallets.lightning_spark_wallet_label, loc.wallets.lightning_spark_only);
-      } else {
-        navigation.navigate('LnurlPay', {
-          lnurl: depositAddress,
-          walletID: wallet.getID(),
-          amountSat: currency.btcToSatoshi(amount),
-        });
-      }
+      navigation.navigate('LnurlPay', lightningDepositPayParams(wallet, swapInfo?.deposit.address, currency.btcToSatoshi(amount), routeId));
     } else {
       Alert.alert('Unsupported wallet type');
     }

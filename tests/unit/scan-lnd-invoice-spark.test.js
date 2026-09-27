@@ -204,7 +204,6 @@ async function expectSparkAcceptsLightning(uri) {
   mockLnurl('example.com', 1000);
   const screen = renderScan(wallet, { uri });
   await waitFor(() => screen.getByText(loc.lnd.next));
-  expect(alert).not.toHaveBeenCalledWith(loc.wallets.lightning_spark_only);
   expect(mockNavigate).not.toHaveBeenCalled();
   return { wallet, screen };
 }
@@ -657,7 +656,6 @@ describe('ScanLndInvoice fee mark', () => {
       screen: 'LnurlPay',
       params: expect.objectContaining({ lnurl: 'tea@example.com', amountSat: 1000, walletID: wallet.getID() }),
     });
-    expect(alert).not.toHaveBeenCalledWith(loc.wallets.lightning_spark_only);
   });
 
   it('routes a BOLT11 invoice from Spark to the prepared Lightning payment flow', async () => {
@@ -672,7 +670,6 @@ describe('ScanLndInvoice fee mark', () => {
       screen: 'LnurlPay',
       params: expect.objectContaining({ invoice: SAMPLE_INVOICE, amountSat: 1000, walletID: wallet.getID() }),
     });
-    expect(alert).not.toHaveBeenCalledWith(loc.wallets.lightning_spark_only);
   });
 
   it('pays a bolt11 with the Lightning wallet when Spark is listed first', async () => {
@@ -683,7 +680,6 @@ describe('ScanLndInvoice fee mark', () => {
 
     await waitFor(() => screen.getByText(/Expires in \d+ minutes/));
     expect(lightning.decodeInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE);
-    expect(alert).not.toHaveBeenCalledWith(loc.wallets.lightning_spark_only);
     fireEvent.press(screen.getByText(loc.lnd.next));
     expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', {
       screen: 'LnurlPay',

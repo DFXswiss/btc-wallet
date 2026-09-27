@@ -19,7 +19,7 @@ import { NetworkTransactionFee } from '../../models/networkTransactionFees';
 import BigNumber from 'bignumber.js';
 import { Chain } from '../../models/bitcoinUnits';
 import { Utils } from '../../helpers/utils';
-import { SparkWallet } from '../../class/wallets/spark-wallet';
+import { lightningDepositPayParams } from '../../helpers/dfxLightningDeposit';
 const currency = require('../../blue_modules/currency');
 
 type SellRouteProps = RouteProp<
@@ -116,35 +116,7 @@ const Sell = () => {
         psbt,
       });
     } else {
-      const depositAddress = sell?.deposit.address;
-      const sparkKind =
-        wallet.type === SparkWallet.type && typeof depositAddress === 'string'
-          ? SparkWallet.sparkDepositKind(depositAddress)
-          : null;
-      if (sparkKind === 'address' && typeof depositAddress === 'string') {
-        navigation.navigate('LnurlPay', {
-          sparkAddress: depositAddress,
-          walletID: wallet.getID(),
-          amountSat: currency.btcToSatoshi(amount),
-          routeId,
-        });
-      } else if (sparkKind === 'invoice' && typeof depositAddress === 'string') {
-        const parsed = SparkWallet.parseSparkPaymentUri(depositAddress);
-        navigation.navigate('LnurlPay', {
-          sparkInvoice: parsed.invoice,
-          walletID: wallet.getID(),
-          amountSat: currency.btcToSatoshi(amount),
-          routeId,
-        });
-      } else if (wallet.type === SparkWallet.type) {
-        Alert.alert(loc.wallets.lightning_spark_wallet_label, loc.wallets.lightning_spark_only);
-      } else {
-        navigation.navigate('LnurlPay', {
-          lnurl: depositAddress,
-          walletID: wallet.getID(),
-          amountSat: currency.btcToSatoshi(amount),
-        });
-      }
+      navigation.navigate('LnurlPay', lightningDepositPayParams(wallet, sell?.deposit.address, currency.btcToSatoshi(amount), routeId));
     }
   }
 
