@@ -240,8 +240,9 @@ describe('ScanLndInvoice fee mark', () => {
   });
 
   it('keeps Spark fee quotes for a BOLT11 invoice', async () => {
-    const { wallet } = await expectSparkAcceptsLightning(SAMPLE_INVOICE);
+    const { wallet, screen } = await expectSparkAcceptsLightning(SAMPLE_INVOICE);
     expect(wallet.getPaymentFeeWithoutSending).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000);
+    await waitFor(() => screen.getByText(`4 ${BitcoinUnit.SATS}`));
   });
   it('still shows Free for an LNDHub payment to a listed free domain', async () => {
     mockLnurl('lightning.space', 1000);
@@ -303,6 +304,7 @@ describe('ScanLndInvoice fee mark', () => {
     fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '1000');
 
     await waitFor(() => expect(wallet.getPaymentFeeWithoutSending).toHaveBeenCalledWith(sparkInvoice, 1000));
+    await waitFor(() => screen.getByText(`4 ${BitcoinUnit.SATS}`));
   });
 
   it('uses the LNDHub amount multiplier when paying a non-free LNURL', async () => {
