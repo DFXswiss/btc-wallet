@@ -1,3 +1,4 @@
+import { MultisigHDWallet } from '../../class';
 import { SparkWallet } from '../../class/wallets/spark-wallet';
 
 /**
@@ -6,9 +7,7 @@ import { SparkWallet } from '../../class/wallets/spark-wallet';
  * Spark is signed in openServices once the user taps Buy/Sell/Swap.
  */
 export function dfxConnectAtInit(type: string): boolean {
-  // Literal, not MultisigHDWallet.type: importing that class pulls class/index
-  // and a circular import that breaks the module graph.
-  return type !== 'HDmultisig' && type !== SparkWallet.type;
+  return type !== MultisigHDWallet.type && type !== SparkWallet.type;
 }
 
 function isForbidden(result: PromiseSettledResult<unknown>): boolean {

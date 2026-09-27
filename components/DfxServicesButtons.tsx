@@ -121,8 +121,8 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
     }
 
     const balance = wallet.getBalance();
-    // 3% haircut buffers the Spark fee charged on top of the amount. An exact
-    // value needs the fee quote, which is not available at this entry point.
+    // The 3% haircut leaves room for the Lightning fee charged on top of the amount (LNbits for LNDHub
+    // wallets, the SDK fee for Spark). An exact value needs a fee quote, which is not available here.
     const maxBalance = service === DfxService.SELL || service === DfxService.SWAP ? balance - balance * 0.03 : balance;
     return { maxBalance, sweepableBalance: balance };
   };

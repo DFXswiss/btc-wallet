@@ -16,8 +16,6 @@ import {
 import navigationStyle from '../../components/navigationStyle';
 import AmountInput from '../../components/AmountInput';
 import Lnurl from '../../class/lnurl';
-import { LightningCustodianWallet } from '../../class/wallets/lightning-custodian-wallet';
-import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import { SparkWallet } from '../../class/wallets/spark-wallet';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import loc from '../../loc';
@@ -25,14 +23,10 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import alert from '../../components/Alert';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import { isFreeDomain, isInternalDomain } from '../../helpers/freeLightningDomains';
-import { getLightningWallet } from '../../helpers/lightning-wallet';
+import { getLightningWallet, walletWaivesDomainFees } from '../../helpers/lightning-wallet';
 const currency = require('../../blue_modules/currency');
 
 /** LNDHub (custodian / LDS) waives fees for listed domains. Spark does not. */
-function walletWaivesDomainFees(fromWallet) {
-  return fromWallet.type === LightningCustodianWallet.type || fromWallet.type === LightningLdsWallet.type;
-}
-
 const ScanLndInvoice = () => {
   const { wallets } = useContext(BlueStorageContext);
   const { colors } = useTheme();

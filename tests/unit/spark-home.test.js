@@ -172,6 +172,9 @@ jest.mock('../../api/spark/spark-sdk', () => {
     SparkSessionStaleError,
     acquireSparkSessionLease: () => ({
       identity: 'pk-home-1',
+      assertLive() {
+        this.requireSdk();
+      },
       requireSdk: () => mockRequireSdk(),
     }),
     BREEZ_API_KEY_MISSING: 'BREEZ_API_KEY is not configured...',

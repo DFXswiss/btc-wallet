@@ -7,29 +7,13 @@ import { BlueSpacing20, SafeBlueArea, BlueText, BlueCard } from '../../BlueCompo
 import navigationStyle from '../../components/navigationStyle';
 import Privacy from '../../blue_modules/Privacy';
 import Biometric from '../../class/biometrics';
-import {
-  HDLegacyBreadwalletWallet,
-  HDLegacyP2PKHWallet,
-  HDSegwitBech32Wallet,
-  HDSegwitP2SHWallet,
-  LegacyWallet,
-  MultisigHDWallet,
-  SegwitBech32Wallet,
-  SegwitP2SHWallet,
-} from '../../class';
+import { LegacyWallet, MultisigHDWallet, SegwitBech32Wallet, SegwitP2SHWallet } from '../../class';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import QRCodeComponent from '../../components/QRCodeComponent';
 import Secret from './secret';
 import { SparkWallet } from '../../class/wallets/spark-wallet';
-import { deriveSparkMnemonic } from '../../api/spark/spark-seed';
-
-const BIP39_HD_WALLET_TYPES = new Set([
-  HDSegwitBech32Wallet.type,
-  HDSegwitP2SHWallet.type,
-  HDLegacyP2PKHWallet.type,
-  HDLegacyBreadwalletWallet.type,
-]);
+import { BIP39_HD_WALLET_TYPES, sparkMnemonicFromWallet } from '../../api/spark/spark-seed';
 
 function deriveBoundSparkMnemonic(sparkWallet, wallets) {
   const sourceWalletId = sparkWallet.sourceWalletId;
@@ -43,10 +27,7 @@ function deriveBoundSparkMnemonic(sparkWallet, wallets) {
     }
   });
   if (sources.length !== 1) throw new Error('Spark source wallet is unavailable');
-  const source = sources[0];
-  const onChainMnemonic = source.getSecret();
-  if (typeof onChainMnemonic !== 'string' || !onChainMnemonic.trim()) throw new Error('Spark source wallet is unavailable');
-  return deriveSparkMnemonic(onChainMnemonic, source.getPassphrase?.() || undefined);
+  return sparkMnemonicFromWallet(sources[0]);
 }
 
 const WalletExport = () => {

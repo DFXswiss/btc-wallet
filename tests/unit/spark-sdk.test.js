@@ -685,7 +685,12 @@ describe('spark-sdk', () => {
     breez.connect.mockResolvedValueOnce(mockInstance).mockResolvedValueOnce(instanceB);
     await connectSparkSdk(seedA);
     const lease = acquireSparkSessionLease();
+    lease.assertLive();
     await connectSparkSdk(seedB);
+    assert.throws(
+      () => lease.assertLive(),
+      err => err instanceof SparkSessionStaleError,
+    );
     assert.throws(
       () => lease.requireSdk(),
       err => err instanceof SparkSessionStaleError,

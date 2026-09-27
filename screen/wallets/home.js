@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext, useRef, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useContext, useRef, useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -269,23 +269,26 @@ const WalletHome = ({ navigation }) => {
     });
   };
 
-  const onAddLightningPress = async () => {
+  const onAddLightningPress = useCallback(() => {
     // Adds the seed's existing lightning.space wallet, otherwise the Spark wallet, in place — no provider screen.
     // AddLightning remains in the navigator for Taproot-asset wallets only.
-    if (isAddingLightning) return;
-    setIsAddingLightning(true);
-    try {
-      await addLightningWallet(defaultSparkSourceWallet(wallets));
-    } catch (e) {
-      reportError('home: Lightning account check failed', e);
-      Alert.alert(loc.wallets.lightning_spark_wallet_label, loc.wallets.lightning_account_check_failed, [
-        { text: loc._.cancel, style: 'cancel' },
-        { text: loc._.repeat, onPress: () => onAddLightningPress() },
-      ]);
-    } finally {
-      setIsAddingLightning(false);
+    async function addLightning() {
+      if (isAddingLightning) return;
+      setIsAddingLightning(true);
+      try {
+        await addLightningWallet(defaultSparkSourceWallet(wallets));
+      } catch (e) {
+        reportError('home: Lightning account check failed', e);
+        Alert.alert(loc.wallets.lightning_spark_wallet_label, loc.wallets.lightning_account_check_failed, [
+          { text: loc._.cancel, style: 'cancel' },
+          { text: loc._.repeat, onPress: () => addLightning() },
+        ]);
+      } finally {
+        setIsAddingLightning(false);
+      }
     }
-  };
+    return addLightning();
+  }, [isAddingLightning, addLightningWallet, wallets]);
 
   const displayWallets = useMemo(() => {
     const tmpWallets = [];
@@ -320,7 +323,7 @@ const WalletHome = ({ navigation }) => {
     });
 
     return tmpWallets;
-  }, [wallets, isCreating, isAddingLightning, addLightningWallet, lnWallet]);
+  }, [wallets, isCreating, isAddingLightning, onAddLightningPress, lnWallet]);
 
   return (
     <View style={styles.flex}>

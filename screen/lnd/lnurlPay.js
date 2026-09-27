@@ -21,9 +21,8 @@ import AmountInput from '../../components/AmountInput';
 import Lnurl from '../../class/lnurl';
 import { lnurlPaySuccessDisplay } from './lnurlPaySuccess';
 import { randomBytes } from '../../class/rng';
-import { LightningCustodianWallet } from '../../class/wallets/lightning-custodian-wallet';
-import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import { lnurlSuccessActionFromSdk, SparkPaymentFeeQuoteError, SparkWallet, sparkLnurlPayRequest } from '../../class/wallets/spark-wallet';
+import { walletWaivesDomainFees } from '../../helpers/lightning-wallet';
 import { BitcoinUnit } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 import Biometric from '../../class/biometrics';
@@ -37,10 +36,6 @@ import { reportError } from '../../helpers/errors';
 const currency = require('../../blue_modules/currency');
 
 /** LNDHub (custodian / LDS) waives fees for listed domains. Spark does not. */
-function walletWaivesDomainFees(fromWallet) {
-  return fromWallet.type === LightningCustodianWallet.type || fromWallet.type === LightningLdsWallet.type;
-}
-
 /**
  * if user has default currency - fiat, attempting to pay will trigger conversion from entered in input field fiat value
  * to satoshi, and attempt to pay this satoshi value, which might be a little bit off from `min` & `max` values

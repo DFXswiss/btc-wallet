@@ -14,3 +14,8 @@ export function getLightningWallet<T extends { type: string }>(wallets: T[]): T 
   }
   return undefined;
 }
+
+/** LNDHub wallets pay lightning.space and DFX Lightning addresses without the domain fee. */
+export function walletWaivesDomainFees(wallet: { type: string }): boolean {
+  return wallet.type === 'lightningCustodianWallet' || wallet.type === 'lightningLdsWallet';
+}

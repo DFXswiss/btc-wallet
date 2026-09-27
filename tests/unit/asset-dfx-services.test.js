@@ -178,6 +178,9 @@ jest.mock('../../api/spark/spark-sdk', () => ({
   },
   acquireSparkSessionLease: () => ({
     identity: null,
+    assertLive() {
+      this.requireSdk();
+    },
     requireSdk: () => ({}),
   }),
 }));

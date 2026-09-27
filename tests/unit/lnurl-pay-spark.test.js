@@ -96,6 +96,9 @@ jest.mock('../../api/spark/spark-sdk', () => {
     SparkSessionStaleError,
     acquireSparkSessionLease: () => ({
       identity: 'pk-pay',
+      assertLive() {
+        this.requireSdk();
+      },
       requireSdk: () => mockSparkSdk,
     }),
   };

@@ -5,7 +5,10 @@ import { act, render, waitFor } from '@testing-library/react-native';
 const mockRoute = { params: { walletID: 'spark-export' } };
 const mockGoBack = jest.fn();
 const mockReplace = jest.fn();
-jest.mock('../../api/spark/spark-seed', () => ({ deriveSparkMnemonic: jest.fn(() => 'spark child phrase words here') }));
+jest.mock('../../api/spark/spark-seed', () => ({
+  BIP39_HD_WALLET_TYPES: jest.requireActual('../../api/spark/spark-seed').BIP39_HD_WALLET_TYPES,
+  sparkMnemonicFromWallet: jest.fn(() => 'spark child phrase words here'),
+}));
 jest.mock('../../blue_modules/Privacy', () => ({ enableBlur: jest.fn(), disableBlur: jest.fn() }));
 jest.mock('../../class/biometrics', () => ({
   isBiometricUseCapableAndEnabled: jest.fn().mockResolvedValue(false),
@@ -58,7 +61,7 @@ jest.mock('@react-navigation/native', () => {
 
 const WalletExport = require('../../screen/wallets/export').default;
 const { BlueStorageContext } = require('../../blue_modules/storage-context');
-const { deriveSparkMnemonic } = require('../../api/spark/spark-seed');
+const { sparkMnemonicFromWallet } = require('../../api/spark/spark-seed');
 const Privacy = require('../../blue_modules/Privacy');
 const Biometric = require('../../class/biometrics');
 const originalAppStateDescriptor = Object.getOwnPropertyDescriptor(AppState, 'currentState');
@@ -118,7 +121,7 @@ it('sends a Spark wallet to the backup notice first and reveals nothing', async 
 
   await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('SparkBackupNotice', { walletID: 'spark-export' }));
   expect(Biometric.isBiometricUseCapableAndEnabled).not.toHaveBeenCalled();
-  expect(deriveSparkMnemonic).not.toHaveBeenCalled();
+  expect(sparkMnemonicFromWallet).not.toHaveBeenCalled();
 });
 
 it('reveals the derived Spark phrase from only the exact bound on-chain wallet', async () => {
@@ -129,7 +132,7 @@ it('reveals the derived Spark phrase from only the exact bound on-chain wallet',
   const screen = renderExport([spark, unrelated, bound], saveToDisk);
 
   await waitFor(() => expect(screen.getByText(/1\. spark/)).toBeTruthy());
-  expect(deriveSparkMnemonic).toHaveBeenCalledWith('bound on-chain mnemonic', 'bound passphrase');
+  expect(sparkMnemonicFromWallet).toHaveBeenCalledWith(bound);
   expect(screen.getByTestId('QRCode').props.children).toBe('spark child phrase words here');
   expect(screen.getByText(require('../../loc').default.wallets.lightning_spark_recovery_explanation)).toBeTruthy();
   expect(saveToDisk).not.toHaveBeenCalled();
@@ -145,7 +148,7 @@ it('fails closed when the bound source wallet is missing and never chooses anoth
   await waitFor(() => expect(screen.getByText(require('../../loc').default.wallets.lightning_spark_recovery_unavailable)).toBeTruthy());
   expect(screen.queryByText(/1\. spark/)).toBeNull();
   expect(screen.queryByTestId('QRCode')).toBeNull();
-  expect(deriveSparkMnemonic).not.toHaveBeenCalled();
+  expect(sparkMnemonicFromWallet).not.toHaveBeenCalled();
   expect(spark.setUserHasSavedExport).not.toHaveBeenCalled();
 });
 
@@ -155,7 +158,7 @@ it('fails closed when the Spark source binding is absent', async () => {
   const screen = renderExport([spark, source]);
 
   await waitFor(() => expect(screen.getByText(require('../../loc').default.wallets.lightning_spark_recovery_unavailable)).toBeTruthy());
-  expect(deriveSparkMnemonic).not.toHaveBeenCalled();
+  expect(sparkMnemonicFromWallet).not.toHaveBeenCalled();
   expect(spark.setUserHasSavedExport).not.toHaveBeenCalled();
 });
 
@@ -192,7 +195,7 @@ it('does not reveal and closes when Face ID fails', async () => {
   const screen = renderExport([makeSparkWallet('bound-source'), makeSource('bound-source')]);
 
   await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
-  expect(deriveSparkMnemonic).not.toHaveBeenCalled();
+  expect(sparkMnemonicFromWallet).not.toHaveBeenCalled();
   expect(screen.queryByText(/1\. spark/)).toBeNull();
 });
 

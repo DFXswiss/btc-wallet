@@ -334,9 +334,18 @@ export class SparkWallet extends AbstractWallet {
   }
 
   /** Re-check after an await. Throws the same mismatch error once the held session is gone. */
+  /** Throws the session-mismatch error once the session the lease was taken on has been replaced. */
+  private assertHeld(lease: SparkSessionLease): void {
+    this.onHeldSession(() => lease.assertLive());
+  }
+
   private requireHeld(lease: SparkSessionLease): ReturnType<SparkSessionLease['requireSdk']> {
+    return this.onHeldSession(() => lease.requireSdk());
+  }
+
+  private onHeldSession<T>(check: () => T): T {
     try {
-      return lease.requireSdk();
+      return check();
     } catch (e) {
       if (e instanceof SparkSessionStaleError) {
         throw new Error(loc.wallets.lightning_spark_session_mismatch);
@@ -352,7 +361,7 @@ export class SparkWallet extends AbstractWallet {
     try {
       const lease = acquireSparkSessionLease();
       const info = await lease.requireSdk().getInfo({ ensureSynced: false });
-      this.requireHeld(lease);
+      this.assertHeld(lease);
       if (this.identityPubkey && this.identityPubkey !== info.identityPubkey) {
         throw new Error(loc.wallets.lightning_spark_session_mismatch);
       }
@@ -472,7 +481,7 @@ export class SparkWallet extends AbstractWallet {
         }
       }
 
-      this.requireHeld(lease);
+      this.assertHeld(lease);
       this.transactions_raw = completed;
       this.pending_transactions_raw = pending;
       this._lastTxFetch = +new Date();
@@ -545,7 +554,7 @@ export class SparkWallet extends AbstractWallet {
         }
         remote.push(old);
       }
-      this.requireHeld(lease);
+      this.assertHeld(lease);
       this.user_invoices_raw = remote.sort((a, b) => a.timestamp - b.timestamp);
       return this.user_invoices_raw;
     } catch (e) {
@@ -583,7 +592,7 @@ export class SparkWallet extends AbstractWallet {
       paymentMethod: new ReceivePaymentMethod.SparkAddress(),
     });
 
-    this.requireHeld(lease);
+    this.assertHeld(lease);
     const address = response.paymentRequest;
     if (!address) {
       return '';
@@ -596,14 +605,14 @@ export class SparkWallet extends AbstractWallet {
   async isPrivateModeEnabled(): Promise<boolean> {
     const lease = this.holdMatchingSession();
     const settings = await lease.requireSdk().getUserSettings();
-    this.requireHeld(lease);
+    this.assertHeld(lease);
     return settings.sparkPrivateModeEnabled;
   }
 
   async setPrivateModeEnabled(enabled: boolean): Promise<void> {
     const lease = this.holdMatchingSession();
     await lease.requireSdk().updateUserSettings({ sparkPrivateModeEnabled: enabled, stableBalanceActiveLabel: undefined });
-    this.requireHeld(lease);
+    this.assertHeld(lease);
   }
 
   /**
@@ -612,7 +621,7 @@ export class SparkWallet extends AbstractWallet {
   async signCompactMessage(message: string): Promise<string> {
     const lease = this.holdMatchingSession();
     const response = await lease.requireSdk().signMessage({ message, compact: true });
-    this.requireHeld(lease);
+    this.assertHeld(lease);
     return response.signature;
   }
 
@@ -639,7 +648,7 @@ export class SparkWallet extends AbstractWallet {
       }),
     });
 
-    this.requireHeld(lease);
+    this.assertHeld(lease);
     const paymentRequest = response.paymentRequest;
     const decoded = this.decodeInvoice(paymentRequest);
     const record: SparkInvoiceRecord = {
@@ -662,7 +671,7 @@ export class SparkWallet extends AbstractWallet {
 
   private sessionGone(lease: SparkSessionLease): boolean {
     try {
-      lease.requireSdk();
+      lease.assertLive();
       return false;
     } catch (e) {
       return e instanceof SparkSessionStaleError;
@@ -813,7 +822,7 @@ export class SparkWallet extends AbstractWallet {
       conversionOptions: undefined,
       feePolicy: FeePolicy.FeesIncluded,
     });
-    this.requireHeld(lease);
+    this.assertHeld(lease);
     if (
       prepareResponse.amountSats !== BigInt(totalAmountSats) ||
       prepareResponse.feePolicy !== FeePolicy.FeesIncluded ||
@@ -944,7 +953,7 @@ export class SparkWallet extends AbstractWallet {
       feePolicy: undefined,
     });
 
-    this.requireHeld(lease);
+    this.assertHeld(lease);
     const effectiveAmountSats = this.effectiveAmountSats(prepareResponse.amount);
     if (amountSats > 0 && effectiveAmountSats !== amountSats) throw new SparkPaymentFeeQuoteError();
     if (isSparkInvoice || isSparkAddress) {

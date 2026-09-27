@@ -3,6 +3,7 @@ import * as bip39 from 'bip39';
 import { createHmac } from 'crypto';
 import * as bip39custom from '../../blue_modules/bip39';
 import ecc from '../../blue_modules/noble_ecc';
+import { HDLegacyBreadwalletWallet, HDLegacyP2PKHWallet, HDSegwitBech32Wallet, HDSegwitP2SHWallet } from '../../class';
 
 const bip32 = BIP32Factory(ecc);
 
@@ -24,6 +25,34 @@ export function deriveSparkMnemonic(mnemonic: string, passphrase?: string): stri
     throw new Error('On-chain recovery phrase is not available');
   }
   return sparkMnemonicFromRoot(bip32.fromSeed(bip39.mnemonicToSeedSync(mnemonic, passphrase || undefined)));
+}
+
+/** On-chain wallet types whose recovery phrase is a BIP39 mnemonic a Spark wallet can derive from. */
+export const BIP39_HD_WALLET_TYPES = new Set([
+  HDSegwitBech32Wallet.type,
+  HDSegwitP2SHWallet.type,
+  HDLegacyP2PKHWallet.type,
+  HDLegacyBreadwalletWallet.type,
+]);
+
+export type OnChainMnemonicWallet = {
+  type: string;
+  getSecret: () => string;
+  getPassphrase?: () => string | undefined;
+  getID?: () => string;
+  getLabel?: () => string;
+};
+
+/** The Spark phrase of an on-chain wallet with a BIP39 recovery phrase. */
+export function sparkMnemonicFromWallet(hd: OnChainMnemonicWallet): string {
+  if (!BIP39_HD_WALLET_TYPES.has(hd.type)) {
+    throw new Error('On-chain recovery phrase is not available');
+  }
+  const secret = hd.getSecret();
+  if (!secret) {
+    throw new Error('On-chain recovery phrase is not available');
+  }
+  return deriveSparkMnemonic(secret, hd.getPassphrase?.() || undefined);
 }
 
 // Breez Spark SDK identity key on mainnet: m/8797555'/1'/0' of the Spark phrase (account 0 is testnet/regtest).

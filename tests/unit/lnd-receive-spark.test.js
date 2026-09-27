@@ -147,6 +147,9 @@ jest.mock('../../api/spark/spark-sdk', () => ({
   },
   acquireSparkSessionLease: () => ({
     identity: 'pk-receive-1',
+    assertLive() {
+      this.requireSdk();
+    },
     requireSdk: () => mockSdk,
   }),
 }));

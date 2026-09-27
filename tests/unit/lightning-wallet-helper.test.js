@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { getLightningWallet, LIGHTNING_WALLET_TYPES } from '../../helpers/lightning-wallet';
+import { getLightningWallet, LIGHTNING_WALLET_TYPES, walletWaivesDomainFees } from '../../helpers/lightning-wallet';
 import { LightningCustodianWallet } from '../../class';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import { SparkWallet } from '../../class/wallets/spark-wallet';
@@ -29,5 +29,14 @@ describe('getLightningWallet', () => {
   it('returns undefined without a Lightning wallet', () => {
     assert.strictEqual(getLightningWallet([wallet('HDsegwitBech32')]), undefined);
     assert.strictEqual(getLightningWallet([]), undefined);
+  });
+});
+
+describe('walletWaivesDomainFees', () => {
+  it('waives the domain fee for LNDHub wallets only', () => {
+    assert.strictEqual(walletWaivesDomainFees({ type: LightningCustodianWallet.type }), true);
+    assert.strictEqual(walletWaivesDomainFees({ type: LightningLdsWallet.type }), true);
+    assert.strictEqual(walletWaivesDomainFees({ type: SparkWallet.type }), false);
+    assert.strictEqual(walletWaivesDomainFees({ type: 'taprootLdsWallet' }), false);
   });
 });

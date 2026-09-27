@@ -3,7 +3,6 @@ import { Alert, AppState, AppStateStatus } from 'react-native';
 import createHash from 'create-hash';
 import { SdkEvent_Tags, type SdkEvent } from '@breeztech/breez-sdk-spark-react-native';
 import { BlueStorageContext } from '../../../blue_modules/storage-context';
-import { HDLegacyBreadwalletWallet, HDLegacyP2PKHWallet, HDSegwitBech32Wallet, HDSegwitP2SHWallet } from '../../../class';
 import { SparkWallet } from '../../../class/wallets/spark-wallet';
 import Lnurl from '../../../class/lnurl';
 import loc from '../../../loc';
@@ -16,15 +15,8 @@ import {
   syncSparkWallet,
   type SparkSessionLease,
 } from '../spark-sdk';
-import { deriveSparkMnemonic, sparkIdentityKey } from '../spark-seed';
+import { BIP39_HD_WALLET_TYPES, sparkIdentityKey, sparkMnemonicFromWallet, type OnChainMnemonicWallet } from '../spark-seed';
 import { applyOutgoingSdkEvent, getOutgoingPayment, subscribeOutgoingPayment, type OutgoingPayment } from '../outgoing-payment';
-
-const BIP39_HD_WALLET_TYPES = new Set([
-  HDSegwitBech32Wallet.type,
-  HDSegwitP2SHWallet.type,
-  HDLegacyP2PKHWallet.type,
-  HDLegacyBreadwalletWallet.type,
-]);
 
 const LIGHTNING_ADDRESS_USERNAME_LENGTH = 16;
 const LIGHTNING_ADDRESS_REGISTER_ATTEMPTS = 5;
@@ -51,7 +43,7 @@ async function registerLightningAddressOnce(
     if (!available) continue;
     try {
       const info = await sdk.registerLightningAddress({ username, description });
-      lease.requireSdk();
+      lease.assertLive();
       return info?.lightningAddress;
     } catch (e) {
       if (e instanceof SparkSessionStaleError) {
@@ -103,13 +95,7 @@ function userFacingError(e: unknown): string {
   return loc.formatString(loc.wallets.lightning_spark_generic_error, { kind: errorClass(e) });
 }
 
-export type OnChainMnemonicWallet = {
-  type: string;
-  getSecret: () => string;
-  getPassphrase?: () => string | undefined;
-  getID?: () => string;
-  getLabel?: () => string;
-};
+export type { OnChainMnemonicWallet };
 
 function sourceWalletIdOf(wallet: OnChainMnemonicWallet): string | undefined {
   if (typeof wallet.getID !== 'function') return undefined;
@@ -119,17 +105,6 @@ function sourceWalletIdOf(wallet: OnChainMnemonicWallet): string | undefined {
   } catch {
     return undefined;
   }
-}
-
-function sparkMnemonicFromWallet(hd: OnChainMnemonicWallet): string {
-  if (!BIP39_HD_WALLET_TYPES.has(hd.type)) {
-    throw new Error('On-chain recovery phrase is not available');
-  }
-  const secret = hd.getSecret();
-  if (!secret) {
-    throw new Error('On-chain recovery phrase is not available');
-  }
-  return deriveSparkMnemonic(secret, hd.getPassphrase?.() || undefined);
 }
 
 /** A new Spark wallet always derives from the main wallet; none when the main wallet has no recovery phrase. */
@@ -165,6 +140,7 @@ function getSparkWallet(wallets: { type: string }[]): SparkWallet | undefined {
   return wallets.find(w => w.type === SparkWallet.type) as SparkWallet | undefined;
 }
 
+// A function rather than an inline assignment: the React Compiler lint rejects mutating the wallet inside the provider.
 function writeLightningAddress(wallet: SparkWallet, address: string): void {
   wallet.lnAddress = address;
 }
@@ -201,14 +177,14 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
           return;
         }
         const lnInfo = await lease.requireSdk().getLightningAddress();
-        lease.requireSdk();
+        lease.assertLive();
         if (lnInfo?.lightningAddress) {
           writeLightningAddress(target, lnInfo.lightningAddress);
         } else if (!target.lnAddress && !lnAddressRegisterAttemptedRef.current && target.identityPubkey) {
           lnAddressRegisterAttemptedRef.current = true;
           try {
             const registered = await registerLightningAddressOnce(target.identityPubkey, loc.wallets.lightning_spark_wallet_label, lease);
-            lease.requireSdk();
+            lease.assertLive();
             if (registered) {
               writeLightningAddress(target, registered);
             }
@@ -316,7 +292,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
       // Wallet gone: drop the native session. Do not disconnect in the cleanup
       // of a run that still had a wallet — a re-run must not tear the session down.
       setIsConnected(false);
-      Promise.resolve(disconnectSparkSdk()).catch(() => {});
+      disconnectSparkSdk().catch(() => {});
       return;
     }
 
@@ -357,7 +333,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
   // Teardown once when the provider unmounts (app session end).
   useEffect(() => {
     return () => {
-      Promise.resolve(disconnectSparkSdk()).catch(() => {});
+      disconnectSparkSdk().catch(() => {});
     };
   }, []);
 
@@ -381,9 +357,8 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
 
   const createSparkWallet = useCallback(
     async (source?: OnChainMnemonicWallet): Promise<SparkWallet | null> => {
-      if (getSparkWallet(wallets)) {
-        return getSparkWallet(wallets) as SparkWallet;
-      }
+      const existing = getSparkWallet(walletsRef.current);
+      if (existing) return existing;
       if (isCreatingRef.current) return null;
 
       isCreatingRef.current = true;
@@ -406,7 +381,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
         let lnAddress: string | undefined;
         try {
           const lnInfo = await session.getLightningAddress();
-          lease.requireSdk();
+          lease.assertLive();
           lnAddress = lnInfo?.lightningAddress;
           if (!lnAddress) {
             lnAddress = await registerLightningAddressOnce(info.identityPubkey, loc.wallets.lightning_spark_wallet_label, lease);
@@ -419,7 +394,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
         }
         lnAddressRegisterAttemptedRef.current = true;
 
-        lease.requireSdk();
+        lease.assertLive();
         created = SparkWallet.create(info.identityPubkey, lnAddress);
         // Never write the recovery phrase into the Spark wallet record.
         created.secret = '';
@@ -435,7 +410,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
         if (leftover && typeof deleteWallet === 'function') {
           deleteWallet(leftover);
         }
-        await Promise.resolve(disconnectSparkSdk()).catch(() => {});
+        await disconnectSparkSdk().catch(() => {});
         setIsConnected(false);
         Alert.alert(loc.wallets.lightning_spark_wallet_label, userFacingError(e), [
           { text: loc._.cancel, style: 'cancel' },
@@ -455,7 +430,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
         setIsCreating(false);
       }
     },
-    [wallets, ensureConnected, addAndSaveWallet, refreshSparkWallet, deleteWallet],
+    [ensureConnected, addAndSaveWallet, refreshSparkWallet, deleteWallet],
   );
 
   const recoverSparkWallet = useCallback(
@@ -484,7 +459,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
           sortAscending: undefined,
         });
         const lnInfo = await lease.requireSdk().getLightningAddress();
-        lease.requireSdk();
+        lease.assertLive();
         const wasUsed = Number(info.balanceSats) > 0 || payments.length > 0 || Boolean(lnInfo?.lightningAddress);
         if (!wasUsed) return null;
 
@@ -502,7 +477,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
         return null;
       } finally {
         if (!saved) {
-          await Promise.resolve(disconnectSparkSdk()).catch(() => {});
+          await disconnectSparkSdk().catch(() => {});
           setIsConnected(false);
         }
         isCreatingRef.current = false;

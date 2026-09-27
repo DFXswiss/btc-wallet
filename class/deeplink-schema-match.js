@@ -1,6 +1,7 @@
 import legacyUrl from 'url';
 import { Chain } from '../models/bitcoinUnits';
 import Lnurl from './lnurl';
+import { SparkWallet } from './wallets/spark-wallet';
 const bitcoin = require('bitcoinjs-lib');
 const bip21 = require('bip21');
 
@@ -406,12 +407,10 @@ class DeeplinkSchemaMatch {
   }
 
   static isSparkPaymentUri(text) {
-    const { SparkWallet } = require('./wallets/spark-wallet');
     return SparkWallet.isSparkPaymentUri(text);
   }
 
   static isSparkAddress(address) {
-    const { SparkWallet } = require('./wallets/spark-wallet');
     return SparkWallet.isSparkAddress(address);
   }
 

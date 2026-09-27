@@ -74,7 +74,7 @@ jest.mock('../../components/ImageButton', () => ({
 jest.mock('../../BlueComponents', () => ({
   BlueText: ({ children }) => require('react').createElement(require('react-native').Text, null, children),
 }));
-jest.mock('../../class', () => ({ WatchOnlyWallet: { type: 'watchOnly' } }));
+jest.mock('../../class', () => ({ WatchOnlyWallet: { type: 'watchOnly' }, MultisigHDWallet: { type: 'HDmultisig' } }));
 jest.mock('../../class/wallets/lightning-lds-wallet', () => ({ LightningLdsWallet: { type: 'lightningLdsWallet' } }));
 jest.mock('../../class/wallets/spark-wallet', () => ({ SparkWallet: { type: 'sparkWallet' } }));
 jest.mock('../../class/wallets/abstract-hd-electrum-wallet', () => ({ AbstractHDElectrumWallet: class AbstractHDElectrumWallet {} }));

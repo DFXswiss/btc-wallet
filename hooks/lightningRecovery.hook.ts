@@ -1,11 +1,12 @@
 import { useCallback, useContext } from 'react';
 import { BlueStorageContext } from '../blue_modules/storage-context';
-import { HDLegacyBreadwalletWallet, HDLegacyP2PKHWallet, HDSegwitBech32Wallet, HDSegwitP2SHWallet } from '../class';
+import { HDSegwitBech32Wallet, HDSegwitP2SHWallet } from '../class';
 import { useLds } from '../api/lds/hooks/lds.hook';
 import { User } from '../api/lds/definitions/user';
 import { openLightningLdsWallet } from '../api/lds/lightning-lds-wallet-factory';
 import { useSparkContext } from '../api/spark/contexts/spark.context';
 import { reportError } from '../helpers/errors';
+import { BIP39_HD_WALLET_TYPES } from '../api/spark/spark-seed';
 
 type SigningHdWallet = {
   type: string;
@@ -16,13 +17,6 @@ type SigningHdWallet = {
   _getExternalAddressByIndex: (index: number) => string;
   signMessage: (message: string, address: string) => string;
 };
-
-const BIP39_HD_WALLET_TYPES = new Set([
-  HDSegwitBech32Wallet.type,
-  HDSegwitP2SHWallet.type,
-  HDLegacyP2PKHWallet.type,
-  HDLegacyBreadwalletWallet.type,
-]);
 
 /**
  * Login addresses a lightning.space account of this seed can be keyed to: the imported wallet's own first
@@ -44,6 +38,9 @@ function loginCandidates(wallet: SigningHdWallet): SigningHdWallet[] {
   return candidates;
 }
 
+/** How long an import screen waits for the recovery before it continues; the recovery keeps running afterwards. */
+export const LIGHTNING_RECOVERY_MAX_WAIT_MS = 30000;
+
 /**
  * Discovers the Lightning wallet a seed already has. A lightning.space (LNDHub) account takes precedence:
  * - recoverLightningWallet (after an import) restores it, or else a previously used Spark wallet; any failed
@@ -51,9 +48,6 @@ function loginCandidates(wallet: SigningHdWallet): SigningHdWallet[] {
  * - addLightningWallet (the home add button) restores it, or else creates the Spark wallet, which brings back
  *   a Spark wallet the seed already had. A failed lightning.space check is thrown to the caller.
  */
-/** How long an import screen waits for the recovery before it continues; the recovery keeps running afterwards. */
-export const LIGHTNING_RECOVERY_MAX_WAIT_MS = 30000;
-
 export function useLightningRecovery(): {
   recoverLightningWallet: (wallet: SigningHdWallet) => Promise<void>;
   waitForLightningRecovery: (wallet: SigningHdWallet) => Promise<void>;

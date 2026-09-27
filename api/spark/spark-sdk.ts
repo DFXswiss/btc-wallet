@@ -54,6 +54,8 @@ export class SparkLifecycleHungError extends Error {
 
 export type SparkSessionLease = {
   readonly identity: string | null;
+  /** Throws SparkSessionStaleError once the session this lease was taken on has been replaced. */
+  assertLive(): void;
   requireSdk(): BreezSdkInterface;
 };
 
@@ -160,12 +162,16 @@ export function isSparkSdkConnected(): boolean {
 export function acquireSparkSessionLease(): SparkSessionLease {
   const held = requireSparkSdk();
   const identity = connectedIdentityPubkey;
+  const assertLive = (): void => {
+    if (sdk !== held) {
+      throw new SparkSessionStaleError();
+    }
+  };
   return {
     identity,
+    assertLive,
     requireSdk() {
-      if (sdk !== held) {
-        throw new SparkSessionStaleError();
-      }
+      assertLive();
       return held;
     },
   };
