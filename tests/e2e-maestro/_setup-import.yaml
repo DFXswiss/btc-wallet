@@ -75,7 +75,7 @@ env:
 - extendedWaitUntil:
     visible: '.*On-Chain-Wallet.*'
     timeout: 30000
-# Hinzufuegen in der Zeile Bitcoin / Lightning-Wallet. Ohne Backup-Schirm
+# Hinzufuegen in der Zeile Bitcoin / Lightning. Ohne Backup-Schirm
 # liegt die Schaltflaeche hier, nicht an der Position aus Flow 02.
 - tapOn:
     point: '75%,58%'
@@ -104,4 +104,4 @@ env:
     visible: 'Bitcoin, Lightning, .*sats, .*'
     timeout: 90000
 - assertVisible: 'Bitcoin, Lightning, .*sats, .*'
-- assertNotVisible: '.*Lightning-Wallet.*Hinzufügen.*'
+- assertNotVisible: 'Bitcoin, Lightning, , Hinzufügen'

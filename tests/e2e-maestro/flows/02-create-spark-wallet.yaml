@@ -11,4 +11,4 @@ appId: swiss.dfx.bitcoin
     visible: 'Bitcoin, Lightning, 0 sats, .*'
     timeout: 90000
 - assertVisible: 'Bitcoin, Lightning, 0 sats, .*'
-- assertNotVisible: '.*Lightning-Wallet.*Hinzufügen.*'
+- assertNotVisible: 'Bitcoin, Lightning, , Hinzufügen'

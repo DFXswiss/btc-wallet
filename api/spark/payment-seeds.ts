@@ -55,14 +55,16 @@ async function loadSparkSeeds(): Promise<void> {
   return sparkSeedsLoaded;
 }
 
-function writeSparkSeeds(): Promise<void> {
+/** The stored-state flag changes only after the write succeeded, so a failed removal is retried by the next write. */
+async function writeSparkSeeds(): Promise<void> {
   if (unresolvedSparkSeeds.size === 0) {
-    if (!sparkSeedsPersisted) return Promise.resolve();
+    if (!sparkSeedsPersisted) return;
+    await AsyncStorage.removeItem(SPARK_SEED_STORAGE_KEY);
     sparkSeedsPersisted = false;
-    return AsyncStorage.removeItem(SPARK_SEED_STORAGE_KEY);
+    return;
   }
+  await AsyncStorage.setItem(SPARK_SEED_STORAGE_KEY, sparkSeedStoragePayload());
   sparkSeedsPersisted = true;
-  return AsyncStorage.setItem(SPARK_SEED_STORAGE_KEY, sparkSeedStoragePayload());
 }
 
 /** Writes run one at a time, each with the state current when it runs, so a late write cannot undo a newer one. */

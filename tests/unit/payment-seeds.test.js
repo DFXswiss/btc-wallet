@@ -164,6 +164,17 @@ describe('Spark payment seeds', () => {
     assert.ok((await AsyncStorage.getItem(STORAGE_KEY)).includes(secondSeed));
   });
 
+  it('retries removing the stored seeds after a failed removal, so a settled seed does not come back', async () => {
+    const ref = {};
+    await seeds.createSparkPaymentSeed(ref, 'spark1dest', 1000, 'op-1');
+    jest.spyOn(AsyncStorage, 'removeItem').mockRejectedValueOnce(new Error('storage busy'));
+
+    await assert.rejects(seeds.forgetSparkPaymentSeed(ref), /storage busy/);
+    await seeds.forgetSparkPaymentSeed({});
+
+    assert.strictEqual(await AsyncStorage.getItem(STORAGE_KEY), null);
+  });
+
   it('tells whether a seed was never handed to the SDK', async () => {
     const ref = {};
     const seed = await seeds.createSparkPaymentSeed(ref, 'spark1dest', 1000, 'op-1');
