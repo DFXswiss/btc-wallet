@@ -1586,6 +1586,40 @@ describe('SparkWallet', () => {
     });
   });
 
+  it('payInvoice returns completed when its payment settled before a send error, while a different payment is on screen', async () => {
+    mockSessionIdentity = 'id-pk';
+    const wallet = SparkWallet.create('id-pk');
+    const paymentHash = wallet.decodeInvoice(SAMPLE_INVOICE).payment_hash;
+    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
+    mockSdk.sendPayment.mockImplementation(async () => {
+      applyOutgoingSdkEvent({
+        tag: SdkEvent_Tags.PaymentSucceeded,
+        inner: {
+          payment: {
+            ...completedSend('pay-settled-before-error'),
+            details: {
+              tag: PaymentDetails_Tags.Lightning,
+              inner: {
+                description: '',
+                invoice: SAMPLE_INVOICE,
+                destinationPubkey: 'x',
+                htlcDetails: { paymentHash, preimage: 'pre-settled-before-error' },
+              },
+            },
+          },
+        },
+      });
+      beginOutgoingPayment({ paymentHash: 'other-payment', paymentId: 'other-id' });
+      throw new Error('connection reset');
+    });
+
+    const result = await payInvoiceWithExplicitQuote(wallet, SAMPLE_INVOICE, 0);
+
+    assert.strictEqual(result.status, SparkPayInvoiceStatus.Completed);
+    assert.strictEqual(result.paymentId, 'pay-settled-before-error');
+    assert.strictEqual(getOutgoingPayment().paymentHash, 'other-payment');
+  });
+
   it('payInvoice returns completed without replacing a different payment that starts before sendPayment returns', async () => {
     mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
     mockSdk.sendPayment.mockImplementation(async () => {

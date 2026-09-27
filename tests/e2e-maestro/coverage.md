@@ -223,10 +223,10 @@ proof.
   and the address `.*@.*` this is the third documented case of the same error
   class in this suite.
 - A `DFX_ENV=prd` build is not a valid counter-run against the same local API:
-  even the on-chain login fails. outside `prd` the app and the API do not verify the same message
-  cryptographically. Since `session.context.tsx` only sets `isAvailable` once
-  every wallet has received a token, the whole `Externe Services` block is
-  missing in this mixed operation.
+  even the on-chain login fails. Outside `prd` the app and the API do not verify the same message
+  cryptographically. With no wallet signed in at app start, `isAvailable` stays
+  false and the `Externe Services` block is missing for the on-chain wallet in
+  this mixed operation.
 - The earlier suspicion that the local database lacked the required assets is
   refuted: both the Lightning and the on-chain Bitcoin asset are present and
   tradable.

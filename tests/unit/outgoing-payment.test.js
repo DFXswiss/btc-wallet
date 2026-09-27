@@ -4,6 +4,7 @@ import { PaymentDetails_Tags, PaymentStatus, PaymentType, SdkEvent_Tags } from '
 let applyOutgoingSdkEvent;
 let attachOutgoingPaymentId;
 let beginOutgoingPayment;
+let findOutgoingPayment;
 let getOutgoingPayment;
 let settleOutgoingPayment;
 let subscribeOutgoingPayment;
@@ -36,6 +37,7 @@ beforeEach(() => {
     applyOutgoingSdkEvent,
     attachOutgoingPaymentId,
     beginOutgoingPayment,
+    findOutgoingPayment,
     getOutgoingPayment,
     settleOutgoingPayment,
     subscribeOutgoingPayment,
@@ -43,6 +45,19 @@ beforeEach(() => {
 });
 
 describe('outgoing payment tracker', () => {
+  it('finds a settled payment by its hash after another payment took the screen, and nothing for an unknown one', () => {
+    beginOutgoingPayment({ paymentHash: 'hash-a' });
+    applyOutgoingSdkEvent({
+      tag: SdkEvent_Tags.PaymentSucceeded,
+      inner: { payment: sendPayment('pay-a', PaymentStatus.Completed, { paymentHash: 'hash-a' }) },
+    });
+    beginOutgoingPayment({ paymentHash: 'hash-b' });
+
+    assert.strictEqual(getOutgoingPayment().paymentHash, 'hash-b');
+    assert.strictEqual(findOutgoingPayment({ paymentHash: 'hash-a' }).status, 'completed');
+    assert.strictEqual(findOutgoingPayment({ paymentHash: 'hash-unknown' }), null);
+  });
+
   it('stays pending until a matching PaymentSucceeded event completes it', () => {
     const started = beginOutgoingPayment({ paymentHash: 'h1', paymentId: 'p1' });
     assert.strictEqual(started.status, 'pending');

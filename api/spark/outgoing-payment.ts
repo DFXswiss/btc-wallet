@@ -152,6 +152,12 @@ export function getOutgoingPayment(): OutgoingPayment | null {
   return current;
 }
 
+/** The latest attempt of this payment, also when another payment is the one on screen. */
+export function findOutgoingPayment(identity: OutgoingPaymentIdentity): OutgoingPayment | null {
+  const index = trackedIndex(identity);
+  return index >= 0 ? tracked[index] : null;
+}
+
 export function subscribeOutgoingPayment(listener: Listener): () => void {
   listeners.add(listener);
   return () => {

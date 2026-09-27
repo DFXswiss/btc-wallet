@@ -65,7 +65,7 @@ jobs:
           cleanup() {
             for f in "${KS:-}" "${BREEZ_ENVFILE:-}"; do
               [ -n "$f" ] && [ -f "$f" ] || continue
-              if command -v shred &>/dev/null; then shred -u "$f"; else rm -Pf "$f"; fi
+              if command -v shred &>/dev/null; then shred -u "$f"; else rm -f "$f"; fi
             done
           }
           trap cleanup EXIT INT TERM

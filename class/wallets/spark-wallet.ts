@@ -20,7 +20,13 @@ import {
 } from '@breeztech/breez-sdk-spark-react-native';
 import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import { acquireSparkSessionLease, isSparkSdkConnected, SparkSessionStaleError, type SparkSessionLease } from '../../api/spark/spark-sdk';
-import { attachOutgoingPaymentId, beginOutgoingPayment, getOutgoingPayment, settleOutgoingPayment } from '../../api/spark/outgoing-payment';
+import {
+  attachOutgoingPaymentId,
+  beginOutgoingPayment,
+  findOutgoingPayment,
+  getOutgoingPayment,
+  settleOutgoingPayment,
+} from '../../api/spark/outgoing-payment';
 import loc from '../../loc';
 import { AbstractWallet } from './abstract-wallet';
 
@@ -833,15 +839,16 @@ export class SparkWallet extends AbstractWallet {
     try {
       payment = (await send()).payment;
     } catch (e) {
-      const tracked = getOutgoingPayment();
-      if (tracked?.paymentHash === paymentHash) {
-        if (tracked.status === 'completed') {
-          this.recordPaidInvoice(undefined, tracked.preimage);
-          return { ...extra, status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: tracked.paymentId, fee };
-        }
-        if (tracked.status === 'failed') {
-          throw new Error(loc.wallets.lightning_spark_payment_failed);
-        }
+      // Another payment can be on screen by now, so this one is looked up by its hash.
+      const tracked = findOutgoingPayment({ paymentHash });
+      if (tracked?.status === 'completed') {
+        this.recordPaidInvoice(undefined, tracked.preimage);
+        return { ...extra, status: SparkPayInvoiceStatus.Completed, paymentHash, paymentId: tracked.paymentId, fee };
+      }
+      if (tracked?.status === 'failed') {
+        throw new Error(loc.wallets.lightning_spark_payment_failed);
+      }
+      if (getOutgoingPayment()?.paymentHash === paymentHash) {
         // Undetermined send error: keep the tracker so a later SDK event can settle it.
         return { ...extra, status: SparkPayInvoiceStatus.Pending, paymentHash, fee };
       }
