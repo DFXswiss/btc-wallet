@@ -1,17 +1,34 @@
-# script thats used to build & sign release APK in preparation for Detox e2e testing.
-# should be copied in .detoxrc.json - apps - android.release - build
+#!/usr/bin/env bash
+# Builds the release APK plus the Detox test APK for the Android emulator, both signed with a throwaway key.
+# BREEZ_API_KEY (optional) is baked in through a temporary env file; without it Spark cannot start.
+# E2E_ANDROID_ARCHS overrides the ABI (x86_64 on CI, arm64-v8a on Apple silicon).
+set -euo pipefail
 
-# deleting old artifacts
-find android | grep '\.apk' --color=never | xargs -l rm
+ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}
+if [[ -z "$ANDROID_SDK_ROOT" ]]; then
+  echo "ANDROID_HOME or ANDROID_SDK_ROOT must be set" >&2
+  exit 1
+fi
 
-# creating fresh keystore
-rm detox.keystore
-keytool -genkeypair -v -keystore detox.keystore -alias detox  -keyalg RSA -keysize 2048 -validity 10000 -storepass 123456 -keypass 123456 -dname  'cn=Unknown, ou=Unknown, o=Unknown, c=Unknown'
+find android -name '*.apk' -print0 | xargs -0 rm -f
 
-# building release APK
-cd android && ./gradlew assembleRelease assembleAndroidTest -DtestBuildType=release && cd ..
+KEYSTORE="$PWD/detox.keystore"
+ENVFILE_PATH="$(mktemp "${TMPDIR:-/tmp}/detox-env.XXXXXX")"
+trap 'rm -f "$ENVFILE_PATH" "$KEYSTORE"' EXIT
+cp .env.dev "$ENVFILE_PATH"
+if [[ -n "${BREEZ_API_KEY:-}" ]]; then
+  printf '\nBREEZ_API_KEY=%s\n' "$BREEZ_API_KEY" >> "$ENVFILE_PATH"
+fi
 
-# signing
-mv ./android/app/build/outputs/apk/release/app-release-unsigned.apk ./android/app/build/outputs/apk/release/app-release.apk
-$ANDROID_HOME/build-tools/30.0.2/apksigner sign --ks detox.keystore   --ks-pass=pass:123456 ./android/app/build/outputs/apk/release/app-release.apk
-$ANDROID_HOME/build-tools/30.0.2/apksigner sign --ks detox.keystore   --ks-pass=pass:123456 ./android/app/build/outputs/apk/androidTest/release/app-release-androidTest.apk
+rm -f "$KEYSTORE"
+keytool -genkeypair -keystore "$KEYSTORE" -alias detox -keyalg RSA -keysize 2048 -validity 10000 \
+  -storepass 123456 -keypass 123456 -dname 'cn=Unknown, ou=Unknown, o=Unknown, c=Unknown' >/dev/null
+
+(cd android && ENVFILE="$ENVFILE_PATH" SENTRY_DISABLE_AUTO_UPLOAD=true ./gradlew assembleRelease assembleReleaseAndroidTest \
+  -DtestBuildType=release "-PreactNativeArchitectures=${E2E_ANDROID_ARCHS:-x86_64}" \
+  "-PMYAPP_UPLOAD_STORE_FILE=$KEYSTORE" -PMYAPP_UPLOAD_STORE_PASSWORD=123456 \
+  -PMYAPP_UPLOAD_KEY_ALIAS=detox -PMYAPP_UPLOAD_KEY_PASSWORD=123456)
+
+# The test APK is signed with the debug key; Android only instruments it when both APKs share a signer.
+APKSIGNER="$(ls -d "$ANDROID_SDK_ROOT"/build-tools/*/apksigner | sort -V | tail -1)"
+"$APKSIGNER" sign --ks "$KEYSTORE" --ks-pass=pass:123456 android/app/build/outputs/apk/androidTest/release/app-release-androidTest.apk

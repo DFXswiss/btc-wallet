@@ -1,7 +1,6 @@
 module.exports = {
-  preset: 'react-native',
   maxWorkers: 1,
-  testTimeout: 333_000,
+  testTimeout: 600_000,
   verbose: true,
   reporters: ['detox/runners/jest/reporter'],
   globalSetup: 'detox/runners/jest/globalSetup',

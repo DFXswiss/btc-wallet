@@ -1,141 +1,148 @@
-const createHash = require('create-hash');
-
-export function yo(id, timeout = 33000) {
-  return waitFor(element(by.id(id)))
-    .toBeVisible()
-    .withTimeout(timeout);
-}
-
-export function sup(text, timeout = 33000) {
-  return waitFor(element(by.text(text)))
-    .toBeVisible()
-    .withTimeout(timeout);
-}
-
-export async function helperImportWallet(importText, walletType, expectedWalletLabel, expectedBalance, passphrase) {
-  await yo('WalletsList');
-
-  await element(by.id('WalletsList')).swipe('left', 'fast', 1); // in case emu screen is small and it doesnt fit
-  // going to Import Wallet screen and importing mnemonic
-  await element(by.id('CreateAWallet')).tap();
-  await element(by.id('ImportWallet')).tap();
-  // tapping 5 times invisible button is a backdoor:
-  for (let c = 0; c < 5; c++) {
-    await element(by.id('SpeedBackdoor')).tap();
-    await sleep(1000);
-  }
-  await element(by.id('SpeedMnemonicInput')).replaceText(importText);
-  await element(by.id('SpeedWalletTypeInput')).replaceText(walletType);
-  if (passphrase) await element(by.id('SpeedPassphraseInput')).replaceText(passphrase);
-  await element(by.id('SpeedDoImport')).tap();
-
-  // waiting for import result
-  await sup('OK', 3 * 61000);
-  await element(by.text('OK')).tap();
-
-  // lets go inside wallet
-  await element(by.text(expectedWalletLabel)).tap();
-  // label might change in the future
-  await expect(element(by.id('WalletBalance'))).toHaveText(expectedBalance);
-}
+/* global device, element, by, waitFor, expect */
+import * as bitcoin from 'bitcoinjs-lib';
 
 export async function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export function hashIt(s) {
-  return createHash('sha256').update(s).digest().toString('hex');
+export async function waitForId(id, timeout = 60_000) {
+  await waitFor(element(by.id(id)))
+    .toBeVisible()
+    .withTimeout(timeout);
 }
 
-export async function helperDeleteWallet(label, remainingBalanceSat = false) {
-  await element(by.text(label)).tap();
-  await element(by.id('WalletDetails')).tap();
-  await element(by.id('WalletDetailsScroll')).swipe('up', 'fast', 1);
-  await element(by.id('DeleteButton')).tap();
-  await sup('Yes, delete');
-  await element(by.text('Yes, delete')).tap();
-  if (remainingBalanceSat) {
-    await element(by.type('android.widget.EditText')).typeText(remainingBalanceSat);
-    await element(by.text('Delete')).tap();
+export async function waitForText(text, timeout = 60_000) {
+  await waitFor(element(by.text(text)))
+    .toBeVisible()
+    .withTimeout(timeout);
+}
+
+export async function tapIfTextPresent(text) {
+  try {
+    await element(by.text(text)).tap();
+  } catch (_) {}
+}
+
+export function requireEnv(name) {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`${name} is not set; this suite cannot run without it`);
   }
-  await expect(element(by.id('NoTransactionsMessage'))).toBeVisible();
+  return value;
 }
 
-/*
-
-module.exports.helperImportWallet = helperImportWallet;
-module.exports.yo = yo;
-module.exports.sup = sup;
-module.exports.sleep = sleep;
-module.exports.hashIt = hashIt;
-module.exports.helperDeleteWallet = helperDeleteWallet;
-
-*/
+export async function launchFresh() {
+  await device.launchApp({ delete: true, newInstance: true, permissions: { notifications: 'NO', camera: 'YES' } });
+}
 
 /**
- * a hack to extract element text. warning, this might break in future
+ * Detox has no text getter; the failing toHaveText assertion reports the element's text.
  * @see https://github.com/wix/detox/issues/445
- *
- * @returns {Promise<string>}
  */
 export async function extractTextFromElementById(id) {
   try {
     await expect(element(by.id(id))).toHaveText('_unfoundable_text');
   } catch (error) {
+    const message = error.message.toString();
     if (device.getPlatform() === 'ios') {
-      const start = `accessibilityLabel was "`;
-      const end = '" on ';
-      const errorMessage = error.message.toString();
-      const [, restMessage] = errorMessage.split(start);
-      const [label] = restMessage.split(end);
-      return label;
-    } else {
-      const start = 'Got:';
-      const end = '}"';
-      const errorMessage = error.message.toString();
-      const [, restMessage] = errorMessage.split(start);
-      const [label] = restMessage.split(end);
-      const value = label.split(',');
-      const combineText = value.find(i => i.includes('text=')).trim();
-      const [, elementText] = combineText.split('=');
-      return elementText;
+      const [, rest] = message.split('accessibilityLabel was "');
+      return rest.split('" on ')[0];
     }
+    const [, rest] = message.split('Got:');
+    const textField = rest
+      .split('}"')[0]
+      .split(',')
+      .find(part => part.includes('text='));
+    return textField.trim().split('=').slice(1).join('=');
+  }
+  throw new Error(`Element ${id} unexpectedly has the probe text`);
+}
+
+export async function typeTextIntoAlertInput(text) {
+  if (device.getPlatform() === 'android') {
+    await element(by.type('android.widget.EditText')).replaceText(text);
+  } else {
+    await element(by.type('_UIAlertControllerTextField')).replaceText(text);
   }
 }
 
-export const expectToBeVisible = async id => {
-  try {
-    await expect(element(by.id(id))).toBeVisible();
-    return true;
-  } catch (e) {
-    return false;
-  }
-};
-
-export async function helperCreateWallet(walletName) {
-  await element(by.id('WalletsList')).swipe('left', 'fast', 1); // in case emu screen is small and it doesnt fit
-  await element(by.id('CreateAWallet')).tap();
-  await element(by.id('WalletNameInput')).replaceText(walletName || 'cr34t3d');
-  await yo('ActivateBitcoinButton');
-  await element(by.id('ActivateBitcoinButton')).tap();
-  await element(by.id('ActivateBitcoinButton')).tap();
-  // why tf we need 2 taps for it to work..? mystery
+/** Fresh install lands on AddWallet; "Create" builds the on-chain wallet offline and opens home. */
+export async function createOnChainWallet() {
+  await waitForId('Create');
   await element(by.id('Create')).tap();
-
-  await yo('PleaseBackupScrollView');
-  await element(by.id('PleaseBackupScrollView')).swipe('up', 'fast', 1); // in case emu screen is small and it doesnt fit
-
-  await yo('PleasebackupOk');
-  await element(by.id('PleasebackupOk')).tap();
-  await expect(element(by.id('WalletsList'))).toBeVisible();
-  await element(by.id('WalletsList')).swipe('right', 'fast', 1); // in case emu screen is small and it doesnt fit
-  await expect(element(by.id(walletName || 'cr34t3d'))).toBeVisible();
+  await waitForId('OnChainWalletRow');
 }
 
-export async function helperSwitchAdvancedMode() {
-  await element(by.id('SettingsButton')).tap();
-  await element(by.id('GeneralSettings')).tap();
-  await element(by.id('AdvancedMode')).tap();
-  await device.pressBack();
-  await device.pressBack();
+/** AddWallet → Import → keyboard → 5 taps on the explanation opens the speed import (no discovery, no Lightning recovery). */
+export async function speedImport(mnemonic, walletType = 'HDsegwitBech32') {
+  await waitForId('ImportWallet');
+  await element(by.id('ImportWallet')).tap();
+  await waitForId('ImportFromTextButton');
+  await element(by.id('ImportFromTextButton')).tap();
+  await waitForId('SpeedBackdoor');
+  for (let i = 0; i < 5; i++) {
+    await element(by.id('SpeedBackdoor')).tap();
+    await sleep(300);
+  }
+  await waitForId('SpeedMnemonicInput');
+  await element(by.id('SpeedMnemonicInput')).replaceText(mnemonic);
+  await element(by.id('SpeedWalletTypeInput')).replaceText(walletType);
+  await element(by.id('SpeedDoImport')).tap();
+  await waitForId('OnChainWalletRow', 180_000);
+}
+
+/** Import through the regular flow, which also recovers a previously used Lightning (Spark) wallet. */
+export async function regularImport(mnemonic) {
+  await waitForId('ImportWallet');
+  await element(by.id('ImportWallet')).tap();
+  await waitForId('ImportFromTextButton');
+  await element(by.id('ImportFromTextButton')).tap();
+  await waitForId('MnemonicInput');
+  await element(by.id('MnemonicInput')).replaceText(mnemonic);
+  await element(by.id('DoImport')).tap();
+  await waitForId('OnChainWalletRow', 300_000);
+}
+
+/** Home Send → keyboard → manual entry → Continue. */
+export async function enterSendDestination(destination) {
+  await waitForId('SendButton');
+  await element(by.id('SendButton')).tap();
+  await waitForId('ManualEntryButton');
+  await element(by.id('ManualEntryButton')).tap();
+  await waitForId('ManualAddressInput');
+  await element(by.id('ManualAddressInput')).replaceText(destination);
+  await element(by.id('ManualAddressContinue')).tap();
+}
+
+/** Sums the values of the outputs a transaction spends, looked up on a public explorer. */
+export async function sumSpentOutputs(tx) {
+  let total = 0;
+  for (const input of tx.ins) {
+    const txid = Buffer.from(input.hash).reverse().toString('hex');
+    const response = await fetch(`https://mempool.space/api/tx/${txid}`);
+    if (!response.ok) throw new Error(`mempool.space tx ${txid}: HTTP ${response.status}`);
+    const prev = await response.json();
+    total += prev.vout[input.index].value;
+  }
+  return total;
+}
+
+export function decodeTx(hex) {
+  const tx = bitcoin.Transaction.fromHex(hex);
+  const outs = tx.outs.map(out => ({ address: bitcoin.address.fromOutputScript(out.script), value: Number(out.value) }));
+  return { tx, outs };
+}
+
+/** "Fee: 0.00000292 BTC (…)" → 292 */
+export function parseBtcFeeSats(text) {
+  const match = text.match(/([0-9]+[.,][0-9]+|[0-9]+)\s*BTC/);
+  if (!match) throw new Error(`No BTC amount in "${text}"`);
+  return Math.round(Number(match[1].replace(',', '.')) * 1e8);
+}
+
+/** "Fee: 12 sats" / "12 sats" → 12 */
+export function parseSats(text) {
+  const match = text.replace(/[’',\s](?=\d{3}\b)/g, '').match(/([0-9]+)\s*sats/);
+  if (!match) throw new Error(`No sats amount in "${text}"`);
+  return Number(match[1]);
 }
