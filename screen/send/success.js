@@ -41,7 +41,7 @@ const Success = () => {
         onDonePressed={onDonePressed}
       />
       <View style={styles.buttonContainer}>
-        <BlueButton onPress={onDonePressed} title={loc.send.success_done} />
+        <BlueButton testID="SendSuccessDone" onPress={onDonePressed} title={loc.send.success_done} />
       </View>
     </SafeAreaView>
   );

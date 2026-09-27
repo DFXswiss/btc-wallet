@@ -97,6 +97,50 @@ export async function regularImport(mnemonic) {
   await waitForId('OnChainWalletRow', 300_000);
 }
 
+/** Home → on-chain wallet → Receive; returns the shown address and leaves the receive screen open. */
+export async function readOnChainReceiveAddress() {
+  await waitForId('OnChainWalletRow');
+  await element(by.id('OnChainWalletRow')).tap();
+  await waitForId('ReceiveButton');
+  await element(by.id('ReceiveButton')).tap();
+  await waitForId('AddressValue');
+  return extractTextFromElementById('AddressValue');
+}
+
+/** Waits for text inside a native dialog, which waitFor() cannot see. */
+export async function waitForDialogText(text, timeout = 60_000) {
+  const deadline = Date.now() + timeout;
+  for (;;) {
+    try {
+      await expect(element(by.text(text))).toBeVisible();
+      return;
+    } catch (error) {
+      if (Date.now() > deadline) throw error;
+      await sleep(1000);
+    }
+  }
+}
+
+/**
+ * Answers the native password prompt (react-native-prompt-android). waitFor() does not see the dialog window,
+ * so the input action itself is retried until the dialog is up.
+ */
+export async function answerPasswordPrompt(password, timeout = 60_000) {
+  // An input attempt while the dialog is still opening loses the dialog; give it time to settle first.
+  await sleep(2000);
+  const deadline = Date.now() + timeout;
+  for (;;) {
+    try {
+      await typeTextIntoAlertInput(password);
+      break;
+    } catch (error) {
+      if (Date.now() > deadline) throw error;
+      await sleep(1000);
+    }
+  }
+  await element(by.text('OK')).tap();
+}
+
 /** Home Send → keyboard → manual entry → Continue. */
 export async function enterSendDestination(destination) {
   await waitForId('SendButton');
@@ -139,4 +183,25 @@ export function parseSats(text) {
   const match = text.replace(/[’',\s](?=\d{3}\b)/g, '').match(/([0-9]+)\s*sats/);
   if (!match) throw new Error(`No sats amount in "${text}"`);
   return Number(match[1]);
+}
+
+/** Requests a fresh BOLT11 invoice for `sats` from a Lightning address (LNURL-pay). */
+export async function invoiceFromLightningAddress(lightningAddress, sats) {
+  const [user, domain] = lightningAddress.split('@');
+  const meta = await (await fetch(`https://${domain}/.well-known/lnurlp/${user}`)).json();
+  if (meta.status === 'ERROR') throw new Error(`LNURL-pay metadata: ${meta.reason}`);
+  const separator = meta.callback.includes('?') ? '&' : '?';
+  const response = await (await fetch(`${meta.callback}${separator}amount=${sats * 1000}`)).json();
+  if (!response.pr) throw new Error(`LNURL-pay callback returned no invoice: ${JSON.stringify(response)}`);
+  return response.pr;
+}
+
+/** Waits for the Spark fee quote on the Lightning confirmation screen. */
+export async function readQuotedFee() {
+  for (let i = 0; i < 60; i++) {
+    const text = await extractTextFromElementById('LnurlPayFee');
+    if (/\d+\s*sats/.test(text)) return parseSats(text);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+  throw new Error('no Spark fee quote arrived');
 }

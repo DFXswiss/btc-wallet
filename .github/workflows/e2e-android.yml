@@ -4,7 +4,8 @@ name: Tests e2e Android
 # Secrets: BREEZ_API_KEY (Spark), HD_MNEMONIC_BIP84 (funded on-chain wallet),
 # SPARK_E2E_MNEMONIC (on-chain phrase whose Spark wallet holds a few hundred sats).
 # Variable: E2E_LIGHTNING_ADDRESS (Lightning address the send tests request invoices from).
-# Suites whose inputs are missing fail instead of skipping. Nothing is broadcast or paid.
+# Suites whose inputs are missing fail instead of skipping. Nothing is broadcast; spark-pay.spec.js pays
+# 10 sats plus fee to E2E_LIGHTNING_ADDRESS on every run.
 # Failure artifacts are uploaded only for the suites that never type a funded recovery phrase.
 on: [pull_request]
 

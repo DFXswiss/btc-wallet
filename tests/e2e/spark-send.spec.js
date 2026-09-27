@@ -2,30 +2,19 @@
 import assert from 'assert';
 import bolt11 from 'bolt11';
 
-import { enterSendDestination, extractTextFromElementById, launchFresh, parseSats, regularImport, requireEnv, waitForId } from './helperz';
+import {
+  enterSendDestination,
+  invoiceFromLightningAddress,
+  launchFresh,
+  readQuotedFee,
+  regularImport,
+  requireEnv,
+  waitForId,
+} from './helperz';
 
 // Needs a build with BREEZ_API_KEY, an on-chain phrase whose Spark wallet holds a few hundred sats,
 // and a Lightning address to request invoices from. Payments are quoted but never sent.
 const AMOUNT_SATS = 100;
-
-async function invoiceFromLightningAddress(lightningAddress, sats) {
-  const [user, domain] = lightningAddress.split('@');
-  const meta = await (await fetch(`https://${domain}/.well-known/lnurlp/${user}`)).json();
-  if (meta.status === 'ERROR') throw new Error(`LNURL-pay metadata: ${meta.reason}`);
-  const separator = meta.callback.includes('?') ? '&' : '?';
-  const response = await (await fetch(`${meta.callback}${separator}amount=${sats * 1000}`)).json();
-  if (!response.pr) throw new Error(`LNURL-pay callback returned no invoice: ${JSON.stringify(response)}`);
-  return response.pr;
-}
-
-async function readQuotedFee() {
-  for (let i = 0; i < 60; i++) {
-    const text = await extractTextFromElementById('LnurlPayFee');
-    if (/\d+\s*sats/.test(text)) return parseSats(text);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-  }
-  throw new Error('no Spark fee quote arrived');
-}
 
 describe('Spark Lightning send (quote only)', () => {
   let lightningAddress;
