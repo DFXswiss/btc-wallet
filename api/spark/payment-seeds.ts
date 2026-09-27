@@ -85,7 +85,14 @@ async function mintSparkSeed(key: string): Promise<string> {
   const seed = (await randomBytes(16)).toString('hex');
   unresolvedSparkSeeds.set(key, seed);
   unsentSparkSeeds.add(seed);
-  await persistSparkSeeds();
+  try {
+    await persistSparkSeeds();
+  } catch (error) {
+    // An unsaved seed would not survive a restart; drop it so no attempt pays with it.
+    unresolvedSparkSeeds.delete(key);
+    unsentSparkSeeds.delete(seed);
+    throw error;
+  }
   return seed;
 }
 
@@ -99,15 +106,16 @@ export async function createSparkPaymentSeed(
   await loadSparkSeeds();
   if (seedRef.current) return seedRef.current;
   const key = sparkSeedKey(destination, amountSats, operationId);
-  const kept = unresolvedSparkSeeds.get(key);
-  if (kept) {
-    seedRef.current = kept;
-    return kept;
-  }
-  // A finished attempt must not reuse its key. An unresolved one must, or a
-  // later tap sends the payment a second time.
+  // A seed still being saved is shared, so every attempt at this payment waits for the same save.
   let creating = sparkSeedsBeingCreated.get(key);
   if (!creating) {
+    const kept = unresolvedSparkSeeds.get(key);
+    if (kept) {
+      seedRef.current = kept;
+      return kept;
+    }
+    // A finished attempt must not reuse its key. An unresolved one must, or a
+    // later tap sends the payment a second time.
     creating = mintSparkSeed(key);
     sparkSeedsBeingCreated.set(key, creating);
     creating.finally(() => sparkSeedsBeingCreated.delete(key)).catch(() => {});

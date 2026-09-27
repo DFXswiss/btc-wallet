@@ -109,6 +109,30 @@ describe('Spark payment seeds', () => {
     assert.strictEqual(second, first);
   });
 
+  it('lets a second attempt share the outcome while the first seed is still being saved', async () => {
+    let failSave;
+    const saveStarted = new Promise(resolve => {
+      jest.spyOn(AsyncStorage, 'setItem').mockImplementationOnce(
+        () =>
+          new Promise((_resolve, reject) => {
+            failSave = reject;
+            resolve();
+          }),
+      );
+    });
+    const first = seeds.createSparkPaymentSeed({}, 'spark1dest', 1000, 'op-1');
+    await saveStarted;
+    const second = seeds.createSparkPaymentSeed({}, 'spark1dest', 1000, 'op-1');
+    await new Promise(resolve => setImmediate(resolve));
+
+    failSave(new Error('storage full'));
+
+    await assert.rejects(first, /storage full/);
+    await assert.rejects(second, /storage full/);
+    assert.strictEqual(seeds.isUnsentSparkSeed(await seeds.createSparkPaymentSeed({}, 'spark1dest', 1000, 'op-1')), true);
+    assert.ok((await AsyncStorage.getItem(STORAGE_KEY)).length > 0);
+  });
+
   it('tells whether a seed was never handed to the SDK', async () => {
     const ref = {};
     const seed = await seeds.createSparkPaymentSeed(ref, 'spark1dest', 1000, 'op-1');
