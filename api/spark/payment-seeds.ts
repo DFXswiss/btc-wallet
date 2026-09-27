@@ -17,6 +17,7 @@ const unsentSparkSeeds = new Set<string>();
 const sparkSeedsBeingCreated = new Map<string, Promise<string>>();
 let sparkSeedsLoaded: Promise<void> | null = null;
 let sparkSeedsPersisted = false;
+let sparkSeedWrites: Promise<void> = Promise.resolve();
 
 function sparkSeedKey(destination: string, amountSats: number, operationId?: string): string {
   return `${destination}\0${amountSats}\0${operationId || ''}`;
@@ -54,7 +55,7 @@ async function loadSparkSeeds(): Promise<void> {
   return sparkSeedsLoaded;
 }
 
-function persistSparkSeeds(): Promise<void> {
+function writeSparkSeeds(): Promise<void> {
   if (unresolvedSparkSeeds.size === 0) {
     if (!sparkSeedsPersisted) return Promise.resolve();
     sparkSeedsPersisted = false;
@@ -62,6 +63,13 @@ function persistSparkSeeds(): Promise<void> {
   }
   sparkSeedsPersisted = true;
   return AsyncStorage.setItem(SPARK_SEED_STORAGE_KEY, sparkSeedStoragePayload());
+}
+
+/** Writes run one at a time, each with the state current when it runs, so a late write cannot undo a newer one. */
+function persistSparkSeeds(): Promise<void> {
+  const write = sparkSeedWrites.then(writeSparkSeeds);
+  sparkSeedWrites = write.catch(() => undefined);
+  return write;
 }
 
 function keyForSparkSeed(seed: string): string | undefined {
@@ -171,4 +179,5 @@ export function __resetSparkPaymentSeedsForTests(): void {
   sparkSeedsBeingCreated.clear();
   sparkSeedsLoaded = null;
   sparkSeedsPersisted = false;
+  sparkSeedWrites = Promise.resolve();
 }

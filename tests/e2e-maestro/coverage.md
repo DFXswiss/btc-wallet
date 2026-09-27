@@ -2,6 +2,9 @@
 
 ## Actual native Lightning payments (2026-09-08)
 
+This is a dated record. Today's P11 and P12 stop at the DFX screens before any payout;
+P16 and P17 carry the payment through the backend (see the P11/P12 notes further down).
+
 P11 and P12 completed with real Lightning payments of 1,000 sat each against
 the existing local API and services stack. The native wallet, provider and
 persisted backend records were correlated by the complete payment hash.
@@ -145,7 +148,7 @@ Flows 03, 06, 07, 08, 09, 14 and 15 now only open Spark receive and assert the w
 
 | Path                                   | Flow                                               | State assertion                                                                                                                                                            | Measured run                                  | Limit / not covered                                                                                   |
 | -------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| P1 Onboarding to on-chain wallet       | `flows/01-onboarding-onchain-wallet.yaml`          | `Wallet Backup`, `On-Chain-Wallet` and `Spark` visible; `Lightning-Wallet` not visible                                                                                     | not re-run on this assertion                  | Ends in the wallet list. No persistence check after restart. The Spark row is the add row, not a funded wallet. |
+| P1 Onboarding to on-chain wallet       | `flows/01-onboarding-onchain-wallet.yaml`          | `Wallet Backup`, `On-Chain-Wallet` and the `Bitcoin, Lightning` row visible; `Lightning-Wallet` not visible                                                                                     | not re-run on this assertion                  | Ends in the wallet list. No persistence check after restart. The Spark row is the add row, not a funded wallet. |
 | P2 Create Spark wallet                 | `flows/02-create-spark-wallet.yaml`                | Full wallet row `Bitcoin, Lightning, 0 sats` visible; `Lightning-Wallet` add row not visible                                                                                    | not re-run on this assertion                  | Ends after the Spark creation.                                                                        |
 | P3 Spark receive state        | `flows/03-spark-lightning-address.yaml`            | Spark receive shows the Lightning address; no BOLT11 invoice is asserted                                                                         | not re-run on this assertion                  | It does not pay the address, so Lightning-address receive itself is not proven.                            |
 | P4 Spark wallet details from settings  | `flows/04-spark-wallet-details.yaml`               | `Typ` and `Lightning` visible                                                                                                                                            | **green**, P01-P07 batch                     | Ends in the wallet detail screen.                                                                     |

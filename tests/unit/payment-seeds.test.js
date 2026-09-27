@@ -133,6 +133,37 @@ describe('Spark payment seeds', () => {
     assert.ok((await AsyncStorage.getItem(STORAGE_KEY)).length > 0);
   });
 
+  it('keeps a new seed stored when it is saved while an earlier removal is still running', async () => {
+    const first = await seeds.createSparkPaymentSeed({}, 'spark1first', 1000, 'op-a');
+    const realRemove = AsyncStorage.removeItem.getMockImplementation();
+    const realSet = AsyncStorage.setItem.getMockImplementation();
+    let finishRemove;
+    jest.spyOn(AsyncStorage, 'removeItem').mockImplementationOnce(
+      (...args) =>
+        new Promise(resolve => {
+          finishRemove = () => resolve(realRemove(...args));
+        }),
+    );
+    let secondSaveStarted;
+    const secondSaveCalled = new Promise(resolve => {
+      secondSaveStarted = resolve;
+    });
+    jest.spyOn(AsyncStorage, 'setItem').mockImplementation((...args) => {
+      secondSaveStarted();
+      return realSet(...args);
+    });
+
+    const forgetting = seeds.forgetSparkPaymentSeed({ current: first });
+    const second = seeds.createSparkPaymentSeed({}, 'spark1second', 2000, 'op-b');
+    // Let the new seed's save start, or be held back, before the older removal completes.
+    await Promise.race([secondSaveCalled, new Promise(resolve => setTimeout(resolve, 50))]);
+    finishRemove();
+    await forgetting;
+    const secondSeed = await second;
+
+    assert.ok((await AsyncStorage.getItem(STORAGE_KEY)).includes(secondSeed));
+  });
+
   it('tells whether a seed was never handed to the SDK', async () => {
     const ref = {};
     const seed = await seeds.createSparkPaymentSeed(ref, 'spark1dest', 1000, 'op-1');
