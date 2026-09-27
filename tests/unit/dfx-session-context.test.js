@@ -207,6 +207,20 @@ describe('DFX wallet session identity', () => {
     expect(result.current.isAvailableFor('spark-wallet-id')).toBe(true);
   });
 
+  it('offers services for a Spark wallet added after every start-up wallet was refused', async () => {
+    mockAuth.mockRejectedValue(Object.assign(new Error('forbidden'), { statusCode: 403 }));
+    mockGetLnurlFromAddress.mockReturnValue('lnurl1ldsaddress');
+    const lds = { type: LightningLdsWallet.type, getID: () => 'lds-refused', lnAddress: 'bob@example.com', addressOwnershipProof: 'proof' };
+    const session = renderSession([lds]);
+    await waitFor(() => expect(session.result.current.isInitialized).toBe(true));
+    expect(session.result.current.isAvailableFor('lds-refused')).toBe(false);
+
+    session.updateWallets([lds, { type: SparkWallet.type, getID: () => 'spark-added-later' }]);
+
+    await waitFor(() => expect(session.result.current.isAvailableFor('spark-added-later')).toBe(true));
+    expect(session.result.current.isAvailableFor('lds-refused')).toBe(false);
+  });
+
   it('authenticates an eligible wallet added after deferred Spark startup', async () => {
     mockGetLnurlFromAddress.mockReturnValue('lnurl1ldsaddress');
     const sparkWallet = {

@@ -20,6 +20,7 @@ SETTLE_SERVICE_PID=''
 SETTLE_SERVICE_ENABLED=0
 SETTLE_SERVICE_URL=''
 manifest_tmp=''
+flow_log=''
 
 usage() {
   printf 'Usage: %s --device SIMULATOR_UDID --app APP_BUNDLE [--flow FLOW_GLOB]\n' "$0"
@@ -163,8 +164,13 @@ cleanup() {
   if [[ -n "$manifest_tmp" ]]; then
     rm -f "$manifest_tmp"
   fi
+  # A flow log can hold typed test input, such as the fixture mnemonic.
+  if [[ -n "$flow_log" ]]; then
+    rm -f "$flow_log"
+  fi
 }
 trap cleanup EXIT
+trap 'exit 130' INT TERM
 
 printf '{\n' >"$manifest_tmp"
 printf '  "startedAt": "%s",\n' "$(json_escape "$started_at")" >>"$manifest_tmp"

@@ -20,6 +20,16 @@ describe('lightningDepositPayParams', () => {
     });
   });
 
+  it('pays a Spark invoice deposit directly, unwrapped from its spark: URI', () => {
+    const invoice = bech32m.encode('spark', bech32m.toWords(Buffer.from('reusable sats invoice')), 10000);
+    assert.deepStrictEqual(lightningDepositPayParams(wallet(SparkWallet.type, 'spark-1'), `spark:${invoice}?amount=0.00001`, 1000, '7'), {
+      sparkInvoice: invoice,
+      walletID: 'spark-1',
+      amountSat: 1000,
+      routeId: '7',
+    });
+  });
+
   it('pays an LNURL deposit from a Spark wallet like any Lightning wallet', () => {
     assert.deepStrictEqual(lightningDepositPayParams(wallet(SparkWallet.type, 'spark-1'), LNURL, 1000, '7'), {
       lnurl: LNURL,

@@ -57,7 +57,7 @@ env:
     visible: '.*On-Chain-Wallet.*'
     timeout: 90000
 - assertVisible: '.*On-Chain-Wallet.*'
-- assertVisible: '.*Bitcoin, Spark.*'
+- assertVisible: '.*Bitcoin, Lightning.*'
 # Den Mitteilungsdialog jetzt provozieren und entfernen. Andernfalls kann er
 # spaetere Zusicherungen oder die Hinzufuegen-Schaltflaeche verdecken.
 - tapOn:
@@ -101,7 +101,7 @@ env:
 # Die Zeile kann 0 oder ein bereits vorhandenes Spark-Guthaben der festen
 # Identitaet zeigen; die Suite muss dieselbe Adresse wiederverwenden koennen.
 - extendedWaitUntil:
-    visible: 'Bitcoin, Spark, .*sats, .*'
+    visible: 'Bitcoin, Lightning, .*sats, .*'
     timeout: 90000
-- assertVisible: 'Bitcoin, Spark, .*sats, .*'
+- assertVisible: 'Bitcoin, Lightning, .*sats, .*'
 - assertNotVisible: '.*Lightning-Wallet.*Hinzufügen.*'

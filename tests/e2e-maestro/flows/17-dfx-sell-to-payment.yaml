@@ -70,7 +70,7 @@ onFlowComplete:
 - extendedWaitUntil:
     visible:
       id: WalletLabel
-      text: 'Spark'
+      text: 'Lightning'
     timeout: 60000
 - extendedWaitUntil:
     visible:
@@ -887,7 +887,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: WalletLabel
-                  text: 'Spark'
+                  text: 'Lightning'
                 timeout: 60000
             - extendedWaitUntil:
                 visible: 'Externe Services'
@@ -959,7 +959,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: WalletLabel
-                  text: 'Spark'
+                  text: 'Lightning'
                 timeout: 60000
             - runFlow:
                 when:
@@ -1203,7 +1203,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: WalletLabel
-                  text: 'Spark'
+                  text: 'Lightning'
                 timeout: 60000
             - extendedWaitUntil:
                 visible:
@@ -1222,7 +1222,7 @@ onFlowComplete:
             - extendedWaitUntil:
                 visible:
                   id: WalletLabel
-                  text: 'Spark'
+                  text: 'Lightning'
                 timeout: 60000
             - extendedWaitUntil:
                 visible:

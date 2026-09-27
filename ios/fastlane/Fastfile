@@ -26,7 +26,6 @@ end
 # removed from an owned private directory after the lane restores its caller's
 # ENVFILE value.
 require "fileutils"
-require "securerandom"
 require "tmpdir"
 
 def require_breez_env!

@@ -58,7 +58,9 @@ The same source also has the dated September 7 P01–P09, P10 and P13 native
 results (11/11 selected non-paying flows across three batches). On September 8,
 P05 and P07 were freshly run without resetting the existing wallet, each exit 0:
 independent QR-pixel decoding confirmed a mainnet 1,000-sat invoice with description
-`Maestro-E2E`, and a mainnet Bech32m on-chain address matching the UI.
+`Maestro-E2E`, and a mainnet Bech32m on-chain address matching the UI. That
+on-chain part is historical: it predates the removal of Spark on-chain deposits,
+and the current P07 asserts that no on-chain row is shown.
 A separate P06-like address capture also matched its decoded QR. Address and
 unpaid-invoice checks do not prove on-chain credit.
 
