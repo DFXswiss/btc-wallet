@@ -156,7 +156,8 @@ the snapshot.
 
 The local stack must accept that JWT, expose those routes, process the buy
 through to a Spark credit, and process the sell through to Completed. Never
-run this against dev or prod.
+run this against dev or prod: both scripts exit 2 unless `E2E_API_URL` is plain
+HTTP on `127.0.0.1`, `localhost` or `::1`.
 
 The selected local API stack must supply `FAUCET_LOW_BALANCE_THRESHOLD` at boot;
 do not silently omit this required variable. The frontend build needs sufficient

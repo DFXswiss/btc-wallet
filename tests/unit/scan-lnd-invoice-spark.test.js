@@ -253,7 +253,11 @@ describe('ScanLndInvoice fee mark', () => {
     assert.strictEqual(screen.queryByText(feeRangeText(Math.round(1000 * 0.03))), null);
   });
   it('does not show a guessed fee range for a small Spark Lightning payment', async () => {
-    const { wallet } = await expectSparkAcceptsLightning(LNURL);
+    const { wallet, screen } = await expectSparkAcceptsLightning(LNURL);
+    fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '100');
+
+    await waitFor(() => screen.getByDisplayValue('100'));
+    assert.strictEqual(screen.queryByText(feeRangeText(Math.round(100 * 0.03))), null);
     expect(wallet.getPaymentFeeWithoutSending).not.toHaveBeenCalled();
   });
   it('shows Free for an LDS payment to an internal DFX domain', async () => {
@@ -532,9 +536,16 @@ describe('ScanLndInvoice fee mark', () => {
     expect(haptic.trigger).toHaveBeenCalledWith('notificationError', { ignoreAndroidSystemSettings: false });
     expect(mockNavigate).not.toHaveBeenCalled();
   });
-  it('does not guess a Spark fee when checking the remaining balance', async () => {
-    const { wallet } = await expectSparkAcceptsLightning(LNURL);
-    expect(wallet.getPaymentFeeWithoutSending).not.toHaveBeenCalled();
+  it('does not hold back the 3-percent LNDHub fee from a near-full Spark balance', async () => {
+    const { wallet, screen } = await expectSparkAcceptsLightning(LNURL);
+    fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '990000');
+    fireEvent.press(screen.getByText(loc.lnd.next));
+
+    expect(alert).not.toHaveBeenCalledWith(loc.lnd.error_balance_for_insuficient_fee);
+    expect(mockNavigate).toHaveBeenCalledWith(
+      'SendDetailsRoot',
+      expect.objectContaining({ params: expect.objectContaining({ amountSat: 990000, walletID: wallet.getID() }) }),
+    );
   });
   it('alerts when the remaining LNDHub balance cannot cover the 3-percent fee', async () => {
     mockLnurl('example.com', 1000);
@@ -655,7 +666,7 @@ describe('ScanLndInvoice fee mark', () => {
     expect(alert).not.toHaveBeenCalledWith(loc.send.details_address_field_is_not_valid);
   });
 
-  it('treats a BIP-21 destination as an invoice pay when Next is pressed', () => {
+  it('routes a BIP-21 destination to the invoice path on Next instead of rejecting it', () => {
     jest.spyOn(DeeplinkSchemaMatch, 'isLightningInvoice').mockReturnValue(false);
     jest.spyOn(DeeplinkSchemaMatch, 'isTestnetLightningInvoice').mockReturnValue(false);
     jest.spyOn(DeeplinkSchemaMatch, 'isBothBitcoinAndLightning').mockReturnValue({ bitcoin: 'bitcoin:x', lndInvoice: 'lightning:y' });

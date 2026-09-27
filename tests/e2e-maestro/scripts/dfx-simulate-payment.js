@@ -78,8 +78,9 @@ function readPositiveAmount(name, fallback) {
 function loadConfig() {
   const url = readEnv('E2E_API_URL').trim().replace(/\/+$/, '');
   if (!url) fail('E2E_API_URL is required', 2);
-  if (!/^https?:\/\//i.test(url)) {
-    fail('E2E_API_URL must be an http or https URL', 2);
+  // Local stack only: this script must never reach a development or production API.
+  if (!/^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/i.test(url)) {
+    fail('E2E_API_URL must be plain HTTP on 127.0.0.1, localhost or [::1]', 2);
   }
   const token = readEnv('E2E_DFX_JWT').trim();
   if (!token) fail('E2E_DFX_JWT is required', 2);
@@ -212,7 +213,7 @@ function httpMaestro(config, method, path, body) {
 
 function httpNode(config, method, path, body) {
   const { URL } = require('url');
-  const lib = config.url.startsWith('https:') ? require('https') : require('http');
+  const lib = require('http');
   const payload = body ? JSON.stringify(body) : null;
   const target = new URL(config.url + path);
   const options = {
