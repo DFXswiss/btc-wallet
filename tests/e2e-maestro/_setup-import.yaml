@@ -75,8 +75,7 @@ env:
 - extendedWaitUntil:
     visible: '.*On-Chain-Wallet.*'
     timeout: 30000
-# Hinzufuegen in der Zeile Bitcoin / Lightning. Ohne Backup-Schirm
-# liegt die Schaltflaeche hier, nicht an der Position aus Flow 02.
+# Hinzufuegen in der Zeile Bitcoin / Lightning (ohne Backup-Schirm).
 - tapOn:
     point: '75%,58%'
 - waitForAnimationToEnd:
