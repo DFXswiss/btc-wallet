@@ -302,6 +302,7 @@ const WalletHome = ({ navigation }) => {
       title: 'Bitcoin',
       isActivated: true,
       subtitle: loc.wallets.multi_sig_wallet_label,
+      testID: 'MultisigWalletRow',
       walletID: multisigWalletItem?.getID?.(),
       onDummyPress: navigateToAddMultisig,
     });
@@ -312,6 +313,7 @@ const WalletHome = ({ navigation }) => {
       title: 'Bitcoin',
       isActivated: true,
       subtitle: loc.wallets.main_wallet_label,
+      testID: 'OnChainWalletRow',
       walletID: onChainWallet?.getID?.(),
     });
 
@@ -320,6 +322,7 @@ const WalletHome = ({ navigation }) => {
       title: 'Bitcoin',
       isActivated: true,
       subtitle: loc.wallets.lightning_spark_wallet_label,
+      testID: 'LightningWalletRow',
       walletID: lnWallet?.getID?.(),
       onDummyPress: onAddLightningPress,
       isCreatingLightning: (isCreating || isAddingLightning) && !lnWallet,
@@ -376,6 +379,7 @@ const WalletHome = ({ navigation }) => {
         {displayWallets.map((item, i) => (
           <TouchableOpacity
             key={i}
+            testID={item.wallet ? item.testID : `${item.testID}Empty`}
             disabled={!item.wallet}
             onPress={() => navigate('WalletsRoot', { screen: 'WalletAsset', params: { walletID: item.wallet?.getID() } })}
           >
@@ -401,6 +405,7 @@ const WalletHome = ({ navigation }) => {
                         <ActivityIndicator />
                       ) : (
                         <SecondButton
+                          testID={`${item.testID}Add`}
                           title={loc._.add}
                           icon={{ name: 'plus', type: 'font-awesome', color: 'white', size: 12 }}
                           onPress={item.onDummyPress}

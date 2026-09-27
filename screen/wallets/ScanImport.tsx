@@ -78,6 +78,7 @@ const ScanImport: React.FC & { navigationOptions?: ReturnType<typeof navigationS
         />
         <BlueButton
           style={styles.actionButton}
+          testID="ImportFromTextButton"
           onPress={() => delayedNavigationFunction(() => replace('ImportWallet'))}
           icon={{ name: 'keyboard', type: 'material', color: '#ffffff', size: 38 }}
         />

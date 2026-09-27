@@ -712,7 +712,7 @@ const LnurlPay = () => {
                 </>
               ) : (
                 <>
-                  <Text style={styles.fees}>
+                  <Text style={styles.fees} testID="LnurlPayFee">
                     {loc.send.create_fee}:{' '}
                     {wallet.type === SparkWallet.type
                       ? sparkFeeQuoteError || (sparkFee === undefined ? '-' : `${sparkFee} ${BitcoinUnit.SATS}`)
@@ -724,6 +724,7 @@ const LnurlPay = () => {
                     <SecondButton title={loc.wallets.list_tryagain} onPress={() => setQuoteRetry(value => value + 1)} />
                   )}
                   <BlueButton
+                    testID="LnurlPayButton"
                     title={loc.lnd.payButton}
                     onPress={pay}
                     disabled={

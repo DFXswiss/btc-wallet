@@ -155,6 +155,7 @@ const ScanCodeSend: React.FC & { navigationOptions?: ReturnType<typeof navigatio
         />
         <BlueButton
           style={styles.actionButton}
+          testID="ManualEntryButton"
           onPress={() => navigate('ScanCodeSendRoot', { screen: 'ManualEnterAddress', params: { walletID: params?.walletID } })}
           icon={{ name: 'keyboard', type: 'material', color: '#ffffff', size: 38 }}
         />
