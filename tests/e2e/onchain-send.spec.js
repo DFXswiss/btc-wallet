@@ -12,7 +12,6 @@ import {
   sumSpentOutputs,
   typeTextIntoAlertInput,
   waitForId,
-  waitForText,
 } from './helperz';
 
 // Transactions are built and signed but never broadcast; the wallet only needs confirmed UTXOs.
@@ -71,10 +70,6 @@ describe('On-chain send with a funded wallet', () => {
     await openSendDetails();
     await setCustomFeeRate(FEE_RATE);
     await element(by.id('SendMaxButton')).tap();
-    await waitForText('OK').catch(() => {});
-    await element(by.text('OK'))
-      .tap()
-      .catch(() => {});
 
     const { tx, outs, feeSats } = await buildAndReadTx();
     assert.strictEqual(outs.length, 1, 'MAX must not create change');

@@ -17,12 +17,6 @@ export async function waitForText(text, timeout = 60_000) {
     .withTimeout(timeout);
 }
 
-export async function tapIfTextPresent(text) {
-  try {
-    await element(by.text(text)).tap();
-  } catch (_) {}
-}
-
 export function requireEnv(name) {
   const value = process.env[name];
   if (!value) {

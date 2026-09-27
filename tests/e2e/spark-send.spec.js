@@ -31,6 +31,7 @@ describe('Spark Lightning send (quote only)', () => {
   let lightningAddress;
 
   beforeAll(async () => {
+    requireEnv('BREEZ_API_KEY');
     const mnemonic = requireEnv('SPARK_E2E_MNEMONIC');
     lightningAddress = requireEnv('E2E_LIGHTNING_ADDRESS');
     await launchFresh();
@@ -69,5 +70,7 @@ describe('Spark Lightning send (quote only)', () => {
     await expect(element(by.id('BitcoinAmountInput'))).toHaveText(String(AMOUNT_SATS));
     const fee = await readQuotedFee();
     assert.ok(fee >= 0 && fee <= AMOUNT_SATS, `implausible fee ${fee} sats for ${AMOUNT_SATS} sats`);
+    const pay = await element(by.id('LnurlPayButton')).getAttributes();
+    assert.strictEqual(pay.enabled, true, 'Pay must be enabled once the fee is quoted');
   });
 });

@@ -10,7 +10,7 @@ if [[ -z "$ANDROID_SDK_ROOT" ]]; then
   exit 1
 fi
 
-find android -name '*.apk' -print0 | xargs -0 rm -f
+find android -name '*.apk' -delete
 
 KEYSTORE="$PWD/detox.keystore"
 ENVFILE_PATH="$(mktemp "${TMPDIR:-/tmp}/detox-env.XXXXXX")"

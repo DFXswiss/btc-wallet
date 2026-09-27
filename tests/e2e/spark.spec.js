@@ -6,7 +6,7 @@ import bolt11 from 'bolt11';
 import { createHmac } from 'crypto';
 
 import ecc from '../../blue_modules/noble_ecc';
-import { extractTextFromElementById, launchFresh, speedImport, waitForId } from './helperz';
+import { extractTextFromElementById, launchFresh, requireEnv, speedImport, waitForId } from './helperz';
 
 // Needs a build with BREEZ_API_KEY; the wallet is new and unfunded on every run.
 const bip32 = BIP32Factory(ecc);
@@ -31,6 +31,7 @@ describe('Spark Lightning wallet', () => {
   const onChainMnemonic = bip39.generateMnemonic(128);
 
   beforeAll(async () => {
+    requireEnv('BREEZ_API_KEY');
     await launchFresh();
     await speedImport(onChainMnemonic);
     await waitForId('LightningWalletRowAdd');

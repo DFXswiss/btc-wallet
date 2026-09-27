@@ -38,7 +38,7 @@ const PsbtMultisig = require('../../screen/send/psbtMultisig').default;
 const { BlueStorageContext } = require('../../blue_modules/storage-context');
 const { BlueDarkTheme } = require('../../components/themes');
 
-// 1-in/1-out PSBT from tests/e2e/bluewallet2.spec.js. fromBase64 must succeed so
+// 1-in/1-out PSBT from the former BlueWallet Detox cosign test. fromBase64 must succeed so
 // a failure is the isTxSigned TDZ, not a parse error before the Sign button exists.
 const PSBT_BASE64 =
   'cHNidP8BAFICAAAAAXYa7FEQBAQ2X0B48aHHKKgzkVuHfQ2yCOi3v9RR0IqlAQAAAAAAAACAAegDAAAAAAAAFgAUSnH40G+jiJfreeRb36cs641KFm8AAAAAAAEBH5YVAAAAAAAAFgAUTKHjDm4OJQSbvy9uzyLYi5i5XIoiBgMQcGrP5TIMrdvb73yB4WnZvkPzKr1EzJXJYBHWmlPJZRgAAAAAVAAAgAAAAIAAAACAAQAAAD4AAAAAAA==';
