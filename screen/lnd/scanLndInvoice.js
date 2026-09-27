@@ -150,6 +150,7 @@ const ScanLndInvoice = () => {
 
   const processDestination = destinationString => {
     Keyboard.dismiss();
+    setSparkPaymentIsInvoice(false);
     if (Lnurl.isLnurl(destinationString)) return setLnurlDestination(destinationString);
     if (Lnurl.isLightningAddress(destinationString)) return setLightningAddressDestination(destinationString);
     if (wallet?.type === SparkWallet.type && SparkWallet.isSparkPaymentUri(destinationString)) {
@@ -178,6 +179,7 @@ const ScanLndInvoice = () => {
     setIsAmountInputDisabled(false);
     setIsDescDisabled(false);
     setIsLoading(false);
+    setSparkPaymentIsInvoice(false);
   };
 
   useEffect(() => {

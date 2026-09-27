@@ -239,15 +239,15 @@ export class SparkWallet extends AbstractWallet {
     }
   }
 
-  /**
-   * Raw Spark identity address (spark1…). Bech32m, lowercase only — never case-folded.
-   * Does not accept a `spark:` URI; that form is the invoice wrapper parsed by parseSparkPaymentUri.
-   */
   /** Whether a fee quote pays a Spark address directly rather than through Lightning. */
   static isSparkAddressQuote(quote?: { method?: string }): boolean {
     return quote?.method === SendPaymentMethod_Tags.SparkAddress;
   }
 
+  /**
+   * Raw Spark identity address (spark1…). Bech32m, lowercase only — never case-folded.
+   * Does not accept a `spark:` URI; that form is the invoice wrapper parsed by parseSparkPaymentUri.
+   */
   static isSparkAddress(input: string): boolean {
     if (typeof input !== 'string') return false;
     const trimmed = input.trim();
@@ -334,12 +334,12 @@ export class SparkWallet extends AbstractWallet {
     return lease;
   }
 
-  /** Re-check after an await. Throws the same mismatch error once the held session is gone. */
   /** Throws the session-mismatch error once the session the lease was taken on has been replaced. */
   private assertHeld(lease: SparkSessionLease): void {
     this.onHeldSession(() => lease.assertLive());
   }
 
+  /** Re-check after an await: the held session's SDK, or the same mismatch error once that session is gone. */
   private requireHeld(lease: SparkSessionLease): ReturnType<SparkSessionLease['requireSdk']> {
     return this.onHeldSession(() => lease.requireSdk());
   }

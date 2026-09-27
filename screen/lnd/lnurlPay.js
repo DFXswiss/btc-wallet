@@ -34,7 +34,6 @@ import { isFreeDomain, isInternalDomain } from '../../helpers/freeLightningDomai
 import { reportError } from '../../helpers/errors';
 const currency = require('../../blue_modules/currency');
 
-/** LNDHub (custodian / LDS) waives fees for listed domains. Spark does not. */
 /**
  * if user has default currency - fiat, attempting to pay will trigger conversion from entered in input field fiat value
  * to satoshi, and attempt to pay this satoshi value, which might be a little bit off from `min` & `max` values

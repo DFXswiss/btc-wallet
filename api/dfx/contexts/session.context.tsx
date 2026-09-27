@@ -168,7 +168,8 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
       return;
     }
     if (availability === 'forbidden') {
-      setIsAvailable(false);
+      // Every start-up wallet was refused; a Spark wallet signs in on its own when opened, so it keeps DFX.
+      setIsAvailable(wallets.some((w: ConnectableWallet) => w.type === SparkWallet.type));
       return;
     }
     const first = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');

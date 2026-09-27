@@ -100,6 +100,15 @@ describe('Spark payment seeds', () => {
     assert.strictEqual(await seeds.createSparkPaymentSeed(ref, 'spark1dest', 1000, 'op-1'), first);
   });
 
+  it('gives two concurrent attempts at the same new payment one seed', async () => {
+    const [first, second] = await Promise.all([
+      seeds.createSparkPaymentSeed({}, 'spark1dest', 1000, 'op-1'),
+      seeds.createSparkPaymentSeed({}, 'spark1dest', 1000, 'op-1'),
+    ]);
+
+    assert.strictEqual(second, first);
+  });
+
   it('tells whether a seed was never handed to the SDK', async () => {
     const ref = {};
     const seed = await seeds.createSparkPaymentSeed(ref, 'spark1dest', 1000, 'op-1');

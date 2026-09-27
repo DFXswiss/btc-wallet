@@ -273,6 +273,27 @@ describe('ScanLndInvoice fee mark', () => {
     assert.strictEqual(screen.queryByText(loc._.free), null);
   });
 
+  it('does not route a later Lightning invoice as a Spark invoice after a scanned spark: URI', async () => {
+    const sparkInvoice = bech32m.encode('spark', bech32m.toWords(Buffer.from('reusable sats invoice')), 10000);
+    const wallet = makeSparkWallet();
+    wallet.decodeInvoice = jest.fn().mockReturnValue(futureDecodedInvoice());
+    const screen = renderScan(wallet, { uri: `spark:${sparkInvoice}` });
+    await waitFor(() => screen.getByText(loc.lnd.next));
+
+    mockRouteParams.uri = SAMPLE_INVOICE;
+    screen.rerender(
+      <BlueStorageContext.Provider value={{ wallets: [wallet] }}>
+        <ScanLndInvoice />
+      </BlueStorageContext.Provider>,
+    );
+    await waitFor(() => expect(wallet.decodeInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE));
+    fireEvent.press(screen.getByText(loc.lnd.next));
+
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalled());
+    const params = mockNavigate.mock.calls[mockNavigate.mock.calls.length - 1][1].params;
+    expect(params.sparkInvoice).toBeUndefined();
+  });
+
   it('uses the LNDHub amount multiplier when paying a non-free LNURL', async () => {
     mockLnurl('example.com', 1000);
     const wallet = makeLndhubWallet();
