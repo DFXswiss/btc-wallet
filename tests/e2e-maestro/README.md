@@ -157,7 +157,7 @@ the snapshot.
 The local stack must accept that JWT, expose those routes, process the buy
 through to a Spark credit, and process the sell through to Completed. Never
 run this against dev or prod: both scripts exit 2 unless `E2E_API_URL` is plain
-HTTP on `127.0.0.1`, `localhost` or `::1`.
+HTTP on `127.0.0.1`, `localhost` or `[::1]`.
 
 The selected local API stack must supply `FAUCET_LOW_BALANCE_THRESHOLD` at boot;
 do not silently omit this required variable. The frontend build needs sufficient
@@ -177,7 +177,7 @@ process through its exit trap. `SETTLE_PORT` is optional and defaults to
 selects the local database container passed to `docker exec`.
 
 **This helper must never run against development or production.** At startup it
-requires `E2E_API_URL` to be plain HTTP on `127.0.0.1`, `localhost` or `::1`;
+requires `E2E_API_URL` to be plain HTTP on `127.0.0.1`, `localhost` or `[::1]`;
 it listens only on `127.0.0.1` and addresses the selected local Docker container.
 This rejects an obviously remote API origin. It cannot detect a loopback proxy
 to a foreign stack or a foreign database deliberately exposed under the same
