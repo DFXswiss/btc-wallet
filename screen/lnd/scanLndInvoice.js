@@ -31,7 +31,7 @@ const ScanLndInvoice = () => {
   const { wallets } = useContext(BlueStorageContext);
   const { colors } = useTheme();
   const { walletID, uri } = useRoute().params;
-  /** @type {LightningCustodianWallet} */
+  /** @type {LightningCustodianWallet | SparkWallet} */
   const wallet = useMemo(() => {
     return wallets.find(item => item.getID() === walletID) || getLightningWallet(wallets);
   }, [walletID, wallets]);

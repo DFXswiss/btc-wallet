@@ -68,7 +68,7 @@ const LnurlPay = () => {
   const { params } = useRoute();
   const { walletID, lnurl, amountSat, destination, invoice, sparkInvoice, sparkAddress, amountUnit, description, free, isMax, routeId } =
     params;
-  /** @type {LightningCustodianWallet} */
+  /** @type {LightningCustodianWallet | SparkWallet} */
   const wallet = wallets.find(w => w.getID() === walletID);
   const [unit, setUnit] = useState(wallet.getPreferredBalanceUnit());
   const [isLoading, setIsLoading] = useState(true);
