@@ -1162,10 +1162,10 @@ export class SparkWallet extends AbstractWallet<SparkInvoiceRecord> {
           if (typeof data === 'string') decoded.description_hash = data;
           break;
         case 'min_final_cltv_expiry':
-          decoded.cltv_expiry = data.toString();
+          if (typeof data === 'number' || typeof data === 'string') decoded.cltv_expiry = data.toString();
           break;
         case 'expire_time':
-          decoded.expiry = data.toString();
+          if (typeof data === 'number' || typeof data === 'string') decoded.expiry = data.toString();
           break;
         case 'description':
           if (typeof data === 'string') decoded.description = data;

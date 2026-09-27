@@ -27,7 +27,13 @@ import loc from '../../loc';
 import Biometric from '../../class/biometrics';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { useSparkContext } from '../../api/spark/contexts/spark.context';
-import { createSparkPaymentSeed, forgetSparkPaymentSeed, isUnsentSparkSeed, keepUnresolvedSparkSeed } from '../../api/spark/payment-seeds';
+import {
+  createSparkPaymentSeed,
+  forgetSparkPaymentSeed,
+  isUnsentSparkSeed,
+  keepUnresolvedSparkSeed,
+  sparkSeedsAwaitReconcile,
+} from '../../api/spark/payment-seeds';
 import alert from '../../components/Alert';
 import { Text } from 'react-native-elements';
 import { isFreeDomain, isInternalDomain } from '../../helpers/freeLightningDomains';
@@ -478,7 +484,15 @@ const LnurlPay = () => {
     finishInvoiceSuccess(amountSats, result?.fee, decoded);
   };
 
+  // After a restart, stored seeds are checked against the SDK's payments before one is reused.
+  const reconcileSparkSeeds = async () => {
+    if (!(await sparkSeedsAwaitReconcile())) return;
+    await wallet.fetchTransactions();
+    if (await sparkSeedsAwaitReconcile()) throw new Error(loc.send.details_utxo_refresh_failed);
+  };
+
   const handleSparkAddress = async (amountSats, destination) => {
+    await reconcileSparkSeeds();
     const seed = await createSparkPaymentSeed(sparkPaymentSeedRef, destination, amountSats, routeId);
     const result = await wallet.paySparkAddress(destination, amountSats, seed, sparkFeeQuote);
     const decoded = {};
@@ -508,6 +522,7 @@ const LnurlPay = () => {
   };
 
   const handleSparkInvoice = async (amountSats, destination) => {
+    await reconcileSparkSeeds();
     const seed = await createSparkPaymentSeed(sparkPaymentSeedRef, destination, amountSats, routeId);
     const result = await wallet.paySparkInvoice(destination, amountSats, seed, sparkFeeQuote);
     const decoded = {};

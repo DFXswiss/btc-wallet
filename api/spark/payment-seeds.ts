@@ -20,6 +20,8 @@ let sparkSeedsLoaded: Promise<void> | null = null;
 let sparkSeedsPersisted = false;
 /** Set when a write failed, so the next write is made even if nothing else changed. */
 let sparkSeedsWriteFailed = false;
+/** Set once this session has checked the stored seeds against the SDK's payment list. */
+let sparkSeedsReconciled = false;
 let sparkSeedWrites: Promise<void> = Promise.resolve();
 
 function sparkSeedKey(destination: string, amountSats: number, operationId?: string): string {
@@ -196,7 +198,18 @@ function dropSeedsOfPayments(ids: string[]): boolean {
 /** Drops the seeds of payments the SDK lists as finished, also those that settled while the app was closed. */
 export async function forgetSettledSparkSeeds(paymentIds: string[]): Promise<void> {
   await loadSparkSeeds();
-  if (dropSeedsOfPayments(paymentIds) || sparkSeedsWriteFailed) await persistSparkSeeds();
+  const dropped = dropSeedsOfPayments(paymentIds);
+  sparkSeedsReconciled = true;
+  if (dropped || sparkSeedsWriteFailed) await persistSparkSeeds();
+}
+
+/**
+ * Whether stored seeds of sent payments still wait for this session's check against the SDK. Until then a
+ * seed of a payment that settled while the app was closed would make an identical new payment a no-op.
+ */
+export async function sparkSeedsAwaitReconcile(): Promise<boolean> {
+  await loadSparkSeeds();
+  return !sparkSeedsReconciled && sparkSeedKeyByPaymentId.size > 0;
 }
 
 // A payment can settle after the pay screen closed; its seed is dropped here for the app's lifetime.
@@ -214,5 +227,7 @@ export function __resetSparkPaymentSeedsForTests(): void {
   sparkSeedsBeingCreated.clear();
   sparkSeedsLoaded = null;
   sparkSeedsPersisted = false;
+  sparkSeedsWriteFailed = false;
+  sparkSeedsReconciled = false;
   sparkSeedWrites = Promise.resolve();
 }

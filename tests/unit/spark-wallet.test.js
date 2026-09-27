@@ -3220,6 +3220,30 @@ describe('SparkWallet', () => {
     spy.mockRestore();
   });
 
+  it('decodeInvoice leaves out bolt11 tags whose data has the wrong type', () => {
+    const bolt11 = require('bolt11');
+    const spy = jest.spyOn(bolt11, 'decode').mockReturnValue({
+      payeeNodeKey: 'dest',
+      tags: [
+        { tagName: 'payment_hash', data: 42 },
+        { tagName: 'purpose_commit_hash', data: { words: [] } },
+        { tagName: 'min_final_cltv_expiry', data: { words: [] } },
+        { tagName: 'expire_time', data: { words: [] } },
+        { tagName: 'description', data: 7 },
+      ],
+      satoshis: 10,
+      millisatoshis: '10000',
+      timestamp: 1,
+    });
+    const decoded = new SparkWallet().decodeInvoice('lnbc1fake');
+    assert.strictEqual(decoded.payment_hash, undefined);
+    assert.strictEqual(decoded.description_hash, undefined);
+    assert.strictEqual(decoded.cltv_expiry, undefined);
+    assert.strictEqual(decoded.expiry, '3600');
+    assert.strictEqual(decoded.description, undefined);
+    spy.mockRestore();
+  });
+
   it('decodeInvoice converts a real millisatoshi invoice into satoshis', () => {
     const wallet = new SparkWallet();
     const decoded = wallet.decodeInvoice(
