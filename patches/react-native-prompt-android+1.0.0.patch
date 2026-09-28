@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-prompt-android/android/src/main/java/im/shimo/react/prompt/RNPromptModule.java b/node_modules/react-native-prompt-android/android/src/main/java/im/shimo/react/prompt/RNPromptModule.java
-index 960b8d7..ae139c7 100644
+index 960b8d7..7be559d 100644
 --- a/node_modules/react-native-prompt-android/android/src/main/java/im/shimo/react/prompt/RNPromptModule.java
 +++ b/node_modules/react-native-prompt-android/android/src/main/java/im/shimo/react/prompt/RNPromptModule.java
 @@ -13,6 +13,8 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule;
@@ -11,7 +11,7 @@ index 960b8d7..ae139c7 100644
  import com.facebook.react.common.MapBuilder;
  import com.facebook.react.module.annotations.ReactModule;
  import com.facebook.react.modules.dialog.DialogModule;
-@@ -52,6 +54,11 @@ public class RNPromptModule extends ReactContextBaseJavaModule implements Lifecy
+@@ -52,6 +54,17 @@ public class RNPromptModule extends ReactContextBaseJavaModule implements Lifecy
  
      private boolean mIsInForeground;
  
@@ -20,10 +20,16 @@ index 960b8d7..ae139c7 100644
 +    @Nullable
 +    RNPromptFragment mFragmentToShow;
 +
++    private
++    @Nullable
++    PromptFragmentListener mListenerToShow;
++
++    private boolean mToShowHasNegativeButton;
++
      public RNPromptModule(ReactApplicationContext reactContext) {
          super(reactContext);
      }
-@@ -91,12 +98,6 @@ public class RNPromptModule extends ReactContextBaseJavaModule implements Lifecy
+@@ -91,12 +104,6 @@ public class RNPromptModule extends ReactContextBaseJavaModule implements Lifecy
  
      @ReactMethod
      public void promptWithArgs(ReadableMap options, final Callback callback) {
@@ -36,7 +42,7 @@ index 960b8d7..ae139c7 100644
          final Bundle args = new Bundle();
          if (options.hasKey(KEY_TITLE)) {
              args.putString(RNPromptFragment.ARG_TITLE, options.getString(KEY_TITLE));
-@@ -139,30 +140,55 @@ public class RNPromptModule extends ReactContextBaseJavaModule implements Lifecy
+@@ -139,32 +146,84 @@ public class RNPromptModule extends ReactContextBaseJavaModule implements Lifecy
          if (options.hasKey(KEY_PLACEHOLDER)) {
              args.putString(KEY_PLACEHOLDER, options.getString(KEY_PLACEHOLDER));
          }
@@ -44,26 +50,52 @@ index 960b8d7..ae139c7 100644
 +        UiThreadUtil.runOnUiThread(new Runnable() {
 +            @Override
 +            public void run() {
-+                RNPromptFragment promptFragment = createPromptFragment(args, callback);
++                PromptFragmentListener listener = callback != null ? new PromptFragmentListener(callback) : null;
++                RNPromptFragment promptFragment = createPromptFragment(args, listener);
++                boolean hasNegativeButton = args.containsKey(RNPromptFragment.ARG_BUTTON_NEGATIVE);
 +                FragmentManagerHelper fragmentManagerHelper = getFragmentManagerHelper();
 +                if (fragmentManagerHelper == null) {
 +                    // No activity right now: show it when one resumes instead of dropping it.
-+                    mFragmentToShow = promptFragment;
++                    park(promptFragment, listener, hasNegativeButton);
 +                    return;
 +                }
 +                // A module created while the host is already resumed never receives onHostResume.
 +                boolean isInForeground =
 +                        mIsInForeground || getReactApplicationContext().getLifecycleState() == LifecycleState.RESUMED;
-+                fragmentManagerHelper.showNewAlert(isInForeground, promptFragment);
++                fragmentManagerHelper.showNewAlert(isInForeground, promptFragment, listener, hasNegativeButton);
 +            }
 +        });
 +    }
 +
 +
-+    private RNPromptFragment createPromptFragment(Bundle arguments, @Nullable Callback actionCallback) {
-+        PromptFragmentListener actionListener =
-+                actionCallback != null ? new PromptFragmentListener(actionCallback) : null;
++    private void park(RNPromptFragment promptFragment, @Nullable PromptFragmentListener listener, boolean hasNegativeButton) {
++        settleParked();
++        mFragmentToShow = promptFragment;
++        mListenerToShow = listener;
++        mToShowHasNegativeButton = hasNegativeButton;
++    }
 +
++    // A parked prompt that a newer one replaces is never shown; answer its caller as cancelled
++    // (or with an empty input when it has no cancel button) so the JS promise settles.
++    private void settleParked() {
++        if (mFragmentToShow == null) {
++            return;
++        }
++        PromptFragmentListener listener = mListenerToShow;
++        boolean hasNegativeButton = mToShowHasNegativeButton;
++        clearParked();
++        if (listener != null) {
++            listener.onConfirm(hasNegativeButton ? DialogInterface.BUTTON_NEGATIVE : DialogInterface.BUTTON_POSITIVE, "");
++        }
++    }
++
++    private void clearParked() {
++        mFragmentToShow = null;
++        mListenerToShow = null;
++        mToShowHasNegativeButton = false;
++    }
++
++    private RNPromptFragment createPromptFragment(Bundle arguments, @Nullable PromptFragmentListener actionListener) {
 +        final RNPromptFragment promptFragment = new RNPromptFragment();
 +        promptFragment.setListener(actionListener);
 +        promptFragment.setArguments(arguments);
@@ -95,11 +127,16 @@ index 960b8d7..ae139c7 100644
 +            if (mFragmentToShow == null || mFragmentManager.isStateSaved()) {
                  return;
              }
+-            mFragmentToShow.show(mFragmentManager, FRAGMENT_TAG);
+-            mFragmentToShow = null;
 +            dismissExisting();
-             mFragmentToShow.show(mFragmentManager, FRAGMENT_TAG);
-             mFragmentToShow = null;
++            RNPromptFragment promptFragment = mFragmentToShow;
++            clearParked();
++            promptFragment.show(mFragmentManager, FRAGMENT_TAG);
          }
-@@ -172,25 +198,22 @@ public class RNPromptModule extends ReactContextBaseJavaModule implements Lifecy
+ 
+         private void dismissExisting() {
+@@ -172,28 +231,29 @@ public class RNPromptModule extends ReactContextBaseJavaModule implements Lifecy
                  RNPromptFragment oldFragment =
                          (RNPromptFragment) mFragmentManager.findFragmentByTag(FRAGMENT_TAG);
                  if (oldFragment != null) {
@@ -115,7 +152,11 @@ index 960b8d7..ae139c7 100644
          }
  
 -        public void showNewAlert(boolean isInForeground, Bundle arguments, Callback actionCallback) {
-+        public void showNewAlert(boolean isInForeground, RNPromptFragment promptFragment) {
++        public void showNewAlert(
++                boolean isInForeground,
++                RNPromptFragment promptFragment,
++                @Nullable PromptFragmentListener listener,
++                boolean hasNegativeButton) {
              dismissExisting();
  
 -            PromptFragmentListener actionListener =
@@ -131,7 +172,11 @@ index 960b8d7..ae139c7 100644
 -                }
 +            if (isInForeground && !mFragmentManager.isStateSaved()) {
 +                // A newer prompt supersedes a parked one; it must not come back on the next resume.
-+                mFragmentToShow = null;
++                settleParked();
                  promptFragment.show(mFragmentManager, FRAGMENT_TAG);
              } else {
-                 mFragmentToShow = promptFragment;
+-                mFragmentToShow = promptFragment;
++                park(promptFragment, listener, hasNegativeButton);
+             }
+         }
+     }
