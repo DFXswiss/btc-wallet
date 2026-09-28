@@ -146,14 +146,14 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 **Covers:** L-14, L-15
 **Tier:** Critical (DFX)
 **Funding:** none
-**Preconditions.** Spark (or Lightning) available for LNURL handling; a DFX LNURL-auth challenge available to scan.
+**Preconditions.** Only a Spark Lightning wallet is present (no lightning.space or LNDHub wallet: for domains other than DFX the app signs in with that wallet instead of Spark); a DFX LNURL-auth code and an LNURL-auth code from another domain to scan.
 **Steps.**
 1. Scan a DFX LNURL-auth code from Send/scan.
 2. Confirm the login prompt names the DFX domain.
 3. Approve the login prompt for the DFX domain.
-4. Scan or open an LNURL that is not a DFX domain and confirm Spark rejects non-DFX domains as expected.
+4. Scan the LNURL-auth code from the other domain and confirm the message "This wallet cannot sign in with that code."
 5. Scan an LNURL-pay code and confirm it opens the Lightning pay screen instead.
-**Expected.** The DFX LNURL-auth prompt is shown; non-DFX domains are rejected by Spark; routing still hands off other LNURL types.
+**Expected.** The DFX login prompt names the DFX domain; a login for another domain is refused by the Spark wallet; other LNURL types still route to their screens.
 **Automation.** `tests/e2e-maestro/flows/10-lnurl-auth.yaml` (asserts the prompt and the Spark rejection of non-DFX domains; a successful login is not asserted).
 
 ## CF-10 Buy through DFX until the Spark payout arrives
@@ -177,7 +177,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 **Covers:** D-01, D-03, L-13
 **Tier:** Critical (DFX)
 **Funding:** the Spark payout from CF-10
-**Preconditions.** Same identity as CF-10; Spark holds the payout from CF-10; local DFX stack reachable.
+**Preconditions.** Same identity as CF-10; Spark holds the payout from CF-10; local DFX stack reachable with the repository's settlement helper. The sell side of the production API is still open (#260), so this flow proves the wallet path against the local stack only.
 **Steps.**
 1. On Home, confirm the Sell tile is shown.
 2. Tap Sell. The DFX web app opens; enter the amount to sell from Spark and the bank account.
