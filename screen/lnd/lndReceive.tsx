@@ -61,7 +61,7 @@ const LNDReceive = () => {
   const pollGeneration = useRef(0);
   const blurGeneration = useRef(0);
   const invoiceCreationInFlight = useRef(false);
-  const invoiceCreationValues = useRef<{ amountSats: number; description: string } | undefined>(undefined);
+  const invoiceCreationValues = useRef<{ amountSats: number; description: string; walletID: string } | undefined>(undefined);
   const invoiceCreationQueued = useRef(false);
   const generateInvoiceRef = useRef<(() => Promise<void>) | undefined>(undefined);
   const [invoiceGenerationRequest, setInvoiceGenerationRequest] = useState(0);
@@ -74,8 +74,8 @@ const LNDReceive = () => {
   const { isConnected: isSparkConnected } = useSparkContext();
   const isSpark = wallet?.type === SparkWallet.type;
   const [sparkAddressRetry, setSparkAddressRetry] = useState(0);
-  const latestInvoiceValues = useRef({ amountSats, description });
-  latestInvoiceValues.current = { amountSats, description };
+  const latestInvoiceValues = useRef({ amountSats, description, walletID });
+  latestInvoiceValues.current = { amountSats, description, walletID };
 
   const styleHooks = StyleSheet.create({
     customAmount: {
@@ -99,6 +99,9 @@ const LNDReceive = () => {
       blurGeneration.current += 1;
       cancelInvoicePolling();
       stopReading();
+      // An invoice belongs to the wallet that created it; another wallet must not show it.
+      setInvoiceRequest(undefined);
+      setInvoiceAmountSats(undefined);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletID]);
@@ -250,7 +253,7 @@ const LNDReceive = () => {
     }
     if (isInvoiceLoading) return;
     invoiceCreationInFlight.current = true;
-    invoiceCreationValues.current = { amountSats, description };
+    invoiceCreationValues.current = { amountSats, description, walletID };
     if (isNfcActive) stopReading();
     setIsInvoiceLoading(true);
     Keyboard.dismiss();
@@ -267,6 +270,7 @@ const LNDReceive = () => {
       ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
       const decoded = await wallet.decodeInvoice(createdInvoiceRequest);
       await tryToObtainPermissions();
+      if (latestInvoiceValues.current.walletID !== walletID) return;
       majorTomToGroundControl([], [decoded.payment_hash], []);
 
       cancelInvoicePolling();
@@ -306,7 +310,8 @@ const LNDReceive = () => {
         invoiceCreationQueued.current &&
         completedValues &&
         (!Object.is(latestInvoiceValues.current.amountSats, completedValues.amountSats) ||
-          latestInvoiceValues.current.description !== completedValues.description)
+          latestInvoiceValues.current.description !== completedValues.description ||
+          latestInvoiceValues.current.walletID !== completedValues.walletID)
       ) {
         setInvoiceGenerationRequest(request => request + 1);
       }

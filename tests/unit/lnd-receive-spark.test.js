@@ -505,6 +505,92 @@ describe('LNDReceive with SparkWallet', () => {
     expect(screen.getByText('spark1newwallet')).toBeTruthy();
   });
 
+  it("does not show one wallet's invoice after switching to another Lightning wallet", async () => {
+    const { BlueCopyTextToClipboard } = require('../../BlueComponents');
+    const copyText = screen => screen.UNSAFE_getByType(BlueCopyTextToClipboard).props.text;
+    const walletA = makeLdsReceiveWallet('lds-a');
+    const walletB = { ...makeLdsReceiveWallet('lds-b'), lnAddress: 'b@test' };
+    const storage = {
+      wallets: [walletA, walletB],
+      saveToDisk: jest.fn().mockResolvedValue(undefined),
+      setSelectedWallet: jest.fn(),
+      fetchAndSaveWalletTransactions: jest.fn(),
+    };
+    const receive = () => (
+      <BlueStorageContext.Provider value={storage}>
+        <LNDReceive />
+      </BlueStorageContext.Provider>
+    );
+    const showWallet = async (screen, id) => {
+      mockRouteParams.walletID = id;
+      await act(async () => {
+        screen.rerender(receive());
+      });
+    };
+    mockRouteParams.walletID = 'lds-a';
+    const screen = render(receive());
+
+    await createInvoice(screen);
+    await waitFor(() => expect(copyText(screen)).toBe(SAMPLE_INVOICE));
+    await showWallet(screen, 'lds-b');
+    expect(copyText(screen)).toBe('b@test');
+
+    let resolveLateInvoice;
+    walletA.addInvoice = jest.fn(
+      () =>
+        new Promise(resolve => {
+          resolveLateInvoice = resolve;
+        }),
+    );
+    await showWallet(screen, 'lds-a');
+    await createInvoice(screen);
+    await waitFor(() => expect(walletA.addInvoice).toHaveBeenCalled());
+    await showWallet(screen, 'lds-b');
+    await act(async () => resolveLateInvoice(SAMPLE_INVOICE));
+
+    expect(copyText(screen)).toBe('b@test');
+  });
+
+  it('creates the invoice for the new wallet when the same amount was entered while the old one was still creating', async () => {
+    const { BlueCopyTextToClipboard } = require('../../BlueComponents');
+    const copyText = screen => screen.UNSAFE_getByType(BlueCopyTextToClipboard).props.text;
+    let resolveOldInvoice;
+    const walletA = makeLdsReceiveWallet('lds-a');
+    walletA.addInvoice = jest.fn(
+      () =>
+        new Promise(resolve => {
+          resolveOldInvoice = resolve;
+        }),
+    );
+    const walletB = { ...makeLdsReceiveWallet('lds-b'), lnAddress: 'b@test', addInvoice: jest.fn().mockResolvedValue('lnbc-wallet-b') };
+    walletB.decodeInvoice = jest.fn().mockResolvedValue({ payment_hash: 'hash-b' });
+    const storage = {
+      wallets: [walletA, walletB],
+      saveToDisk: jest.fn().mockResolvedValue(undefined),
+      setSelectedWallet: jest.fn(),
+      fetchAndSaveWalletTransactions: jest.fn(),
+    };
+    const receive = () => (
+      <BlueStorageContext.Provider value={storage}>
+        <LNDReceive />
+      </BlueStorageContext.Provider>
+    );
+    mockRouteParams.walletID = 'lds-a';
+    const screen = render(receive());
+    await createInvoice(screen);
+    await waitFor(() => expect(walletA.addInvoice).toHaveBeenCalled());
+
+    mockRouteParams.walletID = 'lds-b';
+    await act(async () => {
+      screen.rerender(receive());
+    });
+    await createInvoice(screen);
+    await act(async () => resolveOldInvoice(SAMPLE_INVOICE));
+
+    await waitFor(() => expect(walletB.addInvoice).toHaveBeenCalledWith(1000, ''));
+    await waitFor(() => expect(copyText(screen)).toBe('lnbc-wallet-b'));
+  });
+
   it('ignores a delayed Spark address result after the receive screen unmounts', async () => {
     let resolveAddress;
     const wallet = makeSparkReceiveWallet('spark-receive-unmount');

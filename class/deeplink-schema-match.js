@@ -15,7 +15,8 @@ class DeeplinkSchemaMatch {
       lowercaseString.startsWith('blue:') ||
       lowercaseString.startsWith('bluewallet:') ||
       lowercaseString.startsWith('lapp:') ||
-      lowercaseString.startsWith('dfxtaro:')
+      lowercaseString.startsWith('dfxtaro:') ||
+      lowercaseString.startsWith('spark:')
     );
   }
 
