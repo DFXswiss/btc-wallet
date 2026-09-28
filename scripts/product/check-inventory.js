@@ -279,7 +279,8 @@ function checkInventory(repoRoot) {
       errors.push(`feature ${entry.id}: Tier line missing`);
     }
     for (const source of entry.sources) {
-      if (!fs.existsSync(path.join(repoRoot, source))) {
+      const abs = path.join(repoRoot, source);
+      if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) {
         errors.push(`feature ${entry.id}: source path not found: ${source}`);
       }
     }
