@@ -38,46 +38,21 @@ jest.mock('../../App', () => {
   };
 });
 
-jest.mock('../../blue_modules/storage-context', () => {
+function mockProvider(name) {
   const PropTypes = require('prop-types');
-  function BlueStorageProvider(props) {
-    return props.children;
+  function Provider(props) {
+    const { View } = require('react-native');
+    return require('react').createElement(View, { testID: name }, props.children);
   }
-  BlueStorageProvider.propTypes = { children: PropTypes.node };
-  return { BlueStorageProvider };
-});
-jest.mock('../../contexts/wallet.context', () => {
-  const PropTypes = require('prop-types');
-  function WalletContextProvider(props) {
-    return props.children;
-  }
-  WalletContextProvider.propTypes = { children: PropTypes.node };
-  return { WalletContextProvider };
-});
-jest.mock('../../api/dfx/contexts/language.context', () => {
-  const PropTypes = require('prop-types');
-  function LanguageContextProvider(props) {
-    return props.children;
-  }
-  LanguageContextProvider.propTypes = { children: PropTypes.node };
-  return { LanguageContextProvider };
-});
-jest.mock('../../api/dfx/contexts/session.context', () => {
-  const PropTypes = require('prop-types');
-  function DfxSessionContextProvider(props) {
-    return props.children;
-  }
-  DfxSessionContextProvider.propTypes = { children: PropTypes.node };
-  return { DfxSessionContextProvider };
-});
-jest.mock('../../api/spark/contexts/spark.context', () => {
-  const PropTypes = require('prop-types');
-  function SparkContextProvider(props) {
-    return props.children;
-  }
-  SparkContextProvider.propTypes = { children: PropTypes.node };
-  return { SparkContextProvider };
-});
+  Provider.propTypes = { children: PropTypes.node };
+  return Provider;
+}
+
+jest.mock('../../blue_modules/storage-context', () => ({ BlueStorageProvider: mockProvider('BlueStorageProvider') }));
+jest.mock('../../contexts/wallet.context', () => ({ WalletContextProvider: mockProvider('WalletContextProvider') }));
+jest.mock('../../api/dfx/contexts/language.context', () => ({ LanguageContextProvider: mockProvider('LanguageContextProvider') }));
+jest.mock('../../api/dfx/contexts/session.context', () => ({ DfxSessionContextProvider: mockProvider('DfxSessionContextProvider') }));
+jest.mock('../../api/spark/contexts/spark.context', () => ({ SparkContextProvider: mockProvider('SparkContextProvider') }));
 
 function loadIndex() {
   mockRegisterComponent.mockClear();
@@ -108,7 +83,17 @@ describe('index.js', () => {
     expect(sentinel).not.toHaveBeenCalled();
 
     const screen = render(React.createElement(Component));
-    expect(screen.getByTestId('app-root').props.children).toBe('app');
+    const providers = [];
+    for (let node = screen.getByTestId('app-root').parent; node; node = node.parent) {
+      if (typeof node.type === 'string' && node.props.testID) providers.unshift(node.props.testID);
+    }
+    expect(providers).toEqual([
+      'BlueStorageProvider',
+      'WalletContextProvider',
+      'LanguageContextProvider',
+      'DfxSessionContextProvider',
+      'SparkContextProvider',
+    ]);
     expect(mockAnalytics).toHaveBeenCalledWith('INIT');
   });
 

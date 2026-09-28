@@ -163,18 +163,22 @@ describe('PsbtMultisig user-visible branches', () => {
     expect(wallet.cosignPsbt).toHaveBeenCalledWith(activePsbt);
   });
 
-  it('restores the signing state when wallet signing throws', async () => {
+  it('stops the signing spinner but keeps the sign button disabled when wallet signing throws', async () => {
     wallet.cosignPsbt.mockImplementation(() => {
       throw new Error('signing failed');
     });
     const screen = renderPsbt();
+    const signButtonLoading = () =>
+      screen.UNSAFE_getAllByProps({ testID: 'PsbtMultisigSignButton' }).find(node => 'isLoading' in node.props).props.isLoading;
     fireEvent.press(screen.getByTestId('PsbtMultisigSignButton'));
+    expect(signButtonLoading()).toBe(true);
 
     await act(async () => {
       jest.advanceTimersByTime(100);
       await Promise.resolve();
     });
     expect(wallet.cosignPsbt).toHaveBeenCalled();
+    expect(signButtonLoading()).toBe(false);
     expect(screen.getByTestId('PsbtMultisigSignButton')).toBeDisabled();
   });
 

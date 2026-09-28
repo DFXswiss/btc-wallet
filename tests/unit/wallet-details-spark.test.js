@@ -1148,18 +1148,40 @@ describe('WalletDetails keyboard, selected wallet and options', () => {
     expect(options.headerTitle).toBe(loc.wallets.details_title);
   });
 
-  it('loads details styles under RTL', () => {
-    let loaded;
+  it('lays out the detail labels right-to-left under RTL', async () => {
+    let screen;
+    let flatten;
     jest.isolateModules(() => {
       const RN = require('react-native');
       const previousRtl = RN.I18nManager.isRTL;
       RN.I18nManager.isRTL = true;
+      let FreshDetails;
       try {
-        loaded = require('../../screen/wallets/details').default;
+        FreshDetails = require('../../screen/wallets/details').default;
       } finally {
         RN.I18nManager.isRTL = previousRtl;
       }
+      flatten = RN.StyleSheet.flatten;
+      const ReactModule = require('react');
+      process.env.RNTL_SKIP_AUTO_CLEANUP = 'true';
+      const { render: renderFresh } = require('@testing-library/react-native');
+      delete process.env.RNTL_SKIP_AUTO_CLEANUP;
+      const { BlueStorageContext: FreshStorageContext } = require('../../blue_modules/storage-context');
+      const wallet = makeWallet('HDsegwitBech32', { id: 'rtl-1', chain: 'ONCHAIN' });
+      mockRoute.params = { walletID: wallet.getID() };
+      const value = {
+        wallets: [wallet],
+        deleteWallet: jest.fn(),
+        setSelectedWallet: jest.fn(),
+        txMetadata: {},
+        isPosMode: false,
+        saveToDisk: jest.fn().mockResolvedValue(undefined),
+        isAdvancedModeEnabled: jest.fn().mockResolvedValue(false),
+      };
+      screen = renderFresh(ReactModule.createElement(FreshStorageContext.Provider, { value }, ReactModule.createElement(FreshDetails)));
     });
-    expect(typeof loaded).toBe('function');
+    const label = await screen.findByText(loc.wallets.details_type);
+    expect(flatten(label.props.style).writingDirection).toBe('rtl');
+    screen.unmount();
   });
 });

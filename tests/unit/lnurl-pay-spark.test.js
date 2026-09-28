@@ -1011,7 +1011,7 @@ describe('LnurlPay Spark pending send', () => {
     jest.spyOn(Lnurl.prototype, 'getSuccessAction').mockReturnValue(undefined);
     jest.spyOn(Lnurl.prototype, 'getCommentAllowed').mockReturnValue(false);
     jest.spyOn(Lnurl.prototype, 'requestBolt11FromLnurlPayService').mockResolvedValue({ pr: SAMPLE_INVOICE });
-    const storeSuccess = jest.spyOn(Lnurl.prototype, 'storeSuccess').mockRejectedValue(new Error('storage unavailable'));
+    const storeSuccess = jest.spyOn(Lnurl.prototype, 'storeSuccess').mockResolvedValue(undefined);
     wallet.payInvoice.mockResolvedValue({ status: 'completed', paymentHash: 'lnurl-bolt11-hash', fee: 4 });
     const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST' });
 
@@ -1596,7 +1596,8 @@ describe('LnurlPay remaining payment paths', () => {
 
   it('navigates to LNURL success after an immediate pay even when storing the success rejects', async () => {
     const wallet = makeWallet();
-    mockLnurlPay();
+    const storeSuccess = mockLnurlPay();
+    storeSuccess.mockRejectedValue(new Error('storage unavailable'));
     wallet.payInvoice.mockResolvedValue({ status: 'completed', fee: 2 });
     wallet.last_paid_invoice_result = { payment_preimage: 'pre-now' };
     const screen = renderPay(wallet, { invoice: undefined, lnurl: 'LNURL1TEST' });
@@ -1607,6 +1608,10 @@ describe('LnurlPay remaining payment paths', () => {
     });
 
     await expectSparkLightningPayment(wallet);
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', expect.objectContaining({ screen: 'LnurlPaySuccess' })),
+    );
+    expect(storeSuccess).toHaveBeenCalledWith(expect.any(String), 'pre-now');
   });
 
   it('does not store LNURL success or navigate when Spark payment fails', async () => {
@@ -1923,11 +1928,12 @@ describe('LnurlPay remaining payment paths', () => {
 
   it('pays a fractional sats amount as whole sats, as on develop', async () => {
     const wallet = makeWallet();
+    wallet.decodeInvoice = jest.fn().mockReturnValue({ num_satoshis: 0, num_millisatoshis: '0', description: 'tea' });
     const screen = renderPay(wallet, { amountSat: 1000.5 });
 
     await waitFor(() => screen.getByText(loc.lnd.payButton));
     fireEvent.press(screen.getByText(loc.lnd.payButton));
-    await waitFor(() => expect(wallet.payInvoice).toHaveBeenCalled());
+    await waitFor(() => expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000, expect.anything()));
     expect(alert).not.toHaveBeenCalledWith(loc.lnd.error_tip_invoice_not_supported);
   });
 
@@ -2601,6 +2607,8 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
     });
 
     await expectSparkLightningPayment(wallet);
+    expect(getPayButton(screen).props.disabled).toBe(false);
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('restores the Spark button after a reusable invoice returns an unknown status', async () => {
@@ -2623,10 +2631,6 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
 });
 
 describe('outgoing payment tracking across LnurlPay routes', () => {
-  beforeEach(() => {});
-
-  afterEach(() => {});
-
   it('notifies the older route when its SDK completion arrives after a newer payment began', () => {
     beginOutgoingPayment({ paymentHash: 'older-hash', paymentId: 'older-id', invoice: 'older-invoice' });
     beginOutgoingPayment({ paymentHash: 'newer-hash', paymentId: 'newer-id', invoice: 'newer-invoice' });

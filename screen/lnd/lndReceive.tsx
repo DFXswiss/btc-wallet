@@ -291,7 +291,7 @@ const LNDReceive = () => {
         } catch (error) {
           reportError('lndReceive: prefetch invoices failed', error);
         }
-        if (generation !== pollGeneration.current) {
+        if (generation !== pollGeneration.current || superseded()) {
           return;
         }
         initInvoicePolling(createdInvoiceRequest, decoded.payment_hash);

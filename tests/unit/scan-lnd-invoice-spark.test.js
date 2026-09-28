@@ -113,6 +113,7 @@ const SPARK_ADDRESS = bech32m.encode('spark', bech32m.toWords(Buffer.from('spark
 const haptic = require('react-native-haptic-feedback');
 const { BlueDarkTheme } = require('../../components/themes');
 const AmountInput = require('../../components/AmountInput').default;
+const currency = require('../../blue_modules/currency');
 
 const LNURL = 'LNURL1TEST';
 const SAMPLE_INVOICE =
@@ -231,7 +232,14 @@ describe('ScanLndInvoice fee mark', () => {
     AmountInput.conversionCache = {};
   });
   it('does not guess a Lightning fee range or mark it free for a Spark wallet', async () => {
-    const { wallet } = await expectSparkAcceptsLightning(LNURL);
+    mockLnurl('lightning.space', 1000);
+    const wallet = makeSparkWallet();
+    const screen = renderScan(wallet);
+
+    await waitFor(() => screen.getByText(loc.lnd.next));
+    expect(screen.getByText('-')).toBeTruthy();
+    assert.strictEqual(screen.queryByText(loc._.free), null);
+    assert.strictEqual(screen.queryByText(feeRangeText(Math.round(1000 * 0.03))), null);
     expect(wallet.getPaymentFeeWithoutSending).not.toHaveBeenCalled();
   });
 
@@ -308,6 +316,11 @@ describe('ScanLndInvoice fee mark', () => {
     fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '1000');
 
     await waitFor(() => expect(spark.getPaymentFeeWithoutSending).toHaveBeenCalledWith(SPARK_ADDRESS, 1000));
+    fireEvent.press(screen.getByText(loc.lnd.next));
+    expect(mockNavigate).toHaveBeenCalledWith('SendDetailsRoot', {
+      screen: 'LnurlPay',
+      params: { sparkAddress: SPARK_ADDRESS, amountSat: 1000, amountUnit: BitcoinUnit.SATS, walletID: spark.getID() },
+    });
   });
 
   it('quotes the Spark fee for a scanned spark: invoice', async () => {
@@ -434,7 +447,13 @@ describe('ScanLndInvoice fee mark', () => {
     });
   });
   it('does not show a guessed Spark fee range for a Lightning address on a free domain', async () => {
-    const { wallet } = await expectSparkAcceptsLightning('tea@lightning.space');
+    const { wallet, screen } = await expectSparkAcceptsLightning('tea@lightning.space');
+    fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '1000');
+
+    await waitFor(() => screen.getByDisplayValue('1000'));
+    expect(screen.getByText('-')).toBeTruthy();
+    assert.strictEqual(screen.queryByText(feeRangeText(Math.round(1000 * 0.03))), null);
+    assert.strictEqual(screen.queryByText(loc._.free), null);
     expect(wallet.getPaymentFeeWithoutSending).not.toHaveBeenCalled();
   });
   it('shows the 3-percent LNDHub fee range for a Lightning address that is not free', async () => {
@@ -793,6 +812,9 @@ describe('ScanLndInvoice fee mark', () => {
     expect(alert).toHaveBeenCalledWith(loc.send.details_address_field_is_not_valid);
     expect(mockNavigate).not.toHaveBeenCalled();
     expect(DeeplinkSchemaMatch.isSparkAddress('spark1not-a-valid-bech32m-value')).toBe(false);
+  });
+
+  it('does not treat an uppercase Spark address as a Spark address', () => {
     expect(DeeplinkSchemaMatch.isSparkAddress(SPARK_ADDRESS.toUpperCase())).toBe(false);
   });
 
@@ -857,16 +879,24 @@ describe('ScanLndInvoice fee mark', () => {
   });
 
   it('converts a typed LOCAL_CURRENCY amount without a cache hit via fiatToBTC', async () => {
-    mockLnurl('example.com', 1000);
-    const wallet = makeLndhubWallet();
-    const screen = renderScan(wallet);
+    currency.fiatToBTC.mockImplementation(fiat => Number(fiat) / 100_000);
+    try {
+      mockLnurl('example.com', 1000);
+      const wallet = makeLndhubWallet();
+      const screen = renderScan(wallet);
 
-    await waitFor(() => screen.getByText(loc.lnd.next));
-    fireEvent.press(screen.getByTestId('changeAmountUnitButton'));
-    fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '9');
-    fireEvent.press(screen.getByText(loc.lnd.next));
-    expect(alert).toHaveBeenCalledWith(loc.send.details_amount_field_is_not_valid);
-    expect(mockNavigate).not.toHaveBeenCalled();
+      await waitFor(() => screen.getByText(loc.lnd.next));
+      fireEvent.press(screen.getByTestId('changeAmountUnitButton'));
+      fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '9');
+      fireEvent.press(screen.getByText(loc.lnd.next));
+      expect(currency.fiatToBTC).toHaveBeenCalledWith('9');
+      expect(mockNavigate).toHaveBeenCalledWith(
+        'SendDetailsRoot',
+        expect.objectContaining({ params: expect.objectContaining({ amountSat: 9000 }) }),
+      );
+    } finally {
+      currency.fiatToBTC.mockImplementation(() => 0);
+    }
   });
 
   it('converts a BTC amount back to sats before LNURL pay', async () => {
@@ -880,8 +910,7 @@ describe('ScanLndInvoice fee mark', () => {
     fireEvent.press(screen.getByText(loc.lnd.next));
     const nav = mockNavigate.mock.calls[0];
     assert.strictEqual(nav[0], 'SendDetailsRoot');
-    assert.strictEqual(typeof nav[1].params.amountSat, 'number');
-    assert.ok(nav[1].params.amountSat > 0);
+    assert.strictEqual(nav[1].params.amountSat, 1000);
   });
 
   it('does not process a destination when the screen is opened without a uri', () => {

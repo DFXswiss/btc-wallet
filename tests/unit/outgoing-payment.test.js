@@ -277,14 +277,6 @@ describe('outgoing payment tracker', () => {
     assert.strictEqual(getOutgoingPayment().status, 'failed');
   });
 
-  it('attaching a payment id without a hash keeps the hash already on the tracker', () => {
-    beginOutgoingPayment({ paymentHash: 'h1', paymentId: 'p1' });
-    const again = attachOutgoingPaymentId({ paymentHash: '', paymentId: 'p1' });
-    assert.strictEqual(again.paymentHash, 'h1');
-    assert.strictEqual(again.paymentId, 'p1');
-    assert.strictEqual(again.status, 'pending');
-  });
-
   it('keeps the tracked hash when attaching an empty hash to a matching payment id', () => {
     beginOutgoingPayment({ paymentHash: 'h-attached', paymentId: 'p-attached' });
 

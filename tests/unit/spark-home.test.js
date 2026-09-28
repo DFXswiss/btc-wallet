@@ -426,49 +426,7 @@ describe('home screen Spark Lightning add path (render)', () => {
     expect(mockConnect).toHaveBeenCalled();
   });
 
-  it('does not navigate to AddLightning when the Lightning add is pressed', async () => {
-    let resolveConnect;
-    mockConnect.mockImplementation(
-      () =>
-        new Promise(resolve => {
-          resolveConnect = () => {
-            mockIsConnected.mockReturnValue(true);
-            resolve(mockSdk);
-          };
-        }),
-    );
-    const screen = renderHome([makeOnChain()]);
-    await waitFor(() => expect(screen.getByText(loc.wallets.lightning_spark_wallet_label)).toBeTruthy());
-
-    await act(async () => {
-      pressLightningAdd(screen);
-    });
-
-    await waitFor(() => {
-      expect(screen.UNSAFE_queryAllByType(ActivityIndicator).length).toBeGreaterThan(0);
-    });
-    await act(async () => {
-      resolveConnect();
-    });
-    await waitFor(() => {
-      expect(screen.getByText(loc.wallets.lightning_spark_wallet_label)).toBeTruthy();
-    });
-    const navToAddLightning = mockNavigate.mock.calls.some(
-      call => (call[0] === 'WalletsRoot' && call[1]?.screen === 'AddLightning') || call[0] === 'AddLightning',
-    );
-    assert.strictEqual(navToAddLightning, false);
-  });
-
-  it('does not put an existing LDS wallet in the Spark row', async () => {
-    const screen = renderHome([makeOnChain(), makeLds()]);
-    await waitFor(() => expect(screen.getByText(loc.wallets.lightning_spark_wallet_label)).toBeTruthy());
-    expect(screen.queryByText('Lightning Wallet')).toBeNull();
-    expect(screen.queryByText('Lightning-Wallet')).toBeNull();
-    expect(screen.queryAllByText(loc._.add).length).toBeGreaterThan(0);
-    expect(mockConnect).not.toHaveBeenCalled();
-  });
-
-  it('shows Spark when both a Spark wallet and an LDS wallet exist', async () => {
+  it('opens the LDS wallet from the Lightning row when both a Spark wallet and an LDS wallet exist', async () => {
     const lds = makeLds('lds-both', 99);
     const spark = makeSpark('spark-both', 1);
     mockIsConnected.mockReturnValue(true);
@@ -476,6 +434,9 @@ describe('home screen Spark Lightning add path (render)', () => {
     await waitFor(() => expect(screen.getByText(loc.wallets.lightning_spark_wallet_label)).toBeTruthy());
     expect(screen.queryByText('Lightning Wallet')).toBeNull();
     expect(screen.queryByText('Lightning-Wallet')).toBeNull();
+
+    fireEvent.press(screen.getByText(loc.wallets.lightning_spark_wallet_label));
+    expect(mockNavigate).toHaveBeenCalledWith('WalletsRoot', { screen: 'WalletAsset', params: { walletID: 'lds-both' } });
   });
 
   it('shows an alert on create failure, persists nothing, and leaves the row usable', async () => {
@@ -495,7 +456,7 @@ describe('home screen Spark Lightning add path (render)', () => {
     expect(screen.getByText(loc.wallets.lightning_spark_wallet_label)).toBeTruthy();
     expect(screen.queryByText('Lightning Wallet')).toBeNull();
     expect(screen.queryByText('Lightning-Wallet')).toBeNull();
-    expect(screen.getAllByText(loc._.add).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(loc._.add)).toHaveLength(2);
 
     // Row remains operable: another press triggers create again.
     await act(async () => {
@@ -678,11 +639,13 @@ describe('home screen wallet rows and receive/send', () => {
     const lds = makeLds('lds-row', 51);
     const screen = renderHome([makeOnChain(), lds]);
     await waitFor(() => expect(screen.getByText(loc.wallets.lightning_spark_wallet_label)).toBeTruthy());
+    expect(screen.getAllByText(loc._.add)).toHaveLength(1);
     fireEvent.press(screen.getByText(loc.wallets.lightning_spark_wallet_label));
     expect(mockNavigate).toHaveBeenCalledWith('WalletsRoot', {
       screen: 'WalletAsset',
       params: { walletID: 'lds-row' },
     });
+    expect(mockConnect).not.toHaveBeenCalled();
   });
 
   it('opens ScanCodeSend from the send button', async () => {
@@ -1205,41 +1168,77 @@ describe('home screen navigationOptions', () => {
 });
 
 describe('home screen module-level branches', () => {
-  it('loads with a window whose width/26 is at most 22', () => {
-    let loaded;
+  function renderFreshHome(prepare) {
+    let screen;
     jest.isolateModules(() => {
-      const RN = require('react-native');
-      const spy = jest.spyOn(RN.Dimensions, 'get').mockReturnValue({ width: 260, height: 800, scale: 1, fontScale: 1 });
+      const restore = prepare(require('react-native'));
+      let Home;
       try {
-        loaded = require('../../screen/wallets/home').default;
+        Home = require('../../screen/wallets/home').default;
       } finally {
-        spy.mockRestore();
+        restore();
       }
+      const ReactModule = require('react');
+      process.env.RNTL_SKIP_AUTO_CLEANUP = 'true';
+      const { render: renderFresh } = require('@testing-library/react-native');
+      delete process.env.RNTL_SKIP_AUTO_CLEANUP;
+      const { BlueStorageContext: FreshStorageContext } = require('../../blue_modules/storage-context');
+      const { SparkContextProvider: FreshSparkProvider } = require('../../api/spark/contexts/spark.context');
+      const value = {
+        wallets: [makeOnChain()],
+        walletsInitialized: true,
+        saveToDisk: jest.fn().mockResolvedValue(undefined),
+        setSelectedWallet: jest.fn(),
+        revalidateBalancesInterval: jest.fn(),
+        addAndSaveWallet: jest.fn(),
+      };
+      screen = renderFresh(
+        ReactModule.createElement(
+          FreshStorageContext.Provider,
+          { value },
+          ReactModule.createElement(FreshSparkProvider, null, ReactModule.createElement(Home, { navigation: { navigate: mockNavigate } })),
+        ),
+      );
     });
-    expect(typeof loaded).toBe('function');
+    return screen;
+  }
+
+  function withWindowWidth(width) {
+    return RN => {
+      const spy = jest.spyOn(RN.Dimensions, 'get').mockReturnValue({ width, height: 800, scale: 1, fontScale: 1 });
+      return () => spy.mockRestore();
+    };
+  }
+
+  function arrowIcons(screen) {
+    return screen.UNSAFE_getAllByProps({ name: 'arrow-down', type: 'font-awesome' });
+  }
+
+  it('sizes the send and receive icons to width/26 when that is at most 22', () => {
+    const screen = renderFreshHome(withWindowWidth(260));
+    expect(new Set(arrowIcons(screen).map(icon => icon.props.size))).toEqual(new Set([10]));
+    screen.unmount();
   });
 
-  it('loads with a window whose width/26 is above 22', () => {
-    let loaded;
-    jest.isolateModules(() => {
-      const RN = require('react-native');
-      const spy = jest.spyOn(RN.Dimensions, 'get').mockReturnValue({ width: 2000, height: 800, scale: 1, fontScale: 1 });
-      try {
-        loaded = require('../../screen/wallets/home').default;
-      } finally {
-        spy.mockRestore();
-      }
-    });
-    expect(typeof loaded).toBe('function');
+  it('caps the send and receive icon size at 22 when width/26 is above 22', () => {
+    const screen = renderFreshHome(withWindowWidth(2000));
+    expect(new Set(arrowIcons(screen).map(icon => icon.props.size))).toEqual(new Set([22]));
+    screen.unmount();
   });
 
-  it('loads with RTL writing direction', () => {
-    let loaded;
-    jest.isolateModules(() => {
-      require('react-native').I18nManager.isRTL = true;
-      loaded = require('../../screen/wallets/home').default;
-      require('react-native').I18nManager.isRTL = false;
+  it('mirrors the send and receive icon rotation for RTL writing direction', () => {
+    const screen = renderFreshHome(RN => {
+      RN.I18nManager.isRTL = true;
+      return () => {
+        RN.I18nManager.isRTL = false;
+      };
     });
-    expect(typeof loaded).toBe('function');
+    const rotations = arrowIcons(screen).map(icon => {
+      let node = icon.parent;
+      while (node && !node.props.style?.transform) node = node.parent;
+      return node.props.style.transform[0].rotate;
+    });
+    expect(new Set(rotations)).toEqual(new Set(['45deg', '-225deg']));
+    screen.unmount();
   });
 });

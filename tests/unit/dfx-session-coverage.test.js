@@ -215,7 +215,7 @@ describe('DFX session lifecycle and failure boundaries', () => {
     expect(mockAuth).toHaveBeenCalledTimes(3);
     expect(mockAuth).toHaveBeenCalledWith(sparkAddress, 'spark-proof');
     expect(mockAuth.mock.calls.some(call => call[0] === sparkAddress.toUpperCase())).toBe(false);
-    await expect(invoke(result, current => current.getAccessToken('unsupported'))).rejects.toThrow('TODO');
+    await expect(invoke(result, current => current.getAccessToken('unsupported'))).rejects.toThrow(new Error('TODO (david): taproot?'));
     expect(mockAuth.mock.calls).toEqual(
       expect.arrayContaining([
         ['LNURL1ADDRESS', 'lds-proof'],

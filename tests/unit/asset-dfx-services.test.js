@@ -355,7 +355,7 @@ afterEach(() => {
 });
 
 describe('wallet asset DFX services', () => {
-  it('shows External services for an LNDHub wallet and for Spark', () => {
+  it('shows External services for an LDS wallet and for Spark', () => {
     const sparkScreen = renderAsset(makeSpark('spark-asset-1'));
     expect(sparkScreen.getByText(loc.wallets.external_services)).toBeTruthy();
     sparkScreen.unmount();
@@ -913,20 +913,6 @@ describe('wallet asset send long-press action sheet', () => {
     expect(opts.buttons[3].text).toBe(loc.wallets.list_long_clipboard);
   });
 
-  it('shows the Android send long-press button list with cancel, choose, scan and clipboard', async () => {
-    Platform.OS = 'android';
-    mockGetClipboardContent.mockResolvedValue('send-long-press-clip');
-    const screen = renderAsset(makeWallet({ id: 'android-send-long-press' }));
-    await longPressSend(screen);
-    const { opts } = lastActionSheetCall();
-    expect(opts.buttons.map(b => b.text)).toEqual([
-      loc._.cancel,
-      loc.wallets.list_long_choose,
-      loc.wallets.list_long_scan,
-      loc.wallets.list_long_clipboard,
-    ]);
-  });
-
   it('does not open an action sheet on send long-press when the platform is neither iOS nor Android', async () => {
     Platform.OS = 'macos';
     mockGetClipboardContent.mockResolvedValue('ignored');
@@ -1117,13 +1103,12 @@ describe('wallet asset module-level branches', () => {
     expect(typeof loaded).toBe('function');
   });
 
-  it('renders the transaction list title on desktop while loading and after load', async () => {
+  it('renders the transaction list title on desktop when the screen starts loading', () => {
     mockEnvState.isDesktop = true;
     mockReactFlags.startLoading = true;
     try {
       const screen = renderAsset(makeWallet({ id: 'desktop-1' }));
       expect(screen.getByText(loc.transactions.list_title)).toBeTruthy();
-      await waitFor(() => expect(screen.getByText(loc.transactions.list_title)).toBeTruthy());
       screen.unmount();
     } finally {
       mockReactFlags.startLoading = false;

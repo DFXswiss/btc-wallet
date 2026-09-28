@@ -127,6 +127,6 @@ describe('ManualAddressSend', () => {
     await typeAndContinue(screen, COMBINED_BIP21);
 
     await waitFor(() => expect(navigationRef.getCurrentRoute().name).toBe('SendDetails'));
-    expect(screen.getByText('SendDetails')).toBeTruthy();
+    expect(navigationRef.getCurrentRoute().params).toEqual(expect.objectContaining({ walletID: 'main-wallet' }));
   });
 });

@@ -169,10 +169,10 @@ const { LightningLdsWallet } = require('../../class/wallets/lightning-lds-wallet
 const { BitcoinUnit, Chain } = require('../../models/bitcoinUnits');
 const { BlueStorageContext } = require('../../blue_modules/storage-context');
 const loc = require('../../loc').default;
-const { formatBalance } = require('../../loc');
+const { formatBalance, formatBalancePlain } = require('../../loc');
 const { reportError } = require('../../helpers/errors');
 const { __nfc } = require('../../hooks/nfc.hook');
-const { Platform, Image, Keyboard, TouchableWithoutFeedback, Alert, Modal } = require('react-native');
+const { Platform, Image, Keyboard, KeyboardAvoidingView, TouchableWithoutFeedback, Alert, Modal } = require('react-native');
 const Share = require('react-native-share');
 const Lnurl = require('../../class/lnurl').default;
 const haptic = require('react-native-haptic-feedback');
@@ -1412,6 +1412,44 @@ describe('LNDReceive with SparkWallet', () => {
     await waitFor(() => expect(screen.getByText(SAMPLE_INVOICE)).toBeTruthy());
   });
 
+  it('does not start polling an older invoice once a newer request for the same wallet has begun', async () => {
+    installInvoiceTimers();
+    try {
+      const wallet = makeLdsReceiveWallet('lds-receive-superseded-poll');
+      let resolveFirstInvoice;
+      wallet.addInvoice
+        .mockImplementationOnce(
+          () =>
+            new Promise(resolve => {
+              resolveFirstInvoice = resolve;
+            }),
+        )
+        .mockImplementationOnce(() => new Promise(() => {}));
+      const saveToDisk = jest.fn().mockResolvedValue(undefined);
+      const screen = renderReceive(wallet, { saveToDisk });
+      const amountInput = screen.getByPlaceholderText('Amount (optional)');
+      const descriptionInput = screen.getByPlaceholderText(`${loc.receive.details_label} (optional)`);
+
+      fireEvent.changeText(amountInput, '1000');
+      fireEvent(amountInput, 'blur');
+      await waitFor(() => expect(wallet.addInvoice).toHaveBeenCalledTimes(1));
+      fireEvent.changeText(descriptionInput, 'coffee');
+      fireEvent(descriptionInput, 'blur');
+      await act(async () => {
+        resolveFirstInvoice('first-invoice');
+        await Promise.resolve();
+      });
+      await waitFor(() => expect(wallet.addInvoice).toHaveBeenCalledTimes(2));
+
+      await advanceTimers(1000);
+
+      expect(invoiceIntervalCount()).toBe(0);
+      expect(saveToDisk).not.toHaveBeenCalled();
+    } finally {
+      restoreInvoiceTimers();
+    }
+  });
+
   it('alerts the string form of a non-Error addInvoice rejection', async () => {
     const wallet = makeLdsReceiveWallet('lds-receive-string-err');
     wallet.addInvoice.mockRejectedValue('nope');
@@ -2055,18 +2093,21 @@ describe('LNDCreateInvoice with SparkWallet', () => {
 
   it('renders the custom amount modal with android KeyboardAvoidingView and iPad disabled', async () => {
     const previousOS = Platform.OS;
-    const previousIsPad = Platform.isPad;
+    const isPadDescriptor = Object.getOwnPropertyDescriptor(Platform, 'isPad');
     Platform.OS = 'android';
-    Platform.isPad = true;
+    Object.defineProperty(Platform, 'isPad', { configurable: true, get: () => true });
     try {
       const wallet = makeCreateWallet();
       const screen = renderCreateInvoiceScreen(wallet);
       await waitFor(() => screen.getByTestId('SetCustomAmountButton'));
       fireEvent.press(screen.getByTestId('SetCustomAmountButton'));
       expect(screen.getByTestId('CustomAmountSaveButton')).toBeTruthy();
+      const keyboardAvoidingView = screen.UNSAFE_getByType(KeyboardAvoidingView);
+      expect(keyboardAvoidingView.props.enabled).toBe(false);
+      expect(keyboardAvoidingView.props.behavior).toBeNull();
     } finally {
       Platform.OS = previousOS;
-      Platform.isPad = previousIsPad;
+      Object.defineProperty(Platform, 'isPad', isPadDescriptor);
     }
   });
 
@@ -2427,10 +2468,14 @@ describe('LNDCreateInvoice with SparkWallet', () => {
       if (String(url).includes('k1=')) return jsonResponse({ status: 'OK' });
       return jsonResponse(withdrawPayload({ minWithdrawable: 0, maxWithdrawable: 5_000_000 }));
     });
-    renderCreateInvoiceScreen(wallet, { uri: lnurl });
+    try {
+      renderCreateInvoiceScreen(wallet, { uri: lnurl });
 
-    await expectSparkCreates(wallet, 5000);
-    currency.satoshiToBTC.mockImplementation(() => 0);
+      await expectSparkCreates(wallet, 5000);
+      expect(currency.satoshiToBTC).toHaveBeenCalledWith('5000');
+    } finally {
+      currency.satoshiToBTC.mockImplementation(() => 0);
+    }
   });
 
   it('converts the withdraw amount to local currency and caches the sats', async () => {
@@ -2444,6 +2489,7 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     renderCreateInvoiceScreen(wallet, { uri: lnurl });
 
     await expectSparkCreates(wallet, 5000);
+    expect(AmountInput.getCachedSatoshis(formatBalancePlain('5000', BitcoinUnit.LOCAL_CURRENCY))).toBe('5000');
   });
 
   it('treats a missing minWithdrawable as zero so the max amount is still accepted', async () => {

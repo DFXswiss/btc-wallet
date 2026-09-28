@@ -479,7 +479,7 @@ Verkauf fuehrt der Dienst per Deeplink zurueck in die App, und bezahlt wird
 dort über `Sell` und `LnurlPay`. Ein Spark-Verkauf zahlt die Deposit-Adresse
 als Spark-Adresse. Eine `spark:`-Invoice ist ein eigener Zweig, nicht der
 DFX-Verkauf. Beide sind
-registrierte Routen (`navigation/DeeplinkStack.tsx:22` und `:23`) und fehlen
+registrierte Routen (`navigation/DeeplinkStack.tsx:22` und `:27`) und fehlen
 im Satz; sie fallen unter Ursache 1, denn sie brauchen einen echten
 Verkaufsvorgang mit Guthaben.
 

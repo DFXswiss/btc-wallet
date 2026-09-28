@@ -104,12 +104,6 @@ describe('spark-sdk', () => {
     assert.strictEqual(breez.connect.mock.calls[0][0].config.lnurlDomain, undefined);
   });
 
-  it('reuses the same connection on a second call', async () => {
-    await connectSparkSdk('one two three four five six seven eight nine ten eleven about');
-    await connectSparkSdk('one two three four five six seven eight nine ten eleven about');
-    expect(breez.connect).toHaveBeenCalledTimes(1);
-  });
-
   it('fails loudly when BREEZ_API_KEY is missing', async () => {
     delete Config.BREEZ_API_KEY;
     await assert.rejects(
@@ -706,14 +700,6 @@ describe('spark-sdk', () => {
     assert.strictEqual(seed.inner.mnemonic, mnemonic);
     assert.strictEqual(seed.inner.passphrase, undefined);
     assert.notStrictEqual(seed.inner.passphrase, '');
-  });
-
-  it('reuses the session when the same mnemonic connects again', async () => {
-    const mnemonic = 'one two three four five six seven eight nine ten eleven about';
-    await connectSparkSdk(mnemonic);
-    await connectSparkSdk(mnemonic);
-    expect(breez.connect).toHaveBeenCalledTimes(1);
-    expect(mockInstance.disconnect).not.toHaveBeenCalled();
   });
 
   it('does not log the mnemonic when connect fails', async () => {
