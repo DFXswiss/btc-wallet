@@ -60,7 +60,7 @@ function isWatchedPayment(watching, payment) {
 
 /**
  * Spark address a Spark wallet pays directly. A max amount and a comment have no Spark
- * destination, so those payments are refused instead of falling back to Lightning.
+ * destination, so those payments go through the LNURL invoice instead.
  */
 function directSparkAddress(LN, fromWallet, isMax, description) {
   if (!LN || fromWallet.type !== SparkWallet.type || isMax) return undefined;

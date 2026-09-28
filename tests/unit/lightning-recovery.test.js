@@ -125,6 +125,13 @@ describe('useLightningRecovery', () => {
     expect(mockRecoverSparkWallet).not.toHaveBeenCalled();
   });
 
+  it('also tries the standard BIP84 address of a BIP84 wallet imported on a custom path', async () => {
+    const customPath = { ...importedWallet(), _getExternalAddressByIndex: () => 'bc1-custom-path' };
+    await recover(customPath);
+
+    expect(mockFindUser.mock.calls.map(call => call[0])).toEqual(['bc1-custom-path', 'bc1-seed words-pass', '3-seed words-pass']);
+  });
+
   it('restores Spark only when no lightning.space account exists', async () => {
     const wallet = importedWallet();
     await recover(wallet);

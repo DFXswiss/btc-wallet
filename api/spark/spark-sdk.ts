@@ -366,7 +366,7 @@ async function connectLocked(mnemonic: string, onEvent?: (event: SdkEvent) => Pr
 }
 
 /**
- * Connects the Breez Spark SDK once per app session.
+ * Connects the Breez Spark SDK for this seed, reusing the open session when the seed is the same.
  * Receives the BIP-85 child phrase derived from the on-chain wallet, never the on-chain phrase or its passphrase.
  * Lightning addresses are registered on BREEZ_LNURL_DOMAIN when set, otherwise on the SDK default Breez server.
  */

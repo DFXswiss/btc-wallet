@@ -20,16 +20,18 @@ type SigningHdWallet = {
 
 /**
  * Login addresses a lightning.space account of this seed can be keyed to: the imported wallet's own first
- * address, then the first BIP84 and BIP49 address (app-created wallets before May 2023 were BIP49).
+ * address, then the first BIP84 and BIP49 address (app-created wallets before May 2023 were BIP49). A wallet
+ * imported on a custom path keeps its type, so a candidate is skipped only when its address is the same.
  */
 function loginCandidates(wallet: SigningHdWallet): SigningHdWallet[] {
   const candidates: SigningHdWallet[] = [wallet];
+  const ownAddress = wallet._getExternalAddressByIndex(0);
   for (const WalletClass of [HDSegwitBech32Wallet, HDSegwitP2SHWallet]) {
-    if (WalletClass.type === wallet.type) continue;
     const candidate = new WalletClass();
     candidate.setSecret(wallet.getSecret());
     const passphrase = wallet.getPassphrase();
     if (passphrase) candidate.setPassphrase(passphrase);
+    if (candidate._getExternalAddressByIndex(0) === ownAddress) continue;
     candidates.push(candidate);
   }
   return candidates;
