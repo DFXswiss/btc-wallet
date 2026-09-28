@@ -119,7 +119,7 @@ On-chain send: choosing a destination, composing amount and fee, confirming and 
 **Depends on.** Camera permission hook; react-native-camera-kit-no-google; rn-qr-generator; BC-UR; react-native-image-picker / permissions.
 
 **Known issues.** None recorded.
-**Tests.** CF-03
+**Tests.** CF-09
 **Source.** screen/send/ScanQRCode.js, hooks/cameraPermisions.hook.ts, navigation/index.tsx
 
 ## S-07 Broadcast raw transaction

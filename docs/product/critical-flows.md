@@ -46,7 +46,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 
 ## CF-03 Restore from a recovery phrase and send on-chain
 
-**Covers:** W-02, S-01, S-02, S-06, T-01, A-08
+**Covers:** W-02, S-01, S-02, T-01, A-08
 **Tier:** Critical
 **Funding:** on-chain sats on the test phrase
 **Preconditions.** A known recovery phrase that holds on-chain sats; Electrum reachable.
@@ -143,12 +143,12 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 
 ## CF-09 Log in to DFX with LNURL-auth
 
-**Covers:** L-14, L-15
+**Covers:** L-14, L-15, S-06
 **Tier:** Critical (DFX)
 **Funding:** none
 **Preconditions.** Only a Spark Lightning wallet is present (no lightning.space or LNDHub wallet: for domains other than DFX the app signs in with that wallet instead of Spark); a DFX LNURL-auth code and an LNURL-auth code from another domain to scan.
 **Steps.**
-1. Scan a DFX LNURL-auth code from Send/scan.
+1. On Home, tap Scan and scan the DFX LNURL-auth code with the shared QR scanner.
 2. Confirm the login prompt names the DFX domain.
 3. Approve the login prompt for the DFX domain.
 4. Scan the LNURL-auth code from the other domain and confirm the message "This wallet cannot sign in with that code."
@@ -205,7 +205,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 | T-02 | Critical | CF-02 |
 | S-01 | Critical | CF-03 |
 | S-02 | Critical | CF-03 |
-| S-06 | Critical | CF-03 |
+| S-06 | Critical | CF-09 |
 | L-01 | Critical (DFX) | CF-05 |
 | L-02 | Critical (DFX) | CF-05 |
 | L-03 | Critical (DFX) | CF-08 |
