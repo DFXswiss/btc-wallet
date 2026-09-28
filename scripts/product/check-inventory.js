@@ -207,7 +207,8 @@ function checkInventory(repoRoot) {
   const flows = parseFlows(fs.readFileSync(flowsPath, 'utf8'));
   const errors = [];
 
-  if (!screens.length) {
+  const actionable = screens.filter(screen => !IGNORED_ROUTES.has(screen));
+  if (!actionable.length) {
     errors.push('navigation: no screen routes found under navigation/');
   }
 
