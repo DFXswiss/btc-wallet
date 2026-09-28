@@ -125,14 +125,14 @@ Cold start, unlock, deep links, home-screen shortcuts, push notifications, scree
 ## A-07 Handoff, Apple Watch and widgets
 
 **Routes:** none
-**Entry:** Not shipped
+**Entry:** Handoff through Settings, General, Continuity; Watch and widgets not shipped
 **Tier:** Nice
 
 **Inputs.** Widget-action URLs `bluewallet://widget?action=openSend` or `openReceive` (handled by the deep-link router when present).
 
 **Options.** Settings, Privacy "Total Balance" / "Display the total balance of all your wallets on your home screen widgets." (iOS only; hidden when storage is encrypted). Settings, General "Continuity" (iOS only).
 
-**Behavior.** These surfaces are not shipped in the current native project. Apple Watch connectivity code can push wallets/transactions and handle watch messages, but the Xcode project has no watchOS application target (only a leftover ComplicationController source), so no Watch app ships from this project; whether a built IPA differs: Not verified in code. Widget Swift sources exist, but there is no widget extension target in the Xcode project and no Android AppWidgetProvider, so widgets are not built; Not verified in code against an IPA. When encryption is on or balance display is disabled, the iOS widget communication path writes a zero balance. The handoff component the bundler resolves (`components/handoff.js`) declares activity types under `swiss.dfx.bitcoin.*`, and the two that Info.plist lists (`receiveonchain`, `xpub`) match; the unused `.tsx` twin still carries the upstream `io.bluewallet.bluewallet.*` strings. Whether Continuity works on a device: Not verified in code.
+**Behavior.** Apple Watch and home-screen widgets are not shipped in the current native project. Apple Watch connectivity code can push wallets/transactions and handle watch messages, but the Xcode project has no watchOS application target (only a leftover ComplicationController source), so no Watch app ships from this project; whether a built IPA differs: Not verified in code. Widget Swift sources exist, but there is no widget extension target in the Xcode project and no Android AppWidgetProvider, so widgets are not built; Not verified in code against an IPA. When encryption is on or balance display is disabled, the iOS widget communication path writes a zero balance. The handoff component the bundler resolves (`components/handoff.js`) declares activity types under `swiss.dfx.bitcoin.*`, and the two that Info.plist lists (`receiveonchain`, `xpub`) match; the third type the component invokes from transaction status and details (`swiss.dfx.bitcoin.blockexplorer`) is not declared in Info.plist, so that hand-off cannot be picked up by another device; the unused `.tsx` twin still carries the upstream `io.bluewallet.bluewallet.*` strings. Whether Continuity works on a device: Not verified in code.
 
 **Not supported.** Shipping Apple Watch or home-screen widgets from this project’s current native targets.
 

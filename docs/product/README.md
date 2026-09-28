@@ -40,7 +40,7 @@ The Flows column lists the critical flows that name the row under Covers.
 | A-04 | Quick actions | Long press on the app icon | Nice | — | [details](features/app-shell.md#a-04-quick-actions) |
 | A-05 | Push notifications | Tap on a system notification | Important | — | [details](features/app-shell.md#a-05-push-notifications) |
 | A-06 | Screenshot protection on sensitive screens | Automatic | Important | — | [details](features/app-shell.md#a-06-screenshot-protection-on-sensitive-screens) |
-| A-07 | Handoff, Apple Watch and widgets | Not shipped | Nice | — | [details](features/app-shell.md#a-07-handoff-apple-watch-and-widgets) |
+| A-07 | Handoff, Apple Watch and widgets | Handoff through Settings, General, Continuity; Watch and widgets not shipped | Nice | — | [details](features/app-shell.md#a-07-handoff-apple-watch-and-widgets) |
 | A-08 | Electrum connection and offline behaviour | Automatic | Critical | CF-02, CF-03 | [details](features/app-shell.md#a-08-electrum-connection-and-offline-behaviour) |
 
 ## Wallets
