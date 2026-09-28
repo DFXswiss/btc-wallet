@@ -8,8 +8,7 @@ const CRITICAL_TIERS = new Set(['Critical', 'Critical (DFX)']);
 const ID_RE = /^[A-Z]{1,2}-\d{2}$/;
 const FEATURE_HEADING_RE = /^## ([A-Z]{1,2}-\d{2}) (.+)$/;
 const FLOW_HEADING_RE = /^## (CF-\d{2}) (.+)$/;
-// [^>] matches newlines, so a <X.Screen> tag that spans lines still yields name="…".
-const SCREEN_NAME_RE = /<[A-Za-z]+\.Screen\b[^>]*?\bname="([A-Za-z0-9_]+)"/g;
+const SCREEN_TAG_RE = /<[A-Za-z]+\.Screen\b/g;
 
 // Screens that are registered but are not a user-facing capability.
 // Every addition needs a reason string.
@@ -42,11 +41,33 @@ function collectRoutes(repoRoot) {
     .sort();
   for (const name of files) {
     const text = fs.readFileSync(path.join(navDir, name), 'utf8');
-    for (const m of text.matchAll(SCREEN_NAME_RE)) {
-      const route = m[1];
-      // Names ending in Root are stack wrappers; feature entries must list leaf screens.
-      if (route.endsWith('Root')) wrappers.add(route);
-      else screens.add(route);
+    for (const m of text.matchAll(SCREEN_TAG_RE)) {
+      // Walk attributes with brace depth so `>` inside options={() => (...)} is not a tag end.
+      let i = m.index + m[0].length;
+      let depth = 0;
+      let attrs = null;
+      while (i < text.length) {
+        const ch = text[i];
+        if (ch === '{') depth += 1;
+        else if (ch === '}') depth -= 1;
+        else if (ch === '>' && depth === 0) {
+          attrs = text.slice(m.index + m[0].length, i);
+          break;
+        }
+        i += 1;
+      }
+      if (attrs === null) continue;
+      const nameMatch = attrs.match(/\bname="([A-Za-z0-9_]+)"/);
+      if (!nameMatch) continue;
+      const route = nameMatch[1];
+      const componentMatch = attrs.match(/\bcomponent=\{([A-Za-z0-9_]+)\}/);
+      const component = componentMatch ? componentMatch[1] : '';
+      // Root name, or component ending in Stack/StackScreen, marks a stack wrapper.
+      if (route.endsWith('Root') || component.endsWith('Stack') || component.endsWith('StackScreen')) {
+        wrappers.add(route);
+      } else {
+        screens.add(route);
+      }
     }
   }
   return {
@@ -131,6 +152,7 @@ function parseFeatureFiles(dir) {
       const block = blockLines.join('\n');
       let routes = null;
       let tier = null;
+      let sources = [];
       const routesMatch = block.match(/^\*\*Routes:\*\*\s*(.*)$/m);
       if (routesMatch) {
         const raw = routesMatch[1].trim();
@@ -140,6 +162,10 @@ function parseFeatureFiles(dir) {
       if (tierMatch) {
         tier = tierMatch[1].trim() || null;
       }
+      const sourcesMatch = block.match(/^\*\*Source\.\*\*\s*(.*)$/m);
+      if (sourcesMatch) {
+        sources = sourcesMatch[1].split(',').map(s => s.trim().replace(/\.$/, ''));
+      }
       entries.push({
         id,
         name,
@@ -147,6 +173,7 @@ function parseFeatureFiles(dir) {
         anchor: slugify(`${id} ${name}`),
         routes,
         tier,
+        sources,
         line: startLine,
       });
     }
@@ -251,6 +278,11 @@ function checkInventory(repoRoot) {
     if (entry.tier === null) {
       errors.push(`feature ${entry.id}: Tier line missing`);
     }
+    for (const source of entry.sources) {
+      if (!fs.existsSync(path.join(repoRoot, source))) {
+        errors.push(`feature ${entry.id}: source path not found: ${source}`);
+      }
+    }
   }
 
   for (const row of rows) {
@@ -306,9 +338,11 @@ function checkInventory(repoRoot) {
     const claimants = claimedBy.get(route);
     if (IGNORED_ROUTES.has(route)) {
       errors.push(`route ${route} is ignored but claimed by feature entry: ${claimants.join(', ')}`);
+    } else if (screensSet.has(route)) {
+      // registered as a leaf screen somewhere: fine even if a wrapper shares the name
     } else if (wrappersSet.has(route)) {
       errors.push(`route ${route} is a stack wrapper, list the screens instead`);
-    } else if (!screensSet.has(route)) {
+    } else {
       errors.push(`route ${route} claimed but not registered in navigation: ${claimants.join(', ')}`);
     }
   }
