@@ -140,7 +140,7 @@ Cold start, unlock, deep links, home-screen shortcuts, push notifications, scree
 
 **Known issues.** None recorded.
 **Tests.** `tests/unit/watch-connectivity.test.js`.
-**Source.** WatchConnectivity.ios.js, blue_modules/WidgetCommunication.ios.js, components/handoff.tsx, screen/settings/SettingsPrivacy.js, screen/settings/GeneralSettings.tsx, ios/BlueWallet.xcodeproj/project.pbxproj
+**Source.** WatchConnectivity.ios.js, blue_modules/WidgetCommunication.ios.js, components/handoff.js, screen/settings/SettingsPrivacy.js, screen/settings/GeneralSettings.tsx, ios/BlueWallet.xcodeproj/project.pbxproj
 
 ## A-08 Electrum connection and offline behaviour
 
