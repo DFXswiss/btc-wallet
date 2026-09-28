@@ -452,11 +452,21 @@ export class SparkWallet extends AbstractWallet<SparkInvoiceRecord> {
   }
 
   async fetchTransactions(): Promise<void> {
+    await this.refreshPayments(false);
+  }
+
+  /** Syncs with the network, then checks the stored payment seeds against the full payment list. */
+  async reconcilePaymentSeeds(): Promise<void> {
+    await this.refreshPayments(true);
+  }
+
+  private async refreshPayments(synced: boolean): Promise<void> {
     if (!isSparkSdkConnected()) {
       return;
     }
     try {
       const lease = this.holdMatchingSession();
+      if (synced) await lease.requireSdk().syncWallet({});
       const payments = await this.listPaymentsPages(
         lease.requireSdk(),
         {
@@ -491,7 +501,10 @@ export class SparkWallet extends AbstractWallet<SparkInvoiceRecord> {
       this.pending_transactions_raw = pending;
       this._lastTxFetch = +new Date();
       // A failed save is retried by the next fetch.
-      await forgetSettledSparkSeeds(settledIds.filter((id): id is string => Boolean(id))).catch(() => undefined);
+      await forgetSettledSparkSeeds(
+        settledIds.filter((id): id is string => Boolean(id)),
+        synced,
+      ).catch(() => undefined);
     } catch (e) {
       if (e instanceof SparkSessionStaleError || !isSparkSdkConnected()) {
         return;

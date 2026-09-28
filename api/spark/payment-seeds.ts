@@ -195,11 +195,14 @@ function dropSeedsOfPayments(ids: string[]): boolean {
   return dropped;
 }
 
-/** Drops the seeds of payments the SDK lists as finished, also those that settled while the app was closed. */
-export async function forgetSettledSparkSeeds(paymentIds: string[]): Promise<void> {
+/**
+ * Drops the seeds of payments the SDK lists as finished, also those that settled while the app was closed.
+ * `synced`: the list was read after an SDK sync, so it also counts as this session's check of the stored seeds.
+ */
+export async function forgetSettledSparkSeeds(paymentIds: string[], synced = false): Promise<void> {
   await loadSparkSeeds();
   const dropped = dropSeedsOfPayments(paymentIds);
-  sparkSeedsReconciled = true;
+  if (synced) sparkSeedsReconciled = true;
   if (dropped || sparkSeedsWriteFailed) await persistSparkSeeds();
 }
 

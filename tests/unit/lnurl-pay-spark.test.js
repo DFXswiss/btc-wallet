@@ -163,8 +163,8 @@ function makeWallet() {
   wallet.paySparkInvoice = jest.fn();
   wallet.paySparkAddress = jest.fn();
   wallet.payLnurlMax = jest.fn();
-  // A connected SDK whose payment list shows nothing settled.
-  wallet.fetchTransactions = jest.fn(() => forgetSettledSparkSeeds([]));
+  // A synced SDK whose payment list shows nothing settled.
+  wallet.reconcilePaymentSeeds = jest.fn(() => forgetSettledSparkSeeds([], true));
   wallet.getLnurlMaxFeeQuote = jest.fn().mockResolvedValue({
     amountSats: 1000,
     walletIdentity: 'pk-pay',
@@ -505,7 +505,7 @@ describe('LnurlPay Spark invoice mode', () => {
     await AsyncStorage.setItem('sparkUnresolvedPaymentSeeds', stored);
     mockRouteKey = 'lnurl-pay-test-route-2';
     const restarted = makeWallet();
-    restarted.fetchTransactions = jest.fn(() => forgetSettledSparkSeeds(['spark-payment-before-restart']));
+    restarted.reconcilePaymentSeeds = jest.fn(() => forgetSettledSparkSeeds(['spark-payment-before-restart'], true));
     restarted.paySparkInvoice.mockResolvedValue({ status: 'pending', paymentId: 'spark-payment-after-restart' });
     const again = renderPay(restarted, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
     await waitFor(() => again.getByText(loc.lnd.payButton));
@@ -514,7 +514,7 @@ describe('LnurlPay Spark invoice mode', () => {
     });
 
     await waitFor(() => expect(restarted.paySparkInvoice).toHaveBeenCalledTimes(1));
-    expect(restarted.fetchTransactions).toHaveBeenCalledTimes(1);
+    expect(restarted.reconcilePaymentSeeds).toHaveBeenCalledTimes(1);
     assert.notStrictEqual(restarted.paySparkInvoice.mock.calls[0][2], firstSeed);
   });
 
@@ -522,17 +522,21 @@ describe('LnurlPay Spark invoice mode', () => {
     const seedRef = {};
     await createSparkPaymentSeed(seedRef, 'spark1other', 5, 'route');
     await keepUnresolvedSparkSeed(seedRef, 'spark-payment-unchecked');
-    const wallet = makeWallet();
-    wallet.fetchTransactions = jest.fn().mockResolvedValue(undefined);
-    const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
-    await waitFor(() => screen.getByText(loc.lnd.payButton));
+    for (const reconcile of [jest.fn().mockResolvedValue(undefined), jest.fn().mockRejectedValue(new Error('network down'))]) {
+      alert.mockClear();
+      const wallet = makeWallet();
+      wallet.reconcilePaymentSeeds = reconcile;
+      const screen = renderPay(wallet, { invoice: undefined, sparkInvoice: SPARK_INVOICE, amountUnit: undefined });
+      await waitFor(() => screen.getByText(loc.lnd.payButton));
 
-    await act(async () => {
-      fireEvent.press(screen.getByText(loc.lnd.payButton));
-    });
+      await act(async () => {
+        fireEvent.press(screen.getByText(loc.lnd.payButton));
+      });
 
-    await waitFor(() => expect(alert).toHaveBeenCalledWith(loc.send.details_utxo_refresh_failed));
-    expect(wallet.paySparkInvoice).not.toHaveBeenCalled();
+      await waitFor(() => expect(alert).toHaveBeenCalledWith(loc.send.details_utxo_refresh_failed));
+      expect(wallet.paySparkInvoice).not.toHaveBeenCalled();
+      screen.unmount();
+    }
   });
 
   it('keeps the Spark idempotency seed when the screen is reopened during an unresolved payment', async () => {

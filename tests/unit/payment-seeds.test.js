@@ -247,6 +247,19 @@ describe('Spark payment seeds', () => {
     assert.strictEqual(reads, 1);
   });
 
+  it('waits for a synced check only while seeds of sent payments are stored', async () => {
+    assert.strictEqual(await seeds.sparkSeedsAwaitReconcile(), false);
+    const first = await seeds.createSparkPaymentSeed({}, 'spark1dest', 1000, 'op-1');
+    await seeds.keepUnresolvedSparkSeed({ current: first }, 'pid-1');
+    assert.strictEqual(await seeds.sparkSeedsAwaitReconcile(), true);
+
+    await seeds.forgetSettledSparkSeeds([]);
+    assert.strictEqual(await seeds.sparkSeedsAwaitReconcile(), true);
+
+    await seeds.forgetSettledSparkSeeds([], true);
+    assert.strictEqual(await seeds.sparkSeedsAwaitReconcile(), false);
+  });
+
   it('tells whether a seed was never handed to the SDK', async () => {
     const ref = {};
     const seed = await seeds.createSparkPaymentSeed(ref, 'spark1dest', 1000, 'op-1');

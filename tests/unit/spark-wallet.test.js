@@ -11,6 +11,7 @@ import {
 } from '@breeztech/breez-sdk-spark-react-native';
 
 const mockSdk = {
+  syncWallet: jest.fn(),
   getInfo: jest.fn(),
   listPayments: jest.fn(),
   receivePayment: jest.fn(),
@@ -2191,6 +2192,26 @@ describe('SparkWallet', () => {
     assert.notStrictEqual(await seeds.createSparkPaymentSeed({}, 'spark1settled', 1000, 'route-1'), settledSeed);
     assert.strictEqual(await seeds.createSparkPaymentSeed({}, 'spark1pending', 1000, 'route-2'), pendingSeed);
     assert.notStrictEqual(await seeds.createSparkPaymentSeed({}, 'spark1failed', 1000, 'route-3'), failedSeed);
+  });
+
+  it('reconcilePaymentSeeds syncs before listing, and only it counts as the check of the stored seeds', async () => {
+    const seeds = require('../../api/spark/payment-seeds');
+    const ref = {};
+    await seeds.createSparkPaymentSeed(ref, 'spark1dest', 1000, 'route-1');
+    await seeds.keepUnresolvedSparkSeed(ref, 'pay-open');
+    mockSdk.listPayments.mockResolvedValue({ payments: [] });
+    mockSdk.syncWallet.mockResolvedValue({});
+    const wallet = new SparkWallet();
+
+    await wallet.fetchTransactions();
+    assert.strictEqual(await seeds.sparkSeedsAwaitReconcile(), true);
+    expect(mockSdk.syncWallet).not.toHaveBeenCalled();
+
+    await wallet.reconcilePaymentSeeds();
+    assert.strictEqual(await seeds.sparkSeedsAwaitReconcile(), false);
+    expect(mockSdk.syncWallet.mock.invocationCallOrder[0]).toBeLessThan(
+      mockSdk.listPayments.mock.invocationCallOrder[mockSdk.listPayments.mock.invocationCallOrder.length - 1],
+    );
   });
 
   it('fetchTransactions lists payments with the Bitcoin asset filter', async () => {

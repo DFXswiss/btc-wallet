@@ -487,7 +487,11 @@ const LnurlPay = () => {
   // After a restart, stored seeds are checked against the SDK's payments before one is reused.
   const reconcileSparkSeeds = async () => {
     if (!(await sparkSeedsAwaitReconcile())) return;
-    await wallet.fetchTransactions();
+    try {
+      await wallet.reconcilePaymentSeeds();
+    } catch {
+      // Any failure leaves the store unchecked and ends in the retry message below.
+    }
     if (await sparkSeedsAwaitReconcile()) throw new Error(loc.send.details_utxo_refresh_failed);
   };
 
