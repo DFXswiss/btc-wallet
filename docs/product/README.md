@@ -162,7 +162,7 @@ The Flows column lists the critical flows that name the row under Covers.
 
 ## Keeping it current
 
-A pull request that adds, renames or removes a screen must update the matching inventory row and its details entry. `npm run unit` runs `tests/unit/product-inventory.test.js`, which runs `scripts/product/check-inventory.js`. The checker fails on an unclaimed or double-claimed screen, a row without an entry or an entry without a row, a Critical row without a flow, a Flows column that does not match the flows file, or a broken details link. Run `node scripts/product/check-inventory.js` directly to check the same rules.
+A pull request that adds, renames or removes a screen must update the matching inventory row and its details entry. Screens are matched by their registered name; a screen registered in several stacks counts once. `npm run unit` runs `tests/unit/product-inventory.test.js`, which runs `scripts/product/check-inventory.js`. The checker fails on an unclaimed or double-claimed screen, a row without an entry or an entry without a row, a Critical row without a flow, a Flows column that does not match the flows file, or a broken details link. Run `node scripts/product/check-inventory.js` directly to check the same rules.
 
 ## Related documents
 
