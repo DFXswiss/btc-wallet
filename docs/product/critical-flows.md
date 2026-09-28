@@ -177,7 +177,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 **Covers:** D-01, D-03, L-13
 **Tier:** Critical (DFX)
 **Funding:** the Spark payout from CF-10
-**Preconditions.** Same identity as CF-10; Spark holds the payout from CF-10; local DFX stack reachable with the repository's settlement helper. The sell side of the production API is still open (#260), so this flow proves the wallet path against the local stack only.
+**Preconditions.** Same identity as CF-10; Spark holds the payout from CF-10; local DFX stack reachable with the repository's settlement helper. Issue #260 is still open: the sell ramp of the production API is not ready, so this flow proves the wallet path against the local DFX stack only.
 **Steps.**
 1. On Home, confirm the Sell tile is shown.
 2. Tap Sell. The DFX web app opens; enter the amount to sell from Spark and the bank account.
@@ -185,7 +185,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 4. Tap "Cash out to bank account"; the wallet pays the DFX deposit over Lightning from Spark.
 5. Confirm the Spark balance decreased by the sold amount plus fee.
 6. Confirm the sell reaches completed on the local DFX stack.
-**Expected.** The sell pays from Spark; the balance drops; the sell completes on DFX.
+**Expected.** The sell pays from Spark; the balance drops; the sell completes on the local DFX stack.
 **Automation.** `tests/e2e-maestro/flows/17-dfx-sell-to-payment.yaml` (runs after CF-10 on the same identity).
 
 ## Coverage
