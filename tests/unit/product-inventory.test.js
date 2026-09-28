@@ -35,10 +35,12 @@ function validFixtureFiles() {
       '    <>',
       '      <Stack.Screen name="DemoHome" component={DemoHome} />',
       '      <Stack.Screen name="DemoRoot" component={DemoStackInner} />',
+      '      <Stack.Screen options={() => ({ title: \'Demo\' })} name="DemoOptions" component={DemoOptions} />',
       '      <Stack.Screen',
       '        name="DemoSettings"',
       '        component={DemoSettings}',
       '      />',
+      '      <InitStack.Screen name="DemoSettings" component={DemoSettingsStackScreen} />',
       '    </>',
       '  );',
       '}',
@@ -60,11 +62,12 @@ function validFixtureFiles() {
       '',
       '## D-01 Demo home',
       '',
-      '**Routes:** DemoHome',
+      '**Routes:** DemoHome, DemoOptions',
       '**Entry:** Home',
       '**Tier:** Critical',
       '',
       '**Behavior.** Fixture only.',
+      '**Source.** navigation/Demo.tsx',
       '',
       '## D-02 Demo settings',
       '',
@@ -73,6 +76,7 @@ function validFixtureFiles() {
       '**Tier:** Important',
       '',
       '**Behavior.** Fixture only.',
+      '**Source.** navigation/Demo.tsx',
       '',
     ].join('\n'),
     'docs/product/critical-flows.md': [
@@ -121,15 +125,15 @@ describe('product inventory checker (fixtures)', () => {
     const dir = freshFixture();
     const { errors, stats } = checkInventory(dir);
     assert.deepStrictEqual(errors, []);
-    assert.strictEqual(stats.routes, 2);
-    assert.strictEqual(stats.wrappers, 1);
+    assert.strictEqual(stats.routes, 3);
+    assert.strictEqual(stats.wrappers, 2);
     assert.strictEqual(stats.entries, 2);
     assert.strictEqual(stats.rows, 2);
     assert.strictEqual(stats.flows, 1);
 
     const routes = collectRoutes(dir);
-    assert.deepStrictEqual(routes.screens, ['DemoHome', 'DemoSettings']);
-    assert.deepStrictEqual(routes.wrappers, ['DemoRoot']);
+    assert.deepStrictEqual(routes.screens, ['DemoHome', 'DemoOptions', 'DemoSettings']);
+    assert.deepStrictEqual(routes.wrappers, ['DemoRoot', 'DemoSettings']);
     assert.strictEqual(slugify('D-01 Demo home'), 'd-01-demo-home');
     assert.ok(IGNORED_ROUTES.has('Navigation'));
   });
@@ -395,6 +399,36 @@ describe('product inventory checker (fixtures)', () => {
     assert.ok(errors.includes('route DemoGhost claimed but not registered in navigation: D-02'), errors.join('\n'));
   });
 
+  it('reports a source path that does not exist', () => {
+    const dir = freshFixture(files => {
+      files['docs/product/features/demo.md'] = files['docs/product/features/demo.md'].replace(
+        '**Tier:** Important\n\n**Behavior.** Fixture only.\n**Source.** navigation/Demo.tsx',
+        '**Tier:** Important\n\n**Behavior.** Fixture only.\n**Source.** navigation/Demo.tsx, screen/Missing.js',
+      );
+    });
+    const { errors } = checkInventory(dir);
+    assert.ok(errors.includes('feature D-02: source path not found: screen/Missing.js'), errors.join('\n'));
+  });
+
+  it('treats a registration whose component is a stack navigator as a wrapper', () => {
+    const dir = freshFixture(files => {
+      files['navigation/Demo.tsx'] = files['navigation/Demo.tsx'].replace(
+        '      <Stack.Screen\n        name="DemoSettings"\n        component={DemoSettings}\n      />\n',
+        '',
+      );
+    });
+    const { errors } = checkInventory(dir);
+    assert.ok(errors.includes('route DemoSettings is a stack wrapper, list the screens instead'), errors.join('\n'));
+  });
+
+  it('reads a name that follows an options attribute with an arrow function', () => {
+    const dir = freshFixture();
+    const routes = collectRoutes(dir);
+    assert.ok(routes.screens.includes('DemoOptions'), routes.screens.join(', '));
+    const { errors } = checkInventory(dir);
+    assert.deepStrictEqual(errors, []);
+  });
+
   it('exposes parsers used by the checker', () => {
     const dir = freshFixture();
     const { rows } = parseReadme(fs.readFileSync(path.join(dir, 'docs/product/README.md'), 'utf8'));
@@ -403,7 +437,7 @@ describe('product inventory checker (fixtures)', () => {
     assert.strictEqual(rows.length, 2);
     assert.strictEqual(entries.length, 2);
     assert.strictEqual(flows.length, 1);
-    assert.deepStrictEqual(entries[0].routes, ['DemoHome']);
+    assert.deepStrictEqual(entries[0].routes, ['DemoHome', 'DemoOptions']);
     assert.deepStrictEqual(flows[0].covers, ['D-01']);
   });
 });
