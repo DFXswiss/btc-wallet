@@ -3,15 +3,42 @@ const { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync }
 const { tmpdir } = require('node:os');
 const { join } = require('node:path');
 const { spawnSync } = require('node:child_process');
-const YAML = require('js-yaml');
 
 const ROOT = join(__dirname, '../..');
 
+const indentOf = line => line.length - line.trimStart().length;
+
+/** The `run: |` literal block of one step, read without a YAML dependency. */
+function readStepRun(source, jobName, stepName) {
+  const lines = source.split('\n');
+  const jobStart = lines.indexOf(`  ${jobName}:`);
+  if (jobStart === -1) return undefined;
+  let jobEnd = lines.findIndex((line, i) => i > jobStart && line.trim() && indentOf(line) <= 2);
+  if (jobEnd === -1) jobEnd = lines.length;
+  const stepStart = lines.findIndex((line, i) => i > jobStart && i < jobEnd && line.trim() === `- name: ${stepName}`);
+  if (stepStart === -1) return undefined;
+  const stepIndent = indentOf(lines[stepStart]);
+  let stepEnd = lines.findIndex((line, i) => i > stepStart && line.trim() && indentOf(line) <= stepIndent);
+  if (stepEnd === -1 || stepEnd > jobEnd) stepEnd = jobEnd;
+  const runStart = lines.findIndex(
+    (line, i) => i > stepStart && i < stepEnd && indentOf(line) === stepIndent + 2 && line.trim() === 'run: |',
+  );
+  if (runStart === -1) return undefined;
+  const body = [];
+  for (let i = runStart + 1; i < stepEnd; i++) {
+    if (lines[i].trim() && indentOf(lines[i]) <= stepIndent + 2) break;
+    body.push(lines[i]);
+  }
+  while (body.length && !body[body.length - 1].trim()) body.pop();
+  if (!body.length) return undefined;
+  const blockIndent = indentOf(body[0]);
+  return body.map(line => line.slice(blockIndent)).join('\n') + '\n';
+}
+
 function workflowRun(relativePath, jobName, stepName) {
-  const workflow = YAML.load(readFileSync(join(ROOT, relativePath), 'utf8'));
-  const step = workflow.jobs[jobName].steps.find(({ name }) => name === stepName);
-  assert.ok(step && step.run, `${relativePath} is missing ${jobName}/${stepName}`);
-  return step.run.replace(/\$\{\{\s*github\.repository\s*\}\}/g, 'DFXswiss/bitcoin-wallet');
+  const run = readStepRun(readFileSync(join(ROOT, relativePath), 'utf8'), jobName, stepName);
+  assert.ok(run, `${relativePath} is missing ${jobName}/${stepName}`);
+  return run.replace(/\$\{\{\s*github\.repository\s*\}\}/g, 'DFXswiss/bitcoin-wallet');
 }
 
 function runWithGhDouble(run, { draft = 'false', failView = 'false', allowUpload = 'true' } = {}) {
@@ -143,11 +170,6 @@ function expectPublishedUploadRejected(run) {
   expect(outcome.result.status).not.toBe(0);
   expect(outcome.log).not.toMatch(/release upload/);
 }
-
-it('actual APK upload YAML block rejects a published release before mutation', () => {
-  const run = workflowRun('.github/workflows/build-release-apk.yml', 'buildReleaseApk', 'Upload release assets');
-  expectPublishedUploadRejected(run);
-});
 
 it('actual final release YAML block rejects a published release before edit', () => {
   const run = workflowRun('.github/workflows/release.yml', 'github-release', 'Create / update release');

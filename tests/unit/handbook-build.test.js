@@ -2716,7 +2716,7 @@ describe('unit - handbook build guards', () => {
     }
   });
 
-  it('puts a root-level screenshot in the allgemeine manifest group', function () {
+  it('puts a root-level screenshot in the allgemein manifest group', function () {
     const { fixture, out } = freshDirs();
     populateValidFixture(fixture, { shotSize: MIN_PNG_BYTES + 1 });
     writePng(path.join(fixture, 'docs/handbook/screenshots/root-level.png'), MIN_PNG_BYTES + 1);

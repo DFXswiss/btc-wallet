@@ -388,8 +388,12 @@ const LNDCreateInvoice = () => {
 
         <ScrollView contentContainerStyle={styles.root} keyboardShouldPersistTaps="always">
           <View style={styles.scrollBody}>
-            {wallet.current.lnAddress ? <QRCodeComponent value={wallet.current.lnAddress} /> : null}
-            <BlueCopyTextToClipboard text={wallet.current.lnAddress} />
+            {wallet.current.lnAddress ? (
+              <>
+                <QRCodeComponent value={wallet.current.lnAddress} />
+                <BlueCopyTextToClipboard text={wallet.current.lnAddress} />
+              </>
+            ) : null}
           </View>
           <View style={styles.share}>
             <BlueCard>
@@ -399,7 +403,7 @@ const LNDCreateInvoice = () => {
                 title={loc.receive.details_setAmount}
                 onPress={showCustomAmountModal}
               />
-              <BlueButton onPress={handleShareButtonPressed} title={loc.receive.details_share} />
+              {wallet.current.lnAddress ? <BlueButton onPress={handleShareButtonPressed} title={loc.receive.details_share} /> : null}
             </BlueCard>
           </View>
           {renderCustomAmountModal()}

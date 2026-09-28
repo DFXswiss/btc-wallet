@@ -37,7 +37,7 @@ describe('dfxAvailabilityFromSettled', () => {
     assert.strictEqual(dfxAvailabilityFromSettled(results), 'forbidden');
   });
 
-  it('throws when nothing succeeded and the failure is not 403', () => {
+  it("returns 'throw' when nothing succeeded and the failure is not 403", () => {
     const results = [{ status: 'rejected', reason: new Error('network') }];
     assert.strictEqual(dfxAvailabilityFromSettled(results), 'throw');
   });

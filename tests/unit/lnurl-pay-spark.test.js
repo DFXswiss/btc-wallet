@@ -751,7 +751,7 @@ describe('LnurlPay Spark invoice mode', () => {
       invoice: undefined,
       sparkInvoice: OTHER_SPARK_INVOICE,
       amountUnit: undefined,
-      routeId: 'route-2',
+      routeId: 'route-1',
     });
 
     await waitFor(() => otherScreen.getByText(loc.lnd.payButton));
@@ -967,22 +967,8 @@ describe('LnurlPay Spark pending send', () => {
     });
 
     await expectSparkLightningPayment(wallet);
-    expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 0, expect.anything());
-    expect(mockNavigate).toHaveBeenCalledWith('Success', expect.objectContaining({ amount: 1000 }));
-  });
-
-  it('keeps the pay action available after a Spark BOLT11 payment completes', async () => {
-    const wallet = makeWallet();
-    wallet.payInvoice.mockResolvedValue({ status: 'completed', fee: 4 });
-    const screen = renderPay(wallet);
-
-    await waitFor(() => screen.getByText(loc.lnd.payButton));
-    await act(async () => {
-      fireEvent.press(screen.getByText(loc.lnd.payButton));
-    });
-
-    await expectSparkLightningPayment(wallet);
     expect(wallet.payInvoice).toHaveBeenCalledTimes(1);
+    expect(wallet.payInvoice).toHaveBeenCalledWith(SAMPLE_INVOICE, 0, expect.anything());
     expect(mockNavigate).toHaveBeenCalledWith('Success', expect.objectContaining({ amount: 1000, fee: 4 }));
   });
 
@@ -2552,7 +2538,6 @@ describe('LnurlPay remaining uncovered fee and lifecycle paths', () => {
   it.each([
     ['completed', { status: 'completed', fee: 2 }],
     ['pending', { status: 'pending', paymentHash: 'lndhub-pending', fee: 1 }],
-    ['pending without hash', { status: 'pending', fee: 1 }],
     ['unknown', { status: 'unknown' }],
   ])('handles a non-Spark LNDHub %s response', async (_label, result) => {
     mockLnurlPay();

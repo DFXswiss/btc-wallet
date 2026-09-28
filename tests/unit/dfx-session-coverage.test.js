@@ -280,7 +280,7 @@ describe('DFX session lifecycle and failure boundaries', () => {
     expect(result.current.isInitialized).toBe(true);
     expect(result.current.isAvailable).toBe(false);
 
-    mockAvailability.mockReturnValue('error');
+    mockAvailability.mockReturnValue('throw');
     const second = renderSession([wallet]);
     await act(async () => {});
     expect(mockReportError).toHaveBeenCalledWith('DFX session init failed', expect.anything());

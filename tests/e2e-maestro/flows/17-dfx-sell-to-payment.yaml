@@ -19,11 +19,12 @@ onFlowComplete:
 # nicht der Erfolgsschirm.
 #
 # Vor der Zahlung merkt der Flow den hoechsten Backend-Transaktionsstand.
-# Nach der Zahlung wartet er in zehn gleichen Bloecken (Pause, sell-booked,
+# Nach der Zahlung wartet er in sechzehn gleichen Bloecken (Pause, sell-booked,
 # optional Abschlussaufruf, sell-complete). Die Verkaufsmaske folgt ohne
-# Schlusszusicherung. Danach ein sell-complete-Aufruf (POLL_ONCE) mit
-# demselben MIN_TX_ID sowie bei Bedarf zwei weitere Poll-Runden, dann
-# backendState, zuletzt der gefallene Spark-Saldo.
+# Schlusszusicherung. Danach sechs gleiche Bloecke mit demselben MIN_TX_ID
+# (sell-booked, optional Abschlussaufruf, sell-complete, je POLL_ONCE; vor
+# den Bloecken zwei bis sechs eine Pause, solange backendState nicht ok ist),
+# dann die Zusicherung auf backendState, zuletzt der gefallene Spark-Saldo.
 # Belegt ist die durchgaengige Verbuchung des Spark-Eingangs auf der
 # Verkaufsstrecke.
 - runFlow:
@@ -188,13 +189,13 @@ onFlowComplete:
                 timeout: 15000
             # Einmal sell-booked vor dem Wartebereich: trifft es schon,
             # steht die Verkaufs-Kennung in output.backendTxId, sonst bleibt
-            # sie leer. Jeder der zehn Bloecke holt sie bei Bedarf nach.
-            # Zehn gleiche Bloecke, keine Schleife: repeat/while endete
+            # sie leer. Jeder der sechzehn Bloecke holt sie bei Bedarf nach.
+            # Sechzehn gleiche Bloecke, keine Schleife: repeat/while endete
             # im Lauf vom 17.09.2026 nach zwei Durchgaengen, obwohl die
             # Bedingung noch galt. MIN_TX_ID bleibt die env-Bindung dieses
             # runFlow. Kein App-Neustart: die Schritte lesen das Backend,
             # nicht die Oberflaeche. E2EBackendPollPause gibt es in der App
-            # nicht; der Schritt laeuft 20 s ab (optional: true) und
+            # nicht; der Schritt laeuft 22 s ab (optional: true) und
             # beschaeftigt den Treiber mit Hierarchie-Abfragen. Jeder Block:
             # Pause, sell-booked (POLL_ONCE), Abschlussaufruf nur wenn die
             # Kennung da ist, sell-complete (POLL_ONCE).

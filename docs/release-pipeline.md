@@ -70,7 +70,7 @@ All implemented in one PR ([#181](https://github.com/DFXswiss/btc-wallet/pull/18
 
 1. **Signing via `fastlane match`** (`sync_code_signing`, type `appstore`) — certs/profiles in a **dedicated private repo** (`DFXswiss/btc-wallet-certificates`); SSH deploy key + `MATCH_PASSWORD`.
 2. Marketing version + build number from the generator.
-3. **`gym`** → signed `.ipa` (Xcode workspace build of the `BlueWallet` prod scheme → `.env.prd`).
+3. **`gym`** → signed `.ipa` (Xcode workspace build of the `BlueWallet` prod scheme), run inside `with_breez_overlay`: `ENVFILE` points to a temporary copy of `.env.prd` with `BREEZ_API_KEY` appended from the CI secret; the copy is removed after the build.
 4. **`upload_to_testflight`** (ASC API key), `skip_waiting_for_build_processing: true`.
 5. **`deliver`** (best-effort) stages listing texts + screenshots; `Deliverfile`: `submit_for_review false`, `automatic_release false` (a human clicks Submit). Best-effort because the first App Store version must be created once manually.
 

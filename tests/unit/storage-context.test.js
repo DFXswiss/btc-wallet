@@ -360,7 +360,7 @@ describe('BlueStorageProvider', () => {
     expect(latestCtx.isPrivacyBlurEnabled).toBe(false);
   });
 
-  it('resets feature flags in memory on a boot-flag read failure and leaves privacy blur on', async () => {
+  it('persists feature flags as off on a boot-flag read failure and turns privacy blur on in memory only', async () => {
     BlueApp.isHandoffEnabled.mockRejectedValue(new Error('keychain unavailable'));
 
     await renderProvider();
@@ -672,7 +672,7 @@ describe('BlueStorageProvider', () => {
     expect(latestCtx.walletTransactionUpdateStatus).toBe(WalletTransactionsStatus.NONE);
   });
 
-  it('skips a second fetchAndSaveWalletTransactions for the same wallet inside 5 seconds', async () => {
+  it('skips a second fetchAndSaveWalletTransactions for the same wallet inside 5 seconds and runs again after', async () => {
     const wallet = makeWallet();
     await renderProvider();
     await act(async () => {
@@ -680,16 +680,38 @@ describe('BlueStorageProvider', () => {
     });
     BlueApp.saveToDisk.mockClear();
     BlueElectrum.waitTillConnected.mockClear();
+    jest.useFakeTimers({
+      doNotFake: [
+        'nextTick',
+        'setImmediate',
+        'clearImmediate',
+        'setInterval',
+        'clearInterval',
+        'setTimeout',
+        'clearTimeout',
+        'queueMicrotask',
+      ],
+    });
 
+    const firstRun = Date.now();
     await act(async () => {
       await latestCtx.fetchAndSaveWalletTransactions(wallet.getID());
     });
+    jest.setSystemTime(firstRun + 4999);
     await act(async () => {
       await latestCtx.fetchAndSaveWalletTransactions(wallet.getID());
     });
 
     expect(BlueElectrum.waitTillConnected).toHaveBeenCalledTimes(1);
     expect(BlueApp.saveToDisk).toHaveBeenCalledTimes(1);
+
+    jest.setSystemTime(firstRun + 5000);
+    await act(async () => {
+      await latestCtx.fetchAndSaveWalletTransactions(wallet.getID());
+    });
+
+    expect(BlueElectrum.waitTillConnected).toHaveBeenCalledTimes(2);
+    expect(BlueApp.saveToDisk).toHaveBeenCalledTimes(2);
   });
 
   it('passes index -1 into fetch helpers when the wallet id is unknown', async () => {

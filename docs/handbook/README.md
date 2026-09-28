@@ -23,7 +23,7 @@ Das Assembly-Script `scripts/handbook/build.js` **findet** die Artefakte selbst
 
 Bei Markdown-Discovery werden übersprungen: Verzeichnisse mit Basename beginnend
 mit `.`, die Basenamen `node_modules`, `.git`, `_handbook-deps`, `build`, `dist`,
-`coverage`, `blue_modules`, `ios`, `android`, `windows`, `macos`, `vendor`, sowie
+`coverage`, `tests`, `blue_modules`, `ios`, `android`, `windows`, `macos`, `vendor`, sowie
 die exakten Pfade `docs/handbook` und `scripts/handbook` (Selbstdoku, Pod, Content).
 
 Bei Store-Discovery sind unter den beiden Metadata-Roots nur Locale-foermige

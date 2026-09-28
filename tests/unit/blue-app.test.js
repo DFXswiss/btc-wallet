@@ -64,14 +64,10 @@ const originalNavigator = global.navigator;
 const originalPlatformOS = Platform.OS;
 
 function makeRealm({ txs = [], keyValues = {} } = {}) {
-  const created = [];
   return {
     close: jest.fn(),
     write: jest.fn(fn => fn()),
-    create: jest.fn((name, obj, mode) => {
-      created.push({ name, obj, mode });
-      return obj;
-    }),
+    create: jest.fn((name, obj) => obj),
     delete: jest.fn(),
     objectForPrimaryKey: jest.fn((cls, key) => {
       if (keyValues[key] == null) return undefined;
@@ -80,7 +76,6 @@ function makeRealm({ txs = [], keyValues = {} } = {}) {
     objects: jest.fn(() => ({
       filtered: jest.fn(() => txs),
     })),
-    created,
   };
 }
 
@@ -993,6 +988,8 @@ describe('AppStorage.deleteWallet, fetchers, getters and sleep', () => {
     await storage.fetchWalletTransactions();
     expect(without.fetchTransactions).toHaveBeenCalledTimes(2);
     expect(withExtras.fetchTransactions).toHaveBeenCalledTimes(2);
+    expect(withExtras.fetchPendingTransactions).toHaveBeenCalledTimes(2);
+    expect(withExtras.fetchUserInvoices).toHaveBeenCalledTimes(2);
   });
 
   it('fetchSenderPaymentCodes fetches only BIP47-enabled wallets, returns early otherwise, and logs failures', async () => {

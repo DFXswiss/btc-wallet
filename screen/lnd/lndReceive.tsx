@@ -262,16 +262,16 @@ const LNDReceive = () => {
     // A wallet switch or a newer request takes over the screen; this request's result and latches then belong to no one.
     const attempt = ++invoiceCreationGeneration.current;
     const superseded = () => attempt !== invoiceCreationGeneration.current;
+    // The shown invoice has the old amount or note; if this request fails, no unwatched invoice may stay on screen.
+    cancelInvoicePolling();
+    setInvoiceRequest(undefined);
+    setInvoiceAmountSats(undefined);
     if (isNfcActive) stopReading();
     setIsInvoiceLoading(true);
     Keyboard.dismiss();
 
     try {
-      if (amountSats === 0 || isNaN(amountSats)) {
-        cancelInvoicePolling();
-        setInvoiceRequest(undefined);
-        return;
-      }
+      if (amountSats === 0 || isNaN(amountSats)) return;
       const invoiceAmount = amountSats;
       const invoiceDescription = description;
       const createdInvoiceRequest = await wallet.addInvoice(invoiceAmount, invoiceDescription);

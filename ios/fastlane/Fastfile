@@ -97,7 +97,7 @@ def resolve_release_info(raw_tag)
 end
 
 platform :ios do
-  # Builds the prod (BlueWallet scheme -> .env.prd) app and uploads it to TestFlight.
+  # Builds the prod app (BlueWallet scheme, ENVFILE = .env.prd overlay with BREEZ_API_KEY) and uploads it to TestFlight.
   # Signing assets (distribution cert + App Store provisioning profile) come from the
   # match certs repo (DFXswiss/btc-wallet-certificates), installed read-only so CI
   # never mutates them. The ASC API key authorises match + the TestFlight upload.

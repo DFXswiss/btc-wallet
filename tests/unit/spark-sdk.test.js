@@ -458,7 +458,7 @@ describe('spark-sdk', () => {
     assert.strictEqual(acquireSparkSessionLease().identity, 'identity-b');
   });
 
-  it('replaces a finished session without logging the seed fingerprint', async () => {
+  it('rejects the next session when the previous one fails to disconnect, without logging either seed', async () => {
     const seedA = 'one two three four five six seven eight nine ten eleven about';
     const seedB = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
     let resolveConnectA;

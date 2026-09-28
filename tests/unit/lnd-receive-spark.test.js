@@ -892,7 +892,7 @@ describe('LNDReceive with SparkWallet', () => {
     }
   });
 
-  it('does not offer on-chain receive on a Spark wallet', async () => {
+  it('does not offer on-chain receive on a Spark or an LDS wallet', async () => {
     const sparkScreen = renderReceive(makeSparkReceiveWallet('spark-receive-1'));
     expect(sparkScreen.queryByTestId('SparkReceiveMethodSwitch')).toBeNull();
     expect(sparkScreen.queryByTestId('SparkReceiveOnchain')).toBeNull();
@@ -1450,6 +1450,27 @@ describe('LNDReceive with SparkWallet', () => {
     }
   });
 
+  it('does not keep showing the previous invoice when a new request for other values fails', async () => {
+    const { BlueCopyTextToClipboard } = require('../../BlueComponents');
+    const copyText = screen => screen.UNSAFE_getByType(BlueCopyTextToClipboard).props.text;
+    const alertSpy = jest.spyOn(global, 'alert').mockImplementation(() => {});
+    try {
+      const wallet = makeLdsReceiveWallet('lds-receive-failed-regeneration');
+      wallet.addInvoice.mockResolvedValueOnce(SAMPLE_INVOICE).mockRejectedValueOnce(new Error('node offline'));
+      const screen = renderReceive(wallet);
+      await createInvoice(screen);
+      await waitFor(() => expect(copyText(screen)).toBe(SAMPLE_INVOICE));
+
+      fireEvent.changeText(screen.getByPlaceholderText('Amount (optional)'), '2000');
+      fireEvent(screen.getByPlaceholderText('Amount (optional)'), 'blur');
+      await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('node offline'));
+
+      expect(copyText(screen)).toBe('lds@test');
+    } finally {
+      alertSpy.mockRestore();
+    }
+  });
+
   it('alerts the string form of a non-Error addInvoice rejection', async () => {
     const wallet = makeLdsReceiveWallet('lds-receive-string-err');
     wallet.addInvoice.mockRejectedValue('nope');
@@ -1833,7 +1854,7 @@ describe('LNDCreateInvoice with SparkWallet', () => {
     jest.useRealTimers();
   });
 
-  it('does not render the QR placeholder when the wallet has no Lightning address', async () => {
+  it('offers no QR, copy or share when the wallet has no Lightning address', async () => {
     const wallet = SparkWallet.create('pk-receive-1');
     wallet.getID = () => 'spark-create-invoice-1';
     wallet.setUserHasSavedExport(true);
@@ -1844,6 +1865,8 @@ describe('LNDCreateInvoice with SparkWallet', () => {
 
     expect(screen.queryByTestId('QRCode')).toBeNull();
     expect(screen.queryByText('this is a QR code')).toBeNull();
+    expect(screen.UNSAFE_queryAllByType(require('../../BlueComponents').BlueCopyTextToClipboard)).toHaveLength(0);
+    expect(screen.queryByText(loc.receive.details_share)).toBeNull();
   });
 
   it('renders the Lightning address QR and copyable text', async () => {

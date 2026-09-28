@@ -1768,7 +1768,7 @@ describe('SparkWallet', () => {
       amountSats: 100,
       walletIdentity: 'id-pk',
       method: SendPaymentMethod_Tags.Bolt11Invoice,
-      feeSats: 3,
+      feeSats: 10,
     });
     assert.strictEqual(result.fee, 3);
     expect(mockSdk.sendPayment).toHaveBeenCalledTimes(1);
@@ -3045,11 +3045,12 @@ describe('SparkWallet', () => {
   });
 
   it('payInvoice rejects a negative free amount before preparing', async () => {
-    mockSdk.prepareSendPayment.mockResolvedValue(bolt11PrepareResponse());
-    mockSdk.sendPayment.mockResolvedValue({ payment: { status: PaymentStatus.Completed } });
     const wallet = new SparkWallet();
 
-    await assert.rejects(() => wallet.payInvoice(SAMPLE_INVOICE, -1, undefined), /fee changed/);
+    await assert.rejects(
+      () => wallet.payInvoice(SAMPLE_INVOICE, -1, undefined),
+      error => error?.name === 'SparkPaymentFeeQuoteError',
+    );
     expect(mockSdk.prepareSendPayment).not.toHaveBeenCalled();
   });
 

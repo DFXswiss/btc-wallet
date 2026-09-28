@@ -333,7 +333,7 @@ describe('DFX wallet session identity', () => {
     expect('key' in body).toBe(false);
   });
 
-  it('authenticates a Spark wallet from its Spark address even when Lightning address is missing', async () => {
+  it('authenticates a Spark wallet from its Spark address even when it also has a Lightning address', async () => {
     const sparkAddress = 'spark1abcdefghijklmnopqrstuvwxyz';
     const getSparkAddress = jest.fn().mockResolvedValue(sparkAddress);
     const signCompactMessage = jest.fn().mockResolvedValue('compact-signature');
@@ -341,6 +341,7 @@ describe('DFX wallet session identity', () => {
       type: SparkWallet.type,
       getID: () => 'spark-wallet-id',
       getSparkAddress,
+      lnAddress: 'alice@breez.tips',
       identityPubkey: '02identity-public-key',
       signCompactMessage,
     };
@@ -348,7 +349,6 @@ describe('DFX wallet session identity', () => {
 
     await expect(getAccessToken(result, 'spark-wallet-id')).resolves.toBe('access-token');
 
-    expect(Object.prototype.hasOwnProperty.call(wallet, 'lnAddress')).toBe(false);
     expect(getSparkAddress).toHaveBeenCalled();
     expect(mockGetLnurlFromAddress).not.toHaveBeenCalled();
     expect(mockGetSignMessage).toHaveBeenCalledWith(sparkAddress);

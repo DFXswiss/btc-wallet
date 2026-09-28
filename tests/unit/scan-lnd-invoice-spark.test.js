@@ -243,10 +243,6 @@ describe('ScanLndInvoice fee mark', () => {
     expect(wallet.getPaymentFeeWithoutSending).not.toHaveBeenCalled();
   });
 
-  it('accepts a BOLT11 invoice on a Spark wallet', async () => {
-    await expectSparkAcceptsLightning(SAMPLE_INVOICE);
-  });
-
   it('keeps Spark fee quotes for a BOLT11 invoice', async () => {
     const { wallet, screen } = await expectSparkAcceptsLightning(SAMPLE_INVOICE);
     expect(wallet.getPaymentFeeWithoutSending).toHaveBeenCalledWith(SAMPLE_INVOICE, 1000);
@@ -715,7 +711,7 @@ describe('ScanLndInvoice fee mark', () => {
     expect(alert).not.toHaveBeenCalledWith(loc.send.details_address_field_is_not_valid);
   });
 
-  it('routes a BIP-21 destination to the invoice path on Next instead of rejecting it', () => {
+  it('returns without navigating when Next is pressed on an undecoded destination that passes the BIP-21 check', () => {
     jest.spyOn(DeeplinkSchemaMatch, 'isLightningInvoice').mockReturnValue(false);
     jest.spyOn(DeeplinkSchemaMatch, 'isTestnetLightningInvoice').mockReturnValue(false);
     jest.spyOn(DeeplinkSchemaMatch, 'isBothBitcoinAndLightning').mockReturnValue({ bitcoin: 'bitcoin:x', lndInvoice: 'lightning:y' });

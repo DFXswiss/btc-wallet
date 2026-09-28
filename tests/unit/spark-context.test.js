@@ -205,6 +205,7 @@ describe('SparkContextProvider recoverSparkWallet', () => {
     expect(addAndSaveWallet).not.toHaveBeenCalled();
     expect(mockDisconnect).toHaveBeenCalled();
     expect(alert).not.toHaveBeenCalled();
+    alert.mockRestore();
   });
 
   it('creates nothing and stays silent when the check fails', async () => {
@@ -215,6 +216,7 @@ describe('SparkContextProvider recoverSparkWallet', () => {
     assert.strictEqual(recovered, null);
     expect(addAndSaveWallet).not.toHaveBeenCalled();
     expect(alert).not.toHaveBeenCalled();
+    alert.mockRestore();
   });
 
   it('does nothing when a Spark wallet already exists or the source cannot derive one', async () => {
@@ -827,6 +829,7 @@ describe('SparkContextProvider', () => {
     expect(alert).toHaveBeenCalled();
     const buttons = alert.mock.calls[0][2];
     assert.ok(Array.isArray(buttons) && buttons.length >= 2);
+    assert.strictEqual(typeof buttons[1].onPress, 'function');
     expect(mockDisconnect).toHaveBeenCalled();
     alert.mockRestore();
   });
@@ -1833,6 +1836,9 @@ describe('SparkContextProvider', () => {
     await act(async () => {
       retryPress();
     });
+    await waitFor(() => expect(mockConnect).toHaveBeenCalledTimes(2));
+    await waitFor(() => assert.strictEqual(alertCalls, 2));
+    expect(addAndSaveWallet).not.toHaveBeenCalled();
     alert.mockRestore();
   });
 

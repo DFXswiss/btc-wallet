@@ -205,11 +205,12 @@ describe('DFX Spark invoice navigation', () => {
     await waitFor(() => expect(mockNavigate).toHaveBeenCalled());
     expect(mockNavigate.mock.calls[0]).toEqual(['LnurlPay', { lnurl: LNURL, walletID: 'spark-dfx-wallet', amountSat: AMOUNT_SATS }]);
     expect(mockAlert).not.toHaveBeenCalled();
-    screen.unmount();
-    mockNavigate.mockClear();
+  });
+
+  it('passes a sell deposit to an LDS wallet as LNURL without Spark routing', async () => {
     mockRouteParams['wallet-id'] = 'lds-dfx-wallet';
     mockSellGetInfo.mockResolvedValue(sellInfo(SPARK_INVOICE));
-    screen = renderScreen(Sell, makeLdsWallet());
+    const screen = renderScreen(Sell, makeLdsWallet());
 
     await waitFor(() => screen.getByTestId('SellConfirm'));
     fireEvent.press(screen.getByTestId('SellConfirm'));
@@ -260,11 +261,12 @@ describe('DFX Spark invoice navigation', () => {
     await waitFor(() => expect(mockNavigate).toHaveBeenCalled());
     expect(mockNavigate.mock.calls[0]).toEqual(['LnurlPay', { lnurl: LNURL, walletID: 'spark-dfx-wallet', amountSat: AMOUNT_SATS }]);
     expect(mockAlert).not.toHaveBeenCalled();
-    screen.unmount();
-    mockNavigate.mockClear();
+  });
+
+  it('passes a swap deposit to an LDS wallet as LNURL without Spark routing', async () => {
     mockRouteParams['wallet-id'] = 'lds-dfx-wallet';
     mockSwapGetInfo.mockResolvedValue(swapInfo(SPARK_INVOICE));
-    screen = renderScreen(Swap, makeLdsWallet());
+    const screen = renderScreen(Swap, makeLdsWallet());
 
     await waitFor(() => screen.getByTestId(`Button-${loc.swap.confirm}`));
     fireEvent.press(screen.getByTestId(`Button-${loc.swap.confirm}`));

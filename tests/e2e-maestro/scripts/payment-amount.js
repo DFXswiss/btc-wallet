@@ -1,7 +1,6 @@
-/* global E2E_PAYMENT_SAT, TREASURY_HASH, WALLET_BALANCE_TEXT, output */
+/* global E2E_PAYMENT_SAT, WALLET_BALANCE_TEXT, output */
 // Derives the sat amounts the payment flows type and assert.
-// Default 10, overridable through E2E_PAYMENT_SAT. Send is 1/10 of that
-// (same ratio as the previous 100-of-1000 send) so the Spark fee still fits.
+// Default 10, overridable through E2E_PAYMENT_SAT.
 
 function readPaymentSat() {
   let raw = '';
@@ -25,9 +24,6 @@ function readPaymentSat() {
 
 function readOptionalBinding(name) {
   try {
-    if (name === 'TREASURY_HASH' && typeof TREASURY_HASH !== 'undefined' && TREASURY_HASH !== null) {
-      return String(TREASURY_HASH).trim();
-    }
     if (name === 'WALLET_BALANCE_TEXT' && typeof WALLET_BALANCE_TEXT !== 'undefined' && WALLET_BALANCE_TEXT !== null) {
       return String(WALLET_BALANCE_TEXT).trim();
     }
@@ -36,13 +32,10 @@ function readOptionalBinding(name) {
 }
 
 var paymentSat = readPaymentSat();
-var sendSat = Math.max(1, Math.floor(paymentSat / 10));
 var visibleBalance = readOptionalBinding('WALLET_BALANCE_TEXT');
 var walletBalanceText = visibleBalance || String(paymentSat).split('').join('[., ]?') + ' sats';
-var preservedHash = readOptionalBinding('TREASURY_HASH');
 
 output.paymentSat = String(paymentSat);
-output.sendSat = String(sendSat);
 output.walletBalanceText = walletBalanceText;
 output.walletBalanceRegex = visibleBalance ? '^' + visibleBalance.replace(/[.]/g, '[.,]') + '$' : '^' + walletBalanceText + '$';
 if (visibleBalance) {
@@ -56,4 +49,3 @@ if (visibleBalance) {
   }
   output.expectedBalanceRegex = '^' + String(expectedSat).split('').join('[., ]?') + ' sats$';
 }
-if (preservedHash) output.paymentHash = preservedHash;
