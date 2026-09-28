@@ -181,7 +181,7 @@ describe('product inventory checker (fixtures)', () => {
 
   it('reports a navigation directory whose only screen is ignored', () => {
     const dir = freshFixture(files => {
-      files['navigation/Demo.tsx'] = '<Stack.Screen name="Navigation" component={RootStack} />\n';
+      files['navigation/Demo.tsx'] = '<Stack.Screen name="Navigation" component={Navigation} />\n';
     });
     const { errors } = checkInventory(dir);
     assert.ok(errors.includes('navigation: no screen routes found under navigation/'), errors.join('\n'));
@@ -408,6 +408,17 @@ describe('product inventory checker (fixtures)', () => {
     });
     const { errors } = checkInventory(dir);
     assert.ok(errors.includes('feature D-02: source path not found: screen/Missing.js'), errors.join('\n'));
+  });
+
+  it('reports a source path that is a directory', () => {
+    const dir = freshFixture(files => {
+      files['docs/product/features/demo.md'] = files['docs/product/features/demo.md'].replace(
+        '**Tier:** Important\n\n**Behavior.** Fixture only.\n**Source.** navigation/Demo.tsx',
+        '**Tier:** Important\n\n**Behavior.** Fixture only.\n**Source.** navigation/Demo.tsx, navigation',
+      );
+    });
+    const { errors } = checkInventory(dir);
+    assert.ok(errors.includes('feature D-02: source path not found: navigation'), errors.join('\n'));
   });
 
   it('treats a registration whose component is a stack navigator as a wrapper', () => {
