@@ -4,7 +4,7 @@ These run a release build on an Android emulator and check outcomes a user depen
 
 | Spec                        | Needs                                                                                                 | Proves                                                                                                                                                                                                                                                 |
 | --------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `onchain.spec.js`           | nothing                                                                                               | Self-test passes. A created wallet survives a restart and has a mainnet `bc1q` address. A sats amount and a label end up in the BIP21 request as the right BTC amount. Deleting the only wallet resets the app.                                        |
+| `onchain.spec.js`           | nothing                                                                                               | Self-test passes. A created wallet survives a restart and has a mainnet `bc1q` address. A sats amount and a label end up in the BIP21 request as the right BTC amount. Deleting the only wallet resets the app, also after a restart.                  |
 | `encrypted-storage.spec.js` | nothing                                                                                               | Encrypting storage makes the app ask for the password on launch, rejects a wrong one and restores the same wallet. A plausible-deniability password opens separate storage, and the real password still opens the original wallet.                     |
 | `spark.spec.js`             | `BREEZ_API_KEY` (build and test run)                                                                  | A Spark wallet starts. An invoice carries exactly the typed sats amount and description. The recovery export is gated by the notice and shows the BIP-85 child of the on-chain phrase, computed independently in the test.                             |
 | `onchain-send.spec.js`      | `HD_MNEMONIC_BIP84` (confirmed UTXOs)                                                                 | A payment pays the typed amount to the destination. The fee shown equals inputs minus outputs at the chosen rate. MAX sends everything to one output minus the shown fee. Nothing is broadcast.                                                        |
@@ -13,7 +13,10 @@ These run a release build on an Android emulator and check outcomes a user depen
 
 A suite whose inputs are missing fails with a "not set" error instead of skipping.
 
-In CI, `run-ci.sh` records failure videos, screenshots and logs only for `onchain.spec.js`, `encrypted-storage.spec.js` and `spark.spec.js`. The funded suites type recovery phrases, and the artifacts of this public repository are downloadable. The funded pass runs without retries so a failed payment test is never paid twice.
+In CI the suites run in two jobs:
+
+- `detox` runs `onchain`, `encrypted-storage` and `spark` on every pull request and uploads failure videos, screenshots and logs.
+- `detox-funded` runs `onchain-send`, `spark-send` and `spark-pay` in the protected GitHub environment `e2e-funded`. Keep `HD_MNEMONIC_BIP84` and `SPARK_E2E_MNEMONIC` as secrets of that environment, not of the repository, and give it required reviewers: the job runs code from the pull request, so the phrases are released only to runs a reviewer approved. The job records nothing, since artifacts of this public repository are downloadable, has no retries, so a failed payment test is never paid twice, and never runs twice at once, because all runs share the same wallets.
 
 ## Running locally
 

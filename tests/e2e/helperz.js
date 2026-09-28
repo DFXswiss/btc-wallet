@@ -139,14 +139,27 @@ export async function enterSendDestination(destination) {
   await element(by.id('ManualAddressContinue')).tap();
 }
 
+async function fetchJsonWithRetry(url, attempts = 4) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+      if (response.ok) return await response.json();
+      lastError = new Error(`${url}: HTTP ${response.status}`);
+    } catch (error) {
+      lastError = error;
+    }
+    await sleep(attempt * 2000);
+  }
+  throw lastError;
+}
+
 /** Sums the values of the outputs a transaction spends, looked up on a public explorer. */
 export async function sumSpentOutputs(tx) {
   let total = 0;
   for (const input of tx.ins) {
     const txid = Buffer.from(input.hash).reverse().toString('hex');
-    const response = await fetch(`https://mempool.space/api/tx/${txid}`);
-    if (!response.ok) throw new Error(`mempool.space tx ${txid}: HTTP ${response.status}`);
-    const prev = await response.json();
+    const prev = await fetchJsonWithRetry(`https://mempool.space/api/tx/${txid}`);
     total += prev.vout[input.index].value;
   }
   return total;

@@ -1,0 +1,51 @@
+name: Detox build
+description: Prepares the runner and builds the release and Detox test APKs for the Android emulator.
+inputs:
+  breez-api-key:
+    description: Breez API key baked into the build; Spark cannot start without it.
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+    - name: Free disk space
+      shell: bash
+      run: |
+        sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/local/lib/android/sdk/ndk
+        sudo docker system prune -af || true
+        df -h /
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: npm
+
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: '17'
+
+    - uses: actions/cache@v4
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('android/**/*.gradle', 'android/**/*.properties') }}
+        restore-keys: ${{ runner.os }}-gradle-
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+
+    - name: Build release and test APKs
+      shell: bash
+      env:
+        BREEZ_API_KEY: ${{ inputs.breez-api-key }}
+      run: npm run e2e:release-build
+
+    - name: Enable KVM
+      shell: bash
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm

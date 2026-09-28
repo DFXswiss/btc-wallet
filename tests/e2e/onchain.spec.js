@@ -67,6 +67,10 @@ describe('On-chain wallet without funds', () => {
     await waitForText('Yes, delete');
     await element(by.text('Yes, delete')).tap();
     await waitForId('Create');
+
+    // The deletion must be persisted, not only reflected in the running app.
+    await device.launchApp({ newInstance: true });
+    await waitForId('Create');
     await expect(element(by.id('OnChainWalletRow'))).not.toExist();
   });
 });

@@ -4,14 +4,15 @@ Three Maestro flows for paths that need the German iOS build, a local DFX
 stack, or both. They run only on a local iOS simulator and are **not part of
 CI**. All other wallet paths (on-chain create/receive/send, Spark create,
 receive, backup export, send quotes and a real Spark payment) are covered by
-the Detox suite in `tests/e2e/`, which runs in CI on an Android emulator. `coverage.md` maps the
+the Detox suite in `tests/e2e/`, which runs in CI on an Android emulator. The
+wallet's Lightning address on the receive screen is no longer asserted. `coverage.md` maps the
 removed Maestro flows to their Detox replacements.
 
-| Flow | What it does |
-| --- | --- |
-| `flows/10-lnurl-auth.yaml` | Creates a wallet, adds the Lightning (Spark) wallet, opens a static third-party LNURL-auth link and taps `Authentifizieren`. |
-| `flows/16-dfx-buy-to-payment.yaml` | Imports a fixed identity, opens DFX buy, checks the buy form, triggers a simulated bank payment and waits for the buy to complete. |
-| `flows/17-dfx-sell-to-payment.yaml` | Imports the same identity, sends Spark to the DFX sell deposit address, checks the sell form and waits for the sell to complete. |
+| Flow                                | What it does                                                                                                                       |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `flows/10-lnurl-auth.yaml`          | Creates a wallet, adds the Lightning (Spark) wallet, opens a static third-party LNURL-auth link and taps `Authentifizieren`.       |
+| `flows/16-dfx-buy-to-payment.yaml`  | Imports a fixed identity, opens DFX buy, checks the buy form, triggers a simulated bank payment and waits for the buy to complete. |
+| `flows/17-dfx-sell-to-payment.yaml` | Imports the same identity, sends Spark to the DFX sell deposit address, checks the sell form and waits for the sell to complete.   |
 
 ## What each flow proves, and what it does not
 
@@ -62,7 +63,9 @@ persistence test.
 - `maestro` on `PATH`, and Homebrew OpenJDK at
   `/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home` (the runner
   sets `JAVA_HOME`; it exits 2 if Java is missing).
-- Network access to Spark/Breez. Flow 10 needs nothing else.
+- Network access to Spark/Breez, and an app bundle built with `BREEZ_API_KEY`
+  set (every flow creates or imports a Spark wallet). Flow 10 needs nothing
+  else.
 - The simulator must not hold anything worth keeping: before every flow the
   runner uninstalls the app, resets the simulator keychain and reinstalls it.
 
@@ -90,22 +93,25 @@ Without it, 16 fails at `NUTZERDATEN EINGEBEN` with a pointer to this file.
 
 ### Environment variables
 
-All values stay outside the repository. The runner forwards each one to
-`maestro test -e` only when it is set and never prints it. A flow that needs a
-missing value fails; nothing is skipped.
+All values stay outside the repository and are never printed. The runner
+forwards the `E2E_*` values to `maestro test -e` only when they are set; a flow
+that needs a missing required value fails. The settle-helper variables are
+consumed by the runner itself, which passes the derived `E2E_SETTLE_URL` and
+`E2E_SETTLE_KEY` on to the flows. `E2E_SPARK_RETURN_ADDRESS` is optional: the
+refund step skips when it is unset.
 
-| Name | Used by | Meaning |
-| --- | --- | --- |
-| `E2E_SPARK_MNEMONIC` | 16, 17 | Fixed test identity imported by `_setup-import.yaml`. Maestro writes it to its run log; do not share those logs. |
-| `E2E_SPARK_WALLET_ADDRESS` | 16 | The identity's own Spark address (`user.address`), expected on the buy form. |
-| `E2E_SPARK_DEPOSIT_ADDRESS` | 17 | DFX's reusable Spark sell deposit address for that identity. Do not swap it with the one above. |
-| `E2E_API_URL` | 16, 17 | Local API origin, e.g. `http://127.0.0.1:3300`. |
-| `E2E_DFX_JWT` | 16, 17 | Bearer token for the identity (secret). |
-| `E2E_BUY_CHF` | 16 | Simulated buy amount, default `0.20`. |
-| `E2E_PAYMENT_SAT` | 17 | Sell amount in sats, default `10`; must end in `0` (the amount field keeps a trailing zero). |
-| `SETTLE_KEY` | 17 | Enables the settle helper (see below). |
-| `SETTLE_PORT`, `SETTLE_DB_CONTAINER` | 17 | Optional; default `18790` and `spark276-db-1`. |
-| `E2E_SPARK_RETURN_ADDRESS` | 17 | Optional destination for the leftover Spark balance. |
+| Name                                 | Used by | Meaning                                                                                                          |
+| ------------------------------------ | ------- | ---------------------------------------------------------------------------------------------------------------- |
+| `E2E_SPARK_MNEMONIC`                 | 16, 17  | Fixed test identity imported by `_setup-import.yaml`. Maestro writes it to its run log; do not share those logs. |
+| `E2E_SPARK_WALLET_ADDRESS`           | 16      | The identity's own Spark address (`user.address`), expected on the buy form.                                     |
+| `E2E_SPARK_DEPOSIT_ADDRESS`          | 17      | DFX's reusable Spark sell deposit address for that identity. Do not swap it with the one above.                  |
+| `E2E_API_URL`                        | 16, 17  | Local API origin, e.g. `http://127.0.0.1:3300`.                                                                  |
+| `E2E_DFX_JWT`                        | 16, 17  | Bearer token for the identity (secret).                                                                          |
+| `E2E_BUY_CHF`                        | 16      | Simulated buy amount, default `0.20`.                                                                            |
+| `E2E_PAYMENT_SAT`                    | 17      | Sell amount in sats, default `10`; must end in `0` (the amount field keeps a trailing zero).                     |
+| `SETTLE_KEY`                         | 17      | Enables the settle helper (see below).                                                                           |
+| `SETTLE_PORT`, `SETTLE_DB_CONTAINER` | 17      | Optional; default `18790` and `spark276-db-1`.                                                                   |
+| `E2E_SPARK_RETURN_ADDRESS`           | 17      | Optional destination for the leftover Spark balance.                                                             |
 
 ### Settle helper (17)
 
@@ -135,4 +141,5 @@ The runner continues after a failure and writes
 outcome (`passed`, `assertion-failed`, `run-aborted`) of each flow. A failed
 reset counts as exit 125 / `run-aborted`. The split between assertion failures
 and aborts comes from the flow log and is only a hint; both make the suite exit
+
 1. Configuration errors and an empty filter exit 2.
