@@ -140,6 +140,5 @@ The runner continues after a failure and writes
 `tests/e2e-maestro/last-run.json` with the name, exit code, duration and
 outcome (`passed`, `assertion-failed`, `run-aborted`) of each flow. A failed
 reset counts as exit 125 / `run-aborted`. The split between assertion failures
-and aborts comes from the flow log and is only a hint; both make the suite exit
-
-1. Configuration errors and an empty filter exit 2.
+and aborts comes from the flow log and is only a hint; both make the suite
+exit 1. Configuration errors and an empty filter exit 2.

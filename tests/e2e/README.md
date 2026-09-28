@@ -16,7 +16,7 @@ A suite whose inputs are missing fails with a "not set" error instead of skippin
 In CI the suites run in two jobs:
 
 - `detox` runs `onchain`, `encrypted-storage` and `spark` on every pull request and uploads failure videos, screenshots and logs.
-- `detox-funded` runs `onchain-send`, `spark-send` and `spark-pay` in the protected GitHub environment `e2e-funded`. Keep `HD_MNEMONIC_BIP84` and `SPARK_E2E_MNEMONIC` as secrets of that environment, not of the repository, and give it required reviewers: the job runs code from the pull request, so the phrases are released only to runs a reviewer approved. The job records nothing, since artifacts of this public repository are downloadable, has no retries, so a failed payment test is never paid twice, and never runs twice at once, because all runs share the same wallets.
+- `detox-funded` runs `onchain-send`, `spark-send` and `spark-pay` in the protected GitHub environment `e2e-funded`. Keep `HD_MNEMONIC_BIP84` and `SPARK_E2E_MNEMONIC` as secrets of that environment, not of the repository, and give it required reviewers: the job runs code from the pull request, so the phrases are released only to runs a reviewer approved. The job records nothing, since artifacts of this public repository are downloadable, has no retries, so a failed payment test is never paid twice, and never runs twice at once (a newer run waits instead of cancelling it), because all runs share the same wallets.
 
 ## Running locally
 

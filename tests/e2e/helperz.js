@@ -149,7 +149,7 @@ async function fetchJsonWithRetry(url, attempts = 4) {
     } catch (error) {
       lastError = error;
     }
-    await sleep(attempt * 2000);
+    if (attempt < attempts) await sleep(attempt * 2000);
   }
   throw lastError;
 }

@@ -8,8 +8,9 @@ name: Tests e2e Android
 # detox-funded: suites that import funded recovery phrases; spark-pay.spec.js pays 10 sats plus fee
 #   to E2E_LIGHTNING_ADDRESS on every run. Runs in the protected environment e2e-funded, whose
 #   required reviewers release HD_MNEMONIC_BIP84 and SPARK_E2E_MNEMONIC (environment secrets) and the
-#   variable E2E_LIGHTNING_ADDRESS only after they approve the run. One funded run at a time, never
-#   cancelled, because every run shares the same wallets. No artifacts, no retries.
+#   variable E2E_LIGHTNING_ADDRESS only after they approve the run. One funded run at a time, and a
+#   newer run waits instead of cancelling it, because every run shares the same wallets. No artifacts,
+#   no retries.
 on: [pull_request]
 
 permissions:
