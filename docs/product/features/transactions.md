@@ -22,7 +22,7 @@ On-chain (and shared) transaction history on the wallet screen, transaction stat
 
 **Tests.** tests/unit/asset-dfx-services.test.js. CF-02, CF-03.
 
-**Source.** screen/wallets/asset.js, components/TransactionListItem.js, components/TransactionsNavigationHeader.tsx, blue_modules/storage-context.js, navigation/WalletsStack.tsx
+**Source.** screen/wallets/asset.js, components/TransactionListItem.js, components/TransactionsNavigationHeader.js, blue_modules/storage-context.js, navigation/WalletsStack.tsx
 
 ## T-02 Transaction status and details
 
