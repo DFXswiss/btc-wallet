@@ -13,18 +13,43 @@ const NATIVE_SEGWIT_PATH = "m/48'/0'/0'/2'";
 function cosignerKey(mnemonic) {
   const root = bip32.fromSeed(bip39.mnemonicToSeedSync(mnemonic));
   const account = root.derivePath(NATIVE_SEGWIT_PATH);
+  const receiveNode = account.derive(0).derive(0);
   return {
+    fingerprint: Buffer.from(root.fingerprint),
     xfp: Buffer.from(root.fingerprint).toString('hex').toUpperCase(),
     xpub: account.neutered().toBase58(),
-    receivePubkey: Buffer.from(account.derive(0).derive(0).publicKey),
+    receiveNode,
+    receivePubkey: Buffer.from(receiveNode.publicKey),
   };
 }
 
-/** First receive address of a 2-of-3 native segwit sortedmulti vault, computed from the three account keys. */
-function expectedVaultAddress(keys) {
+/** First receive output of a 2-of-3 native segwit sortedmulti vault, computed from the three account keys. */
+function expectedVault(keys) {
   const pubkeys = keys.map(key => key.receivePubkey).sort(Buffer.compare);
   const redeem = bitcoin.payments.p2ms({ m: 2, pubkeys, network: bitcoin.networks.bitcoin });
-  return bitcoin.payments.p2wsh({ redeem, network: bitcoin.networks.bitcoin }).address;
+  return bitcoin.payments.p2wsh({ redeem, network: bitcoin.networks.bitcoin });
+}
+
+const DESTINATION = 'bc1q063ctu6jhe5k4v8ka99qac8rcm2tzjjnuktyrl';
+
+/** A PSBT spending the vault's first receive output (a made-up UTXO; nothing is broadcast), signed by `signer`. */
+function psbtSignedBy(keys, signer) {
+  const vault = expectedVault(keys);
+  const psbt = new bitcoin.Psbt({ network: bitcoin.networks.bitcoin });
+  psbt.addInput({
+    hash: 'ab'.repeat(32),
+    index: 0,
+    witnessUtxo: { script: vault.output, value: 100_000 },
+    witnessScript: vault.redeem.output,
+    bip32Derivation: keys.map(key => ({
+      masterFingerprint: key.fingerprint,
+      path: `${NATIVE_SEGWIT_PATH}/0/0`,
+      pubkey: key.receivePubkey,
+    })),
+  });
+  psbt.addOutput({ address: DESTINATION, value: 90_000 });
+  psbt.signInput(0, signer.receiveNode);
+  return psbt;
 }
 
 describe('Multisig vault', () => {
@@ -53,7 +78,7 @@ describe('Multisig vault', () => {
     await waitForId('ReceiveButton');
     await element(by.id('ReceiveButton')).tap();
     await waitForId('AddressValue');
-    assert.strictEqual(await extractTextFromElementById('AddressValue'), expectedVaultAddress(keys));
+    assert.strictEqual(await extractTextFromElementById('AddressValue'), expectedVault(keys).address);
   });
 
   it('shows the quorum, all three cosigners and a coordination setup with their fingerprints', async () => {
@@ -97,5 +122,48 @@ describe('Multisig vault', () => {
         .toExist()
         .withTimeout(30_000);
     }
+  });
+
+  it('signs its share of a PSBT another cosigner already signed, completing the 2-of-3 quorum', async () => {
+    const [ownKey, otherKey] = keys;
+    const psbt = psbtSignedBy(keys, otherKey);
+
+    await device.launchApp({ newInstance: true });
+    await waitForId('HomeScanButton');
+    await element(by.id('HomeScanButton')).tap();
+    await scanText(psbt.toBase64());
+    await waitForId('PsbtMultisigSignButton', 60_000);
+    const before = bitcoin.Psbt.fromHex((await extractTextFromElementById('PsbtMultisigHex')).trim());
+    assert.strictEqual(before.data.inputs[0].partialSig.length, 1, "the PSBT should arrive with only the other cosigner's signature");
+    await element(by.id('PsbtMultisigSignButton')).tap();
+
+    // A complete quorum is finalized right away: the signatures move from partialSig into the final witness.
+    let signed;
+    for (let attempt = 0; attempt < 30 && !signed; attempt++) {
+      const candidate = bitcoin.Psbt.fromHex((await extractTextFromElementById('PsbtMultisigHex')).trim());
+      if (candidate.data.inputs[0].finalScriptWitness) signed = candidate;
+      else await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    assert.ok(signed, "the PSBT was never finalized with the vault's signature");
+    const confirm = await element(by.id('PsbtMultisigConfirmButton')).getAttributes();
+    assert.strictEqual(confirm.enabled, true, 'Send now must be enabled once the quorum is complete');
+
+    const tx = signed.extractTransaction();
+    const vault = expectedVault(keys);
+    // P2WSH multisig witness: empty item for CHECKMULTISIG, the signatures, then the witness script.
+    const witness = tx.ins[0].witness;
+    assert.strictEqual(Buffer.from(witness[witness.length - 1]).toString('hex'), vault.redeem.output.toString('hex'));
+    const signatures = witness.slice(1, -1).map(item => bitcoin.script.signature.decode(Buffer.from(item)));
+    assert.strictEqual(signatures.length, 2);
+    const signingPubkeys = signatures.map(({ signature, hashType }) => {
+      const hash = tx.hashForWitnessV0(0, vault.redeem.output, 100_000, hashType);
+      return keys.find(key => ecc.verify(hash, key.receivePubkey, signature));
+    });
+    assert.ok(signingPubkeys.includes(ownKey), "no valid signature from the vault's own key");
+    assert.ok(signingPubkeys.includes(otherKey), 'no valid signature from the other cosigner');
+
+    assert.strictEqual(tx.outs.length, 1);
+    assert.strictEqual(bitcoin.address.fromOutputScript(tx.outs[0].script), DESTINATION);
+    assert.strictEqual(Number(tx.outs[0].value), 90_000);
   });
 });
