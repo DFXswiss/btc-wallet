@@ -60,7 +60,7 @@ export interface SparkContextInterface {
   isConnecting: boolean;
   isCreating: boolean;
   createSparkWallet: (source?: OnChainMnemonicWallet) => Promise<SparkWallet | null>;
-  /** Restores the Spark wallet of an imported on-chain wallet if it was used before, without alerts; a restored wallet without a Lightning address gets one registered. */
+  /** Restores the Spark wallet of an imported on-chain wallet if it was used before, without alerts; for a restored wallet without a Lightning address, registering one is attempted. */
   recoverSparkWallet: (source: OnChainMnemonicWallet) => Promise<SparkWallet | null>;
   /** Signs an LNURL-auth k1 with the Spark identity key: DER signature over the raw k1 bytes and the pubkey, hex. */
   signLnurlAuthK1: (k1Hex: string) => Promise<{ sig: string; key: string }>;
