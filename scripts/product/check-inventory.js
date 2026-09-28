@@ -207,6 +207,10 @@ function checkInventory(repoRoot) {
   const flows = parseFlows(fs.readFileSync(flowsPath, 'utf8'));
   const errors = [];
 
+  if (!screens.length) {
+    errors.push('navigation: no screen routes found under navigation/');
+  }
+
   const screensSet = new Set(screens);
   const wrappersSet = new Set(wrappers);
   const rowById = new Map();
