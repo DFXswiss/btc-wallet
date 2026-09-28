@@ -38,7 +38,7 @@ appId: swiss.dfx.bitcoin
     visible: 'Nur für die Nutzung deiner Lightning-Wallet in einer anderen App.*'
     timeout: 90000
 - assertVisible:
-    id: WalletExportScroll
+    id: WalletExportSecret
 - tapOn:
     id: NavigationCloseButton
 - assertNotVisible:

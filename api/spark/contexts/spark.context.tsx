@@ -137,7 +137,7 @@ function getSparkMnemonic(wallets: OnChainMnemonicWallet[], sourceWalletId?: str
 }
 
 function getSparkWallet(wallets: { type: string }[]): SparkWallet | undefined {
-  return wallets.find(w => w.type === SparkWallet.type) as SparkWallet | undefined;
+  return wallets.find((w): w is SparkWallet => w.type === SparkWallet.type);
 }
 
 /** The alert shown when Lightning cannot be started or created, with a retry. */

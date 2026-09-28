@@ -31,16 +31,18 @@ const ScanLndInvoice = () => {
   const { wallets } = useContext(BlueStorageContext);
   const { colors } = useTheme();
   const { walletID, uri } = useRoute().params;
+  // Only the Spark wallet can pay a Spark destination; without one the screen reports that no Lightning wallet can pay.
+  const sparkDestination = typeof uri === 'string' && (SparkWallet.isSparkPaymentUri(uri) || SparkWallet.isSparkAddress(uri));
   /** @type {LightningCustodianWallet | SparkWallet} */
   const wallet = useMemo(() => {
     const chosen = wallets.find(item => item.getID() === walletID);
-    if (chosen) return chosen;
-    // A Spark destination without a chosen wallet goes to the Spark wallet, the only one that can pay it;
-    // without one the screen reports that no Lightning wallet can pay.
-    const sparkDestination = typeof uri === 'string' && (SparkWallet.isSparkPaymentUri(uri) || SparkWallet.isSparkAddress(uri));
+    if (chosen && (!sparkDestination || chosen.type === SparkWallet.type)) return chosen;
     return sparkDestination ? wallets.find(item => item.type === SparkWallet.type) : getLightningWallet(wallets);
-  }, [uri, walletID, wallets]);
-  const suitableWallets = useMemo(() => wallets.filter(item => item.chain === Chain.OFFCHAIN), [wallets]);
+  }, [sparkDestination, walletID, wallets]);
+  const suitableWallets = useMemo(
+    () => wallets.filter(item => (sparkDestination ? item.type === SparkWallet.type : item.chain === Chain.OFFCHAIN)),
+    [sparkDestination, wallets],
+  );
   const { navigate, setParams, goBack } = useNavigation();
   const [isLoading, setIsLoading] = useState(false);
   const [destination, setDestination] = useState('');

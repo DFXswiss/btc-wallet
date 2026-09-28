@@ -97,8 +97,8 @@ function paymentFromEvent(event: SdkEvent): Payment | undefined {
   ) {
     return undefined;
   }
-  const inner = (event as { inner?: { payment?: Payment } }).inner;
-  return inner?.payment;
+  // The native bridge can hand over an event without its payload; the SDK types do not show that.
+  return event.inner?.payment;
 }
 
 function identityFromPayment(payment: Payment): OutgoingPaymentIdentity & { preimage?: string } {

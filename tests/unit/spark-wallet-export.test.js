@@ -132,6 +132,7 @@ it('reveals the derived Spark phrase from only the exact bound on-chain wallet',
   const screen = renderExport([spark, unrelated, bound], saveToDisk);
 
   await waitFor(() => expect(screen.getByText(/1\. spark/)).toBeTruthy());
+  expect(screen.getByTestId('WalletExportSecret')).toBeTruthy();
   expect(sparkMnemonicFromWallet).toHaveBeenCalledWith(bound);
   expect(screen.getByTestId('QRCode').props.children).toBe('spark child phrase words here');
   expect(screen.getByText(require('../../loc').default.wallets.lightning_spark_recovery_explanation)).toBeTruthy();
@@ -147,6 +148,7 @@ it('fails closed when the bound source wallet is missing and never chooses anoth
 
   await waitFor(() => expect(screen.getByText(require('../../loc').default.wallets.lightning_spark_recovery_unavailable)).toBeTruthy());
   expect(screen.queryByText(/1\. spark/)).toBeNull();
+  expect(screen.queryByTestId('WalletExportSecret')).toBeNull();
   expect(screen.queryByTestId('QRCode')).toBeNull();
   expect(sparkMnemonicFromWallet).not.toHaveBeenCalled();
   expect(spark.setUserHasSavedExport).not.toHaveBeenCalled();

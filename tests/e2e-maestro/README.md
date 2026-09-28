@@ -198,7 +198,8 @@ positions return HTTP 409 so the flow continues to read them as not ready.
 
 ## Running
 
-All flows on a specific booted simulator:
+All reset-based flows (01-19) on a specific booted simulator; the wrapper
+skips P20-P25, which keep wallet state and run directly with maestro (below):
 
 ```sh
 bash scripts/e2e/run-maestro.sh \

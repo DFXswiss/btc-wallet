@@ -140,8 +140,25 @@ if [[ -n "${E2E_SETTLE_KEY-}" ]]; then
 fi
 
 shopt -s nullglob
-FLOWS=("$FLOW_DIR"/$FLOW_FILTER)
+MATCHED_FLOWS=("$FLOW_DIR"/$FLOW_FILTER)
 shopt -u nullglob
+
+# Flows 20-25 build on a funded wallet and on each other's state; this runner resets the simulator before
+# every flow, so they run directly with maestro as tests/e2e-maestro/README.md describes.
+FLOWS=()
+STATEFUL_FLOWS=()
+for matched_flow in ${MATCHED_FLOWS[@]+"${MATCHED_FLOWS[@]}"}; do
+  case "$(basename "$matched_flow")" in
+    2[0-5]-*) STATEFUL_FLOWS+=("$(basename "$matched_flow")") ;;
+    *) FLOWS+=("$matched_flow") ;;
+  esac
+done
+if ((${#STATEFUL_FLOWS[@]})); then
+  if ((${#FLOWS[@]} == 0)); then
+    fail "${STATEFUL_FLOWS[*]} keep wallet state and must run directly with maestro; see tests/e2e-maestro/README.md"
+  fi
+  printf 'Skipping %s: these flows keep wallet state and run directly with maestro.\n' "${STATEFUL_FLOWS[*]}" >&2
+fi
 
 json_escape() {
   local value="$1"

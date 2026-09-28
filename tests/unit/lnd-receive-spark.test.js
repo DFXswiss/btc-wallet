@@ -608,6 +608,55 @@ describe('LNDReceive with SparkWallet', () => {
     }
   });
 
+  it('keeps the newer invoice when an older request of the same wallet finishes after a switch away and back', async () => {
+    const { BlueCopyTextToClipboard } = require('../../BlueComponents');
+    const copyText = screen => screen.UNSAFE_getByType(BlueCopyTextToClipboard).props.text;
+    let resolveFirst;
+    const walletA = makeLdsReceiveWallet('lds-a');
+    walletA.addInvoice = jest
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            resolveFirst = resolve;
+          }),
+      )
+      .mockResolvedValueOnce('lnbc-a-second');
+    const walletB = { ...makeLdsReceiveWallet('lds-b'), lnAddress: 'b@test' };
+    const storage = {
+      wallets: [walletA, walletB],
+      saveToDisk: jest.fn().mockResolvedValue(undefined),
+      setSelectedWallet: jest.fn(),
+      fetchAndSaveWalletTransactions: jest.fn(),
+    };
+    const receive = () => (
+      <BlueStorageContext.Provider value={storage}>
+        <LNDReceive />
+      </BlueStorageContext.Provider>
+    );
+    const showWallet = async (screen, id) => {
+      mockRouteParams.walletID = id;
+      await act(async () => {
+        screen.rerender(receive());
+      });
+    };
+    mockRouteParams.walletID = 'lds-a';
+    const screen = render(receive());
+    await createInvoice(screen);
+    await waitFor(() => expect(walletA.addInvoice).toHaveBeenCalledTimes(1));
+
+    await showWallet(screen, 'lds-b');
+    await showWallet(screen, 'lds-a');
+    fireEvent.changeText(screen.getByPlaceholderText('Amount (optional)'), '2000');
+    fireEvent(screen.getByPlaceholderText('Amount (optional)'), 'blur');
+    await waitFor(() => expect(walletA.addInvoice).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(copyText(screen)).toBe('lnbc-a-second'));
+
+    await act(async () => resolveFirst(SAMPLE_INVOICE));
+
+    expect(copyText(screen)).toBe('lnbc-a-second');
+  });
+
   it('creates the invoice for the new wallet when the same amount was entered while the old one was still creating', async () => {
     const { BlueCopyTextToClipboard } = require('../../BlueComponents');
     const copyText = screen => screen.UNSAFE_getByType(BlueCopyTextToClipboard).props.text;

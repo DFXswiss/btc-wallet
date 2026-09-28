@@ -61,7 +61,8 @@ const LNDReceive = () => {
   const pollGeneration = useRef(0);
   const blurGeneration = useRef(0);
   const invoiceCreationInFlight = useRef(false);
-  const invoiceCreationValues = useRef<{ amountSats: number; description: string; walletID: string } | undefined>(undefined);
+  /** Bumped by every invoice request and every wallet switch; only the newest request may touch the screen. */
+  const invoiceCreationGeneration = useRef(0);
   const invoiceCreationQueued = useRef(false);
   const generateInvoiceRef = useRef<(() => Promise<void>) | undefined>(undefined);
   const [invoiceGenerationRequest, setInvoiceGenerationRequest] = useState(0);
@@ -74,8 +75,8 @@ const LNDReceive = () => {
   const { isConnected: isSparkConnected } = useSparkContext();
   const isSpark = wallet?.type === SparkWallet.type;
   const [sparkAddressRetry, setSparkAddressRetry] = useState(0);
-  const latestInvoiceValues = useRef({ amountSats, description, walletID });
-  latestInvoiceValues.current = { amountSats, description, walletID };
+  const latestInvoiceValues = useRef({ amountSats, description });
+  latestInvoiceValues.current = { amountSats, description };
 
   const styleHooks = StyleSheet.create({
     customAmount: {
@@ -102,9 +103,9 @@ const LNDReceive = () => {
       // An invoice belongs to the wallet that created it; another wallet must not show it or wait for it.
       setInvoiceRequest(undefined);
       setInvoiceAmountSats(undefined);
+      invoiceCreationGeneration.current += 1;
       invoiceCreationInFlight.current = false;
       invoiceCreationQueued.current = false;
-      invoiceCreationValues.current = undefined;
       setIsInvoiceLoading(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -257,9 +258,10 @@ const LNDReceive = () => {
     }
     if (isInvoiceLoading) return;
     invoiceCreationInFlight.current = true;
-    invoiceCreationValues.current = { amountSats, description, walletID };
-    // After a wallet switch this request's result and its latches belong to no screen any more.
-    const walletChanged = () => latestInvoiceValues.current.walletID !== walletID;
+    const startedValues = { amountSats, description };
+    // A wallet switch or a newer request takes over the screen; this request's result and latches then belong to no one.
+    const attempt = ++invoiceCreationGeneration.current;
+    const superseded = () => attempt !== invoiceCreationGeneration.current;
     if (isNfcActive) stopReading();
     setIsInvoiceLoading(true);
     Keyboard.dismiss();
@@ -273,11 +275,11 @@ const LNDReceive = () => {
       const invoiceAmount = amountSats;
       const invoiceDescription = description;
       const createdInvoiceRequest = await wallet.addInvoice(invoiceAmount, invoiceDescription);
-      if (walletChanged()) return;
+      if (superseded()) return;
       ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
       const decoded = await wallet.decodeInvoice(createdInvoiceRequest);
       await tryToObtainPermissions();
-      if (walletChanged()) return;
+      if (superseded()) return;
       majorTomToGroundControl([], [decoded.payment_hash], []);
 
       cancelInvoicePolling();
@@ -306,20 +308,17 @@ const LNDReceive = () => {
         startReading(handleNfcRead(createdInvoiceRequest));
       }
     } catch (error) {
-      if (walletChanged()) return;
+      if (superseded()) return;
       ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
       alert(error instanceof Error ? error.message : String(error));
     } finally {
-      if (!walletChanged()) {
-        const completedValues = invoiceCreationValues.current;
+      if (!superseded()) {
         invoiceCreationInFlight.current = false;
-        invoiceCreationValues.current = undefined;
         setIsInvoiceLoading(false);
         if (
           invoiceCreationQueued.current &&
-          completedValues &&
-          (!Object.is(latestInvoiceValues.current.amountSats, completedValues.amountSats) ||
-            latestInvoiceValues.current.description !== completedValues.description)
+          (!Object.is(latestInvoiceValues.current.amountSats, startedValues.amountSats) ||
+            latestInvoiceValues.current.description !== startedValues.description)
         ) {
           setInvoiceGenerationRequest(request => request + 1);
         }

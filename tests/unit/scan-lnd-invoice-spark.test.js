@@ -342,6 +342,18 @@ describe('ScanLndInvoice fee mark', () => {
     await waitFor(() => expect(alert).toHaveBeenCalledWith(loc.wallets.no_ln_wallet_error));
   });
 
+  it('keeps a Spark link on the Spark wallet even when an LNDHub wallet was chosen', async () => {
+    const lndhub = makeLndhubWallet();
+    const spark = makeSparkWallet();
+    const screen = renderScanWithWallets([lndhub, spark], { walletID: lndhub.getID(), uri: SPARK_ADDRESS });
+    await waitFor(() => screen.getByText(loc.lnd.next));
+
+    expect(screen.queryByTestId('WalletSelect')).toBeNull();
+    fireEvent.changeText(screen.getByTestId('BitcoinAmountInput'), '1000');
+
+    await waitFor(() => expect(spark.getPaymentFeeWithoutSending).toHaveBeenCalledWith(SPARK_ADDRESS, 1000));
+  });
+
   it('alerts instead of opening a Spark link with a wallet that cannot pay it', async () => {
     renderScanWithWallets([makeLndhubWallet()], { walletID: undefined, uri: SPARK_ADDRESS });
 

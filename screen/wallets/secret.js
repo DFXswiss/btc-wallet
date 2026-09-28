@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, I18nManager } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import PropTypes from 'prop-types';
 
-const Secret = ({ secret }) => {
+const Secret = ({ secret, testID }) => {
   const { colors } = useTheme();
 
   const stylesHook = StyleSheet.create({
@@ -32,7 +32,7 @@ const Secret = ({ secret }) => {
 
   return (
     <>
-      <View style={styles.list}>
+      <View style={styles.list} testID={testID}>
         <View style={styles.secret}>{renderSecret()}</View>
       </View>
     </>
@@ -41,6 +41,7 @@ const Secret = ({ secret }) => {
 
 Secret.propTypes = {
   secret: PropTypes.string.isRequired,
+  testID: PropTypes.string,
 };
 
 const styles = StyleSheet.create({

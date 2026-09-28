@@ -173,7 +173,7 @@ const WalletExport = () => {
               <Icon name="info-outline" type="material" color={colors.brandingColor} size={18} />
               <Text style={[styles.infoText, stylesHook.infoText]}>{loc.pleasebackup.info}</Text>
             </View>
-            {wallet.type !== MultisigHDWallet.type && <Secret secret={s} />}
+            {wallet.type !== MultisigHDWallet.type && <Secret secret={s} testID="WalletExportSecret" />}
             <BlueSpacing20 />
             <QRCodeComponent isMenuAvailable={false} value={isSparkWallet ? s : wallet.getSecret()} size={qrCodeSize} logoSize={70} />
             {renderCosigners()}
