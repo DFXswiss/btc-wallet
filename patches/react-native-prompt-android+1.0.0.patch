@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-prompt-android/android/src/main/java/im/shimo/react/prompt/RNPromptModule.java b/node_modules/react-native-prompt-android/android/src/main/java/im/shimo/react/prompt/RNPromptModule.java
-index 960b8d7..2d2f13c 100644
+index 960b8d7..daaf533 100644
 --- a/node_modules/react-native-prompt-android/android/src/main/java/im/shimo/react/prompt/RNPromptModule.java
 +++ b/node_modules/react-native-prompt-android/android/src/main/java/im/shimo/react/prompt/RNPromptModule.java
 @@ -13,6 +13,8 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule;
@@ -11,17 +11,19 @@ index 960b8d7..2d2f13c 100644
  import com.facebook.react.common.MapBuilder;
  import com.facebook.react.module.annotations.ReactModule;
  import com.facebook.react.modules.dialog.DialogModule;
-@@ -52,6 +54,9 @@ public class RNPromptModule extends ReactContextBaseJavaModule implements Lifecy
+@@ -52,6 +54,11 @@ public class RNPromptModule extends ReactContextBaseJavaModule implements Lifecy
  
      private boolean mIsInForeground;
  
 +    // Kept on the module: FragmentManagerHelper instances are created per call.
-+    private @Nullable RNPromptFragment mFragmentToShow;
++    private
++    @Nullable
++    RNPromptFragment mFragmentToShow;
 +
      public RNPromptModule(ReactApplicationContext reactContext) {
          super(reactContext);
      }
-@@ -91,12 +96,6 @@ public class RNPromptModule extends ReactContextBaseJavaModule implements Lifecy
+@@ -91,12 +98,6 @@ public class RNPromptModule extends ReactContextBaseJavaModule implements Lifecy
  
      @ReactMethod
      public void promptWithArgs(ReadableMap options, final Callback callback) {
@@ -34,7 +36,7 @@ index 960b8d7..2d2f13c 100644
          final Bundle args = new Bundle();
          if (options.hasKey(KEY_TITLE)) {
              args.putString(RNPromptFragment.ARG_TITLE, options.getString(KEY_TITLE));
-@@ -139,7 +138,20 @@ public class RNPromptModule extends ReactContextBaseJavaModule implements Lifecy
+@@ -139,30 +140,55 @@ public class RNPromptModule extends ReactContextBaseJavaModule implements Lifecy
          if (options.hasKey(KEY_PLACEHOLDER)) {
              args.putString(KEY_PLACEHOLDER, options.getString(KEY_PLACEHOLDER));
          }
@@ -42,21 +44,40 @@ index 960b8d7..2d2f13c 100644
 +        UiThreadUtil.runOnUiThread(new Runnable() {
 +            @Override
 +            public void run() {
++                RNPromptFragment promptFragment = createPromptFragment(args, callback);
 +                FragmentManagerHelper fragmentManagerHelper = getFragmentManagerHelper();
 +                if (fragmentManagerHelper == null) {
-+                    FLog.w(RNPromptModule.class, "Tried to show an alert while not attached to an Activity");
++                    // No activity right now: show it when one resumes instead of dropping it.
++                    mFragmentToShow = promptFragment;
 +                    return;
 +                }
 +                // A module created while the host is already resumed never receives onHostResume.
 +                boolean isInForeground =
 +                        mIsInForeground || getReactApplicationContext().getLifecycleState() == LifecycleState.RESUMED;
-+                fragmentManagerHelper.showNewAlert(isInForeground, args, callback);
++                fragmentManagerHelper.showNewAlert(isInForeground, promptFragment);
 +            }
 +        });
++    }
++
++
++    private RNPromptFragment createPromptFragment(Bundle arguments, @Nullable Callback actionCallback) {
++        PromptFragmentListener actionListener =
++                actionCallback != null ? new PromptFragmentListener(actionCallback) : null;
++
++        final RNPromptFragment promptFragment = new RNPromptFragment();
++        promptFragment.setListener(actionListener);
++        promptFragment.setArguments(arguments);
++        if (arguments.containsKey(KEY_CANCELABLE)) {
++            promptFragment.setCancelable(arguments.getBoolean(KEY_CANCELABLE));
++        }
++        return promptFragment;
      }
  
  
-@@ -150,17 +162,13 @@ public class RNPromptModule extends ReactContextBaseJavaModule implements Lifecy
+     private class FragmentManagerHelper {
+ 
+-        // Exactly one of the two is null
+         private final
          @Nullable
          android.app.FragmentManager mFragmentManager;
  
@@ -74,18 +95,40 @@ index 960b8d7..2d2f13c 100644
 +            if (mFragmentToShow == null || mFragmentManager.isStateSaved()) {
                  return;
              }
++            dismissExisting();
              mFragmentToShow.show(mFragmentManager, FRAGMENT_TAG);
-@@ -187,10 +195,10 @@ public class RNPromptModule extends ReactContextBaseJavaModule implements Lifecy
-             promptFragment.setListener(actionListener);
-             promptFragment.setArguments(arguments);
+             mFragmentToShow = null;
+         }
+@@ -172,25 +198,20 @@ public class RNPromptModule extends ReactContextBaseJavaModule implements Lifecy
+                 RNPromptFragment oldFragment =
+                         (RNPromptFragment) mFragmentManager.findFragmentByTag(FRAGMENT_TAG);
+                 if (oldFragment != null) {
+-                    oldFragment.dismiss();
++                    // dismiss() commits the transaction and throws once the state is saved.
++                    if (mFragmentManager.isStateSaved()) {
++                        oldFragment.dismissAllowingStateLoss();
++                    } else {
++                        oldFragment.dismiss();
++                    }
+                 }
+             }
+         }
  
+-        public void showNewAlert(boolean isInForeground, Bundle arguments, Callback actionCallback) {
++        public void showNewAlert(boolean isInForeground, RNPromptFragment promptFragment) {
+             dismissExisting();
+ 
+-            PromptFragmentListener actionListener =
+-                    actionCallback != null ? new PromptFragmentListener(actionCallback) : null;
+-
+-            final RNPromptFragment promptFragment = new RNPromptFragment();
+-            promptFragment.setListener(actionListener);
+-            promptFragment.setArguments(arguments);
+-
 -            if (isInForeground) {
 -                if (arguments.containsKey(KEY_CANCELABLE)) {
 -                    promptFragment.setCancelable(arguments.getBoolean(KEY_CANCELABLE));
 -                }
-+            if (arguments.containsKey(KEY_CANCELABLE)) {
-+                promptFragment.setCancelable(arguments.getBoolean(KEY_CANCELABLE));
-+            }
 +            if (isInForeground && !mFragmentManager.isStateSaved()) {
                  promptFragment.show(mFragmentManager, FRAGMENT_TAG);
              } else {
