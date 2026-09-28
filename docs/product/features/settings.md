@@ -150,7 +150,7 @@ Settings covers the settings menu, general and privacy options, currency and lan
 
 **Known issues.** None recorded.
 **Tests.** tests/integration/BlueElectrum.test.js, tests/unit/electrumBatchingDetection.test.js, tests/unit/storage-context.test.js, tests/e2e/bluewallet.spec.js
-**Source.** screen/settings/NetworkSettings.js, screen/settings/electrumSettings.js, BlueElectrum.js
+**Source.** screen/settings/NetworkSettings.js, screen/settings/electrumSettings.js, blue_modules/BlueElectrum.js
 
 ## X-07 Notification settings
 

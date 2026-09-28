@@ -87,7 +87,7 @@ The Flows column lists the critical flows that name the row under Covers.
 | S-03 | Coin control | Send details, when coins are frozen | Important | — | [details](features/send.md#s-03-coin-control) |
 | S-04 | Sign with a hardware or watch-only wallet (PSBT) | Send details of a watch-only wallet | Important | — | [details](features/send.md#s-04-sign-with-a-hardware-or-watch-only-wallet-psbt) |
 | S-05 | Multi-device co-signing | Send from a multi-device wallet; scanned PSBT | Important | — | [details](features/send.md#s-05-multi-device-co-signing) |
-| S-06 | QR scanner | Scan buttons | Critical | CF-03 | [details](features/send.md#s-06-qr-scanner) |
+| S-06 | QR scanner | Scan buttons | Critical | CF-09 | [details](features/send.md#s-06-qr-scanner) |
 | S-07 | Broadcast raw transaction | Settings, Tools | Nice | — | [details](features/send.md#s-07-broadcast-raw-transaction) |
 | S-08 | Is it my address | Settings, Tools | Nice | — | [details](features/send.md#s-08-is-it-my-address) |
 
