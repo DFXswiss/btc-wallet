@@ -102,7 +102,7 @@ LNURL-pay protocol: Lightning address resolves to `https://<domain>/.well-known/
 
 **Tests.** tests/unit/scan-lnd-invoice-spark.test.js, tests/unit/ManualAddressSend.test.js, tests/unit/deeplink-schema-match.test.js, tests/unit/spark-home.test.js, tests/unit/asset-dfx-services.test.js, tests/unit/lnurl-pay-spark.test.js, tests/unit/fee-quote-binding.test.js, tests/unit/dfx-spark-invoice-payment.test.js, tests/unit/spark-wallet.test.js, tests/unit/send-success.test.js, tests/unit/lnurl.test.js, tests/unit/lnurl-pay-success.test.js, tests/integration/lightning-custodian-wallet.test.js, tests/e2e-maestro/flows/08-send-bolt11-to-confirmation.yaml, tests/e2e-maestro/flows/20-spark-bolt11-prepare.yaml, tests/e2e-maestro/flows/24-wos-lightning-prepare.yaml, tests/e2e-maestro/flows/15-send-lightning-payment.yaml, tests/e2e-maestro/flows/21-spark-bolt11-pay.yaml, tests/e2e-maestro/flows/22-spark-bolt11-balance.yaml, tests/e2e-maestro/flows/25-wos-lightning-pay.yaml; CF-07, CF-11.
 
-**Source.** screen/lnd/scanLndInvoice.js, screen/lnd/lnurlPay.js, screen/lnd/lnurlPaySuccess.js, class/lnurl.js, class/deeplink-schema-match.js, class/wallets/lightning-custodian-wallet.js, class/wallets/spark-wallet.ts, helpers/freeLightningDomains.ts, helpers/lightning-wallet.ts, navigation/SendDetailsStack.tsx, api/spark/payment-seeds.
+**Source.** screen/lnd/scanLndInvoice.js, screen/lnd/lnurlPay.js, screen/lnd/lnurlPaySuccess.js, class/lnurl.js, class/deeplink-schema-match.js, class/wallets/lightning-custodian-wallet.js, class/wallets/spark-wallet.ts, helpers/freeLightningDomains.ts, helpers/lightning-wallet.ts, navigation/SendDetailsStack.tsx, api/spark/payment-seeds.ts.
 
 ## L-14 LNURL-auth login
 

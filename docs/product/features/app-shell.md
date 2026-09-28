@@ -40,7 +40,7 @@ Cold start, unlock, deep links, home-screen shortcuts, push notifications, scree
 
 **Known issues.** None recorded.
 **Tests.** `tests/unit/storage.test.js`, `tests/unit/storage-context.test.js`, `tests/unit/blue-app.test.js`, `tests/unit/send-biometric-abort.test.js`, `tests/unit/send-confirm-branches.test.js`, `tests/unit/spark-wallet-export.test.js`, `tests/unit/wallet-details-spark.test.js`, CF-04.
-**Source.** screen/UnlockWith.js, BlueApp.js, class/biometrics.js, screen/settings/encryptStorage.js, screen/plausibledeniability.js
+**Source.** UnlockWith.js, BlueApp.js, class/biometrics.js, screen/settings/encryptStorage.js, screen/plausibledeniability.js
 
 ## A-03 Deep links and URI schemes
 
@@ -150,7 +150,7 @@ Cold start, unlock, deep links, home-screen shortcuts, push notifications, scree
 
 **Inputs.** Optional custom Electrum host and port in Settings, Network, Electrum Server. Status shows "Connected" or "Not Connected".
 
-**Options.** User-configured server overrides the built-in peer list. "Offline Mode" ("When enabled, your Bitcoin wallets will not attempt to fetch balances or transactions.") disables every Electrum fetch. On desktop, Tor/onion hosts are refused with "Tor connections are not supported."; on mobile a .onion host is accepted and forced to TCP without SSL; no Tor transport is bundled, and whether such a host can connect is not verified in code.
+**Options.** User-configured server overrides the built-in peer list. "Offline Mode" ("When enabled, your Bitcoin wallets will not attempt to fetch balances or transactions.") disables every Electrum fetch. On desktop, Tor/onion hosts are refused with "Tor connections are not supported."; on mobile a .onion host typed by hand is accepted and switched to TCP without SSL (a server restored from the history or scanned from a QR code keeps its saved SSL setting); no Tor transport is bundled, and whether such a host can connect is not verified in code.
 
 **Behavior.** A hard-coded list of eight public Electrum servers starts at a random index and rotates on failure; after a successful connection the peer rotates every 30 minutes. Socket errors close and reconnect; handshake timeout is 10 s; `waitTillConnected` rejects after 5 s with "Electrum connection timed out". NetInfo marks the device offline (connect returns immediately) and reconnects on each offline→online transition. App foreground refreshes exchange rate and balance polling; background stops polling. In Offline Mode, receive derives the next address locally without a server lookup, CPFP/RBF "Send now" is disabled, and self-test is refused ("Self-testing is not available with Electrum Offline Mode. Please disable offline mode and try again."). When the server is unreachable without Offline Mode: receive falls back after 1 s to a locally derived address that may already be used (no warning); incoming-payment polling fails silently; the transaction list keeps cached rows; TransactionStatus confirmation polling fails silently and RBF/CPFP actions stay hidden; broadcast shows the error. Wallet, list, receive, and status screens have no offline banner—connectivity is visible only on the Electrum settings screen.
 

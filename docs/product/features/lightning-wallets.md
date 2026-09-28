@@ -8,7 +8,7 @@ This area covers Lightning wallet types in the app: self-custodial Spark, custod
 **Entry:** Home, Lightning row, Add
 **Tier:** Critical (DFX)
 
-**Inputs.** Creation uses the main on-chain wallet (`wallets[0]`) when it is a BIP39 HD type (HDSegwitBech32, HDSegwitP2SH, HDLegacyP2PKH, or HDLegacyBreadwallet). Other types (multisig, watch-only, Aezeed, Electrum seeds, single keys) cannot supply a phrase. The Spark identity is a BIP-85 child: English 12 words at index 0, path `m/83696968'/39'/0'/12'/0'`; only that child phrase goes to the SDK (on-chain phrase and passphrase never leave the device for Spark). The Spark identity key is at `m/8797555'/1'/0'` of the child (mainnet). Accepted payment formats include Spark identity `spark1…` (bech32m, lowercase) and `spark:` URIs with optional `?amount=`, plus Lightning addresses of the form `<16 hex>@<domain>`.
+**Inputs.** Creation uses the main on-chain wallet (`wallets[0]`) when it is a BIP39 HD type (HDSegwitBech32, HDSegwitP2SH, HDLegacyP2PKH, or HDLegacyBreadwallet). Other types (multisig, watch-only, Aezeed, Electrum seeds, single keys) cannot supply a phrase. The Spark identity is a BIP-85 child: English 12 words at index 0, path `m/83696968'/39'/0'/12'/0'`; only that child phrase goes to the SDK (on-chain phrase and passphrase never leave the device for Spark). The Spark identity key is at `m/8797555'/1'/0'` of the child (mainnet). Accepted payment formats include Spark identity `spark1…` (bech32m, lowercase) and `spark:` URIs with optional `?amount=`, plus Lightning addresses (`user@domain`; a username registered by this wallet is 16 hex characters, with a digit appended on retries).
 
 **Options.** None on the home Add path: there is no provider or source-wallet picker. Private mode is available later on Wallet Details when the SDK is connected (`"Private mode"`, hint that it hides transfers from public explorers; SDK default off for new wallets).
 
@@ -154,7 +154,7 @@ This area covers Lightning wallet types in the app: self-custodial Spark, custod
 
 **Tests.** tests/unit/add-lightning.test.js, tests/unit/settings-chf-taproot.test.js, tests/unit/lightning-lds-wallet-factory.test.js, tests/unit/lightning-recovery.test.js, tests/unit/settings-lightning-wallet.test.js
 
-**Source.** screen/wallets/add-lightning.tsx, navigation/WalletsStack.tsx, screen/settings/settings.js, screen/settings/FeatureFlags.tsx, class/wallets/lightning-lds-wallet.ts, class/wallets/taproot-lds-wallet.ts, api/lds/lightning-lds-wallet-factory.ts, api/lds/hooks/lds.hook.ts
+**Source.** screen/wallets/dfx/add-lightning.tsx, navigation/WalletsStack.tsx, screen/settings/settings.js, screen/settings/FeatureFlags.tsx, class/wallets/lightning-lds-wallet.ts, class/wallets/taproot-lds-wallet.ts, api/lds/lightning-lds-wallet-factory.ts, api/lds/hooks/lds.hook.ts
 
 ## L-08 Generic LNDHub wallet (legacy)
 
