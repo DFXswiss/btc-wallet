@@ -52,7 +52,7 @@ Guards (Build bricht ab bei Verletzung):
 
 - **Floor:** mindestens `MIN_SCREENSHOTS` (35) PNGs (aktuell 38 committiert;
   Boden bei Bestandszuwachs anheben)
-- **Floor:** mindestens `MIN_DOCS` (8) Markdown-Dokumente (nach Ausschlussregeln)
+- **Floor:** mindestens `MIN_DOCS` (18) Markdown-Dokumente (nach Ausschlussregeln; aktuell 23, davon 13 unter docs/product/)
 - **Floor:** mindestens `MIN_STORE_FIELDS` (25) Store-Textfelder — der Boden
   liegt bewusst ueber "alles minus die kleinste Locale", sonst koennte ein
   ganzes Store-Listing verschwinden, ohne dass der Build es merkt
