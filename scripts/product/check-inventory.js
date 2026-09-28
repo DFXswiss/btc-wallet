@@ -57,6 +57,7 @@ function collectRoutes(repoRoot) {
 
 function parseReadme(markdown) {
   const rows = [];
+  const malformed = [];
   const lines = String(markdown).split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -66,9 +67,12 @@ function parseReadme(markdown) {
     const start = cells[0] === '' ? 1 : 0;
     const end = cells[cells.length - 1] === '' ? cells.length - 1 : cells.length;
     const cols = cells.slice(start, end);
-    if (cols.length < 6) continue;
     const id = cols[0];
-    if (!ID_RE.test(id)) continue;
+    if (!id || !ID_RE.test(id)) continue;
+    if (cols.length !== 6) {
+      malformed.push({ id, line: i + 1 });
+      continue;
+    }
     const capability = cols[1];
     const entry = cols[2];
     const tier = cols[3];
@@ -94,7 +98,7 @@ function parseReadme(markdown) {
       line: i + 1,
     });
   }
-  return rows;
+  return { rows, malformed };
 }
 
 function parseFeatureFiles(dir) {
@@ -202,7 +206,7 @@ function checkInventory(repoRoot) {
   }
 
   const { screens, wrappers } = collectRoutes(repoRoot);
-  const rows = parseReadme(fs.readFileSync(readmePath, 'utf8'));
+  const { rows, malformed } = parseReadme(fs.readFileSync(readmePath, 'utf8'));
   const entries = parseFeatureFiles(featuresDir);
   const flows = parseFlows(fs.readFileSync(flowsPath, 'utf8'));
   const errors = [];
@@ -217,6 +221,10 @@ function checkInventory(repoRoot) {
   const rowById = new Map();
   const entryById = new Map();
   const flowById = new Map();
+
+  for (const bad of malformed) {
+    errors.push(`readme line ${bad.line}: malformed table row for ${bad.id}`);
+  }
 
   // --- README ---
   for (const row of rows) {

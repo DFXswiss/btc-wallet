@@ -237,9 +237,129 @@ describe('product inventory checker (fixtures)', () => {
     assert.ok(errors.includes("feature D-02: tier 'Nice' does not match README tier 'Important'"), errors.join('\n'));
   });
 
+  it('reports a malformed README table row', () => {
+    const dir = freshFixture(files => {
+      files['docs/product/README.md'] = files['docs/product/README.md'].replace(
+        '| D-02 | Demo settings | Settings | Important | — | [details](features/demo.md#d-02-demo-settings) |',
+        '| D-02 | Demo settings | Settings | Important | — |',
+      );
+    });
+    const readme = fs.readFileSync(path.join(dir, 'docs/product/README.md'), 'utf8');
+    const line = readme.split(/\r?\n/).findIndex(l => l.startsWith('| D-02 |')) + 1;
+    const { errors } = checkInventory(dir);
+    assert.ok(errors.includes(`readme line ${line}: malformed table row for D-02`), errors.join('\n'));
+  });
+
+  it('reports an invalid README tier', () => {
+    const dir = freshFixture(files => {
+      files['docs/product/README.md'] = files['docs/product/README.md'].replace('| Important |', '| Optional |');
+    });
+    const { errors } = checkInventory(dir);
+    assert.ok(errors.includes("readme D-02: invalid tier 'Optional'"), errors.join('\n'));
+  });
+
+  it('reports a duplicate README ID', () => {
+    const dir = freshFixture(files => {
+      const row = '| D-02 | Demo settings | Settings | Important | — | [details](features/demo.md#d-02-demo-settings) |';
+      files['docs/product/README.md'] = files['docs/product/README.md'].replace(row, `${row}\n${row}`);
+    });
+    const { errors } = checkInventory(dir);
+    assert.ok(errors.includes('readme D-02: duplicate ID'), errors.join('\n'));
+  });
+
+  it('reports a duplicate feature entry', () => {
+    const dir = freshFixture(files => {
+      files['docs/product/features/demo.md'] += ['', '## D-02 Demo settings', '', '**Routes:** none', '**Tier:** Important', ''].join('\n');
+    });
+    const { errors } = checkInventory(dir);
+    assert.ok(errors.includes('feature D-02: duplicate entry'), errors.join('\n'));
+  });
+
+  it('reports a missing Routes line', () => {
+    const dir = freshFixture(files => {
+      files['docs/product/features/demo.md'] = files['docs/product/features/demo.md'].replace('**Routes:** DemoSettings\n', '');
+    });
+    const { errors } = checkInventory(dir);
+    assert.ok(errors.includes('feature D-02: Routes line missing'), errors.join('\n'));
+  });
+
+  it('reports a missing Tier line', () => {
+    const dir = freshFixture(files => {
+      files['docs/product/features/demo.md'] = files['docs/product/features/demo.md'].replace('**Tier:** Important\n', '');
+    });
+    const { errors } = checkInventory(dir);
+    assert.ok(errors.includes('feature D-02: Tier line missing'), errors.join('\n'));
+  });
+
+  it('reports a missing details link', () => {
+    const dir = freshFixture(files => {
+      files['docs/product/README.md'] = files['docs/product/README.md'].replace(
+        '[details](features/demo.md#d-02-demo-settings)',
+        'details',
+      );
+    });
+    const { errors } = checkInventory(dir);
+    assert.ok(errors.includes('readme D-02: details link missing'), errors.join('\n'));
+  });
+
+  it('reports a details link to the wrong file', () => {
+    const dir = freshFixture(files => {
+      files['docs/product/README.md'] = files['docs/product/README.md'].replace(
+        'features/demo.md#d-02-demo-settings',
+        'features/other.md#d-02-demo-settings',
+      );
+    });
+    const { errors } = checkInventory(dir);
+    assert.ok(
+      errors.includes("readme D-02: details file 'features/other.md' does not match entry file 'features/demo.md'"),
+      errors.join('\n'),
+    );
+  });
+
+  it('reports a duplicate flow ID', () => {
+    const dir = freshFixture(files => {
+      files['docs/product/critical-flows.md'] += ['', '## CF-01 Demo critical', '', '**Covers:** D-01', '**Tier:** Critical', ''].join(
+        '\n',
+      );
+    });
+    const { errors } = checkInventory(dir);
+    assert.ok(errors.includes('flow CF-01: duplicate ID'), errors.join('\n'));
+  });
+
+  it('reports a flow with empty Covers', () => {
+    const dir = freshFixture(files => {
+      files['docs/product/critical-flows.md'] = files['docs/product/critical-flows.md'].replace('**Covers:** D-01', '**Covers:** —');
+      files['docs/product/README.md'] = files['docs/product/README.md'].replace('| Critical | CF-01 |', '| Critical | — |');
+    });
+    const { errors } = checkInventory(dir);
+    assert.ok(errors.includes('flow CF-01: empty Covers'), errors.join('\n'));
+  });
+
+  it('reports an invalid flow tier', () => {
+    const dir = freshFixture(files => {
+      files['docs/product/critical-flows.md'] = files['docs/product/critical-flows.md'].replace(
+        '**Tier:** Critical',
+        '**Tier:** Important',
+      );
+    });
+    const { errors } = checkInventory(dir);
+    assert.ok(errors.includes("flow CF-01: invalid tier 'Important'"), errors.join('\n'));
+  });
+
+  it('reports a flow covering an unknown id', () => {
+    const dir = freshFixture(files => {
+      files['docs/product/critical-flows.md'] = files['docs/product/critical-flows.md'].replace(
+        '**Covers:** D-01',
+        '**Covers:** D-01, D-09',
+      );
+    });
+    const { errors } = checkInventory(dir);
+    assert.ok(errors.includes('flow CF-01: covers unknown id D-09'), errors.join('\n'));
+  });
+
   it('exposes parsers used by the checker', () => {
     const dir = freshFixture();
-    const rows = parseReadme(fs.readFileSync(path.join(dir, 'docs/product/README.md'), 'utf8'));
+    const { rows } = parseReadme(fs.readFileSync(path.join(dir, 'docs/product/README.md'), 'utf8'));
     const entries = parseFeatureFiles(path.join(dir, 'docs/product/features'));
     const flows = parseFlows(fs.readFileSync(path.join(dir, 'docs/product/critical-flows.md'), 'utf8'));
     assert.strictEqual(rows.length, 2);
