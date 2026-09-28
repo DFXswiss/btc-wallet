@@ -14,7 +14,7 @@ DFX session login and the Buy, Sell, Swap, and Point of Sale actions on the home
 
 **Behavior.** Signature-based JWT login (not LNURL-auth). After a successful login the app sends the app language via `PUT user`. At startup, all wallets except multisig and Spark sign in (`dfx-connect-at-init`); services are available if any login succeeds; if every attempt returns 403, services are hidden; wallets refused with 403 are hidden individually; Spark wallets are always treated as available and sign in on demand. Network failure at init sets unavailable. KYC types exist in the API definitions; no in-app KYC screen or hint was found. KYC in the DFX web app beyond that absence: Not verified in code.
 
-The External services tile (`DfxServicesButtons`) sits on home and on the wallet screen (hidden for multisig). Header "External services". Wallet when no `walletID`: LDS, else Spark, else main. Whole tile hidden unless the session is available for that wallet. Errors show Alert "Something went wrong" plus the message; `ELECTRUM_BATCHING_UNSUPPORTED` maps to the UTXO-refresh unsupported-server string.
+The External services tile (`DfxServicesButtons`) sits on home and on the wallet screen (hidden for multisig). Header "External services". Wallet when no `walletID`: LDS, else Spark, else main. Header and buttons are hidden unless the session is available for that wallet; the tile's container keeps its fixed height, so an empty band stays visible. Errors show Alert "Something went wrong" plus the message; `ELECTRUM_BATCHING_UNSUPPORTED` maps to the UTXO-refresh unsupported-server string.
 
 **Not supported.** Signing in with multisig or custom LNDHub as the session identity; in-app KYC UI.
 

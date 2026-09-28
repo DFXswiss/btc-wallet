@@ -247,7 +247,7 @@ Settings covers the settings menu, general and privacy options, currency and lan
 
 **Options.**
 - LDS DEV API: switches lightning.space and Boltcard API base URLs from `REACT_APP_LDS_URL` to `REACT_APP_LDS_DEV_URL`; also shows the CHF Taproot wallet row in Settings.
-- POS mode: shows the per-wallet POS-mode switch in Wallet details for Lightning wallets; a wallet in POS mode receives via `PosReceive` instead of `LNDReceive`. Mutually exclusive with DFX Point of Sale (enabling one turns the other off).
+- POS mode: shows the per-wallet POS-mode switch in Wallet details for lightning.space (`lightningLdsWallet`) wallets only; a wallet in POS mode receives via `PosReceive` instead of `LNDReceive`. Mutually exclusive with DFX Point of Sale (enabling one turns the other off).
 - DFX Point of Sale: adds a Point of Sale tile to the DFX services buttons.
 - DFX Swap: adds the Swap tile to the DFX services buttons.
 
