@@ -868,7 +868,9 @@ const SendDetails = () => {
           </TouchableOpacity>
         )}
         <BlueText style={styles.label}>To:</BlueText>
-        <BlueText style={styles.staticField}>{item.address}</BlueText>
+        <BlueText style={styles.staticField} testID={`SendDetailsAddress${index}`}>
+          {item.address}
+        </BlueText>
         {addresses.length > 1 && (
           <Text style={[styles.of, stylesHook.of]}>{loc.formatString(loc._.of, { number: index + 1, total: addresses.length })}</Text>
         )}

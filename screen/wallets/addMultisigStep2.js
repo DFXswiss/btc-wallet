@@ -402,7 +402,7 @@ const WalletsAddMultisigStep2 = () => {
         />
       </View>
       <View style={styles.buttonContainer}>
-        <BlueButton isLoading={isLoading} title={loc.multisig.create} onPress={onCreate} disabled={cosigners.length !== n} />
+        <BlueButton testID="CreateButton" isLoading={isLoading} title={loc.multisig.create} onPress={onCreate} disabled={cosigners.length !== n} />
         {Platform.OS === 'ios' && <BlueSpacing10 />}
       </View>
     </ScrollView>

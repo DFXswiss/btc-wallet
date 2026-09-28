@@ -26,7 +26,7 @@
     "pick_image": "Bild aus Bibliothek wählen",
     "pick_file": "Datei auswählen",
     "enter_amount": "Betrag eingeben",
-    "qr_custom_input_button": "10x antippen für individuelle Eingabe",
+    "qr_custom_input_button": "Sechsmal tippen, um den Inhalt des QR-Codes manuell einzugeben",
     "add": "Hinzufügen",
     "repeat": "Wiederholen",
     "loading": "Laden",

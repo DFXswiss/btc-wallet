@@ -238,6 +238,7 @@ const WalletsAddMultisig = () => {
           </>
         )}
         <BlueButton
+          testID="LetsStart"
           buttonTextColor={colors.buttonAlternativeTextColor}
           title={loc.multisig.lets_start}
           onPress={onLetsStartPress}

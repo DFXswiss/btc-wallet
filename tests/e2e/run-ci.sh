@@ -11,7 +11,8 @@ status=0
 unfunded() {
   npx detox test -c android.release --headless -R 1 --record-videos failing --record-logs failing --take-screenshots failing \
     --artifacts-location "${1:?artifacts directory}" \
-    tests/e2e/onchain.spec.js tests/e2e/encrypted-storage.spec.js tests/e2e/spark.spec.js || status=1
+    tests/e2e/onchain.spec.js tests/e2e/wallet-details.spec.js tests/e2e/scan.spec.js tests/e2e/entropy.spec.js \
+    tests/e2e/import-discovery.spec.js tests/e2e/multisig.spec.js tests/e2e/encrypted-storage.spec.js tests/e2e/spark.spec.js || status=1
 }
 funded() {
   npx detox test -c android.release --headless --record-videos none --record-logs none --take-screenshots none \

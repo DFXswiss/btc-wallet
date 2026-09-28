@@ -205,3 +205,67 @@ export async function readQuotedFee() {
   }
   throw new Error('no Spark fee quote arrived');
 }
+
+/** Feeds `text` to the open QR scanner through its hidden backdoor (six taps on ScanQrBackdoorButton). */
+export async function scanText(text) {
+  await waitForId('ScanQrBackdoorButton');
+  for (let tap = 0; tap < 6; tap++) {
+    await element(by.id('ScanQrBackdoorButton')).tap();
+  }
+  await waitForId('scanQrBackdoorInput');
+  await element(by.id('scanQrBackdoorInput')).replaceText(text);
+  await element(by.id('scanQrBackdoorOkButton')).tap();
+}
+
+/** Scans an animated (multi-part) UR code part by part and waits until the scanner closes. */
+export async function scanUrParts(parts) {
+  for (const part of parts.slice(0, -1)) {
+    await scanText(part);
+    await waitForId('UrProgressBar');
+  }
+  await scanText(parts[parts.length - 1]);
+  await waitFor(element(by.id('ScanQrBackdoorButton')))
+    .not.toBeVisible()
+    .withTimeout(60_000);
+}
+
+/**
+ * Leaves a fresh install on the Add Wallet screen with Advanced Mode on. Add Wallet is only reachable without
+ * wallets, so this creates a wallet, turns Advanced Mode on and deletes the wallet again (the setting survives).
+ */
+export async function openAddWalletWithAdvancedMode() {
+  await launchFresh();
+  await createOnChainWallet();
+  await element(by.id('Settings')).tap();
+  await waitForId('GeneralSettings');
+  await element(by.id('GeneralSettings')).tap();
+  await waitForId('AdvancedMode');
+  await element(by.id('AdvancedMode')).tap();
+  await device.pressBack();
+  await waitForId('WalletDetails');
+  await element(by.id('WalletDetails')).tap();
+  await waitForId('WalletDetailsScroll');
+  await element(by.id('WalletDetailsScroll')).scrollTo('bottom');
+  await element(by.id('DeleteButton')).tap();
+  await waitForText('Yes, delete');
+  await element(by.text('Yes, delete')).tap();
+  await waitForId('Create');
+}
+
+/** Opens the recovery phrase of the main on-chain wallet and expects exactly these words in this order. */
+export async function expectMainWalletPhrase(words) {
+  await waitForId('Settings');
+  await element(by.id('Settings')).tap();
+  await waitForId('WalletDetails');
+  await element(by.id('WalletDetails')).tap();
+  await waitForId('WalletDetailsScroll');
+  await waitFor(element(by.id('WalletExport')))
+    .toBeVisible()
+    .whileElement(by.id('WalletDetailsScroll'))
+    .scroll(200, 'down');
+  await element(by.id('WalletExport')).tap();
+  await waitForId('WalletExportScroll');
+  for (const [index, word] of words.entries()) {
+    await expect(element(by.text(`${index + 1}. ${word}  `))).toExist();
+  }
+}

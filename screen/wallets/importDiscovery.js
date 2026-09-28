@@ -176,6 +176,7 @@ const ImportWalletDiscovery = () => {
         <BlueSpacing10 />
         <View style={styles.buttonContainer}>
           <BlueButton
+            testID="DiscoveryImportButton"
             disabled={wallets.length === 0}
             title={loc.wallets.import_do_import}
             onPress={() => saveWallet(wallets[selected].wallet)}

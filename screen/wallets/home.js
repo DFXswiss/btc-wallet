@@ -435,6 +435,7 @@ const WalletHome = ({ navigation }) => {
           />
         )}
         <FButton
+          testID="HomeScanButton"
           onPress={onScanButtonPressed}
           onLongPress={sendButtonLongPress}
           icon={
