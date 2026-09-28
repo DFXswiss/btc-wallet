@@ -1,6 +1,6 @@
 # Critical flows
 
-These flows must pass before a release. Each flow names the inventory rows it proves. The Automation field tells whether a script runs it and what remains manual. Funded flows need real sats and are run by a person with the team's test funds.
+These flows must pass before a release. Each flow names the inventory rows it proves. The Automation field tells whether a script runs it and what remains manual; the Detox specs it cites from pull request #280 are not in this checkout yet, so those flows are manual until that pull request lands. Funded flows need real sats and are run by a person with the team's test funds.
 
 ## Preconditions for every flow
 
@@ -170,7 +170,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 5. Wait until DFX pays out to the Spark wallet, then reopen the app.
 6. Confirm the Lightning history row for the payout and that the Spark balance increased.
 **Expected.** The buy completes on the DFX side; Spark receives the payout; history shows the Lightning credit.
-**Automation.** `tests/e2e-maestro/flows/16-dfx-buy-to-payment.yaml`.
+**Automation.** `tests/e2e-maestro/flows/16-dfx-buy-to-payment.yaml`: imports a fixed Spark identity, drives the buy mask, simulates the incoming bank payment on the local stack, and after a restart asserts the backend state and the Spark balance; the history row (step 6) is checked manually.
 
 ## CF-11 Sell through DFX from Spark
 
@@ -186,7 +186,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 5. Confirm the Spark balance decreased by the sold amount plus fee.
 6. Confirm the sell reaches completed on the local DFX stack.
 **Expected.** The sell pays from Spark; the balance drops; the sell completes on the local DFX stack.
-**Automation.** `tests/e2e-maestro/flows/17-dfx-sell-to-payment.yaml` (runs after CF-10 on the same identity).
+**Automation.** `tests/e2e-maestro/flows/17-dfx-sell-to-payment.yaml` (runs after CF-10 on the same identity): pays the sell deposit address from a fixture through the wallet send path, settles the sell on the local stack, then checks the sell mask and the balance after a restart; the in-app cash-out step (step 4) is not automated.
 
 ## Coverage
 
