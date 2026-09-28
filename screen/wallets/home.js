@@ -269,6 +269,8 @@ const WalletHome = ({ navigation }) => {
     });
   };
 
+  const nextFrame = () => new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
+
   const onAddLightningPress = useCallback(() => {
     // Adds the seed's existing lightning.space wallet, otherwise the Spark wallet, in place — no provider screen.
     // AddLightning remains in the navigator for Taproot-asset wallets only.
@@ -276,6 +278,7 @@ const WalletHome = ({ navigation }) => {
       if (isAddingLightning) return;
       setIsAddingLightning(true);
       try {
+        await nextFrame();
         await addLightningWallet(defaultSparkSourceWallet(wallets));
       } catch (e) {
         reportError('home: Lightning account check failed', e);

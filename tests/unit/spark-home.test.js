@@ -343,7 +343,7 @@ describe('home screen Spark Lightning add path (render)', () => {
       pressLightningAdd(screen);
     });
 
-    expect(mockAddExistingLds).toHaveBeenCalledWith(onChain);
+    await waitFor(() => expect(mockAddExistingLds).toHaveBeenCalledWith(onChain));
     expect(mockConnect).not.toHaveBeenCalled();
   });
 
@@ -360,7 +360,7 @@ describe('home screen Spark Lightning add path (render)', () => {
       pressLightningAdd(screen);
     });
 
-    expect(mockAddExistingLds).toHaveBeenCalledWith(main);
+    await waitFor(() => expect(mockAddExistingLds).toHaveBeenCalledWith(main));
     await waitFor(() => expect(mockConnect).toHaveBeenCalledWith(deriveSparkMnemonic(mainMnemonic), expect.any(Function)));
     expect(mockConnect).not.toHaveBeenCalledWith(deriveSparkMnemonic(MNEMONIC), expect.any(Function));
   });
@@ -384,6 +384,20 @@ describe('home screen Spark Lightning add path (render)', () => {
     );
     expect(mockConnect).not.toHaveBeenCalled();
     alert.mockRestore();
+  });
+
+  it('shows the spinner before the Lightning account check starts', async () => {
+    mockAddExistingLds.mockImplementationOnce(() => new Promise(() => {}));
+    const screen = renderHome([makeOnChain()]);
+    await waitFor(() => expect(screen.getByText(loc.wallets.lightning_spark_wallet_label)).toBeTruthy());
+
+    act(() => {
+      pressLightningAdd(screen);
+    });
+
+    expect(screen.UNSAFE_queryAllByType(ActivityIndicator).length).toBeGreaterThan(0);
+    expect(mockAddExistingLds).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockAddExistingLds).toHaveBeenCalledTimes(1));
   });
 
   it('creates a Spark wallet in place: spinner while creating, then Lightning', async () => {
