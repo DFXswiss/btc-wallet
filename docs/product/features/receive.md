@@ -5,14 +5,14 @@ On-chain receive addresses, BIP21 payment requests with optional amount and labe
 ## R-01 Receive on-chain
 
 **Routes:** ReceiveDetails
-**Entry:** Wallet screen, Receive (home Receive when no Lightning wallet exists)
+**Entry:** Wallet screen, Receive (home Receive: multi-device wallet first, else the main wallet when no Lightning wallet exists)
 **Tier:** Critical
 
 **Inputs.** Optional amount (placeholder hard-coded as "Amount (optional)"); unit cycles BTC → sats → local fiat → BTC, default sats, accessibility label "Change input currency". Max length 11 characters in BTC, 15 in sats or fiat. Comma becomes a dot; non-digits are stripped. Fiat amounts convert with the stored exchange rate. Optional label (placeholder "Description (optional)", testID `CustomAmountDescription`).
 
 **Options.** Wallet switcher at the top (`BlueWalletSelect`). Long-press on the QR: "Share" (PNG of the QR on every platform); "Copy" copies the QR image on iOS/macOS only. Text "Share" button shares the BIP21 string. Copy text below the QR is the plain address, or the full BIP21 string once an amount or label is set.
 
-**Behavior.** Shows a receive address and QR for an on-chain wallet. From the wallet asset screen Receive FAB when `wallet.allowReceive()` (non-OFFCHAIN wallets). From home Receive only when no Lightning wallet exists (and for a multisig wallet when one exists); if a Lightning wallet exists, home Receive opens Lightning receive instead. Also opened from an address in WalletAddresses, from Send → "Is it my address" → view QR (address, no walletID), from a push notification with payload type 3, and from Continuity activity `ReceiveOnchain` when enabled.
+**Behavior.** Shows a receive address and QR for an on-chain wallet. From the wallet asset screen Receive FAB when `wallet.allowReceive()` (non-OFFCHAIN wallets). Home Receive opens this screen for the multi-device wallet when one exists; otherwise it opens Lightning receive when a Lightning wallet exists, and only then this screen for the main wallet. Also opened from an address in WalletAddresses, from Send → "Is it my address" → view QR (address, no walletID), from a push notification with payload type 3, and from Continuity activity `ReceiveOnchain` when enabled.
 
 If an address is passed in, it is shown as-is. Otherwise for ONCHAIN wallets the screen races `getAddressAsync()` against a 1000 ms timeout; on timeout, error, or Electrum offline mode it falls back to the locally derived next free index without contacting the server. HD wallets scan from `next_free_address_index` up to gap limit 20 for the first address with no history (a lookup error counts as free); if none is free in the window, the next unchecked address is returned. Non-HD wallets show their single address. Newly created wallets are BIP84 bech32 (`bc1q`); imported wallets use the address format of their class. Opening the screen marks the wallet export as saved, requests notification permission, and triggers a balance revalidation.
 
@@ -20,7 +20,7 @@ The QR encodes `bitcoin:<address>`, or a BIP21 URI with amount (BTC) and/or labe
 
 A poll every 5 s via Electrum balance-by-address watches for payment. When unconfirmed > 0: pending view with "Pending {amt1} ({amt2})", ETA (`"ETA: In ~9 minutes"` / `"ETA: In ~10 to 30 minutes"` / `"ETA: In ~30 minutes to 3 hours"` / `"ETA: In ~1 day"`), heavy haptic, poll interval 25 s. When unconfirmed returns to 0 and confirmed balance grew: success view `"+{amt1} ({amt2})"`, success haptic, poll stops, wallets refresh. If unconfirmed returns to 0 without a confirmed gain, the address view returns. Poll errors are only logged. Switching to another on-chain wallet resets watcher and input state; switching to Lightning navigates to Lightning receive (or POS receive in POS mode). Header title "Receive". Android hardware back closes the screen. KeyboardAvoidingView is disabled on iPad.
 
-**Not supported.** Payjoin receive; BIP21 `lightning=` unified QR on this screen; address-reuse warning; explicit new-address control (next free address is automatic). Home Receive does not open this screen when a Lightning wallet exists.
+**Not supported.** Payjoin receive; BIP21 `lightning=` unified QR on this screen; address-reuse warning; explicit new-address control (next free address is automatic). Home Receive skips this screen for the main wallet when a Lightning wallet exists.
 
 **Depends on.** Electrum (address history, balance and mempool polling, tx vsize); mempool.space fee API with Electrum fallback for ETA; fiat rate for amount display and fiat entry.
 

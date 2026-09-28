@@ -6,7 +6,7 @@ It is the product view of what the app does, and the base for the release-critic
 
 ## How to read it
 
-IDs use the form `<PREFIX>-<NN>` (two digits). Prefixes: A app shell, W wallets, R receive, T transactions, S send, L lightning, B boltcard, D DFX services, O OpenCryptoPay, X settings. Critical flows use `CF-<NN>`.
+IDs use the form `<PREFIX>-<NN>` (two digits). Prefixes: A app shell, W wallets, R receive, T transactions, S send, L lightning, B boltcard, D DFX services, O OpenCryptoPay, X settings. The Lightning prefix spans two areas: L-01 to L-08 are Lightning wallets and L-10 to L-18 Lightning payments; L-09 is not used. Critical flows use `CF-<NN>`.
 
 Columns:
 
@@ -66,7 +66,7 @@ The Flows column lists the critical flows that name the row under Covers.
 
 | ID | Capability | Entry point | Tier | Flows | Details |
 | --- | --- | --- | --- | --- | --- |
-| R-01 | Receive on-chain | Wallet screen, Receive (home Receive when no Lightning wallet exists) | Critical | CF-01, CF-02 | [details](features/receive.md#r-01-receive-on-chain) |
+| R-01 | Receive on-chain | Wallet screen, Receive (home Receive: multi-device wallet first, else the main wallet when no Lightning wallet exists) | Critical | CF-01, CF-02 | [details](features/receive.md#r-01-receive-on-chain) |
 | R-02 | Azteco voucher redeem | Not reachable in the current build | Nice | — | [details](features/receive.md#r-02-azteco-voucher-redeem) |
 
 ## Transactions
@@ -108,7 +108,7 @@ The Flows column lists the critical flows that name the row under Covers.
 
 | ID | Capability | Entry point | Tier | Flows | Details |
 | --- | --- | --- | --- | --- | --- |
-| L-10 | Receive Lightning: invoice with amount | Home Receive; Lightning wallet, Receive | Critical (DFX) | CF-05, CF-06 | [details](features/lightning-payments.md#l-10-receive-lightning-invoice-with-amount) |
+| L-10 | Receive Lightning: invoice with amount | Home Receive when no multi-device wallet exists; Lightning wallet, Receive | Critical (DFX) | CF-05, CF-06 | [details](features/lightning-payments.md#l-10-receive-lightning-invoice-with-amount) |
 | L-11 | Receive Lightning: static address QR | Lightning receive without an amount | Important | CF-06 | [details](features/lightning-payments.md#l-11-receive-lightning-static-address-qr) |
 | L-12 | Invoice view, paid state, preimage | Lightning transaction row | Important | CF-06 | [details](features/lightning-payments.md#l-12-invoice-view-paid-state-preimage) |
 | L-13 | Pay Lightning: invoice, address, LNURL-pay | Send with a Lightning destination | Critical (DFX) | CF-07, CF-11 | [details](features/lightning-payments.md#l-13-pay-lightning-invoice-address-lnurl-pay) |

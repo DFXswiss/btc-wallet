@@ -55,9 +55,9 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 2. Complete import discovery and land on Home with the restored balance.
 3. From Home or the wallet screen, tap Send.
 4. Scan a destination QR code, or type the address by hand.
-5. Enter an amount, choose a fee, and review the confirm screen.
-6. Build and sign the transaction; check amount and fee on the success or create-transaction screen.
-7. Tap Send now and confirm the outgoing row appears in the transaction list.
+5. Enter an amount and choose a fee, then continue.
+6. On the confirm screen check the recipient, the amount and the fee; Details shows the signed transaction.
+7. Tap Send now; the success screen shows amount and fee; confirm the outgoing row appears in the transaction list.
 **Expected.** The restored wallet shows its balance; a signed send shows the correct amount and fee; after broadcast, the history lists the outgoing payment.
 **Automation.** `tests/e2e/onchain-send.spec.js` (#280, funded lane) builds and signs the transaction and checks amount and fee, but never broadcasts; the broadcast step is manual.
 
