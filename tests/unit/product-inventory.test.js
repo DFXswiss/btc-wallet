@@ -357,6 +357,44 @@ describe('product inventory checker (fixtures)', () => {
     assert.ok(errors.includes('flow CF-01: covers unknown id D-09'), errors.join('\n'));
   });
 
+  it('reports a README row without a feature entry', () => {
+    const dir = freshFixture(files => {
+      const row = '| D-02 | Demo settings | Settings | Important | — | [details](features/demo.md#d-02-demo-settings) |';
+      files['docs/product/README.md'] = files['docs/product/README.md'].replace(
+        row,
+        `${row}\n| D-03 | Demo orphan | Home | Nice | — | [details](features/demo.md#d-03-demo-orphan) |`,
+      );
+    });
+    const { errors } = checkInventory(dir);
+    assert.ok(errors.includes('readme D-03: no feature entry'), errors.join('\n'));
+  });
+
+  it('reports an ignored route claimed by an entry', () => {
+    const dir = freshFixture(files => {
+      files['navigation/Demo.tsx'] = files['navigation/Demo.tsx'].replace(
+        '    </>',
+        '      <Stack.Screen name="Navigation" component={RootStack} />\n    </>',
+      );
+      files['docs/product/features/demo.md'] = files['docs/product/features/demo.md'].replace(
+        '**Routes:** DemoHome',
+        '**Routes:** DemoHome, Navigation',
+      );
+    });
+    const { errors } = checkInventory(dir);
+    assert.ok(errors.includes('route Navigation is ignored but claimed by feature entry: D-01'), errors.join('\n'));
+  });
+
+  it('reports a route claimed but not registered', () => {
+    const dir = freshFixture(files => {
+      files['docs/product/features/demo.md'] = files['docs/product/features/demo.md'].replace(
+        '**Routes:** DemoSettings',
+        '**Routes:** DemoSettings, DemoGhost',
+      );
+    });
+    const { errors } = checkInventory(dir);
+    assert.ok(errors.includes('route DemoGhost claimed but not registered in navigation: D-02'), errors.join('\n'));
+  });
+
   it('exposes parsers used by the checker', () => {
     const dir = freshFixture();
     const { rows } = parseReadme(fs.readFileSync(path.join(dir, 'docs/product/README.md'), 'utf8'));
