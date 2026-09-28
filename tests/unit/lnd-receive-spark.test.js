@@ -551,6 +551,63 @@ describe('LNDReceive with SparkWallet', () => {
     expect(copyText(screen)).toBe('b@test');
   });
 
+  it("lets the new wallet create its invoice at once and stays silent about the old wallet's late result", async () => {
+    const { BlueCopyTextToClipboard } = require('../../BlueComponents');
+    const copyText = screen => screen.UNSAFE_getByType(BlueCopyTextToClipboard).props.text;
+    const alertSpy = jest.spyOn(global, 'alert').mockImplementation(() => {});
+    const settleOld = [];
+    const walletA = makeLdsReceiveWallet('lds-a');
+    walletA.addInvoice = jest.fn(
+      () =>
+        new Promise((resolve, reject) => {
+          settleOld.push({ resolve, reject });
+        }),
+    );
+    const walletB = { ...makeLdsReceiveWallet('lds-b'), lnAddress: 'b@test', addInvoice: jest.fn().mockResolvedValue('lnbc-wallet-b') };
+    const storage = {
+      wallets: [walletA, walletB],
+      saveToDisk: jest.fn().mockResolvedValue(undefined),
+      setSelectedWallet: jest.fn(),
+      fetchAndSaveWalletTransactions: jest.fn(),
+    };
+    const receive = () => (
+      <BlueStorageContext.Provider value={storage}>
+        <LNDReceive />
+      </BlueStorageContext.Provider>
+    );
+    const showWallet = async (screen, id) => {
+      mockRouteParams.walletID = id;
+      await act(async () => {
+        screen.rerender(receive());
+      });
+    };
+
+    try {
+      mockRouteParams.walletID = 'lds-a';
+      const screen = render(receive());
+      await createInvoice(screen);
+      await waitFor(() => expect(walletA.addInvoice).toHaveBeenCalledTimes(1));
+      await showWallet(screen, 'lds-b');
+
+      await createInvoice(screen);
+      await waitFor(() => expect(copyText(screen)).toBe('lnbc-wallet-b'));
+
+      haptic.trigger.mockClear();
+      await act(async () => settleOld[0].resolve(SAMPLE_INVOICE));
+      await showWallet(screen, 'lds-a');
+      await createInvoice(screen);
+      await waitFor(() => expect(walletA.addInvoice).toHaveBeenCalledTimes(2));
+      await showWallet(screen, 'lds-b');
+      await act(async () => settleOld[1].reject(new Error('old wallet failed')));
+
+      expect(haptic.trigger).not.toHaveBeenCalledWith('notificationSuccess', expect.anything());
+      expect(haptic.trigger).not.toHaveBeenCalledWith('notificationError', expect.anything());
+      expect(alertSpy).not.toHaveBeenCalled();
+    } finally {
+      alertSpy.mockRestore();
+    }
+  });
+
   it('creates the invoice for the new wallet when the same amount was entered while the old one was still creating', async () => {
     const { BlueCopyTextToClipboard } = require('../../BlueComponents');
     const copyText = screen => screen.UNSAFE_getByType(BlueCopyTextToClipboard).props.text;

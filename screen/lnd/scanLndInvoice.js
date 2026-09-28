@@ -35,9 +35,10 @@ const ScanLndInvoice = () => {
   const wallet = useMemo(() => {
     const chosen = wallets.find(item => item.getID() === walletID);
     if (chosen) return chosen;
-    // A Spark destination without a chosen wallet goes to the Spark wallet, the only one that can pay it.
+    // A Spark destination without a chosen wallet goes to the Spark wallet, the only one that can pay it;
+    // without one the screen reports that no Lightning wallet can pay.
     const sparkDestination = typeof uri === 'string' && (SparkWallet.isSparkPaymentUri(uri) || SparkWallet.isSparkAddress(uri));
-    return (sparkDestination && wallets.find(item => item.type === SparkWallet.type)) || getLightningWallet(wallets);
+    return sparkDestination ? wallets.find(item => item.type === SparkWallet.type) : getLightningWallet(wallets);
   }, [uri, walletID, wallets]);
   const suitableWallets = useMemo(() => wallets.filter(item => item.chain === Chain.OFFCHAIN), [wallets]);
   const { navigate, setParams, goBack } = useNavigation();
@@ -392,7 +393,7 @@ const ScanLndInvoice = () => {
             )}
             <BlueText style={styles.label}>From your wallet:</BlueText>
             {suitableWallets.length === 1 ? (
-              <BlueText style={styles.staticField}>{wallet.getLabel()}</BlueText>
+              <BlueText style={styles.staticField}>{wallet?.getLabel()}</BlueText>
             ) : (
               <View style={styles.pickerContainer}>
                 <BlueWalletSelect wallets={suitableWallets} value={walletID} onChange={onWalletChange} />

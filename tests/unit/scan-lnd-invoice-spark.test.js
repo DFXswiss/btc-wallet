@@ -342,6 +342,13 @@ describe('ScanLndInvoice fee mark', () => {
     await waitFor(() => expect(alert).toHaveBeenCalledWith(loc.wallets.no_ln_wallet_error));
   });
 
+  it('alerts instead of opening a Spark link with a wallet that cannot pay it', async () => {
+    renderScanWithWallets([makeLndhubWallet()], { walletID: undefined, uri: SPARK_ADDRESS });
+
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(alert).toHaveBeenCalledWith(loc.wallets.no_ln_wallet_error));
+  });
+
   it('sets the route wallet id when a Lightning wallet is present', async () => {
     mockLnurl('example.com', 1000);
     const wallet = makeSparkWallet();

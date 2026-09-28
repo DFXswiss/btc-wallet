@@ -227,6 +227,10 @@ describe.each(['', '//'])('unit - DeepLinkSchemaMatch', function (suffix) {
           },
         ],
       },
+      {
+        argument: { url: `spark:${SPARK_ADDRESS}` },
+        expected: ['SendDetailsRoot', { screen: 'ScanLndInvoice', params: { uri: `spark:${SPARK_ADDRESS}` } }],
+      },
     ];
 
     const asyncNavigationRouteFor = async function (event) {

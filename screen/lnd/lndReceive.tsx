@@ -99,9 +99,13 @@ const LNDReceive = () => {
       blurGeneration.current += 1;
       cancelInvoicePolling();
       stopReading();
-      // An invoice belongs to the wallet that created it; another wallet must not show it.
+      // An invoice belongs to the wallet that created it; another wallet must not show it or wait for it.
       setInvoiceRequest(undefined);
       setInvoiceAmountSats(undefined);
+      invoiceCreationInFlight.current = false;
+      invoiceCreationQueued.current = false;
+      invoiceCreationValues.current = undefined;
+      setIsInvoiceLoading(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletID]);
@@ -254,6 +258,8 @@ const LNDReceive = () => {
     if (isInvoiceLoading) return;
     invoiceCreationInFlight.current = true;
     invoiceCreationValues.current = { amountSats, description, walletID };
+    // After a wallet switch this request's result and its latches belong to no screen any more.
+    const walletChanged = () => latestInvoiceValues.current.walletID !== walletID;
     if (isNfcActive) stopReading();
     setIsInvoiceLoading(true);
     Keyboard.dismiss();
@@ -267,10 +273,11 @@ const LNDReceive = () => {
       const invoiceAmount = amountSats;
       const invoiceDescription = description;
       const createdInvoiceRequest = await wallet.addInvoice(invoiceAmount, invoiceDescription);
+      if (walletChanged()) return;
       ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
       const decoded = await wallet.decodeInvoice(createdInvoiceRequest);
       await tryToObtainPermissions();
-      if (latestInvoiceValues.current.walletID !== walletID) return;
+      if (walletChanged()) return;
       majorTomToGroundControl([], [decoded.payment_hash], []);
 
       cancelInvoicePolling();
@@ -299,23 +306,25 @@ const LNDReceive = () => {
         startReading(handleNfcRead(createdInvoiceRequest));
       }
     } catch (error) {
+      if (walletChanged()) return;
       ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
       alert(error instanceof Error ? error.message : String(error));
     } finally {
-      const completedValues = invoiceCreationValues.current;
-      invoiceCreationInFlight.current = false;
-      invoiceCreationValues.current = undefined;
-      setIsInvoiceLoading(false);
-      if (
-        invoiceCreationQueued.current &&
-        completedValues &&
-        (!Object.is(latestInvoiceValues.current.amountSats, completedValues.amountSats) ||
-          latestInvoiceValues.current.description !== completedValues.description ||
-          latestInvoiceValues.current.walletID !== completedValues.walletID)
-      ) {
-        setInvoiceGenerationRequest(request => request + 1);
+      if (!walletChanged()) {
+        const completedValues = invoiceCreationValues.current;
+        invoiceCreationInFlight.current = false;
+        invoiceCreationValues.current = undefined;
+        setIsInvoiceLoading(false);
+        if (
+          invoiceCreationQueued.current &&
+          completedValues &&
+          (!Object.is(latestInvoiceValues.current.amountSats, completedValues.amountSats) ||
+            latestInvoiceValues.current.description !== completedValues.description)
+        ) {
+          setInvoiceGenerationRequest(request => request + 1);
+        }
+        invoiceCreationQueued.current = false;
       }
-      invoiceCreationQueued.current = false;
     }
   };
 
