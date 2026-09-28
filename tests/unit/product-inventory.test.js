@@ -167,6 +167,14 @@ describe('product inventory checker (fixtures)', () => {
     assert.ok(errors.includes('route DemoRoot is a stack wrapper, list the screens instead'), errors.join('\n'));
   });
 
+  it('reports a navigation directory without screen routes', () => {
+    const dir = freshFixture(files => {
+      files['navigation/Demo.tsx'] = 'export {};\n';
+    });
+    const { errors } = checkInventory(dir);
+    assert.ok(errors.includes('navigation: no screen routes found under navigation/'), errors.join('\n'));
+  });
+
   it('reports a feature entry without a README row', () => {
     const dir = freshFixture(files => {
       files['docs/product/features/demo.md'] += ['', '## D-03 Orphan entry', '', '**Routes:** none', '**Tier:** Nice', ''].join('\n');
