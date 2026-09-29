@@ -48,8 +48,6 @@ const mockCreateToolTipMenu = () => {
 };
 
 jest.mock('../../components/TooltipMenu', () => mockCreateToolTipMenu());
-jest.mock('../../components/TooltipMenu.ios', () => mockCreateToolTipMenu());
-jest.mock('../../components/TooltipMenu.android', () => mockCreateToolTipMenu());
 
 jest.mock('react-native-qrcode-svg', () => {
   const RN = require('react');
