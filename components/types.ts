@@ -1,7 +1,7 @@
 import { ColorValue, GestureResponderEvent, StyleProp, ViewStyle } from 'react-native';
 
 export interface Action {
-  id: string | number;
+  id: string;
   text: string;
   icon?: {
     iconType?: string;

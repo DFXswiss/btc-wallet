@@ -182,6 +182,21 @@ describe('ToolTipMenu', () => {
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
+  it('ignores onPress when a tap already opens the menu', () => {
+    const onPress = jest.fn();
+    const screen = render(
+      <ToolTipMenu actions={[a]} onPressMenuItem={jest.fn()} onPress={onPress} isMenuPrimaryAction>
+        {child}
+      </ToolTipMenu>,
+    );
+
+    expect(screen.getByTestId('ContextMenu')).toBeTruthy();
+    expect(mockContextMenuState.props.dropdownMenuMode).toBe(true);
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.getByTestId('child')).toBeTruthy();
+    expect(onPress).not.toHaveBeenCalled();
+  });
+
   it('renders only the child when disabled', () => {
     const screen = render(
       <ToolTipMenu actions={[a]} onPressMenuItem={jest.fn()} onPress={jest.fn()} disabled>

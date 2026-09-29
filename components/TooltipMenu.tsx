@@ -34,13 +34,14 @@ const ToolTipMenu = forwardRef<ContextMenu, ToolTipMenuProps>(
 
     if (disabled) return <>{children}</>;
 
-    const content = onPress ? (
-      <TouchableOpacity accessibilityRole="button" onPress={onPress}>
-        {children}
-      </TouchableOpacity>
-    ) : (
-      children
-    );
+    const content =
+      onPress && !isMenuPrimaryAction ? (
+        <TouchableOpacity accessibilityRole="button" onPress={onPress}>
+          {children}
+        </TouchableOpacity>
+      ) : (
+        children
+      );
 
     if (items.length === 0) return <>{content}</>;
 
