@@ -130,7 +130,7 @@ On-chain wallet lifecycle: create and import, recovery-phrase backup, the home a
 
 **Known issues.** None recorded.
 
-**Tests.** `tests/unit/asset-dfx-services.test.js`; CF-01.
+**Tests.** `tests/unit/asset-dfx-services.test.js`, `tests/e2e/transactions.spec.js` (Detox: history rows of a public wallet); CF-01.
 
 **Source.** screen/wallets/asset.js, navigation/WalletsStack.tsx
 
