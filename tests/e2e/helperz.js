@@ -43,22 +43,9 @@ export async function launchFresh() {
  * @see https://github.com/wix/detox/issues/445
  */
 export async function extractTextFromElementById(id) {
-  try {
-    await expect(element(by.id(id))).toHaveText('_unfoundable_text');
-  } catch (error) {
-    const message = error.message.toString();
-    if (device.getPlatform() === 'ios') {
-      const [, rest] = message.split('accessibilityLabel was "');
-      return rest.split('" on ')[0];
-    }
-    const [, rest] = message.split('Got:');
-    const textField = rest
-      .split('}"')[0]
-      .split(',')
-      .find(part => part.includes('text='));
-    return textField.trim().split('=').slice(1).join('=');
-  }
-  throw new Error(`Element ${id} unexpectedly has the probe text`);
+  const attributes = await element(by.id(id)).getAttributes();
+  if ('elements' in attributes) throw new Error(`${attributes.elements.length} elements match ${id}`);
+  return attributes.text ?? attributes.label ?? '';
 }
 
 export async function typeTextIntoAlertInput(text) {

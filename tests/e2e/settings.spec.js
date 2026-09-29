@@ -50,9 +50,12 @@ describe('Settings', () => {
       .toBeVisible()
       .whileElement(by.id('CurrencyList'))
       .scroll(300, 'down');
-    await element(by.id('CurrencyEUR')).tap();
-    // Selecting fetches the rate first and only then saves the currency and shows its rate.
-    for (let i = 0; i < 30 && !(await extractTextFromElementById('CurrencyRate')).includes('€'); i++) await sleep(1000);
+    // Selecting fetches the rate first and only then saves the currency and shows its rate. A tap that lands while
+    // the list still settles after the scroll can get lost, so tap again if nothing changed.
+    for (let attempt = 0; attempt < 3 && !(await extractTextFromElementById('CurrencyRate')).includes('€'); attempt++) {
+      await element(by.id('CurrencyEUR')).tap();
+      for (let i = 0; i < 10 && !(await extractTextFromElementById('CurrencyRate')).includes('€'); i++) await sleep(1000);
+    }
     assert.match(await extractTextFromElementById('CurrencyRate'), /€/);
     await backToHome();
     await cycleBalanceUntil(text => text.includes('€'), 'a euro amount');
@@ -85,7 +88,10 @@ describe('Settings', () => {
     await element(by.id('Languagede')).tap();
     await device.pressBack();
     await waitForId('SettingsScroll');
-    await expect(element(by.text('Allgemein'))).toExist();
+    // The language is saved asynchronously after the tap.
+    await waitFor(element(by.text('Allgemein')))
+      .toExist()
+      .withTimeout(10_000);
     await expect(element(by.text('Währung'))).toExist();
 
     await device.launchApp({ newInstance: true });
