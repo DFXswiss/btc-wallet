@@ -185,6 +185,8 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
   const sparkWalletRef = useRef<SparkWallet | undefined>(undefined);
   const walletsRef = useRef(wallets);
   const lnAddressRegisterAttemptedRef = useRef(false);
+  // Identity whose session finished a sync; before that a lookup may miss an address the seed already has.
+  const syncedIdentityRef = useRef<string | null>(null);
   const createSparkWalletRef = useRef<((source?: OnChainMnemonicWallet) => Promise<SparkWallet | null>) | undefined>(undefined);
   const connectExistingSparkRef = useRef<((isStale?: () => boolean) => Promise<void>) | undefined>(undefined);
 
@@ -209,7 +211,12 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
         lease.assertLive();
         if (lnInfo?.lightningAddress) {
           writeLightningAddress(target, lnInfo.lightningAddress);
-        } else if (!target.lnAddress && !lnAddressRegisterAttemptedRef.current && target.identityPubkey) {
+        } else if (
+          !target.lnAddress &&
+          !lnAddressRegisterAttemptedRef.current &&
+          target.identityPubkey &&
+          syncedIdentityRef.current === lease.identity
+        ) {
           lnAddressRegisterAttemptedRef.current = true;
           try {
             const registered = await registerLightningAddressOnce(target.identityPubkey, loc.wallets.lightning_spark_wallet_label, lease);
@@ -241,6 +248,9 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
   const onSdkEvent = useCallback(
     async (event: SdkEvent) => {
       applyOutgoingSdkEvent(event);
+      if (event.tag === SdkEvent_Tags.Synced && isSparkSdkConnected()) {
+        syncedIdentityRef.current = acquireSparkSessionLease().identity;
+      }
       if (
         event.tag === SdkEvent_Tags.Synced ||
         event.tag === SdkEvent_Tags.PaymentSucceeded ||
@@ -379,6 +389,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
         // A seed that used Spark before brings back its balance and address; a failed sync leaves them to the next one.
         const synced = await syncBeforeCreate();
         lease.assertLive();
+        if (synced) syncedIdentityRef.current = lease.identity;
         const info = await lease.requireSdk().getInfo({ ensureSynced: false });
         const session = lease.requireSdk();
 
@@ -389,7 +400,7 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
           lease.assertLive();
           lnAddress = lnInfo?.lightningAddress;
           // Unsynced, the lookup may miss an address the seed already has, and registering would add a second one.
-          if (!lnAddress && synced) {
+          if (!lnAddress && syncedIdentityRef.current === lease.identity) {
             lnAddress = await registerLightningAddressOnce(info.identityPubkey, loc.wallets.lightning_spark_wallet_label, lease);
           }
         } catch (e) {

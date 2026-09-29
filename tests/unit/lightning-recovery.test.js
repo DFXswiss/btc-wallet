@@ -145,7 +145,7 @@ describe('useLightningRecovery account lookup', () => {
     mockFindUser.mockRejectedValueOnce({ statusCode: 503 }).mockResolvedValueOnce(ldsUser());
     await addLightning(importedWallet());
 
-    expect(mockFindUser).toHaveBeenCalledTimes(2);
+    expect(mockFindUser.mock.calls.map(call => call[0])).toEqual(['bc1-seed words-pass', '3-seed words-pass']);
     expect(addAndSaveWallet).toHaveBeenCalledWith({ type: 'lightningLdsWallet' });
     expect(mockCreateSparkWallet).not.toHaveBeenCalled();
   });
