@@ -36,7 +36,7 @@ The Flows column lists the critical flows that name the row under Covers.
 | --- | --- | --- | --- | --- | --- |
 | A-01 | First launch and onboarding | Cold start with no wallet | Critical | CF-01 | [details](features/app-shell.md#a-01-first-launch-and-onboarding) |
 | A-02 | Unlock at launch (password, biometrics) | Cold start with encrypted storage | Critical | CF-04 | [details](features/app-shell.md#a-02-unlock-at-launch-password-biometrics) |
-| A-03 | Deep links and URI schemes | Opening bitcoin:, lightning:, LNURL or dfxtaro:// links | Important | — | [details](features/app-shell.md#a-03-deep-links-and-uri-schemes) |
+| A-03 | Deep links and URI schemes | Opening bitcoin:, lightning:, spark:, LNURL or dfxtaro:// links | Important | — | [details](features/app-shell.md#a-03-deep-links-and-uri-schemes) |
 | A-04 | Quick actions | Long press on the app icon | Nice | — | [details](features/app-shell.md#a-04-quick-actions) |
 | A-05 | Push notifications | Tap on a system notification | Important | — | [details](features/app-shell.md#a-05-push-notifications) |
 | A-06 | Screenshot protection on sensitive screens | Automatic | Important | — | [details](features/app-shell.md#a-06-screenshot-protection-on-sensitive-screens) |
