@@ -241,6 +241,25 @@ describe('product inventory checker (fixtures)', () => {
     assert.ok(errors.includes("feature D-02: tier 'Nice' does not match README tier 'Important'"), errors.join('\n'));
   });
 
+  it('reports a missing Entry line', () => {
+    const dir = freshFixture(files => {
+      files['docs/product/features/demo.md'] = files['docs/product/features/demo.md'].replace('**Entry:** Settings\n', '');
+    });
+    const { errors } = checkInventory(dir);
+    assert.ok(errors.includes('feature D-02: Entry line missing'), errors.join('\n'));
+  });
+
+  it('reports an entry point that differs from the README', () => {
+    const dir = freshFixture(files => {
+      files['docs/product/features/demo.md'] = files['docs/product/features/demo.md'].replace(
+        '**Entry:** Settings',
+        '**Entry:** Home, Settings',
+      );
+    });
+    const { errors } = checkInventory(dir);
+    assert.ok(errors.includes("feature D-02: entry 'Home, Settings' does not match README entry point 'Settings'"), errors.join('\n'));
+  });
+
   it('reports a malformed README table row', () => {
     const dir = freshFixture(files => {
       files['docs/product/README.md'] = files['docs/product/README.md'].replace(

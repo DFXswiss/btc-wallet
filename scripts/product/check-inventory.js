@@ -151,12 +151,17 @@ function parseFeatureFiles(dir) {
       }
       const block = blockLines.join('\n');
       let routes = null;
+      let entry = null;
       let tier = null;
       let sources = [];
       const routesMatch = block.match(/^\*\*Routes:\*\*\s*(.*)$/m);
       if (routesMatch) {
         const raw = routesMatch[1].trim();
         routes = raw === 'none' ? [] : splitCsv(raw);
+      }
+      const entryMatch = block.match(/^\*\*Entry:\*\*\s*(.*)$/m);
+      if (entryMatch) {
+        entry = entryMatch[1].trim() || null;
       }
       const tierMatch = block.match(/^\*\*Tier:\*\*\s*(.*)$/m);
       if (tierMatch) {
@@ -172,6 +177,7 @@ function parseFeatureFiles(dir) {
         file: relFile,
         anchor: slugify(`${id} ${name}`),
         routes,
+        entry,
         tier,
         sources,
         line: startLine,
@@ -278,6 +284,9 @@ function checkInventory(repoRoot) {
     if (entry.tier === null) {
       errors.push(`feature ${entry.id}: Tier line missing`);
     }
+    if (entry.entry === null) {
+      errors.push(`feature ${entry.id}: Entry line missing`);
+    }
     for (const source of entry.sources) {
       const abs = path.join(repoRoot, source);
       if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) {
@@ -311,6 +320,9 @@ function checkInventory(repoRoot) {
     }
     if (entry.tier !== null && entry.tier !== row.tier) {
       errors.push(`feature ${entry.id}: tier '${entry.tier}' does not match README tier '${row.tier}'`);
+    }
+    if (entry.entry !== null && entry.entry !== row.entry) {
+      errors.push(`feature ${entry.id}: entry '${entry.entry}' does not match README entry point '${row.entry}'`);
     }
   }
 
