@@ -179,20 +179,10 @@ export function parseBtcSats(text) {
   return Math.round(Number(match[0]) * 1e8);
 }
 
-/**
- * Opens a wallet with its history loaded. The periodic refresh starts only when home gains focus more than 40 s after
- * launch, and a wallet screen that is already open does not pick up the history, so this waits past that point,
- * returns to home, lets the refresh finish there and then opens the wallet.
- */
+/** Relaunches the app and opens a wallet right away; the refresh started at launch loads its history. */
 export async function openWalletWithHistory(rowId) {
   await device.launchApp({ newInstance: true });
   await waitForId(rowId);
-  await element(by.id(rowId)).tap();
-  await waitForId('WalletBalance');
-  await sleep(45_000);
-  await device.pressBack();
-  await waitForId(rowId);
-  await sleep(45_000);
   await element(by.id(rowId)).tap();
 }
 

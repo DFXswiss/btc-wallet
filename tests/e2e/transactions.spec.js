@@ -12,9 +12,7 @@ import {
 // The BIP39 test vector phrase: a public mainnet wallet with a long confirmed history and no funds to lose.
 const PUBLIC_MNEMONIC = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
 
-// Skipped until the transaction status screen no longer crashes on an outgoing transaction whose first output has
-// no address (OP_RETURN), which the newest transactions of this wallet are.
-describe.skip('On-chain transaction history', () => {
+describe('On-chain transaction history', () => {
   const addresses = bip84Addresses(PUBLIC_MNEMONIC, 500);
 
   beforeAll(async () => {
