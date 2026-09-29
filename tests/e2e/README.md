@@ -26,10 +26,17 @@ A suite whose inputs are missing fails with a "not set" error instead of skippin
 
 QR scanning uses a hidden test hook (`components/QrScanBackdoor.js`): six taps on the invisible `ScanQrBackdoorButton` in a scanner's bottom left corner open a text field whose content is handled like a scanned code. It is on the general scanner and on the multisig cosigner camera.
 
-In CI the suites run in two jobs:
+In CI (`.github/workflows/e2e-android.yml`) the suites run in two jobs:
 
-- `detox` runs `onchain`, `wallet-details`, `transactions`, `scan`, `deeplink`, `entropy`, `import-discovery`, `multisig`, `multisig-import`, `settings`, `encrypted-storage` and `spark` on every pull request and uploads failure videos, screenshots and logs.
+- `detox` runs `onchain`, `wallet-details`, `transactions`, `scan`, `deeplink`, `entropy`, `import-discovery`, `multisig`, `multisig-import`, `settings`, `encrypted-storage` and `spark` and uploads failure videos, screenshots and logs.
 - `detox-funded` runs `onchain-send`, `spark-send`, `spark-receive`, `spark-transfer` and `spark-pay` against a production build (`.env.prd`, repository secret `BREEZ_API_KEY_PRD`) in the protected GitHub environment `e2e-funded`. Both Spark phrases are on-chain phrases of wallets made in the app (create a wallet, tap Add on the Lightning row); the tests use their Spark wallets, like the app does. Use seeds that never had a lightning.space account, or Add restores that account instead of Spark. Keep `HD_MNEMONIC_BIP84`, `SPARK_E2E_MNEMONIC` and `SPARK_E2E_PAYER_MNEMONIC` as secrets of that environment, not of the repository, and give it required reviewers: the job runs code from the pull request, so the phrases are released only to runs a reviewer approved. The job records nothing, since artifacts of this public repository are downloadable, has no retries, so a failed payment test is never paid twice, and never runs twice at once (a newer run waits instead of cancelling it), because all runs share the same wallets.
+
+A run takes about an hour, so the jobs do not start on every push:
+
+| Job            | Runs                                                                                                                                         | How to start it by hand                                                                                                                                                                         |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `detox`        | on every push to a pull request that is not a draft, and when a draft is marked ready; changes to Markdown and `docs/` alone do not start it | add the `ci:full` label to a draft (it then runs on its pushes too), or **Actions → Tests e2e Android → Run workflow** on the branch                                                            |
+| `detox-funded` | never on a push, because it moves real sats                                                                                                  | add the `e2e:funded` label (one run per label added; remove and add it again for another), or **Run workflow** with **funded** checked; a reviewer of `e2e-funded` still has to approve the run |
 
 ## Running locally
 

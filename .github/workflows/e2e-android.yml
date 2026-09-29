@@ -3,6 +3,14 @@ name: Tests e2e Android
 # Detox on an Android emulator against a release build. Not a required check yet.
 # Suites whose inputs are missing fail instead of skipping. Nothing is broadcast.
 #
+# When it runs (a run takes about an hour, so not on every push):
+# detox: pull requests that are not drafts, on every push and when marked ready; a draft only with
+#   the ci:full label; changes to Markdown and docs/ alone do not start it. Manual start: Run
+#   workflow on the branch.
+# detox-funded: only on request, because it moves real sats: adding the e2e:funded label starts one
+#   run (remove and add it again for another), or Run workflow with funded checked. Pushes never
+#   start it.
+#
 # detox: suites without funds (on-chain, wallet details and addresses, transaction history, scan,
 #   deep links, entropy, import discovery, multisig create, sign and import, settings, encrypted
 #   storage, Spark receive and export). Secret BREEZ_API_KEY. Failure videos, screenshots and logs
@@ -15,13 +23,29 @@ name: Tests e2e Android
 #   SPARK_E2E_PAYER_MNEMONIC and E2E_LIGHTNING_ADDRESS (environment secrets) only after they approve
 #   the run. One funded run at a time, and a newer run waits instead of cancelling it, because every
 #   run shares the same wallets. No artifacts, no retries.
-on: [pull_request]
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+  workflow_dispatch:
+    inputs:
+      funded:
+        description: Also run the funded suites (moves real sats; needs an e2e-funded reviewer)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
   detox:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'ci:full') ||
+      (github.event.action != 'labeled' &&
+        (!github.event.pull_request.draft || contains(github.event.pull_request.labels.*.name, 'ci:full')))
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     concurrency:
@@ -57,6 +81,9 @@ jobs:
           retention-days: 7
 
   detox-funded:
+    if: >
+      (github.event_name == 'workflow_dispatch' && inputs.funded) ||
+      (github.event.action == 'labeled' && github.event.label.name == 'e2e:funded')
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     environment: e2e-funded

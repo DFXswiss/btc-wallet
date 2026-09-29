@@ -16,3 +16,5 @@ In the commit where you up version you can have the commit message as
 
 Do *not* add new dependencies. Bonus points if you manage to actually remove a dependency.
 The Spark wallet is the exception: `@breeztech/breez-sdk-spark-react-native` is the wallet itself and stays.
+
+End-to-end tests (Detox, Android) take about an hour and run only on pull requests that are not drafts. Add the `ci:full` label to run them on a draft, and the `e2e:funded` label to run the suites that move real sats; see `tests/e2e/README.md`.
