@@ -10,6 +10,8 @@ const mockSync = jest.fn(() => Promise.resolve());
 const mockIsConnected = jest.fn(() => false);
 const mockRequireSdk = jest.fn();
 const mockGetSessionIdentity = jest.fn(() => 'pk-1');
+// Each connect installs a new session, as in spark-sdk.
+const mockSession = { generation: 0 };
 
 jest.mock('../../api/spark/spark-sdk', () => {
   class SparkSessionStaleError extends Error {
@@ -28,6 +30,7 @@ jest.mock('../../api/spark/spark-sdk', () => {
       const identity = mockGetSessionIdentity();
       return {
         identity,
+        generation: mockSession.generation,
         assertLive() {
           this.requireSdk();
         },
@@ -125,7 +128,7 @@ function stubSparkMethods(wallet) {
 /** Sends the SDK's Synced event for the session this test connected; registration waits for it. */
 async function emitSynced() {
   await waitFor(() => expect(mockConnect).toHaveBeenCalled());
-  // Not awaited: the refresh it starts may wait on a registration the test holds open.
+  // The handler's promise is not awaited: its refresh may wait on a registration the test holds open.
   await act(async () => {
     mockConnect.lastOnEvent({ tag: SdkEvent_Tags.Synced });
   });
@@ -135,6 +138,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockIsConnected.mockReturnValue(false);
   mockConnect.mockImplementation(async (_mnemonic, onEvent) => {
+    mockSession.generation += 1;
     mockIsConnected.mockReturnValue(true);
     // stash listener for event tests
     mockConnect.lastOnEvent = onEvent;
@@ -542,13 +546,76 @@ describe('SparkContextProvider', () => {
     assert.ok(created);
     expect(mockSdk.registerLightningAddress).not.toHaveBeenCalled();
 
-    await act(async () => {
-      mockConnect.lastOnEvent({ tag: SdkEvent_Tags.Synced });
-    });
+    await emitSynced();
     await waitFor(() => expect(mockSdk.registerLightningAddress).toHaveBeenCalledTimes(1));
     assert.strictEqual(created.lnAddress, 'reg@breez.blitz');
     warn.mockRestore();
     alert.mockRestore();
+  });
+
+  it('does not count a sync of an earlier session when the create is retried without one', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    mockSdk.getLightningAddress.mockResolvedValue(undefined);
+    renderWith([hdWallet]);
+    await waitFor(() => assert.ok(latestCtx));
+    addAndSaveWallet.mockRejectedValueOnce(new Error('disk full'));
+
+    await act(async () => {
+      await latestCtx.createSparkWallet();
+    });
+    expect(mockSdk.registerLightningAddress).toHaveBeenCalledTimes(1);
+
+    mockSync.mockRejectedValueOnce(new Error('offline'));
+    let created;
+    await act(async () => {
+      created = await latestCtx.createSparkWallet();
+    });
+
+    assert.ok(created);
+    assert.strictEqual(created.lnAddress, undefined);
+    expect(mockSdk.registerLightningAddress).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+    alert.mockRestore();
+  });
+
+  it('waits for a new sync after the same Spark wallet is removed and added again', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const existing = stubSparkMethods(SparkWallet.create('same-pk'));
+    const setWalletsRef = { current: null };
+    function Harness() {
+      const [wallets, setWallets] = React.useState([hdWallet, existing]);
+      React.useEffect(() => {
+        setWalletsRef.current = setWallets;
+      }, [setWallets]);
+      return (
+        <BlueStorageContext.Provider value={{ wallets, walletsInitialized: true, addAndSaveWallet, saveToDisk, deleteWallet }}>
+          <SparkContextProvider>
+            <Probe />
+          </SparkContextProvider>
+        </BlueStorageContext.Provider>
+      );
+    }
+    render(<Harness />);
+    await emitSynced();
+    await waitFor(() => assert.strictEqual(existing.lnAddress, 'user@breez.blitz'));
+
+    await act(async () => {
+      setWalletsRef.current([hdWallet]);
+    });
+    existing.lnAddress = undefined;
+    mockSdk.getLightningAddress.mockResolvedValue(undefined);
+    const connects = mockConnect.mock.calls.length;
+    await act(async () => {
+      setWalletsRef.current([hdWallet, existing]);
+    });
+    await waitFor(() => expect(mockConnect.mock.calls.length).toBeGreaterThan(connects));
+    await act(async () => {});
+    expect(mockSdk.registerLightningAddress).not.toHaveBeenCalled();
+
+    await emitSynced();
+    await waitFor(() => expect(mockSdk.registerLightningAddress).toHaveBeenCalledTimes(1));
+    warn.mockRestore();
   });
 
   it('retries Lightning address registration once for an existing wallet without an address', async () => {

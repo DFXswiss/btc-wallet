@@ -92,6 +92,24 @@ describe('spark-sdk', () => {
     expect(mockInstance.getInfo).toHaveBeenCalledWith({ ensureSynced: false });
   });
 
+  it('gives each session a new generation and ignores late events of a replaced session', async () => {
+    const onEvent = jest.fn().mockResolvedValue(undefined);
+    const second = makeSdkInstance('2');
+    breez.connect.mockResolvedValueOnce(mockInstance).mockResolvedValueOnce(second);
+
+    await connectSparkSdk('one two three four five six seven eight nine ten eleven about', onEvent);
+    const firstListener = mockInstance.addEventListener.mock.calls[0][0];
+    const firstGeneration = acquireSparkSessionLease().generation;
+    await connectSparkSdk('abandon '.repeat(11) + 'about', onEvent);
+    const secondListener = second.addEventListener.mock.calls[0][0];
+
+    assert.ok(acquireSparkSessionLease().generation > firstGeneration);
+    await firstListener.onEvent({ tag: 'Synced' });
+    expect(onEvent).not.toHaveBeenCalled();
+    await secondListener.onEvent({ tag: 'Synced' });
+    expect(onEvent).toHaveBeenCalledWith({ tag: 'Synced' });
+  });
+
   it('registers lightning addresses on BREEZ_LNURL_DOMAIN when it is set', async () => {
     Config.BREEZ_LNURL_DOMAIN = ' dev.lightning.space ';
     await connectSparkSdk('one two three four five six seven eight nine ten eleven about');

@@ -22,6 +22,8 @@ let sdk: BreezSdkInterface | null = null;
 let listenerId: string | null = null;
 let connectedSeedFingerprint: string | null = null;
 let connectedIdentityPubkey: string | null = null;
+/** Counts installed sessions, so state tied to one session is not taken for a later one of the same identity. */
+let sessionGeneration = 0;
 /** Instance whose native disconnect() failed. The next connect tears it down before opening another. */
 let poisonedSdk: BreezSdkInterface | null = null;
 /** Tail of the connect/disconnect queue. Always settles so a failed transition cannot stall the next. */
@@ -54,6 +56,8 @@ export class SparkLifecycleHungError extends Error {
 
 export type SparkSessionLease = {
   readonly identity: string | null;
+  /** The session this lease was taken on; a reconnect of the same identity gets a new one. */
+  readonly generation: number;
   /** Throws SparkSessionStaleError once the session this lease was taken on has been replaced. */
   assertLive(): void;
   requireSdk(): BreezSdkInterface;
@@ -162,6 +166,7 @@ export function isSparkSdkConnected(): boolean {
 export function acquireSparkSessionLease(): SparkSessionLease {
   const held = requireSparkSdk();
   const identity = connectedIdentityPubkey;
+  const generation = sessionGeneration;
   const assertLive = (): void => {
     if (sdk !== held) {
       throw new SparkSessionStaleError();
@@ -169,6 +174,7 @@ export function acquireSparkSessionLease(): SparkSessionLease {
   };
   return {
     identity,
+    generation,
     assertLive,
     requireSdk() {
       assertLive();
@@ -319,6 +325,8 @@ async function connectLocked(mnemonic: string, onEvent?: (event: SdkEvent) => Pr
       if (onEvent) {
         const listener: EventListener = {
           onEvent: async (event: SdkEvent) => {
+            // A late event of a replaced session must not be taken for the current one.
+            if (sdk !== null && sdk !== instance) return;
             await onEvent(event);
           },
         };
@@ -330,6 +338,7 @@ async function connectLocked(mnemonic: string, onEvent?: (event: SdkEvent) => Pr
       }
 
       sdk = instance;
+      sessionGeneration += 1;
       listenerId = newListenerId;
       connectedSeedFingerprint = fingerprint;
       connectedIdentityPubkey = info.identityPubkey;
