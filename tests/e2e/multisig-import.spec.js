@@ -39,7 +39,8 @@ describe('Multisig vault import', () => {
     const foreign = [1, 2, 3].map(() => cosignerKey(bip39.generateMnemonic(128)));
     try {
       await importSetup(coordinationSetup(foreign));
-      await waitForDialogText('Your wallet is not part of this multisig setup');
+      // Matching the phrase against every cosigner is slow on a CI emulator (over a minute).
+      await waitForDialogText('Your wallet is not part of this multisig setup', 300_000);
       await element(by.text('OK')).tap();
       for (let i = 0; i < 3; i++) {
         try {
@@ -61,7 +62,7 @@ describe('Multisig vault import', () => {
     await speedImport(mainMnemonic);
     try {
       await importSetup(coordinationSetup(keys));
-      await waitForId('MultisigWalletRow', 120_000);
+      await waitForId('MultisigWalletRow', 300_000);
     } finally {
       await device.enableSynchronization();
     }
