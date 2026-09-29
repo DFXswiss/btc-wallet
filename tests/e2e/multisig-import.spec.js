@@ -1,4 +1,4 @@
-/* global element, by, expect */
+/* global device, element, by, expect */
 import assert from 'assert';
 import * as bip39 from 'bip39';
 
@@ -16,6 +16,9 @@ async function importSetup(text) {
   await element(by.id('MultisigWalletRowAdd')).tap();
   await waitForId('ScanImport');
   await element(by.id('ScanImport')).tap();
+  // The import screen runs a camera preview, which never lets the app go idle; the caller turns synchronization
+  // back on once it has left that screen.
+  await device.disableSynchronization();
   await waitForId('ImportMultisigManualInput');
   await element(by.id('ImportMultisigManualInput')).tap();
   await waitForId('ManualTextInput');
@@ -34,18 +37,34 @@ describe('Multisig vault import', () => {
 
   it('refuses a setup that does not contain the main seed', async () => {
     const foreign = [1, 2, 3].map(() => cosignerKey(bip39.generateMnemonic(128)));
-    await importSetup(coordinationSetup(foreign));
-    await waitForDialogText('Your wallet is not part of this multisig setup');
-    await element(by.text('OK')).tap();
+    try {
+      await importSetup(coordinationSetup(foreign));
+      await waitForDialogText('Your wallet is not part of this multisig setup');
+      await element(by.text('OK')).tap();
+      for (let i = 0; i < 3; i++) {
+        try {
+          await waitForId('MultisigWalletRowAdd', 3_000);
+          break;
+        } catch {
+          await device.pressBack();
+        }
+      }
+      await waitForId('MultisigWalletRowAdd');
+    } finally {
+      await device.enableSynchronization();
+    }
     await expect(element(by.id('MultisigWalletRow'))).not.toExist();
   });
 
   it('imports a setup that contains the main seed as the vault computed from its three keys', async () => {
     await launchFresh();
     await speedImport(mainMnemonic);
-    await importSetup(coordinationSetup(keys));
-
-    await waitForId('MultisigWalletRow', 120_000);
+    try {
+      await importSetup(coordinationSetup(keys));
+      await waitForId('MultisigWalletRow', 120_000);
+    } finally {
+      await device.enableSynchronization();
+    }
     await element(by.id('MultisigWalletRow')).tap();
     await waitForId('ReceiveButton');
     await element(by.id('ReceiveButton')).tap();
