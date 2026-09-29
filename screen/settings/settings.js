@@ -7,7 +7,7 @@ import { BlueListItem, BlueHeaderDefaultSub } from '../../BlueComponents';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { MultisigHDWallet } from '../../class';
-import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
+import { getLightningWallet } from '../../helpers/lightning-wallet';
 import { TaprootLdsWallet, TaprootLdsWalletType } from '../../class/wallets/taproot-lds-wallet';
 
 const styles = StyleSheet.create({
@@ -22,7 +22,7 @@ const Settings = () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { wallets, language, ldsDEV } = useContext(BlueStorageContext);
   const { walletID } = useWalletContext();
-  const lndWallet = wallets.find(wallet => wallet.type === LightningLdsWallet.type);
+  const lndWallet = getLightningWallet(wallets);
   const multiDeviceWallet = wallets.find(wallet => wallet.type === MultisigHDWallet.type);
   const chfTaprootWallet = wallets.find(
     wallet => wallet.type === TaprootLdsWallet.type && wallet.getCurrencyName() === TaprootLdsWalletType.CHF,
@@ -47,7 +47,7 @@ const Settings = () => {
           chevron
         />
         <BlueListItem
-          title={loc.wallets.lightning_wallet_label}
+          title={loc.wallets.lightning_spark_wallet_label}
           disabled={!lndWallet}
           onPress={() => navigateToWalletDetails(lndWallet?.getID())}
           testID="WalletDetailsLnd"
@@ -63,9 +63,13 @@ const Settings = () => {
         {ldsDEV && (
           <BlueListItem
             title={loc.wallets.chf_taproot_wallet_label}
-            disabled={!chfTaprootWallet}
-            onPress={() => navigateToWalletDetails(chfTaprootWallet?.getID())}
-            testID="WalletDetailsLnd"
+            onPress={() =>
+              chfTaprootWallet
+                ? navigateToWalletDetails(chfTaprootWallet.getID())
+                : // No CHF taproot wallet yet: open the Lightning add flow for that asset.
+                  navigate('WalletsRoot', { screen: 'AddLightning', params: { asset: TaprootLdsWalletType.CHF } })
+            }
+            testID="WalletDetailsChfTaproot"
             chevron
           />
         )}

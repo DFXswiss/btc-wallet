@@ -123,6 +123,11 @@ function toError(context: string, e: unknown, framesToPop: number): Error {
 // body itself is formatConsoleArgs(args) either way and still carries the serialized wrapper,
 // so this buys the attributes, not a shorter body. captureConsole is unaffected: it takes the
 // first *Error* among the arguments, which is still the wrapper.
+/** Whether a caught value is an API error with this HTTP status. */
+export function hasStatusCode(e: unknown, statusCode: number): boolean {
+  return safeRead(() => typeof e === 'object' && e !== null && 'statusCode' in e && e.statusCode === statusCode) === true;
+}
+
 export function reportError(context: string, e: unknown): void {
   // Two frames, not one: toError built the Error, and it was called from in here.
   console.error(context, toError(context, e, 2), e);

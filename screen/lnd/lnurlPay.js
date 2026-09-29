@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo, useRef } from 'react';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image, ScrollView, StyleSheet, View } from 'react-native';
@@ -19,13 +19,25 @@ import {
 import navigationStyle from '../../components/navigationStyle';
 import AmountInput from '../../components/AmountInput';
 import Lnurl from '../../class/lnurl';
+import { lnurlPaySuccessDisplay } from './lnurlPaySuccess';
+import { lnurlSuccessActionFromSdk, SparkPaymentFeeQuoteError, SparkWallet, sparkLnurlPayRequest } from '../../class/wallets/spark-wallet';
+import { walletWaivesDomainFees } from '../../helpers/lightning-wallet';
 import { BitcoinUnit } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 import Biometric from '../../class/biometrics';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
+import { useSparkContext } from '../../api/spark/contexts/spark.context';
+import {
+  createSparkPaymentSeed,
+  forgetSparkPaymentSeed,
+  isUnsentSparkSeed,
+  keepUnresolvedSparkSeed,
+  sparkSeedsAwaitReconcile,
+} from '../../api/spark/payment-seeds';
 import alert from '../../components/Alert';
 import { Text } from 'react-native-elements';
 import { isFreeDomain, isInternalDomain } from '../../helpers/freeLightningDomains';
+import { reportError } from '../../helpers/errors';
 const currency = require('../../blue_modules/currency');
 
 /**
@@ -35,20 +47,64 @@ const currency = require('../../blue_modules/currency');
  */
 const _cacheFiatToSat = {};
 
+/**
+ * Whether an outgoing-payment update belongs to the payment the screen waits for. A Spark transfer is known by
+ * its payment id only, a Lightning payment by its hash; a watch without either accepts any update, as before.
+ */
+function isWatchedPayment(watching, payment) {
+  if (!watching?.paymentId && !watching?.paymentHash) return true;
+  if (!payment) return false;
+  if (watching.paymentId && payment.paymentId) return watching.paymentId === payment.paymentId;
+  return Boolean(watching.paymentHash) && watching.paymentHash === payment.paymentHash;
+}
+
+/**
+ * Spark address a Spark wallet pays directly. A max amount and a comment have no Spark
+ * destination, so those payments go through the LNURL invoice instead.
+ */
+function directSparkAddress(LN, fromWallet, isMax, description) {
+  if (!LN || fromWallet.type !== SparkWallet.type || isMax) return undefined;
+  if (LN.getCommentAllowed() && description) return undefined;
+  return LN.getSparkAddress();
+}
+
 const LnurlPay = () => {
   const { wallets, refreshAllWalletTransactions } = useContext(BlueStorageContext);
-  const { walletID, lnurl, amountSat, destination, invoice, amountUnit, description, free } = useRoute().params;
-  /** @type {LightningCustodianWallet} */
+  const { outgoingPayment } = useSparkContext();
+  const { params } = useRoute();
+  const { walletID, lnurl, amountSat, destination, invoice, sparkInvoice, sparkAddress, amountUnit, description, free, isMax, routeId } =
+    params;
+  /** @type {LightningCustodianWallet | SparkWallet} */
   const wallet = wallets.find(w => w.getID() === walletID);
   const [unit, setUnit] = useState(wallet.getPreferredBalanceUnit());
   const [isLoading, setIsLoading] = useState(true);
   const [_LN, setLN] = useState();
   const [payButtonDisabled, setPayButtonDisabled] = useState(true);
+  const [isPaymentPending, setIsPaymentPending] = useState(false);
+  const pendingPayRef = useRef();
+  const payInFlightRef = useRef(false);
+  const sparkPaymentSeedRef = useRef();
   const [payload, setPayload] = useState();
   const { pop, navigate, goBack } = useNavigation();
   const [amount, setAmount] = useState();
   const [desc, setDesc] = useState();
   const [isTxFree, setIsTxFree] = useState(false);
+  const [sparkFee, setSparkFee] = useState();
+  const [sparkFeeQuote, setSparkFeeQuote] = useState();
+  const [sparkMaxFeeQuote, setSparkMaxFeeQuote] = useState();
+  const [sparkFeeQuoteError, setSparkFeeQuoteError] = useState();
+  const [quoteRetry, setQuoteRetry] = useState(0);
+  // Spark pays an invoice that carries its own amount exactly as it stands (it may not be a whole satoshi); a typed
+  // amount only applies to an invoice without one. LNDHub already ignores the amount for such invoices.
+  const invoiceHasAmount = useMemo(() => {
+    if (!invoice || wallet.type !== SparkWallet.type) return false;
+    try {
+      return Number(wallet.decodeInvoice(invoice).num_millisatoshis) > 0;
+    } catch (_) {
+      return false;
+    }
+  }, [invoice, wallet]);
+  const [lnurlInvoiceQuote, setLnurlInvoiceQuote] = useState();
   const { colors } = useTheme();
   const stylesHook = StyleSheet.create({
     root: {
@@ -67,7 +123,7 @@ const LnurlPay = () => {
       ln.callLnurlPayService()
         .then(p => {
           const domain = ln.getDomain();
-          setIsTxFree(isInternalDomain(domain) || isFreeDomain(domain));
+          setIsTxFree(walletWaivesDomainFees(wallet) && (isInternalDomain(domain) || isFreeDomain(domain)));
           setPayload(p);
         })
         .catch(error => {
@@ -75,23 +131,220 @@ const LnurlPay = () => {
           pop();
         });
       setLN(ln);
-      setDesc(description);
       setIsLoading(false);
     }
-  }, [lnurl, pop]);
+  }, [lnurl, destination, pop, wallet]);
+
+  useEffect(() => {
+    if (lnurl || (destination && Lnurl.isLightningAddress(destination))) {
+      setDesc(description);
+    }
+  }, [description, lnurl, destination]);
 
   useEffect(() => {
     if (invoice) {
       setAmount(amountSat);
       setUnit(amountUnit);
       setIsLoading(false);
-      setIsTxFree(free);
+      setIsTxFree(Boolean(free) && walletWaivesDomainFees(wallet));
     }
-  }, [invoice]);
+  }, [invoice, amountSat, amountUnit, free, wallet]);
+
+  useEffect(() => {
+    if (sparkInvoice || sparkAddress) {
+      setAmount(amountSat);
+      setUnit(BitcoinUnit.SATS);
+      setIsLoading(false);
+      setIsTxFree(false);
+    }
+  }, [sparkInvoice, sparkAddress, amountSat]);
+
+  useEffect(() => {
+    let isCurrent = true;
+    setSparkFee(undefined);
+    setSparkFeeQuote(undefined);
+    setSparkMaxFeeQuote(undefined);
+    setLnurlInvoiceQuote(undefined);
+    setSparkFeeQuoteError(undefined);
+    const paymentRequest = invoice || sparkInvoice || sparkAddress;
+    if (wallet.type !== SparkWallet.type || !paymentRequest || !(amountSat > 0)) {
+      return () => {
+        isCurrent = false;
+      };
+    }
+
+    wallet
+      .getPaymentFeeQuote(paymentRequest, invoice && invoiceHasAmount ? 0 : amountSat)
+      .then(quote => {
+        if (isCurrent) {
+          setSparkFeeQuote(quote);
+          setSparkFee(quote.feeSats);
+        }
+      })
+      .catch(() => {
+        if (isCurrent) setSparkFeeQuoteError(loc.send.server_error);
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [amountSat, description, invoice, invoiceHasAmount, isMax, payload, sparkInvoice, sparkAddress, wallet, _LN, quoteRetry]);
+
+  useEffect(() => {
+    const quoteAmountSats = amountSat ?? _LN?.getMin();
+    if (wallet.type !== SparkWallet.type || invoice || sparkInvoice || sparkAddress || !payload || !(quoteAmountSats > 0) || !_LN)
+      return undefined;
+    let isCurrent = true;
+    const comment = _LN.getCommentAllowed() ? description : undefined;
+    const quoteInvoice = () =>
+      _LN
+        .requestBolt11FromLnurlPayService(quoteAmountSats, comment)
+        .then(({ pr }) => wallet.getPaymentFeeQuote(pr, quoteAmountSats).then(quote => ({ pr, quote })))
+        .then(result => {
+          if (!isCurrent) return;
+          setLnurlInvoiceQuote({ invoice: result.pr, quote: result.quote });
+          setSparkFeeQuote(result.quote);
+          setSparkFee(result.quote.feeSats);
+        })
+        .catch(() => {
+          if (isCurrent) setSparkFeeQuoteError(loc.send.server_error);
+        });
+    const lnurlSparkAddress = directSparkAddress(_LN, wallet, isMax, description);
+    if (lnurlSparkAddress) {
+      // The receiver's limits apply to a Spark transfer just as they do to an invoice.
+      Promise.resolve()
+        .then(() => {
+          _LN.assertAmountInRange(quoteAmountSats);
+          return wallet.getPaymentFeeQuote(lnurlSparkAddress, quoteAmountSats);
+        })
+        .then(quote => {
+          if (!isCurrent) return;
+          setSparkFeeQuote(quote);
+          setSparkFee(quote.feeSats);
+        })
+        // Without a Spark quote the payment can still go out as an invoice.
+        .catch(() => (isCurrent ? quoteInvoice() : undefined));
+      return () => {
+        isCurrent = false;
+      };
+    }
+    if (isMax) {
+      wallet
+        .getLnurlMaxFeeQuote(sparkLnurlPayRequest(_LN.getLnurlPayRequest()), quoteAmountSats, comment)
+        .then(quote => {
+          if (!isCurrent) return;
+          setSparkMaxFeeQuote(quote);
+          setSparkFee(quote.feeSats);
+        })
+        .catch(() => {
+          if (isCurrent) setSparkFeeQuoteError(loc.send.server_error);
+        });
+      return () => {
+        isCurrent = false;
+      };
+    }
+    quoteInvoice();
+    return () => {
+      isCurrent = false;
+    };
+  }, [amountSat, description, invoice, isMax, payload, sparkInvoice, sparkAddress, wallet, _LN, quoteRetry]);
 
   useEffect(() => {
     setPayButtonDisabled(isLoading);
   }, [isLoading]);
+
+  const navigateLnurlSuccess = (paymentHash, fee, LN) => {
+    let lnurlPay;
+    try {
+      lnurlPay = lnurlPaySuccessDisplay(LN);
+    } catch (error) {
+      reportError('lnurlPay: failed to prepare LNURL success display', error);
+    }
+    navigate('SendDetailsRoot', {
+      screen: 'LnurlPaySuccess',
+      params: {
+        paymentHash,
+        ...(fee === undefined ? {} : { fee }),
+        justPaid: true,
+        fromWalletID: walletID,
+        ...(lnurlPay ? { lnurlPay } : {}),
+      },
+    });
+  };
+
+  const finishLnurlSuccess = async (paymentHash, fee, LN) => {
+    ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
+    const preimage = wallet.last_paid_invoice_result && wallet.last_paid_invoice_result.payment_preimage;
+    if (preimage && LN) {
+      try {
+        await LN.storeSuccess(paymentHash, preimage);
+      } catch (error) {
+        reportError('lnurlPay: failed to store LNURL success', error);
+      }
+    }
+    navigateLnurlSuccess(paymentHash, fee, LN);
+  };
+
+  const finishInvoiceSuccess = (amountSats, fee, decoded) => {
+    ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
+    navigate('Success', {
+      amount: amountSats,
+      amountUnit: BitcoinUnit.SATS,
+      ...(fee === undefined ? {} : { fee }),
+      invoiceDescription: decoded.description,
+    });
+  };
+
+  // Only a terminal status of the watched payment ends the pending state; another payment's settlement must not.
+  const outgoingIsWatched = isWatchedPayment(pendingPayRef.current, outgoingPayment);
+  const watchedIsTerminal = outgoingIsWatched && (outgoingPayment?.status === 'completed' || outgoingPayment?.status === 'failed');
+  const showPending = isPaymentPending && !watchedIsTerminal;
+
+  useEffect(() => {
+    if (!outgoingPayment || outgoingPayment.status === 'pending') return;
+    const watching = pendingPayRef.current;
+    if (!watching) return;
+    if (!isWatchedPayment(watching, outgoingPayment)) {
+      return;
+    }
+
+    if (outgoingPayment.status === 'completed') {
+      if (outgoingPayment.preimage) {
+        wallet.last_paid_invoice_result = { payment_preimage: outgoingPayment.preimage };
+      }
+      pendingPayRef.current = undefined;
+      setIsPaymentPending(false);
+      payInFlightRef.current = false;
+      refreshAllWalletTransactions();
+      if (watching.kind === 'lnurl') {
+        finishLnurlSuccess(watching.paymentHash, watching.fee, watching.LN).catch(error => {
+          reportError('lnurlPay: failed to finish LNURL success', error);
+        });
+      } else if (watching.kind === 'sparkInvoice' || watching.kind === 'sparkAddress') {
+        if (sparkPaymentSeedRef.current === watching.seed) {
+          forgetSparkPaymentSeed(sparkPaymentSeedRef);
+        }
+        finishInvoiceSuccess(watching.amountSats, watching.fee, watching.decoded);
+      } else {
+        finishInvoiceSuccess(watching.amountSats, watching.fee, watching.decoded);
+      }
+      return;
+    }
+
+    if (outgoingPayment.status === 'failed') {
+      if (watching.seed && sparkPaymentSeedRef.current === watching.seed) {
+        forgetSparkPaymentSeed(sparkPaymentSeedRef);
+      }
+      setIsPaymentPending(false);
+      payInFlightRef.current = false;
+      setPayButtonDisabled(false);
+      pendingPayRef.current = undefined;
+      ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
+      alert(loc.wallets.lightning_spark_payment_failed);
+    }
+    // finish helpers close over navigation and wallet; they are stable for this screen instance.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outgoingPayment]);
 
   useEffect(() => {
     if (payload) {
@@ -127,76 +380,259 @@ const LnurlPay = () => {
       comment = description;
     }
 
-    const bolt11payload = await LN.requestBolt11FromLnurlPayService(amountSats, comment);
-    await wallet.payInvoice(bolt11payload.pr);
-    const decoded = wallet.decodeInvoice(bolt11payload.pr);
-    setPayButtonDisabled(false);
+    if (isMax && wallet.type === SparkWallet.type) {
+      const result = await wallet.payLnurlMax(sparkLnurlPayRequest(LN.getLnurlPayRequest()), amountSats, comment, sparkMaxFeeQuote);
+      LN.setSuccessAction(lnurlSuccessActionFromSdk(result?.lnurlSuccessAction));
+      if (result && result.status === 'pending') {
+        pendingPayRef.current = {
+          kind: 'lnurl',
+          paymentHash: result.paymentHash,
+          fee: result.fee,
+          LN,
+        };
+        setIsPaymentPending(true);
+        setPayButtonDisabled(true);
+        return;
+      }
+      if (result && result.status !== 'completed') {
+        payInFlightRef.current = false;
+        setPayButtonDisabled(false);
+        return;
+      }
 
-    // success, probably
-    ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
-    if (wallet.last_paid_invoice_result && wallet.last_paid_invoice_result.payment_preimage) {
-      await LN.storeSuccess(decoded.payment_hash, wallet.last_paid_invoice_result.payment_preimage);
+      await finishLnurlSuccess(result?.paymentHash, result?.fee, LN);
+      return;
     }
 
-    navigate('SendDetailsRoot', {
-      screen: 'LnurlPaySuccess',
-      params: {
-        paymentHash: decoded.payment_hash,
-        justPaid: true,
-        fromWalletID: walletID,
-      },
-    });
+    const bolt11payload = lnurlInvoiceQuote?.invoice
+      ? { pr: lnurlInvoiceQuote.invoice }
+      : await LN.requestBolt11FromLnurlPayService(amountSats, comment);
+    if (wallet.type !== SparkWallet.type) {
+      const result = await wallet.payInvoice(bolt11payload.pr);
+      const decoded = wallet.decodeInvoice(bolt11payload.pr);
+      if (result && result.status === 'pending') {
+        pendingPayRef.current = {
+          kind: 'lnurl',
+          paymentHash: result.paymentHash || decoded.payment_hash,
+          fee: result.fee,
+          LN,
+        };
+        setIsPaymentPending(true);
+        setPayButtonDisabled(true);
+        return;
+      }
+      if (result && result.status !== 'completed') {
+        payInFlightRef.current = false;
+        setPayButtonDisabled(false);
+        return;
+      }
+      await finishLnurlSuccess(decoded.payment_hash, result?.fee, LN);
+      return;
+    }
+    const quote = lnurlInvoiceQuote?.quote || (await wallet.getPaymentFeeQuote(bolt11payload.pr, amountSats));
+    if (!lnurlInvoiceQuote) {
+      setLnurlInvoiceQuote({ invoice: bolt11payload.pr, quote });
+      setSparkFeeQuote(quote);
+      setSparkFee(quote.feeSats);
+      payInFlightRef.current = false;
+      setPayButtonDisabled(false);
+      return;
+    }
+    const result = await wallet.payInvoice(bolt11payload.pr, amountSats, quote);
+    const decoded = wallet.decodeInvoice(bolt11payload.pr);
+    if (result && result.status === 'pending') {
+      pendingPayRef.current = {
+        kind: 'lnurl',
+        paymentHash: result.paymentHash || decoded.payment_hash,
+        fee: result.fee,
+        LN,
+      };
+      setIsPaymentPending(true);
+      setPayButtonDisabled(true);
+      return;
+    }
+    if (result && result.status !== 'completed') {
+      payInFlightRef.current = false;
+      setPayButtonDisabled(false);
+      return;
+    }
+
+    await finishLnurlSuccess(decoded.payment_hash, result?.fee, LN);
   };
 
   const handleLnInvoice = async amountSats => {
-    await wallet.payInvoice(invoice, amountSats);
+    const result = await wallet.payInvoice(invoice, invoiceHasAmount ? 0 : amountSats, sparkFeeQuote);
     const decoded = wallet.decodeInvoice(invoice);
-    navigate('Success', {
-      amount: amountSats,
-      amountUnit: BitcoinUnit.SATS,
-      invoiceDescription: decoded.description,
-    });
+    if (result && result.status === 'pending') {
+      pendingPayRef.current = {
+        kind: 'invoice',
+        paymentHash: result.paymentHash || decoded.payment_hash,
+        amountSats,
+        fee: result.fee,
+        decoded,
+      };
+      setIsPaymentPending(true);
+      setPayButtonDisabled(true);
+      return;
+    }
+    if (result && result.status !== 'completed') {
+      payInFlightRef.current = false;
+      setPayButtonDisabled(false);
+      return;
+    }
+
+    finishInvoiceSuccess(amountSats, result?.fee, decoded);
+  };
+
+  // After a restart, stored seeds are checked against the SDK's payments before one is reused.
+  const reconcileSparkSeeds = async () => {
+    if (!(await sparkSeedsAwaitReconcile())) return;
+    try {
+      await wallet.reconcilePaymentSeeds();
+    } catch {
+      // Any failure leaves the store unchecked and ends in the retry message below.
+    }
+    if (await sparkSeedsAwaitReconcile()) throw new Error(loc.send.details_utxo_refresh_failed);
+  };
+
+  const handleSparkAddress = async (amountSats, destination) => {
+    await reconcileSparkSeeds();
+    const seed = await createSparkPaymentSeed(sparkPaymentSeedRef, destination, amountSats, routeId);
+    const result = await wallet.paySparkAddress(destination, amountSats, seed, sparkFeeQuote);
+    const decoded = {};
+    if (result && result.status === 'pending') {
+      pendingPayRef.current = {
+        kind: 'sparkAddress',
+        paymentId: result.paymentId,
+        amountSats,
+        fee: result.fee,
+        decoded,
+        seed,
+      };
+      setIsPaymentPending(true);
+      setPayButtonDisabled(true);
+      await keepUnresolvedSparkSeed(sparkPaymentSeedRef, result.paymentId, result.paymentHash);
+      return;
+    }
+    if (result && result.status !== 'completed') {
+      forgetSparkPaymentSeed(sparkPaymentSeedRef);
+      payInFlightRef.current = false;
+      setPayButtonDisabled(false);
+      return;
+    }
+
+    forgetSparkPaymentSeed(sparkPaymentSeedRef);
+    finishInvoiceSuccess(amountSats, result?.fee, decoded);
+  };
+
+  const handleSparkInvoice = async (amountSats, destination) => {
+    await reconcileSparkSeeds();
+    const seed = await createSparkPaymentSeed(sparkPaymentSeedRef, destination, amountSats, routeId);
+    const result = await wallet.paySparkInvoice(destination, amountSats, seed, sparkFeeQuote);
+    const decoded = {};
+    if (result && result.status === 'pending') {
+      pendingPayRef.current = {
+        kind: 'sparkInvoice',
+        paymentId: result.paymentId,
+        amountSats,
+        fee: result.fee,
+        decoded,
+        seed,
+      };
+      setIsPaymentPending(true);
+      setPayButtonDisabled(true);
+      await keepUnresolvedSparkSeed(sparkPaymentSeedRef, result.paymentId, result.paymentHash);
+      return;
+    }
+    if (result && result.status !== 'completed') {
+      forgetSparkPaymentSeed(sparkPaymentSeedRef);
+      payInFlightRef.current = false;
+      setPayButtonDisabled(false);
+      return;
+    }
+
+    forgetSparkPaymentSeed(sparkPaymentSeedRef);
+    finishInvoiceSuccess(amountSats, result?.fee, decoded);
   };
 
   const pay = async () => {
+    if (payInFlightRef.current) return;
+    payInFlightRef.current = true;
     setPayButtonDisabled(true);
 
-    const isBiometricsEnabled = await Biometric.isBiometricUseCapableAndEnabled();
-    if (isBiometricsEnabled) {
-      if (!(await Biometric.unlockWithBiometrics())) {
-        return;
-      }
-    }
-
-    let amountSats = amount;
-    switch (unit) {
-      case BitcoinUnit.SATS:
-        amountSats = parseInt(amountSats, 10); // nop
-        break;
-      case BitcoinUnit.BTC:
-        amountSats = currency.btcToSatoshi(amountSats);
-        break;
-      case BitcoinUnit.LOCAL_CURRENCY:
-        if (_cacheFiatToSat[amount]) {
-          amountSats = _cacheFiatToSat[amount];
-        } else {
-          amountSats = currency.btcToSatoshi(currency.fiatToBTC(amountSats));
-        }
-        break;
-    }
-
     try {
-      if (invoice) {
+      const isBiometricsEnabled = await Biometric.isBiometricUseCapableAndEnabled();
+      if (isBiometricsEnabled) {
+        if (!(await Biometric.unlockWithBiometrics())) {
+          payInFlightRef.current = false;
+          setPayButtonDisabled(false);
+          return;
+        }
+      }
+
+      let amountSats = amount;
+      switch (unit) {
+        case BitcoinUnit.SATS:
+          amountSats = parseInt(amountSats, 10); // nop
+          break;
+        case BitcoinUnit.BTC:
+          amountSats = currency.btcToSatoshi(amountSats);
+          break;
+        case BitcoinUnit.LOCAL_CURRENCY:
+          if (_cacheFiatToSat[amount]) {
+            amountSats = _cacheFiatToSat[amount];
+          } else {
+            amountSats = currency.btcToSatoshi(currency.fiatToBTC(amountSats));
+          }
+          break;
+      }
+
+      if (sparkAddress || sparkInvoice) {
+        const sparkDestination = sparkAddress || sparkInvoice;
+        if (SparkWallet.isSparkAddressQuote(sparkFeeQuote)) {
+          await handleSparkAddress(amountSats, sparkDestination);
+        } else {
+          await handleSparkInvoice(amountSats, sparkDestination);
+        }
+      } else if (invoice) {
         await handleLnInvoice(amountSats);
+      } else if (SparkWallet.isSparkAddressQuote(sparkFeeQuote) && directSparkAddress(_LN, wallet, isMax, description)) {
+        _LN.assertAmountInRange(amountSats);
+        await handleSparkAddress(amountSats, directSparkAddress(_LN, wallet, isMax, description));
       } else {
         await handleBolt11Invoice(amountSats);
+      }
+
+      if (pendingPayRef.current) {
+        setIsLoading(false);
+        return;
       }
 
       refreshAllWalletTransactions();
       setIsLoading(false);
     } catch (Err) {
-      console.log(Err.message);
+      const preSendFailure =
+        Err instanceof SparkPaymentFeeQuoteError ||
+        Err?.message === loc.send.insufficient_funds ||
+        Err?.message === loc.lnd.error_tip_invoice_not_supported;
+      // A fee or balance error is thrown before sendPayment. Forgetting the seed
+      // there drops the key of a send that may already be in flight.
+      if (Err?.message === loc.wallets.lightning_spark_payment_failed) {
+        await forgetSparkPaymentSeed(sparkPaymentSeedRef);
+      } else if (preSendFailure && isUnsentSparkSeed(sparkPaymentSeedRef.current)) {
+        await forgetSparkPaymentSeed(sparkPaymentSeedRef);
+      } else if (sparkPaymentSeedRef.current && !preSendFailure) {
+        await keepUnresolvedSparkSeed(sparkPaymentSeedRef);
+      }
+      setLnurlInvoiceQuote(undefined);
+      if (Err instanceof SparkPaymentFeeQuoteError) {
+        setSparkFee(undefined);
+        setSparkFeeQuote(undefined);
+        setSparkMaxFeeQuote(undefined);
+        setQuoteRetry(retry => retry + 1);
+      }
       setIsLoading(false);
+      payInFlightRef.current = false;
       setPayButtonDisabled(false);
       ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
       return alert(Err.message);
@@ -210,6 +646,9 @@ const LnurlPay = () => {
   };
 
   const isInsufficientFunds = () => {
+    if (wallet.type === SparkWallet.type && !isMax && typeof sparkFee === 'number') {
+      return amountSat + sparkFee > wallet.getBalance();
+    }
     return amountSat > wallet.getBalance();
   };
 
@@ -254,11 +693,15 @@ const LnurlPay = () => {
                 <BlueSpacing10 />
               </>
             )}
-            {invoice && <BlueCopyTextToClipboard text={invoice} truncated />}
+            {(invoice || sparkInvoice || sparkAddress) && (
+              <BlueCopyTextToClipboard text={invoice || sparkInvoice || sparkAddress} truncated />
+            )}
           </BlueCard>
         </ScrollView>
         <View style={styles.buttonContainer}>
-          {payButtonDisabled ? (
+          {showPending ? (
+            <BlueText style={styles.pending}>{loc.wallets.lightning_spark_payment_in_transit}</BlueText>
+          ) : payButtonDisabled ? (
             <BlueLoading />
           ) : (
             <>
@@ -270,9 +713,24 @@ const LnurlPay = () => {
               ) : (
                 <>
                   <Text style={styles.fees}>
-                    {loc.send.create_fee}: {isTxFree ? loc._.free : getFees()}
+                    {loc.send.create_fee}:{' '}
+                    {wallet.type === SparkWallet.type
+                      ? sparkFeeQuoteError || (sparkFee === undefined ? '-' : `${sparkFee} ${BitcoinUnit.SATS}`)
+                      : isTxFree
+                        ? loc._.free
+                        : getFees()}
                   </Text>
-                  <BlueButton title={loc.lnd.payButton} onPress={pay} disabled={isInsufficientFunds()} />
+                  {wallet.type === SparkWallet.type && sparkFeeQuoteError && (
+                    <SecondButton title={loc.wallets.list_tryagain} onPress={() => setQuoteRetry(value => value + 1)} />
+                  )}
+                  <BlueButton
+                    title={loc.lnd.payButton}
+                    onPress={pay}
+                    disabled={
+                      isInsufficientFunds() ||
+                      (wallet.type === SparkWallet.type && ((isMax && !sparkMaxFeeQuote) || (!isMax && !sparkFeeQuote)))
+                    }
+                  />
                 </>
               )}
             </>
@@ -324,6 +782,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginVertical: 8,
     marginHorizontal: 24,
+    alignSelf: 'center',
+  },
+  pending: {
+    color: '#37c0a1',
+    fontSize: 14,
+    marginVertical: 8,
+    marginHorizontal: 24,
+    paddingBottom: 6,
+    fontWeight: '500',
+    textAlign: 'center',
     alignSelf: 'center',
   },
 });

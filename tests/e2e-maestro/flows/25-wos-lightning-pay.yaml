@@ -1,0 +1,28 @@
+appId: swiss.dfx.bitcoin
+env:
+  E2E_WOS_LIGHTNING_ADDRESS: ${E2E_WOS_LIGHTNING_ADDRESS || ''}
+  E2E_WOS_LIGHTNING_USER: "${E2E_WOS_LIGHTNING_ADDRESS ? E2E_WOS_LIGHTNING_ADDRESS.split('@')[0] : ''}"
+---
+# P25 is the one-shot follow-up to the reviewed P24 confirmation. Run directly
+# on the same preserved clone. There is exactly one pay tap and no retry.
+- runFlow:
+    when:
+      true: ${E2E_WOS_LIGHTNING_USER === ''}
+    commands:
+      - assertTrue:
+          condition: ${false}
+          label: E2E_WOS_LIGHTNING_ADDRESS is required to identify the reviewed recipient.
+- assertVisible:
+    id: BitcoinAmountInput
+    text: '^10$'
+- assertVisible: "${'Pay to Wallet of Satoshi user: ' + E2E_WOS_LIGHTNING_USER}"
+- assertVisible: 'livingroomofsatoshi.com'
+- assertVisible: '^Gebühr: ([0-9]|10) sats$'
+- assertVisible: '^Zahlen$'
+- tapOn: 'Zahlen'
+- extendedWaitUntil:
+    visible: 'livingroomofsatoshi.com'
+    timeout: 120000
+- assertVisible: "${'Pay to Wallet of Satoshi user: ' + E2E_WOS_LIGHTNING_USER}"
+- assertVisible: '^gebühr: [0-9]+ sats$'
+- takeScreenshot: .maestro-e2e-shots/25-wos/01-lightning-payment-success

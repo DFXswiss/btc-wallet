@@ -10,7 +10,7 @@ import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { useWalletContext } from '../../contexts/wallet.context';
 import { AbstractWallet } from '../../class';
-import { Chain } from '../../models/bitcoinUnits';
+import { getLightningWallet } from '../../helpers/lightning-wallet';
 import loc from '../../loc';
 
 type SendRouteParams = { walletID?: string };
@@ -20,7 +20,7 @@ const ManualAddressSend: React.FC & { navigationOptions?: ReturnType<typeof navi
   const { wallets } = useContext(BlueStorageContext);
   const { wallet: mainWallet } = useWalletContext();
   const { params } = useRoute<RouteProp<{ params: SendRouteParams }, 'params'>>();
-  const { replace } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
+  const { navigate } = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const [address, setAddress] = useState('');
   const [disableContinue, setDisableContinue] = useState(true);
   const { colors } = useTheme();
@@ -43,18 +43,18 @@ const ManualAddressSend: React.FC & { navigationOptions?: ReturnType<typeof navi
   };
 
   const onContinue = () => {
+    // replace does not leave ScanCodeSendStack; SendDetailsRoot is on the parent.
     if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(address)) {
       const selectedWallet = wallets.find((w: AbstractWallet) => w.getID() === params?.walletID);
-      const lightningWallet = wallets.find((w: AbstractWallet) => w.chain === Chain.OFFCHAIN);
       const uri = DeeplinkSchemaMatch.isBothBitcoinAndLightning(address);
-      const destinationWallet = selectedWallet || lightningWallet || mainWallet;
+      const destinationWallet = selectedWallet || getLightningWallet(wallets) || mainWallet;
       const route = DeeplinkSchemaMatch.isBothBitcoinAndLightningOnWalletSelect(destinationWallet, uri) as NavigationRoute;
       ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
-      replace(...route);
+      navigate(...route);
     } else if (DeeplinkSchemaMatch.isPossiblyLightningDestination(address) || DeeplinkSchemaMatch.isPossiblyOnChainDestination(address)) {
       DeeplinkSchemaMatch.navigationRouteFor({ url: address }, (completionValue: NavigationRoute) => {
         ReactNativeHapticFeedback.trigger('impactLight', { ignoreAndroidSystemSettings: false });
-        replace(...completionValue);
+        navigate(...completionValue);
       });
     }
   };

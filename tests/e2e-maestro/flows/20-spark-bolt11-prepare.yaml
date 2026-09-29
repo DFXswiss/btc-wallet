@@ -1,0 +1,69 @@
+appId: swiss.dfx.bitcoin
+env:
+  E2E_BOLT11_INVOICE: ${E2E_BOLT11_INVOICE || ''}
+---
+# P20 is a prepare-only flow for the preserved, funded Spark simulator.
+# Run this file directly with `maestro --device ... test -e ...`; never use
+# scripts/e2e/run-maestro.sh here because it uninstalls the app and resets the
+# simulator keychain. This flow deliberately stops at payment confirmation.
+- runFlow:
+    when:
+      true: ${E2E_BOLT11_INVOICE === ''}
+    commands:
+      - assertTrue:
+          condition: ${false}
+          label: E2E_BOLT11_INVOICE is missing; pass the isolated receiver's invoice outside the repository.
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning, .*sats, .*'
+    timeout: 30000
+- copyTextFrom: 'Bitcoin, Lightning, .*sats, .*'
+- evalScript: "${output.startingBalance = Number(String(maestro.copiedText || '').replace(/[^0-9]/g, ''))}"
+- assertTrue:
+    condition: ${output.startingBalance === 78}
+    label: P20 requires the preserved 78-sat funded Spark simulator; do not reset or substitute another wallet.
+- tapOn:
+    point: '50%,58%'
+- waitForAnimationToEnd:
+    timeout: 12000
+- extendedWaitUntil:
+    visible:
+      id: SendButton
+    timeout: 30000
+- tapOn:
+    id: SendButton
+- waitForAnimationToEnd:
+    timeout: 10000
+# Use the keyboard/manual-entry control in the scanner. The simulator clipboard
+# contains the same invoice as a convenience, but the flow uses the explicit
+# environment fixture and never writes the invoice into the repository.
+- tapOn:
+    point: '50%,88%'
+- extendedWaitUntil:
+    visible: 'Fortsetzen'
+    timeout: 20000
+- tapOn:
+    point: '50%,23%'
+- inputText: ${E2E_BOLT11_INVOICE}
+- tapOn: 'Fortsetzen'
+- runFlow:
+    when:
+      visible: 'Adresse eingeben'
+    commands:
+      - tapOn: 'Fortsetzen'
+- extendedWaitUntil:
+    visible:
+      id: BitcoinAmountInput
+      text: '^10$'
+    timeout: 30000
+- assertVisible: '.*lnbc.*'
+- tapOn: 'Weiter'
+- extendedWaitUntil:
+    visible: '^Gebühr: [0-9]+ sats$'
+    timeout: 90000
+- assertVisible:
+    id: BitcoinAmountInput
+    text: '^10$'
+- assertVisible: '^Zahlen$'
+- takeScreenshot: .maestro-e2e-shots/20-spark/01-bolt11-quote-confirmation
+# Intentionally no payment action: root reviews this rendered quote before any
+# separate payment flow is authorized.

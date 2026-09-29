@@ -25,6 +25,7 @@ import {
 import { randomBytes } from './class/rng';
 import { LightningLdsWallet } from './class/wallets/lightning-lds-wallet';
 import { TaprootLdsWallet } from './class/wallets/taproot-lds-wallet';
+import { SparkWallet } from './class/wallets/spark-wallet';
 
 const encryption = require('./blue_modules/encryption');
 const Realm = require('realm');
@@ -420,6 +421,10 @@ class AppStorage {
             unserializedWallet.init();
             break;
           }
+          case SparkWallet.type:
+            // Own case: Spark has no LNDHub base URI or init lifecycle.
+            unserializedWallet = SparkWallet.fromJson(key);
+            break;
           case LegacyWallet.type:
           default:
             unserializedWallet = LegacyWallet.fromJson(key);
@@ -574,7 +579,7 @@ class AppStorage {
    * If cached password is saved - finds the correct bucket
    * to save to, encrypts and then saves.
    *
-   * @returns {Promise} Result of storage save
+   * @returns {Promise<boolean>} Whether the storage save succeeded
    */
   async saveToDisk() {
     if (savingInProgress) {
@@ -670,12 +675,14 @@ class AppStorage {
       this.saveToRealmKeyValue(realmkeyValue, 'data', JSON.stringify(data));
       this.saveToRealmKeyValue(realmkeyValue, AppStorage.FLAG_ENCRYPTED, this.cachedPassword ? '1' : '');
       realmkeyValue.close();
+      return true;
     } catch (error) {
       console.error('saveToDisk: failed to persist wallet data', error);
       if (error.message.includes('Realm file decryption failed')) {
         console.warn('saveToDisk: realm file decryption failed, purging realm key-value database file');
         this.purgeRealmKeyValueFile();
       }
+      return false;
     } finally {
       savingInProgress = 0;
     }
@@ -927,7 +934,7 @@ class AppStorage {
 
   getCameraPermissionLastAskedTime = async () => {
     const time = await AsyncStorage.getItem(AppStorage.CAMERA_PERMISSION_LAST_ASKED_TIME);
-    return time ? parseInt(time) : 0;
+    return time ? parseInt(time, 10) : 0;
   };
 
   setCameraPermissionLastAskedTime = async value => {

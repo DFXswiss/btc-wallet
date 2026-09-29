@@ -248,7 +248,6 @@ const LNDViewInvoice = () => {
             <SuccessView
               amount={amount}
               paymentHash={invoice.payment_hash}
-              fee={invoice.fee}
               amountUnit={BitcoinUnit.SATS}
               invoiceDescription={description}
               shouldAnimate={invoiceStatusChanged}

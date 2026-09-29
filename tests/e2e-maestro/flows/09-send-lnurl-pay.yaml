@@ -1,0 +1,25 @@
+appId: swiss.dfx.bitcoin
+---
+# Spark receive shows the wallet's Lightning address (<16 hex>@domain) until an amount is entered.
+- runFlow: ../_setup.yaml
+- tapOn:
+    point: '85%,58%'
+- waitForAnimationToEnd:
+    timeout: 90000
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning, 0 sats, .*'
+    timeout: 90000
+- tapOn:
+    point: '50%,58%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- tapOn:
+    point: '16%,93%'
+- extendedWaitUntil:
+    visible: '[0-9a-f]{16}@.*'
+    timeout: 60000
+- assertVisible: '[0-9a-f]{16}@.*'
+- assertNotVisible: '.*@breez\.tips.*'
+- assertNotVisible: 'On-Chain'
+- assertNotVisible: '.*lnbc.*'
+- assertNotVisible: '.*bc1.*'

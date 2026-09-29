@@ -59,6 +59,16 @@ the build intentionally — see the guards in `scripts/build-release-apk.sh` and
 | `SENTRY_AUTH_TOKEN` (secret) | Auth token for `sentry-cli` uploads. | `sentry.dfxserve.com` → **Settings → Auth Tokens** (org-level if available), scopes `project:releases`, `project:read`, `org:read`. |
 | `SENTRY_URL`, `SENTRY_ORG`, `SENTRY_PROJECT` (plain values, not secrets) | Where to upload to — `sentry-cli` defaults to `sentry.io` without these. | Already fixed for this self-hosted instance/project: `https://sentry.dfxserve.com/`, `sentry`, `btc-taro`. Set as **variables**, or plain `env:` values as the existing workflows already do. |
 
+### Spark Lightning (Breez)
+Used by both platforms' Release-configuration builds (`release.yml` iOS + Android,
+`deploy-develop.yml`, `build-release-apk.yml`). The key is written into a generated
+overlay `.env` (never a tracked `.env` file) and baked into the binary via
+`react-native-config`. A missing/empty value fails the build intentionally — see
+the guards in `scripts/build-release-apk.sh` and `ios/fastlane/Fastfile`.
+| Secret | What it is | Where to get it |
+| --- | --- | --- |
+| `BREEZ_API_KEY` (secret) | Breez SDK API key so Spark Lightning can start. | Request from Breez (`https://breez.technology/contact/apikey` or the request form); the key is emailed. Store only as this secret — do not commit it to tracked `.env` files. |
+
 ### Optional variable
 | Name | When needed | Where |
 | --- | --- | --- |

@@ -1,6 +1,7 @@
 import legacyUrl from 'url';
 import { Chain } from '../models/bitcoinUnits';
 import Lnurl from './lnurl';
+import { SparkWallet } from './wallets/spark-wallet';
 const bitcoin = require('bitcoinjs-lib');
 const bip21 = require('bip21');
 
@@ -14,7 +15,8 @@ class DeeplinkSchemaMatch {
       lowercaseString.startsWith('blue:') ||
       lowercaseString.startsWith('bluewallet:') ||
       lowercaseString.startsWith('lapp:') ||
-      lowercaseString.startsWith('dfxtaro:')
+      lowercaseString.startsWith('dfxtaro:') ||
+      lowercaseString.startsWith('spark:')
     );
   }
 
@@ -142,6 +144,16 @@ class DeeplinkSchemaMatch {
           screen: 'ScanLndInvoice',
           params: {
             uri: event.url.replace('://', ':'),
+          },
+        },
+      ]);
+    } else if (DeeplinkSchemaMatch.isSparkAddress(event.url) || DeeplinkSchemaMatch.isSparkPaymentUri(event.url)) {
+      completionHandler([
+        'SendDetailsRoot',
+        {
+          screen: 'ScanLndInvoice',
+          params: {
+            uri: event.url,
           },
         },
       ]);
@@ -395,6 +407,14 @@ class DeeplinkSchemaMatch {
     return isValidLightningInvoice;
   }
 
+  static isSparkPaymentUri(text) {
+    return SparkWallet.isSparkPaymentUri(text);
+  }
+
+  static isSparkAddress(address) {
+    return SparkWallet.isSparkAddress(address);
+  }
+
   static isTestnetLightningInvoice(invoice) {
     let isValidLightningInvoice = false;
     if (
@@ -504,6 +524,7 @@ class DeeplinkSchemaMatch {
     if (Lnurl.isLightningAddress(text)) return true;
     if (DeeplinkSchemaMatch.isLightningInvoice(text)) return true;
     if (DeeplinkSchemaMatch.isTestnetLightningInvoice(text)) return true;
+    if (DeeplinkSchemaMatch.isSparkAddress(text) || DeeplinkSchemaMatch.isSparkPaymentUri(text)) return true;
 
     if (options.includeDualFormats) {
       if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(text)) return true;

@@ -37,6 +37,7 @@ import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import Config from 'react-native-config';
 
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
+import { SparkWallet } from '../../class/wallets/spark-wallet';
 import BoltCard from '../../class/boltcard';
 import scanqrHelper from '../../helpers/scan-qr';
 import DfxServicesButtons from '../../components/DfxServicesButtons';
@@ -168,7 +169,10 @@ const Asset = ({ navigation }) => {
     }, []),
   );
 
+  const isSpark = () => wallet?.type === SparkWallet.type;
+
   const isLightning = () => {
+    if (isSpark()) return false;
     const w = wallet;
     if (w && w.chain === Chain.OFFCHAIN) {
       return true;

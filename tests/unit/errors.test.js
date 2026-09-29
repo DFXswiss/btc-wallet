@@ -1,6 +1,6 @@
 const assert = require('assert');
 
-const { reportError } = require('../../helpers/errors');
+const { hasStatusCode, reportError } = require('../../helpers/errors');
 
 // The HTTP layers reject with the parsed error body rather than an Error, and Sentry files
 // an issue from the first Error among the console arguments. Everything below is about what
@@ -278,5 +278,21 @@ describe('helpers/errors reportError', () => {
     const culprit = frameLines(error)[error.framesToPop];
     assert.ok(!culprit.includes('helpers/errors'), `culprit is still the helper: ${culprit}`);
     assert.ok(culprit.includes('errors.test.js'), `culprit is not the caller: ${culprit}`);
+  });
+});
+
+describe('helpers/errors hasStatusCode', () => {
+  it('matches only a caught value carrying that status', () => {
+    assert.strictEqual(hasStatusCode({ statusCode: 404, message: 'not found' }, 404), true);
+    assert.strictEqual(hasStatusCode({ statusCode: 403 }, 404), false);
+    assert.strictEqual(hasStatusCode({ statusCode: '404' }, 404), false);
+    assert.strictEqual(hasStatusCode(null, 404), false);
+    assert.strictEqual(hasStatusCode('404', 404), false);
+    const throwing = Object.defineProperty({}, 'statusCode', {
+      get() {
+        throw new Error('getter failed');
+      },
+    });
+    assert.strictEqual(hasStatusCode(throwing, 404), false);
   });
 });

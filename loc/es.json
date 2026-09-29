@@ -513,7 +513,6 @@
     "coming_soon": "Pronto disponible",
     "import_success_watchonly": "Tu monedero se ha importado correctamente. ADVERTENCIA: Este es un monedero sólo para relojes, NO puedes gastar desde él.",
     "main_wallet_label": "Cartera On-Chain",
-    "lightning_wallet_label": "Cartera Lightning",
     "multi_sig_wallet_label": "Cartera Multidispositivo",
     "chf_taproot_wallet_label": "Cartera CHF Taproot",
     "add_lndhub_DFXswiss_not_available": "Este servicio estará disponible en breve",

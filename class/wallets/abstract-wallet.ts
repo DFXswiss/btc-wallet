@@ -16,7 +16,8 @@ type UtxoMetadata = {
   memo?: string;
 };
 
-export class AbstractWallet {
+/** The transaction shape the wallet lists: on-chain by default, invoice records for off-chain wallets. */
+export class AbstractWallet<TTransaction extends { received?: number | string } = Transaction> {
   static type = 'abstract';
   static typeReadable = 'abstract';
 
@@ -93,7 +94,7 @@ export class AbstractWallet {
     return createHash('sha256').update(string2hash).digest().toString('hex');
   }
 
-  getTransactions(): Transaction[] {
+  getTransactions(): TTransaction[] {
     throw new Error('not implemented');
   }
 

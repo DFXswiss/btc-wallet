@@ -1,6 +1,7 @@
 # OSX
 #
 .DS_Store
+.maestro-e2e-shots/
 
 # Xcode
 #

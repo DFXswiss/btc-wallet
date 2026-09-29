@@ -28,7 +28,7 @@ const useQrCodeImagePicker = () => {
                   onBarCodeRead({ data: result.values[0] });
                 }
               })
-              .catch(error => {
+              .catch(() => {
                 alert(loc.send.qr_error_no_qrcode);
               })
               .finally(() => {
