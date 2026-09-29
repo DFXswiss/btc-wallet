@@ -5,7 +5,6 @@ import { useLds } from '../api/lds/hooks/lds.hook';
 import { User } from '../api/lds/definitions/user';
 import { openLightningLdsWallet } from '../api/lds/lightning-lds-wallet-factory';
 import { useSparkContext } from '../api/spark/contexts/spark.context';
-import { reportError } from '../helpers/errors';
 import { BIP39_HD_WALLET_TYPES } from '../api/spark/spark-seed';
 
 type SigningHdWallet = {
@@ -37,23 +36,16 @@ function loginCandidates(wallet: SigningHdWallet): SigningHdWallet[] {
   return candidates;
 }
 
-/** How long an import screen waits for the recovery before it continues; the recovery keeps running afterwards. */
-export const LIGHTNING_RECOVERY_MAX_WAIT_MS = 30000;
-
 /**
- * Discovers the Lightning wallet a seed already has. A lightning.space (LNDHub) account takes precedence:
- * - recoverLightningWallet (after an import) restores it, or else a previously used Spark wallet; any failed
- *   check stops the recovery instead of guessing, so nothing is created on uncertain results.
- * - addLightningWallet (the home add button) restores it, or else creates the Spark wallet, which brings back
- *   a Spark wallet the seed already had. A failed lightning.space check is thrown to the caller.
+ * Adds the Lightning wallet of a seed (the home add button). A lightning.space (LNDHub) account the seed already
+ * has takes precedence; otherwise the Spark wallet is created, which brings back a Spark wallet the seed already
+ * had. A failed lightning.space check is thrown to the caller.
  */
 export function useLightningRecovery(): {
-  recoverLightningWallet: (wallet: SigningHdWallet) => Promise<void>;
-  waitForLightningRecovery: (wallet: SigningHdWallet) => Promise<void>;
   addLightningWallet: (wallet?: SigningHdWallet) => Promise<void>;
 } {
   const { findUser } = useLds();
-  const { recoverSparkWallet, createSparkWallet } = useSparkContext();
+  const { createSparkWallet } = useSparkContext();
   const { addAndSaveWallet } = useContext(BlueStorageContext);
 
   /** Adds the seed's lightning.space wallet if it has one; returns whether it did. */
@@ -76,34 +68,6 @@ export function useLightningRecovery(): {
     [findUser, addAndSaveWallet],
   );
 
-  const recoverLightningWallet = useCallback(
-    async (wallet: SigningHdWallet): Promise<void> => {
-      if (!BIP39_HD_WALLET_TYPES.has(wallet.type)) return;
-      try {
-        if (await addExistingLdsWallet(wallet)) return;
-        await recoverSparkWallet(wallet);
-      } catch (e) {
-        reportError('lightningRecovery: recovery check failed', e);
-      }
-    },
-    [addExistingLdsWallet, recoverSparkWallet],
-  );
-
-  const waitForLightningRecovery = useCallback(
-    async (wallet: SigningHdWallet): Promise<void> => {
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      const timeout = new Promise<void>(resolve => {
-        timer = setTimeout(resolve, LIGHTNING_RECOVERY_MAX_WAIT_MS);
-      });
-      try {
-        await Promise.race([recoverLightningWallet(wallet), timeout]);
-      } finally {
-        clearTimeout(timer);
-      }
-    },
-    [recoverLightningWallet],
-  );
-
   const addLightningWallet = useCallback(
     async (wallet?: SigningHdWallet): Promise<void> => {
       if (wallet && (await addExistingLdsWallet(wallet))) return;
@@ -112,5 +76,5 @@ export function useLightningRecovery(): {
     [addExistingLdsWallet, createSparkWallet],
   );
 
-  return { recoverLightningWallet, waitForLightningRecovery, addLightningWallet };
+  return { addLightningWallet };
 }

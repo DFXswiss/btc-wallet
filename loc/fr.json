@@ -475,7 +475,6 @@
     "import_discovery_subtitle": "Choisissez un portefeuille trouvé",
     "import_discovery_derivation": "Utiliser un chemin de dérivation personnalisé",
     "import_discovery_no_wallets": "Aucaun portefeuille trouvé.",
-    "import_lightning_recovery": "Recherche d'un portefeuille Lightning existant…",
     "import_derivation_found": "trouvé",
     "import_derivation_found_not": "non trouvé",
     "import_derivation_loading": "Chargement...",

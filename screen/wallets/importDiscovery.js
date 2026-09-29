@@ -11,7 +11,6 @@ import startImport from '../../class/wallet-import';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import prompt from '../../helpers/prompt';
 import { walletCreatedRoute } from '../../helpers/wallet-created-route';
-import { useLightningRecovery } from '../../hooks/lightningRecovery.hook';
 
 const ImportWalletDiscovery = () => {
   const navigation = useNavigation();
@@ -19,14 +18,12 @@ const ImportWalletDiscovery = () => {
   const route = useRoute();
   const { importText, askPassphrase, searchAccounts } = route.params;
   const task = useRef();
-  const { wallets: storedWallets, addAndSaveWallet } = useContext(BlueStorageContext);
-  const { waitForLightningRecovery } = useLightningRecovery();
+  const { addAndSaveWallet } = useContext(BlueStorageContext);
   const [loading, setLoading] = useState(true);
   const [wallets, setWallets] = useState([]);
   const [password, setPassword] = useState();
   const [selected, setSelected] = useState(0);
   const [progress, setProgress] = useState();
-  const [recovering, setRecovering] = useState(false);
   const importing = useRef(false);
   const bip39 = useMemo(() => {
     const hd = new HDSegwitBech32Wallet();
@@ -47,13 +44,7 @@ const ImportWalletDiscovery = () => {
     if (importing.current) return;
     importing.current = true;
     try {
-      const isFirstWallet = storedWallets.length === 0;
       await addAndSaveWallet(mainWallet);
-      if (isFirstWallet) {
-        // Restore an existing Lightning wallet before the overview opens, so it does not offer a new one meanwhile.
-        setRecovering(true);
-        await waitForLightningRecovery(mainWallet);
-      }
       if (multisigWallet) {
         await addAndSaveWallet(multisigWallet);
       }
@@ -166,12 +157,12 @@ const ImportWalletDiscovery = () => {
       )}
 
       <View style={[styles.center, stylesHook.center]}>
-        {(loading || recovering) && (
+        {loading && (
           <>
             <BlueSpacing10 />
             <ActivityIndicator testID="Loading" />
             <BlueSpacing10 />
-            <BlueFormLabel>{recovering ? loc.wallets.import_lightning_recovery : progress}</BlueFormLabel>
+            <BlueFormLabel>{progress}</BlueFormLabel>
             <BlueSpacing10 />
           </>
         )}
@@ -185,7 +176,7 @@ const ImportWalletDiscovery = () => {
         <BlueSpacing10 />
         <View style={styles.buttonContainer}>
           <BlueButton
-            disabled={recovering || wallets.length === 0}
+            disabled={wallets.length === 0}
             title={loc.wallets.import_do_import}
             onPress={() => saveWallet(wallets[selected].wallet)}
           />

@@ -2,19 +2,16 @@ import React from 'react';
 import { act, render } from '@testing-library/react-native';
 
 const mockFindUser = jest.fn();
-const mockRecoverSparkWallet = jest.fn();
 const mockCreateSparkWallet = jest.fn();
 const mockOpenLightningLdsWallet = jest.fn();
-const mockReportError = jest.fn();
 
 jest.mock('../../api/lds/hooks/lds.hook', () => ({ useLds: () => ({ findUser: mockFindUser }) }));
 jest.mock('../../api/spark/contexts/spark.context', () => ({
-  useSparkContext: () => ({ recoverSparkWallet: mockRecoverSparkWallet, createSparkWallet: mockCreateSparkWallet }),
+  useSparkContext: () => ({ createSparkWallet: mockCreateSparkWallet }),
 }));
 jest.mock('../../api/lds/lightning-lds-wallet-factory', () => ({
   openLightningLdsWallet: (...args) => mockOpenLightningLdsWallet(...args),
 }));
-jest.mock('../../helpers/errors', () => ({ reportError: (...args) => mockReportError(...args) }));
 jest.mock('../../blue_modules/storage-context', () => {
   const ReactModule = require('react');
   return { BlueStorageContext: ReactModule.createContext({}) };
@@ -48,7 +45,7 @@ jest.mock('../../class', () => {
 });
 
 const { BlueStorageContext } = require('../../blue_modules/storage-context');
-const { useLightningRecovery, LIGHTNING_RECOVERY_MAX_WAIT_MS } = require('../../hooks/lightningRecovery.hook');
+const { useLightningRecovery } = require('../../hooks/lightningRecovery.hook');
 
 const addAndSaveWallet = jest.fn().mockResolvedValue(undefined);
 
@@ -83,32 +80,31 @@ function mountHook() {
   return hook;
 }
 
-async function recover(wallet) {
+async function addLightning(wallet) {
   const hook = mountHook();
   await act(async () => {
-    await hook.recoverLightningWallet(wallet);
+    await hook.addLightningWallet(wallet);
   });
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockFindUser.mockResolvedValue(undefined);
-  mockRecoverSparkWallet.mockResolvedValue(null);
   mockOpenLightningLdsWallet.mockResolvedValue({ type: 'lightningLdsWallet' });
 });
 
-describe('useLightningRecovery', () => {
-  it('restores the lightning.space wallet and skips Spark when an account exists', async () => {
+describe('useLightningRecovery account lookup', () => {
+  it('restores the lightning.space wallet and creates no Spark wallet when an account exists', async () => {
     mockFindUser.mockResolvedValueOnce(ldsUser());
-    await recover(importedWallet());
+    await addLightning(importedWallet());
 
     expect(mockOpenLightningLdsWallet).toHaveBeenCalledWith('secret@https://lndhub.example', 'user@lightning.space', 'proof');
     expect(addAndSaveWallet).toHaveBeenCalledWith({ type: 'lightningLdsWallet' });
-    expect(mockRecoverSparkWallet).not.toHaveBeenCalled();
+    expect(mockCreateSparkWallet).not.toHaveBeenCalled();
   });
 
-  it('signs in with the imported address first and never signs up', async () => {
-    await recover(importedWallet());
+  it('signs in with the address of the wallet itself first and never signs up', async () => {
+    await addLightning(importedWallet());
 
     const addresses = mockFindUser.mock.calls.map(call => call[0]);
     expect(addresses).toEqual(['bc1-seed words-pass', '3-seed words-pass']);
@@ -116,54 +112,28 @@ describe('useLightningRecovery', () => {
     await expect(mockFindUser.mock.calls[1][1]('message')).resolves.toBe('sig(3-seed words-pass)');
   });
 
-  it('also tries the BIP84 and BIP49 addresses of a legacy import, keeping the passphrase', async () => {
+  it('also tries the BIP84 and BIP49 addresses of a legacy wallet, keeping the passphrase', async () => {
     mockFindUser.mockResolvedValueOnce(undefined).mockResolvedValueOnce(undefined).mockResolvedValueOnce(ldsUser());
-    await recover(importedWallet('HDlegacyP2PKH', '1'));
+    await addLightning(importedWallet('HDlegacyP2PKH', '1'));
 
     expect(mockFindUser.mock.calls.map(call => call[0])).toEqual(['1-seed words-pass', 'bc1-seed words-pass', '3-seed words-pass']);
     expect(addAndSaveWallet).toHaveBeenCalledTimes(1);
-    expect(mockRecoverSparkWallet).not.toHaveBeenCalled();
+    expect(mockCreateSparkWallet).not.toHaveBeenCalled();
   });
 
   it('also tries the standard BIP84 address of a BIP84 wallet imported on a custom path', async () => {
     const customPath = { ...importedWallet(), _getExternalAddressByIndex: () => 'bc1-custom-path' };
-    await recover(customPath);
+    await addLightning(customPath);
 
     expect(mockFindUser.mock.calls.map(call => call[0])).toEqual(['bc1-custom-path', 'bc1-seed words-pass', '3-seed words-pass']);
   });
 
-  it('restores Spark only when no lightning.space account exists', async () => {
-    const wallet = importedWallet();
-    await recover(wallet);
-
-    expect(mockFindUser).toHaveBeenCalledTimes(2);
-    expect(mockRecoverSparkWallet).toHaveBeenCalledWith(wallet);
-    expect(addAndSaveWallet).not.toHaveBeenCalled();
-  });
-
-  it('falls back to Spark when the account has no BTC Lightning wallet', async () => {
+  it('creates the Spark wallet when the account has no BTC Lightning wallet', async () => {
     mockFindUser.mockResolvedValueOnce(ldsUser([{ asset: { name: 'CHF' }, lndhubAdminUrl: 'secret@https://lndhub.example' }]));
-    const wallet = importedWallet();
-    await recover(wallet);
+    await addLightning(importedWallet());
 
     expect(mockOpenLightningLdsWallet).not.toHaveBeenCalled();
-    expect(mockRecoverSparkWallet).toHaveBeenCalledWith(wallet);
-  });
-
-  it('creates nothing when the lightning.space check fails', async () => {
-    mockFindUser.mockRejectedValueOnce({ statusCode: 503, message: 'unavailable' });
-    await recover(importedWallet());
-
-    expect(addAndSaveWallet).not.toHaveBeenCalled();
-    expect(mockRecoverSparkWallet).not.toHaveBeenCalled();
-    expect(mockReportError).toHaveBeenCalledWith('lightningRecovery: recovery check failed', expect.anything());
-  });
-
-  it('ignores wallets that cannot derive a Lightning account', async () => {
-    await recover({ ...importedWallet(), type: 'watchOnly' });
-
-    expect(mockFindUser).not.toHaveBeenCalled();
-    expect(mockRecoverSparkWallet).not.toHaveBeenCalled();
+    expect(mockCreateSparkWallet).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -188,7 +158,6 @@ describe('useLightningRecovery addLightningWallet', () => {
     expect(mockFindUser).toHaveBeenCalledTimes(2);
     expect(mockCreateSparkWallet).toHaveBeenCalledTimes(1);
     expect(mockCreateSparkWallet).toHaveBeenCalledWith(expect.objectContaining({ type: importedWallet().type }));
-    expect(mockRecoverSparkWallet).not.toHaveBeenCalled();
   });
 
   it('creates the Spark wallet directly for a wallet that cannot have a lightning.space login', async () => {
@@ -207,38 +176,5 @@ describe('useLightningRecovery addLightningWallet', () => {
     await expect(hook.addLightningWallet(importedWallet())).rejects.toEqual({ statusCode: 503 });
     expect(mockCreateSparkWallet).not.toHaveBeenCalled();
     expect(addAndSaveWallet).not.toHaveBeenCalled();
-  });
-});
-
-describe('useLightningRecovery waitForLightningRecovery', () => {
-  afterEach(() => {
-    jest.useRealTimers();
-  });
-
-  it('resolves once the recovery has finished', async () => {
-    mockFindUser.mockResolvedValueOnce(ldsUser());
-    const hook = mountHook();
-    await act(async () => {
-      await hook.waitForLightningRecovery(importedWallet());
-    });
-    expect(addAndSaveWallet).toHaveBeenCalledWith({ type: 'lightningLdsWallet' });
-  });
-
-  it('stops waiting after the cap while the recovery keeps running', async () => {
-    jest.useFakeTimers();
-    mockFindUser.mockReturnValue(new Promise(() => {}));
-    const hook = mountHook();
-    let done = false;
-    hook.waitForLightningRecovery(importedWallet()).then(() => {
-      done = true;
-    });
-    await act(async () => {
-      jest.advanceTimersByTime(LIGHTNING_RECOVERY_MAX_WAIT_MS - 1);
-    });
-    expect(done).toBe(false);
-    await act(async () => {
-      jest.advanceTimersByTime(1);
-    });
-    expect(done).toBe(true);
   });
 });
