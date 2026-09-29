@@ -108,7 +108,7 @@ On-chain wallet lifecycle: create and import, recovery-phrase backup, the home a
 
 **Known issues.** None recorded.
 
-**Tests.** `tests/unit/spark-home.test.js`, `tests/unit/dfx-services-buttons.test.js`; `tests/e2e/onchain.spec.js` (Detox: wallet row survives a restart); CF-01.
+**Tests.** `tests/unit/spark-home.test.js`, `tests/unit/dfx-services-buttons.test.js`; `tests/e2e/onchain.spec.js` (Detox: wallet row survives a restart), `tests/e2e/settings.spec.js` (Detox: tapping the balance reaches fiat and hidden; hidden masks the home rows and survives a restart); CF-01.
 
 **Source.** screen/wallets/home.js, components/TransactionsNavigationHeader.js, components/DfxServicesButtons.tsx, blue_modules/storage-context.js, navigation/WalletsStack.tsx, navigation/index.tsx
 
@@ -130,7 +130,7 @@ On-chain wallet lifecycle: create and import, recovery-phrase backup, the home a
 
 **Known issues.** None recorded.
 
-**Tests.** `tests/unit/asset-dfx-services.test.js`; CF-01.
+**Tests.** `tests/unit/asset-dfx-services.test.js`, `tests/e2e/transactions.spec.js` (Detox: history rows of a public wallet); CF-01.
 
 **Source.** screen/wallets/asset.js, navigation/WalletsStack.tsx
 
@@ -196,7 +196,7 @@ On-chain wallet lifecycle: create and import, recovery-phrase backup, the home a
 
 **Known issues.** None recorded.
 
-**Tests.** `tests/unit/addresses.test.js`.
+**Tests.** `tests/unit/addresses.test.js`, `tests/e2e/wallet-details.spec.js` (Detox: receive and change addresses equal the ones derived from the phrase)
 
 **Source.** screen/wallets/addresses.js, components/addresses/AddressItem.js, navigation/WalletsStack.tsx
 
@@ -306,7 +306,7 @@ On-chain wallet lifecycle: create and import, recovery-phrase backup, the home a
 
 **Known issues.** #176 Wallet recovery broken on iOS 26.4.2 (multi-sig config mismatch)
 
-**Tests.** `tests/unit/multisig-hd-wallet.test.js` (includes cosigner-seed match helpers); no screen-level unit test found.
+**Tests.** `tests/unit/multisig-hd-wallet.test.js` (includes cosigner-seed match helpers); no screen-level unit test found; `tests/e2e/multisig-import.spec.js` (Detox: a Coldcard-style setup with the main seed becomes the vault with the independently computed address; one without it is refused)
 
 **Source.** screen/wallets/importMultisignature.tsx, class/wallets/multisig-hd-wallet.js, class/multisig-cosigner-match.ts, navigation/WalletsStack.tsx
 

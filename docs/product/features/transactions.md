@@ -18,9 +18,9 @@ On-chain (and shared) transaction history on the wallet screen, transaction stat
 
 **Depends on.** Electrum / wallet transaction refresh; fiat rate when the preferred unit is fiat; cached transactions when the server is unreachable (refresh errors are only logged).
 
-**Known issues.** None recorded.
+**Known issues.** The 20 s refresh loop does not start at launch: a wallet opened in the first 40 s after start shows no history and a stale balance until Home is focused again later (reproduced on an Android emulator; the e2e specs wait for this).
 
-**Tests.** tests/unit/asset-dfx-services.test.js. CF-02, CF-03.
+**Tests.** tests/unit/asset-dfx-services.test.js, tests/e2e/transactions.spec.js (Detox: the two newest rows are in chain order), tests/e2e/onchain-send.spec.js (funded wallet). CF-02, CF-03.
 
 **Source.** screen/wallets/asset.js, components/TransactionListItem.js, components/TransactionsNavigationHeader.js, blue_modules/storage-context.js, navigation/WalletsStack.tsx
 
@@ -44,7 +44,7 @@ Details shows, when present: memo, unique input addresses ("Input") with copy-al
 
 **Known issues.** #207 Transaction Status confirmation poll never fires
 
-**Tests.** No unit or end-to-end tests for these screens. CF-02.
+**Tests.** No unit tests for these screens; tests/e2e/transactions.spec.js and tests/e2e/onchain-send.spec.js (Detox: value for the wallet, fee and confirmations match a public explorer for the transaction ID shown in Details); CF-02.
 
 **Source.** screen/transactions/transactionStatus.js, screen/transactions/details.js, components/TransactionListItem.js, class/hd-segwit-bech32-transaction.js, navigation/WalletsStack.tsx
 

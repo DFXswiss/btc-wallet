@@ -42,7 +42,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 5. Open the transaction row and watch status move from unconfirmed toward confirmed.
 6. Confirm Electrum stays connected (or recovers) while the status updates.
 **Expected.** The incoming payment is listed with the correct amount; transaction status and details update as confirmations arrive.
-**Automation.** Manual until an automated flow receives real coins. A person checks the list row, amount, and confirmation progress on device.
+**Automation.** `tests/e2e/transactions.spec.js` checks the list order and each row's value, fee and confirmations against a public explorer on a public wallet's confirmed history, and `tests/e2e/onchain-send.spec.js` (funded) does the same for the newest transaction of the funded wallet; receiving a new payment and watching it confirm stays manual.
 
 ## CF-03 Restore from a recovery phrase and send on-chain
 
@@ -107,7 +107,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 5. Optionally receive a second payment to the static address from the external payer.
 6. On the wallet screen, confirm Lightning rows appear in history with the received amounts.
 **Expected.** Paid invoice shows paid state; static receive works; history lists the Lightning receives.
-**Automation.** Manual. A person pays from an external wallet and checks paid state, preimage, and history rows on device.
+**Automation.** `tests/e2e/spark-receive.spec.js` (funded): a second team Spark wallet, run from the test, pays an invoice the app created; the receive screen turns to paid and the balance grows by exactly the amount; the shown Lightning address resolves to LNURL-pay. Receiving to the static address and the preimage view stay manual.
 
 ## CF-07 Pay a Lightning invoice and a Lightning address from Spark
 
@@ -139,7 +139,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 5. Open the Lightning wallet and check the balance against the known funded amount.
 6. Confirm Home shows both the restored on-chain and Spark wallets.
 **Expected.** Import restores the phrase; Add on the Lightning row brings back the existing Spark wallet with its balance.
-**Automation.** `tests/e2e-maestro/_setup-import.yaml` imports a fixed Spark identity and taps Add on the Lightning row; the balance check is manual.
+**Automation.** `tests/e2e/spark-receive.spec.js` (funded) imports the Spark test phrase, taps Add and checks that balance and Lightning address equal what the Spark SDK reports for that wallet; `tests/e2e-maestro/_setup-import.yaml` does the same import and Add for the Maestro flows.
 
 ## CF-09 Log in to DFX with LNURL-auth
 
@@ -219,3 +219,16 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 | X-08 | Critical | CF-04 |
 
 Every Critical row above is covered by at least one flow, and the checker enforces it.
+
+## Manual release checks
+
+The Detox suites run on Android only and cannot reach everything. Before a release, check these by hand on an iPhone and an Android phone:
+
+- Run the flows above on an iPhone (no iOS automation exists).
+- lightning.space regression with a seed that has a funded lightning.space wallet: Lightning row, balance and history; receive to its address and to an invoice (paid invoice view without a "0 sats" fee line); pay an invoice, an external and a lightning.space Lightning address (fee range and Free); send max keeps the 3% reserve; LNURL-withdraw; DFX sell paid as LNURL.
+- An existing lightning.space user updates from the store version: the Lightning row, Receive and Settings still open the lightning.space wallet and Add is not offered.
+- Add recovers a lightning.space account created before May 2023 (BIP49 addresses) and one whose seed was imported on a custom derivation path.
+- A Spark payment force-closed right after Pay and retried after reopening is not sent twice.
+- Send max from Spark to a Lightning address leaves the wallet near 0.
+- Cancelling the biometric prompt on the send confirm screen broadcasts nothing.
+- Boltcard on receive (NFC) and the Apple Watch app behave as in the store version.

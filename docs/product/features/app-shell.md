@@ -39,7 +39,7 @@ Cold start, unlock, deep links, home-screen shortcuts, push notifications, scree
 **Depends on.** Device keychain / biometrics (`react-native-biometrics` with device credentials allowed). Face ID usage string is declared in the iOS Info.plist.
 
 **Known issues.** None recorded.
-**Tests.** `tests/unit/storage.test.js`, `tests/unit/storage-context.test.js`, `tests/unit/blue-app.test.js`, `tests/unit/send-biometric-abort.test.js`, `tests/unit/send-confirm-branches.test.js`, `tests/unit/spark-wallet-export.test.js`, `tests/unit/wallet-details-spark.test.js`, CF-04.
+**Tests.** `tests/unit/storage.test.js`, `tests/unit/storage-context.test.js`, `tests/unit/blue-app.test.js`, `tests/unit/send-biometric-abort.test.js`, `tests/unit/send-confirm-branches.test.js`, `tests/unit/spark-wallet-export.test.js`, `tests/unit/wallet-details-spark.test.js`, `tests/e2e/encrypted-storage.spec.js` (Detox: password unlock at launch, wrong password rejected), CF-04.
 **Source.** UnlockWith.js, BlueApp.js, class/biometrics.js, screen/settings/encryptStorage.js, screen/plausibledeniability.js
 
 ## A-03 Deep links and URI schemes
@@ -59,7 +59,7 @@ Cold start, unlock, deep links, home-screen shortcuts, push notifications, scree
 **Depends on.** OS URL / intent registration; `react-native` Linking.
 
 **Known issues.** None recorded.
-**Tests.** `tests/unit/deeplink-schema-match.test.js`, `tests/unit/scan-lnd-invoice-spark.test.js`, `tests/unit/spark-home.test.js`, `tests/unit/asset-dfx-services.test.js`, `tests/e2e-maestro/flows/10-lnurl-auth.yaml`.
+**Tests.** `tests/unit/deeplink-schema-match.test.js`, `tests/unit/scan-lnd-invoice-spark.test.js`, `tests/unit/spark-home.test.js`, `tests/unit/asset-dfx-services.test.js`, `tests/e2e-maestro/flows/10-lnurl-auth.yaml`, `tests/e2e/deeplink.spec.js` (Detox: `bitcoin:` and nested `bluewallet:bitcoin:` links open send with address, amount and label; `lightning:` refused without a Lightning wallet), `tests/e2e/spark.spec.js` (Detox: `lightning:` link opens the payment screen with amount and description)
 **Source.** class/deeplink-schema-match.js, App.js, ios/BlueWallet/Info.plist, android/app/src/main/AndroidManifest.xml
 
 ## A-04 Quick actions

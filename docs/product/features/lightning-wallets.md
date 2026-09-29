@@ -20,7 +20,7 @@ This area covers Lightning wallet types in the app: self-custodial Spark, custod
 
 **Known issues.** #221 Spark integration: one-tap self-custodial Lightning wallet
 
-**Tests.** tests/unit/spark-wallet.test.js, tests/unit/spark-sdk.test.js, tests/unit/spark-seed.test.js, tests/unit/spark-context.test.js, tests/unit/spark-home.test.js, tests/unit/wallet-details-spark.test.js, tests/unit/lnd-receive-spark.test.js, tests/unit/payment-seeds.test.js, tests/unit/outgoing-payment.test.js, tests/unit/lightning-recovery.test.js, tests/unit/release-native-env.test.js; CF-05
+**Tests.** tests/unit/spark-wallet.test.js, tests/unit/spark-sdk.test.js, tests/unit/spark-seed.test.js, tests/unit/spark-context.test.js, tests/unit/spark-home.test.js, tests/unit/wallet-details-spark.test.js, tests/unit/lnd-receive-spark.test.js, tests/unit/payment-seeds.test.js, tests/unit/outgoing-payment.test.js, tests/unit/lightning-recovery.test.js, tests/unit/release-native-env.test.js, tests/e2e/spark.spec.js (Detox: Spark wallet created from the home row), tests/e2e/spark-receive.spec.js (funded: restored on Add); CF-05
 
 **Source.** class/wallets/spark-wallet.ts, api/spark/spark-seed.ts, api/spark/spark-sdk.ts, api/spark/contexts/spark.context.tsx, hooks/lightningRecovery.hook.ts, screen/wallets/home.js, helpers/wallet-created-route.ts, screen/wallets/details.js, package.json
 
@@ -42,7 +42,7 @@ This area covers Lightning wallet types in the app: self-custodial Spark, custod
 
 **Known issues.** None recorded.
 
-**Tests.** tests/unit/lightning-wallet-helper.test.js, tests/unit/settings-lightning-wallet.test.js, tests/unit/spark-home.test.js; CF-05
+**Tests.** tests/unit/lightning-wallet-helper.test.js, tests/unit/settings-lightning-wallet.test.js, tests/unit/spark-home.test.js, tests/e2e/spark.spec.js (Detox: the new Spark wallet fills the Lightning row); CF-05
 
 **Source.** helpers/lightning-wallet.ts, screen/wallets/home.js, screen/settings/settings.js
 
@@ -64,7 +64,7 @@ This area covers Lightning wallet types in the app: self-custodial Spark, custod
 
 **Known issues.** None recorded.
 
-**Tests.** tests/unit/lightning-recovery.test.js, tests/unit/spark-home.test.js, tests/unit/spark-context.test.js, tests/e2e-maestro/_setup-import.yaml; CF-08
+**Tests.** tests/unit/lightning-recovery.test.js, tests/unit/spark-home.test.js, tests/unit/spark-context.test.js, tests/e2e-maestro/_setup-import.yaml, tests/e2e/spark-receive.spec.js (funded: Add after an import brings back the seed's Spark wallet with the balance and Lightning address the SDK reports); CF-08
 
 **Source.** hooks/lightningRecovery.hook.ts, api/spark/contexts/spark.context.tsx, api/lds/lightning-lds-wallet-factory.ts, screen/wallets/home.js
 
@@ -86,7 +86,7 @@ This area covers Lightning wallet types in the app: self-custodial Spark, custod
 
 **Known issues.** None recorded.
 
-**Tests.** tests/unit/spark-context.test.js, tests/unit/lnd-receive-spark.test.js
+**Tests.** tests/unit/spark-context.test.js, tests/unit/lnd-receive-spark.test.js, tests/e2e/spark-receive.spec.js (funded: the shown address resolves to LNURL-pay)
 
 **Source.** api/spark/contexts/spark.context.tsx, api/spark/spark-sdk.ts, screen/lnd/lndReceive.tsx, screen/lnd/lndCreateInvoice.js
 

@@ -31,7 +31,7 @@ Settings covers the settings menu, general and privacy options, currency and lan
 **Depends on.** Presence of Lightning and multisig wallets for those rows; LDS DEV API flag for the CHF Taproot row.
 
 **Known issues.** None recorded.
-**Tests.** tests/unit/settings-lightning-wallet.test.js, tests/unit/settings-chf-taproot.test.js.
+**Tests.** tests/unit/settings-lightning-wallet.test.js, tests/unit/settings-chf-taproot.test.js, tests/e2e/settings.spec.js (Detox: Currency and Language reached from the menu)
 **Source.** screen/settings/settings.js, navigation/WalletsStack.tsx
 
 ## X-02 General and privacy settings
@@ -82,7 +82,7 @@ Settings covers the settings menu, general and privacy options, currency and lan
 **Depends on.** The currency’s configured price provider endpoints.
 
 **Known issues.** None recorded.
-**Tests.** tests/unit/currency.test.js, tests/integration/Currency.test.js
+**Tests.** tests/unit/currency.test.js, tests/integration/Currency.test.js, tests/e2e/settings.spec.js (Detox: EUR shows the home balance in euro)
 **Source.** screen/settings/currency.js, models/fiatUnits.json, models/fiatUnit.ts, blue_modules/currency.js
 
 ## X-04 Language
@@ -102,7 +102,7 @@ Settings covers the settings menu, general and privacy options, currency and lan
 **Depends on.** Locale files under `loc/`.
 
 **Known issues.** None recorded.
-**Tests.** tests/unit/loc.test.js
+**Tests.** tests/unit/loc.test.js, tests/e2e/settings.spec.js (Detox: German applies at once and after a restart)
 **Source.** screen/settings/language.js, loc/languages.ts, loc/index.ts
 
 ## X-05 Default view on launch
