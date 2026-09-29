@@ -51,7 +51,7 @@ The External services tile (`DfxServicesButtons`) sits on home and on the wallet
 ## D-03 Sell
 
 **Routes:** Sell
-**Entry:** Home, Sell; return through the dfxtaro://sell link
+**Entry:** Home, Sell; return through the dfxtaro://sell link, or through a spark: payment link for a Spark sell
 **Tier:** Critical (DFX)
 
 **Inputs.** Deep link `dfxtaro://sell?routeId=..&amount=..&wallet-id=..`. Confirm screen shows amount + "BTC", bank account (IBAN), fiat currency name, info "You will be notified by email when the bank transfer to your account is done.", button "Cash out to bank account" (testID `SellConfirm`).
