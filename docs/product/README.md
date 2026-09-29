@@ -162,7 +162,13 @@ The Flows column lists the critical flows that name the row under Covers.
 
 ## Keeping it current
 
-A pull request that adds, renames or removes a screen must update the matching inventory row and its details entry. Screens are matched by their registered name; a screen registered in several stacks counts once. `npm run unit` runs `tests/unit/product-inventory.test.js`, which runs `scripts/product/check-inventory.js`. The checker fails on an unclaimed or double-claimed screen, a row without an entry or an entry without a row, a tier or entry point that differs between the row and the entry, a Critical row without a flow, a Flows column that does not match the flows file, a broken details link, or a Source path that is not a file. Run `node scripts/product/check-inventory.js` directly to check the same rules.
+A pull request that adds, renames or removes a screen must update the matching inventory row and its details entry. Screens are matched by their registered name; a screen registered in several stacks counts once. `npm run unit` runs `tests/unit/product-inventory.test.js`, which runs `scripts/product/check-inventory.js`. The checker fails on:
+
+- rows and entries: a README row without an entry or an entry without a row, a duplicate ID, an invalid tier, a README row with an inventory ID but the wrong number of cells, a tier or entry point that differs between the row and the entry, a missing Routes, Tier or Entry line, a broken details link, or a Source path that is not a file;
+- screens: no screen registered under `navigation/`, a registered screen that no entry claims or that two entries claim, or a claimed name that is a stack wrapper, ignored, or not registered;
+- flows: a duplicate flow ID, an invalid flow tier, an empty Covers list or an unknown ID in it, a Critical row without a flow, or a Flows column that does not match the flows file.
+
+Run `node scripts/product/check-inventory.js` directly to check the same rules.
 
 ## Related documents
 
