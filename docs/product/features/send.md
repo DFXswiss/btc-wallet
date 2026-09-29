@@ -19,7 +19,7 @@ On-chain send: choosing a destination, composing amount and fee, confirming and 
 **Depends on.** Camera permission and QR scanning (`react-native-camera-kit-no-google`, camera permission hook, QR scanner with UR decoding); deeplink schema matching.
 
 **Known issues.** None recorded.
-**Tests.** tests/unit/ManualAddressSend.test.js, tests/unit/spark-home.test.js, tests/unit/asset-dfx-services.test.js, tests/unit/deeplink-schema-match.test.js, CF-03
+**Tests.** tests/unit/ManualAddressSend.test.js, tests/unit/spark-home.test.js, tests/unit/asset-dfx-services.test.js, tests/unit/deeplink-schema-match.test.js, tests/e2e/scan.spec.js (Detox: scanned BIP21 fills address and amount), tests/e2e/onchain-send.spec.js (funded, typed address), CF-03
 **Source.** screen/send/ScanCodeSend.tsx, screen/send/ManualAddressSend.tsx, class/deeplink-schema-match.js, screen/wallets/home.js, screen/wallets/asset.js
 
 ## S-02 Send on-chain: amount, fee, confirm, broadcast
@@ -39,7 +39,7 @@ On-chain send: choosing a destination, composing amount and fee, confirming and 
 **Depends on.** Electrum (UTXO fetch with batching when a UTXO set is known, fee fallback, broadcast); mempool.space (fee estimates and explorer link from related tools); coinb.in (verify link); biometrics for broadcast and Details; bip21, bitcoinjs-lib, coinselect; payjoin-client and class/payjoin-transaction; push-notification txid registration.
 
 **Known issues.** None recorded.
-**Tests.** tests/unit/utils.test.js, tests/unit/fetchUtxoBatching.test.js, tests/unit/legacyWalletFetchUtxoBatching.test.js, tests/unit/electrumBatchingDetection.test.js, tests/unit/legacy-wallet.test.js, tests/unit/deeplink-schema-match.test.js, tests/unit/AmountInput.test.js, tests/unit/send-confirm-branches.test.js, tests/unit/send-confirm-fee.test.js, tests/unit/send-biometric-abort.test.js, tests/unit/payjoin-transaction.test.js, tests/unit/send-success.test.js, CF-03. Detox tests/e2e/bluewallet2.spec.js ("can create a transaction…", "can batch send", "can sendMAX", "can manage UTXO") uses AddressInput/AddRecipient testIDs that no longer exist in details.js, so it is stale against this UI; Detox is not run in CI; no Maestro flow covers on-chain send.
+**Tests.** tests/unit/utils.test.js, tests/unit/fetchUtxoBatching.test.js, tests/unit/legacyWalletFetchUtxoBatching.test.js, tests/unit/electrumBatchingDetection.test.js, tests/unit/legacy-wallet.test.js, tests/unit/deeplink-schema-match.test.js, tests/unit/AmountInput.test.js, tests/unit/send-confirm-branches.test.js, tests/unit/send-confirm-fee.test.js, tests/unit/send-biometric-abort.test.js, tests/unit/payjoin-transaction.test.js, tests/unit/send-success.test.js, CF-03. tests/e2e/onchain-send.spec.js (Detox, funded) signs a typed-amount send and a MAX send and checks amount and fee against the signed transaction; it never broadcasts. Batch send is not covered end to end.
 **Source.** screen/send/details.js, screen/send/confirm.js, screen/send/create.js, screen/send/success.js, models/networkTransactionFees.js, class/wallets/legacy-wallet.ts, class/wallets/abstract-hd-electrum-wallet.ts, class/deeplink-schema-match.js, helpers/utils.ts, components/AmountInput.js, class/payjoin-transaction.js, class/biometrics.js, blue_modules/BlueElectrum.js
 
 ## S-03 Coin control
@@ -59,7 +59,7 @@ On-chain send: choosing a destination, composing amount and fee, confirming and 
 **Depends on.** Electrum UTXO refresh; SendDetails coin-selection path.
 
 **Known issues.** None recorded.
-**Tests.** Detox tests/e2e/bluewallet2.spec.js "can manage UTXO" is stale against this UI and is not run in CI.
+**Tests.** None.
 **Source.** screen/send/coinControl.js, screen/send/details.js
 
 ## S-04 Sign with a hardware or watch-only wallet (PSBT)
@@ -79,7 +79,7 @@ On-chain send: choosing a destination, composing amount and fee, confirming and 
 **Depends on.** Electrum for broadcast; biometrics; BC-UR libraries; document picker / filesystem helpers; Settings › General legacy UR switch; camera/QR scanner (S-06).
 
 **Known issues.** None recorded.
-**Tests.** tests/unit/watch-only-wallet.test.js, tests/integration/watch-only-wallet.test.js. Detox tests/e2e/bluewallet3.spec.js ("import zpub as watch-only, import psbt, and then scan signed psbt"), not run in CI.
+**Tests.** tests/unit/watch-only-wallet.test.js, tests/integration/watch-only-wallet.test.js. No end-to-end test.
 **Source.** screen/send/psbtWithHardwareWallet.js, class/wallets/watch-only-wallet.js, screen/wallets/details.js, blue_modules/ur/index.js, blue_modules/fs.js, screen/settings/GeneralSettings.tsx
 
 ## S-05 Multi-device co-signing
@@ -99,7 +99,7 @@ On-chain send: choosing a destination, composing amount and fee, confirming and 
 **Depends on.** Multisig HD wallet cosign/finalize; Electrum broadcast; biometrics; BC-UR / QR export.
 
 **Known issues.** None recorded.
-**Tests.** tests/unit/psbtMultisig.test.js, tests/unit/send-psbtMultisig-branches.test.js, tests/unit/cosign.test.js, tests/unit/multisig-hd-wallet.test.js, tests/unit/multisig-hd-wallet-guard.test.js, tests/integration/multisig-hd-wallet.test.js. Detox bluewallet.spec.js ("import multisig setup from UR…") is stale and unrun.
+**Tests.** tests/unit/psbtMultisig.test.js, tests/unit/send-psbtMultisig-branches.test.js, tests/unit/cosign.test.js, tests/unit/multisig-hd-wallet.test.js, tests/unit/multisig-hd-wallet-guard.test.js, tests/integration/multisig-hd-wallet.test.js, tests/e2e/multisig.spec.js (Detox: the vault signs its share of a PSBT another cosigner signed, completing the 2-of-3 quorum).
 **Source.** screen/send/psbtMultisig.js, screen/send/psbtMultisigQRCode.js, screen/send/details.js, screen/wallets/home.js, screen/wallets/asset.js, class/wallets/multisig-hd-wallet.js
 
 ## S-06 QR scanner
@@ -119,7 +119,7 @@ On-chain send: choosing a destination, composing amount and fee, confirming and 
 **Depends on.** Camera permission hook; react-native-camera-kit-no-google; rn-qr-generator; BC-UR; react-native-image-picker / permissions.
 
 **Known issues.** None recorded.
-**Tests.** CF-09
+**Tests.** tests/unit/CosignerCamera.test.js, tests/e2e/scan.spec.js (Detox, through the scanner's manual-entry field), CF-09
 **Source.** screen/send/ScanQRCode.js, hooks/cameraPermisions.hook.ts, navigation/index.tsx
 
 ## S-07 Broadcast raw transaction
@@ -139,7 +139,7 @@ On-chain send: choosing a destination, composing amount and fee, confirming and 
 **Depends on.** Electrum; ScanQRCode with file import; mempool.space explorer link; push-notification registration.
 
 **Known issues.** None recorded.
-**Tests.** Detox bluewallet.spec.js references BroadcastButton, unrun.
+**Tests.** None.
 **Source.** screen/send/broadcast.js, screen/settings/tools.js, screen/settings/settings.js
 
 ## S-08 Is it my address
@@ -159,5 +159,5 @@ On-chain send: choosing a destination, composing amount and fee, confirming and 
 **Depends on.** Wallet `weOwnAddress` implementations; optional ScanQRCode; ReceiveDetails for the QR view.
 
 **Known issues.** None recorded.
-**Tests.** Detox bluewallet.spec.js (testID IsItMyAddress), not run in CI.
+**Tests.** None.
 **Source.** screen/send/isItMyAddress.js, screen/settings/tools.js

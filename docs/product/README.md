@@ -97,7 +97,7 @@ The Flows column lists the critical flows that name the row under Covers.
 | --- | --- | --- | --- | --- | --- |
 | L-01 | Spark wallet (self-custodial Lightning) | Home, Lightning row, Add | Critical (DFX) | CF-05 | [details](features/lightning-wallets.md#l-01-spark-wallet-self-custodial-lightning) |
 | L-02 | Lightning slot and provider precedence | Home | Critical (DFX) | CF-05 | [details](features/lightning-wallets.md#l-02-lightning-slot-and-provider-precedence) |
-| L-03 | Lightning recovery on import | Import wallet | Critical (DFX) | CF-08 | [details](features/lightning-wallets.md#l-03-lightning-recovery-on-import) |
+| L-03 | Existing Lightning wallet restored on Add | Home, Lightning row, Add | Critical (DFX) | CF-08 | [details](features/lightning-wallets.md#l-03-existing-lightning-wallet-restored-on-add) |
 | L-04 | Lightning address | Spark receive | Important | — | [details](features/lightning-wallets.md#l-04-lightning-address) |
 | L-05 | Spark on-chain deposits | Automatic | Important | — | [details](features/lightning-wallets.md#l-05-spark-on-chain-deposits) |
 | L-06 | Spark recovery phrase export | Settings, Lightning wallet, Export | Critical (DFX) | CF-05 | [details](features/lightning-wallets.md#l-06-spark-recovery-phrase-export) |
@@ -174,4 +174,5 @@ Run `node scripts/product/check-inventory.js` directly to check the same rules.
 
 - [critical-flows.md](critical-flows.md): the eleven flows that must pass before a release
 - Handbook screenshots under [docs/handbook](../handbook)
+- Detox suite (Android) under [tests/e2e](../../tests/e2e)
 - Maestro suite under [tests/e2e-maestro](../../tests/e2e-maestro)

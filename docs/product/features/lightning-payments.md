@@ -24,7 +24,7 @@ A tapped NFC tag whose NDEF URI starts with `lnurlw` is treated as a Boltcard: t
 
 **Known issues.** None recorded.
 
-**Tests.** tests/unit/lnd-receive-spark.test.js, tests/unit/receive-details.test.js, tests/unit/spark-home.test.js, tests/unit/asset-dfx-services.test.js, tests/unit/deeplink-schema-match.test.js, tests/e2e-maestro/flows/05-receive-invoice-amount-description.yaml, tests/e2e-maestro/flows/14-receive-lightning-balance.yaml; CF-05, CF-06.
+**Tests.** tests/unit/lnd-receive-spark.test.js, tests/unit/receive-details.test.js, tests/unit/spark-home.test.js, tests/unit/asset-dfx-services.test.js, tests/unit/deeplink-schema-match.test.js, tests/e2e/spark.spec.js (Detox: invoice for a typed amount and description); CF-05, CF-06.
 
 **Source.** screen/lnd/lndReceive.tsx, screen/lnd/lndCreateInvoice.js, navigation/ReceiveDetailsStack.tsx, screen/wallets/home.js, screen/wallets/asset.js, screen/receive/details.js, class/wallets/lightning-custodian-wallet.js, class/wallets/spark-wallet.ts, class/deeplink-schema-match.js, class/boltcard.ts, hooks/nfc.hook.ts.
 
@@ -46,7 +46,7 @@ A tapped NFC tag whose NDEF URI starts with `lnurlw` is treated as a Boltcard: t
 
 **Known issues.** None recorded.
 
-**Tests.** tests/unit/lnd-receive-spark.test.js, tests/e2e-maestro/flows/06-receive-lightning-address.yaml, tests/e2e-maestro/flows/18-spark-receive-retry.yaml, tests/e2e-maestro/flows/23-spark-receive-address-copy.yaml, tests/e2e-maestro/flows/03-spark-lightning-address.yaml; CF-06.
+**Tests.** tests/unit/lnd-receive-spark.test.js; CF-06.
 
 **Source.** screen/lnd/lndReceive.tsx, class/wallets/lightning-lds-wallet.ts, class/wallets/spark-wallet.ts.
 
@@ -100,7 +100,7 @@ LNURL-pay protocol: Lightning address resolves to `https://<domain>/.well-known/
 
 **Known issues.** None recorded.
 
-**Tests.** tests/unit/scan-lnd-invoice-spark.test.js, tests/unit/ManualAddressSend.test.js, tests/unit/deeplink-schema-match.test.js, tests/unit/spark-home.test.js, tests/unit/asset-dfx-services.test.js, tests/unit/lnurl-pay-spark.test.js, tests/unit/fee-quote-binding.test.js, tests/unit/dfx-spark-invoice-payment.test.js, tests/unit/spark-wallet.test.js, tests/unit/send-success.test.js, tests/unit/lnurl.test.js, tests/unit/lnurl-pay-success.test.js, tests/integration/lightning-custodian-wallet.test.js, tests/e2e-maestro/flows/08-send-bolt11-to-confirmation.yaml, tests/e2e-maestro/flows/20-spark-bolt11-prepare.yaml, tests/e2e-maestro/flows/24-wos-lightning-prepare.yaml, tests/e2e-maestro/flows/15-send-lightning-payment.yaml, tests/e2e-maestro/flows/21-spark-bolt11-pay.yaml, tests/e2e-maestro/flows/22-spark-bolt11-balance.yaml, tests/e2e-maestro/flows/25-wos-lightning-pay.yaml; CF-07, CF-11.
+**Tests.** tests/unit/scan-lnd-invoice-spark.test.js, tests/unit/ManualAddressSend.test.js, tests/unit/deeplink-schema-match.test.js, tests/unit/spark-home.test.js, tests/unit/asset-dfx-services.test.js, tests/unit/lnurl-pay-spark.test.js, tests/unit/fee-quote-binding.test.js, tests/unit/dfx-spark-invoice-payment.test.js, tests/unit/spark-wallet.test.js, tests/unit/send-success.test.js, tests/unit/lnurl.test.js, tests/unit/lnurl-pay-success.test.js, tests/integration/lightning-custodian-wallet.test.js, tests/e2e/spark-send.spec.js (funded, quotes only), tests/e2e/spark-pay.spec.js (funded, pays a BOLT11 invoice); CF-07, CF-11.
 
 **Source.** screen/lnd/scanLndInvoice.js, screen/lnd/lnurlPay.js, screen/lnd/lnurlPaySuccess.js, class/lnurl.js, class/deeplink-schema-match.js, class/wallets/lightning-custodian-wallet.js, class/wallets/spark-wallet.ts, helpers/freeLightningDomains.ts, helpers/lightning-wallet.ts, navigation/SendDetailsStack.tsx, api/spark/payment-seeds.ts.
 

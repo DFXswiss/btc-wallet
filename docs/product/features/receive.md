@@ -26,7 +26,7 @@ A poll every 5 s via Electrum balance-by-address watches for payment. When uncon
 
 **Known issues.** None recorded.
 
-**Tests.** tests/unit/receive-details.test.js, tests/unit/useInputAmount.test.js, tests/unit/deeplink-schema-match.test.js, tests/e2e/bluewallet.spec.js, tests/e2e/bluewallet3.spec.js. CF-01, CF-02.
+**Tests.** tests/unit/receive-details.test.js, tests/unit/useInputAmount.test.js, tests/unit/deeplink-schema-match.test.js, tests/e2e/onchain.spec.js (Detox: mainnet address, BIP21 with amount and label). CF-01, CF-02.
 
 **Source.** screen/receive/details.js, components/QRCodeComponent.tsx, hooks/useInputAmount.ts, class/deeplink-schema-match.js, class/wallets/abstract-hd-wallet.ts, class/wallets/abstract-wallet.ts, models/networkTransactionFees.js, navigation/ReceiveDetailsStack.tsx, screen/wallets/asset.js, screen/wallets/home.js
 

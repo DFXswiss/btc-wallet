@@ -20,9 +20,9 @@ On-chain wallet lifecycle: create and import, recovery-phrase backup, the home a
 | MultisigHDWallet | Multisig Vault — Multi-Device Wallet | creatable (2-of-n) and importable |
 | TaprootWallet | P2 TR | internal helper; not deserialized |
 | LightningCustodianWallet | Lightning (LNDHub) | legacy / Lightning area |
-| LightningLdsWallet | Lightning (lightning.space) | Lightning recovery / Lightning area |
+| LightningLdsWallet | Lightning (lightning.space) | home Lightning Add (existing account); Lightning area |
 | TaprootLdsWallet | Taproot (CHF Taproot) | Lightning area (`AddLightning`, LDS DEV flag) |
-| SparkWallet | Lightning (Spark) | home Lightning Add or import recovery; Lightning area |
+| SparkWallet | Lightning (Spark) | home Lightning Add; Lightning area |
 
 ## W-01 Create on-chain wallet
 
@@ -42,7 +42,7 @@ On-chain wallet lifecycle: create and import, recovery-phrase backup, the home a
 
 **Known issues.** None recorded.
 
-**Tests.** `tests/unit/wallets-add.test.js`, `tests/unit/provide-entropy.test.js`, `tests/unit/wallet-created-route.test.js`; CF-01.
+**Tests.** `tests/unit/wallets-add.test.js`, `tests/unit/provide-entropy.test.js`, `tests/unit/wallet-created-route.test.js`; `tests/e2e/onchain.spec.js` (Detox: Create), `tests/e2e/entropy.spec.js` (Detox: coin flips, undo, 256 bits give exactly the phrase they encode); CF-01.
 
 **Source.** screen/wallets/add.js, screen/wallets/provideEntropy.js, class/wallets/abstract-hd-electrum-wallet.ts, helpers/wallet-created-route.ts, navigation/AddWalletStack.tsx
 
@@ -56,17 +56,17 @@ On-chain wallet lifecycle: create and import, recovery-phrase backup, the home a
 
 **Options.** Detection order in `startImport`: optional passphrase prompt (BIP39, SLIP39 multi-line, or Electrum seed); BIP39 formats (account 0 from `bip39_wallet_formats_bluewallet.json`, or with Search accounts the 14-entry `bip39_wallet_formats.json` trying accounts 0–9); WIF → SegWit Bech32 / SegWit P2SH / Legacy; uncompressed WIF → Legacy; Electrum seed P2WPKH then P2PKH; SLIP39 shares (P2SH, P2PKH if used, always Bech32); BC-UR JSON accounts → watch-only (then dropped by discovery). Unused BIP39 paths are not offered; if none was used, a fresh BIP84 wallet is proposed. BRD vs plain HD legacy for `m/0'` is decided by tx count (12 words, no passphrase). Custom derivation (BIP39 only): path field default `m/84'/0'/0'`, regex-validated; builds BIP44/BIP49/BIP84 and checks `wasEverUsed` (debounced 500 ms); statuses "found" / "not found" / "unknown" / "loading..."; invalid path shows "wrong derivation path".
 
-**Behavior.** Discovery shows "Choose a discovered wallet" with type name and derivation path. Exactly one non-watch-only result auto-saves; otherwise the user picks and taps Import. No result: "No wallets were found." Errors: Alert "import error" plus message (hardcoded English). Cancelling the passphrase prompt goes back. After first-wallet save, waits up to 30 s for Lightning recovery (existing lightning.space account, else previously used Spark) with "Checking for an existing Lightning wallet…". Duplicates: haptic error and Alert "This wallet has been previously imported."; persistence failure rolls back. Imported wallets are marked backed up automatically (no home backup banner). Multisig backup text: first non-xpub cosigner seed becomes the single-sig main wallet; if exactly one wallet was found, the multisig is saved alongside it.
+**Behavior.** Discovery shows "Choose a discovered wallet" with type name and derivation path. Exactly one non-watch-only result auto-saves; otherwise the user picks and taps Import. No result: "No wallets were found." Errors: Alert "import error" plus message (hardcoded English). Cancelling the passphrase prompt goes back. Import does not look for a Lightning wallet; an existing lightning.space or Spark wallet of the phrase comes back through Add on the home Lightning row (L-03). Duplicates: haptic error and Alert "This wallet has been previously imported."; persistence failure rolls back. Imported wallets are marked backed up automatically (no home backup banner). Multisig backup text: first non-xpub cosigner seed becomes the single-sig main wallet; if exactly one wallet was found, the multisig is saved alongside it.
 
 **Not supported.** BIP38 decrypt, AEZEED, multisig detection, LNDHub `lndhub://` / `blitzhub://`, and watch-only address/xpub branches are commented out. Discovery drops every `WatchOnlyWallet`, so address/xpub/descriptor/Cobo JSON watch-only cannot complete through the normal UI (ImportSpeed backdoor only). Watch-only/xpub deeplink into ImportWallet is commented out.
 
-**Depends on.** Electrum (`wasEverUsed`, balance/transactions during discovery and custom path); lightning.space / Spark SDK for first-import Lightning recovery; camera, image picker, clipboard.
+**Depends on.** Electrum (`wasEverUsed`, balance/transactions during discovery and custom path); camera, image picker, clipboard.
 
 **Known issues.** #176 Wallet recovery broken on iOS 26.4.2 (import crash + multi-sig config mismatch); #246 Later import via custom derivation or speed import stacks a second WalletsRoot
 
-**Tests.** `tests/unit/import-discovery.test.js`, `tests/unit/import-custom-derivation-path.test.js`, `tests/unit/lightning-recovery.test.js`, `tests/unit/storage-context.test.js`; `tests/integration/import.test.js` (stale vs commented paths, not in CI); CF-03, CF-08.
+**Tests.** `tests/unit/import-discovery.test.js`, `tests/unit/import-custom-derivation-path.test.js`, `tests/unit/storage-context.test.js`; `tests/e2e/import-discovery.spec.js` (Detox: BIP44 discovery, custom path status, imported path and xpub); `tests/integration/import.test.js` (stale vs commented paths, not in CI); CF-03, CF-08.
 
-**Source.** screen/wallets/ScanImport.tsx, screen/wallets/import.js, screen/wallets/importDiscovery.js, screen/wallets/importCustomDerivationPath.js, screen/wallets/importSpeed.js, class/wallet-import.js, hooks/lightningRecovery.hook.ts, blue_modules/storage-context.js, navigation/AddWalletStack.tsx
+**Source.** screen/wallets/ScanImport.tsx, screen/wallets/import.js, screen/wallets/importDiscovery.js, screen/wallets/importCustomDerivationPath.js, screen/wallets/importSpeed.js, class/wallet-import.js, blue_modules/storage-context.js, navigation/AddWalletStack.tsx
 
 ## W-03 Recovery phrase backup
 
@@ -76,7 +76,7 @@ On-chain wallet lifecycle: create and import, recovery-phrase backup, the home a
 
 **Inputs.** BackupExplanation → PleaseBackup shows numbered words (`secret.js`). Checkbox "I understand that if I lose my recovery phrase, I will not be able to access my funds." must be ticked before Continue. WalletExport (from Details → Export/Backup): biometric unlock if enabled (otherwise goes back); shows numbered words and a QR of `getSecret()`; single-address wallets also show the address; SLIP39 shows each share; multisig shows the full-setup QR (may contain seeds) plus each cosigner’s secret.
 
-**Options.** Explanation copy refers to "a list of 12 secret words" (a 24-word entropy wallet would show 24). Privacy blur while PleaseBackup or WalletExport is focused. WalletExport closes itself when the app backgrounds. Spark wallets first redirect to `SparkBackupNotice` (Lightning area), then derive the Spark phrase from the bound on-chain wallet or fail closed with "The linked on-chain wallet or its recovery phrase is unavailable. No Lightning recovery phrase was shown."
+**Options.** Explanation copy refers to "a list of 12 secret words" (a 24-word entropy wallet would show 24). Privacy blur while PleaseBackup or WalletExport is focused. WalletExport closes itself when the app backgrounds. Spark wallets first show the `SparkBackupNotice` in place of the phrase (Lightning area), then derive the Spark phrase from the bound on-chain wallet or fail closed with "The linked on-chain wallet or its recovery phrase is unavailable. No Lightning recovery phrase was shown."
 
 **Behavior.** Home backup banner always targets the main wallet (`wallets[0]`). Text "Backup your wallet", or with total balance > 0 "Backup not verified" plus warning icon. Continue on PleaseBackup sets `setUserHasBackedUpSeed(true)` and saves; hardware back sets it false. Viewing WalletExport sets `userHasSavedExport` but does **not** set `userHasBackedUpSeed`, so the home banner stays until PleaseBackup is confirmed. Imported wallets are auto-marked backed up. `PleaseBackupLNDHub` is registered but never navigated to (dead). Create registers PleaseBackup in AddWalletStack but does not navigate there after create.
 
@@ -86,7 +86,7 @@ On-chain wallet lifecycle: create and import, recovery-phrase backup, the home a
 
 **Known issues.** None recorded.
 
-**Tests.** No unit test for `pleaseBackup.js` or `backup-explanation.tsx` found; Maestro flow `tests/e2e-maestro/flows/01-onboarding-onchain-wallet.yaml` asserts the banner; `tests/unit/spark-wallet-export.test.js`, `tests/unit/spark-backup-notice.test.js` (Spark export path); CF-01.
+**Tests.** No unit test for `pleaseBackup.js` or `backup-explanation.tsx` found; no end-to-end test asserts the banner; `tests/e2e/wallet-details.spec.js` (Detox: export shows exactly the imported phrase); `tests/unit/spark-wallet-export.test.js`, `tests/unit/spark-backup-notice.test.js` (Spark export path); CF-01.
 
 **Source.** screen/wallets/dfx/backup-explanation.tsx, screen/wallets/pleaseBackup.js, screen/wallets/secret.js, screen/wallets/export.js, navigation/BackupSeedStack.tsx, navigation/WalletExportStack.tsx, screen/wallets/home.js
 
@@ -108,7 +108,7 @@ On-chain wallet lifecycle: create and import, recovery-phrase backup, the home a
 
 **Known issues.** None recorded.
 
-**Tests.** `tests/unit/spark-home.test.js`, `tests/unit/dfx-services-buttons.test.js`; Maestro `tests/e2e-maestro/flows/01-onboarding-onchain-wallet.yaml`; CF-01.
+**Tests.** `tests/unit/spark-home.test.js`, `tests/unit/dfx-services-buttons.test.js`; `tests/e2e/onchain.spec.js` (Detox: wallet row survives a restart); CF-01.
 
 **Source.** screen/wallets/home.js, components/TransactionsNavigationHeader.js, components/DfxServicesButtons.tsx, blue_modules/storage-context.js, navigation/WalletsStack.tsx, navigation/index.tsx
 
@@ -152,7 +152,7 @@ On-chain wallet lifecycle: create and import, recovery-phrase backup, the home a
 
 **Known issues.** None recorded.
 
-**Tests.** `tests/unit/wallet-details-spark.test.js`; CF-01.
+**Tests.** `tests/unit/wallet-details-spark.test.js`; `tests/e2e/onchain.spec.js` (Detox: deleting the only wallet resets the app); CF-01.
 
 **Source.** screen/wallets/details.js, screen/settings/settings.js, navigation/WalletsStack.tsx
 
@@ -174,7 +174,7 @@ On-chain wallet lifecycle: create and import, recovery-phrase backup, the home a
 
 **Known issues.** None recorded.
 
-**Tests.** None. (No unit test found for `xpub.js`.)
+**Tests.** No unit test for `xpub.js`; `tests/e2e/wallet-details.spec.js` (Detox: shows the zpub of the BIP84 account); `tests/e2e/import-discovery.spec.js` (Detox: xpub of an imported BIP44 account).
 
 **Source.** screen/wallets/xpub.js, components/handoff.js, navigation/WalletXpubStack.tsx
 
@@ -218,7 +218,7 @@ On-chain wallet lifecycle: create and import, recovery-phrase backup, the home a
 
 **Known issues.** None recorded.
 
-**Tests.** None found for `signVerify.js`. Signing is covered at class level in wallet unit tests (Not verified in code.).
+**Tests.** No unit test for `signVerify.js`; `tests/e2e/wallet-details.spec.js` (Detox: a signed message verifies against the first receive address).
 
 **Source.** screen/wallets/signVerify.js
 
@@ -284,7 +284,7 @@ On-chain wallet lifecycle: create and import, recovery-phrase backup, the home a
 
 **Known issues.** None recorded.
 
-**Tests.** `tests/unit/CosignerCamera.test.js`, `tests/unit/multisig-hd-wallet.test.js`, `tests/unit/multisig-hd-wallet-guard.test.js`.
+**Tests.** `tests/unit/CosignerCamera.test.js`, `tests/unit/multisig-hd-wallet.test.js`, `tests/unit/multisig-hd-wallet-guard.test.js`, `tests/e2e/multisig.spec.js` (Detox: 2-of-3 vault from the main seed and two scanned cosigners; receive address checked against the keys).
 
 **Source.** screen/wallets/addMultisig.js, screen/wallets/addMultisigStep2.js, screen/wallets/addMultisigHelp.js, class/wallets/multisig-hd-wallet.js, class/multisig-cosigner.js, navigation/WalletsStack.tsx, navigation/AddWalletStack.tsx
 
@@ -328,6 +328,6 @@ On-chain wallet lifecycle: create and import, recovery-phrase backup, the home a
 
 **Known issues.** None recorded.
 
-**Tests.** None.
+**Tests.** `tests/e2e/multisig.spec.js` (Detox: quorum, all three cosigners, and a coordination setup that lists their fingerprints and path).
 
 **Source.** screen/wallets/viewEditMultisigCosigners.js, screen/wallets/exportMultisigCoordinationSetup.js, class/wallets/multisig-hd-wallet.js

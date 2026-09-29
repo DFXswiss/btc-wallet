@@ -1,6 +1,6 @@
 # Critical flows
 
-These flows must pass before a release. Each flow names the inventory rows it proves. The Automation field tells whether a script runs it and what remains manual; the Detox specs it cites from pull request #280 are not in this checkout yet, so those flows are manual until that pull request lands. Funded flows need real sats and are run by a person with the team's test funds.
+These flows must pass before a release. Each flow names the inventory rows it proves. The Automation field tells whether a script runs it and what remains manual; the Detox specs it cites run on an Android emulator in the `Tests e2e Android` workflow: job `detox` runs the suites without funds on every pull request, and job `detox-funded` runs the funded suites after a reviewer releases the protected `e2e-funded` environment. Neither job blocks a merge yet. Funded flows need real sats and are run by a person with the team's test funds.
 
 ## Preconditions for every flow
 
@@ -26,7 +26,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 6. Tap Receive and confirm a mainnet on-chain address and QR are shown (BIP21 with amount and label if offered).
 7. From Settings, open the wallet row (wallet details) and confirm the wallet can be deleted; deleting the only wallet resets the app to first launch.
 **Expected.** A receive address is visible; the wallet survives a restart; deleting the only wallet returns the app to the add-wallet screen.
-**Automation.** `tests/e2e/onchain.spec.js` (Detox on Android, pull request #280): self-test, wallet survives a restart, mainnet receive address, BIP21 with amount and label, deleting the only wallet resets the app.
+**Automation.** `tests/e2e/onchain.spec.js` (Detox on Android): self-test, wallet survives a restart, mainnet receive address, BIP21 with amount and label, deleting the only wallet resets the app.
 
 ## CF-02 Receive on-chain and watch the transaction confirm
 
@@ -59,7 +59,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 6. On the confirm screen check the recipient, the amount and the fee; Details shows the signed transaction.
 7. Tap Send now; the success screen shows amount and fee; confirm the outgoing row appears in the transaction list.
 **Expected.** The restored wallet shows its balance; a signed send shows the correct amount and fee; after broadcast, the history lists the outgoing payment.
-**Automation.** `tests/e2e/onchain-send.spec.js` (#280, funded lane) builds and signs the transaction and checks amount and fee, but never broadcasts; the broadcast step is manual.
+**Automation.** `tests/e2e/onchain-send.spec.js` (funded) builds and signs the transaction and checks amount and fee, but never broadcasts; the broadcast step is manual.
 
 ## CF-04 Encrypt storage, relaunch, unlock, use the decoy password
 
@@ -75,7 +75,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 5. On the unlock screen, enter the primary password and confirm the real wallet appears.
 6. Force-quit again, unlock with the decoy password, and confirm the decoy vault is shown instead of the real wallet.
 **Expected.** Cold start requires unlock; the primary password opens the real vault; the decoy password opens the deniable vault.
-**Automation.** `tests/e2e/encrypted-storage.spec.js` (#280).
+**Automation.** `tests/e2e/encrypted-storage.spec.js`: the password is asked on launch, a wrong one is rejected, the same wallet is restored, and a plausible-deniability password opens separate storage while the real wallet stays intact. On Android the password prompts need the prompt fix from pull request #281; until it is in the base, this spec fails.
 
 ## CF-05 Add a Spark Lightning wallet, create an invoice, export its recovery phrase
 
@@ -91,7 +91,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 5. Open Settings, Lightning, Export; accept the notice and continue.
 6. Confirm the 12-word Spark recovery phrase is displayed.
 **Expected.** Spark is the active Lightning wallet; an amount invoice is creatable; the Spark recovery phrase can be exported.
-**Automation.** `tests/e2e/spark.spec.js` (#280).
+**Automation.** `tests/e2e/spark.spec.js`: adds Spark from the home row, creates an invoice for a typed amount and description, and exports the BIP-85 child phrase only after the notice is accepted.
 
 ## CF-06 Receive Lightning on Spark
 
@@ -123,7 +123,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 5. Complete the pay flow to a team-controlled address.
 6. Confirm the second outgoing row and the reduced Spark balance.
 **Expected.** Both payments succeed; history shows the Lightning spends; balance drops by the spent amounts.
-**Automation.** `tests/e2e/spark-send.spec.js` (#280, quotes only) and `tests/e2e/spark-pay.spec.js` (#280, spends sats to a team-controlled address).
+**Automation.** `tests/e2e/spark-send.spec.js` (funded, quotes only) and `tests/e2e/spark-pay.spec.js` (funded, spends sats to a team-controlled address).
 
 ## CF-08 Restore a phrase that already has a Spark wallet
 
@@ -134,12 +134,12 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 **Steps.**
 1. Start with no wallet (or delete the current wallet) and open Import wallet.
 2. Enter the recovery phrase that already has a Spark wallet.
-3. Complete import discovery and confirm the on-chain wallet is restored.
-4. Confirm Lightning recovery runs and the Spark wallet reappears in the Lightning slot.
-5. Open the Lightning wallet and check the recovered balance against the known funded amount.
+3. Complete import discovery and confirm the on-chain wallet is restored; the Lightning row shows Add.
+4. On Home, tap Add in the Lightning row; the Spark wallet of that phrase reappears in the Lightning slot.
+5. Open the Lightning wallet and check the balance against the known funded amount.
 6. Confirm Home shows both the restored on-chain and Spark wallets.
-**Expected.** Import restores the phrase; Spark balance is visible after Lightning recovery.
-**Automation.** `tests/e2e-maestro/_setup-import.yaml` imports a fixed Spark identity; the balance check is manual.
+**Expected.** Import restores the phrase; Add on the Lightning row brings back the existing Spark wallet with its balance.
+**Automation.** `tests/e2e-maestro/_setup-import.yaml` imports a fixed Spark identity and taps Add on the Lightning row; the balance check is manual.
 
 ## CF-09 Log in to DFX with LNURL-auth
 

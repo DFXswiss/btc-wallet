@@ -19,7 +19,7 @@ Cold start, unlock, deep links, home-screen shortcuts, push notifications, scree
 **Depends on.** Config key `REACT_APP_DISCLAIMER_URL` for the disclaimer link. No external service is required to create the first on-chain wallet.
 
 **Known issues.** None recorded.
-**Tests.** `tests/unit/wallet-created-route.test.js`, `tests/unit/wallets-add.test.js`, `tests/e2e-maestro/flows/01-onboarding-onchain-wallet.yaml`, CF-01.
+**Tests.** `tests/unit/wallet-created-route.test.js`, `tests/unit/wallets-add.test.js`, `tests/e2e/onchain.spec.js` (Detox: first launch, Create, Home), CF-01.
 **Source.** navigation/index.tsx, screen/wallets/add.js, helpers/wallet-created-route.ts, screen/wallets/home.js
 
 ## A-02 Unlock at launch (password, biometrics)
@@ -79,7 +79,7 @@ Cold start, unlock, deep links, home-screen shortcuts, push notifications, scree
 **Depends on.** `react-native-quick-actions`.
 
 **Known issues.** None recorded.
-**Tests.** Mocked in `tests/setup.js`; `tests/e2e/bluewallet.spec.js` toggles the switch (Detox suite not in CI workflows).
+**Tests.** Mocked in `tests/setup.js`; no end-to-end test.
 **Source.** class/quick-actions.js, App.js, screen/settings/SettingsPrivacy.js
 
 ## A-05 Push notifications
@@ -119,7 +119,7 @@ Cold start, unlock, deep links, home-screen shortcuts, push notifications, scree
 **Depends on.** `react-native-capture-protection`.
 
 **Known issues.** None recorded.
-**Tests.** `tests/unit/blue-app.test.js`, `tests/unit/storage-context.test.js`, `tests/unit/spark-wallet-export.test.js`; Maestro flows 19, 23, 24 mention privacy; Detox `tests/e2e/bluewallet.spec.js`.
+**Tests.** `tests/unit/blue-app.test.js`, `tests/unit/storage-context.test.js`, `tests/unit/spark-wallet-export.test.js`; no end-to-end test asserts capture protection.
 **Source.** blue_modules/Privacy.tsx, BlueApp.js, screen/settings/SettingsPrivacy.js
 
 ## A-07 Handoff, Apple Watch and widgets

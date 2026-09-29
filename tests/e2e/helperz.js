@@ -67,7 +67,7 @@ export async function createOnChainWallet() {
   await waitForId('OnChainWalletRow');
 }
 
-/** AddWallet → Import → keyboard → 5 taps on the explanation opens the speed import (no discovery, no Lightning recovery). */
+/** AddWallet → Import → keyboard → 5 taps on the explanation opens the speed import (no discovery). */
 export async function speedImport(mnemonic, walletType = 'HDsegwitBech32') {
   await waitForId('ImportWallet');
   await element(by.id('ImportWallet')).tap();

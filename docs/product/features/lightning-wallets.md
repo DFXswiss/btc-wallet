@@ -1,6 +1,6 @@
 # Lightning wallets
 
-This area covers Lightning wallet types in the app: self-custodial Spark, custodial lightning.space (LNDHub and Taproot assets), the home Lightning slot, recovery on import, Lightning address registration, Spark on-chain deposit handling, Spark recovery-phrase export, and the legacy generic LNDHub path.
+This area covers Lightning wallet types in the app: self-custodial Spark, custodial lightning.space (LNDHub and Taproot assets), the home Lightning slot, restoring an existing Lightning wallet on Add, Lightning address registration, Spark on-chain deposit handling, Spark recovery-phrase export, and the legacy generic LNDHub path.
 
 ## L-01 Spark wallet (self-custodial Lightning)
 
@@ -46,27 +46,27 @@ This area covers Lightning wallet types in the app: self-custodial Spark, custod
 
 **Source.** helpers/lightning-wallet.ts, screen/wallets/home.js, screen/settings/settings.js
 
-## L-03 Lightning recovery on import
+## L-03 Existing Lightning wallet restored on Add
 
 **Routes:** none
-**Entry:** Import wallet
+**Entry:** Home, Lightning row, Add
 **Tier:** Critical (DFX)
 
-**Inputs.** Runs only when the imported wallet is the first wallet in the app (`isFirstWallet`) and is a BIP39 HD type. Uses the same three lightning.space login address candidates as Add.
+**Inputs.** The wallet chosen as the Spark source on Home (the main on-chain wallet). The lightning.space check runs only for a BIP39 HD type and uses the same three login address candidates as L-01.
 
-**Options.** None. The user cannot skip or choose provider during recovery; the continue/select control stays disabled while the check runs.
+**Options.** None. The user cannot choose the provider; the Add control shows a spinner while the check and the create run.
 
-**Behavior.** On `ImportWalletDiscovery` and `ImportCustomDerivationPath`, a spinner shows `"Checking for an existing Lightning wallet…"`. Recovery races a 30 s wait; after 30 s the screen continues and recovery may finish in the background. Order: (1) lightning.space account via sign-in only — if found, add `LightningLdsWallet` (init, authorize, fetch transactions, invoices, pending, balance); (2) otherwise try Spark — connect, sync, read info, one payment and Lightning address, and restore only if the seed was used (balance > 0, or at least one payment, or an existing Lightning address); unused seeds create nothing and disconnect. Any failed check stops recovery without guessing; errors go to crash reporting only, with no user alert. A restored Spark wallet without a Lightning address gets one registration attempt after connect (attempted, not guaranteed). Result: the home Lightning row is already filled, or it shows Add.
+**Behavior.** Importing a phrase does not look for a Lightning wallet; after import the Lightning row shows Add. Add first signs in to lightning.space with each login address candidate (sign-in only); an account without a BTC LNDHub wallet does not end the search. If one is found, a `LightningLdsWallet` is added (init, authorize, fetch transactions, invoices, pending, balance) and Spark is not created. Otherwise `createSparkWallet` connects with the BIP-85 child phrase and syncs before it reads the balance, so a seed that used Spark before gets the same Spark identity back with its balance; a failed sync is left to the next one. An existing Lightning address of that identity is kept; without one, one registration is attempted (attempted, not guaranteed). A failed lightning.space check adds nothing and shows an alert titled `"Lightning"` with `"The existing Lightning account could not be checked. Nothing was added. Try again."` and Cancel / Repeat.
 
-**Not supported.** Recovery when the imported wallet is not the first wallet. Creating a lightning.space account during import (sign-in only).
+**Not supported.** Finding a Lightning wallet during import. Creating a lightning.space account from Add (sign-in only).
 
-**Depends on.** BIP39 HD first wallet; lightning.space sign-in; Spark SDK and `BREEZ_API_KEY` for the Spark path.
+**Depends on.** BIP39 HD source wallet; lightning.space sign-in; Spark SDK and `BREEZ_API_KEY` for the Spark path.
 
 **Known issues.** None recorded.
 
-**Tests.** tests/unit/lightning-recovery.test.js, tests/unit/import-discovery.test.js, tests/unit/import-custom-derivation-path.test.js, tests/e2e-maestro/_setup-import.yaml; CF-08
+**Tests.** tests/unit/lightning-recovery.test.js, tests/unit/spark-home.test.js, tests/unit/spark-context.test.js, tests/e2e-maestro/_setup-import.yaml; CF-08
 
-**Source.** hooks/lightningRecovery.hook.ts, api/spark/contexts/spark.context.tsx, api/lds/lightning-lds-wallet-factory.ts, screen/wallets/importDiscovery.js, screen/wallets/importCustomDerivationPath.js
+**Source.** hooks/lightningRecovery.hook.ts, api/spark/contexts/spark.context.tsx, api/lds/lightning-lds-wallet-factory.ts, screen/wallets/home.js
 
 ## L-04 Lightning address
 
@@ -108,13 +108,13 @@ This area covers Lightning wallet types in the app: self-custodial Spark, custod
 
 **Known issues.** None recorded.
 
-**Tests.** tests/e2e-maestro/flows/07-receive-spark-onchain-address.yaml
+**Tests.** None.
 
 **Source.** api/spark/spark-sdk.ts, api/spark/contexts/spark.context.tsx, class/wallets/spark-wallet.ts
 
 ## L-06 Spark recovery phrase export
 
-**Routes:** SparkBackupNotice
+**Routes:** none
 **Entry:** Settings, Lightning wallet, Export
 **Tier:** Critical (DFX)
 
@@ -122,7 +122,7 @@ This area covers Lightning wallet types in the app: self-custodial Spark, custod
 
 **Options.** Notice checkbox `"I understand"` must be checked before Continue. If biometrics are capable and enabled, unlock must succeed or the screen goes back; if biometrics are disabled, the phrase appears with no extra gate.
 
-**Behavior.** WalletExport for Spark replaces itself with SparkBackupNotice unless `noticeAccepted` is set. The notice title is `"Do you need these words?"`; it explains that this app does not need these words because the Bitcoin wallet recovery phrase is enough, that the words are only for use in a different app and do not restore Lightning in this app, and gates Continue on the confirm checkbox. After accept, capture protection turns on when the privacy-blur setting is on. The export screen shows the Spark recovery explanation, backup info, the 12 words (testID WalletExportSecret), and a QR of the phrase. If the source is missing or ambiguous, it shows that no Lightning recovery phrase was shown and omits the phrase. The screen closes when the app backgrounds; the phrase is cleared on blur.
+**Behavior.** WalletExport for Spark renders the SparkBackupNotice in place of the phrase until `noticeAccepted` is set; Continue replaces the screen with WalletExport and `noticeAccepted: true`. The notice title is `"Do you need these words?"`; it explains that this app does not need these words because the Bitcoin wallet recovery phrase is enough, that the words are only for use in a different app and do not restore Lightning in this app, and gates Continue on the confirm checkbox. After accept, capture protection turns on when the privacy-blur setting is on. The export screen shows the Spark recovery explanation, backup info, the 12 words (testID WalletExportSecret), and a QR of the phrase. If the source is missing or ambiguous, it shows that no Lightning recovery phrase was shown and omits the phrase. The screen closes when the app backgrounds; the phrase is cleared on blur.
 
 **Not supported.** Using the Spark child phrase to restore Lightning inside this app. Export when the bound on-chain source is missing or ambiguous.
 
@@ -130,7 +130,7 @@ This area covers Lightning wallet types in the app: self-custodial Spark, custod
 
 **Known issues.** None recorded.
 
-**Tests.** tests/unit/spark-wallet-export.test.js, tests/unit/spark-backup-notice.test.js, tests/e2e-maestro/flows/19-spark-recovery-export.yaml; CF-05
+**Tests.** tests/unit/spark-wallet-export.test.js, tests/unit/spark-backup-notice.test.js, tests/e2e/spark.spec.js; CF-05
 
 **Source.** navigation/WalletExportStack.tsx, screen/wallets/sparkBackupNotice.js, screen/wallets/export.js, screen/wallets/details.js, blue_modules/Privacy.tsx
 
@@ -174,6 +174,6 @@ This area covers Lightning wallet types in the app: self-custodial Spark, custod
 
 **Known issues.** None recorded.
 
-**Tests.** tests/integration/lightning-custodian-wallet.test.js, tests/unit/lightning-wallet-helper.test.js, tests/e2e/bluewallet.spec.js
+**Tests.** tests/integration/lightning-custodian-wallet.test.js, tests/unit/lightning-wallet-helper.test.js
 
 **Source.** class/wallets/lightning-custodian-wallet.js, screen/settings/lightningSettings.tsx, screen/wallets/pleaseBackupLNDHub.js, navigation/WalletsStack.tsx, navigation/AddWalletStack.tsx, class/wallet-import.js, class/deeplink-schema-match.js

@@ -44,7 +44,7 @@ Details shows, when present: memo, unique input addresses ("Input") with copy-al
 
 **Known issues.** #207 Transaction Status confirmation poll never fires
 
-**Tests.** tests/e2e/bluewallet2.spec.js (taps TransactionDetailsButton; not in PR CI). No unit tests for these screens. CF-02.
+**Tests.** No unit or end-to-end tests for these screens. CF-02.
 
 **Source.** screen/transactions/transactionStatus.js, screen/transactions/details.js, components/TransactionListItem.js, class/hd-segwit-bech32-transaction.js, navigation/WalletsStack.tsx
 

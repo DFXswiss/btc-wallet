@@ -44,7 +44,7 @@ The External services tile (`DfxServicesButtons`) sits on home and on the wallet
 
 **Known issues.** #260 Spark: DFX buy/sell ramp — buy is ready on the API side, sell is not
 
-**Tests.** tests/unit/dfx-services-buttons.test.js, tests/unit/dfx-services-startup.test.js, tests/unit/dfx-session-context.test.js, tests/unit/dfx-session-coverage.test.js, tests/e2e-maestro/flows/11-dfx-buy-transition.yaml, tests/e2e-maestro/flows/16-dfx-buy-to-payment.yaml. CF-10.
+**Tests.** tests/unit/dfx-services-buttons.test.js, tests/unit/dfx-services-startup.test.js, tests/unit/dfx-session-context.test.js, tests/unit/dfx-session-coverage.test.js, tests/e2e-maestro/flows/16-dfx-buy-to-payment.yaml. CF-10.
 
 **Source.** api/dfx/contexts/session.context.tsx, components/DfxServicesButtons.tsx, class/deeplink-schema-match.js
 
@@ -66,7 +66,7 @@ The External services tile (`DfxServicesButtons`) sits on home and on the wallet
 
 **Known issues.** #260 Spark: DFX buy/sell ramp — buy is ready on the API side, sell is not
 
-**Tests.** tests/unit/dfxSellMax.test.js, tests/unit/dfxMaxAmount.test.js, tests/unit/dfx-spark-invoice-payment.test.js, tests/unit/dfx-lightning-deposit.test.js, tests/e2e-maestro/flows/12-dfx-sell-transition.yaml, tests/e2e-maestro/flows/17-dfx-sell-to-payment.yaml. CF-11.
+**Tests.** tests/unit/dfxSellMax.test.js, tests/unit/dfxMaxAmount.test.js, tests/unit/dfx-spark-invoice-payment.test.js, tests/unit/dfx-lightning-deposit.test.js, tests/e2e-maestro/flows/17-dfx-sell-to-payment.yaml. CF-11.
 
 **Source.** screen/dfx/sell.tsx, helpers/dfxMaxAmount.ts, helpers/dfxLightningDeposit.ts, components/DfxServicesButtons.tsx, api/dfx/contexts/session.context.tsx, class/deeplink-schema-match.js, navigation/DeeplinkStack.tsx, navigation/index.tsx
 

@@ -31,7 +31,7 @@ Settings covers the settings menu, general and privacy options, currency and lan
 **Depends on.** Presence of Lightning and multisig wallets for those rows; LDS DEV API flag for the CHF Taproot row.
 
 **Known issues.** None recorded.
-**Tests.** tests/unit/settings-lightning-wallet.test.js, tests/unit/settings-chf-taproot.test.js, tests/e2e-maestro/flows/13-settings-lightning-entry.yaml, tests/e2e/bluewallet.spec.js. Whether the Detox suite runs in CI is not verified in code.
+**Tests.** tests/unit/settings-lightning-wallet.test.js, tests/unit/settings-chf-taproot.test.js.
 **Source.** screen/settings/settings.js, navigation/WalletsStack.tsx
 
 ## X-02 General and privacy settings
@@ -62,7 +62,7 @@ Settings covers the settings menu, general and privacy options, currency and lan
 **Depends on.** AsyncStorage for preferences; `react-native-capture-protection` for screenshot blocking; Sentry via analytics when Do Not Track is off.
 
 **Known issues.** None recorded.
-**Tests.** tests/unit/settings-lightning-wallet.test.js, tests/unit/storage-context.test.js, tests/unit/blue-app.test.js, tests/e2e/bluewallet.spec.js
+**Tests.** tests/unit/settings-lightning-wallet.test.js, tests/unit/storage-context.test.js, tests/unit/blue-app.test.js
 **Source.** screen/settings/GeneralSettings.tsx, screen/settings/SettingsPrivacy.js, blue_modules/Privacy.tsx, blue_modules/clipboard.ts, class/quick-actions.js, blue_modules/WidgetCommunication.ios.js, blue_modules/analytics.js
 
 ## X-03 Currency
@@ -149,7 +149,7 @@ Settings covers the settings menu, general and privacy options, currency and lan
 **Depends on.** Electrum connectivity (`BlueElectrum.js`); app-group `group.swiss.dfx.bitcoin` on iOS for widget mirroring of host/ports.
 
 **Known issues.** None recorded.
-**Tests.** tests/integration/BlueElectrum.test.js, tests/unit/electrumBatchingDetection.test.js, tests/unit/storage-context.test.js, tests/e2e/bluewallet.spec.js
+**Tests.** tests/integration/BlueElectrum.test.js, tests/unit/electrumBatchingDetection.test.js, tests/unit/storage-context.test.js
 **Source.** screen/settings/NetworkSettings.js, screen/settings/electrumSettings.js, blue_modules/BlueElectrum.js
 
 ## X-07 Notification settings
@@ -169,7 +169,7 @@ Settings covers the settings menu, general and privacy options, currency and lan
 **Depends on.** `react-native-notifications` (APNs/FCM); GroundControl URI (default from `groundControlUri`, overridable).
 
 **Known issues.** None recorded.
-**Tests.** tests/integration/notifications.test.js, tests/e2e/bluewallet.spec.js
+**Tests.** tests/integration/notifications.test.js
 **Source.** screen/settings/notificationSettings.tsx, blue_modules/notifications.ts, blue_modules/constants.js
 
 ## X-08 Storage encryption and biometrics
@@ -192,7 +192,7 @@ Settings covers the settings menu, general and privacy options, currency and lan
 **Depends on.** Platform secure store / keychain; CryptoJS encryption; `react-native-biometrics` for gated actions (send confirm, PSBT flows, LNURL-pay, OpenCryptoPay commit, export, xpub, multisig screens, wallet details/delete, and related headers).
 
 **Known issues.** None recorded.
-**Tests.** tests/unit/encryption.test.js, tests/unit/blue-app.test.js, tests/unit/storage.test.js, tests/e2e/bluewallet.spec.js, CF-04
+**Tests.** tests/unit/encryption.test.js, tests/unit/blue-app.test.js, tests/unit/storage.test.js, tests/e2e/encrypted-storage.spec.js, CF-04
 **Source.** screen/settings/encryptStorage.js, blue_modules/encryption.js, BlueApp.js, class/biometrics.js
 
 ## X-09 Plausible deniability
@@ -212,7 +212,7 @@ Settings covers the settings menu, general and privacy options, currency and lan
 **Depends on.** Encrypted storage (X-08) and the multi-bucket decrypt path in `BlueApp.js`.
 
 **Known issues.** None recorded.
-**Tests.** tests/unit/blue-app.test.js, tests/e2e/bluewallet.spec.js, CF-04
+**Tests.** tests/unit/blue-app.test.js, tests/e2e/encrypted-storage.spec.js, CF-04
 **Source.** screen/plausibledeniability.js, BlueApp.js
 
 ## X-10 Tools
@@ -234,7 +234,7 @@ Settings covers the settings menu, general and privacy options, currency and lan
 **Depends on.** Loaded wallets for address ownership; Electrum for broadcast.
 
 **Known issues.** None recorded.
-**Tests.** tests/e2e/bluewallet.spec.js
+**Tests.** None.
 **Source.** screen/settings/tools.js
 
 ## X-11 Feature flags
@@ -278,5 +278,5 @@ Settings covers the settings menu, general and privacy options, currency and lan
 **Depends on.** Network for Electrum-backed self-test steps; Offline Mode must be off; `release-notes.json` bundled at build time; `DFX_ENV` for the environment footer line.
 
 **Known issues.** None recorded.
-**Tests.** tests/unit/settings-lightning-wallet.test.js, tests/integration/App.test.js, tests/e2e/bluewallet.spec.js
+**Tests.** tests/unit/settings-lightning-wallet.test.js, tests/integration/App.test.js, tests/e2e/onchain.spec.js (Detox: self-test passes)
 **Source.** screen/settings/about.js, screen/selftest.js, screen/settings/licensing.js, screen/settings/releasenotes.js
