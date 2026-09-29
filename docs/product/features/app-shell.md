@@ -45,7 +45,7 @@ Cold start, unlock, deep links, home-screen shortcuts, push notifications, scree
 ## A-03 Deep links and URI schemes
 
 **Routes:** none
-**Entry:** Opening bitcoin:, lightning:, LNURL or dfxtaro:// links
+**Entry:** Opening bitcoin:, lightning:, spark:, LNURL or dfxtaro:// links
 **Tier:** Important
 
 **Inputs.** Recognized scheme prefixes: `bitcoin:`, `lightning:`, `blue:`, `bluewallet:`, `lapp:`, `dfxtaro:`, `spark:`. Also plain Bitcoin addresses, BIP21 URIs, `lnbc…` / `lntb…` invoices, Spark addresses and payment URIs, LNURL payloads, and Lightning addresses (`user@domain`). Widget actions use `bluewallet://widget?action=openSend` or `openReceive`. DFX hosts `buy`, `sell`, and `swap` under `bluewallet:`, `lapp:`, `blue:`, or `dfxtaro:`.

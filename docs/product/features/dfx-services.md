@@ -62,7 +62,7 @@ The External services tile (`DfxServicesButtons`) sits on home and on the wallet
 
 **Not supported.** Non-BTC sell assets in the app; starting the confirm screen without the deep link.
 
-**Depends on.** D-01 session; config `REACT_APP_SRV_URL`; Electrum/UTXOs for on-chain; LnurlPay / Spark payment path for Lightning; deep link `dfxtaro://sell`.
+**Depends on.** D-01 session; config `REACT_APP_SRV_URL`; Electrum/UTXOs for on-chain; LnurlPay / Spark payment path for Lightning; deep link `dfxtaro://sell`, or the `spark:` payment link for a Spark sell.
 
 **Known issues.** #260 Spark: DFX buy/sell ramp — buy is ready on the API side, sell is not
 
