@@ -181,12 +181,12 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 **Steps.**
 1. On Home, confirm the Sell tile is shown.
 2. Tap Sell. The DFX web app opens; enter the amount to sell from Spark and the bank account.
-3. The web app returns to the wallet through the sell link; the wallet shows the confirmation with amount, IBAN and currency.
-4. Tap "Cash out to bank account"; the wallet pays the DFX deposit over Lightning from Spark.
+3. For a Spark sell the web app hands a `spark:` payment link back to the wallet instead of returning through the sell link; by code that link opens the Lightning send screen with the DFX deposit address filled in; the amount in the link is not applied, so enter it by hand (what is in the foreground right after the hand-over varies at runtime and is not verified on a device).
+4. Confirm the payment from Spark on that screen.
 5. Confirm the Spark balance decreased by the sold amount plus fee.
 6. Confirm the sell reaches completed on the local DFX stack.
 **Expected.** The sell pays from Spark; the balance drops; the sell completes on the local DFX stack.
-**Automation.** `tests/e2e-maestro/flows/17-dfx-sell-to-payment.yaml` (runs after CF-10 on the same identity): pays the sell deposit address from a fixture through the wallet send path, settles the sell on the local stack, then checks the sell mask and the balance after a restart; the in-app cash-out step (step 4) is not automated.
+**Automation.** `tests/e2e-maestro/flows/17-dfx-sell-to-payment.yaml` (runs after CF-10 on the same identity): pays the sell deposit address from a fixture through the wallet send path, settles the sell on the local stack, then checks the sell mask and the balance after a restart; the hand-over and the payment confirmation (steps 3 and 4) are not automated; the flow pays the deposit address itself through the wallet's send path before that point.
 
 ## Coverage
 
