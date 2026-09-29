@@ -192,7 +192,7 @@ Settings covers the settings menu, general and privacy options, currency and lan
 **Depends on.** Platform secure store / keychain; CryptoJS encryption; `react-native-biometrics` for gated actions (send confirm, PSBT flows, LNURL-pay, OpenCryptoPay commit, export, xpub, multisig screens, wallet details/delete, and related headers).
 
 **Known issues.** None recorded.
-**Tests.** tests/unit/encryption.test.js, tests/unit/blue-app.test.js, tests/unit/storage.test.js, tests/e2e/encrypted-storage.spec.js, CF-04
+**Tests.** tests/unit/encryption.test.js, tests/unit/blue-app.test.js, tests/unit/storage.test.js, CF-04
 **Source.** screen/settings/encryptStorage.js, blue_modules/encryption.js, BlueApp.js, class/biometrics.js
 
 ## X-09 Plausible deniability
@@ -212,7 +212,7 @@ Settings covers the settings menu, general and privacy options, currency and lan
 **Depends on.** Encrypted storage (X-08) and the multi-bucket decrypt path in `BlueApp.js`.
 
 **Known issues.** None recorded.
-**Tests.** tests/unit/blue-app.test.js, tests/e2e/encrypted-storage.spec.js, CF-04
+**Tests.** tests/unit/blue-app.test.js, CF-04
 **Source.** screen/plausibledeniability.js, BlueApp.js
 
 ## X-10 Tools
