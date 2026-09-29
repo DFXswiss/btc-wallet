@@ -70,7 +70,7 @@ jobs:
           profile: pixel
           avd-name: Pixel_API_29_AOSP
           force-avd-creation: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none -partition-size 4096
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back emulated -camera-front none -partition-size 4096
           script: ./tests/e2e/run-ci.sh unfunded "${{ github.workspace }}/artifacts"
 
       - uses: actions/upload-artifact@v4
@@ -115,5 +115,5 @@ jobs:
           profile: pixel
           avd-name: Pixel_API_29_AOSP
           force-avd-creation: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none -partition-size 4096
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back emulated -camera-front none -partition-size 4096
           script: ./tests/e2e/run-ci.sh funded
