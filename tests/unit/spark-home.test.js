@@ -148,7 +148,6 @@ jest.mock('../../hooks/lightningRecovery.hook', () => ({
     const { useSparkContext } = require('../../api/spark/contexts/spark.context');
     const { createSparkWallet } = useSparkContext();
     return {
-      recoverLightningWallet: jest.fn(),
       addLightningWallet: async wallet => {
         if (await mockAddExistingLds(wallet)) return;
         await createSparkWallet(wallet);
@@ -424,6 +423,7 @@ describe('home screen Spark Lightning add path (render)', () => {
     await waitFor(() => {
       expect(screen.UNSAFE_queryAllByType(ActivityIndicator).length).toBeGreaterThan(0);
     });
+    await waitFor(() => expect(resolveConnect).toBeDefined());
 
     await act(async () => {
       resolveConnect();
