@@ -133,7 +133,7 @@ The Flows column lists the critical flows that name the row under Covers.
 | --- | --- | --- | --- | --- | --- |
 | D-01 | DFX session and login | Automatic on the home screen | Critical (DFX) | CF-10, CF-11 | [details](features/dfx-services.md#d-01-dfx-session-and-login) |
 | D-02 | Buy | Home, Buy | Critical (DFX) | CF-10 | [details](features/dfx-services.md#d-02-buy) |
-| D-03 | Sell | Home, Sell; return through the dfxtaro://sell link | Critical (DFX) | CF-11 | [details](features/dfx-services.md#d-03-sell) |
+| D-03 | Sell | Home, Sell; return through the dfxtaro://sell link, or through a spark: payment link for a Spark sell | Critical (DFX) | CF-11 | [details](features/dfx-services.md#d-03-sell) |
 | D-04 | Swap | Home, Swap (DFX Swap flag) | Important | — | [details](features/dfx-services.md#d-04-swap) |
 | D-05 | DFX point of sale | Home, POS (DFX Point of Sale flag) | Nice | — | [details](features/dfx-services.md#d-05-dfx-point-of-sale) |
 
