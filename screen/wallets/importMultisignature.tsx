@@ -165,6 +165,7 @@ const ImportMultisignature: React.FC & { navigationOptions?: ReturnType<typeof n
         />
         <BlueButton
           style={styles.actionButton}
+          testID="ImportMultisigManualInput"
           onPress={() => setIsManualTextModalVisible(true)}
           icon={{ name: 'keyboard', type: 'material', color: '#ffffff', size: 38 }}
         />

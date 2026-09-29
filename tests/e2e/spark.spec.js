@@ -1,27 +1,17 @@
-/* global device, element, by, expect */
+/* global device, element, by, expect, waitFor */
 import assert from 'assert';
-import BIP32Factory from 'bip32';
 import * as bip39 from 'bip39';
 import bolt11 from 'bolt11';
-import { createHmac } from 'crypto';
 
-import ecc from '../../blue_modules/noble_ecc';
-import { extractTextFromElementById, launchFresh, requireEnv, speedImport, waitForId } from './helperz';
+import { extractTextFromElementById, launchFresh, requireEnv, scanText, speedImport, unpayableInvoice, waitForId } from './helperz';
+import { bip85Mnemonic12 } from './spark-sdk';
 
 // Needs a build with BREEZ_API_KEY; the wallet is new and unfunded on every run.
-const bip32 = BIP32Factory(ecc);
 
-/** BIP-85 BIP39 application, English, 12 words, index 0 — written from the spec, independent of the app code. */
-function bip85Mnemonic12(mnemonic) {
-  const node = bip32.fromSeed(bip39.mnemonicToSeedSync(mnemonic)).derivePath("m/83696968'/39'/0'/12'/0'");
-  const entropy = createHmac('sha512', 'bip-entropy-from-k').update(node.privateKey).digest().subarray(0, 16);
-  return bip39.entropyToMnemonic(Buffer.from(entropy).toString('hex'));
-}
-
-async function waitForInvoice() {
+async function waitForInvoice(accept = () => true) {
   for (let i = 0; i < 60; i++) {
     const value = await extractTextFromElementById('AddressValue').catch(() => '');
-    if (/^lnbc/i.test(value)) return value;
+    if (/^lnbc/i.test(value) && accept(value)) return value;
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
   throw new Error('receive screen never showed a BOLT11 invoice');
@@ -29,6 +19,7 @@ async function waitForInvoice() {
 
 describe('Spark Lightning wallet', () => {
   const onChainMnemonic = bip39.generateMnemonic(128);
+  let invoice;
 
   beforeAll(async () => {
     requireEnv('BREEZ_API_KEY');
@@ -39,7 +30,7 @@ describe('Spark Lightning wallet', () => {
     await waitForId('LightningWalletRow', 180_000);
   });
 
-  it('creates an invoice for the typed sats amount and description', async () => {
+  it('creates an invoice for the typed sats amount and description, and a new one when the amount changes', async () => {
     await element(by.id('LightningWalletRow')).tap();
     await waitForId('ReceiveButton');
     await element(by.id('ReceiveButton')).tap();
@@ -49,7 +40,7 @@ describe('Spark Lightning wallet', () => {
     await element(by.id('ReceiveDescriptionInput')).replaceText('e2e invoice');
     await element(by.id('ReceiveDescriptionInput')).tapReturnKey();
 
-    const invoice = await waitForInvoice();
+    invoice = await waitForInvoice();
     const decoded = bolt11.decode(invoice);
     assert.strictEqual(decoded.network.bech32, 'bc');
     assert.strictEqual(decoded.millisatoshis, '1234000');
@@ -57,6 +48,51 @@ describe('Spark Lightning wallet', () => {
     assert.strictEqual(description?.data, 'e2e invoice');
     const expiry = decoded.timeExpireDate * 1000;
     assert.ok(expiry > Date.now() + 5 * 60_000, 'invoice must stay payable for more than five minutes');
+
+    await element(by.id('ReceiveAmountInput')).replaceText('2345');
+    await element(by.id('ReceiveDescriptionInput')).tap();
+    await element(by.id('ReceiveDescriptionInput')).tapReturnKey();
+    const replaced = await waitForInvoice(value => value !== invoice);
+    assert.strictEqual(bolt11.decode(replaced).millisatoshis, '2345000');
+    invoice = replaced;
+  });
+
+  it('lists the open invoice in the history and shows it with amount, description and the same request', async () => {
+    assert.ok(invoice, 'needs the invoice from the previous test');
+    await device.launchApp({ newInstance: true });
+    await waitForId('LightningWalletRow');
+    await element(by.id('LightningWalletRow')).tap();
+    await waitFor(element(by.id('TransactionRow0')))
+      .toExist()
+      .withTimeout(120_000);
+    await element(by.id('TransactionRow0')).tap();
+    await waitForId('InvoicePleasePay');
+    assert.strictEqual((await extractTextFromElementById('InvoicePleasePay')).trim(), 'Please pay 2345 sats.');
+    assert.strictEqual((await extractTextFromElementById('InvoiceFor')).trim(), 'For: e2e invoice');
+    assert.strictEqual((await extractTextFromElementById('AddressValue')).trim(), invoice);
+  });
+
+  it('a lightning: link opens the payment screen with the invoice amount and description, and an empty wallet cannot pay', async () => {
+    await device.launchApp({ newInstance: true });
+    await waitForId('LightningWalletRow');
+    await device.openURL({ url: `lightning:${unpayableInvoice(4321, 'dfx e2e deep link')}` });
+    await waitForId('ScanLndInvoiceNext', 60_000);
+    assert.strictEqual((await extractTextFromElementById('BitcoinAmountInput')).trim(), '4321');
+    assert.strictEqual((await extractTextFromElementById('ScanLndInvoiceNote')).trim(), 'dfx e2e deep link');
+
+    await element(by.id('ScanLndInvoiceNext')).tap();
+    await waitForId('LnurlPayInsufficientFunds', 60_000);
+    await expect(element(by.id('LnurlPayButton'))).not.toExist();
+  });
+
+  it('a Lightning invoice scanned on home opens the Lightning payment screen', async () => {
+    await device.launchApp({ newInstance: true });
+    await waitForId('HomeScanButton');
+    await element(by.id('HomeScanButton')).tap();
+    await scanText(unpayableInvoice(555, 'dfx e2e scan'));
+    await waitForId('ScanLndInvoiceNext', 60_000);
+    assert.strictEqual((await extractTextFromElementById('BitcoinAmountInput')).trim(), '555');
+    assert.strictEqual((await extractTextFromElementById('ScanLndInvoiceNote')).trim(), 'dfx e2e scan');
   });
 
   it('exports the BIP-85 child phrase of the on-chain phrase, only after the notice is accepted', async () => {

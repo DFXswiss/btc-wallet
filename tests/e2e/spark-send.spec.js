@@ -7,7 +7,7 @@ import {
   invoiceFromLightningAddress,
   launchFresh,
   readQuotedFee,
-  regularImport,
+  importWithLightning,
   requireEnv,
   waitForId,
 } from './helperz';
@@ -24,8 +24,7 @@ describe('Spark Lightning send (quote only)', () => {
     const mnemonic = requireEnv('SPARK_E2E_MNEMONIC');
     lightningAddress = requireEnv('E2E_LIGHTNING_ADDRESS');
     await launchFresh();
-    await regularImport(mnemonic);
-    await waitForId('LightningWalletRow', 300_000);
+    await importWithLightning(mnemonic);
   });
 
   it('a BOLT11 invoice is confirmed with its own amount and a quoted fee', async () => {
@@ -47,8 +46,7 @@ describe('Spark Lightning send (quote only)', () => {
 
   it('a Lightning address is confirmed with the typed amount and a quoted fee', async () => {
     await launchFresh();
-    await regularImport(requireEnv('SPARK_E2E_MNEMONIC'));
-    await waitForId('LightningWalletRow', 300_000);
+    await importWithLightning(requireEnv('SPARK_E2E_MNEMONIC'));
 
     await enterSendDestination(lightningAddress);
     await waitForId('BitcoinAmountInput', 60_000);

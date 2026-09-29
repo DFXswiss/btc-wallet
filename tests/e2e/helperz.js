@@ -1,5 +1,14 @@
 /* global device, element, by, waitFor, expect */
+import assert from 'assert';
+import BIP32Factory from 'bip32';
+import * as bip39 from 'bip39';
 import * as bitcoin from 'bitcoinjs-lib';
+import bolt11 from 'bolt11';
+import { randomBytes } from 'crypto';
+
+import ecc from '../../blue_modules/noble_ecc';
+
+const bip32 = BIP32Factory(ecc);
 
 export async function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -85,7 +94,7 @@ export async function speedImport(mnemonic, walletType = 'HDsegwitBech32') {
   await waitForId('OnChainWalletRow', 180_000);
 }
 
-/** Import through the regular flow, which also recovers a previously used Lightning (Spark) wallet. */
+/** Import through the regular flow: account discovery, then home. */
 export async function regularImport(mnemonic) {
   await waitForId('ImportWallet');
   await element(by.id('ImportWallet')).tap();
@@ -95,6 +104,17 @@ export async function regularImport(mnemonic) {
   await element(by.id('MnemonicInput')).replaceText(mnemonic);
   await element(by.id('DoImport')).tap();
   await waitForId('OnChainWalletRow', 300_000);
+}
+
+/**
+ * Imports `mnemonic`, then taps Add on the home Lightning row, which brings back the Lightning wallet the seed used
+ * before (import itself no longer looks for one).
+ */
+export async function importWithLightning(mnemonic) {
+  await regularImport(mnemonic);
+  await waitForId('LightningWalletRowAdd');
+  await element(by.id('LightningWalletRowAdd')).tap();
+  await waitForId('LightningWalletRow', 300_000);
 }
 
 /** Home → on-chain wallet → Receive; returns the shown address and leaves the receive screen open. */
@@ -165,6 +185,97 @@ export async function sumSpentOutputs(tx) {
   return total;
 }
 
+/** "-0.0001 BTC" → -10000 */
+export function parseBtcSats(text) {
+  const match = text.match(/-?[0-9]+(?:\.[0-9]+)?/);
+  if (!match) throw new Error(`No BTC amount in "${text}"`);
+  return Math.round(Number(match[0]) * 1e8);
+}
+
+/**
+ * Opens a wallet with its history loaded. The periodic refresh starts only when home gains focus more than 40 s after
+ * launch, and a wallet screen that is already open does not pick up the history, so this waits past that point,
+ * returns to home, lets the refresh finish there and then opens the wallet.
+ */
+export async function openWalletWithHistory(rowId) {
+  await device.launchApp({ newInstance: true });
+  await waitForId(rowId);
+  await element(by.id(rowId)).tap();
+  await waitForId('WalletBalance');
+  await sleep(45_000);
+  await device.pressBack();
+  await waitForId(rowId);
+  await sleep(45_000);
+  await element(by.id(rowId)).tap();
+}
+
+/** On the open wallet: taps transaction row `index` and returns what the status and details screens show. */
+export async function readTransactionRow(index) {
+  await waitFor(element(by.id(`TransactionRow${index}`)))
+    .toExist()
+    .withTimeout(300_000);
+  await element(by.id(`TransactionRow${index}`)).tap();
+  await waitForId('TransactionStatusValue', 120_000);
+  const shown = {
+    value: await extractTextFromElementById('TransactionStatusValue'),
+    fee: await extractTextFromElementById('TransactionStatusFee').catch(() => undefined),
+    confirmations: await extractTextFromElementById('TransactionStatusConfirmations'),
+    to: await extractTextFromElementById('TransactionStatusTo').catch(() => undefined),
+  };
+  await element(by.id('TransactionDetailsButton')).tap();
+  await waitForId('TransactionId');
+  shown.txid = (await extractTextFromElementById('TransactionId')).trim();
+  await device.pressBack();
+  await waitForId('TransactionStatusValue');
+  await device.pressBack();
+  return shown;
+}
+
+/**
+ * Checks a transaction as the app showed it against a public explorer: the value is what the wallet's addresses
+ * received minus what they spent, the fee is inputs minus outputs, and the confirmation count matches the tip.
+ * Returns the explorer's transaction.
+ */
+export async function expectTransactionMatchesExplorer(shown, walletAddresses) {
+  const tx = await fetchJsonWithRetry(`https://mempool.space/api/tx/${shown.txid}`);
+  const received = tx.vout.filter(out => walletAddresses.has(out.scriptpubkey_address)).reduce((sum, out) => sum + out.value, 0);
+  const spent = tx.vin
+    .filter(input => walletAddresses.has(input.prevout?.scriptpubkey_address))
+    .reduce((sum, input) => sum + input.prevout.value, 0);
+  assert.ok(received > 0 || spent > 0, `${shown.txid} touches none of the wallet's addresses`);
+  assert.strictEqual(parseBtcSats(shown.value), received - spent, `value of ${shown.txid}`);
+  assert.ok(shown.fee, `no fee shown for ${shown.txid}`);
+  assert.strictEqual(parseBtcFeeSats(shown.fee), tx.fee, `fee of ${shown.txid}`);
+  if (received < spent) {
+    // An OP_RETURN first output has no address; the screen then has nothing to show as the recipient.
+    assert.strictEqual(shown.to?.trim() || undefined, tx.vout[0].scriptpubkey_address, `recipient of ${shown.txid}`);
+  }
+  if (tx.status.confirmed) {
+    const tip = await fetchJsonWithRetry('https://mempool.space/api/blocks/tip/height');
+    const confirmations = tip - tx.status.block_height + 1;
+    // The tip can move by a block between the app's lookup and this one.
+    const expected = confirmations > 6 ? ['6+'] : [String(confirmations), String(confirmations - 1)];
+    assert.ok(
+      expected.some(count => shown.confirmations.startsWith(`${count} `)),
+      `${shown.txid} shows "${shown.confirmations}", explorer has ${confirmations}`,
+    );
+  }
+  return tx;
+}
+
+/** BIP84 receive and change addresses 0..count-1 of `mnemonic`. */
+export function bip84Addresses(mnemonic, count) {
+  const account = bip32.fromSeed(bip39.mnemonicToSeedSync(mnemonic)).derivePath("m/84'/0'/0'");
+  const addresses = new Set();
+  for (const chain of [0, 1]) {
+    const node = account.derive(chain);
+    for (let index = 0; index < count; index++) {
+      addresses.add(bitcoin.payments.p2wpkh({ pubkey: Buffer.from(node.derive(index).publicKey) }).address);
+    }
+  }
+  return addresses;
+}
+
 export function decodeTx(hex) {
   const tx = bitcoin.Transaction.fromHex(hex);
   const outs = tx.outs.map(out => ({ address: bitcoin.address.fromOutputScript(out.script), value: Number(out.value) }));
@@ -185,6 +296,21 @@ export function parseSats(text) {
   return Number(match[1]);
 }
 
+/** A mainnet BOLT11 invoice signed with a throwaway key: it decodes like a real one but nobody can settle it. */
+export function unpayableInvoice(sats, description) {
+  const encoded = bolt11.encode({
+    satoshis: sats,
+    timestamp: Math.floor(Date.now() / 1000),
+    tags: [
+      { tagName: 'payment_hash', data: randomBytes(32).toString('hex') },
+      { tagName: 'payment_secret', data: randomBytes(32).toString('hex') },
+      { tagName: 'description', data: description },
+      { tagName: 'expire_time', data: 3600 },
+    ],
+  });
+  return bolt11.sign(encoded, randomBytes(32).toString('hex')).paymentRequest;
+}
+
 /** Requests a fresh BOLT11 invoice for `sats` from a Lightning address (LNURL-pay). */
 export async function invoiceFromLightningAddress(lightningAddress, sats) {
   const [user, domain] = lightningAddress.split('@');
@@ -194,6 +320,25 @@ export async function invoiceFromLightningAddress(lightningAddress, sats) {
   const response = await (await fetch(`${meta.callback}${separator}amount=${sats * 1000}`)).json();
   if (!response.pr) throw new Error(`LNURL-pay callback returned no invoice: ${JSON.stringify(response)}`);
   return response.pr;
+}
+
+/** Relaunches the app and returns the Lightning wallet balance in sats, read on its wallet screen. */
+export async function readLightningBalance() {
+  await device.launchApp({ newInstance: true });
+  await waitForId('LightningWalletRow', 300_000);
+  await element(by.id('LightningWalletRow')).tap();
+  await waitForId('WalletBalance');
+  return parseSats(await extractTextFromElementById('WalletBalance'));
+}
+
+/** Polls the Lightning balance until it differs from `before` (payments settle asynchronously). */
+export async function waitForLightningBalanceChange(before) {
+  let after = before;
+  for (let i = 0; i < 12 && after === before; i++) {
+    after = await readLightningBalance();
+    if (after === before) await sleep(5000);
+  }
+  return after;
 }
 
 /** Waits for the Spark fee quote on the Lightning confirmation screen. */

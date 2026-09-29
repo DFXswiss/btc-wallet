@@ -538,7 +538,7 @@ const WalletDetails = () => {
               )}
             </BlueCard>
             {(wallet instanceof AbstractHDElectrumWallet || (wallet.type === WatchOnlyWallet.type && wallet.isHd())) && (
-              <BlueListItem onPress={navigateToAddresses} title={loc.wallets.details_show_addresses} chevron />
+              <BlueListItem testID="ShowAddresses" onPress={navigateToAddresses} title={loc.wallets.details_show_addresses} chevron />
             )}
             {isSparkWallet && sparkPrivateMode !== undefined && (
               <BlueListItem

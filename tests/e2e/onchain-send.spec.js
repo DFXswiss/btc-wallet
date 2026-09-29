@@ -2,11 +2,15 @@
 import assert from 'assert';
 
 import {
+  bip84Addresses,
   decodeTx,
   enterSendDestination,
+  expectTransactionMatchesExplorer,
   extractTextFromElementById,
   launchFresh,
+  openWalletWithHistory,
   parseBtcFeeSats,
+  readTransactionRow,
   requireEnv,
   speedImport,
   sumSpentOutputs,
@@ -19,8 +23,10 @@ const DESTINATION = 'bc1q063ctu6jhe5k4v8ka99qac8rcm2tzjjnuktyrl';
 const FEE_RATE = 2;
 
 describe('On-chain send with a funded wallet', () => {
+  let mnemonic;
+
   beforeAll(async () => {
-    const mnemonic = requireEnv('HD_MNEMONIC_BIP84');
+    mnemonic = requireEnv('HD_MNEMONIC_BIP84');
     await launchFresh();
     await speedImport(mnemonic);
   });
@@ -77,5 +83,10 @@ describe('On-chain send with a funded wallet', () => {
 
     const spent = await sumSpentOutputs(tx);
     assert.strictEqual(outs[0].value, spent - feeSats);
+  });
+
+  it('shows the newest transaction of the funded wallet with the value, fee and confirmations the chain has', async () => {
+    await openWalletWithHistory('OnChainWalletRow');
+    await expectTransactionMatchesExplorer(await readTransactionRow(0), bip84Addresses(mnemonic, 200));
   });
 });

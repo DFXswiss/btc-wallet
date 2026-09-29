@@ -21,6 +21,11 @@ async function openWalletDetails() {
   await waitForId('WalletDetailsScroll');
 }
 
+/** An address row reads "<position> <address>". */
+async function shownAddress(id) {
+  return (await extractTextFromElementById(id)).trim().split(/\s+/).pop();
+}
+
 async function tapInDetails(id) {
   await waitFor(element(by.id(id)))
     .toBeVisible()
@@ -32,7 +37,8 @@ async function tapInDetails(id) {
 describe('Wallet details', () => {
   const mnemonic = bip39.generateMnemonic(128);
   const account = bip32.fromSeed(bip39.mnemonicToSeedSync(mnemonic), ZPUB_NETWORK).derivePath("m/84'/0'/0'");
-  const firstAddress = bitcoin.payments.p2wpkh({ pubkey: Buffer.from(account.derive(0).derive(0).publicKey) }).address;
+  const address = (chain, index) => bitcoin.payments.p2wpkh({ pubkey: Buffer.from(account.derive(chain).derive(index).publicKey) }).address;
+  const firstAddress = address(0, 0);
 
   beforeAll(async () => {
     await launchFresh();
@@ -65,5 +71,19 @@ describe('Wallet details', () => {
     }
     assert.ok(signature, 'no signature was produced');
     assert.ok(bitcoinMessage.verify(message, firstAddress, signature, null, true), 'signature does not verify for the address');
+  });
+
+  it('lists the receive and change addresses derived from the phrase', async () => {
+    await openWalletDetails();
+    await tapInDetails('ShowAddresses');
+    for (const index of [0, 1, 2]) {
+      await waitFor(element(by.id(`AddressReceive${index}`)))
+        .toExist()
+        .withTimeout(60_000);
+      assert.strictEqual(await shownAddress(`AddressReceive${index}`), address(0, index));
+    }
+    await element(by.id('AddressTabChange')).tap();
+    await waitForId('AddressChange0');
+    assert.strictEqual(await shownAddress('AddressChange0'), address(1, 0));
   });
 });

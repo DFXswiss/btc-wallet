@@ -707,7 +707,9 @@ const LnurlPay = () => {
             <>
               {isInsufficientFunds() ? (
                 <>
-                  <Text style={styles.insufficientFunds}>{loc.send.insufficient_funds}</Text>
+                  <Text testID="LnurlPayInsufficientFunds" style={styles.insufficientFunds}>
+                    {loc.send.insufficient_funds}
+                  </Text>
                   <SecondButton title={loc._.cancel} onPress={goBack} />
                 </>
               ) : (

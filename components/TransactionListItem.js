@@ -18,7 +18,7 @@ import TransactionOutgoingIcon from '../components/icons/TransactionOutgoingIcon
 import TransactionPendingIcon from '../components/icons/TransactionPendingIcon';
 import { usePrivateText } from '../hooks/usePrivateText';
 
-export const TransactionListItem = React.memo(({ item, itemPriceUnit = BitcoinUnit.BTC, walletID }) => {
+export const TransactionListItem = React.memo(({ item, itemPriceUnit = BitcoinUnit.BTC, walletID, testID }) => {
   const [subtitleNumberOfLines, setSubtitleNumberOfLines] = useState(1);
   const { colors } = useTheme();
   const { navigate } = useNavigation();
@@ -299,7 +299,7 @@ export const TransactionListItem = React.memo(({ item, itemPriceUnit = BitcoinUn
 
   return (
     <View style={styles.container}>
-      <ToolTipMenu ref={menuRef} actions={toolTipActions} onPressMenuItem={onToolTipPress} onPress={onPress}>
+      <ToolTipMenu ref={menuRef} testID={testID} actions={toolTipActions} onPressMenuItem={onToolTipPress} onPress={onPress}>
         <BlueListItem
           leftAvatar={avatar}
           title={getPrivateText(title)}

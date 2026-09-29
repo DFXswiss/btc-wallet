@@ -924,6 +924,7 @@ const SendDetails = () => {
               <BlueText style={styles.label}>Note</BlueText>
               <View style={[styles.memo, stylesHook.memo]}>
                 <TextInput
+                  testID="SendDetailsMemo"
                   onChangeText={setTransactionMemo}
                   value={transactionMemo}
                   numberOfLines={1}

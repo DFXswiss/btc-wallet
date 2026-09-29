@@ -274,11 +274,11 @@ const LNDViewInvoice = () => {
               <QRCodeComponent value={invoice.payment_request} size={qrCodeSize} />
             </View>
             <BlueSpacing20 />
-            <BlueText>
+            <BlueText testID="InvoicePleasePay">
               {loc.lndViewInvoice.please_pay} {invoice.amt} {loc.lndViewInvoice.sats}
             </BlueText>
             {'description' in invoice && invoice.description.length > 0 && (
-              <BlueText>
+              <BlueText testID="InvoiceFor">
                 {loc.lndViewInvoice.for} {invoice.description}
               </BlueText>
             )}

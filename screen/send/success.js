@@ -116,7 +116,9 @@ export const SuccessView = ({
         {amount && (
           <BlueCard style={styles.amount}>
             <View style={styles.view}>
-              <Text style={[styles.amountValue, stylesHook.amountValue]}>{amount}</Text>
+              <Text testID="SuccessAmount" style={[styles.amountValue, stylesHook.amountValue]}>
+                {amount}
+              </Text>
               <Text style={[styles.amountUnit, stylesHook.amountUnit]}>{' ' + loc.units[amountUnit]}</Text>
             </View>
             <View style={styles.memo}>

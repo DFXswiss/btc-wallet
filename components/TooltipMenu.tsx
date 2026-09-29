@@ -17,6 +17,7 @@ const ToolTipMenu = forwardRef<ContextMenu, ToolTipMenuProps>(
       buttonStyle,
       onPress,
       disabled = false,
+      testID,
     },
     ref,
   ) => {
@@ -36,7 +37,7 @@ const ToolTipMenu = forwardRef<ContextMenu, ToolTipMenuProps>(
 
     const content =
       onPress && !isMenuPrimaryAction ? (
-        <TouchableOpacity accessibilityRole="button" onPress={onPress}>
+        <TouchableOpacity accessibilityRole="button" testID={testID} onPress={onPress}>
           {children}
         </TouchableOpacity>
       ) : (
@@ -54,6 +55,7 @@ const ToolTipMenu = forwardRef<ContextMenu, ToolTipMenuProps>(
         dropdownMenuMode={isMenuPrimaryAction}
         previewBackgroundColor="transparent"
         style={isButton ? buttonStyle : undefined}
+        testID={onPress && !isMenuPrimaryAction ? undefined : testID}
       >
         {content}
       </ContextMenu>

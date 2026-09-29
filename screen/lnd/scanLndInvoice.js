@@ -403,7 +403,13 @@ const ScanLndInvoice = () => {
             )}
             <BlueText style={styles.label}>Note</BlueText>
             <View style={styles.noteContainer}>
-              <BlueFormInput value={desc} onChangeText={setDesc} editable={!isDescDisabled} color={colors.feeText} />
+              <BlueFormInput
+                testID="ScanLndInvoiceNote"
+                value={desc}
+                onChangeText={setDesc}
+                editable={!isDescDisabled}
+                color={colors.feeText}
+              />
             </View>
             <View style={styles.fee}>
               <BlueText style={stylesHook.fee}>{loc.send.create_fee}</BlueText>

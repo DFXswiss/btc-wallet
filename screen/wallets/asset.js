@@ -221,7 +221,13 @@ const Asset = ({ navigation }) => {
   };
 
   const renderItem = item => (
-    <TransactionListItem item={item.item} itemPriceUnit={itemPriceUnit} timeElapsed={timeElapsed} walletID={walletID} />
+    <TransactionListItem
+      item={item.item}
+      itemPriceUnit={itemPriceUnit}
+      timeElapsed={timeElapsed}
+      walletID={walletID}
+      testID={`TransactionRow${item.index}`}
+    />
   );
 
   const importPsbt = base64Psbt => {

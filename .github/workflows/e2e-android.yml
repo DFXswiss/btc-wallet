@@ -3,15 +3,17 @@ name: Tests e2e Android
 # Detox on an Android emulator against a release build. Not a required check yet.
 # Suites whose inputs are missing fail instead of skipping. Nothing is broadcast.
 #
-# detox: suites without funds (on-chain, wallet details, scan, entropy, import discovery, multisig,
-#   encrypted storage, Spark receive and export).
-#   Secret BREEZ_API_KEY. Failure videos, screenshots and logs are uploaded.
-# detox-funded: suites that import funded recovery phrases; spark-pay.spec.js pays 10 sats plus fee
-#   to E2E_LIGHTNING_ADDRESS on every run. Runs in the protected environment e2e-funded, whose
-#   required reviewers release HD_MNEMONIC_BIP84 and SPARK_E2E_MNEMONIC (environment secrets) and the
-#   variable E2E_LIGHTNING_ADDRESS only after they approve the run. One funded run at a time, and a
-#   newer run waits instead of cancelling it, because every run shares the same wallets. No artifacts,
-#   no retries.
+# detox: suites without funds (on-chain, wallet details and addresses, transaction history, scan,
+#   deep links, entropy, import discovery, multisig create, sign and import, settings, encrypted
+#   storage, Spark receive and export). Secret BREEZ_API_KEY. Failure videos, screenshots and logs
+#   are uploaded.
+# detox-funded: suites that import funded recovery phrases; on every run spark-receive.spec.js moves
+#   21 sats plus fee from the payer wallet to the Spark test wallet, spark-transfer.spec.js moves 4 x 10
+#   sats plus fees back, and spark-pay.spec.js pays 10 sats plus fee to E2E_LIGHTNING_ADDRESS. Runs in the protected environment e2e-funded, whose required
+#   reviewers release HD_MNEMONIC_BIP84, SPARK_E2E_MNEMONIC and SPARK_E2E_PAYER_MNEMONIC (environment
+#   secrets) and the variable E2E_LIGHTNING_ADDRESS only after they approve the run. One funded run
+#   at a time, and a newer run waits instead of cancelling it, because every run shares the same
+#   wallets. No artifacts, no retries.
 on: [pull_request]
 
 permissions:
@@ -73,6 +75,7 @@ jobs:
           BREEZ_API_KEY: ${{ secrets.BREEZ_API_KEY }}
           HD_MNEMONIC_BIP84: ${{ secrets.HD_MNEMONIC_BIP84 }}
           SPARK_E2E_MNEMONIC: ${{ secrets.SPARK_E2E_MNEMONIC }}
+          SPARK_E2E_PAYER_MNEMONIC: ${{ secrets.SPARK_E2E_PAYER_MNEMONIC }}
           E2E_LIGHTNING_ADDRESS: ${{ vars.E2E_LIGHTNING_ADDRESS }}
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:

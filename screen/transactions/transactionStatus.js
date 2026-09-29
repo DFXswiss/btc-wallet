@@ -375,7 +375,7 @@ const TransactionsStatus = () => {
       <View style={styles.container}>
         <BlueCard>
           <View style={styles.center}>
-            <Text style={[styles.value, stylesHook.value]}>
+            <Text testID="TransactionStatusValue" style={[styles.value, stylesHook.value]}>
               <PrivateText>{formatBalanceWithoutSuffix(tx.value, wallet.current.preferredBalanceUnit, true)}</PrivateText>{' '}
               {wallet.current.preferredBalanceUnit !== BitcoinUnit.LOCAL_CURRENCY && (
                 <Text style={[styles.valueUnit, stylesHook.valueUnit]}>
@@ -422,7 +422,7 @@ const TransactionsStatus = () => {
                 <Text style={[styles.transactionDetailsTitle, stylesHook.transactionDetailsTitle]}>
                   <PrivateText>{loc.send.create_to}</PrivateText>
                 </Text>
-                <Text style={[styles.transactionDetailsSubtitle, stylesHook.transactionDetailsSubtitle]}>
+                <Text testID="TransactionStatusTo" style={[styles.transactionDetailsSubtitle, stylesHook.transactionDetailsSubtitle]}>
                   <PrivateText>{tx?.outputs[0]?.scriptPubKey?.addresses[0]}</PrivateText>
                 </Text>
               </View>
@@ -431,7 +431,7 @@ const TransactionsStatus = () => {
 
           {feeSats && (
             <View style={styles.fee}>
-              <BlueText style={styles.feeText}>
+              <BlueText testID="TransactionStatusFee" style={styles.feeText}>
                 <PrivateText>
                   {loc.send.create_fee.toLowerCase()} {formatBalanceWithoutSuffix(feeSats, wallet.current.preferredBalanceUnit, true)}{' '}
                   {wallet.current.preferredBalanceUnit !== BitcoinUnit.LOCAL_CURRENCY && wallet.current.preferredBalanceUnit}
@@ -441,7 +441,7 @@ const TransactionsStatus = () => {
           )}
 
           <View style={styles.confirmations}>
-            <Text style={styles.confirmationsText}>
+            <Text testID="TransactionStatusConfirmations" style={styles.confirmationsText}>
               <PrivateText>
                 {loc.formatString(loc.transactions.confirmations_lowercase, {
                   confirmations: tx.confirmations > 6 ? '6+' : tx.confirmations,
