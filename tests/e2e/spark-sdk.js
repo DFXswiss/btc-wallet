@@ -18,22 +18,25 @@ export function bip85Mnemonic12(mnemonic) {
   return bip39.entropyToMnemonic(Buffer.from(entropy).toString('hex'));
 }
 
-/** The Lightning address domain the e2e build uses (the build reads `.env.dev`). */
+/** The Lightning address domain of the build under test (`E2E_ENV_FILE`, `.env.dev` by default). */
 function buildLnurlDomain() {
-  const line = readFileSync(join(__dirname, '../../.env.dev'), 'utf8')
+  const line = readFileSync(join(__dirname, '../..', process.env.E2E_ENV_FILE || '.env.dev'), 'utf8')
     .split('\n')
     .find(entry => entry.startsWith('BREEZ_LNURL_DOMAIN='));
   return line?.split('=')[1].trim();
 }
 
-/** Connects a Spark wallet in the test runner with the same network settings as the app; `close()` disconnects it. */
+/**
+ * Connects, in the test runner and with the app's network settings, the Spark wallet the app derives from the on-chain
+ * phrase `mnemonic` (its BIP-85 child); `close()` disconnects it.
+ */
 export async function connectSpark(mnemonic) {
   const config = defaultConfig('mainnet');
   config.apiKey = requireEnv('BREEZ_API_KEY');
   const lnurlDomain = buildLnurlDomain();
   if (lnurlDomain) config.lnurlDomain = lnurlDomain;
   const storageDir = mkdtempSync(join(tmpdir(), 'spark-e2e-'));
-  const sdk = await connect({ config, seed: { type: 'mnemonic', mnemonic }, storageDir });
+  const sdk = await connect({ config, seed: { type: 'mnemonic', mnemonic: bip85Mnemonic12(mnemonic) }, storageDir });
   sdk.close = async () => {
     await sdk.disconnect();
     rmSync(storageDir, { recursive: true, force: true });

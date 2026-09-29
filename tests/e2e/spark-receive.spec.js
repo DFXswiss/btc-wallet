@@ -12,7 +12,7 @@ import {
   waitForId,
   waitForLightningBalanceChange,
 } from './helperz';
-import { bip85Mnemonic12, connectSpark, sparkBalance } from './spark-sdk';
+import { connectSpark, sparkBalance } from './spark-sdk';
 
 // Moves real sats between two team wallets on every run: the payer (SPARK_E2E_PAYER_MNEMONIC, driven from the test
 // runner) pays AMOUNT_SATS plus its routing fee to the app's wallet (SPARK_E2E_MNEMONIC); spark-pay sends sats out again.
@@ -46,23 +46,20 @@ describe('Spark Lightning receive', () => {
   });
 
   it('Add after an import brings back the Spark wallet of the seed with its balance and a Lightning address that resolves', async () => {
-    // The app's Spark wallet is the BIP-85 child of the imported phrase; read the same wallet from the test runner.
-    const own = await connectSpark(bip85Mnemonic12(mnemonic));
-    let expectedAddress;
-    let expectedBalance;
-    try {
-      expectedAddress = (await own.getLightningAddress())?.lightningAddress;
-      expectedBalance = await sparkBalance(own);
-    } finally {
-      await own.close();
-    }
-    assert.ok(expectedAddress, 'the Spark test wallet has no Lightning address; open it in the app once to register one');
-    assert.strictEqual(await readLightningBalance(), expectedBalance);
-
+    const shownBalance = await readLightningBalance();
     await openLightningReceive();
     await waitForId('AddressValue');
     const address = (await extractTextFromElementById('AddressValue')).trim();
-    assert.strictEqual(address, expectedAddress);
+    assert.match(address, /^[a-z0-9._-]+@[a-z0-9.-]+\.[a-z]+$/i, `"${address}" is not a Lightning address`);
+
+    // Read the same wallet from the test runner once the app has opened it (and registered an address if it had none).
+    const own = await connectSpark(mnemonic);
+    try {
+      assert.strictEqual(address, (await own.getLightningAddress())?.lightningAddress);
+      assert.strictEqual(shownBalance, await sparkBalance(own));
+    } finally {
+      await own.close();
+    }
 
     const [user, domain] = address.split('@');
     const meta = await (await fetch(`https://${domain}/.well-known/lnurlp/${user}`)).json();

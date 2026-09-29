@@ -7,7 +7,8 @@ name: Tests e2e Android
 #   deep links, entropy, import discovery, multisig create, sign and import, settings, encrypted
 #   storage, Spark receive and export). Secret BREEZ_API_KEY. Failure videos, screenshots and logs
 #   are uploaded.
-# detox-funded: suites that import funded recovery phrases; on every run spark-receive.spec.js moves
+# detox-funded: suites that import funded recovery phrases, built against production (.env.prd,
+#   secret BREEZ_API_KEY_PRD); on every run spark-receive.spec.js moves
 #   21 sats plus fee from the payer wallet to the Spark test wallet, spark-transfer.spec.js moves 4 x 10
 #   sats plus fees back, and spark-pay.spec.js pays 10 sats plus fee to E2E_LIGHTNING_ADDRESS. Runs in the protected environment e2e-funded, whose required
 #   reviewers release HD_MNEMONIC_BIP84, SPARK_E2E_MNEMONIC and SPARK_E2E_PAYER_MNEMONIC (environment
@@ -68,11 +69,13 @@ jobs:
 
       - uses: ./.github/actions/detox-build
         with:
-          breez-api-key: ${{ secrets.BREEZ_API_KEY }}
+          breez-api-key: ${{ secrets.BREEZ_API_KEY_PRD }}
+          env-file: .env.prd
 
       - name: Run Detox
         env:
-          BREEZ_API_KEY: ${{ secrets.BREEZ_API_KEY }}
+          E2E_ENV_FILE: .env.prd
+          BREEZ_API_KEY: ${{ secrets.BREEZ_API_KEY_PRD }}
           HD_MNEMONIC_BIP84: ${{ secrets.HD_MNEMONIC_BIP84 }}
           SPARK_E2E_MNEMONIC: ${{ secrets.SPARK_E2E_MNEMONIC }}
           SPARK_E2E_PAYER_MNEMONIC: ${{ secrets.SPARK_E2E_PAYER_MNEMONIC }}

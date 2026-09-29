@@ -5,6 +5,10 @@ inputs:
     description: Breez API key baked into the build; Spark cannot start without it.
     required: false
     default: ''
+  env-file:
+    description: Environment file the build starts from.
+    required: false
+    default: .env.dev
 runs:
   using: composite
   steps:
@@ -41,6 +45,7 @@ runs:
       shell: bash
       env:
         BREEZ_API_KEY: ${{ inputs.breez-api-key }}
+        E2E_ENV_FILE: ${{ inputs.env-file }}
       run: npm run e2e:release-build
 
     - name: Enable KVM

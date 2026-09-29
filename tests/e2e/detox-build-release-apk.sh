@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Builds the release APK plus the Detox test APK for the Android emulator, both signed with a throwaway key.
-# BREEZ_API_KEY (optional) is baked in through a temporary env file; without it Spark cannot start.
+# E2E_ENV_FILE picks the environment (default .env.dev); BREEZ_API_KEY (optional) is appended to a temporary copy of it,
+# without it Spark cannot start.
 # E2E_ANDROID_ARCHS overrides the ABI (x86_64 on CI, arm64-v8a on Apple silicon).
 set -euo pipefail
 
@@ -15,7 +16,7 @@ find android -name '*.apk' -delete
 KEYSTORE="$PWD/detox.keystore"
 ENVFILE_PATH="$(mktemp "${TMPDIR:-/tmp}/detox-env.XXXXXX")"
 trap 'rm -f "$ENVFILE_PATH" "$KEYSTORE"' EXIT
-cp .env.dev "$ENVFILE_PATH"
+cp "${E2E_ENV_FILE:-.env.dev}" "$ENVFILE_PATH"
 if [[ -n "${BREEZ_API_KEY:-}" ]]; then
   printf '\nBREEZ_API_KEY=%s\n' "$BREEZ_API_KEY" >> "$ENVFILE_PATH"
 fi

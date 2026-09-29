@@ -29,7 +29,7 @@ QR scanning uses a hidden test hook (`components/QrScanBackdoor.js`): six taps o
 In CI the suites run in two jobs:
 
 - `detox` runs `onchain`, `wallet-details`, `transactions`, `scan`, `deeplink`, `entropy`, `import-discovery`, `multisig`, `multisig-import`, `settings`, `encrypted-storage` and `spark` on every pull request and uploads failure videos, screenshots and logs.
-- `detox-funded` runs `onchain-send`, `spark-send`, `spark-receive`, `spark-transfer` and `spark-pay` in the protected GitHub environment `e2e-funded`. Keep `HD_MNEMONIC_BIP84`, `SPARK_E2E_MNEMONIC` and `SPARK_E2E_PAYER_MNEMONIC` as secrets of that environment, not of the repository, and give it required reviewers: the job runs code from the pull request, so the phrases are released only to runs a reviewer approved. The job records nothing, since artifacts of this public repository are downloadable, has no retries, so a failed payment test is never paid twice, and never runs twice at once (a newer run waits instead of cancelling it), because all runs share the same wallets.
+- `detox-funded` runs `onchain-send`, `spark-send`, `spark-receive`, `spark-transfer` and `spark-pay` against a production build (`.env.prd`, repository secret `BREEZ_API_KEY_PRD`) in the protected GitHub environment `e2e-funded`. Both Spark phrases are on-chain phrases of wallets made in the app (create a wallet, tap Add on the Lightning row); the tests use their Spark wallets, like the app does. Use seeds that never had a lightning.space account, or Add restores that account instead of Spark. Keep `HD_MNEMONIC_BIP84`, `SPARK_E2E_MNEMONIC` and `SPARK_E2E_PAYER_MNEMONIC` as secrets of that environment, not of the repository, and give it required reviewers: the job runs code from the pull request, so the phrases are released only to runs a reviewer approved. The job records nothing, since artifacts of this public repository are downloadable, has no retries, so a failed payment test is never paid twice, and never runs twice at once (a newer run waits instead of cancelling it), because all runs share the same wallets.
 
 ## Running locally
 
@@ -41,4 +41,4 @@ E2E_ANDROID_ARCHS=arm64-v8a npm run e2e:release-build   # x86_64 (the default) o
 npx detox test -c android.release --headless tests/e2e/onchain.spec.js
 ```
 
-To include Spark, set `BREEZ_API_KEY` for both the build and the test run. For the funded suites, set the variables from the table above for the test run. `npm run e2e:release-test` runs all suites the way CI does.
+To include Spark, set `BREEZ_API_KEY` for both the build and the test run. `E2E_ENV_FILE` picks the environment file for both (default `.env.dev`). For the funded suites, set the variables from the table above for the test run. `npm run e2e:release-test` runs all suites the way CI does.
