@@ -363,6 +363,8 @@ const TransactionsStatus = () => {
       </SafeBlueArea>
     );
   }
+  // An OP_RETURN or other non-standard first output has no address.
+  const recipient = tx.outputs?.[0]?.scriptPubKey?.addresses?.[0];
   return (
     <SafeBlueArea>
       <HandoffComponent
@@ -416,14 +418,14 @@ const TransactionsStatus = () => {
             </View>
           </View>
 
-          {tx.value < 0 && (
+          {tx.value < 0 && recipient && (
             <View style={styles.center}>
               <View>
                 <Text style={[styles.transactionDetailsTitle, stylesHook.transactionDetailsTitle]}>
                   <PrivateText>{loc.send.create_to}</PrivateText>
                 </Text>
                 <Text testID="TransactionStatusTo" style={[styles.transactionDetailsSubtitle, stylesHook.transactionDetailsSubtitle]}>
-                  <PrivateText>{tx?.outputs[0]?.scriptPubKey?.addresses[0]}</PrivateText>
+                  <PrivateText>{recipient}</PrivateText>
                 </Text>
               </View>
             </View>
