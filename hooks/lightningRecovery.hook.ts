@@ -2,7 +2,6 @@ import { useCallback, useContext } from 'react';
 import { BlueStorageContext } from '../blue_modules/storage-context';
 import { HDSegwitBech32Wallet, HDSegwitP2SHWallet } from '../class';
 import { useLds } from '../api/lds/hooks/lds.hook';
-import { User } from '../api/lds/definitions/user';
 import { openLightningLdsWallet } from '../api/lds/lightning-lds-wallet-factory';
 import { useSparkContext } from '../api/spark/contexts/spark.context';
 import { BIP39_HD_WALLET_TYPES } from '../api/spark/spark-seed';
@@ -18,9 +17,9 @@ type SigningHdWallet = {
 };
 
 /**
- * Login addresses a lightning.space account of this seed can be keyed to: the imported wallet's own first
- * address, then the first BIP84 and BIP49 address (app-created wallets before May 2023 were BIP49). A wallet
- * imported on a custom path keeps its type, so a candidate is skipped only when its address is the same.
+ * Login addresses a lightning.space account of this seed can be keyed to: the wallet's own first address, then
+ * the first BIP84 and BIP49 address (app-created wallets before May 2023 were BIP49). A wallet on a custom
+ * derivation path keeps its type, so a candidate is skipped only when its address is the same.
  */
 function loginCandidates(wallet: SigningHdWallet): SigningHdWallet[] {
   const candidates: SigningHdWallet[] = [wallet];
@@ -52,18 +51,18 @@ export function useLightningRecovery(): {
   const addExistingLdsWallet = useCallback(
     async (wallet: SigningHdWallet): Promise<boolean> => {
       if (!BIP39_HD_WALLET_TYPES.has(wallet.type)) return false;
-      let user: User | undefined;
+      // Each login address can have its own account; one without a BTC Lightning wallet does not end the search.
       for (const candidate of loginCandidates(wallet)) {
         const address = candidate._getExternalAddressByIndex(0);
-        user = await findUser(address, async message => candidate.signMessage(message, address));
-        if (user) break;
+        const user = await findUser(address, async message => candidate.signMessage(message, address));
+        const lndhub = user?.lightning.wallets.find(w => w.asset.name === 'BTC' && w.lndhubAdminUrl);
+        if (!user || !lndhub?.lndhubAdminUrl) continue;
+        await addAndSaveWallet(
+          await openLightningLdsWallet(lndhub.lndhubAdminUrl, user.lightning.address, user.lightning.addressOwnershipProof),
+        );
+        return true;
       }
-      const lndhub = user?.lightning.wallets.find(w => w.asset.name === 'BTC' && w.lndhubAdminUrl);
-      if (!user || !lndhub?.lndhubAdminUrl) return false;
-      await addAndSaveWallet(
-        await openLightningLdsWallet(lndhub.lndhubAdminUrl, user.lightning.address, user.lightning.addressOwnershipProof),
-      );
-      return true;
+      return false;
     },
     [findUser, addAndSaveWallet],
   );

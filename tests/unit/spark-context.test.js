@@ -234,6 +234,47 @@ describe('SparkContextProvider', () => {
     expect(mockConnect).not.toHaveBeenCalledWith(SPARK_MNEMONIC, expect.any(Function));
   });
 
+  it('syncs before it reads the balance of the Spark wallet it creates', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const order = [];
+    mockSync.mockImplementation(async () => {
+      order.push('sync');
+    });
+    mockSdk.getInfo.mockImplementation(async () => {
+      order.push('getInfo');
+      return { identityPubkey: 'pk-1', balanceSats: 25n };
+    });
+    renderWith([hdWallet]);
+    await waitFor(() => assert.ok(latestCtx));
+    order.length = 0;
+
+    let created;
+    await act(async () => {
+      created = await latestCtx.createSparkWallet();
+    });
+
+    assert.strictEqual(created.balance, 25);
+    assert.deepStrictEqual(order.slice(0, 2), ['sync', 'getInfo']);
+    alert.mockRestore();
+  });
+
+  it('still creates the Spark wallet when the sync before it fails', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    renderWith([hdWallet]);
+    await waitFor(() => assert.ok(latestCtx));
+    mockSync.mockRejectedValueOnce(new Error('offline'));
+
+    let created;
+    await act(async () => {
+      created = await latestCtx.createSparkWallet();
+    });
+
+    assert.ok(created);
+    expect(addAndSaveWallet).toHaveBeenCalledWith(created);
+    expect(alert).not.toHaveBeenCalled();
+    alert.mockRestore();
+  });
+
   it('creates a Spark wallet from the on-chain seed without storing the phrase', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     renderWith([hdWallet]);

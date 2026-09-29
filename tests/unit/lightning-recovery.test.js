@@ -89,6 +89,7 @@ async function addLightning(wallet) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockFindUser.mockReset();
   mockFindUser.mockResolvedValue(undefined);
   mockOpenLightningLdsWallet.mockResolvedValue({ type: 'lightningLdsWallet' });
 });
@@ -126,6 +127,18 @@ describe('useLightningRecovery account lookup', () => {
     await addLightning(customPath);
 
     expect(mockFindUser.mock.calls.map(call => call[0])).toEqual(['bc1-custom-path', 'bc1-seed words-pass', '3-seed words-pass']);
+  });
+
+  it('keeps looking at the other login addresses when the first account has no BTC Lightning wallet', async () => {
+    mockFindUser
+      .mockResolvedValueOnce(ldsUser([{ asset: { name: 'CHF' }, lndhubAdminUrl: 'chf@https://lndhub.example' }]))
+      .mockResolvedValueOnce(ldsUser());
+    await addLightning(importedWallet());
+
+    expect(mockFindUser).toHaveBeenCalledTimes(2);
+    expect(mockOpenLightningLdsWallet).toHaveBeenCalledWith('secret@https://lndhub.example', 'user@lightning.space', 'proof');
+    expect(addAndSaveWallet).toHaveBeenCalledWith({ type: 'lightningLdsWallet' });
+    expect(mockCreateSparkWallet).not.toHaveBeenCalled();
   });
 
   it('creates the Spark wallet when the account has no BTC Lightning wallet', async () => {

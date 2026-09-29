@@ -351,6 +351,8 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
           throw new Error('On-chain wallet is required to create a Spark wallet');
         }
         await ensureConnected(mnemonic);
+        // A seed that used Spark before brings back its balance; a failed sync leaves it to the next one.
+        await syncSparkWallet().catch(e => console.warn('SparkContext: sync before create failed', errorClass(e)));
 
         const lease = acquireSparkSessionLease();
         const info = await lease.requireSdk().getInfo({ ensureSynced: false });
