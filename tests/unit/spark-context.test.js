@@ -52,7 +52,7 @@ jest.mock('../../class', () => ({
 
 const { SparkWallet } = require('../../class/wallets/spark-wallet');
 const { BlueStorageContext } = require('../../blue_modules/storage-context');
-const { SparkContextProvider, useSparkContext } = require('../../api/spark/contexts/spark.context');
+const { SparkContextProvider, useSparkContext, SYNC_BEFORE_CREATE_TIMEOUT_MS } = require('../../api/spark/contexts/spark.context');
 const { beginOutgoingPayment } = require('../../api/spark/outgoing-payment');
 const loc = require('../../loc').default;
 
@@ -258,8 +258,10 @@ describe('SparkContextProvider', () => {
     alert.mockRestore();
   });
 
-  it('still creates the Spark wallet when the sync before it fails', async () => {
+  it('still creates the Spark wallet when the sync before it fails, but registers no new Lightning address', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    mockSdk.getLightningAddress.mockResolvedValue(undefined);
     renderWith([hdWallet]);
     await waitFor(() => assert.ok(latestCtx));
     mockSync.mockRejectedValueOnce(new Error('offline'));
@@ -270,8 +272,61 @@ describe('SparkContextProvider', () => {
     });
 
     assert.ok(created);
+    assert.strictEqual(created.lnAddress, undefined);
     expect(addAndSaveWallet).toHaveBeenCalledWith(created);
+    expect(mockSdk.registerLightningAddress).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith('SparkContext: sync before create failed', 'Error');
     expect(alert).not.toHaveBeenCalled();
+    warn.mockRestore();
+    alert.mockRestore();
+  });
+
+  it('does not wait longer than the time limit for a sync that does not finish', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockSdk.getLightningAddress.mockResolvedValue(undefined);
+    renderWith([hdWallet]);
+    await waitFor(() => assert.ok(latestCtx));
+    mockSync.mockReturnValueOnce(new Promise(() => {}));
+    jest.useFakeTimers();
+
+    let created;
+    try {
+      const creating = latestCtx.createSparkWallet().then(result => {
+        created = result;
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(SYNC_BEFORE_CREATE_TIMEOUT_MS - 1);
+      });
+      assert.strictEqual(created, undefined);
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(1);
+        await creating;
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+
+    assert.ok(created);
+    expect(mockSdk.registerLightningAddress).not.toHaveBeenCalled();
+    alert.mockRestore();
+  });
+
+  it('creates nothing when the Spark session changes during the sync', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    renderWith([hdWallet]);
+    await waitFor(() => assert.ok(latestCtx));
+    mockSync.mockImplementationOnce(async () => {
+      mockGetSessionIdentity.mockReturnValue('pk-other');
+    });
+
+    let created;
+    await act(async () => {
+      created = await latestCtx.createSparkWallet();
+    });
+
+    assert.strictEqual(created, null);
+    expect(mockSdk.getInfo).not.toHaveBeenCalled();
+    expect(addAndSaveWallet).not.toHaveBeenCalled();
     alert.mockRestore();
   });
 

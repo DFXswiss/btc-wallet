@@ -31,6 +31,29 @@ function lightningAddressUsername(identityPubkey: string, attempt: number): stri
   return attempt === 0 ? base : `${base}${attempt + 1}`;
 }
 
+/** How long creating a Spark wallet waits for the sync before it; a sync still running afterwards is not awaited. */
+export const SYNC_BEFORE_CREATE_TIMEOUT_MS = 30000;
+
+/** Syncs the connected wallet before it is created; false when the sync failed or did not finish in time. */
+async function syncBeforeCreate(): Promise<boolean> {
+  const sync = syncSparkWallet().then(
+    () => true,
+    (e: unknown) => {
+      console.warn('SparkContext: sync before create failed', errorClass(e));
+      return false;
+    },
+  );
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<boolean>(resolve => {
+    timer = setTimeout(() => resolve(false), SYNC_BEFORE_CREATE_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([sync, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function registerLightningAddressOnce(
   identityPubkey: string,
   description: string,
@@ -351,10 +374,11 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
           throw new Error('On-chain wallet is required to create a Spark wallet');
         }
         await ensureConnected(mnemonic);
-        // A seed that used Spark before brings back its balance; a failed sync leaves it to the next one.
-        await syncSparkWallet().catch(e => console.warn('SparkContext: sync before create failed', errorClass(e)));
 
         const lease = acquireSparkSessionLease();
+        // A seed that used Spark before brings back its balance and address; a failed sync leaves them to the next one.
+        const synced = await syncBeforeCreate();
+        lease.assertLive();
         const info = await lease.requireSdk().getInfo({ ensureSynced: false });
         const session = lease.requireSdk();
 
@@ -364,7 +388,8 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
           const lnInfo = await session.getLightningAddress();
           lease.assertLive();
           lnAddress = lnInfo?.lightningAddress;
-          if (!lnAddress) {
+          // Unsynced, the lookup may miss an address the seed already has, and registering would add a second one.
+          if (!lnAddress && synced) {
             lnAddress = await registerLightningAddressOnce(info.identityPubkey, loc.wallets.lightning_spark_wallet_label, lease);
           }
         } catch (e) {

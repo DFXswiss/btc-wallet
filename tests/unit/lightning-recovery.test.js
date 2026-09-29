@@ -141,6 +141,15 @@ describe('useLightningRecovery account lookup', () => {
     expect(mockCreateSparkWallet).not.toHaveBeenCalled();
   });
 
+  it('still finds the BTC wallet on a later login address when an earlier lookup fails', async () => {
+    mockFindUser.mockRejectedValueOnce({ statusCode: 503 }).mockResolvedValueOnce(ldsUser());
+    await addLightning(importedWallet());
+
+    expect(mockFindUser).toHaveBeenCalledTimes(2);
+    expect(addAndSaveWallet).toHaveBeenCalledWith({ type: 'lightningLdsWallet' });
+    expect(mockCreateSparkWallet).not.toHaveBeenCalled();
+  });
+
   it('creates the Spark wallet when the account has no BTC Lightning wallet', async () => {
     mockFindUser.mockResolvedValueOnce(ldsUser([{ asset: { name: 'CHF' }, lndhubAdminUrl: 'secret@https://lndhub.example' }]));
     await addLightning(importedWallet());
@@ -187,6 +196,7 @@ describe('useLightningRecovery addLightningWallet', () => {
     mockFindUser.mockRejectedValueOnce({ statusCode: 503 });
     const hook = mountHook();
     await expect(hook.addLightningWallet(importedWallet())).rejects.toEqual({ statusCode: 503 });
+    expect(mockFindUser).toHaveBeenCalledTimes(2);
     expect(mockCreateSparkWallet).not.toHaveBeenCalled();
     expect(addAndSaveWallet).not.toHaveBeenCalled();
   });

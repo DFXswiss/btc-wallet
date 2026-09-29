@@ -2,6 +2,7 @@ import { useCallback, useContext } from 'react';
 import { BlueStorageContext } from '../blue_modules/storage-context';
 import { HDSegwitBech32Wallet, HDSegwitP2SHWallet } from '../class';
 import { useLds } from '../api/lds/hooks/lds.hook';
+import { User } from '../api/lds/definitions/user';
 import { openLightningLdsWallet } from '../api/lds/lightning-lds-wallet-factory';
 import { useSparkContext } from '../api/spark/contexts/spark.context';
 import { BIP39_HD_WALLET_TYPES } from '../api/spark/spark-seed';
@@ -51,10 +52,20 @@ export function useLightningRecovery(): {
   const addExistingLdsWallet = useCallback(
     async (wallet: SigningHdWallet): Promise<boolean> => {
       if (!BIP39_HD_WALLET_TYPES.has(wallet.type)) return false;
-      // Each login address can have its own account; one without a BTC Lightning wallet does not end the search.
+      // Each login address can have its own account: one without a BTC Lightning wallet, or a failed lookup, does
+      // not end the search. A failed lookup is thrown only when no other address has the wallet.
+      let lookupFailed = false;
+      let lookupError: unknown;
       for (const candidate of loginCandidates(wallet)) {
         const address = candidate._getExternalAddressByIndex(0);
-        const user = await findUser(address, async message => candidate.signMessage(message, address));
+        let user: User | undefined;
+        try {
+          user = await findUser(address, async message => candidate.signMessage(message, address));
+        } catch (e) {
+          if (!lookupFailed) lookupError = e;
+          lookupFailed = true;
+          continue;
+        }
         const lndhub = user?.lightning.wallets.find(w => w.asset.name === 'BTC' && w.lndhubAdminUrl);
         if (!user || !lndhub?.lndhubAdminUrl) continue;
         await addAndSaveWallet(
@@ -62,6 +73,7 @@ export function useLightningRecovery(): {
         );
         return true;
       }
+      if (lookupFailed) throw lookupError;
       return false;
     },
     [findUser, addAndSaveWallet],
