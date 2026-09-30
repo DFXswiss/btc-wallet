@@ -119,7 +119,7 @@ On-chain send: choosing a destination, composing amount and fee, confirming and 
 **Depends on.** Camera permission hook; react-native-camera-kit-no-google; rn-qr-generator; BC-UR; react-native-image-picker / permissions.
 
 **Known issues.** None recorded.
-**Tests.** tests/unit/CosignerCamera.test.js, tests/e2e/scan.spec.js (Detox, through the scanner's manual-entry field), `tests/e2e/spark.spec.js` (Detox: a scanned Lightning invoice opens the Lightning payment screen), CF-09
+**Tests.** tests/unit/CosignerCamera.test.js, tests/e2e/scan.spec.js (Detox, through the scanner's hidden QR text input, `components/QrScanBackdoor.js`), `tests/e2e/spark.spec.js` (Detox: a scanned Lightning invoice opens the Lightning payment screen), CF-09
 **Source.** screen/send/ScanQRCode.js, hooks/cameraPermisions.hook.ts, navigation/index.tsx
 
 ## S-07 Broadcast raw transaction

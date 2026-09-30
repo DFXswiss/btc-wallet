@@ -235,7 +235,7 @@ Every Critical row above is covered by at least one flow, and the checker enforc
 
 The Detox suites run on Android only and cannot reach everything. Before a release, check these by hand on an iPhone and an Android phone:
 
-- Run the flows above on an iPhone (no iOS automation exists).
+- Run the flows above on an iPhone: the Detox suites run on Android only, and on iOS only CF-09, CF-10 and CF-11 have Maestro flows, run locally.
 - lightning.space regression with a seed that has a funded lightning.space wallet: Lightning row, balance and history; receive to its address and to an invoice (paid invoice view without a "0 sats" fee line); pay an invoice, an external and a lightning.space Lightning address (fee range and Free); send max keeps the 3% reserve; LNURL-withdraw; DFX sell paid as LNURL.
 - An existing lightning.space user updates from the store version: the Lightning row, Receive and Settings still open the lightning.space wallet and Add is not offered.
 - Add recovers a lightning.space account created before May 2023 (BIP49 addresses) and one whose seed was imported on a custom derivation path.
