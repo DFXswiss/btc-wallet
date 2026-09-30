@@ -27,7 +27,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 6. Tap Receive and confirm a mainnet on-chain address and QR are shown (BIP21 with amount and label if offered).
 7. From Settings, open the wallet row (wallet details) and confirm the wallet can be deleted; deleting the only wallet resets the app to first launch.
    **Expected.** A receive address is visible; the wallet survives a restart; deleting the only wallet returns the app to the add-wallet screen.
-   **Automation.** `tests/e2e/onchain.spec.js` (Detox on Android): self-test, wallet survives a restart, mainnet receive address, BIP21 with amount and label, deleting the only wallet resets the app.
+   **Automation.** `tests/e2e/onchain.spec.js` (Detox on Android): self-test, wallet survives a restart, mainnet receive address, BIP21 with amount and label, deleting the only wallet resets the app. The recovery phrase backup (step 3) is not automated and stays manual; the exported phrase itself is checked by `tests/e2e/wallet-details.spec.js`.
 
 ## CF-02 Receive on-chain and watch the transaction confirm
 
@@ -62,7 +62,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 6. On the confirm screen check the recipient, the amount and the fee; Details shows the signed transaction.
 7. Tap Send now; the success screen shows amount and fee; confirm the outgoing row appears in the transaction list.
    **Expected.** The restored wallet shows its balance; a signed send shows the correct amount and fee; after broadcast, the history lists the outgoing payment.
-   **Automation.** `tests/e2e/onchain-send.spec.js` (funded) builds and signs the transaction and checks amount and fee, but never broadcasts; the broadcast step is manual. Both checks are skipped until the Android prompt fix from pull request #281 is in the base, since the custom fee rate is typed into that prompt.
+   **Automation.** `tests/e2e/onchain-send.spec.js` (funded) imports the phrase with the speed import, which skips account discovery (step 2; discovery itself is covered by `tests/e2e/import-discovery.spec.js`), builds and signs the transaction and checks amount and fee, but never broadcasts; the broadcast step is manual. Both checks are skipped until the Android prompt fix from pull request #281 is in the base, since the custom fee rate is typed into that prompt.
 
 ## CF-04 Encrypt storage, relaunch, unlock, use the decoy password
 
@@ -96,7 +96,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 5. Open Settings, Lightning, Export; accept the notice and continue.
 6. Confirm the 12-word Spark recovery phrase is displayed.
    **Expected.** Spark is the active Lightning wallet; an amount invoice is creatable; the Spark recovery phrase can be exported.
-   **Automation.** `tests/e2e/spark.spec.js`: adds Spark from the home row, creates an invoice for a typed amount and description, and exports the BIP-85 child phrase only after the notice is accepted.
+   **Automation.** `tests/e2e/spark.spec.js`: adds Spark from the home row, creates an invoice for a typed amount and description and checks the payment request it shows (the QR image itself is not checked), and exports the BIP-85 child phrase only after the notice is accepted. Provider precedence (step 2) is covered by unit tests, not end to end.
 
 ## CF-06 Receive Lightning on Spark
 
@@ -113,7 +113,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 5. Optionally receive a second payment to the static address from the external payer.
 6. On the wallet screen, confirm Lightning rows appear in history with the received amounts.
    **Expected.** Paid invoice shows paid state; static receive works; history lists the Lightning receives.
-   **Automation.** `tests/e2e/spark-receive.spec.js` (funded): a second team Spark wallet, run from the test, pays an invoice the app created; the receive screen turns to paid and the balance grows by exactly the amount; the shown Lightning address resolves to LNURL-pay. Receiving to the static address and the preimage view stay manual.
+   **Automation.** `tests/e2e/spark-receive.spec.js` (funded): a second team Spark wallet, run from the test, pays an invoice the app created; the receive screen turns to paid and the balance grows by exactly the amount; the shown Lightning address resolves to LNURL-pay. Receiving to the static address, the preimage view and the history row on the wallet screen (step 6) stay manual.
 
 ## CF-07 Pay a Lightning invoice and a Lightning address from Spark
 
