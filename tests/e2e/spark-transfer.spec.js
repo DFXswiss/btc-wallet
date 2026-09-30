@@ -28,19 +28,9 @@ async function payFromApp(destination, { amount, doubleTap = false } = {}) {
   await element(by.id('ScanLndInvoiceNext')).tap();
   await waitForId('LnurlPayFee', 60_000);
   await readQuotedFee();
-  if (doubleTap) {
-    await device.disableSynchronization();
-    try {
-      await element(by.id('LnurlPayButton')).tap();
-      await element(by.id('LnurlPayButton'))
-        .tap()
-        .catch(() => {});
-    } finally {
-      await device.enableSynchronization();
-    }
-  } else {
-    await element(by.id('LnurlPayButton')).tap();
-  }
+  // multiTap taps twice in one action, so the second tap lands before the app reacts to the first.
+  if (doubleTap) await element(by.id('LnurlPayButton')).multiTap(2);
+  else await element(by.id('LnurlPayButton')).tap();
   await waitForId('SendSuccessDone', 120_000);
   return parseSats(await extractTextFromElementById('SuccessFee'));
 }
