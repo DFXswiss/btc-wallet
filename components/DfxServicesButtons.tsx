@@ -125,10 +125,15 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
       }
     }
 
+    const isSellOrSwap = service === DfxService.SELL || service === DfxService.SWAP;
+    const isSpark = wallet.type === SparkWallet.type;
+    // The cached balance is only refreshed while the app is in the foreground, and a sell or swap of the whole
+    // balance has to start from the current one.
+    if (isSpark && isSellOrSwap) await wallet.fetchBalance();
     const balance = wallet.getBalance();
-    // The 3% haircut leaves room for the Lightning fee charged on top of the amount (LNbits for LNDHub
-    // wallets, the SDK fee for Spark). An exact value needs a fee quote, which is not available here.
-    const maxBalance = service === DfxService.SELL || service === DfxService.SWAP ? balance - balance * 0.03 : balance;
+    // The 3% haircut leaves room for the Lightning fee LNbits charges on top of the amount. A Spark wallet pays
+    // the DFX deposit as a Spark transfer without a fee, so its whole balance can be sold or swapped.
+    const maxBalance = isSellOrSwap && !isSpark ? balance - balance * 0.03 : balance;
     return { maxBalance, sweepableBalance: balance };
   };
 
@@ -136,7 +141,10 @@ const DfxServicesButtons = ({ walletID }: { walletID: string }) => {
     setIsHandlingOpenServices(true);
     try {
       const { maxBalance, sweepableBalance } = await getBalanceByDfxService(service);
-      if (wallet.chain === Chain.ONCHAIN && (service === DfxService.SELL || service === DfxService.SWAP)) {
+      if (
+        (wallet.chain === Chain.ONCHAIN || wallet.type === SparkWallet.type) &&
+        (service === DfxService.SELL || service === DfxService.SWAP)
+      ) {
         await DfxMaxAmount.remember(wallet.getID(), service, maxBalance, sweepableBalance);
       }
       await openServices(wallet.getID(), new BigNumber(currency.satoshiToBTC(maxBalance)).toString(), service);

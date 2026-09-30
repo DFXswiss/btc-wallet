@@ -111,11 +111,13 @@ const AMOUNT_BTC = '0.00012345';
 const AMOUNT_SATS = 12_345;
 const URI_AMOUNT_BTC = '0.00054321';
 
-function makeSparkWallet() {
+function makeSparkWallet(balance = AMOUNT_SATS) {
   return {
     type: SparkWallet.type,
     chain: Chain.OFFCHAIN,
     getID: () => 'spark-dfx-wallet',
+    getBalance: () => balance,
+    fetchBalance: jest.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -289,6 +291,100 @@ describe('DFX Spark invoice navigation', () => {
     ]);
     expect(mockNavigate.mock.calls[0][1].lnurl).toBeUndefined();
     expect(mockNavigate.mock.calls[0][1].sparkInvoice).toBeUndefined();
+  });
+
+  it('pays the whole Spark balance on a confirmed-max sell to a Spark address', async () => {
+    const BALANCE = 99_999;
+    mockWasConfirmed.mockResolvedValue(true);
+    mockSellGetInfo.mockResolvedValue(sellInfo(SPARK_ADDRESS));
+    const screen = renderScreen(Sell, makeSparkWallet(BALANCE));
+
+    await waitFor(() => screen.getByTestId('SellConfirm'));
+    fireEvent.press(screen.getByTestId('SellConfirm'));
+
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalled());
+    expect(mockNavigate.mock.calls[0]).toEqual([
+      'LnurlPay',
+      { sparkAddress: SPARK_ADDRESS, walletID: 'spark-dfx-wallet', amountSat: BALANCE, routeId: '1' },
+    ]);
+    expect(mockNavigate.mock.calls[0][1].isMax).toBeUndefined();
+    expect(mockWasConfirmed).toHaveBeenCalledWith('spark-dfx-wallet', 'sell', AMOUNT_BTC, BALANCE);
+  });
+
+  it('pays the whole Spark balance on a confirmed-max swap to a Spark address', async () => {
+    const BALANCE = 99_999;
+    mockWasConfirmed.mockResolvedValue(true);
+    mockSwapGetInfo.mockResolvedValue(swapInfo(SPARK_ADDRESS));
+    const screen = renderScreen(Swap, makeSparkWallet(BALANCE));
+
+    await waitFor(() => screen.getByTestId(`Button-${loc.swap.confirm}`));
+    fireEvent.press(screen.getByTestId(`Button-${loc.swap.confirm}`));
+
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalled());
+    expect(mockNavigate.mock.calls[0]).toEqual([
+      'LnurlPay',
+      { sparkAddress: SPARK_ADDRESS, walletID: 'spark-dfx-wallet', amountSat: BALANCE, routeId: '1' },
+    ]);
+    expect(mockNavigate.mock.calls[0][1].isMax).toBeUndefined();
+    expect(mockWasConfirmed).toHaveBeenCalledWith('spark-dfx-wallet', 'swap', AMOUNT_BTC, BALANCE);
+  });
+
+  it('passes isMax on a confirmed-max Spark sell to an LNURL deposit', async () => {
+    const BALANCE = 99_999;
+    mockWasConfirmed.mockResolvedValue(true);
+    mockSellGetInfo.mockResolvedValue(sellInfo(LNURL));
+    const screen = renderScreen(Sell, makeSparkWallet(BALANCE));
+
+    await waitFor(() => screen.getByTestId('SellConfirm'));
+    fireEvent.press(screen.getByTestId('SellConfirm'));
+
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalled());
+    expect(mockNavigate.mock.calls[0]).toEqual([
+      'LnurlPay',
+      { lnurl: LNURL, walletID: 'spark-dfx-wallet', amountSat: BALANCE, isMax: true },
+    ]);
+  });
+
+  it('passes isMax on a confirmed-max Spark swap to an LNURL deposit', async () => {
+    const BALANCE = 99_999;
+    mockWasConfirmed.mockResolvedValue(true);
+    mockSwapGetInfo.mockResolvedValue(swapInfo(LNURL));
+    const screen = renderScreen(Swap, makeSparkWallet(BALANCE));
+
+    await waitFor(() => screen.getByTestId(`Button-${loc.swap.confirm}`));
+    fireEvent.press(screen.getByTestId(`Button-${loc.swap.confirm}`));
+
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalled());
+    expect(mockNavigate.mock.calls[0]).toEqual([
+      'LnurlPay',
+      { lnurl: LNURL, walletID: 'spark-dfx-wallet', amountSat: BALANCE, isMax: true },
+    ]);
+  });
+
+  it('never consults DfxMaxAmount for an LNbits sell and pays the echoed amount', async () => {
+    mockRouteParams['wallet-id'] = 'lds-dfx-wallet';
+    mockSellGetInfo.mockResolvedValue(sellInfo(LNURL));
+    const screen = renderScreen(Sell, makeLdsWallet());
+
+    await waitFor(() => screen.getByTestId('SellConfirm'));
+    fireEvent.press(screen.getByTestId('SellConfirm'));
+
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalled());
+    expect(mockWasConfirmed).not.toHaveBeenCalled();
+    expect(mockNavigate.mock.calls[0]).toEqual(['LnurlPay', { lnurl: LNURL, walletID: 'lds-dfx-wallet', amountSat: AMOUNT_SATS }]);
+  });
+
+  it('never consults DfxMaxAmount for an LNbits swap and pays the echoed amount', async () => {
+    mockRouteParams['wallet-id'] = 'lds-dfx-wallet';
+    mockSwapGetInfo.mockResolvedValue(swapInfo(LNURL));
+    const screen = renderScreen(Swap, makeLdsWallet());
+
+    await waitFor(() => screen.getByTestId(`Button-${loc.swap.confirm}`));
+    fireEvent.press(screen.getByTestId(`Button-${loc.swap.confirm}`));
+
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalled());
+    expect(mockWasConfirmed).not.toHaveBeenCalled();
+    expect(mockNavigate.mock.calls[0]).toEqual(['LnurlPay', { lnurl: LNURL, walletID: 'lds-dfx-wallet', amountSat: AMOUNT_SATS }]);
   });
 });
 

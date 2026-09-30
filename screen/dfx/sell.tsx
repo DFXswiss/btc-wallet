@@ -19,7 +19,7 @@ import { NetworkTransactionFee } from '../../models/networkTransactionFees';
 import BigNumber from 'bignumber.js';
 import { Chain } from '../../models/bitcoinUnits';
 import { Utils } from '../../helpers/utils';
-import { lightningDepositPayParams } from '../../helpers/dfxLightningDeposit';
+import { lightningDepositPayParams, sparkMaxDepositSats } from '../../helpers/dfxLightningDeposit';
 const currency = require('../../blue_modules/currency');
 
 type SellRouteProps = RouteProp<
@@ -116,7 +116,11 @@ const Sell = () => {
         psbt,
       });
     } else {
-      navigation.navigate('LnurlPay', lightningDepositPayParams(wallet, sell?.deposit.address, currency.btcToSatoshi(amount), routeId));
+      const maxSats = await sparkMaxDepositSats(wallet, DfxService.SELL, amount);
+      navigation.navigate(
+        'LnurlPay',
+        lightningDepositPayParams(wallet, sell?.deposit.address, maxSats ?? currency.btcToSatoshi(amount), routeId, maxSats !== undefined),
+      );
     }
   }
 
