@@ -64,7 +64,7 @@ This area covers Lightning wallet types in the app: self-custodial Spark, custod
 
 **Known issues.** None recorded.
 
-**Tests.** tests/unit/lightning-recovery.test.js, tests/unit/spark-home.test.js, tests/unit/spark-context.test.js, tests/e2e-maestro/\_setup-import.yaml, tests/e2e/spark-receive.spec.js (funded: Add after an import brings back the seed's Spark wallet with the balance and Lightning address the SDK reports); CF-08
+**Tests.** tests/unit/lightning-recovery.test.js, tests/unit/spark-home.test.js, tests/unit/spark-context.test.js, `tests/e2e-maestro/_setup-import.yaml`, tests/e2e/spark-receive.spec.js (funded: Add after an import brings back the seed's Spark wallet with the balance and Lightning address the SDK reports); CF-08
 
 **Source.** hooks/lightningRecovery.hook.ts, api/spark/contexts/spark.context.tsx, api/lds/lightning-lds-wallet-factory.ts, screen/wallets/home.js
 
