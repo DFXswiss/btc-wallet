@@ -14,6 +14,7 @@ import {
   waitForId,
   waitForLightningBalanceChange,
 } from './helperz';
+import { connectSpark } from './spark-sdk';
 
 // Spends real sats on every run: AMOUNT_SATS plus the routing fee go to E2E_LIGHTNING_ADDRESS.
 // Point that address at a wallet the team controls so the funds come back.
@@ -22,10 +23,11 @@ const AMOUNT_SATS = 10;
 describe('Spark Lightning payment', () => {
   let lightningAddress;
   let chargedFee;
+  let mnemonic;
 
   beforeAll(async () => {
     requireEnv('BREEZ_API_KEY');
-    const mnemonic = requireEnv('SPARK_E2E_MNEMONIC');
+    mnemonic = requireEnv('SPARK_E2E_MNEMONIC');
     lightningAddress = requireEnv('E2E_LIGHTNING_ADDRESS');
     await launchFresh();
     await importWithLightning(mnemonic);
@@ -50,6 +52,19 @@ describe('Spark Lightning payment', () => {
 
     const after = await waitForLightningBalanceChange(before);
     assert.strictEqual(before - after, AMOUNT_SATS + chargedFee, `balance went from ${before} to ${after}; charged fee was ${chargedFee}`);
+
+    // Tie the numbers to this invoice: the wallet, read from the test runner, holds a completed send for it.
+    const own = await connectSpark(mnemonic);
+    try {
+      const { payments } = await own.listPayments({ typeFilter: ['send'], limit: 20, sortAscending: false });
+      const payment = payments.find(p => p.details?.type === 'lightning' && p.details.invoice === invoice);
+      assert.ok(payment, 'the wallet has no send for this invoice');
+      assert.strictEqual(payment.status, 'completed');
+      assert.strictEqual(Number(payment.amount), AMOUNT_SATS);
+      assert.strictEqual(Number(payment.fees), chargedFee);
+    } finally {
+      await own.close();
+    }
   });
 
   it('lists the payment first in the history with the amount and fee it took from the balance', async () => {

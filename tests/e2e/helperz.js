@@ -291,10 +291,10 @@ export function unpayableInvoice(sats, description) {
 /** Requests a fresh BOLT11 invoice for `sats` from a Lightning address (LNURL-pay). */
 export async function invoiceFromLightningAddress(lightningAddress, sats) {
   const [user, domain] = lightningAddress.split('@');
-  const meta = await (await fetch(`https://${domain}/.well-known/lnurlp/${user}`)).json();
+  const meta = await fetchJsonWithRetry(`https://${domain}/.well-known/lnurlp/${user}`);
   if (meta.status === 'ERROR') throw new Error(`LNURL-pay metadata: ${meta.reason}`);
   const separator = meta.callback.includes('?') ? '&' : '?';
-  const response = await (await fetch(`${meta.callback}${separator}amount=${sats * 1000}`)).json();
+  const response = await fetchJsonWithRetry(`${meta.callback}${separator}amount=${sats * 1000}`);
   if (!response.pr) throw new Error(`LNURL-pay callback returned no invoice: ${JSON.stringify(response)}`);
   return response.pr;
 }

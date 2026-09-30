@@ -62,14 +62,21 @@ describe('On-chain send with a funded wallet', () => {
 
     const { tx, outs, feeSats } = await buildAndReadTx();
 
-    assert.strictEqual(outs[0].address, DESTINATION);
-    assert.strictEqual(outs[0].value, 10_000);
-    assert.ok(outs.length <= 2, `expected payment + optional change, got ${outs.length} outputs`);
+    const payments = outs.filter(out => out.address === DESTINATION);
+    assert.strictEqual(payments.length, 1, 'exactly one output must pay the destination');
+    assert.strictEqual(payments[0].value, 10_000);
+    const change = outs.filter(out => out.address !== DESTINATION);
+    assert.ok(change.length <= 1, `expected payment + optional change, got ${outs.length} outputs`);
+    const walletAddresses = bip84Addresses(mnemonic, 200);
+    for (const out of change) assert.ok(walletAddresses.has(out.address), `change goes to ${out.address}, not to the wallet`);
 
     const spent = await sumSpentOutputs(tx);
     const paid = outs.reduce((sum, out) => sum + out.value, 0);
     assert.strictEqual(feeSats, spent - paid, 'fee on the confirm screen differs from inputs minus outputs');
-    assert.strictEqual(Math.round((spent - paid) / tx.virtualSize()), FEE_RATE);
+    // The wallet prices an estimated size before signing; a signature can be a byte shorter than estimated.
+    const vsize = tx.virtualSize();
+    assert.ok(feeSats >= FEE_RATE * vsize, `fee ${feeSats} is below ${FEE_RATE} sat/vB for ${vsize} vB`);
+    assert.ok(feeSats <= FEE_RATE * (vsize + tx.ins.length), `fee ${feeSats} is above ${FEE_RATE} sat/vB for ${vsize} vB`);
   });
 
   it('MAX sends the whole balance to one output minus the shown fee', async () => {
@@ -79,7 +86,7 @@ describe('On-chain send with a funded wallet', () => {
 
     const { tx, outs, feeSats } = await buildAndReadTx();
     assert.strictEqual(outs.length, 1, 'MAX must not create change');
-    assert.strictEqual(outs[0].address, DESTINATION);
+    assert.strictEqual(outs[0].address, DESTINATION, 'the only output must pay the destination');
 
     const spent = await sumSpentOutputs(tx);
     assert.strictEqual(outs[0].value, spent - feeSats);
