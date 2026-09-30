@@ -19,7 +19,7 @@ On-chain send: choosing a destination, composing amount and fee, confirming and 
 **Depends on.** Camera permission and QR scanning (`react-native-camera-kit-no-google`, camera permission hook, QR scanner with UR decoding); deeplink schema matching.
 
 **Known issues.** None recorded.
-**Tests.** tests/unit/ManualAddressSend.test.js, tests/unit/spark-home.test.js, tests/unit/asset-dfx-services.test.js, tests/unit/deeplink-schema-match.test.js, tests/e2e/scan.spec.js (Detox: scanned BIP21 fills address and amount), tests/e2e/onchain-send.spec.js (funded, typed address), CF-03
+**Tests.** tests/unit/ManualAddressSend.test.js, tests/unit/spark-home.test.js, tests/unit/asset-dfx-services.test.js, tests/unit/deeplink-schema-match.test.js, tests/e2e/scan.spec.js (Detox: scanned BIP21 fills address and amount), tests/e2e/onchain-send.spec.js (funded, typed address; skipped until the Android prompt fix #281 is merged), CF-03
 **Source.** screen/send/ScanCodeSend.tsx, screen/send/ManualAddressSend.tsx, class/deeplink-schema-match.js, screen/wallets/home.js, screen/wallets/asset.js
 
 ## S-02 Send on-chain: amount, fee, confirm, broadcast
@@ -39,7 +39,7 @@ On-chain send: choosing a destination, composing amount and fee, confirming and 
 **Depends on.** Electrum (UTXO fetch with batching when a UTXO set is known, fee fallback, broadcast); mempool.space (fee estimates and explorer link from related tools); coinb.in (verify link); biometrics for broadcast and Details; bip21, bitcoinjs-lib, coinselect; payjoin-client and class/payjoin-transaction; push-notification txid registration.
 
 **Known issues.** None recorded.
-**Tests.** tests/unit/utils.test.js, tests/unit/fetchUtxoBatching.test.js, tests/unit/legacyWalletFetchUtxoBatching.test.js, tests/unit/electrumBatchingDetection.test.js, tests/unit/legacy-wallet.test.js, tests/unit/deeplink-schema-match.test.js, tests/unit/AmountInput.test.js, tests/unit/send-confirm-branches.test.js, tests/unit/send-confirm-fee.test.js, tests/unit/send-biometric-abort.test.js, tests/unit/payjoin-transaction.test.js, tests/unit/send-success.test.js, CF-03. tests/e2e/onchain-send.spec.js (Detox, funded) signs a typed-amount send and a MAX send and checks amount and fee against the signed transaction; it never broadcasts. Batch send is not covered end to end.
+**Tests.** tests/unit/utils.test.js, tests/unit/fetchUtxoBatching.test.js, tests/unit/legacyWalletFetchUtxoBatching.test.js, tests/unit/electrumBatchingDetection.test.js, tests/unit/legacy-wallet.test.js, tests/unit/deeplink-schema-match.test.js, tests/unit/AmountInput.test.js, tests/unit/send-confirm-branches.test.js, tests/unit/send-confirm-fee.test.js, tests/unit/send-biometric-abort.test.js, tests/unit/payjoin-transaction.test.js, tests/unit/send-success.test.js, CF-03. tests/e2e/onchain-send.spec.js (Detox, funded) signs a typed-amount send and a MAX send and checks amount and fee against the signed transaction; it never broadcasts. Both checks are skipped until the Android prompt fix (#281) is merged, since the custom fee rate is typed into that prompt. Batch send is not covered end to end.
 **Source.** screen/send/details.js, screen/send/confirm.js, screen/send/create.js, screen/send/success.js, models/networkTransactionFees.js, class/wallets/legacy-wallet.ts, class/wallets/abstract-hd-electrum-wallet.ts, class/deeplink-schema-match.js, helpers/utils.ts, components/AmountInput.js, class/payjoin-transaction.js, class/biometrics.js, blue_modules/BlueElectrum.js
 
 ## S-03 Coin control

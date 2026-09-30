@@ -20,7 +20,7 @@ On-chain (and shared) transaction history on the wallet screen, transaction stat
 
 **Known issues.** None recorded.
 
-**Tests.** tests/unit/asset-dfx-services.test.js, tests/unit/app-state-refresh.test.js (refresh started at launch and on return to the foreground), tests/e2e/transactions.spec.js (Detox: the two newest rows are in chain order), tests/e2e/onchain-send.spec.js (funded wallet). CF-02, CF-03.
+**Tests.** tests/unit/asset-dfx-services.test.js, tests/unit/app-state-refresh.test.js (refresh started at launch and on return to the foreground), tests/e2e/transactions.spec.js (Detox: the two newest rows are in chain order; skipped for now, as the first load from a random public Electrum server takes up to minutes), tests/e2e/onchain-send.spec.js (funded wallet). CF-02, CF-03.
 
 **Source.** screen/wallets/asset.js, components/TransactionListItem.js, components/TransactionsNavigationHeader.js, blue_modules/storage-context.js, navigation/WalletsStack.tsx
 
@@ -44,7 +44,7 @@ Details shows, when present: memo, unique input addresses ("Input") with copy-al
 
 **Known issues.** #207 Transaction Status confirmation poll never fires
 
-**Tests.** tests/unit/transaction-status.test.js (a first output without an address); tests/e2e/transactions.spec.js and tests/e2e/onchain-send.spec.js (Detox: value for the wallet, fee and confirmations match a public explorer for the transaction ID shown in Details); CF-02.
+**Tests.** tests/unit/transaction-status.test.js (a first output without an address); tests/e2e/onchain-send.spec.js (funded) and tests/e2e/transactions.spec.js (skipped for now, see T-01) (Detox: value for the wallet, fee and confirmations match a public explorer for the transaction ID shown in Details); CF-02.
 
 **Source.** screen/transactions/transactionStatus.js, screen/transactions/details.js, components/TransactionListItem.js, class/hd-segwit-bech32-transaction.js, navigation/WalletsStack.tsx
 
