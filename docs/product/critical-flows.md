@@ -130,7 +130,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 5. Complete the pay flow to a team-controlled address.
 6. Confirm the second outgoing row and the reduced Spark balance.
    **Expected.** Both payments succeed; history shows the Lightning spends; balance drops by the spent amounts.
-   **Automation.** `tests/e2e/spark-send.spec.js` (funded, quotes only) and `tests/e2e/spark-pay.spec.js` (funded, spends sats to a team-controlled address).
+   **Automation.** `tests/e2e/spark-send.spec.js` (funded, quotes only) enters an invoice and a Lightning address and checks amount and fee quote; `tests/e2e/spark-pay.spec.js` (funded) pays an invoice (steps 1-3) and checks the balance drop and the history row; `tests/e2e/spark-transfer.spec.js` (funded) pays a team Lightning address entered as the destination (steps 4-6), settled over Spark, and checks what the receiver got and the balance drop.
 
 ## CF-08 Restore a phrase that already has a Spark wallet
 
