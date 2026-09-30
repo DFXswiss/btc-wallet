@@ -4,6 +4,7 @@ import bolt11 from 'bolt11';
 
 import {
   extractTextFromElementById,
+  fetchJsonWithRetry,
   launchFresh,
   readLightningBalance,
   importWithLightning,
@@ -62,7 +63,7 @@ describe('Spark Lightning receive', () => {
     }
 
     const [user, domain] = address.split('@');
-    const meta = await (await fetch(`https://${domain}/.well-known/lnurlp/${user}`)).json();
+    const meta = await fetchJsonWithRetry(`https://${domain}/.well-known/lnurlp/${user}`);
     assert.strictEqual(meta.tag, 'payRequest', `LNURL-pay metadata for ${address}: ${JSON.stringify(meta)}`);
     assert.ok(meta.minSendable <= AMOUNT_SATS * 1000 && meta.maxSendable >= AMOUNT_SATS * 1000);
   });

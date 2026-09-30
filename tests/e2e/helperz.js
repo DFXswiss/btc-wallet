@@ -135,7 +135,7 @@ export async function enterSendDestination(destination) {
   await element(by.id('ManualAddressContinue')).tap();
 }
 
-async function fetchJsonWithRetry(url, attempts = 4) {
+export async function fetchJsonWithRetry(url, attempts = 4) {
   let lastError;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
