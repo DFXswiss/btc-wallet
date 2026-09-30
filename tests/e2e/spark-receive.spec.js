@@ -93,5 +93,18 @@ describe('Spark Lightning receive', () => {
     await sleep(2_000);
     const after = await waitForLightningBalanceChange(before);
     assert.strictEqual(after - before, AMOUNT_SATS, `balance went from ${before} to ${after}`);
+
+    // Tie the credit to this invoice: the wallet, read from the test runner, holds a completed receive with its hash.
+    const paymentHash = bolt11.decode(invoice).tags.find(tag => tag.tagName === 'payment_hash').data;
+    const own = await connectSpark(mnemonic);
+    try {
+      const { payments } = await own.listPayments({ typeFilter: ['receive'], limit: 20, sortAscending: false });
+      const payment = payments.find(p => p.details?.htlcDetails?.paymentHash === paymentHash);
+      assert.ok(payment, 'the wallet has no receive for this invoice');
+      assert.strictEqual(payment.status, 'completed');
+      assert.strictEqual(Number(payment.amount), AMOUNT_SATS);
+    } finally {
+      await own.close();
+    }
   });
 });

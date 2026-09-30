@@ -26,7 +26,7 @@
     "pick_image": "Pilih gambar dari perpustakaan",
     "pick_file": "Pilih berkas",
     "enter_amount": "Masukkan nominal",
-    "qr_custom_input_button": "Ketuk 10 kali untuk memasuki input khusus"
+    "qr_custom_input_button": "Ketuk 6 kali untuk memasuki input khusus"
   },
   "alert": {
     "default": "Peringatan"

@@ -334,9 +334,9 @@ export async function scanText(text) {
   for (let tap = 0; tap < 6; tap++) {
     await element(by.id('ScanQrBackdoorButton')).tap();
   }
-  await waitForId('scanQrBackdoorInput');
-  await element(by.id('scanQrBackdoorInput')).replaceText(text);
-  await element(by.id('scanQrBackdoorOkButton')).tap();
+  await waitForId('ScanQrBackdoorInput');
+  await element(by.id('ScanQrBackdoorInput')).replaceText(text);
+  await element(by.id('ScanQrBackdoorOkButton')).tap();
 }
 
 /** Scans an animated (multi-part) UR code part by part and waits until the scanner closes. */

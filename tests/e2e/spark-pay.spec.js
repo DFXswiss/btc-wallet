@@ -1,5 +1,6 @@
 /* global device, element, by, waitFor */
 import assert from 'assert';
+import bolt11 from 'bolt11';
 
 import {
   enterSendDestination,
@@ -57,7 +58,8 @@ describe('Spark Lightning payment', () => {
     const own = await connectSpark(mnemonic);
     try {
       const { payments } = await own.listPayments({ typeFilter: ['send'], limit: 20, sortAscending: false });
-      const payment = payments.find(p => p.details?.type === 'lightning' && p.details.invoice === invoice);
+      const paymentHash = bolt11.decode(invoice).tags.find(tag => tag.tagName === 'payment_hash').data;
+      const payment = payments.find(p => p.details?.htlcDetails?.paymentHash === paymentHash);
       assert.ok(payment, 'the wallet has no send for this invoice');
       assert.strictEqual(payment.status, 'completed');
       assert.strictEqual(Number(payment.amount), AMOUNT_SATS);

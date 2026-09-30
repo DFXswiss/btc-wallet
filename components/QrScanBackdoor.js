@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '@react-navigation/native';
@@ -12,14 +12,14 @@ import loc from '../loc';
  */
 export const QrScanBackdoor = ({ onScan }) => {
   const { colors } = useTheme();
-  const [pressed, setPressed] = useState(0);
+  const presses = useRef(0);
   const [text, setText] = useState('');
   const [visible, setVisible] = useState(false);
 
   const onInvisiblePress = () => {
-    setPressed(pressed + 1);
-    if (pressed < 5) return;
-    setPressed(0);
+    presses.current += 1;
+    if (presses.current < 6) return;
+    presses.current = 0;
     setVisible(true);
   };
 
@@ -35,7 +35,7 @@ export const QrScanBackdoor = ({ onScan }) => {
         <View style={styles.inputWrapper}>
           <BlueText>Provide QR code contents manually:</BlueText>
           <TextInput
-            testID="scanQrBackdoorInput"
+            testID="ScanQrBackdoorInput"
             multiline
             underlineColorAndroid="transparent"
             style={[
@@ -50,7 +50,7 @@ export const QrScanBackdoor = ({ onScan }) => {
             value={text}
             onChangeText={setText}
           />
-          <BlueButton title="OK" testID="scanQrBackdoorOkButton" onPress={onOkPress} />
+          <BlueButton title="OK" testID="ScanQrBackdoorOkButton" onPress={onOkPress} />
         </View>
       )}
       <TouchableOpacity

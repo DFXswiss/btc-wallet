@@ -59,6 +59,27 @@ describe('createAppStateRefreshHandler', () => {
     expect(actions.stopRefresh).toHaveBeenCalledTimes(1);
   });
 
+  it('stops the refresh when iOS moves to the background through the inactive state', () => {
+    const handle = createHandler('active');
+
+    handle('inactive');
+    handle('background');
+
+    expect(actions.stopRefresh).toHaveBeenCalledTimes(1);
+    expect(actions.startRefresh).not.toHaveBeenCalled();
+  });
+
+  it('keeps track of the app state while there are no wallets', () => {
+    walletCount = 0;
+    const handle = createHandler('active');
+    handle('background');
+    walletCount = 1;
+
+    handle('active');
+
+    expect(actions.startRefresh).toHaveBeenCalledTimes(1);
+  });
+
   it('does not restart the refresh on a change between two foreground states', () => {
     const handle = createHandler('active');
 

@@ -14,8 +14,8 @@ jest.mock('@react-navigation/native', () => ({
 
 const enterThroughBackdoor = (screen, text) => {
   for (let tap = 0; tap < 6; tap++) fireEvent.press(screen.getByTestId('ScanQrBackdoorButton'));
-  fireEvent.changeText(screen.getByTestId('scanQrBackdoorInput'), text);
-  fireEvent.press(screen.getByTestId('scanQrBackdoorOkButton'));
+  fireEvent.changeText(screen.getByTestId('ScanQrBackdoorInput'), text);
+  fireEvent.press(screen.getByTestId('ScanQrBackdoorOkButton'));
 };
 
 // PR #200 gated the cosigner scanner's camera on useIsFocused so the session is
@@ -38,15 +38,15 @@ describe('CosignerCamera scan backdoor', () => {
     const onReadCode = jest.fn();
     const screen = render(<CosignerCamera isFocused scanBarcode onReadCode={onReadCode} />);
     for (let tap = 0; tap < 5; tap++) fireEvent.press(screen.getByTestId('ScanQrBackdoorButton'));
-    expect(screen.queryByTestId('scanQrBackdoorInput')).toBeNull();
+    expect(screen.queryByTestId('ScanQrBackdoorInput')).toBeNull();
 
     fireEvent.press(screen.getByTestId('ScanQrBackdoorButton'));
-    fireEvent.changeText(screen.getByTestId('scanQrBackdoorInput'), '{"xfp":"00000000"}');
-    fireEvent.press(screen.getByTestId('scanQrBackdoorOkButton'));
+    fireEvent.changeText(screen.getByTestId('ScanQrBackdoorInput'), '{"xfp":"00000000"}');
+    fireEvent.press(screen.getByTestId('ScanQrBackdoorOkButton'));
 
     expect(onReadCode).toHaveBeenCalledTimes(1);
     expect(onReadCode).toHaveBeenCalledWith({ nativeEvent: { codeStringValue: '{"xfp":"00000000"}' } });
-    expect(screen.queryByTestId('scanQrBackdoorInput')).toBeNull();
+    expect(screen.queryByTestId('ScanQrBackdoorInput')).toBeNull();
   });
 
   it('ignores backdoor input while scanning is paused', () => {

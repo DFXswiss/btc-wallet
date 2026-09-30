@@ -81,9 +81,11 @@ jobs:
           retention-days: 7
 
   detox-funded:
+    # Never for pull requests from forks, even though GitHub withholds secrets from them anyway.
     if: >
       (github.event_name == 'workflow_dispatch' && inputs.funded) ||
-      (github.event.action == 'labeled' && github.event.label.name == 'e2e:funded')
+      (github.event.action == 'labeled' && github.event.label.name == 'e2e:funded' &&
+        github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     environment: e2e-funded
