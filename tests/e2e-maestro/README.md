@@ -2,11 +2,12 @@
 
 Three Maestro flows for paths that need the German iOS build, a local DFX
 stack, or both. They run only on a local iOS simulator and are **not part of
-CI**. All other wallet paths (on-chain create/receive/send, Spark create,
-receive, backup export, send quotes and a real Spark payment) are covered by
-the Detox suite in `tests/e2e/`, which runs in CI on an Android emulator. The
-wallet's Lightning address on the receive screen is no longer asserted. `coverage.md` maps the
-removed Maestro flows to their Detox replacements.
+CI**. All other wallet paths (on-chain create, receive and send, Spark create,
+receive with its Lightning address, backup export, send quotes and real Spark
+payments) are covered by the Detox suite in `tests/e2e/`, which runs in CI on
+an Android emulator; the on-chain send's fee checks are skipped until the
+Android prompt fix (#281) is merged. `coverage.md` maps the removed Maestro
+flows to their Detox replacements.
 
 | Flow                                | What it does                                                                                                                       |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
