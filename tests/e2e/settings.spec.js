@@ -85,7 +85,18 @@ describe('Settings', () => {
       .toBeVisible()
       .whileElement(by.id('LanguageList'))
       .scroll(300, 'down');
-    await element(by.id('Languagede')).tap();
+    // As with the currency, a tap while the list still settles after the scroll can get lost; the screen retitles
+    // itself in German once the language is applied.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await element(by.id('Languagede')).tap();
+      try {
+        await waitFor(element(by.text('Sprache')))
+          .toExist()
+          .withTimeout(5_000);
+        break;
+      } catch {}
+    }
+    await expect(element(by.text('Sprache'))).toExist();
     await device.pressBack();
     await waitForId('SettingsScroll');
     // The language is saved asynchronously after the tap.
