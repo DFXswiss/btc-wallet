@@ -281,6 +281,19 @@ describe('product inventory checker (fixtures)', () => {
     assert.ok(errors.includes("readme D-02: invalid tier 'Optional'"), errors.join('\n'));
   });
 
+  it('reports a README ID with an unknown prefix or a reserved number', () => {
+    const dir = freshFixture(files => {
+      files['docs/product/README.md'] = files['docs/product/README.md'].replace('| D-02 |', '| Q-02 |');
+    });
+    const { errors } = checkInventory(dir);
+    assert.ok(errors.includes("readme Q-02: unknown ID prefix 'Q'"), errors.join('\n'));
+
+    const reserved = freshFixture(files => {
+      files['docs/product/README.md'] = files['docs/product/README.md'].replace('| D-02 |', '| L-09 |');
+    });
+    assert.ok(checkInventory(reserved).errors.includes('readme L-09: ID is reserved as unused'));
+  });
+
   it('reports a duplicate README ID', () => {
     const dir = freshFixture(files => {
       const row = '| D-02 | Demo settings | Settings | Important | — | [details](features/demo.md#d-02-demo-settings) |';

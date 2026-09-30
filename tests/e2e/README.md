@@ -33,10 +33,12 @@ In CI (`.github/workflows/e2e-android.yml`) the suites run in two jobs:
 
 A run takes about an hour, so the jobs do not start on every push:
 
-| Job            | Runs                                                                                                                                         | How to start it by hand                                                                                                                                                                         |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `detox`        | on every push to a pull request that is not a draft, and when a draft is marked ready; changes to Markdown and `docs/` alone do not start it | add the `ci:full` label to a draft (it then runs on its pushes too), or **Actions → Tests e2e Android → Run workflow** on the branch                                                            |
-| `detox-funded` | never on a push, because it moves real sats                                                                                                  | add the `e2e:funded` label (one run per label added; remove and add it again for another), or **Run workflow** with **funded** checked; a reviewer of `e2e-funded` still has to approve the run |
+| Job            | Runs                                                                                  | How to start it by hand                                                                                                                                                                         |
+| -------------- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `detox`        | on every push to a pull request that is not a draft, and when a draft is marked ready | add the `ci:full` label to a draft (it then runs on its pushes too), or **Actions → Tests e2e Android → Run workflow** on the branch                                                            |
+| `detox-funded` | never on a push, because it moves real sats                                           | add the `e2e:funded` label (one run per label added; remove and add it again for another), or **Run workflow** with **funded** checked; a reviewer of `e2e-funded` still has to approve the run |
+
+Neither job runs for pull requests from forks, which get no secrets. A pull request that changes only Markdown or `docs/` starts no run at all, not even through a label; start it with **Run workflow** instead.
 
 ## Running locally
 

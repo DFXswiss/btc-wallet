@@ -4,6 +4,8 @@ const fs = require('fs');
 const path = require('path');
 
 const ALLOWED_TIERS = new Set(['Critical', 'Critical (DFX)', 'Important', 'Nice']);
+const ALLOWED_PREFIXES = new Set(['A', 'W', 'R', 'T', 'S', 'L', 'B', 'D', 'O', 'X']);
+const UNUSED_IDS = new Set(['L-09']);
 const CRITICAL_TIERS = new Set(['Critical', 'Critical (DFX)']);
 const ID_RE = /^[A-Z]{1,2}-\d{2}$/;
 const FEATURE_HEADING_RE = /^## ([A-Z]{1,2}-\d{2}) (.+)$/;
@@ -268,6 +270,13 @@ function checkInventory(repoRoot) {
     }
     if (!ALLOWED_TIERS.has(row.tier)) {
       errors.push(`readme ${row.id}: invalid tier '${row.tier}'`);
+    }
+    const prefix = row.id.split('-')[0];
+    if (!ALLOWED_PREFIXES.has(prefix)) {
+      errors.push(`readme ${row.id}: unknown ID prefix '${prefix}'`);
+    }
+    if (UNUSED_IDS.has(row.id)) {
+      errors.push(`readme ${row.id}: ID is reserved as unused`);
     }
   }
 

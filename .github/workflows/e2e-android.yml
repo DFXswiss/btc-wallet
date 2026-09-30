@@ -5,11 +5,12 @@ name: Tests e2e Android
 #
 # When it runs (a run takes about an hour, so not on every push):
 # detox: pull requests that are not drafts, on every push and when marked ready; a draft only with
-#   the ci:full label; changes to Markdown and docs/ alone do not start it. Manual start: Run
-#   workflow on the branch.
+#   the ci:full label. Manual start: Run workflow on the branch.
 # detox-funded: only on request, because it moves real sats: adding the e2e:funded label starts one
 #   run (remove and add it again for another), or Run workflow with funded checked. Pushes never
 #   start it.
+# Neither job runs for pull requests from forks. A pull request that changes only Markdown or docs/
+#   starts no run at all, not even through a label; use Run workflow for it.
 #
 # detox: suites without funds (on-chain, wallet details and addresses, transaction history, scan,
 #   deep links, entropy, import discovery, multisig create, sign and import, settings, encrypted
@@ -41,11 +42,13 @@ permissions:
 
 jobs:
   detox:
+    # Pull requests from forks get no secrets, so the Spark suite could only fail there.
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (github.event.action == 'labeled' && github.event.label.name == 'ci:full') ||
-      (github.event.action != 'labeled' &&
-        (!github.event.pull_request.draft || contains(github.event.pull_request.labels.*.name, 'ci:full')))
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+        ((github.event.action == 'labeled' && github.event.label.name == 'ci:full') ||
+          (github.event.action != 'labeled' &&
+            (!github.event.pull_request.draft || contains(github.event.pull_request.labels.*.name, 'ci:full')))))
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     concurrency:

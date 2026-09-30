@@ -93,7 +93,8 @@ Without it, 16 fails at `NUTZERDATEN EINGEBEN` with a pointer to this file.
 
 ### Environment variables
 
-All values stay outside the repository and are never printed. The runner
+All values stay outside the repository. The runner itself never prints them, but Maestro's own run log records
+what the flows type, including `E2E_SPARK_MNEMONIC`, so treat those logs as secret. The runner
 forwards the `E2E_*` values to `maestro test -e` only when they are set; a flow
 that needs a missing required value fails. The settle-helper variables are
 consumed by the runner itself, which passes the derived `E2E_SETTLE_URL` and

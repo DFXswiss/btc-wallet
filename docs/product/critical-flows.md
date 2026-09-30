@@ -44,7 +44,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 5. Open the transaction row and watch status move from unconfirmed toward confirmed.
 6. Confirm Electrum stays connected (or recovers) while the status updates.
    **Expected.** The incoming payment is listed with the correct amount; transaction status and details update as confirmations arrive.
-   **Automation.** `tests/e2e/transactions.spec.js` checks the list order and each row's value, fee and confirmations against a public explorer on a public wallet's confirmed history, and `tests/e2e/onchain-send.spec.js` (funded) does the same for the newest transaction of the funded wallet; receiving a new payment and watching it confirm stays manual.
+   **Automation.** `tests/e2e/transactions.spec.js` (skipped for now: the first load of its public wallet from a random public Electrum server takes from 20 s to over 5 minutes) checks the list order and each row's value, fee and confirmations against a public explorer on a public wallet's confirmed history, and `tests/e2e/onchain-send.spec.js` (funded) does the same for the newest transaction of the funded wallet; receiving a new payment and watching it confirm stays manual.
 
 ## CF-03 Restore from a recovery phrase and send on-chain
 
@@ -79,7 +79,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 5. On the unlock screen, enter the primary password and confirm the real wallet appears.
 6. Force-quit again, unlock with the decoy password, and confirm the decoy vault is shown instead of the real wallet.
    **Expected.** Cold start requires unlock; the primary password opens the real vault; the decoy password opens the deniable vault.
-   **Automation.** `tests/e2e/encrypted-storage.spec.js`: the password is asked on launch, a wrong one is rejected, the same wallet is restored, and a plausible-deniability password opens separate storage while the real wallet stays intact. On Android the password prompts need the prompt fix from pull request #281; until it is in the base, this spec fails.
+   **Automation.** `tests/e2e/encrypted-storage.spec.js`: the password is asked on launch, a wrong one is rejected, the same wallet is restored, and a plausible-deniability password opens separate storage while the real wallet stays intact. The spec is skipped until the Android prompt fix from pull request #281 is in the base; until then this flow is checked by hand.
 
 ## CF-05 Add a Spark Lightning wallet, create an invoice, export its recovery phrase
 

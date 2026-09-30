@@ -1,22 +1,10 @@
 import { connect, defaultConfig } from '@breeztech/breez-sdk-spark/nodejs';
-import BIP32Factory from 'bip32';
-import * as bip39 from 'bip39';
-import { createHmac } from 'crypto';
 import { mkdtempSync, readFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import ecc from '../../blue_modules/noble_ecc';
+import { bip85Mnemonic12 } from './bip85';
 import { requireEnv, sleep } from './helperz';
-
-const bip32 = BIP32Factory(ecc);
-
-/** BIP-85 BIP39 application, English, 12 words, index 0 — written from the spec, independent of the app code. */
-export function bip85Mnemonic12(mnemonic) {
-  const node = bip32.fromSeed(bip39.mnemonicToSeedSync(mnemonic)).derivePath("m/83696968'/39'/0'/12'/0'");
-  const entropy = createHmac('sha512', 'bip-entropy-from-k').update(node.privateKey).digest().subarray(0, 16);
-  return bip39.entropyToMnemonic(Buffer.from(entropy).toString('hex'));
-}
 
 /** The Lightning address domain of the build under test (`E2E_ENV_FILE`, `.env.dev` by default). */
 function buildLnurlDomain() {

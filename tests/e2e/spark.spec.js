@@ -4,7 +4,7 @@ import * as bip39 from 'bip39';
 import bolt11 from 'bolt11';
 
 import { extractTextFromElementById, launchFresh, requireEnv, scanText, speedImport, unpayableInvoice, waitForId } from './helperz';
-import { bip85Mnemonic12 } from './spark-sdk';
+import { bip85Mnemonic12 } from './bip85';
 
 // Needs a build with BREEZ_API_KEY; the wallet is new and unfunded on every run.
 
