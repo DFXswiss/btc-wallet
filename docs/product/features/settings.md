@@ -11,6 +11,7 @@ Settings covers the settings menu, general and privacy options, currency and lan
 **Inputs.** None. The screen is a list of navigation rows.
 
 **Options.** Rows, in order:
+
 - General → `GeneralSettings`
 - On-Chain Wallet → `WalletDetails` for the current context wallet
 - Lightning → `WalletDetails` of the Lightning/Spark wallet; disabled when none exists
@@ -43,6 +44,7 @@ Settings covers the settings menu, general and privacy options, currency and lan
 **Inputs.** None beyond the switches and buttons on these screens.
 
 **Options.**
+
 - General → Privacy opens `SettingsPrivacy`.
 - Continuity (Handoff), iOS only: AsyncStorage `HandOff`, default off. When on, Handoff is rendered on receive details, transaction details, transaction status, and xpub. Explanation: "When enabled, you will be able to view selected wallets, and transactions, using your other Apple iCloud connected devices."
 - Advanced Mode (`AdvancedMode`): AsyncStorage `advancedmodeenabled`, default off. Explanation covers different wallet types, LNDHub instance, and custom entropy.
@@ -134,6 +136,7 @@ Settings covers the settings menu, general and privacy options, currency and lan
 **Inputs.** Electrum host (trimmed text), port (number pad), Use SSL switch. Optional QR of `host:port:s|t` or a `bluewallet:setelectrumserver?server=` string. Offline Mode switch.
 
 **Options.**
+
 - Network → Electrum Server → `ElectrumSettings`; Notifications → `NotificationSettings` only when `isNotificationsCapable` (iOS, or Android with Google or Huawei services).
 - Offline Mode: stores AsyncStorage `electrum_disabled`='1', force-disconnects, and hides the server form. Off clears the key and reconnects. Persisted default is off (key absent). While offline, balance refresh is skipped and self-test is blocked with "Self-testing is not available with Electrum Offline Mode. Please disable offline mode and try again."
 - Status card: Connected / Not Connected, polled every 500 ms, plus current `host:port`. Tapping the host shows raw `serverFeatures()` JSON. "Last Connection:" (hardcoded English) shows the last successful balance refresh time.
@@ -181,6 +184,7 @@ Settings covers the settings menu, general and privacy options, currency and lan
 **Inputs.** Biometrics switch "Use {type}" (Face ID / Touch ID / Biometrics), shown only if the device is biometric-capable. Encrypted and Password Protected switch: password and retype when enabling; password when disabling.
 
 **Options.**
+
 - Biometrics: stored in the secure key store under `Biometrics`, default off. Changing the switch either way requires a successful biometric prompt; the prompt allows the device passcode as fallback. Explanation: "{type} will be used to confirm your identity before making a transaction, unlocking, exporting, or deleting a wallet. {type} will not be used to unlock encrypted storage."
 - Encrypted and Password Protected: turning on prompts "Password" / "Create the password you will use to decrypt the storage.", then "Re-type password"; mismatch shows "Passwords do not match." Any non-empty string is accepted (no strength rules). Turning off confirms "Are you sure you want to decrypt your storage? This will allow your wallets to be accessed without a password.", then requires the unlock password; wrong password shows "Incorrect password. Please try again."
 - Plausible Deniability row appears only while storage is encrypted → `PlausibleDeniability`.
@@ -224,6 +228,7 @@ Settings covers the settings menu, general and privacy options, currency and lan
 **Inputs.** None on the Tools menu itself; each row opens a separate tool screen owned by the send area.
 
 **Options.**
+
 - "Is it my address?" → address check tool (strips `bitcoin:` / query; typed or scanned; reports which loaded wallet owns the address, or that none do; match can open receive QR).
 - "Broadcast Transaction" → raw tx hex (or scan/open a file; scanned base64 PSBT is finalized and extracted), broadcast via Electrum, with pending/success/error status and a mempool.space link on success.
 
@@ -246,6 +251,7 @@ Settings covers the settings menu, general and privacy options, currency and lan
 **Inputs.** Four switches with hardcoded English labels. All flags persist in AsyncStorage as `'1'`/`''` and default off. On a read error all are reset to off.
 
 **Options.**
+
 - LDS DEV API: switches lightning.space and Boltcard API base URLs from `REACT_APP_LDS_URL` to `REACT_APP_LDS_DEV_URL`; also shows the CHF Taproot wallet row in Settings.
 - POS mode: shows the per-wallet POS-mode switch in Wallet details for lightning.space (`lightningLdsWallet`) wallets only; a wallet in POS mode receives via `PosReceive` instead of `LNDReceive`. Mutually exclusive with DFX Point of Sale (enabling one turns the other off).
 - DFX Point of Sale: adds a Point of Sale tile to the DFX services buttons.

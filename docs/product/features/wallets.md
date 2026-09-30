@@ -2,27 +2,27 @@
 
 On-chain wallet lifecycle: create and import, recovery-phrase backup, the home and per-wallet screens, details and delete, XPUB and address lists, message signing, BIP47 payment codes, wallet picker/reorder, and multi-device (multisig) create, import, and cosigner export. The app treats `wallets[0]` as the main on-chain wallet (home On-Chain row, DFX ownership proof, backup banner, multisig own key, and delete-everything). The home layout is three fixed rows (Multi-Device, On-Chain, Lightning), not a free wallet list. Default label for new or imported single-sig wallets is "Bitcoin On-Chain". Many options depend on Advanced mode (Settings → General): type picker and entropy on create, passphrase and search-accounts on import, custom quorum and format for multisig, master fingerprint and derivation path in details.
 
-| Class | User-facing type | Creatable / import only / internal |
-|---|---|---|
-| AbstractWallet, AbstractHDWallet, AbstractHDElectrumWallet | base classes | internal |
-| HDSegwitBech32Wallet | HD SegWit (BIP84 Bech32 Native) — On-Chain Wallet | creatable (the only created single-sig type); importable |
-| HDSegwitP2SHWallet | HD SegWit (BIP49 P2SH) | import only (create type picker is inert) |
-| HDLegacyP2PKHWallet | HD Legacy (BIP44 P2PKH) | import only |
-| HDLegacyBreadwalletWallet | HD Legacy Breadwallet (P2PKH), m/0' | import only (12-word, no passphrase) |
-| HDLegacyElectrumSeedP2PKHWallet | HD Legacy Electrum (BIP32 P2PKH) | import only (Electrum seed) |
-| HDSegwitElectrumSeedP2WPKHWallet | HD Electrum (BIP32 P2WPKH) | import only (Electrum seed) |
-| SLIP39LegacyP2PKH, SLIP39SegwitP2SH, SLIP39SegwitBech32 | SLIP39 on-chain | import only (multi-line shares) |
-| LegacyWallet | Legacy (P2PKH) | import only (WIF); also deserialization fallback |
-| SegwitP2SHWallet | SegWit (P2SH) | import only (WIF) |
-| SegwitBech32Wallet | P2 WPKH | import only (WIF) |
-| WatchOnlyWallet | Watch-only | effectively unavailable (discovery drops it; ImportSpeed backdoor only) |
-| HDAezeedWallet | HD Aezeed | import disabled; loadable from storage; selftest only |
-| MultisigHDWallet | Multisig Vault — Multi-Device Wallet | creatable (2-of-n) and importable |
-| TaprootWallet | P2 TR | internal helper; not deserialized |
-| LightningCustodianWallet | Lightning (LNDHub) | legacy / Lightning area |
-| LightningLdsWallet | Lightning (lightning.space) | home Lightning Add (existing account); Lightning area |
-| TaprootLdsWallet | Taproot (CHF Taproot) | Lightning area (`AddLightning`, LDS DEV flag) |
-| SparkWallet | Lightning (Spark) | home Lightning Add; Lightning area |
+| Class                                                      | User-facing type                                  | Creatable / import only / internal                                      |
+| ---------------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------- |
+| AbstractWallet, AbstractHDWallet, AbstractHDElectrumWallet | base classes                                      | internal                                                                |
+| HDSegwitBech32Wallet                                       | HD SegWit (BIP84 Bech32 Native) — On-Chain Wallet | creatable (the only created single-sig type); importable                |
+| HDSegwitP2SHWallet                                         | HD SegWit (BIP49 P2SH)                            | import only (create type picker is inert)                               |
+| HDLegacyP2PKHWallet                                        | HD Legacy (BIP44 P2PKH)                           | import only                                                             |
+| HDLegacyBreadwalletWallet                                  | HD Legacy Breadwallet (P2PKH), m/0'               | import only (12-word, no passphrase)                                    |
+| HDLegacyElectrumSeedP2PKHWallet                            | HD Legacy Electrum (BIP32 P2PKH)                  | import only (Electrum seed)                                             |
+| HDSegwitElectrumSeedP2WPKHWallet                           | HD Electrum (BIP32 P2WPKH)                        | import only (Electrum seed)                                             |
+| SLIP39LegacyP2PKH, SLIP39SegwitP2SH, SLIP39SegwitBech32    | SLIP39 on-chain                                   | import only (multi-line shares)                                         |
+| LegacyWallet                                               | Legacy (P2PKH)                                    | import only (WIF); also deserialization fallback                        |
+| SegwitP2SHWallet                                           | SegWit (P2SH)                                     | import only (WIF)                                                       |
+| SegwitBech32Wallet                                         | P2 WPKH                                           | import only (WIF)                                                       |
+| WatchOnlyWallet                                            | Watch-only                                        | effectively unavailable (discovery drops it; ImportSpeed backdoor only) |
+| HDAezeedWallet                                             | HD Aezeed                                         | import disabled; loadable from storage; selftest only                   |
+| MultisigHDWallet                                           | Multisig Vault — Multi-Device Wallet              | creatable (2-of-n) and importable                                       |
+| TaprootWallet                                              | P2 TR                                             | internal helper; not deserialized                                       |
+| LightningCustodianWallet                                   | Lightning (LNDHub)                                | legacy / Lightning area                                                 |
+| LightningLdsWallet                                         | Lightning (lightning.space)                       | home Lightning Add (existing account); Lightning area                   |
+| TaprootLdsWallet                                           | Taproot (CHF Taproot)                             | Lightning area (`AddLightning`, LDS DEV flag)                           |
+| SparkWallet                                                | Lightning (Spark)                                 | home Lightning Add; Lightning area                                      |
 
 ## W-01 Create on-chain wallet
 
