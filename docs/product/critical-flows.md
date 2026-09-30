@@ -27,7 +27,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 6. Tap Receive and confirm a mainnet on-chain address and QR are shown (BIP21 with amount and label if offered).
 7. From Settings, open the wallet row (wallet details) and confirm the wallet can be deleted; deleting the only wallet resets the app to first launch.
    **Expected.** A receive address is visible; the wallet survives a restart; deleting the only wallet returns the app to the add-wallet screen.
-   **Automation.** `tests/e2e/onchain.spec.js` (Detox on Android): self-test, wallet survives a restart, mainnet receive address, BIP21 with amount and label, deleting the only wallet resets the app. The recovery phrase backup (step 3) is not automated and stays manual; the exported phrase itself is checked by `tests/e2e/wallet-details.spec.js`.
+   **Automation.** `tests/e2e/onchain.spec.js` (Detox on Android): self-test, wallet survives a restart, mainnet receive address, BIP21 with amount and label (the QR image itself is not checked), deleting the only wallet resets the app. The recovery phrase backup (step 3) is not automated and stays manual; the exported phrase itself is checked by `tests/e2e/wallet-details.spec.js`.
 
 ## CF-02 Receive on-chain and watch the transaction confirm
 
@@ -96,7 +96,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 5. Open Settings, Lightning, Export; accept the notice and continue.
 6. Confirm the 12-word Spark recovery phrase is displayed.
    **Expected.** Spark is the active Lightning wallet; an amount invoice is creatable; the Spark recovery phrase can be exported.
-   **Automation.** `tests/e2e/spark.spec.js`: adds Spark from the home row, creates an invoice for a typed amount and description and checks the payment request it shows (the QR image itself is not checked), and exports the BIP-85 child phrase only after the notice is accepted. Provider precedence (step 2) is covered by unit tests, not end to end.
+   **Automation.** `tests/e2e/spark.spec.js`: adds Spark from the home row, creates an invoice for a typed amount and description and checks the payment request it shows (the QR image itself is not checked), and exports the BIP-85 child phrase only after the notice is accepted. Provider precedence (step 2) is covered by `tests/unit/lightning-wallet-helper.test.js`, not end to end.
 
 ## CF-06 Receive Lightning on Spark
 
@@ -147,7 +147,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 5. Open the Lightning wallet and check the balance against the known funded amount.
 6. Confirm Home shows both the restored on-chain and Spark wallets.
    **Expected.** Import restores the phrase; Add on the Lightning row brings back the existing Spark wallet with its balance.
-   **Automation.** `tests/e2e/spark-receive.spec.js` (funded) imports the Spark test phrase, taps Add and checks that balance and Lightning address equal what the Spark SDK reports for that wallet; `tests/e2e-maestro/_setup-import.yaml` does the same import and Add for the Maestro flows.
+   **Automation.** `tests/e2e/spark-receive.spec.js` (funded) imports the Spark test phrase with the speed import, which skips account discovery (step 3; discovery itself is covered by `tests/e2e/import-discovery.spec.js`), taps Add and checks that balance and Lightning address equal what the Spark SDK reports for that wallet; `tests/e2e-maestro/_setup-import.yaml` imports through the regular import and taps Add for the Maestro flows.
 
 ## CF-09 Log in to DFX with LNURL-auth
 
