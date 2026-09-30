@@ -14,8 +14,8 @@ name: Tests e2e Android
 #
 # detox: suites without funds (on-chain, wallet details and addresses, transaction history, scan,
 #   deep links, entropy, import discovery, multisig create, sign and import, settings, encrypted
-#   storage, Spark receive and export). Secret BREEZ_API_KEY. Failure videos, screenshots and logs
-#   are uploaded.
+#   storage, Spark receive and export; transaction history and encrypted storage are skipped for now,
+#   see tests/e2e/README.md). Secret BREEZ_API_KEY. Failure videos, screenshots and logs are uploaded.
 # detox-funded: suites that import funded recovery phrases, built against production (.env.prd,
 #   secret BREEZ_API_KEY_PRD). On every run spark-receive.spec.js moves 21 sats plus fee from the
 #   payer wallet to the Spark test wallet, spark-transfer.spec.js moves 4 x 10 sats plus fees back,
