@@ -23,11 +23,15 @@ export function createAppStateRefreshHandler({
   return nextState => {
     const previousState = currentState;
     if (nextState) currentState = nextState;
+    // Stopping does not depend on the wallets: a refresh started before the last wallet was deleted still runs.
+    if (previousState !== 'background' && nextState === 'background') {
+      stopRefresh();
+      return;
+    }
     if (getWalletCount() === 0) return;
     if ((/inactive|background/.test(previousState) && nextState === 'active') || nextState === undefined) {
       updateExchangeRate();
       startRefresh();
     }
-    if (previousState !== 'background' && nextState === 'background') stopRefresh();
   };
 }

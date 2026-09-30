@@ -98,6 +98,8 @@ describe('Spark Lightning receive', () => {
     const paymentHash = bolt11.decode(invoice).tags.find(tag => tag.tagName === 'payment_hash').data;
     const own = await connectSpark(mnemonic);
     try {
+      // A fresh connection lists from local storage; sync it first, as the app does.
+      await own.syncWallet({});
       const { payments } = await own.listPayments({ typeFilter: ['receive'], limit: 20, sortAscending: false });
       const payment = payments.find(p => p.details?.htlcDetails?.paymentHash === paymentHash);
       assert.ok(payment, 'the wallet has no receive for this invoice');

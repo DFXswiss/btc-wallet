@@ -22,17 +22,25 @@ describe('createAppStateRefreshHandler', () => {
     expect(actions.startRefresh).toHaveBeenCalledTimes(1);
   });
 
-  it('does nothing while there are no wallets', () => {
+  it('does not start the refresh while there are no wallets', () => {
     walletCount = 0;
     const handle = createHandler('background');
 
     handle(undefined);
     handle('active');
-    handle('background');
 
     expect(actions.updateExchangeRate).not.toHaveBeenCalled();
     expect(actions.startRefresh).not.toHaveBeenCalled();
-    expect(actions.stopRefresh).not.toHaveBeenCalled();
+  });
+
+  it('stops a running refresh in the background after the last wallet was deleted', () => {
+    const handle = createHandler('active');
+    handle(undefined);
+    walletCount = 0;
+
+    handle('background');
+
+    expect(actions.stopRefresh).toHaveBeenCalledTimes(1);
   });
 
   it('restarts the refresh when the app returns to the foreground', () => {

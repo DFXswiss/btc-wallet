@@ -57,6 +57,8 @@ describe('Spark Lightning payment', () => {
     // Tie the numbers to this invoice: the wallet, read from the test runner, holds a completed send for it.
     const own = await connectSpark(mnemonic);
     try {
+      // A fresh connection lists from local storage; sync it first, as the app does.
+      await own.syncWallet({});
       const { payments } = await own.listPayments({ typeFilter: ['send'], limit: 20, sortAscending: false });
       const paymentHash = bolt11.decode(invoice).tags.find(tag => tag.tagName === 'payment_hash').data;
       const payment = payments.find(p => p.details?.htlcDetails?.paymentHash === paymentHash);
