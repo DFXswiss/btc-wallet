@@ -130,7 +130,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 5. Complete the pay flow to a team-controlled address.
 6. Confirm the second outgoing row and the reduced Spark balance.
    **Expected.** Both payments succeed; history shows the Lightning spends; balance drops by the spent amounts.
-   **Automation.** `tests/e2e/spark-send.spec.js` (funded, quotes only) enters an invoice and a Lightning address and checks amount and fee quote; `tests/e2e/spark-pay.spec.js` (funded) pays an invoice (steps 1-3) and checks the balance drop and the history row; `tests/e2e/spark-transfer.spec.js` (funded) pays a team Lightning address entered as the destination (steps 4-6), settled over Spark, and checks what the receiver got and the balance drop.
+   **Automation.** `tests/e2e/spark-send.spec.js` (funded, quotes only) enters an invoice and a Lightning address and checks amount and fee quote; `tests/e2e/spark-pay.spec.js` (funded) pays an invoice (steps 1-3) and checks the balance drop and the history row; `tests/e2e/spark-transfer.spec.js` (funded) pays a team Lightning address entered as the destination (steps 4-5), settled over Spark, and checks what the receiver got and the balance drop; the second outgoing history row (step 6) stays manual.
 
 ## CF-08 Restore a phrase that already has a Spark wallet
 
@@ -163,7 +163,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 4. Scan the LNURL-auth code from the other domain and confirm the message "This wallet cannot sign in with that code."
 5. Scan an LNURL-pay code and confirm it opens the Lightning pay screen instead.
    **Expected.** The DFX login prompt names the DFX domain; a login for another domain is refused by the Spark wallet; other LNURL types still route to their screens.
-   **Automation.** `tests/e2e-maestro/flows/10-lnurl-auth.yaml` (asserts the prompt and the Spark rejection of non-DFX domains; a successful login is not asserted).
+   **Automation.** `tests/e2e-maestro/flows/10-lnurl-auth.yaml` opens a non-DFX LNURL-auth code, asserts that the login prompt names that domain, and confirms that the Spark wallet refuses it; the DFX login (steps 1-3) and LNURL-pay routing (step 5) are not automated and stay manual.
 
 ## CF-10 Buy through DFX until the Spark payout arrives
 
