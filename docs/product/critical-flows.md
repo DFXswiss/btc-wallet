@@ -113,7 +113,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 5. Optionally receive a second payment to the static address from the external payer.
 6. On the wallet screen, confirm Lightning rows appear in history with the received amounts.
    **Expected.** Paid invoice shows paid state; static receive works; history lists the Lightning receives.
-   **Automation.** `tests/e2e/spark-receive.spec.js` (funded): a second team Spark wallet, run from the test, pays an invoice the app created; the receive screen turns to paid and the balance grows by exactly the amount; the shown Lightning address resolves to LNURL-pay. Receiving to the static address, the preimage view and the history row on the wallet screen (step 6) stay manual.
+   **Automation.** `tests/e2e/spark-receive.spec.js` (funded): a second team Spark wallet, run from the test, pays an invoice the app created; the receive screen turns to paid and the balance grows by exactly the amount; the shown Lightning address resolves to LNURL-pay (the static address QR image itself is not checked). Receiving to the static address, the preimage view and the history row on the wallet screen (step 6) stay manual.
 
 ## CF-07 Pay a Lightning invoice and a Lightning address from Spark
 
@@ -180,7 +180,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 5. Wait until DFX pays out to the Spark wallet, then reopen the app.
 6. Confirm the Lightning history row for the payout and that the Spark balance increased.
    **Expected.** The buy completes on the DFX side; Spark receives the payout; history shows the Lightning credit.
-   **Automation.** `tests/e2e-maestro/flows/16-dfx-buy-to-payment.yaml`: imports a fixed Spark identity, drives the buy mask, simulates the incoming bank payment on the local stack, and after a restart asserts the backend state and the Spark balance; the history row (step 6) is checked manually.
+   **Automation.** `tests/e2e-maestro/flows/16-dfx-buy-to-payment.yaml`: imports a fixed Spark identity, opens the buy mask up to the payment information (IBAN and BIC) without typing an amount (step 3 stays manual; the amount only enters through the simulated bank payment), simulates the incoming bank payment on the local stack, and after a restart asserts the backend state and the Spark balance; the history row (step 6) is checked manually.
 
 ## CF-11 Sell through DFX from Spark
 
