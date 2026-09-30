@@ -81,24 +81,13 @@ export async function speedImport(mnemonic, walletType = 'HDsegwitBech32') {
   await waitForId('OnChainWalletRow', 180_000);
 }
 
-/** Import through the regular flow: account discovery, then home. */
-export async function regularImport(mnemonic) {
-  await waitForId('ImportWallet');
-  await element(by.id('ImportWallet')).tap();
-  await waitForId('ImportFromTextButton');
-  await element(by.id('ImportFromTextButton')).tap();
-  await waitForId('MnemonicInput');
-  await element(by.id('MnemonicInput')).replaceText(mnemonic);
-  await element(by.id('DoImport')).tap();
-  await waitForId('OnChainWalletRow', 300_000);
-}
-
 /**
  * Imports `mnemonic`, then taps Add on the home Lightning row, which brings back the Lightning wallet the seed used
- * before (import itself no longer looks for one).
+ * before (import itself no longer looks for one). The speed import skips the account discovery, which depends on a
+ * public Electrum server and is not what the Spark suites test.
  */
 export async function importWithLightning(mnemonic) {
-  await regularImport(mnemonic);
+  await speedImport(mnemonic);
   await waitForId('LightningWalletRowAdd');
   await element(by.id('LightningWalletRowAdd')).tap();
   await waitForId('LightningWalletRow', 300_000);

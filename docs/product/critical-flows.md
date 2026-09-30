@@ -62,7 +62,7 @@ These flows must pass before a release. Each flow names the inventory rows it pr
 6. On the confirm screen check the recipient, the amount and the fee; Details shows the signed transaction.
 7. Tap Send now; the success screen shows amount and fee; confirm the outgoing row appears in the transaction list.
    **Expected.** The restored wallet shows its balance; a signed send shows the correct amount and fee; after broadcast, the history lists the outgoing payment.
-   **Automation.** `tests/e2e/onchain-send.spec.js` (funded) builds and signs the transaction and checks amount and fee, but never broadcasts; the broadcast step is manual.
+   **Automation.** `tests/e2e/onchain-send.spec.js` (funded) builds and signs the transaction and checks amount and fee, but never broadcasts; the broadcast step is manual. Both checks are skipped until the Android prompt fix from pull request #281 is in the base, since the custom fee rate is typed into that prompt.
 
 ## CF-04 Encrypt storage, relaunch, unlock, use the decoy password
 
