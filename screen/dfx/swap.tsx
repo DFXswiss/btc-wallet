@@ -14,7 +14,7 @@ import { Chain } from '../../models/bitcoinUnits';
 import { useSwap } from '../../api/dfx/hooks/swap.hook';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
 import { SparkWallet } from '../../class/wallets/spark-wallet';
-import { lightningDepositPayParams } from '../../helpers/dfxLightningDeposit';
+import { lightningDepositPayParams, sparkMaxDepositSats } from '../../helpers/dfxLightningDeposit';
 import { SwapInfo } from '../../api/dfx/definitions/swap';
 import { Utils } from '../../helpers/utils';
 import { DfxService } from '../../api/dfx/contexts/session.context';
@@ -114,7 +114,17 @@ const Swap = () => {
         psbt,
       });
     } else if (wallet.type === LightningLdsWallet.type || wallet.type === SparkWallet.type) {
-      navigation.navigate('LnurlPay', lightningDepositPayParams(wallet, swapInfo?.deposit.address, currency.btcToSatoshi(amount), routeId));
+      const maxSats = await sparkMaxDepositSats(wallet, DfxService.SWAP, amount);
+      navigation.navigate(
+        'LnurlPay',
+        lightningDepositPayParams(
+          wallet,
+          swapInfo?.deposit.address,
+          maxSats ?? currency.btcToSatoshi(amount),
+          routeId,
+          maxSats !== undefined,
+        ),
+      );
     } else {
       Alert.alert('Unsupported wallet type');
     }

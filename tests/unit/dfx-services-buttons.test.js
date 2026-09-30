@@ -173,19 +173,37 @@ describe('DfxServicesButtons rendered service actions', () => {
     await waitFor(() => expect(mockOpenServices).toHaveBeenCalledWith('main-wallet', '1', 'buy'));
   });
 
-  it('haircuts Spark sell and swap by 3 percent like LDS', async () => {
-    const spark = makeWallet({ type: SparkWallet.type });
+  it('passes Spark sell and swap the full balance, remembers it, and still haircuts LNbits', async () => {
+    const fetchBalance = jest.fn().mockResolvedValue(undefined);
+    const spark = makeWallet({ type: SparkWallet.type, fetchBalance });
     const sparkScreen = renderButtons(spark, { isDfxSwap: true });
     fireEvent.press(sparkScreen.getByTestId('dfx-sell-en'));
-    await waitFor(() => expect(mockOpenServices).toHaveBeenCalledWith('wallet-1', '0.97', 'sell'));
+    await waitFor(() => expect(mockOpenServices).toHaveBeenCalledWith('wallet-1', '1', 'sell'));
+    expect(fetchBalance).toHaveBeenCalled();
+    expect(mockRemember).toHaveBeenCalledWith('wallet-1', 'sell', 100000000, 100000000);
     fireEvent.press(sparkScreen.getByTestId('dfx-swap'));
-    await waitFor(() => expect(mockOpenServices).toHaveBeenCalledWith('wallet-1', '0.97', 'swap'));
+    await waitFor(() => expect(mockOpenServices).toHaveBeenCalledWith('wallet-1', '1', 'swap'));
+    expect(mockRemember).toHaveBeenCalledWith('wallet-1', 'swap', 100000000, 100000000);
 
     mockOpenServices.mockClear();
-    const lds = makeWallet({ type: LightningLdsWallet.type });
+    mockRemember.mockClear();
+    const ldsFetchBalance = jest.fn().mockResolvedValue(undefined);
+    const lds = makeWallet({ type: LightningLdsWallet.type, fetchBalance: ldsFetchBalance });
     const ldsScreen = renderButtons(lds);
     fireEvent.press(ldsScreen.getByTestId('dfx-sell-en'));
     await waitFor(() => expect(mockOpenServices).toHaveBeenCalledWith('wallet-1', '0.97', 'sell'));
+    expect(mockRemember).not.toHaveBeenCalled();
+    expect(ldsFetchBalance).not.toHaveBeenCalled();
+  });
+
+  it('passes Spark buy the full balance without remembering', async () => {
+    const fetchBalance = jest.fn().mockResolvedValue(undefined);
+    const spark = makeWallet({ type: SparkWallet.type, fetchBalance });
+    const sparkScreen = renderButtons(spark);
+    fireEvent.press(sparkScreen.getByTestId('dfx-buy-en'));
+    await waitFor(() => expect(mockOpenServices).toHaveBeenCalledWith('wallet-1', '1', 'buy'));
+    expect(mockRemember).not.toHaveBeenCalled();
+    expect(fetchBalance).not.toHaveBeenCalled();
   });
 
   it('refreshes on-chain UTXOs, estimates fees, remembers max, and opens sell', async () => {
