@@ -24,7 +24,8 @@
     "add": "Add",
     "repeat": "Repeat",
     "loading": "Loading",
-    "free": "Free"
+    "free": "Free",
+    "qr_custom_input_button": "Tap six times to enter the QR code contents manually"
   },
   "alert": {
     "default": "Alert"

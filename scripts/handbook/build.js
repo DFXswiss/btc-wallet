@@ -26,7 +26,8 @@ const path = require('path');
 // "keeps the content floors meaningful against the real repository" ties them
 // to what the repository actually contains; see FLOOR_MIN_RATIO there.
 const MIN_SCREENSHOTS = 35;
-const MIN_DOCS = 8;
+// 18 of 23: the repository docs plus the 13 product inventory files under docs/product/.
+const MIN_DOCS = 18;
 // 25, not 12: the 28 store fields come from two Android locales (4 each), two
 // iOS locales (9 each) and two global iOS files. The point of this floor is to
 // notice a locale disappearing, so it has to sit above 28 minus the smallest

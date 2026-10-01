@@ -1,0 +1,124 @@
+name: Tests e2e Android
+
+# Detox on an Android emulator against a release build. Not a required check yet.
+# Suites whose inputs are missing fail instead of skipping. Nothing is broadcast.
+#
+# When it runs (a run takes about an hour, so not on every push):
+# detox: pull requests that are not drafts, on every push and when marked ready; a draft only with
+#   the ci:full label. Manual start: Run workflow on the branch.
+# detox-funded: only on request, because it moves real sats: adding the e2e:funded label starts one
+#   run (remove and add it again for another), or Run workflow with funded checked. Pushes never
+#   start it.
+# Neither job runs for pull requests from forks. A pull request that changes only Markdown or docs/
+#   starts no run at all, not even through a label; use Run workflow for it.
+#
+# detox: suites without funds (on-chain, wallet details and addresses, transaction history, scan,
+#   deep links, entropy, import discovery, multisig create, sign and import, settings, encrypted
+#   storage, Spark receive and export; transaction history and encrypted storage are skipped for now,
+#   see tests/e2e/README.md). Secret BREEZ_API_KEY. Failure videos, screenshots and logs are uploaded.
+# detox-funded: suites that import funded recovery phrases, built against production (.env.prd,
+#   secret BREEZ_API_KEY_PRD). On every run spark-receive.spec.js moves 21 sats plus fee from the
+#   payer wallet to the Spark test wallet, spark-transfer.spec.js moves 4 x 10 sats plus fees back,
+#   and spark-pay.spec.js pays 10 sats plus fee to E2E_LIGHTNING_ADDRESS. Runs in the protected
+#   environment e2e-funded, whose required reviewers release HD_MNEMONIC_BIP84, SPARK_E2E_MNEMONIC,
+#   SPARK_E2E_PAYER_MNEMONIC and E2E_LIGHTNING_ADDRESS (environment secrets) only after they approve
+#   the run. One funded run at a time, and a newer run waits instead of cancelling it, because every
+#   run shares the same wallets. No artifacts, no retries.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+  workflow_dispatch:
+    inputs:
+      funded:
+        description: Also run the funded suites (moves real sats; needs an e2e-funded reviewer)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  detox:
+    # Pull requests from forks get no secrets, so the Spark suite could only fail there.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+        ((github.event.action == 'labeled' && github.event.label.name == 'ci:full') ||
+          (github.event.action != 'labeled' &&
+            (!github.event.pull_request.draft || contains(github.event.pull_request.labels.*.name, 'ci:full')))))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    concurrency:
+      group: e2e-android-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/detox-build
+        with:
+          breez-api-key: ${{ secrets.BREEZ_API_KEY }}
+
+      - name: Run Detox
+        env:
+          BREEZ_API_KEY: ${{ secrets.BREEZ_API_KEY }}
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel
+          avd-name: Pixel_API_29_AOSP
+          force-avd-creation: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back emulated -camera-front none -partition-size 4096
+          script: ./tests/e2e/run-ci.sh unfunded "${{ github.workspace }}/artifacts"
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: detox-artifacts
+          path: artifacts
+          retention-days: 7
+
+  detox-funded:
+    # Never for pull requests from forks, even though GitHub withholds secrets from them anyway.
+    if: >
+      (github.event_name == 'workflow_dispatch' && inputs.funded) ||
+      (github.event.action == 'labeled' && github.event.label.name == 'e2e:funded' &&
+        github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    environment: e2e-funded
+    concurrency:
+      group: e2e-android-funded
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/detox-build
+        with:
+          breez-api-key: ${{ secrets.BREEZ_API_KEY_PRD }}
+          env-file: .env.prd
+
+      - name: Run Detox
+        env:
+          E2E_ENV_FILE: .env.prd
+          BREEZ_API_KEY: ${{ secrets.BREEZ_API_KEY_PRD }}
+          HD_MNEMONIC_BIP84: ${{ secrets.HD_MNEMONIC_BIP84 }}
+          SPARK_E2E_MNEMONIC: ${{ secrets.SPARK_E2E_MNEMONIC }}
+          SPARK_E2E_PAYER_MNEMONIC: ${{ secrets.SPARK_E2E_PAYER_MNEMONIC }}
+          E2E_LIGHTNING_ADDRESS: ${{ secrets.E2E_LIGHTNING_ADDRESS }}
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel
+          avd-name: Pixel_API_29_AOSP
+          force-avd-creation: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back emulated -camera-front none -partition-size 4096
+          script: ./tests/e2e/run-ci.sh funded

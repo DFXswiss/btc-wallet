@@ -199,6 +199,7 @@ export default class TransactionsNavigationHeader extends Component {
                 {this.state.wallet.getLabel()}
               </Text>
               <ToolTipMenu
+                testID="WalletBalanceButton"
                 onPress={this.changeWalletBalanceUnit}
                 ref={this.menuRef}
                 title={loc.wallets.balance}

@@ -425,6 +425,7 @@ describe('home screen Spark Lightning add path (render)', () => {
     });
     await waitFor(() => expect(resolveConnect).toBeDefined());
 
+    await waitFor(() => expect(mockConnect).toHaveBeenCalled());
     await act(async () => {
       resolveConnect();
     });

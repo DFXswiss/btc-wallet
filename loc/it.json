@@ -26,7 +26,7 @@
     "pick_image": "Scegli immagine dalla libreria",
     "pick_file": "Scegli un file",
     "enter_amount": "Inserisci l'importo",
-    "qr_custom_input_button": "Tocca 10 volte per inserire un input personalizzato",
+    "qr_custom_input_button": "Tocca sei volte per inserire manualmente il contenuto del codice QR",
     "add": "Aggiungi",
     "repeat": "Ripetere",
     "loading": "Caricamento",

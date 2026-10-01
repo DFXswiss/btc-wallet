@@ -28,7 +28,7 @@
     "refresh": "Actualiser",
     "more": "Plus d'informations",
     "pick_image": "Choisir une image dans la bibliothèque",
-    "qr_custom_input_button": "Tapez 10 fois pour entrer des données personnalisées",
+    "qr_custom_input_button": "Touchez six fois pour saisir manuellement le contenu du code QR",
     "loading": "Chargement",
     "free": "Gratuit"
   },

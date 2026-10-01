@@ -313,7 +313,11 @@ class AmountInput extends Component {
                   <Text style={[styles.cryptoCurrency, stylesHook.cryptoCurrency, unitStyle]}>{' ' + loc.units[unit]}</Text>
                 )}
                 {isMaxAvailable && (
-                  <TouchableOpacity style={[styles.maxButton, { borderColor: this.props.colors.mainColor }]} onPress={onPressMax}>
+                  <TouchableOpacity
+                    testID="SendMaxButton"
+                    style={[styles.maxButton, { borderColor: this.props.colors.mainColor }]}
+                    onPress={onPressMax}
+                  >
                     <Text style={{ color: this.props.colors.mainColor }}>MAX</Text>
                   </TouchableOpacity>
                 )}

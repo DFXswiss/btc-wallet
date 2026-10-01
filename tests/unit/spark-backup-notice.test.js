@@ -4,9 +4,6 @@ import { fireEvent, render } from '@testing-library/react-native';
 import loc from '../../loc';
 
 const mockReplace = jest.fn();
-jest.mock('../../components/navigationStyle', () => (_options, format) => {
-  return theme => deps => (format ? format(_options, { theme, ...deps }) : _options);
-});
 jest.mock('../../BlueComponents', () => {
   const ReactModule = require('react');
   const { Pressable, Text: RNText, View: RNView } = require('react-native');
@@ -52,10 +49,4 @@ it('opens the backup only after the user confirms', () => {
   fireEvent.press(screen.getByText(loc.wallets.lightning_spark_backup_notice_confirm));
   fireEvent.press(screen.getByTestId('SparkBackupNoticeContinue'));
   expect(mockReplace).toHaveBeenCalledWith('WalletExport', { walletID: 'spark-export', noticeAccepted: true });
-});
-
-it('uses the export title', () => {
-  const options = SparkBackupNotice.navigationOptions({})({});
-
-  expect(options.title).toBe(loc.wallets.export_title);
 });

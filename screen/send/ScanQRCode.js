@@ -9,6 +9,7 @@ import loc from '../../loc';
 import { BlueLoading, BlueText } from '../../BlueComponents';
 import alert from '../../components/Alert';
 import { HoldCardModal } from '../../components/HoldCardModal';
+import { QrScanBackdoor } from '../../components/QrScanBackdoor';
 import { useNtag424 } from '../../api/boltcards/hooks/ntag424.hook';
 import useLdsBoltcards from '../../api/boltcards/hooks/bolcards.hook';
 
@@ -91,22 +92,7 @@ const styles = StyleSheet.create({
     alignContent: 'center',
     alignItems: 'center',
   },
-  backdoorButton: {
-    width: 40,
-    height: 40,
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    position: 'absolute',
-  },
-  backdoorInputWrapper: { position: 'absolute', left: '5%', top: '0%', width: '90%', height: '70%', backgroundColor: 'white' },
   progressWrapper: { position: 'absolute', alignSelf: 'center', alignItems: 'center', top: '50%', padding: 8, borderRadius: 8 },
-  backdoorInput: {
-    height: '50%',
-    marginTop: 5,
-    marginHorizontal: 20,
-    borderWidth: 1,
-    borderRadius: 4,
-    textAlignVertical: 'top',
-  },
 });
 
 const ScanQRCode = () => {
@@ -133,12 +119,6 @@ const ScanQRCode = () => {
       backgroundColor: colors.brandingColor,
     },
     progressWrapper: { backgroundColor: colors.brandingColor, borderColor: colors.foregroundColor, borderWidth: 4 },
-    backdoorInput: {
-      borderColor: colors.formBorder,
-      borderBottomColor: colors.formBorder,
-      backgroundColor: colors.inputBackgroundColor,
-      color: colors.foregroundColor,
-    },
   });
 
   useEffect(() => {
@@ -431,6 +411,7 @@ const ScanQRCode = () => {
           </BlueText>
         </View>
       )}
+      <QrScanBackdoor onScan={data => onBarCodeRead({ data })} />
       <HoldCardModal isHoldCardModalVisible={holdCardModalVisible} onCancelHoldCard={stopNFC} />
     </View>
   );

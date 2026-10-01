@@ -26,7 +26,7 @@
     "pick_image": "Wybierz obrazek z biblioteki",
     "pick_file": "Wybierz plik",
     "enter_amount": "Wprowadź kwotę",
-    "qr_custom_input_button": "Tapnij 10 razy aby wprowadzić własne dane"
+    "qr_custom_input_button": "Tapnij 6 razy aby wprowadzić własne dane"
   },
   "alert": {
     "default": "Powiadomienie"

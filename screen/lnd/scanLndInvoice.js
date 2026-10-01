@@ -403,11 +403,17 @@ const ScanLndInvoice = () => {
             )}
             <BlueText style={styles.label}>Note</BlueText>
             <View style={styles.noteContainer}>
-              <BlueFormInput value={desc} onChangeText={setDesc} editable={!isDescDisabled} color={colors.feeText} />
+              <BlueFormInput
+                testID="ScanLndInvoiceNote"
+                value={desc}
+                onChangeText={setDesc}
+                editable={!isDescDisabled}
+                color={colors.feeText}
+              />
             </View>
             <View style={styles.fee}>
               <BlueText style={stylesHook.fee}>{loc.send.create_fee}</BlueText>
-              <BlueText style={stylesHook.fee}>
+              <BlueText style={stylesHook.fee} testID="ScanLndInvoiceFee">
                 {wallet?.type === SparkWallet.type
                   ? sparkFee === undefined
                     ? '-'
@@ -420,7 +426,7 @@ const ScanLndInvoice = () => {
           </KeyboardAvoidingView>
           <BlueCard>
             <View>
-              <BlueButton title={loc.lnd.next} onPress={next} />
+              <BlueButton testID="ScanLndInvoiceNext" title={loc.lnd.next} onPress={next} />
             </View>
           </BlueCard>
         </ScrollView>

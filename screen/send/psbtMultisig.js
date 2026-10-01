@@ -311,6 +311,11 @@ const PsbtMultisig = () => {
           </View>
         </View>
       </View>
+      {canSignThisPsbt && (
+        <Text testID="PsbtMultisigHex" style={styles.hidden}>
+          {psbt.toHex()}
+        </Text>
+      )}
       {!canSignThisPsbt ? (
         <View style={styles.marginNotPartOfMultisig}>
           <BlueText style={styles.marginNotPartOfMultisigText}>{loc.multisig.not_part_of_multisig}</BlueText>
@@ -345,6 +350,11 @@ const PsbtMultisig = () => {
 };
 
 const styles = StyleSheet.create({
+  // Holds the current PSBT for end-to-end tests; not shown.
+  hidden: {
+    width: 0,
+    height: 0,
+  },
   mstopcontainer: {
     flex: 1,
     flexDirection: 'row',

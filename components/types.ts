@@ -29,4 +29,5 @@ export interface ToolTipMenuProps {
   buttonStyle?: StyleProp<ViewStyle>;
   onPress?: (event: GestureResponderEvent) => void;
   disabled?: boolean;
+  testID?: string;
 }

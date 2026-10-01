@@ -26,7 +26,7 @@
     "pick_image": "Välj bild från biblioteket",
     "pick_file": "Välj en fil",
     "enter_amount": "Ange belopp",
-    "qr_custom_input_button": "Tryck 10 gånger för att ange anpassad inmatning"
+    "qr_custom_input_button": "Tryck 6 gånger för att ange anpassad inmatning"
   },
   "alert": {
     "default": "Varna"

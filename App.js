@@ -20,6 +20,7 @@ import { navigationRef } from './NavigationService';
 import * as NavigationService from './NavigationService';
 import OnAppLaunch from './class/on-app-launch';
 import DeeplinkSchemaMatch from './class/deeplink-schema-match';
+import { createAppStateRefreshHandler } from './helpers/app-state-refresh';
 import { BlueDarkTheme } from './components/themes';
 import InitRoot from './navigation';
 import { isDesktop } from './blue_modules/environment';
@@ -99,7 +100,6 @@ if (Platform.OS === 'android') {
 const App = () => {
   const { walletsInitialized, wallets, addWallet, saveToDisk, setBalanceRefreshInterval, clearBalanceRefreshInterval } =
     useContext(BlueStorageContext);
-  const appState = useRef(AppState.currentState);
   const wasElectrumOnline = useRef(undefined);
 
   useCompanionListeners();
@@ -155,6 +155,13 @@ const App = () => {
   }, []);
 
   const addListeners = () => {
+    const handleAppStateChange = createAppStateRefreshHandler({
+      initialState: AppState.currentState,
+      getWalletCount: () => BlueApp.getWallets().length,
+      updateExchangeRate: () => currency.updateExchangeRate(),
+      startRefresh: setBalanceRefreshInterval,
+      stopRefresh: clearBalanceRefreshInterval,
+    });
     urlSubscription.current = Linking.addEventListener('url', handleOpenURL);
     appStateSubscription.current = AppState.addEventListener('change', handleAppStateChange);
     DeviceEventEmitter.addListener('quickActionShortcut', walletQuickActions);
@@ -253,18 +260,6 @@ const App = () => {
       unsubscribe();
     };
   }, []);
-
-  const handleAppStateChange = async nextAppState => {
-    if (wallets.length === 0) return;
-    if ((appState.current.match(/inactive|background/) && nextAppState === 'active') || nextAppState === undefined) {
-      currency.updateExchangeRate();
-      setBalanceRefreshInterval();
-    }
-    if (appState.current === 'active' && nextAppState?.match(/background/)) clearBalanceRefreshInterval();
-    if (nextAppState) {
-      appState.current = nextAppState;
-    }
-  };
 
   const handleOpenURL = event => {
     DeeplinkSchemaMatch.navigationRouteFor(event, value => NavigationService.navigate(...value), { wallets, addWallet, saveToDisk });

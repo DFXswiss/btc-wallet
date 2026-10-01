@@ -283,6 +283,7 @@ const ReceiveDetails = () => {
           <View style={styles.share}>
             <View style={[styles.customAmount, stylesHook.customAmount]}>
               <TextInput
+                testID="ReceiveAmountInput"
                 placeholderTextColor="#81868e"
                 placeholder="Amount (optional)"
                 style={[styles.customAmountText, stylesHook.customAmountText]}

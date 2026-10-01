@@ -415,6 +415,7 @@ const LNDReceive = () => {
               <View style={styles.share}>
                 <View style={[styles.customAmount, styleHooks.customAmount]}>
                   <TextInput
+                    testID="ReceiveAmountInput"
                     ref={inputAmountRef}
                     placeholderTextColor="#81868e"
                     placeholder="Amount (optional)"
@@ -435,6 +436,7 @@ const LNDReceive = () => {
                 </View>
                 <View style={[styles.customAmount, styleHooks.customAmount]}>
                   <TextInput
+                    testID="ReceiveDescriptionInput"
                     ref={inputDescriptionRef}
                     onChangeText={setDescription}
                     placeholder={`${loc.receive.details_label} (optional)`}

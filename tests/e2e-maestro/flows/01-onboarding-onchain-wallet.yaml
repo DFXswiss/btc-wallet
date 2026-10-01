@@ -1,8 +1,0 @@
-appId: swiss.dfx.bitcoin
----
-- runFlow: ../_setup.yaml
-- assertVisible: 'Wallet Backup'
-- assertVisible: '.*On-Chain-Wallet.*'
-# Onboarding creates no Lightning wallet: the Lightning row offers the add action and shows no balance.
-- assertVisible: 'Bitcoin, Lightning, , Hinzufügen'
-- assertNotVisible: 'Bitcoin, Lightning, .*sats.*'

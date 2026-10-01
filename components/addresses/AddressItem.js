@@ -114,7 +114,12 @@ const AddressItem = ({ item, balanceUnit, walletID, allowSignVerifyMessage }) =>
       >
         <ListItem key={item.key} containerStyle={stylesHook.container}>
           <ListItem.Content style={stylesHook.list}>
-            <ListItem.Title style={stylesHook.list} numberOfLines={1} ellipsizeMode="middle">
+            <ListItem.Title
+              testID={`Address${item.isInternal ? 'Change' : 'Receive'}${item.index}`}
+              style={stylesHook.list}
+              numberOfLines={1}
+              ellipsizeMode="middle"
+            >
               <Text style={[styles.index, stylesHook.index]}>{item.index + 1}</Text>{' '}
               <Text style={[stylesHook.address, styles.address]}>{item.address}</Text>
             </ListItem.Title>

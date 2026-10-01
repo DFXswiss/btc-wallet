@@ -45,7 +45,7 @@ while (($#)); do
       shift 2
       ;;
     --flow)
-      (($# >= 2)) || fail '--flow requires a basename glob such as 05-*'
+      (($# >= 2)) || fail '--flow requires a basename glob such as 16-*'
       FLOW_FILTER="$2"
       shift 2
       ;;
@@ -95,22 +95,10 @@ fi
 
 # Pass only set names to `maestro test -e`. Unset names stay off the
 # argv so the client still fails closed. Values are never printed.
-# E2E_PAYMENT_SAT always goes through (default 10) so P14/P15/P17 can run
+# E2E_PAYMENT_SAT always goes through (default 10) so P17 can run
 # smaller amounts without a code change.
 maestro_env_args=()
 maestro_env_args+=(-e "E2E_PAYMENT_SAT=${E2E_PAYMENT_SAT:-10}")
-if [[ -n "${E2E_TREASURY_URL-}" ]]; then
-  maestro_env_args+=(-e "E2E_TREASURY_URL=${E2E_TREASURY_URL}")
-fi
-if [[ -n "${E2E_TREASURY_KEY-}" ]]; then
-  maestro_env_args+=(-e "E2E_TREASURY_KEY=${E2E_TREASURY_KEY}")
-fi
-if [[ -n "${E2E_TREASURY_MAX_SAT-}" ]]; then
-  maestro_env_args+=(-e "E2E_TREASURY_MAX_SAT=${E2E_TREASURY_MAX_SAT}")
-fi
-if [[ -n "${E2E_TREASURY_MAX_FEE_SAT-}" ]]; then
-  maestro_env_args+=(-e "E2E_TREASURY_MAX_FEE_SAT=${E2E_TREASURY_MAX_FEE_SAT}")
-fi
 if [[ -n "${E2E_SPARK_MNEMONIC-}" ]]; then
   maestro_env_args+=(-e "E2E_SPARK_MNEMONIC=${E2E_SPARK_MNEMONIC}")
 fi
@@ -143,22 +131,7 @@ shopt -s nullglob
 MATCHED_FLOWS=("$FLOW_DIR"/$FLOW_FILTER)
 shopt -u nullglob
 
-# Flows 20-25 build on a funded wallet and on each other's state; this runner resets the simulator before
-# every flow, so they run directly with maestro as tests/e2e-maestro/README.md describes.
-FLOWS=()
-STATEFUL_FLOWS=()
-for matched_flow in ${MATCHED_FLOWS[@]+"${MATCHED_FLOWS[@]}"}; do
-  case "$(basename "$matched_flow")" in
-    2[0-5]-*) STATEFUL_FLOWS+=("$(basename "$matched_flow")") ;;
-    *) FLOWS+=("$matched_flow") ;;
-  esac
-done
-if ((${#STATEFUL_FLOWS[@]})); then
-  if ((${#FLOWS[@]} == 0)); then
-    fail "${STATEFUL_FLOWS[*]} keep wallet state and must run directly with maestro; see tests/e2e-maestro/README.md"
-  fi
-  printf 'Skipping %s: these flows keep wallet state and run directly with maestro.\n' "${STATEFUL_FLOWS[*]}" >&2
-fi
+FLOWS=(${MATCHED_FLOWS[@]+"${MATCHED_FLOWS[@]}"})
 
 json_escape() {
   local value="$1"

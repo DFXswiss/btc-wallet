@@ -37,7 +37,7 @@ const Settings = () => {
   return (
     <>
       <View />
-      <ScrollView style={styles.root}>
+      <ScrollView style={styles.root} testID="SettingsScroll">
         {Platform.OS === 'android' ? <BlueHeaderDefaultSub leftText={loc.settings.header} /> : <></>}
         <BlueListItem title={loc.settings.general} onPress={() => navigate('GeneralSettings')} testID="GeneralSettings" chevron />
         <BlueListItem

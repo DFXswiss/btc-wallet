@@ -220,7 +220,7 @@ const WalletsAdd = () => {
               }
             })()}
             {isAdvancedOptionsEnabled && selectedWalletType === ButtonSelected.ONCHAIN && !isLoading && (
-              <BlueButtonLink style={styles.import} title={entropyButtonText} onPress={navigateToEntropy} />
+              <BlueButtonLink style={styles.import} testID="ProvideEntropyLink" title={entropyButtonText} onPress={navigateToEntropy} />
             )}
           </View>
         </KeyboardAvoidingView>

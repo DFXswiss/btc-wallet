@@ -41,7 +41,7 @@ const Success = () => {
         onDonePressed={onDonePressed}
       />
       <View style={styles.buttonContainer}>
-        <BlueButton onPress={onDonePressed} title={loc.send.success_done} />
+        <BlueButton testID="SendSuccessDone" onPress={onDonePressed} title={loc.send.success_done} />
       </View>
     </SafeAreaView>
   );
@@ -116,7 +116,9 @@ export const SuccessView = ({
         {amount && (
           <BlueCard style={styles.amount}>
             <View style={styles.view}>
-              <Text style={[styles.amountValue, stylesHook.amountValue]}>{amount}</Text>
+              <Text testID="SuccessAmount" style={[styles.amountValue, stylesHook.amountValue]}>
+                {amount}
+              </Text>
               <Text style={[styles.amountUnit, stylesHook.amountUnit]}>{' ' + loc.units[amountUnit]}</Text>
             </View>
             <View style={styles.memo}>
@@ -159,7 +161,7 @@ export const SuccessView = ({
         <BlueCard style={styles.amount}>
           {fee !== undefined && (
             <View style={styles.view}>
-              <Text style={styles.feeText}>
+              <Text style={styles.feeText} testID="SuccessFee">
                 {loc.send.create_fee.toLowerCase()}: {Math.abs(fee)} {loc.units[BitcoinUnit.SATS]}
               </Text>
             </View>

@@ -132,7 +132,7 @@ const SignVerify = () => {
             placeholderTextColor="#81868e"
             value={address}
             onChangeText={t => setAddress(t.replace('\n', ''))}
-            testID="Signature"
+            testID="SignAddress"
             style={[styles.text, stylesHooks.text]}
             autoCorrect={false}
             autoCapitalize="none"
@@ -196,8 +196,8 @@ const SignVerify = () => {
           {!isKeyboardVisible && (
             <>
               <FContainer inline>
-                <FButton onPress={handleSign} text={loc.addresses.sign_sign} disabled={loading} />
-                <FButton onPress={handleVerify} text={loc.addresses.sign_verify} disabled={loading} />
+                <FButton testID="SignButton" onPress={handleSign} text={loc.addresses.sign_sign} disabled={loading} />
+                <FButton testID="VerifyButton" onPress={handleVerify} text={loc.addresses.sign_verify} disabled={loading} />
               </FContainer>
               <BlueSpacing10 />
             </>

@@ -65,6 +65,7 @@ const ManualAddressSend: React.FC & { navigationOptions?: ReturnType<typeof navi
         <BlueText style={styles.title}>{loc.send.text_address_or_invoice}</BlueText>
         <View style={[styles.inputContainer, stylesHook.inputContainer]}>
           <TextInput
+            testID="ManualAddressInput"
             placeholderTextColor="#65728A"
             value={address}
             onChangeText={handleOnChange}
@@ -75,7 +76,7 @@ const ManualAddressSend: React.FC & { navigationOptions?: ReturnType<typeof navi
       </View>
       <KeyboardAvoidingView behavior={Platform.select({ ios: 'position' })} keyboardVerticalOffset={80}>
         <ScrollView style={styles.actionsContainer}>
-          <BlueButton title={loc._.continue} onPress={onContinue} disabled={disableContinue} />
+          <BlueButton testID="ManualAddressContinue" title={loc._.continue} onPress={onContinue} disabled={disableContinue} />
           <BlueSpacing40 />
         </ScrollView>
       </KeyboardAvoidingView>
