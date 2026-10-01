@@ -12,7 +12,6 @@ import alert from '../../components/Alert';
 export default class RBFCancel extends CPFP {
   static contextType = BlueStorageContext;
   async componentDidMount() {
-    console.log('transactions/RBFCancel - componentDidMount');
     this.setState({
       isLoading: true,
       newFeeRate: '',
@@ -34,7 +33,6 @@ export default class RBFCancel extends CPFP {
       (await tx.canCancelTx())
     ) {
       const info = await tx.getInfo();
-      console.log({ info });
       return this.setState({ nonReplaceable: false, feeRate: info.feeRate + 1, isLoading: false, tx });
       // 1 sat makes a lot of difference, since sometimes because of rounding created tx's fee might be insufficient
     } else {

@@ -10,6 +10,58 @@ def get_api_key
   )
 end
 
+# Every lane that builds the Release configuration hits the Xcode "Upload Debug
+# Symbols to Sentry" build phase unconditionally. Fail fast with a clear message
+# here instead of deep inside that build phase, which fails the whole build on
+# any of these missing anyway but with a much less obvious error.
+def require_sentry_env!
+  %w[SENTRY_AUTH_TOKEN SENTRY_URL SENTRY_ORG SENTRY_PROJECT].each do |var|
+    UI.user_error!("#{var} is required for a Release-configuration build") if ENV.fetch(var, "").empty?
+  end
+end
+
+# react-native-config reads ENVFILE when supplied. The release overlay keeps the
+# Breez key out of tracked files and process output; it is written via File I/O
+# only — never interpolated into a Fastlane `sh` command or UI message — then
+# removed from an owned private directory after the lane restores its caller's
+# ENVFILE value.
+require "fileutils"
+require "tmpdir"
+
+def require_breez_env!
+  UI.user_error!("BREEZ_API_KEY is required for a Release-configuration build") if ENV.fetch("BREEZ_API_KEY", "").empty?
+end
+
+def breez_overlay_ready?(path)
+  return false unless path && File.lstat(path).file?
+  return false unless (File.lstat(path).mode & 0o777) == 0o600
+  File.foreach(path) { |line| return true if line.match?(/\ABREEZ_API_KEY=[^\s#]+/) }
+  false
+end
+
+def with_breez_overlay
+  require_breez_env!
+  src = File.expand_path("../../.env.prd", __dir__)
+  UI.user_error!(".env.prd is missing; cannot build a release overlay") unless File.file?(src)
+
+  previous_envfile = ENV["ENVFILE"]
+  overlay_dir = Dir.mktmpdir("breez-env-")
+  overlay = File.join(overlay_dir, "env")
+  begin
+    FileUtils.cp(src, overlay)
+    File.chmod(0o600, overlay)
+    File.open(overlay, "a") { |f| f.write("\nBREEZ_API_KEY=#{ENV.fetch("BREEZ_API_KEY")}\n") }
+    ENV["ENVFILE"] = overlay
+    unless breez_overlay_ready?(overlay)
+      UI.user_error!("failed to write a BREEZ_API_KEY overlay for the release build")
+    end
+    yield
+  ensure
+    previous_envfile.nil? ? ENV.delete("ENVFILE") : ENV["ENVFILE"] = previous_envfile
+    FileUtils.remove_entry_secure(overlay_dir) if File.directory?(overlay_dir) && !File.symlink?(overlay_dir)
+  end
+end
+
 # Run `deliver` (App Store listing push) as best-effort: a failure is logged
 # loudly but does NOT fail the lane. While the app has no editable App Store
 # version yet (TestFlight-only), `deliver` cannot create the first version via
@@ -45,12 +97,15 @@ def resolve_release_info(raw_tag)
 end
 
 platform :ios do
-  # Builds the prod (BlueWallet scheme -> .env.prd) app and uploads it to TestFlight.
+  # Builds the prod app (BlueWallet scheme, ENVFILE = .env.prd overlay with BREEZ_API_KEY) and uploads it to TestFlight.
   # Signing assets (distribution cert + App Store provisioning profile) come from the
   # match certs repo (DFXswiss/btc-wallet-certificates), installed read-only so CI
   # never mutates them. The ASC API key authorises match + the TestFlight upload.
   desc "Build and upload an internal build to TestFlight"
   lane :beta do
+    require_sentry_env!
+    require_breez_env!
+
     # Required fastlane CI signing prep (not a stopgap): makes a dedicated, unlocked
     # keychain the session default so match installs the cert there and sets its
     # key-partition-list — codesign then reads the key without the GUI prompt that
@@ -87,18 +142,20 @@ platform :ios do
       targets: ["BlueWallet"],
     )
 
-    build_app(
-      workspace: "BlueWallet.xcworkspace",
-      scheme: "BlueWallet", # prod scheme; its pre-action selects .env.prd (CI also writes /tmp/envfile)
-      configuration: "Release",
-      export_method: "app-store",
-      output_directory: "build",
-      output_name: "DFXBitcoin.ipa",
-      clean: false,
-      export_options: {
-        provisioningProfiles: { "swiss.dfx.bitcoin" => PROFILE_NAME },
-      },
-    )
+    with_breez_overlay do
+      build_app(
+        workspace: "BlueWallet.xcworkspace",
+        scheme: "BlueWallet", # prod scheme; explicit ENVFILE keeps the pre-action fallback inert
+        configuration: "Release",
+        export_method: "app-store",
+        output_directory: "build",
+        output_name: "DFXBitcoin.ipa",
+        clean: false,
+        export_options: {
+          provisioningProfiles: { "swiss.dfx.bitcoin" => PROFILE_NAME },
+        },
+      )
+    end
 
     upload_to_testflight(
       api_key: api_key,
@@ -111,6 +168,9 @@ platform :ios do
   # the App Store listing staged alongside the TestFlight build.
   desc "Tag-driven store release: TestFlight + stage the App Store listing"
   lane :release do
+    require_sentry_env!
+    require_breez_env!
+
     setup_ci
     info = resolve_release_info(ENV["NEW_VERSION"] || "dev")
     api_key = get_api_key
@@ -133,18 +193,20 @@ platform :ios do
       targets: ["BlueWallet"],
     )
 
-    build_app(
-      workspace: "BlueWallet.xcworkspace",
-      scheme: "BlueWallet", # prod scheme -> .env.prd (CI also writes /tmp/envfile)
-      configuration: "Release",
-      export_method: "app-store",
-      output_directory: "build",
-      output_name: "dfx-bitcoin-#{info['release_tag']}.ipa",
-      clean: false,
-      export_options: {
-        provisioningProfiles: { "swiss.dfx.bitcoin" => PROFILE_NAME },
-      },
-    )
+    with_breez_overlay do
+      build_app(
+        workspace: "BlueWallet.xcworkspace",
+        scheme: "BlueWallet", # prod scheme; explicit ENVFILE keeps the pre-action fallback inert
+        configuration: "Release",
+        export_method: "app-store",
+        output_directory: "build",
+        output_name: "dfx-bitcoin-#{info['release_tag']}.ipa",
+        clean: false,
+        export_options: {
+          provisioningProfiles: { "swiss.dfx.bitcoin" => PROFILE_NAME },
+        },
+      )
+    end
 
     upload_to_testflight(api_key: api_key, skip_waiting_for_build_processing: true)
 

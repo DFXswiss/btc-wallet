@@ -31,10 +31,6 @@ const Success = () => {
       color: colors.alternativeTextColor2,
     },
   });
-  useEffect(() => {
-    console.log('send/success - useEffect');
-  }, []);
-
   return (
     <SafeAreaView style={[styles.root, stylesHook.root]}>
       <SuccessView
@@ -45,7 +41,7 @@ const Success = () => {
         onDonePressed={onDonePressed}
       />
       <View style={styles.buttonContainer}>
-        <BlueButton onPress={onDonePressed} title={loc.send.success_done} />
+        <BlueButton testID="SendSuccessDone" onPress={onDonePressed} title={loc.send.success_done} />
       </View>
     </SafeAreaView>
   );
@@ -56,7 +52,7 @@ export default Success;
 export const SuccessView = ({
   amount,
   amountUnit,
-  fee = 0,
+  fee = undefined,
   invoiceDescription,
   shouldAnimate = true,
   paymentHash = undefined,
@@ -120,7 +116,9 @@ export const SuccessView = ({
         {amount && (
           <BlueCard style={styles.amount}>
             <View style={styles.view}>
-              <Text style={[styles.amountValue, stylesHook.amountValue]}>{amount}</Text>
+              <Text testID="SuccessAmount" style={[styles.amountValue, stylesHook.amountValue]}>
+                {amount}
+              </Text>
               <Text style={[styles.amountUnit, stylesHook.amountUnit]}>{' ' + loc.units[amountUnit]}</Text>
             </View>
             <View style={styles.memo}>
@@ -161,9 +159,9 @@ export const SuccessView = ({
           )}
         </View>
         <BlueCard style={styles.amount}>
-          {amount < 0 && (
+          {fee !== undefined && (
             <View style={styles.view}>
-              <Text style={styles.feeText}>
+              <Text style={styles.feeText} testID="SuccessFee">
                 {loc.send.create_fee.toLowerCase()}: {Math.abs(fee)} {loc.units[BitcoinUnit.SATS]}
               </Text>
             </View>

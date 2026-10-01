@@ -1,0 +1,68 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: _setup.yaml
+- tapOn:
+    point: '90%,10%'
+- extendedWaitUntil:
+    visible: 'Allgemein'
+    timeout: 20000
+- tapOn: 'Allgemein'
+- extendedWaitUntil:
+    visible: 'Privatsphäre'
+    timeout: 15000
+- tapOn: 'Privatsphäre'
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: shots/03-einstellungen/13-privatsphaere
+- tapOn: 'Allgemein'
+- extendedWaitUntil:
+    visible: 'Privatsphäre'
+    timeout: 15000
+- tapOn: 'Settings'
+- extendedWaitUntil:
+    visible: 'Netzwerk'
+    timeout: 15000
+
+- tapOn: 'Netzwerk'
+- extendedWaitUntil:
+    visible: 'Electrum Server'
+    timeout: 15000
+- tapOn: 'Electrum Server'
+- waitForAnimationToEnd:
+    timeout: 8000
+- takeScreenshot: shots/03-einstellungen/14-electrum-server
+- tapOn: 'Netzwerk'
+- extendedWaitUntil:
+    visible: 'Benachrichtigungen'
+    timeout: 15000
+- tapOn: 'Benachrichtigungen'
+- waitForAnimationToEnd:
+    timeout: 8000
+- takeScreenshot: shots/03-einstellungen/15-benachrichtigungen
+- tapOn: 'Netzwerk'
+- extendedWaitUntil:
+    visible: 'Electrum Server'
+    timeout: 15000
+- tapOn: 'Settings'
+- extendedWaitUntil:
+    visible: 'Werkzeuge'
+    timeout: 15000
+
+# Werkzeuge-Unterseiten: Nummern am committeten Satz (17/18). Die Uebersicht
+# (16-werkzeuge-uebersicht) deckt 08b-werkzeuge.yaml ab.
+- tapOn: 'Werkzeuge'
+- extendedWaitUntil:
+    visible: 'Ist dies meine Adresse'
+    timeout: 15000
+- tapOn: 'Ist dies meine Adresse'
+- waitForAnimationToEnd:
+    timeout: 8000
+- takeScreenshot: shots/03-einstellungen/17-ist-dies-meine-adresse
+- tapOn: 'Werkzeuge'
+- extendedWaitUntil:
+    visible: 'Transaktion publizieren'
+    timeout: 15000
+- tapOn: 'Transaktion publizieren'
+- waitForAnimationToEnd:
+    timeout: 8000
+- takeScreenshot: shots/03-einstellungen/18-transaktion-publizieren

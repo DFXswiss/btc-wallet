@@ -1,4 +1,4 @@
-import React, { useCallback, useContext } from "react";
+import { useCallback, useContext } from "react";
 import { BlueStorageContext } from "../blue_modules/storage-context";
 
 export const usePrivateText = () => {

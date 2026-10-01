@@ -60,10 +60,7 @@ const Confirm = () => {
   });
 
   useEffect(() => {
-    console.log('send/confirm - useEffect');
-    console.log('address = ', recipients);
     Biometric.isBiometricUseCapableAndEnabled().then(setIsBiometricUseCapableAndEnabled);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -114,7 +111,11 @@ const Confirm = () => {
     try {
       const txids2watch = [];
       if (!isPayjoinEnabled) {
-        await broadcast(tx);
+        const didBroadcast = await broadcast(tx);
+        if (!didBroadcast) {
+          setIsLoading(false);
+          return;
+        }
       } else {
         const payJoinWallet = new PayjoinTransaction(psbt, txHex => broadcast(txHex), wallet);
         const paymentScript = getPaymentScript();
@@ -142,7 +143,7 @@ const Confirm = () => {
       amount = formatBalanceWithoutSuffix(amount, BitcoinUnit.BTC, false);
       ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
       navigate('Success', {
-        fee: Number(fee),
+        fee: feeSatoshi,
         amount,
       });
 
@@ -165,7 +166,7 @@ const Confirm = () => {
 
     if (isBiometricUseCapableAndEnabled) {
       if (!(await Biometric.unlockWithBiometrics())) {
-        return;
+        return false;
       }
     }
 

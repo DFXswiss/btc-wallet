@@ -41,6 +41,7 @@ def releaseVersionName = project.findProperty('MYAPP_VERSION_NAME') ?: '2.0.5'
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
+apply from: new File(["node", "--print", "require.resolve('@sentry/react-native/package.json')"].execute().text.trim(), "../sentry.gradle")
 android {
     androidResources {
         noCompress += ["bundle"]

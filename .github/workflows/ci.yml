@@ -4,7 +4,7 @@ name: Tests
 # NOT gated here (intentionally):
 #   - integration tests: hit live Electrum servers (flaky) — the reason this
 #     workflow was disabled in 2023.
-#   - e2e (Detox + Android emulator): heavy/flaky, separate concern.
+#   - e2e (Detox + Android emulator): runs in e2e-android.yml.
 on: [pull_request]
 
 jobs:

@@ -28,6 +28,7 @@ import { useNtag424 } from '../../api/boltcards/hooks/ntag424.hook';
 import { HoldCardModal } from '../../components/HoldCardModal';
 import alert from '../../components/Alert';
 import QRCodeComponent from '../../components/QRCodeComponent';
+import { reportError } from '../../helpers/errors';
 
 const styles = StyleSheet.create({
   scrollViewContent: {
@@ -182,7 +183,7 @@ const TappedCardDetails = () => {
               setIsRegisteredInServer(uidIsCorrect && k0IsCorrect && k1IsCorrect && k2IsCorrect);
               setServerDetails(currCard);
             } catch (_) {
-              console.log(_);
+              reportError('tappedCardDetails: failed to verify card registration against server', _);
               setIsRegisteredInServer(false);
             }
           }
@@ -352,7 +353,7 @@ const TappedCardDetails = () => {
             </BlueCard>
             <BlueCard style={styles.address}>
               <View>
-                {isEmptyCard && (
+                {isEmptyCard && Boolean(lnWallet) && (
                   <>
                     <SecondButton onPress={navigateToCreate} title={loc.boltcard.title_create} />
                     <BlueSpacing20 />

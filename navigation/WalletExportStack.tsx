@@ -5,7 +5,7 @@ import { useTheme } from '../components/themes';
 import WalletExport from '../screen/wallets/export';
 
 type WalletExportStackParamList = {
-  WalletExport: { walletID: string };
+  WalletExport: { walletID: string; noticeAccepted?: boolean };
 };
 
 const Stack = createNativeStackNavigator<WalletExportStackParamList>();

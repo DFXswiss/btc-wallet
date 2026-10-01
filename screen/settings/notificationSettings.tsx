@@ -92,7 +92,7 @@ const NotificationSettings: React.FC & { navigationOptions: NavigationOptionsGet
         alert(loc.settings.saved);
       }
     } catch (error) {
-      console.warn(error);
+      console.error('notificationSettings: failed to save GroundControl URI', error);
     }
     setIsLoading(false);
   }, [URI]);

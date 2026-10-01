@@ -30,7 +30,6 @@ module.exports = (
           {
             text: continueButtonText,
             onPress: password => {
-              console.log('OK Pressed');
               resolve(password);
             },
             style: isOKDestructive ? 'destructive' : 'default',
@@ -40,7 +39,6 @@ module.exports = (
           {
             text: continueButtonText,
             onPress: password => {
-              console.log('OK Pressed');
               resolve(password);
             },
           },

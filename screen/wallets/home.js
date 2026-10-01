@@ -1,5 +1,7 @@
-import React, { useEffect, useState, useContext, useRef, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useContext, useRef, useMemo } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Dimensions,
   InteractionManager,
   PixelRatio,
@@ -16,6 +18,7 @@ import {
 } from 'react-native';
 import { Icon } from 'react-native-elements';
 import { useRoute, useNavigation, useTheme, useIsFocused } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as bitcoin from 'bitcoinjs-lib';
 import { BlueListItem, SecondButton } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
@@ -29,11 +32,14 @@ import TransactionsNavigationHeader from '../../components/TransactionsNavigatio
 import PropTypes from 'prop-types';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
-import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
+import { getLightningWallet } from '../../helpers/lightning-wallet';
 import BoltCard from '../../class/boltcard';
 import scanqrHelper from '../../helpers/scan-qr';
 import DfxServicesButtons from '../../components/DfxServicesButtons';
 import { usePrivateText } from '../../hooks/usePrivateText';
+import { defaultSparkSourceWallet, useSparkContext } from '../../api/spark/contexts/spark.context';
+import { useLightningRecovery } from '../../hooks/lightningRecovery.hook';
+import { reportError } from '../../helpers/errors';
 
 const fs = require('../../blue_modules/fs');
 
@@ -44,17 +50,22 @@ const buttonFontSize =
 
 const WalletHome = ({ navigation }) => {
   const { wallets, saveToDisk, setSelectedWallet, revalidateBalancesInterval } = useContext(BlueStorageContext);
+  const { isCreating } = useSparkContext();
+  const { addLightningWallet } = useLightningRecovery();
+  const [isAddingLightning, setIsAddingLightning] = useState(false);
   const walletID = useMemo(() => wallets[0]?.getID(), [wallets]);
   const multisigWallet = useMemo(() => wallets.find(w => w.type === MultisigHDWallet.type), [wallets]);
-  const lnWallet = useMemo(() => wallets.find(w => w.type === LightningLdsWallet.type), [wallets]);
+  const lnWallet = useMemo(() => getLightningWallet(wallets), [wallets]);
   const [, setIsLoading] = useState(false);
-  const { name } = useRoute();
+  const { name, params } = useRoute();
   const { setParams, navigate } = useNavigation();
   const { colors, scanImage } = useTheme();
   const walletActionButtonsRef = useRef();
   const { width } = useWindowDimensions();
   const isFocused = useIsFocused();
   const getPrivateText = usePrivateText();
+  const insets = useSafeAreaInsets();
+  const headerOverlayHeight = insets.top + 44;
 
   const wallet = useMemo(() => wallets.find(w => w.getID() === walletID), [wallets, walletID]);
   const totalWallet = useMemo(() => {
@@ -75,6 +86,15 @@ const WalletHome = ({ navigation }) => {
     },
     comingSoon: {
       color: colors.alternativeTextColor,
+    },
+    backupSeed: {
+      backgroundColor: params?.backupWarning ? '#FFF389' : colors.buttonBackgroundColor,
+    },
+    backupSeedText: {
+      marginLeft: 4,
+      color: colors.buttonAlternativeTextColor,
+      fontWeight: '600',
+      fontSize: 14,
     },
   });
 
@@ -249,25 +269,41 @@ const WalletHome = ({ navigation }) => {
     });
   };
 
-  const navigateToAddLightning = () => {
-    navigate('WalletsRoot', {
-      screen: 'AddLightning',
-      params: {
-        walletID: wallet.getID(),
-      },
-    });
-  };
+  const nextFrame = () => new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
+
+  const onAddLightningPress = useCallback(() => {
+    // Adds the seed's existing lightning.space wallet, otherwise the Spark wallet, in place — no provider screen.
+    // AddLightning remains in the navigator for Taproot-asset wallets only.
+    async function addLightning() {
+      if (isAddingLightning) return;
+      setIsAddingLightning(true);
+      try {
+        await nextFrame();
+        await addLightningWallet(defaultSparkSourceWallet(wallets));
+      } catch (e) {
+        reportError('home: Lightning account check failed', e);
+        Alert.alert(loc.wallets.lightning_spark_wallet_label, loc.wallets.lightning_account_check_failed, [
+          { text: loc._.cancel, style: 'cancel' },
+          { text: loc._.repeat, onPress: () => addLightning() },
+        ]);
+      } finally {
+        setIsAddingLightning(false);
+      }
+    }
+    return addLightning();
+  }, [isAddingLightning, addLightningWallet, wallets]);
 
   const displayWallets = useMemo(() => {
     const tmpWallets = [];
 
-    const multisigWallet = wallets.find(w => w.type === MultisigHDWallet.type);
+    const multisigWalletItem = wallets.find(w => w.type === MultisigHDWallet.type);
     tmpWallets.push({
-      wallet: multisigWallet,
+      wallet: multisigWalletItem,
       title: 'Bitcoin',
       isActivated: true,
       subtitle: loc.wallets.multi_sig_wallet_label,
-      walletID: multisigWallet?.getID?.(),
+      testID: 'MultisigWalletRow',
+      walletID: multisigWalletItem?.getID?.(),
       onDummyPress: navigateToAddMultisig,
     });
 
@@ -277,21 +313,23 @@ const WalletHome = ({ navigation }) => {
       title: 'Bitcoin',
       isActivated: true,
       subtitle: loc.wallets.main_wallet_label,
-      walletID: onChainWallet.getID?.(),
+      testID: 'OnChainWalletRow',
+      walletID: onChainWallet?.getID?.(),
     });
 
-    const LnWallet = wallets.find(w => w.type === LightningLdsWallet.type);
     tmpWallets.push({
-      wallet: LnWallet,
+      wallet: lnWallet,
       title: 'Bitcoin',
       isActivated: true,
-      subtitle: loc.wallets.lightning_wallet_label,
-      walletID: LnWallet?.getID?.(),
-      onDummyPress: navigateToAddLightning,
+      subtitle: loc.wallets.lightning_spark_wallet_label,
+      testID: 'LightningWalletRow',
+      walletID: lnWallet?.getID?.(),
+      onDummyPress: onAddLightningPress,
+      isCreatingLightning: (isCreating || isAddingLightning) && !lnWallet,
     });
 
     return tmpWallets;
-  }, [wallets]);
+  }, [wallets, isCreating, isAddingLightning, onAddLightningPress, lnWallet]);
 
   return (
     <View style={styles.flex}>
@@ -300,7 +338,8 @@ const WalletHome = ({ navigation }) => {
         navigation={navigation}
         wallet={totalWallet}
         width={width}
-        showRBFWarning={!wallet.allowRBF()}
+        headerOverlayHeight={headerOverlayHeight}
+        showRBFWarning={!!wallet && !wallet.allowRBF()}
         onWalletChange={total =>
           InteractionManager.runAfterInteractions(async () => {
             wallets.forEach(w => {
@@ -311,11 +350,36 @@ const WalletHome = ({ navigation }) => {
           })
         }
       />
+      {Platform.OS === 'android' && (
+        <View style={[styles.navHeader, { top: insets.top }]}>
+          {params?.showsBackupSeed ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              testID="backupSeed"
+              style={[styles.backupSeedButton, stylesHook.backupSeed]}
+              onPress={() => navigate('BackupSeedRoot', { screenName: 'BackupExplanation' })}
+            >
+              <View style={styles.backupSeedContainer}>
+                {params?.backupWarning && <Icon name="warning-outline" type="ionicon" size={18} color="#FFFFFF" />}
+                <Text style={stylesHook.backupSeedText}>
+                  {params?.backupWarning ? loc.wallets.backupSeedWarning : loc.wallets.backupSeed}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <View />
+          )}
+          <TouchableOpacity accessibilityRole="button" testID="Settings" style={styles.walletDetails} onPress={() => navigate('Settings')}>
+            <Icon name="more-horiz" type="material" size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      )}
       <DfxServicesButtons />
       <View style={[styles.list, stylesHook.list]}>
         {displayWallets.map((item, i) => (
           <TouchableOpacity
             key={i}
+            testID={item.wallet ? item.testID : `${item.testID}Empty`}
             disabled={!item.wallet}
             onPress={() => navigate('WalletsRoot', { screen: 'WalletAsset', params: { walletID: item.wallet?.getID() } })}
           >
@@ -337,8 +401,11 @@ const WalletHome = ({ navigation }) => {
                 Component={View}
                 {...(item.isActivated
                   ? {
-                      rightElement: (
+                      rightElement: item.isCreatingLightning ? (
+                        <ActivityIndicator />
+                      ) : (
                         <SecondButton
+                          testID={`${item.testID}Add`}
                           title={loc._.add}
                           icon={{ name: 'plus', type: 'font-awesome', color: 'white', size: 12 }}
                           onPress={item.onDummyPress}
@@ -355,7 +422,7 @@ const WalletHome = ({ navigation }) => {
         ))}
       </View>
       <FContainer ref={walletActionButtonsRef}>
-        {wallet.allowReceive() && (
+        {wallet?.allowReceive() && (
           <FButton
             testID="ReceiveButton"
             text={loc.receive.header}
@@ -368,6 +435,7 @@ const WalletHome = ({ navigation }) => {
           />
         )}
         <FButton
+          testID="HomeScanButton"
           onPress={onScanButtonPressed}
           onLongPress={sendButtonLongPress}
           icon={
@@ -378,7 +446,7 @@ const WalletHome = ({ navigation }) => {
           }
           text={loc.send.details_scan}
         />
-        {(wallet.allowSend() || (wallet.type === WatchOnlyWallet.type && wallet.isHd())) && (
+        {(wallet?.allowSend() || (wallet?.type === WatchOnlyWallet.type && wallet?.isHd())) && (
           <FButton
             onLongPress={sendButtonLongPress}
             onPress={sendButtonPress}
@@ -399,12 +467,19 @@ const WalletHome = ({ navigation }) => {
 export default WalletHome;
 
 WalletHome.navigationOptions = navigationStyle({}, (options, { theme, navigation, route }) => {
+  if (Platform.OS === 'android') {
+    return {
+      ...options,
+      headerShown: false,
+      gestureEnabled: false,
+    };
+  }
+
   const stylesHook = StyleSheet.create({
     backupSeed: {
       height: 34,
       padding: 8,
       borderRadius: 8,
-      backgroundColor: Platform.OS === 'ios' ? undefined : route?.params?.backupWarning ? '#FFF389' : theme.colors.buttonBackgroundColor,
     },
     backupSeedText: {
       marginLeft: 4,
@@ -415,6 +490,7 @@ WalletHome.navigationOptions = navigationStyle({}, (options, { theme, navigation
   });
 
   return {
+    ...options,
     headerLeft: () =>
       route?.params?.showsBackupSeed ? (
         <TouchableOpacity
@@ -444,15 +520,11 @@ WalletHome.navigationOptions = navigationStyle({}, (options, { theme, navigation
       </TouchableOpacity>
     ),
     title: '',
+    headerTransparent: true,
     headerStyle: {
       backgroundColor: 'transparent',
-      borderBottomWidth: 0,
-      elevation: 0,
-      // shadowRadius: 0,
-      shadowOffset: { height: 0, width: 0 },
     },
     headerTintColor: '#FFFFFF',
-    headerBackTitleVisible: false,
     headerBackVisible: false,
     gestureEnabled: false,
   };
@@ -473,6 +545,22 @@ const styles = StyleSheet.create({
   walletDetails: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  navHeader: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    zIndex: 1,
+  },
+  backupSeedButton: {
+    height: 34,
+    padding: 8,
+    borderRadius: 8,
   },
   backupSeedContainer: {
     flex: 1,

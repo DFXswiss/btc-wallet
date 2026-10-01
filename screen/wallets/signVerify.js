@@ -4,7 +4,6 @@ import {
   Alert,
   Keyboard,
   KeyboardAvoidingView,
-  LayoutAnimation,
   Platform,
   StatusBar,
   StyleSheet,
@@ -63,7 +62,7 @@ const SignVerify = () => {
   const handleShare = () => {
     const baseUri = 'https://bluewallet.github.io/VerifySignature';
     const uri = `${baseUri}?a=${address}&m=${encodeURIComponent(message)}&s=${encodeURIComponent(signature)}`;
-    Share.open({ message: uri }).catch(error => console.log(error));
+    Share.open({ message: uri }).catch(() => {});
   };
 
   const handleSign = async () => {
@@ -102,7 +101,6 @@ const SignVerify = () => {
   };
 
   const handleFocus = value => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setMessageHasFocus(value);
   };
 
@@ -134,7 +132,7 @@ const SignVerify = () => {
             placeholderTextColor="#81868e"
             value={address}
             onChangeText={t => setAddress(t.replace('\n', ''))}
-            testID="Signature"
+            testID="SignAddress"
             style={[styles.text, stylesHooks.text]}
             autoCorrect={false}
             autoCapitalize="none"
@@ -198,8 +196,8 @@ const SignVerify = () => {
           {!isKeyboardVisible && (
             <>
               <FContainer inline>
-                <FButton onPress={handleSign} text={loc.addresses.sign_sign} disabled={loading} />
-                <FButton onPress={handleVerify} text={loc.addresses.sign_verify} disabled={loading} />
+                <FButton testID="SignButton" onPress={handleSign} text={loc.addresses.sign_sign} disabled={loading} />
+                <FButton testID="VerifyButton" onPress={handleVerify} text={loc.addresses.sign_verify} disabled={loading} />
               </FContainer>
               <BlueSpacing10 />
             </>

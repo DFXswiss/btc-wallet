@@ -8,6 +8,8 @@ import loc from '../../loc';
 import { useSell } from '../../api/dfx/hooks/sell.hook';
 import { useFiat } from '../../api/dfx/hooks/fiat.hook';
 import { SellInfo } from '../../api/dfx/definitions/sell';
+import { DfxService } from '../../api/dfx/contexts/session.context';
+import { DfxMaxAmount } from '../../helpers/dfxMaxAmount';
 import { Icon } from 'react-native-elements';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { HDSegwitBech32Wallet, WatchOnlyWallet } from '../../class';
@@ -16,6 +18,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NetworkTransactionFee } from '../../models/networkTransactionFees';
 import BigNumber from 'bignumber.js';
 import { Chain } from '../../models/bitcoinUnits';
+import { Utils } from '../../helpers/utils';
+import { lightningDepositPayParams, sparkMaxDepositSats } from '../../helpers/dfxLightningDeposit';
 const currency = require('../../blue_modules/currency');
 
 type SellRouteProps = RouteProp<
@@ -37,6 +41,7 @@ const Sell = () => {
   const { getInfo: getSellInfo } = useSell();
   const { toDescription } = useFiat();
   const [isLoading, setIsLoading] = useState(true);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [sell, setSell] = useState<SellInfo>();
 
   const [changeAddress, setChangeAddress] = useState<string>();
@@ -78,8 +83,12 @@ const Sell = () => {
 
       const changeAddress = await getChangeAddressAsync(wallet);
       const requestedSatPerByte = Number(networkTransactionFees.fastestFee);
+      await Utils.withRetry(() => wallet.fetchUtxo());
       const lutxo = wallet.getUtxo();
-      const targets = [{ address: sell?.deposit.address, value: currency.btcToSatoshi(amount) }];
+      const isMaxAmount = await DfxMaxAmount.wasConfirmed(walletId, DfxService.SELL, amount, Utils.sumUtxoValue(lutxo));
+      const targets = isMaxAmount
+        ? [{ address: sell?.deposit.address }]
+        : [{ address: sell?.deposit.address, value: currency.btcToSatoshi(amount) }];
       const { tx, outputs, psbt, fee } = wallet.createTransaction(
         lutxo,
         targets,
@@ -107,16 +116,18 @@ const Sell = () => {
         psbt,
       });
     } else {
-      navigation.navigate('LnurlPay', {
-        lnurl: sell?.deposit.address,
-        walletID: wallet.getID(),
-        amountSat: currency.btcToSatoshi(amount),
-      });
+      const maxSats = await sparkMaxDepositSats(wallet, DfxService.SELL, amount);
+      navigation.navigate(
+        'LnurlPay',
+        lightningDepositPayParams(wallet, sell?.deposit.address, maxSats ?? currency.btcToSatoshi(amount), routeId, maxSats !== undefined),
+      );
     }
   }
 
   function handleError(e: any) {
-    Alert.alert('Something went wrong', e.message?.toString(), [
+    // same actionable copy Send uses for this structural condition, instead of the raw technical message
+    const message = e?.code === 'ELECTRUM_BATCHING_UNSUPPORTED' ? loc.send.details_utxo_refresh_unsupported_server : e.message?.toString();
+    Alert.alert('Something went wrong', message, [
       {
         text: loc._.ok,
         onPress: () => {},
@@ -182,7 +193,17 @@ const Sell = () => {
           </View>
           <View style={styles.buttonContainer}>
             <View style={styles.button}>
-              <BlueButton onPress={() => handleConfirm().catch(handleError)} title={loc.sell.confirm} testID="SellConfirm" />
+              <BlueButton
+                onPress={() => {
+                  setIsConfirming(true);
+                  handleConfirm()
+                    .catch(handleError)
+                    .finally(() => setIsConfirming(false));
+                }}
+                title={loc.sell.confirm}
+                testID="SellConfirm"
+                isLoading={isConfirming}
+              />
             </View>
           </View>
         </View>

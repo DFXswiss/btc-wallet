@@ -63,6 +63,7 @@ export const ManualTextModal: React.FC<ManualTextModalProps> = ({
             </View>
             <View style={[styles.inputContainer, stylesHooks.inputContainer]}>
               <TextInput
+                testID="ManualTextInput"
                 placeholderTextColor="#65728A"
                 value={text}
                 onChangeText={setText}
@@ -73,7 +74,7 @@ export const ManualTextModal: React.FC<ManualTextModalProps> = ({
               />
             </View>
             <View style={styles.modalButtonContainer}>
-              <BlueButton title={loc._.continue} onPress={handleAccept} />
+              <BlueButton testID="ManualTextContinue" title={loc._.continue} onPress={handleAccept} />
               <BlueSpacing20 />
             </View>
           </View>

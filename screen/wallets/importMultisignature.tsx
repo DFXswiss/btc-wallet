@@ -72,7 +72,7 @@ const ImportMultisignature: React.FC & { navigationOptions?: ReturnType<typeof n
       saveToDisk();
       delayedNavigationFunction(() => navigate('WalletTransactions'));
     } catch (error: any) {
-      console.log(error);
+      console.error('importMultisignature: failed to import multisig wallet', error);
       setIsError(true);
       setThreshold(0);
       setQuorum(0);
@@ -165,6 +165,7 @@ const ImportMultisignature: React.FC & { navigationOptions?: ReturnType<typeof n
         />
         <BlueButton
           style={styles.actionButton}
+          testID="ImportMultisigManualInput"
           onPress={() => setIsManualTextModalVisible(true)}
           icon={{ name: 'keyboard', type: 'material', color: '#ffffff', size: 38 }}
         />

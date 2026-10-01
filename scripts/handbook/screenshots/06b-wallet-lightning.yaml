@@ -1,0 +1,6 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: _setup.yaml
+# Einstieg: Uebersicht mit der Lightning-Zeile, auf der noch „Hinzufuegen" steht.
+# Das Anlegen selbst zeigt Kapitel 08 (08b-lightning-spark.yaml).
+- takeScreenshot: shots/06-wallet-hinzufuegen/02-lightning-spark

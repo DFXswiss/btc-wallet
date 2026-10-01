@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { ParamListBase, RouteProp, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -6,15 +6,19 @@ import { BlueButton, SafeBlueArea } from '../../BlueComponents';
 import { navigationStyleTx } from '../../components/navigationStyle';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
-import { AbstractWallet, HDSegwitBech32Wallet, WatchOnlyWallet } from '../../class';
+import { HDSegwitBech32Wallet, WatchOnlyWallet } from '../../class';
 import { AbstractHDElectrumWallet } from '../../class/wallets/abstract-hd-electrum-wallet';
 import NetworkTransactionFees from '../../models/networkTransactionFees';
 import BigNumber from 'bignumber.js';
 import { Chain } from '../../models/bitcoinUnits';
 import { useSwap } from '../../api/dfx/hooks/swap.hook';
-import { useWalletContext } from '../../contexts/wallet.context';
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
+import { SparkWallet } from '../../class/wallets/spark-wallet';
+import { lightningDepositPayParams, sparkMaxDepositSats } from '../../helpers/dfxLightningDeposit';
 import { SwapInfo } from '../../api/dfx/definitions/swap';
+import { Utils } from '../../helpers/utils';
+import { DfxService } from '../../api/dfx/contexts/session.context';
+import { DfxMaxAmount } from '../../helpers/dfxMaxAmount';
 const currency = require('../../blue_modules/currency');
 
 type SwapRouteProps = RouteProp<
@@ -35,11 +39,9 @@ const Swap = () => {
   const { routeId, amount, 'wallet-id': walletId } = useRoute<SwapRouteProps>().params;
   const { getInfo } = useSwap();
   const [isLoading, setIsLoading] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [swapInfo, setSwapInfo] = useState<SwapInfo>();
   const [changeAddress, setChangeAddress] = useState<string>();
-
-  const { walletID: onchainWalletId } = useWalletContext();
-  const lnWallet = useMemo(() => wallets.find((w: AbstractWallet) => w.type === LightningLdsWallet.type), [wallets]);
 
   const stylesHook = StyleSheet.create({
     container: {
@@ -55,11 +57,9 @@ const Swap = () => {
 
   useEffect(() => {
     (async () => {
-      if (!routeId) return;
+      if (!routeId || !walletId) return;
 
-      const swapOnchainInfo = await getInfo(onchainWalletId as string, Number(routeId)).catch(() => null);
-      const swapLnInfo = lnWallet && (await getInfo(lnWallet?.getID() as string, Number(routeId)).catch(() => null));
-      const swap = swapOnchainInfo || swapLnInfo;
+      const swap = await getInfo(walletId, Number(routeId)).catch(() => null);
 
       if (swap) {
         setSwapInfo(swap);
@@ -81,8 +81,12 @@ const Swap = () => {
       const networkTransactionFees = await NetworkTransactionFees.recommendedFees();
       const changeAddress = await getChangeAddressAsync(wallet);
       const requestedSatPerByte = Number(networkTransactionFees.fastestFee);
+      await Utils.withRetry(() => wallet.fetchUtxo());
       const lutxo = wallet.getUtxo();
-      const targets = [{ address: swapInfo?.deposit.address, value: currency.btcToSatoshi(amount) }];
+      const isMaxAmount = await DfxMaxAmount.wasConfirmed(walletId, DfxService.SWAP, amount, Utils.sumUtxoValue(lutxo));
+      const targets = isMaxAmount
+        ? [{ address: swapInfo?.deposit.address }]
+        : [{ address: swapInfo?.deposit.address, value: currency.btcToSatoshi(amount) }];
       const { tx, outputs, psbt, fee } = wallet.createTransaction(
         lutxo,
         targets,
@@ -109,19 +113,27 @@ const Swap = () => {
         payjoinUrl: undefined,
         psbt,
       });
-    } else if (wallet.type === LightningLdsWallet.type) {
-      navigation.navigate('LnurlPay', {
-        lnurl: swapInfo?.deposit.address,
-        walletID: wallet.getID(),
-        amountSat: currency.btcToSatoshi(amount),
-      });
+    } else if (wallet.type === LightningLdsWallet.type || wallet.type === SparkWallet.type) {
+      const maxSats = await sparkMaxDepositSats(wallet, DfxService.SWAP, amount);
+      navigation.navigate(
+        'LnurlPay',
+        lightningDepositPayParams(
+          wallet,
+          swapInfo?.deposit.address,
+          maxSats ?? currency.btcToSatoshi(amount),
+          routeId,
+          maxSats !== undefined,
+        ),
+      );
     } else {
       Alert.alert('Unsupported wallet type');
     }
   }
 
   function handleError(e: any) {
-    Alert.alert('Something went wrong', e.message?.toString(), [
+    // same actionable copy Send uses for this structural condition, instead of the raw technical message
+    const message = e?.code === 'ELECTRUM_BATCHING_UNSUPPORTED' ? loc.send.details_utxo_refresh_unsupported_server : e.message?.toString();
+    Alert.alert('Something went wrong', message, [
       {
         text: loc._.ok,
         onPress: () => {},
@@ -195,7 +207,16 @@ const Swap = () => {
           </View>
           <View style={styles.buttonContainer}>
             <View style={styles.button}>
-              <BlueButton onPress={() => handleConfirm().catch(handleError)} title={loc.swap.confirm} />
+              <BlueButton
+                onPress={() => {
+                  setIsConfirming(true);
+                  handleConfirm()
+                    .catch(handleError)
+                    .finally(() => setIsConfirming(false));
+                }}
+                title={loc.swap.confirm}
+                isLoading={isConfirming}
+              />
             </View>
           </View>
         </View>

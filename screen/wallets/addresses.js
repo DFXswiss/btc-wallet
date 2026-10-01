@@ -50,6 +50,31 @@ export const filterByAddressType = (type, isInternal, currentType) => {
   return isInternal === false;
 };
 
+// Derives the full internal+external address list for a wallet, tolerating a
+// single failing derivation (e.g. an unregistered multisig cosigner throwing)
+// so one bad entry degrades gracefully instead of killing the whole list.
+export const buildWalletAddresses = walletInstance => {
+  const addresses = [];
+
+  for (let index = 0; index <= walletInstance.next_free_change_address_index; index++) {
+    try {
+      addresses.push(getAddress(walletInstance, index, true));
+    } catch (error) {
+      console.error('error', error);
+    }
+  }
+
+  for (let index = 0; index < walletInstance.next_free_address_index + walletInstance.gap_limit; index++) {
+    try {
+      addresses.push(getAddress(walletInstance, index, false));
+    } catch (error) {
+      console.error('error', error);
+    }
+  }
+
+  return addresses;
+};
+
 const WalletAddresses = () => {
   const [showAddresses, setShowAddresses] = useState(false);
 
@@ -105,21 +130,7 @@ const WalletAddresses = () => {
   }, [setOptions]);
 
   const getAddresses = () => {
-    const newAddresses = [];
-
-    for (let index = 0; index <= walletInstance.next_free_change_address_index; index++) {
-      const address = getAddress(walletInstance, index, true);
-
-      newAddresses.push(address);
-    }
-
-    for (let index = 0; index < walletInstance.next_free_address_index + walletInstance.gap_limit; index++) {
-      const address = getAddress(walletInstance, index, false);
-
-      newAddresses.push(address);
-    }
-
-    setAddresses(newAddresses);
+    setAddresses(buildWalletAddresses(walletInstance));
     setShowAddresses(true);
   };
 
@@ -129,6 +140,9 @@ const WalletAddresses = () => {
 
       getAddresses();
 
+      return () => {
+        Privacy.disableBlur();
+      };
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []),
   );

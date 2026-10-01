@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useCallback, useEffect, useState, useContext } from 'react';
 import { Platform, View, Keyboard, StyleSheet, Switch, TouchableWithoutFeedback, TouchableOpacity, Image } from 'react-native';
-import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 
 import {
   BlueButton,
@@ -59,8 +59,19 @@ const WalletsImport = () => {
     return valueWithSingleWhitespace;
   };
 
+  // on focus, not on mount: the setting can change while this screen sits in the stack, and
+  // enableBlur() reads it at call time - a mount-only call would keep the stale decision
+  useFocusEffect(
+    useCallback(() => {
+      Privacy.enableBlur();
+
+      return () => {
+        Privacy.disableBlur();
+      };
+    }, []),
+  );
+
   useEffect(() => {
-    Privacy.enableBlur();
     const willShow = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () =>
       setIsToolbarVisibleForAndroid(true),
     );
@@ -86,7 +97,6 @@ const WalletsImport = () => {
     return () => {
       willShow.remove();
       willHide.remove();
-      Privacy.disableBlur();
     };
   }, []);
 

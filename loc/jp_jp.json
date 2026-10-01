@@ -26,7 +26,7 @@
     "pick_image": "ライブラリから画像を選択",
     "pick_file": "ファイルを選択",
     "enter_amount": "額を入力",
-    "qr_custom_input_button": "10回タップしてカスタム入力"
+    "qr_custom_input_button": "6回タップしてカスタム入力"
   },
   "alert": {
     "default": "注意"

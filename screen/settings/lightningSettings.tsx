@@ -11,6 +11,7 @@ import loc from '../../loc';
 import { useTheme } from '../../components/themes';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
 import alert from '../../components/Alert';
+import { reportError } from '../../helpers/errors';
 
 const BlueApp = require('../../BlueApp');
 const AppStorage = BlueApp.AppStorage;
@@ -109,7 +110,7 @@ const LightningSettings: React.FC & { navigationOptions: NavigationOptionsGetter
       alert(loc.settings.lightning_saved);
     } catch (error) {
       alert(loc.settings.lightning_error_lndhub_uri);
-      console.log(error);
+      reportError('lightningSettings: failed to save LNDHub URI', error);
     }
     setIsLoading(false);
   }, [URI]);

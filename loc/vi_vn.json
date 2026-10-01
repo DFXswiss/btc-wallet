@@ -26,7 +26,7 @@
     "pick_image": "Chọn hình ảnh từ thư viện",
     "pick_file": "Chọn một tập tin",
     "enter_amount": "Nhập số tiền",
-    "qr_custom_input_button": "Chạm 10 lần để nhập đầu vào tùy chỉnh"
+    "qr_custom_input_button": "Chạm 6 lần để nhập đầu vào tùy chỉnh"
   },
   "alert": {
     "default": "Báo động"

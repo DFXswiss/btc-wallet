@@ -11,6 +11,7 @@ const BlueApp = require('../BlueApp');
 const BlueElectrum = require('./BlueElectrum');
 const currency = require('../blue_modules/currency');
 const A = require('../blue_modules/analytics');
+const { rollbackWalletIfSaveFailed } = require('./storage-context-helpers');
 
 const _lastTimeTriedToRefetchWallet = {}; // hashmap of timestamps we _started_ refetching some wallet
 
@@ -31,6 +32,9 @@ export const BlueStorageProvider = ({ children }) => {
   const [isDfxPos, setIsDfxPos] = useState(false);
   const [isDfxSwap, setIsDfxSwap] = useState(false);
   const [isElectrumDisabled, setIsElectrumDisabled] = useState(true);
+  // Fail-safe until the boot effect below loads the real persisted value: Privacy.tsx mirrors
+  // this into a module-level ref read by every sensitive screen, so starting `false` would
+  // leave those screens briefly unprotected on cold start even for a user who opted in.
   const [isPrivacyBlurEnabled, setIsPrivacyBlurEnabled] = useState(true);
   const [lastSuccessfulBalanceRefresh, setLastSuccessfulBalanceRefresh] = useState(Date.now());
   const balanceRefreshInterval = useRef(null);
@@ -61,6 +65,18 @@ export const BlueStorageProvider = ({ children }) => {
     return BlueApp.setIsDfxPOSEnabled(value);
   };
 
+  const setIsPrivacyBlurEnabledAsyncStorage = async value => {
+    setIsPrivacyBlurEnabled(value);
+    try {
+      await BlueApp.setIsPrivacyBlurEnabled(value);
+    } catch (e) {
+      // revert instead of leaving the UI claiming a state that won't survive a restart -
+      // the switch visibly snapping back is the failure signal
+      setIsPrivacyBlurEnabled(!value);
+      throw e;
+    }
+  };
+
   const setIsDfxSwapAsyncStorage = value => {
     setIsDfxSwap(value);
     return BlueApp.setIsDfxSwapEnabled(value);
@@ -69,13 +85,13 @@ export const BlueStorageProvider = ({ children }) => {
   const saveToDisk = useCallback(
     async (force = false) => {
       if (BlueApp.getWallets().length === 0 && !force) {
-        console.log('not saving empty wallets array');
-        return;
+        return true;
       }
       BlueApp.tx_metadata = txMetadata;
-      await BlueApp.saveToDisk();
+      const saved = await BlueApp.saveToDisk();
       setWallets([...BlueApp.getWallets()]);
       txMetadata = BlueApp.tx_metadata;
+      return saved;
     },
     [txMetadata],
   );
@@ -106,6 +122,8 @@ export const BlueStorageProvider = ({ children }) => {
         setCameraPermissionLastAskedTime(cameraPermissionLastAskedTime);
         const isHideBalance = await BlueApp.isHideBalanceEnabled();
         setHideBalance(!!isHideBalance);
+        const enabledPrivacyBlur = await BlueApp.isPrivacyBlurEnabled();
+        setIsPrivacyBlurEnabled(!!enabledPrivacyBlur);
       } catch (_e) {
         setIsHandOffUseEnabledAsyncStorage(false);
         setIsHandOffUseEnabled(false);
@@ -117,6 +135,10 @@ export const BlueStorageProvider = ({ children }) => {
         setIsDfxPos(false);
         setIsDfxSwapAsyncStorage(false);
         setIsDfxSwap(false);
+        // Fail-safe in-memory only, not persisted: unlike the flags above, "off" isn't the
+        // safe direction for screen-capture protection, and an unrelated read failure
+        // shouldn't overwrite a user's real (unread) persisted preference.
+        setIsPrivacyBlurEnabled(true);
       }
     })();
   }, []);
@@ -156,7 +178,6 @@ export const BlueStorageProvider = ({ children }) => {
 
   const refreshAllWalletTransactions = async () => {
     if (!BlueApp.wallets.length) return;
-    console.log('refreshAllWalletTransactions');
 
     let noErr = true;
     try {
@@ -180,7 +201,7 @@ export const BlueStorageProvider = ({ children }) => {
       setLastSuccessfulBalanceRefresh(Date.now());
     } catch (err) {
       noErr = false;
-      console.warn(err);
+      console.warn('refreshAllWalletTransactions: failed, retrying on next interval', err);
     } finally {
       setWalletTransactionUpdateStatus(WalletTransactionsStatus.NONE);
     }
@@ -194,7 +215,6 @@ export const BlueStorageProvider = ({ children }) => {
       // 5sec debounce:
       setWalletTransactionUpdateStatus(walletID);
       if (+new Date() - _lastTimeTriedToRefetchWallet[walletID] < 5000) {
-        console.log('re-fetch wallet happens too fast; NOP');
         return;
       }
       _lastTimeTriedToRefetchWallet[walletID] = +new Date();
@@ -204,7 +224,7 @@ export const BlueStorageProvider = ({ children }) => {
       await fetchWalletTransactions(index);
     } catch (err) {
       noErr = false;
-      console.warn(err);
+      console.warn(`fetchAndSaveWalletTransactions: wallet index ${index} failed, retrying on next refresh`, err);
     } finally {
       setWalletTransactionUpdateStatus(WalletTransactionsStatus.NONE);
     }
@@ -221,9 +241,9 @@ export const BlueStorageProvider = ({ children }) => {
   const setBalanceRefreshInterval = () => {
     if (!wallets) return;
     clearBalanceRefreshInterval();
-    refreshAllWalletTransactions().catch(console.error);
+    refreshAllWalletTransactions().catch(err => console.error('setBalanceRefreshInterval: initial refresh rejected', err));
     balanceRefreshInterval.current = setInterval(() => {
-      refreshAllWalletTransactions().catch(console.error);
+      refreshAllWalletTransactions().catch(err => console.error('setBalanceRefreshInterval: scheduled refresh rejected', err));
     }, 20 * 1000);
   };
 
@@ -239,13 +259,16 @@ export const BlueStorageProvider = ({ children }) => {
         return;
       }
 
+      // isConnected is `boolean | null`; only a definite false means offline. Coercing
+      // unknown to offline would gate connectMain() off for every caller.
       const netInfo = await fetchNetInfo();
-      BlueElectrum.setNetworkConnected(netInfo.isConnected);
-      if (!netInfo.isConnected) return;
+      const isOffline = netInfo.isConnected === false;
+      BlueElectrum.setNetworkConnected(!isOffline);
+      if (isOffline) return;
 
       setBalanceRefreshInterval();
     } catch (err) {
-      console.error('Error revalidating balances', err);
+      console.error('revalidateBalancesInterval: failed', err);
     }
   };
 
@@ -270,7 +293,18 @@ export const BlueStorageProvider = ({ children }) => {
     w.setUserHasSavedExport(true);
     w.setUserHasBackedUpSeed(true);
     addWallet(w);
-    await saveToDisk();
+    let saved;
+    try {
+      saved = await saveToDisk();
+    } catch (e) {
+      deleteWallet(w);
+      throw e;
+    }
+    await rollbackWalletIfSaveFailed(
+      saved,
+      () => deleteWallet(w),
+      () => saveToDisk(true),
+    );
     A(A.ENUM.CREATED_WALLET);
     majorTomToGroundControl(w.getAllExternalAddresses(), [], []);
     // Background (don't await) so import/add flows navigate immediately instead of freezing on a
@@ -278,7 +312,7 @@ export const BlueStorageProvider = ({ children }) => {
     w.fetchBalance()
       .then(() => setWallets([...BlueApp.getWallets()]))
       .catch(e => console.warn('addAndSaveWallet: fetchBalance failed', e));
-    w.fetchTransactions();
+    w.fetchTransactions().catch(() => console.warn('addAndSaveWallet: fetchTransactions failed'));
     setWallets([...BlueApp.getWallets()]);
   };
 
@@ -368,7 +402,7 @@ export const BlueStorageProvider = ({ children }) => {
         isElectrumDisabled,
         setIsElectrumDisabled,
         isPrivacyBlurEnabled,
-        setIsPrivacyBlurEnabled,
+        setIsPrivacyBlurEnabledAsyncStorage,
         lastSuccessfulBalanceRefresh,
         setBalanceRefreshInterval,
         clearBalanceRefreshInterval,

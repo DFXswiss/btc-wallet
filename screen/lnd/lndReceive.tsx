@@ -32,11 +32,15 @@ import { BitcoinUnit, Chain } from '../../models/bitcoinUnits';
 import loc from '../../loc';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
 import { AbstractWallet } from '../../class';
+import { SparkWallet } from '../../class/wallets/spark-wallet';
 import { majorTomToGroundControl, tryToObtainPermissions } from '../../blue_modules/notifications';
 import useInputAmount from '../../hooks/useInputAmount';
 import { SuccessView } from '../send/success';
 import { useNFC } from '../../hooks/nfc.hook';
 import BoltCard from '../../class/boltcard';
+import { reportError } from '../../helpers/errors';
+import { useSparkContext } from '../../api/spark/contexts/spark.context';
+
 interface RouteParams {
   walletID: string;
 }
@@ -51,11 +55,28 @@ const LNDReceive = () => {
   const [description, setDescription] = useState('');
   const { inputProps, amountSats, formattedUnit, changeToNextUnit } = useInputAmount();
   const [invoiceRequest, setInvoiceRequest] = useState();
+  const [invoiceAmountSats, setInvoiceAmountSats] = useState<number | undefined>();
   const invoicePolling = useRef<NodeJS.Timeout | undefined>(undefined);
+  const invoicePollTimeout = useRef<NodeJS.Timeout | undefined>(undefined);
+  const pollGeneration = useRef(0);
+  const blurGeneration = useRef(0);
+  const invoiceCreationInFlight = useRef(false);
+  /** Bumped by every invoice request and every wallet switch; only the newest request may touch the screen. */
+  const invoiceCreationGeneration = useRef(0);
+  const invoiceCreationQueued = useRef(false);
+  const generateInvoiceRef = useRef<(() => Promise<void>) | undefined>(undefined);
+  const [invoiceGenerationRequest, setInvoiceGenerationRequest] = useState(0);
   const [isPaid, setIsPaid] = useState(false);
+  const [sparkAddress, setSparkAddress] = useState<string | undefined>();
+  const [isSparkAddressLoading, setIsSparkAddressLoading] = useState(false);
   const inputAmountRef = useRef<TextInput | null>(null);
   const inputDescriptionRef = useRef<TextInput | null>(null);
   const { isNfcActive, startReading, stopReading } = useNFC();
+  const { isConnected: isSparkConnected } = useSparkContext();
+  const isSpark = wallet?.type === SparkWallet.type;
+  const [sparkAddressRetry, setSparkAddressRetry] = useState(0);
+  const latestInvoiceValues = useRef({ amountSats, description });
+  latestInvoiceValues.current = { amountSats, description };
 
   const styleHooks = StyleSheet.create({
     customAmount: {
@@ -66,6 +87,9 @@ const LNDReceive = () => {
     customAmountText: {
       color: colors.foregroundColor,
     },
+    missingAddress: {
+      color: colors.foregroundColor,
+    },
     root: {
       backgroundColor: colors.elevated,
     },
@@ -73,10 +97,19 @@ const LNDReceive = () => {
 
   useEffect(() => {
     return () => {
+      blurGeneration.current += 1;
       cancelInvoicePolling();
       stopReading();
+      // An invoice belongs to the wallet that created it; another wallet must not show it or wait for it.
+      setInvoiceRequest(undefined);
+      setInvoiceAmountSats(undefined);
+      invoiceCreationGeneration.current += 1;
+      invoiceCreationInFlight.current = false;
+      invoiceCreationQueued.current = false;
+      setIsInvoiceLoading(false);
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [walletID]);
 
   useEffect(() => {
     if (wallet && wallet.getID() !== walletID) {
@@ -88,43 +121,113 @@ const LNDReceive = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletID]);
 
-  const cancelInvoicePolling = async () => {
+  useEffect(() => {
+    if (!isSpark || !wallet) return;
+    if (wallet.lnAddress) {
+      setIsSparkAddressLoading(false);
+      return;
+    }
+    if (typeof wallet.sparkAddress === 'string' && wallet.sparkAddress) {
+      setSparkAddress(wallet.sparkAddress);
+      setIsSparkAddressLoading(false);
+      return;
+    }
+    if (!isSparkConnected) {
+      setSparkAddress(undefined);
+      setIsSparkAddressLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setIsSparkAddressLoading(true);
+    setSparkAddress(undefined);
+    (async () => {
+      try {
+        const address = await wallet.getSparkAddress();
+        if (cancelled) return;
+        setSparkAddress(address || undefined);
+        if (address) await saveToDisk();
+      } catch (error) {
+        if (!cancelled) setSparkAddress(undefined);
+        reportError('lndReceive: Spark address failed', error);
+      } finally {
+        if (!cancelled) setIsSparkAddressLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSpark, wallet, walletID, isSparkConnected, sparkAddressRetry]);
+
+  const cancelInvoicePolling = () => {
+    pollGeneration.current += 1;
+    if (invoicePollTimeout.current) {
+      clearTimeout(invoicePollTimeout.current);
+      invoicePollTimeout.current = undefined;
+    }
     if (invoicePolling.current) {
       clearInterval(invoicePolling.current);
       invoicePolling.current = undefined;
     }
   };
 
-  const initInvoicePolling = (invoice: any) => {
+  const initInvoicePolling = (invoice: string, paymentHash?: string) => {
     cancelInvoicePolling(); // clear any previous polling
+    const generation = pollGeneration.current;
+    let isChecking = false;
+    let hasReportedPollError = false;
     invoicePolling.current = setInterval(async () => {
-      const userInvoices = await wallet.getUserInvoices(20);
-      const updatedUserInvoice = userInvoices.find(
-        (i: { payment_request: string; ispaid: boolean; description?: string; timestamp: number; expire_time: number }) =>
-          i.payment_request === invoice,
-      );
-      if (!updatedUserInvoice) {
-        return;
-      }
-
-      if (updatedUserInvoice.ispaid) {
-        cancelInvoicePolling();
-        setInvoiceRequest(undefined);
-        if (updatedUserInvoice.description) {
-          setDescription(updatedUserInvoice.description);
+      if (isChecking) return;
+      isChecking = true;
+      try {
+        const userInvoices = await wallet.getUserInvoices(20);
+        if (generation !== pollGeneration.current) {
+          return;
         }
-        setIsPaid(true);
-        fetchAndSaveWalletTransactions(walletID);
-        return;
-      }
+        const updatedUserInvoice = userInvoices.find(
+          (i: {
+            payment_request: string;
+            payment_hash?: string;
+            ispaid: boolean;
+            description?: string;
+            timestamp: number;
+            expire_time: number;
+          }) => i.payment_request === invoice || (Boolean(paymentHash) && i.payment_hash === paymentHash),
+        );
+        if (!updatedUserInvoice) {
+          return;
+        }
 
-      const currentDate = new Date();
-      const now = (currentDate.getTime() / 1000) | 0; // eslint-disable-line no-bitwise
-      const invoiceExpiration = updatedUserInvoice.timestamp + updatedUserInvoice.expire_time;
-      if (now > invoiceExpiration) {
-        cancelInvoicePolling();
-        setInvoiceRequest(undefined);
-        generateInvoice(); // invoice expired, generate new one
+        if (updatedUserInvoice.ispaid) {
+          cancelInvoicePolling();
+          setInvoiceRequest(undefined);
+          if (updatedUserInvoice.description) {
+            setDescription(updatedUserInvoice.description);
+          }
+          setIsPaid(true);
+          fetchAndSaveWalletTransactions(walletID);
+          return;
+        }
+
+        const currentDate = new Date();
+        const now = (currentDate.getTime() / 1000) | 0; // eslint-disable-line no-bitwise
+        const invoiceExpiration = updatedUserInvoice.timestamp + updatedUserInvoice.expire_time;
+        if (now > invoiceExpiration) {
+          cancelInvoicePolling();
+          setInvoiceRequest(undefined);
+          generateInvoice();
+        }
+      } catch (error) {
+        if (generation !== pollGeneration.current) {
+          return;
+        }
+        if (hasReportedPollError) {
+          return;
+        }
+        hasReportedPollError = true;
+        reportError('lndReceive: invoice poll failed', error);
+      } finally {
+        isChecking = false;
       }
     }, 3000);
   };
@@ -149,32 +252,88 @@ const LNDReceive = () => {
   };
 
   const generateInvoice = async () => {
+    if (invoiceCreationInFlight.current) {
+      invoiceCreationQueued.current = true;
+      return;
+    }
     if (isInvoiceLoading) return;
+    invoiceCreationInFlight.current = true;
+    const startedValues = { amountSats, description };
+    // A wallet switch or a newer request takes over the screen; this request's result and latches then belong to no one.
+    const attempt = ++invoiceCreationGeneration.current;
+    const superseded = () => attempt !== invoiceCreationGeneration.current;
+    // The shown invoice has the old amount or note; if this request fails, no unwatched invoice may stay on screen.
+    cancelInvoicePolling();
+    setInvoiceRequest(undefined);
+    setInvoiceAmountSats(undefined);
     if (isNfcActive) stopReading();
     setIsInvoiceLoading(true);
     Keyboard.dismiss();
 
-    if (amountSats === 0 || isNaN(amountSats)) {
-      setInvoiceRequest(undefined);
-      setIsInvoiceLoading(false);
-      return;
+    try {
+      if (amountSats === 0 || isNaN(amountSats)) return;
+      const invoiceAmount = amountSats;
+      const invoiceDescription = description;
+      const createdInvoiceRequest = await wallet.addInvoice(invoiceAmount, invoiceDescription);
+      if (superseded()) return;
+      ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
+      const decoded = await wallet.decodeInvoice(createdInvoiceRequest);
+      await tryToObtainPermissions();
+      if (superseded()) return;
+      majorTomToGroundControl([], [decoded.payment_hash], []);
+
+      cancelInvoicePolling();
+      const generation = pollGeneration.current;
+      invoicePollTimeout.current = setTimeout(async () => {
+        invoicePollTimeout.current = undefined;
+        try {
+          await wallet.getUserInvoices(1);
+        } catch (error) {
+          reportError('lndReceive: prefetch invoices failed', error);
+        }
+        if (generation !== pollGeneration.current || superseded()) {
+          return;
+        }
+        initInvoicePolling(createdInvoiceRequest, decoded.payment_hash);
+        try {
+          await saveToDisk();
+        } catch (error) {
+          reportError('lndReceive: failed to persist invoice', error);
+        }
+      }, 1000);
+
+      setInvoiceRequest(createdInvoiceRequest);
+      setInvoiceAmountSats(invoiceAmount);
+      if (Platform.OS === 'android' && !isSpark) {
+        startReading(handleNfcRead(createdInvoiceRequest));
+      }
+    } catch (error) {
+      if (superseded()) return;
+      ReactNativeHapticFeedback.trigger('notificationError', { ignoreAndroidSystemSettings: false });
+      alert(error instanceof Error ? error.message : String(error));
+    } finally {
+      if (!superseded()) {
+        invoiceCreationInFlight.current = false;
+        setIsInvoiceLoading(false);
+        if (
+          invoiceCreationQueued.current &&
+          (!Object.is(latestInvoiceValues.current.amountSats, startedValues.amountSats) ||
+            latestInvoiceValues.current.description !== startedValues.description)
+        ) {
+          setInvoiceGenerationRequest(request => request + 1);
+        }
+        invoiceCreationQueued.current = false;
+      }
     }
-    const invoiceRequest = await wallet.addInvoice(amountSats, description);
-    ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
-    const decoded = await wallet.decodeInvoice(invoiceRequest);
-    await tryToObtainPermissions();
-    majorTomToGroundControl([], [decoded.payment_hash], []);
-
-    setTimeout(async () => {
-      await wallet.getUserInvoices(1);
-      initInvoicePolling(invoiceRequest);
-      await saveToDisk();
-    }, 1000);
-
-    setInvoiceRequest(invoiceRequest);
-    if (Platform.OS === 'android') startReading(handleNfcRead(invoiceRequest));
-    setIsInvoiceLoading(false);
   };
+
+  generateInvoiceRef.current = generateInvoice;
+
+  useEffect(() => {
+    if (invoiceGenerationRequest > 0) {
+      generateInvoiceRef.current?.();
+    }
+  }, [invoiceGenerationRequest]);
 
   const onWalletChange = (id: string) => {
     if (id === wallet?.getID()) return;
@@ -190,20 +349,30 @@ const LNDReceive = () => {
   };
 
   const handleOnBlur = () => {
-    const isFocusOnSomeInput = inputAmountRef.current?.isFocused() || inputDescriptionRef.current?.isFocused();
-    if (!isFocusOnSomeInput) {
-      generateInvoice();
-    }
+    const generation = ++blurGeneration.current;
+    Promise.resolve().then(() => {
+      if (generation !== blurGeneration.current) return;
+      const isFocusOnSomeInput = inputAmountRef.current?.isFocused() || inputDescriptionRef.current?.isFocused();
+      if (!isFocusOnSomeInput) {
+        setInvoiceGenerationRequest(request => request + 1);
+      }
+    });
   };
 
+  // Without an amount, Spark receives on its Lightning address; the Spark address covers the time before one is registered.
+  const sparkReceiveAddress = wallet?.lnAddress || sparkAddress;
+  const copyText = invoiceRequest || (isSpark ? sparkReceiveAddress : wallet?.lnAddress);
+  const qrValue = invoiceRequest || (isSpark ? sparkReceiveAddress : wallet?.getLnurl?.() || wallet?.lnAddress);
+  const isQrLoading = isInvoiceLoading || (isSpark && !invoiceRequest && isSparkAddressLoading && !sparkReceiveAddress);
+
   const handleShareButtonPressed = () => {
-    Share.open({ message: invoiceRequest || wallet.lnAddress }).catch(error => console.log(error));
+    Share.open({ message: copyText || '' }).catch(() => {});
   };
 
   if (isPaid) {
     return (
       <View style={styles.root}>
-        <SuccessView amount={amountSats} amountUnit={BitcoinUnit.SATS} invoiceDescription={description} shouldAnimate={true} />
+        <SuccessView amount={invoiceAmountSats} amountUnit={BitcoinUnit.SATS} invoiceDescription={description} shouldAnimate={true} />
         <View style={styles.doneButton}>
           <BlueButton onPress={() => getParent<NativeStackNavigationProp<ParamListBase>>()?.popToTop()} title={loc.send.success_done} />
           <BlueSpacing40 />
@@ -222,27 +391,31 @@ const LNDReceive = () => {
             </View>
             <View style={styles.contentContainer}>
               <View style={[styles.scrollBody, styles.flex]}>
-                {isInvoiceLoading ? (
+                {isQrLoading ? (
                   <ActivityIndicator />
-                ) : (
+                ) : qrValue ? (
                   <>
-                    <QRCodeComponent value={invoiceRequest || wallet.getLnurl?.() || wallet.lnAddress} />
+                    <QRCodeComponent value={qrValue} />
                     <View style={styles.shareContainer}>
-                      <BlueCopyTextToClipboard
-                        text={invoiceRequest || wallet.lnAddress}
-                        truncated={Boolean(invoiceRequest)}
-                        textStyle={styles.copyText}
-                      />
+                      <BlueCopyTextToClipboard text={copyText || ''} truncated={Boolean(invoiceRequest)} textStyle={styles.copyText} />
                       <TouchableOpacity accessibilityRole="button" onPress={handleShareButtonPressed}>
                         <Image resizeMode="stretch" source={require('../../img/share-icon.png')} style={styles.shareIcon} />
                       </TouchableOpacity>
                     </View>
                   </>
+                ) : (
+                  <View>
+                    <Text style={[styles.missingAddress, styleHooks.missingAddress]}>
+                      {loc.wallets.lightning_spark_address_unavailable}
+                    </Text>
+                    {isSpark && <BlueButton title={loc.wallets.list_tryagain} onPress={() => setSparkAddressRetry(retry => retry + 1)} />}
+                  </View>
                 )}
               </View>
               <View style={styles.share}>
                 <View style={[styles.customAmount, styleHooks.customAmount]}>
                   <TextInput
+                    testID="ReceiveAmountInput"
                     ref={inputAmountRef}
                     placeholderTextColor="#81868e"
                     placeholder="Amount (optional)"
@@ -263,6 +436,7 @@ const LNDReceive = () => {
                 </View>
                 <View style={[styles.customAmount, styleHooks.customAmount]}>
                   <TextInput
+                    testID="ReceiveDescriptionInput"
                     ref={inputDescriptionRef}
                     onChangeText={setDescription}
                     placeholder={`${loc.receive.details_label} (optional)`}
@@ -273,7 +447,7 @@ const LNDReceive = () => {
                     onBlur={handleOnBlur}
                   />
                 </View>
-                {invoiceRequest ? (
+                {invoiceRequest && !isSpark ? (
                   <View>
                     {Platform.select({
                       ios: (
@@ -383,6 +557,12 @@ const styles = StyleSheet.create({
   },
   copyText: {
     marginVertical: 16,
+  },
+  missingAddress: {
+    textAlign: 'center',
+    paddingHorizontal: 24,
+    marginVertical: 16,
+    fontSize: 16,
   },
   iosNfcButtonContainer: {
     marginVertical: 10,

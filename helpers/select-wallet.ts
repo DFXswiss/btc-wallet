@@ -39,7 +39,6 @@ module.exports = function (
       if (!selectedWallet) return;
 
       setTimeout(() => resolve(selectedWallet), 1);
-      console.warn('trying to navigate back to', currentScreenName);
       navigateFunc(currentScreenName);
     };
 

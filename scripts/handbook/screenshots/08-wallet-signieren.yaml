@@ -1,0 +1,16 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: _setup.yaml
+- tapOn:
+    point: '90%,10%'
+- extendedWaitUntil:
+    visible: 'On-Chain-Wallet'
+    timeout: 20000
+- tapOn: 'On-Chain-Wallet'
+- extendedWaitUntil:
+    visible: 'Adressen anzeigen'
+    timeout: 15000
+- tapOn: 'Meldung signieren/verifizieren'
+- waitForAnimationToEnd:
+    timeout: 12000
+- takeScreenshot: shots/02-wallet/03-signieren-verifizieren
