@@ -8,7 +8,7 @@ DFX session login and the Buy, Sell, Swap, and Point of Sale actions on the home
 **Entry:** Automatic on the home screen
 **Tier:** Critical (DFX)
 
-**Inputs.** Per-wallet identity signed for `POST` to config `REACT_APP_API_URL` path `/auth/`: body `{address, signature, wallet:"DFX Bitcoin"}`. Message text is `By_signing_this_message,_you_confirm_that_you_are_the_sole_owner_of_the_provided_Blockchain_address._Your_ID:_<address>`, prefixed `[<DFX_ENV>]_` when config `DFX_ENV` is set and not `prd`. Main wallet: first external address + cached ownership proof. LDS / Taproot-LDS: Lightning address as uppercase LNURL + stored `addressOwnershipProof`. Spark: Spark address + compact-message signature (error `wallets.lightning_spark_address_unavailable` if no address). Other wallet types throw.
+**Inputs.** Per-wallet identity signed for `POST` to config `REACT_APP_API_URL` path `/auth/`: body `{address, signature, wallet:"DFX Bitcoin", region:"3"}`. `region` is the DFX API's IP region filter; a sign-in from a country that is not configured for the region is answered with HTTP 403. Message text is `By_signing_this_message,_you_confirm_that_you_are_the_sole_owner_of_the_provided_Blockchain_address._Your_ID:_<address>`, prefixed `[<DFX_ENV>]_` when config `DFX_ENV` is set and not `prd`. Main wallet: first external address + cached ownership proof. LDS / Taproot-LDS: Lightning address as uppercase LNURL + stored `addressOwnershipProof`. Spark: Spark address + compact-message signature (error `wallets.lightning_spark_address_unavailable` if no address). Other wallet types throw.
 
 **Options.** None. Tokens are cached per wallet ID in the `dfxSession` store and refreshed when the JWT is expired. Authenticated calls clear the token on HTTP 401.
 
