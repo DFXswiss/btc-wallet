@@ -8,6 +8,10 @@ export interface AuthInterface {
   auth: (address: string, signature: string) => Promise<Auth>;
 }
 
+// IP region filter on the DFX API. A region without configured countries refuses
+// every sign-in with 403. Countries are assigned on the API side.
+const SIGN_IN_REGION = '3';
+
 export function useAuth(): AuthInterface {
   const { call } = useApi();
   const message = 'By_signing_this_message,_you_confirm_that_you_are_the_sole_owner_of_the_provided_Blockchain_address._Your_ID:_';
@@ -19,7 +23,7 @@ export function useAuth(): AuthInterface {
   }
 
   async function auth(address: string, signature: string): Promise<Auth> {
-    return await call({ url: AuthUrl.auth, method: 'POST', data: { address, signature, wallet: 'DFX Bitcoin' } });
+    return await call({ url: AuthUrl.auth, method: 'POST', data: { address, signature, wallet: 'DFX Bitcoin', region: SIGN_IN_REGION } });
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
