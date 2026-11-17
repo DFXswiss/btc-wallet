@@ -26,7 +26,7 @@
     "pick_image": "Vybrat Obrázek z galerie",
     "pick_file": "Vybrat soubor",
     "enter_amount": "Vložte částku",
-    "qr_custom_input_button": "Klikněte 10x k zadání vlastního vstupu"
+    "qr_custom_input_button": "Klikněte 6x k zadání vlastního vstupu"
   },
   "alert": {
     "default": "Upozornění"

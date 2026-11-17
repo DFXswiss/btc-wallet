@@ -158,6 +158,7 @@ const TransactionsNavigationHeader: React.FC<TransactionsNavigationHeaderProps> 
         {wallet.getLabel()}
       </Text>
       <ToolTipMenu
+        testID="WalletBalanceButton"
         onPress={changeWalletBalanceUnit}
         ref={menuRef}
         title={loc.wallets.balance}

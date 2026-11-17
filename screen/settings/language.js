@@ -34,6 +34,7 @@ const Language = () => {
   const renderItem = item => {
     return (
       <BlueListItem
+        testID={`Language${item.item.value}`}
         onPress={() => {
           const currentLanguage = AvailableLanguages.find(l => l.value === selectedLanguage);
           saveLanguage(item.item.value).then(() => {
@@ -52,6 +53,7 @@ const Language = () => {
 
   return (
     <FlatList
+      testID="LanguageList"
       style={[styles.flex, stylesHook.flex]}
       keyExtractor={(_item, index) => `${index}`}
       data={AvailableLanguages}

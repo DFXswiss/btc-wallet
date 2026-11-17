@@ -1,0 +1,21 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: _setup.yaml
+- tapOn:
+    point: '85%,58%'
+# Wie 06b: Anlegen dauert. Der Empfang zeigt ohne Betrag die Lightning-Adresse als QR-Code.
+- extendedWaitUntil:
+    visible: 'Bitcoin, Lightning, 0 sats, .*'
+    timeout: 90000
+- takeScreenshot: shots/08-lightning/01-uebersicht-mit-lightning
+- tapOn:
+    point: '50%,58%'
+- waitForAnimationToEnd:
+    timeout: 15000
+- takeScreenshot: shots/08-lightning/02-lightning-wallet
+- tapOn:
+    point: '16%,93%'
+- extendedWaitUntil:
+    visible: '[0-9a-f]{16}@.*'
+    timeout: 60000
+- takeScreenshot: shots/08-lightning/03-rechnung-erstellen

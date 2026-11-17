@@ -26,7 +26,7 @@
     "pick_image": "Escolher imagem da biblioteca",
     "pick_file": "Escolher arquivo",
     "enter_amount": "Insira o valor",
-    "qr_custom_input_button": "Toque 10 vezes para inserir uma entrada personalizada"
+    "qr_custom_input_button": "Toque 6 vezes para inserir uma entrada personalizada"
   },
   "alert": {
     "default": "Alerta"

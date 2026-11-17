@@ -147,7 +147,7 @@ const EncryptStorage = () => {
           hideChevron
           title={loc.settings.encrypt_enc_and_pass}
           Component={TouchableWithoutFeedback}
-          switch={{ onValueChange: onEncryptStorageSwitch, value: storageIsEncryptedSwitchEnabled }}
+          switch={{ onValueChange: onEncryptStorageSwitch, value: storageIsEncryptedSwitchEnabled, testID: 'EncryptedStorageSwitch' }}
         />
         {storageIsEncryptedSwitchEnabled && (
           <BlueListItem

@@ -979,6 +979,7 @@ export const BlueTabs = ({ active, onSwitch, tabs }) => (
     {tabs.map((Tab, i) => (
       <TouchableOpacity
         key={i}
+        testID={`Tab${i}`}
         accessibilityRole="button"
         onPress={() => onSwitch(i)}
         style={[

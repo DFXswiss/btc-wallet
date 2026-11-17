@@ -51,7 +51,11 @@ const AddressTypeTabs = ({ currentTab, setCurrentTab }) => {
 
       return (
         <View key={tab.key} onPress={() => changeToTab(tab.key)} style={[styles.tab, tabStyle]}>
-          <Text onPress={() => changeToTab(tab.key)} style={textStyle}>
+          <Text
+            testID={tab.value === TABS.EXTERNAL ? 'AddressTabReceive' : 'AddressTabChange'}
+            onPress={() => changeToTab(tab.key)}
+            style={textStyle}
+          >
             {tab.name}
           </Text>
         </View>

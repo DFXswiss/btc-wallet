@@ -1,0 +1,215 @@
+# PR check: build handbook image (no push) and run container smoke tests.
+# Draft PRs are skipped; ready_for_review re-triggers the check.
+
+name: Handbook Build Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'docs/**'
+      - 'scripts/handbook/**'
+      - 'android/fastlane/metadata/**'
+      - 'ios/fastlane/metadata/**'
+      - 'img/dfx/**'
+      - 'img/icon*.png'
+      - '*.md'
+      - 'Dockerfile.handbook'
+      - 'handbook.nginx.conf'
+      - '.github/workflows/handbook-deploy.yaml'
+      - '.github/workflows/handbook-check.yaml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: handbook-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-smoke:
+    name: Build handbook image + container smoke
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        # Pin SHA for v4.4.0 (gh api repos/actions/checkout/commits/v4.4.0)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # Same major as Dockerfile.handbook's node:20-alpine. The payload
+      # comparison below is byte-exact, so the two builds must not differ in
+      # their Node (and therefore ICU/collation) version.
+      - name: Set up Node
+        # Pin SHA for v4.4.0 (gh api repos/actions/setup-node/commits/v4.4.0)
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+
+      - name: Set up Docker Buildx
+        # Pin SHA for v3.12.0 (gh api repos/docker/setup-buildx-action/commits/v3.12.0)
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Build handbook image (no push)
+        # Pin SHA for v6.19.2 (gh api repos/docker/build-push-action/commits/v6.19.2)
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: ./Dockerfile.handbook
+          push: false
+          load: true
+          tags: dfx-taro-handbook:pr-check
+          platforms: linux/arm64
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+
+      - name: Install handbook build dependencies
+        run: |
+          set -euo pipefail
+          # ONE npm install: `--prefix` without a package.json prunes whatever
+          # the previous call left behind, so a second install would silently
+          # remove marked again.
+          BIP39_VERSION="$(node -p 'require("./package.json").dependencies.bip39')"
+          npm install --prefix ./_handbook-deps --no-save --no-audit --no-fund \
+            marked@15.0.7 "bip39@${BIP39_VERSION}"
+          test -d ./_handbook-deps/node_modules/marked
+          test -d ./_handbook-deps/node_modules/bip39
+
+      # Gate: the image payload must be exactly the host build. Both builds get
+      # the same GIT_SHA, the only non-deterministic input to build.js;
+      # everything else is sorted and derived from the tree, so the two payloads
+      # must be byte-identical.
+      #
+      # The predecessor compared four per-category artifact counts. That let a
+      # whole class of drift through: renaming a screenshot, or a Dockerfile
+      # COPY that picks up a different file of the same category, keeps every
+      # count identical. Comparing the hashes of both trees leaves nothing to
+      # interpret — same paths, same bytes, or the check fails and prints the
+      # difference.
+      - name: Host vs image payload (byte-identical trees)
+        run: |
+          set -euo pipefail
+          node --version
+          GIT_SHA='${{ github.sha }}' NODE_PATH=./_handbook-deps/node_modules \
+            node scripts/handbook/build.js /tmp/handbook-host-out
+
+          mkdir -p /tmp/handbook-image-out
+          cid="$(docker create dfx-taro-handbook:pr-check)"
+          docker cp "$cid:/usr/share/nginx/html/." /tmp/handbook-image-out
+          docker rm "$cid" >/dev/null
+
+          hash_tree() {
+            (cd "$1" && find . -type f -print0 | sort -z \
+              | xargs -0 -r sha256sum) > "$2"
+          }
+          hash_tree /tmp/handbook-host-out /tmp/host.sha256
+          hash_tree /tmp/handbook-image-out /tmp/image.sha256
+
+          # Two empty listings compare equal. Vacuous pass is a gate failure,
+          # not a green check.
+          host_files="$(wc -l < /tmp/host.sha256)"
+          if [ "$host_files" -lt 1 ]; then
+            echo "host build produced no files — nothing to compare" >&2
+            exit 1
+          fi
+
+          if ! diff -u /tmp/host.sha256 /tmp/image.sha256; then
+            echo "::error::Image payload differs from the host build. Check the" \
+              "Dockerfile COPY globs/directories — a hard-coded name list omits" \
+              "new files silently."
+            exit 1
+          fi
+          echo "host/image payload identical: ${host_files} files"
+
+      # Gate: no published PNG may carry an unexpected QR, a readable recovery
+      # phrase or an extended public key. Images only — text artifacts are not
+      # in scope. Runs against the image payload, the bytes that ship, and fails
+      # if either tool is missing. Rules and thresholds live in
+      # scripts/handbook/content-gate.js and are unit-tested there.
+      - name: Screenshot content gate (QR + seed phrase)
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq zbar-tools tesseract-ocr
+          NODE_PATH=./_handbook-deps/node_modules \
+            node scripts/handbook/content-gate.js /tmp/handbook-image-out
+
+      - name: Container smoke (public handbook, healthz, manifest sample)
+        run: |
+          set -euo pipefail
+          docker rm -f handbook-smoke >/dev/null 2>&1 || true
+          # No credentials — handbook is public; image must start without them.
+          docker run -d --name handbook-smoke -p 8080:8080 \
+            dfx-taro-handbook:pr-check
+
+          for i in $(seq 1 20); do
+            if curl -fsS --max-time 3 http://127.0.0.1:8080/healthz 2>/dev/null | grep -q OK; then
+              break
+            fi
+            sleep 1
+          done
+
+          body=$(curl -fsS --max-time 5 http://127.0.0.1:8080/healthz)
+          echo "$body" | grep -q OK
+
+          # Public root: 200 without credentials. This is the line that fails
+          # if an auth wall is reintroduced (401) — do not drop it.
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -L --max-time 5 http://127.0.0.1:8080/)
+          if [ "$code" != "200" ]; then
+            echo "expected 200 from / unauthenticated, got $code" >&2
+            docker logs handbook-smoke >&2 || true
+            exit 1
+          fi
+
+          # Nothing but the build output may be served. The stock nginx image
+          # seeds 50x.html next to its index.html; it used to survive the COPY
+          # and was reachable in production.
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:8080/50x.html)
+          if [ "$code" != "404" ]; then
+            echo "nginx default page still served at /50x.html (got $code)" >&2
+            exit 1
+          fi
+
+          # Sample one artifact per category from the generated manifest
+          # (no hard-coded filenames — renames must not break this check).
+          docker cp handbook-smoke:/usr/share/nginx/html/manifest.json /tmp/handbook-manifest.json
+          node <<'NODE'
+          const fs = require('fs');
+          const m = JSON.parse(fs.readFileSync('/tmp/handbook-manifest.json', 'utf8'));
+          if (!m.artifacts || !m.artifacts.length) {
+            console.error('manifest has no artifacts');
+            process.exit(1);
+          }
+          const byCat = {};
+          for (const a of m.artifacts) {
+            if (!byCat[a.category]) byCat[a.category] = a;
+          }
+          const paths = Object.values(byCat)
+            .map((a) => a.outputPath)
+            .filter((p) => p && p !== 'index.html');
+          // Always include index.html as a public page sample
+          paths.unshift('index.html');
+          // Encode per segment: a filename may legitimately contain '#' or '?',
+          // which curl would otherwise read as fragment/query and cut the path short.
+          const encoded = paths.map((p) => p.split('/').map(encodeURIComponent).join('/'));
+          fs.writeFileSync('/tmp/handbook-sample-paths.txt', encoded.join('\n') + '\n');
+          NODE
+
+          while IFS= read -r path; do
+            [ -n "$path" ] || continue
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 \
+              "http://127.0.0.1:8080/${path}")
+            # Anything outside 2xx is a failure. Checking only for 404 let a 401,
+            # 403 or 500 pass as if the artifact were served correctly.
+            case "$code" in
+              2*) echo "ok ${code} ${path}" ;;
+              *)
+                echo "artifact sample ${code}: ${path}" >&2
+                docker logs handbook-smoke >&2 || true
+                exit 1
+                ;;
+            esac
+          done < /tmp/handbook-sample-paths.txt
+
+          docker stop handbook-smoke
+          docker rm handbook-smoke

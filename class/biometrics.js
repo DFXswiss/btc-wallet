@@ -35,8 +35,7 @@ function Biometric() {
       const { available } = await rnBiometrics.isSensorAvailable();
       return available;
     } catch (e) {
-      console.log('Biometrics isDeviceBiometricCapable failed');
-      console.log(e);
+      console.error('Biometrics: isDeviceBiometricCapable failed', e);
       Biometric.setBiometricUseEnabled(false);
       return false;
     }
@@ -48,8 +47,7 @@ function Biometric() {
       if (!available) return false;
       return mapBiometryType(biometryType);
     } catch (e) {
-      console.log('Biometrics biometricType failed');
-      console.log(e);
+      console.error('Biometrics: biometricType failed', e);
     }
     return false;
   };
@@ -80,8 +78,7 @@ function Biometric() {
       const { success } = await rnBiometrics.simplePrompt({ promptMessage: loc.settings.biom_conf_identity });
       return !!success;
     } catch (error) {
-      console.log('Biometrics authentication failed');
-      console.log(error);
+      console.error('Biometrics: authentication failed', error);
       return false;
     }
   };

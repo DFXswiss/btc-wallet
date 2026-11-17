@@ -1,12 +1,13 @@
 import React, { useContext, useState } from 'react';
 import { Alert, View, StatusBar, StyleSheet, TextInput, ActivityIndicator } from 'react-native';
-import { useNavigation, useTheme } from '@react-navigation/native';
+import { StackActions, useNavigation, useTheme } from '@react-navigation/native';
 
 import { HDSegwitBech32Wallet, WatchOnlyWallet } from '../../class';
 import loc from '../../loc';
 import { BlueButton, BlueFormLabel, BlueFormMultiInput, BlueSpacing20, SafeBlueArea } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
 import { BlueStorageContext } from '../../blue_modules/storage-context';
+import { walletCreatedRoute } from '../../helpers/wallet-created-route';
 
 const WalletsImportSpeed = () => {
   const navigation = useNavigation();
@@ -61,8 +62,8 @@ const WalletsImportSpeed = () => {
       wallet.setSecret(importText);
       if (passphrase) wallet.setPassphrase(passphrase);
       await wallet.fetchBalance();
-      navigation.getParent().pop();
-      addAndSaveWallet(wallet);
+      await addAndSaveWallet(wallet);
+      navigation.dispatch(StackActions.replace(...walletCreatedRoute()));
     } catch (e) {
       Alert.alert(e.message);
     } finally {

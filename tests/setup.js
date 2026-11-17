@@ -16,13 +16,7 @@ console.warn = (...args) => {
 
 const consoleLogOrig = console.log;
 console.log = (...args) => {
-  if (
-    typeof args[0] === 'string' &&
-    (args[0].startsWith('updating exchange rate') ||
-      args[0].startsWith('begin connection') ||
-      args[0].startsWith('TLS Connected to') ||
-      args[0].startsWith('connected to'))
-  ) {
+  if (typeof args[0] === 'string' && (args[0].startsWith('TLS Connected to') || args[0].startsWith('_initConnection: connected to'))) {
     return;
   }
   consoleLogOrig.apply(consoleLogOrig, args);
@@ -41,6 +35,13 @@ jest.mock('react-native-watch-connectivity', () => {
     getIsWatchAppInstalled: jest.fn(() => Promise.resolve(false)),
     subscribeToMessages: jest.fn(),
     updateApplicationContext: jest.fn(),
+    transferCurrentComplicationUserInfo: jest.fn(),
+    useReachability: jest.fn(() => false),
+    usePaired: jest.fn(() => false),
+    useInstalled: jest.fn(() => false),
+    watchEvents: {
+      addListener: jest.fn(() => jest.fn()),
+    },
   };
 });
 
@@ -56,7 +57,7 @@ jest.mock('react-native-permissions', () => require('react-native-permissions/mo
 
 jest.mock('react-native-device-info', () => {
   return {
-    getUniqueId: jest.fn().mockReturnValue('uniqueId'),
+    getUniqueIdSync: jest.fn().mockReturnValue('uniqueId'),
     getSystemName: jest.fn(),
     getDeviceType: jest.fn().mockReturnValue(false),
     hasGmsSync: jest.fn().mockReturnValue(true),
@@ -187,6 +188,9 @@ jest.mock('react-native-biometrics', () => {
     BiometryTypes: RN.BiometryTypes,
   };
 });
+
+// Native TurboModule — use the manual mock under __mocks__/@breeztech/
+jest.mock('@breeztech/breez-sdk-spark-react-native');
 
 jest.mock('react-native-haptic-feedback', () => {
   return {

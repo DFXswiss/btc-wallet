@@ -55,6 +55,7 @@ const Currency = () => {
   return (
     <SafeBlueArea>
       <FlatList
+        testID="CurrencyList"
         style={styles.flex}
         keyExtractor={(_item, index) => `${index}`}
         data={data}
@@ -63,6 +64,7 @@ const Currency = () => {
         renderItem={({ item }) => {
           return (
             <BlueListItem
+              testID={`Currency${item.endPointKey}`}
               disabled={isSavingNewPreferredCurrency}
               title={`${item.endPointKey} (${item.symbol})`}
               checkmark={selectedCurrency.endPointKey === item.endPointKey}
@@ -76,7 +78,7 @@ const Currency = () => {
                   setSelectedCurrency(item);
                   setPreferredFiatCurrency();
                 } catch (error) {
-                  console.log(error);
+                  console.error('currencySettings: failed to change preferred fiat currency', error);
                   alert(loc.settings.currency_fetch_error);
                 } finally {
                   setIsSavingNewPreferredCurrency(false);
@@ -91,7 +93,7 @@ const Currency = () => {
           {loc.settings.currency_source} {selectedCurrency?.source ?? FiatUnitSource.CoinDesk}
         </BlueText>
         <BlueSpacing10 />
-        <BlueText>
+        <BlueText testID="CurrencyRate">
           {loc.settings.rate}: {currencyRate.Rate ?? loc._.never}
         </BlueText>
         <BlueSpacing10 />

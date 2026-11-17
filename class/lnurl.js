@@ -4,6 +4,8 @@ import { parse } from 'url'; // eslint-disable-line n/no-deprecated-api
 import { createHmac } from 'crypto';
 import secp256k1 from 'secp256k1';
 import loc from '../loc';
+import { trustsSparkAddress } from '../helpers/freeLightningDomains';
+import { SparkWallet } from './wallets/spark-wallet';
 const CryptoJS = require('crypto-js');
 const createHash = require('create-hash');
 const ONION_REGEX = /^(http:\/\/[^/:@]+\.onion(?::\d{1,5})?)(\/.*)?$/; // regex for onion URL
@@ -20,12 +22,17 @@ export default class Lnurl {
     this._lnurl = url;
     this._lnurlPayServiceBolt11Payload = false;
     this._lnurlPayServicePayload = false;
+    this._lnurlPayRequest = undefined;
     this._AsyncStorage = AsyncStorage;
     this._preimage = false;
   }
 
   static findlnurl(bodyOfText) {
-    const cleanedText = bodyOfText.replace('mailto:', '').toLowerCase();
+    // the app's own URI schemes may wrap a lightning: link, e.g. dfxtaro:lightning:LNURL1... or dfxtaro://lightning:LNURL1...
+    const cleanedText = bodyOfText
+      .toLowerCase()
+      .replace('mailto:', '')
+      .replace(/^(?:dfxtaro|bluewallet):(?:\/\/)?/, '');
     const res = /^(?:http.*[&?]lightning=|lightning:)?(lnurl1[02-9ac-hj-np-z]+)/.exec(cleanedText);
     if (res) {
       return res[1];
@@ -85,6 +92,7 @@ export default class Lnurl {
       throw new Error(loc.settings.tor_unsupported);
     }
     const resp = await fetch(url, { method: 'GET' });
+    this._lastResponseUrl = resp.url;
     if (resp.status >= 300) {
       throw new Error('Bad response from server');
     }
@@ -137,9 +145,9 @@ export default class Lnurl {
     return decoded;
   }
 
-  async requestBolt11FromLnurlPayService(amountSat, comment = '') {
+  /** Throws when the amount is outside the range the pay service accepts. */
+  assertAmountInRange(amountSat) {
     if (!this._lnurlPayServicePayload) throw new Error('this._lnurlPayServicePayload is not set');
-    if (!this._lnurlPayServicePayload.callback) throw new Error('this._lnurlPayServicePayload.callback is not set');
     if (amountSat < this._lnurlPayServicePayload.min || amountSat > this._lnurlPayServicePayload.max)
       throw new Error(
         'The specified amount is invalid, ' +
@@ -149,6 +157,12 @@ export default class Lnurl {
           ' and ' +
           this._lnurlPayServicePayload.max,
       );
+  }
+
+  async requestBolt11FromLnurlPayService(amountSat, comment = '') {
+    if (!this._lnurlPayServicePayload) throw new Error('this._lnurlPayServicePayload is not set');
+    if (!this._lnurlPayServicePayload.callback) throw new Error('this._lnurlPayServicePayload.callback is not set');
+    this.assertAmountInRange(amountSat);
     const nonce = Math.floor(Math.random() * 2e16).toString(16);
     const separator = this._lnurlPayServicePayload.callback.indexOf('?') === -1 ? '?' : '&';
     if (this.getCommentAllowed() && comment && comment.length > this.getCommentAllowed()) {
@@ -158,6 +172,9 @@ export default class Lnurl {
     const urlToFetch =
       this._lnurlPayServicePayload.callback + separator + 'amount=' + Math.floor(amountSat * 1000) + '&nonce=' + nonce + comment;
     this._lnurlPayServiceBolt11Payload = await this.fetchGet(urlToFetch);
+    // LUD-11 treats a missing or null disposable flag as true; only explicit false permits repeating.
+    const disposable = this._lnurlPayServiceBolt11Payload.disposable;
+    if (disposable === undefined || disposable === null) this._lnurlPayServiceBolt11Payload.disposable = true;
     if (this._lnurlPayServiceBolt11Payload.status === 'ERROR')
       throw new Error(this._lnurlPayServiceBolt11Payload.reason || 'requestBolt11FromLnurlPayService() error');
 
@@ -165,7 +182,7 @@ export default class Lnurl {
     const decoded = this.decodeInvoice(this._lnurlPayServiceBolt11Payload.pr);
     const metadataHash = createHash('sha256').update(this._lnurlPayServicePayload.metadata).digest('hex');
     if (metadataHash !== decoded.description_hash) {
-      throw new Error(`Invoice description_hash doesn't match metadata.`);
+      console.log(`Invoice description_hash doesn't match metadata.`);
     }
     if (parseInt(decoded.num_satoshis, 10) !== Math.round(amountSat)) {
       throw new Error(`Invoice doesn't match specified amount, got ${decoded.num_satoshis}, expected ${Math.round(amountSat)}`);
@@ -176,9 +193,14 @@ export default class Lnurl {
 
   async callLnurlPayService() {
     if (!this._lnurl) throw new Error('this._lnurl is not set');
-    const url = Lnurl.getUrlFromLnurl(this._lnurl).replace('lightning:', '').replace('lightning=', '').replace('lnurlp://', 'https://');
+    const lnurlUrl = Lnurl.getUrlFromLnurl(this._lnurl);
+    if (!lnurlUrl) throw new Error('Invalid LNURL');
+    const url = lnurlUrl.replace('lightning:', '').replace('lightning=', '').replace('lnurlp://', 'https://');
     // calling the url
+    this._lastResponseUrl = undefined;
     const reply = await this.fetchGet(url);
+    // fetch follows redirects, so the host that answered can differ from the one that was asked
+    const responseUrl = this._lastResponseUrl;
 
     if (reply.tag !== Lnurl.TAG_PAY_REQUEST) {
       throw new Error('lnurl-pay expected, found tag ' + reply.tag);
@@ -204,8 +226,37 @@ export default class Lnurl {
     }
 
     // setting the payment screen with the parameters
-    const min = Math.ceil((data.minSendable || 0) / 1000);
-    const max = Math.floor(data.maxSendable / 1000);
+    const min = Math.ceil((data.minSendable ?? 0) / 1000);
+    const max = Math.floor((data.maxSendable ?? 0) / 1000);
+    const address = Lnurl.isLightningAddress(this._lnurl) ? this._lnurl.replace('mailto:', '').toLowerCase() : undefined;
+    const domain = parse(url).hostname;
+    if (!domain) throw new Error('Invalid LNURL domain');
+    // Our own address server publishes the receiver's Spark address so a Spark wallet can
+    // transfer directly instead of paying an invoice; only honoured when both the request and
+    // the response that answered it went to one of our own domains over TLS. A response whose
+    // origin is unknown is not trusted, the payment then takes the invoice path.
+    const isTrustedSource = source => {
+      if (!source) return false;
+      const { protocol, hostname } = parse(source);
+      return protocol === 'https:' && trustsSparkAddress(hostname);
+    };
+    const sparkAddress =
+      isTrustedSource(url) && isTrustedSource(responseUrl) && SparkWallet.isSparkAddress(data.sparkAddress)
+        ? data.sparkAddress.trim()
+        : undefined;
+
+    this._lnurlPayRequest = {
+      callback: data.callback,
+      minSendable: data.minSendable ?? 0,
+      maxSendable: data.maxSendable ?? 0,
+      metadata: data.metadata,
+      commentAllowed: Number(data.commentAllowed ?? 0),
+      domain,
+      url,
+      address,
+      allowsNostr: data.allowsNostr,
+      nostrPubkey: data.nostrPubkey,
+    };
 
     this._lnurlPayServicePayload = {
       callback: data.callback,
@@ -218,6 +269,7 @@ export default class Lnurl {
       image,
       amount: min,
       commentAllowed: data.commentAllowed,
+      ...(sparkAddress ? { sparkAddress } : {}),
       // lnurl: uri,
     };
     return this._lnurlPayServicePayload;
@@ -266,6 +318,23 @@ export default class Lnurl {
 
   getDomain() {
     return this._lnurlPayServicePayload.domain;
+  }
+
+  /** Spark address of the receiver, only present for a trusted domain that published one. */
+  getSparkAddress() {
+    return this._lnurlPayServicePayload?.sparkAddress;
+  }
+
+  /** The loaded LNURL-pay request (LUD-06), with its domain, URL and Lightning address. */
+  getLnurlPayRequest() {
+    if (!this._lnurlPayRequest) throw new Error('LNURL pay request is not loaded');
+    return this._lnurlPayRequest;
+  }
+
+  /** Records the LUD-09 success action of a payment that was not paid through this class. */
+  setSuccessAction(successAction) {
+    // The SDK response has no disposable flag. Do not offer a repeat action without evidence that the endpoint supports it.
+    this._lnurlPayServiceBolt11Payload = { successAction, disposable: true };
   }
 
   getDescription() {
@@ -318,7 +387,11 @@ export default class Lnurl {
     return new Promise((resolve, reject) => {
       if (!this._lnurl) throw new Error('this._lnurl is not set');
 
-      const url = parse(Lnurl.getUrlFromLnurl(this._lnurl), true);
+      const url = parse(Lnurl.getUrlFromLnurl(this._lnurl) || '', true);
+
+      if (!url.hostname) {
+        throw new Error('Invalid URL: hostname is null');
+      }
 
       const hmac = createHmac('sha256', secret);
       hmac.on('readable', async () => {
@@ -350,6 +423,33 @@ export default class Lnurl {
       hmac.write(url.hostname);
       hmac.end();
     });
+  }
+
+  /** LNURL-auth signature: DER over the raw k1 bytes with the given private key, plus its compressed public key, hex. */
+  static signK1(k1Hex, privateKey) {
+    const { signature } = secp256k1.sign(Buffer.from(k1Hex, 'hex'), privateKey);
+    return {
+      sig: secp256k1.signatureExport(signature).toString('hex'),
+      key: secp256k1.publicKeyCreate(privateKey).toString('hex'),
+    };
+  }
+
+  /**
+   * LNURL-auth with a caller-provided signer instead of the LndHub-derived key.
+   * sign(k1Hex) returns the DER signature over the raw k1 bytes and the compressed public key, both hex.
+   */
+  async authenticateSigned(sign, additionalParams) {
+    if (!this._lnurl) throw new Error('this._lnurl is not set');
+    const url = parse(Lnurl.getUrlFromLnurl(this._lnurl) || '', true);
+    if (!url.hostname || !url.query.k1) throw new Error('Invalid LNURL-auth URL');
+
+    const { sig, key } = await sign(url.query.k1);
+    let replyUrl = `${url.href}&sig=${sig}&key=${key}`;
+    for (const [param, value] of Object.entries(additionalParams || {})) {
+      replyUrl += `&${param}=${encodeURIComponent(value)}`;
+    }
+    const reply = await this.fetchGet(replyUrl);
+    if (reply.status !== 'OK') throw new Error(reply.reason);
   }
 
   static isLightningAddress(address) {

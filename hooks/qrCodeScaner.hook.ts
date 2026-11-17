@@ -45,7 +45,7 @@ export function useQrCodeScanner() {
         setIsLoadingAnimatedQRCode(true);
       }
     } catch (error) {
-      console.warn(error);
+      console.debug('qrCodeScanner: UR fragment decode failed', error);
       setIsLoading(true);
       Alert.alert(
         loc.send.scan_error,
@@ -85,7 +85,7 @@ export function useQrCodeScanner() {
         setAnimatedQRCodeData(animatedQRCodeData);
       }
     } catch (error) {
-      console.warn(error);
+      console.debug('qrCodeScanner: animated QR fragment decode failed', error);
       setIsLoading(true);
       Alert.alert(
         loc.send.scan_error,
@@ -149,7 +149,7 @@ export function useQrCodeScanner() {
       try {
         onBarScanned(ret.data);
       } catch (e) {
-        console.log(e);
+        console.debug('qrCodeScanner: onBarScanned handler threw', e);
       }
     }
     setIsLoading(false);

@@ -4,6 +4,7 @@ import { useTheme } from '../components/themes';
 
 import ReceiveDetails from '../screen/receive/details';
 import LNDCreateInvoice from '../screen/lnd/lndCreateInvoice';
+import LnurlAuth from '../screen/lnd/lnurlAuth';
 import LNDReceive from '../screen/lnd/lndReceive';
 import LndPosReceive from '../screen/lnd/lndPosReceive';
 import CashierPos from '../screen/lnd/cashierPos';
@@ -25,6 +26,7 @@ const ReceiveDetailsStack = () => {
     <Stack.Navigator screenOptions={{ headerShadowVisible: false }} initialRouteName="ReceiveDetails">
       <Stack.Screen name="ReceiveDetails" component={ReceiveDetails} options={ReceiveDetails.navigationOptions(theme)} />
       <Stack.Screen name="LNDCreateInvoice" component={LNDCreateInvoice} options={LNDCreateInvoice.navigationOptions(theme)} />
+      <Stack.Screen name="LnurlAuth" component={LnurlAuth} options={LnurlAuth.navigationOptions(theme)} />
       <Stack.Screen name="LNDReceive" component={LNDReceive} options={LNDReceive.navigationOptions(theme)} />
       <Stack.Screen name="PosReceive" component={LndPosReceive} options={LndPosReceive.navigationOptions(theme)} />
       <Stack.Screen name="CashierPos" component={CashierPos} options={CashierPos.navigationOptions(theme)} />

@@ -1,0 +1,12 @@
+appId: swiss.dfx.bitcoin
+---
+- runFlow: _setup.yaml
+- tapOn:
+    point: '85%,43%'
+- extendedWaitUntil:
+    visible: 'Erstellung beginnen'
+    timeout: 20000
+- tapOn: 'Erstellung beginnen'
+- waitForAnimationToEnd:
+    timeout: 15000
+- takeScreenshot: shots/07-multi-device/01-erstellung-qr

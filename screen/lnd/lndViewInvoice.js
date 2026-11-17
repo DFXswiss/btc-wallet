@@ -138,7 +138,6 @@ const LNDViewInvoice = () => {
 
   useEffect(() => {
     setSelectedWallet(walletID);
-    console.log('LNDViewInvoice - useEffect');
     if (!invoice.ispaid) {
       fetchInvoiceInterval.current = setInterval(async () => {
         if (isFetchingInvoices) {
@@ -174,9 +173,7 @@ const LNDViewInvoice = () => {
                 }
               }
             }
-          } catch (error) {
-            console.log(error);
-          }
+          } catch (_) {}
         }
       }, 3000);
     } else {
@@ -201,7 +198,7 @@ const LNDViewInvoice = () => {
   };
 
   const handleOnSharePressed = () => {
-    Share.open({ message: `lightning:${invoice.payment_request}` }).catch(error => console.log(error));
+    Share.open({ message: `lightning:${invoice.payment_request}` }).catch(() => {});
   };
 
   useEffect(() => {
@@ -251,7 +248,6 @@ const LNDViewInvoice = () => {
             <SuccessView
               amount={amount}
               paymentHash={invoice.payment_hash}
-              fee={invoice.fee}
               amountUnit={BitcoinUnit.SATS}
               invoiceDescription={description}
               shouldAnimate={invoiceStatusChanged}
@@ -278,11 +274,11 @@ const LNDViewInvoice = () => {
               <QRCodeComponent value={invoice.payment_request} size={qrCodeSize} />
             </View>
             <BlueSpacing20 />
-            <BlueText>
+            <BlueText testID="InvoicePleasePay">
               {loc.lndViewInvoice.please_pay} {invoice.amt} {loc.lndViewInvoice.sats}
             </BlueText>
             {'description' in invoice && invoice.description.length > 0 && (
-              <BlueText>
+              <BlueText testID="InvoiceFor">
                 {loc.lndViewInvoice.for} {invoice.description}
               </BlueText>
             )}

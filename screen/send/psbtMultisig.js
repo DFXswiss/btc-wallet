@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { Icon } from 'react-native-elements';
 import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
@@ -28,13 +28,14 @@ const PsbtMultisig = () => {
   const { colors } = useTheme();
   const [flatListHeight, setFlatListHeight] = useState(0);
   const { walletID, psbtBase64, receivedPSBTBase64, launchedBy } = useRoute().params;
-  const [hasSigned, setHasSigned] = useState(isTxSigned);
-  const [isSignign, setIsSigning] = useState(false);
-  const [isBroadcasting, setIsBroadcasting] = useState(false);
-  const [isBiometricUseCapableAndEnabled, setIsBiometricUseCapableAndEnabled] = useState(false);
   /** @type MultisigHDWallet */
   const wallet = wallets.find(w => w.getID() === walletID);
   const [psbt, setPsbt] = useState(bitcoin.Psbt.fromBase64(psbtBase64));
+  const [hasSigned, setHasSigned] = useState(Boolean(psbt && wallet.hasCosignerSignedPSBT(psbt)));
+  const [isSignign, setIsSigning] = useState(false);
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const isBroadcastingRef = useRef(false);
+  const [isBiometricUseCapableAndEnabled, setIsBiometricUseCapableAndEnabled] = useState(false);
   const data = new Array(wallet.getM());
   const stylesHook = StyleSheet.create({
     root: {
@@ -162,7 +163,7 @@ const PsbtMultisig = () => {
 
     if (isBiometricUseCapableAndEnabled) {
       if (!(await Biometric.unlockWithBiometrics())) {
-        return;
+        return false;
       }
     }
 
@@ -174,41 +175,46 @@ const PsbtMultisig = () => {
     return result;
   };
 
-  const send = async (tx, fee) => {
-    await broadcast(tx);
+  const send = async (tx, feeSatoshi) => {
+    const didBroadcast = await broadcast(tx);
+    if (!didBroadcast) {
+      return;
+    }
     const txid = bitcoin.Transaction.fromHex(tx).getId();
     majorTomToGroundControl([], [], [txid]);
     ReactNativeHapticFeedback.trigger('notificationSuccess', { ignoreAndroidSystemSettings: false });
     const amount = formatBalanceWithoutSuffix(totalSat, BitcoinUnit.BTC, false);
     navigate('Success', {
-      fee: Number(fee),
+      fee: feeSatoshi,
       amount,
     });
     await new Promise(resolve => setTimeout(resolve, 3000)); // sleep to make sure network propagates
     fetchAndSaveWalletTransactions(walletID);
   };
 
-  const onConfirm = () => {
+  const onConfirm = async () => {
+    if (isBroadcastingRef.current) return;
+    isBroadcastingRef.current = true;
     setIsBroadcasting(true);
     try {
-      psbt.finalizeAllInputs();
-    } catch (_) {} // ignore if it is already finalized
+      try {
+        psbt.finalizeAllInputs();
+      } catch (_) {} // ignore if it is already finalized
 
-    if (launchedBy) {
-      // we must navigate back to the screen who requested psbt (instead of broadcasting it ourselves)
-      // most likely for LN channel opening
-      navigate(launchedBy, { psbt });
-      return;
-    }
+      if (launchedBy) {
+        // we must navigate back to the screen who requested psbt (instead of broadcasting it ourselves)
+        // most likely for LN channel opening
+        navigate(launchedBy, { psbt });
+        return;
+      }
 
-    try {
       const tx = psbt.extractTransaction().toHex();
-      const fee = new BigNumber(getFee()).dividedBy(100000000).toNumber();
-      send(tx, fee);
-      setIsBroadcasting(false);
+      await send(tx, getFee());
     } catch (error) {
-      setIsBroadcasting(false);
       alert(error);
+    } finally {
+      isBroadcastingRef.current = false;
+      setIsBroadcasting(false);
     }
   };
 
@@ -305,6 +311,11 @@ const PsbtMultisig = () => {
           </View>
         </View>
       </View>
+      {canSignThisPsbt && (
+        <Text testID="PsbtMultisigHex" style={styles.hidden}>
+          {psbt.toHex()}
+        </Text>
+      )}
       {!canSignThisPsbt ? (
         <View style={styles.marginNotPartOfMultisig}>
           <BlueText style={styles.marginNotPartOfMultisigText}>{loc.multisig.not_part_of_multisig}</BlueText>
@@ -327,7 +338,7 @@ const PsbtMultisig = () => {
           <BlueSpacing10 />
           <BlueButton
             disabled={!isConfirmEnabled()}
-            loading={isBroadcasting}
+            isLoading={isBroadcasting}
             title={loc.send.confirm_sendNow}
             onPress={onConfirm}
             testID="PsbtMultisigConfirmButton"
@@ -339,6 +350,11 @@ const PsbtMultisig = () => {
 };
 
 const styles = StyleSheet.create({
+  // Holds the current PSBT for end-to-end tests; not shown.
+  hidden: {
+    width: 0,
+    height: 0,
+  },
   mstopcontainer: {
     flex: 1,
     flexDirection: 'row',

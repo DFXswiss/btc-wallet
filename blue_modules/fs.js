@@ -24,11 +24,13 @@ const writeFileAndExportToAndroidDestionation = async ({ filename, contents, des
       await RNFS.writeFile(filePath, contents);
       alert(loc.formatString(loc._.file_saved, { filePath: filename, destination: destinationLocalizedString }));
     } catch (e) {
-      console.log(e);
+      // The message contains the full path, and filename is a wallet label at
+      // some call sites - report the code only.
+      const error = new Error('fs: writeFile to Android destination failed');
+      console.error(error.message, error, e?.code ?? 'write failed');
       alert(e.message);
     }
   } else {
-    console.log('Storage Permission: Denied');
     Alert.alert(loc.send.permission_storage_title, loc.send.permission_storage_denied_message, [
       {
         text: loc.send.open_settings,
@@ -50,9 +52,7 @@ const writeFileAndExport = async function (filename, contents) {
       url: 'file://' + filePath,
       saveToFiles: isDesktop,
     })
-      .catch(error => {
-        console.log(error);
-      })
+      .catch(() => {})
       .finally(() => {
         RNFS.unlink(filePath);
       });

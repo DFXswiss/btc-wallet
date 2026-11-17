@@ -1,5 +1,5 @@
 import React, { useCallback, useContext, useEffect, useState } from 'react';
-import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 import { View, StyleSheet, ScrollView, BackHandler } from 'react-native';
 
 import { BlueButton, BlueCopyTextToClipboard, BlueSpacing20, BlueTextCentered, SafeBlueArea } from '../../BlueComponents';
@@ -34,11 +34,21 @@ const PleaseBackupLNDHub = () => {
     },
   });
 
+  // on focus, not on mount: the setting can change while this screen sits in the stack, and
+  // enableBlur() reads it at call time - a mount-only call would keep the stale decision
+  useFocusEffect(
+    useCallback(() => {
+      Privacy.enableBlur();
+
+      return () => {
+        Privacy.disableBlur();
+      };
+    }, []),
+  );
+
   useEffect(() => {
-    Privacy.enableBlur();
     const subscription = BackHandler.addEventListener('hardwareBackPress', handleBackButton);
     return () => {
-      Privacy.disableBlur();
       subscription.remove();
     };
   }, [handleBackButton]);

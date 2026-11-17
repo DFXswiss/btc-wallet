@@ -98,7 +98,6 @@ const SelectWallet = () => {
   });
 
   useEffect(() => {
-    console.log('SelectWallet - useEffect');
     setIsLoading(false);
   }, []);
 

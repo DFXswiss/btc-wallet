@@ -1,0 +1,21 @@
+appId: swiss.dfx.bitcoin
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: 'Wallet importieren'
+    timeout: 60000
+- takeScreenshot: shots/01-onboarding/01-start
+- tapOn: 'Erstellen'
+# Die Wallet-Anlage fuehrt direkt auf die Uebersicht; die Lightning-Wallet ist
+# opt-in und wird dort ueber "Hinzufuegen" angelegt (06b-wallet-lightning.yaml).
+- extendedWaitUntil:
+    visible: 'Wallet Backup'
+    timeout: 60000
+- takeScreenshot: shots/01-onboarding/02-wallet-uebersicht
+- tapOn:
+    point: '16%,93%'
+- extendedWaitUntil:
+    visible: 'Nicht erlauben'
+    timeout: 25000
+- takeScreenshot: shots/01-onboarding/03-mitteilungen-berechtigung

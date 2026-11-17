@@ -85,7 +85,6 @@ async function updateExchangeRate() {
     // not updating too often
     return;
   }
-  console.log('updating exchange rate...');
 
   let rate;
   try {
@@ -95,8 +94,7 @@ async function updateExchangeRate() {
     exchangeRates.LAST_UPDATED_ERROR = false;
     await AsyncStorage.setItem(EXCHANGE_RATES_STORAGE_KEY, JSON.stringify(exchangeRates));
   } catch (Err) {
-    console.log('Error encountered when attempting to update exchange rate...');
-    console.warn(Err.message);
+    console.warn('updateExchangeRate: fetch failed, falling back to stored rates', Err);
     rate = JSON.parse(await AsyncStorage.getItem(EXCHANGE_RATES_STORAGE_KEY));
     rate.LAST_UPDATED_ERROR = true;
     exchangeRates.LAST_UPDATED_ERROR = true;
@@ -161,8 +159,7 @@ function satoshiToLocalCurrency(satoshi, format = true) {
       maximumFractionDigits: 8,
     });
   } catch (error) {
-    console.warn(error);
-    console.log(error);
+    console.warn('satoshiToLocalCurrency: Intl.NumberFormat unavailable for preferred fiat, formatting degraded', error);
     formatter = new Intl.NumberFormat(FiatUnit.USD.locale, {
       style: 'currency',
       currency: preferredFiatCurrency.endPointKey,
@@ -201,7 +198,9 @@ function satoshiToBTC(satoshi) {
 }
 
 function btcToSatoshi(btc) {
-  return new BigNumber(btc).multipliedBy(100000000).toNumber();
+  // A satoshi is always a whole number. `btc` can carry more than 8 decimal places, which would
+  // otherwise produce a fractional value here that coinselect's integer checks reject downstream.
+  return new BigNumber(btc).multipliedBy(100000000).integerValue(BigNumber.ROUND_FLOOR).toNumber();
 }
 
 function fiatToBTC(fiatFloat) {

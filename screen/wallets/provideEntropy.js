@@ -103,10 +103,10 @@ export const convertToBuffer = ({ entropy, bits }) => {
 
 const Coin = ({ push }) => (
   <View style={styles.coinRoot}>
-    <TouchableOpacity accessibilityRole="button" onPress={() => push(getEntropy(0, 2))} style={styles.coinBody}>
+    <TouchableOpacity accessibilityRole="button" testID="CoinFlip0" onPress={() => push(getEntropy(0, 2))} style={styles.coinBody}>
       <Image style={styles.coinImage} source={require('../../img/coin1.png')} />
     </TouchableOpacity>
-    <TouchableOpacity accessibilityRole="button" onPress={() => push(getEntropy(1, 2))} style={styles.coinBody}>
+    <TouchableOpacity accessibilityRole="button" testID="CoinFlip1" onPress={() => push(getEntropy(1, 2))} style={styles.coinBody}>
       <Image style={styles.coinImage} source={require('../../img/coin2.png')} />
     </TouchableOpacity>
   </View>
@@ -151,7 +151,7 @@ const Dice = ({ push, sides }) => {
   return (
     <ScrollView contentContainerStyle={[styles.diceContainer, stylesHook.diceContainer]}>
       {[...Array(sides)].map((_, i) => (
-        <TouchableOpacity accessibilityRole="button" key={i} onPress={() => push(getEntropy(i, sides))}>
+        <TouchableOpacity accessibilityRole="button" key={i} testID={`Dice${sides}Roll${i + 1}`} onPress={() => push(getEntropy(i, sides))}>
           <View style={[styles.diceRoot, { width: diceWidth }]}>
             {sides === 6 ? (
               <Icon style={styles.diceIcon} name={diceIcon(i + 1)} size={70} color="grey" type="font-awesome-5" />
@@ -180,6 +180,7 @@ const buttonFontSize =
 const Buttons = ({ pop, save, colors }) => (
   <FContainer>
     <FButton
+      testID="UndoEntropy"
       onPress={pop}
       icon={
         <View style={styles.buttonsIcon}>
@@ -189,6 +190,7 @@ const Buttons = ({ pop, save, colors }) => (
       text={loc.entropy.undo}
     />
     <FButton
+      testID="SaveEntropy"
       onPress={save}
       icon={
         <View style={styles.buttonsIcon}>
@@ -239,7 +241,9 @@ const Entropy = () => {
       <BlueSpacing20 />
       <TouchableOpacity accessibilityRole="button" onPress={() => setShow(!show)}>
         <View style={[styles.entropy, stylesHook.entropy]}>
-          <Text style={[styles.entropyText, stylesHook.entropyText]}>{show ? hex : `${bits} of 256 bits`}</Text>
+          <Text style={[styles.entropyText, stylesHook.entropyText]} testID="EntropyCounter">
+            {show ? hex : `${bits} of 256 bits`}
+          </Text>
         </View>
       </TouchableOpacity>
 

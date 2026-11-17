@@ -90,7 +90,9 @@ const ExportMultisigCoordinationSetup = () => {
           <SquareButton style={[styles.exportButton, stylesHook.exportButton]} onPress={exportTxtFile} title={loc.multisig.share} />
         )}
         <BlueSpacing20 />
-        <BlueText style={[styles.secret, stylesHook.secret]}>{wallet.getXpub()}</BlueText>
+        <BlueText style={[styles.secret, stylesHook.secret]} testID="MultisigCoordinationSetupText">
+          {wallet.getXpub()}
+        </BlueText>
       </ScrollView>
     </SafeBlueArea>
   );

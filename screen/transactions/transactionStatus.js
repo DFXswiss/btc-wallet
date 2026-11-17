@@ -17,7 +17,6 @@ import { BlueStorageContext } from '../../blue_modules/storage-context';
 import * as BlueElectrum from '../../blue_modules/BlueElectrum';
 import NetworkTransactionFees from '../../models/networkTransactionFees';
 import { PrivateText } from '../../components/PrivateText';
-const currency = require('../../blue_modules/currency');
 
 const buttonStatus = Object.freeze({
   possible: 1,
@@ -44,7 +43,10 @@ const TransactionsStatus = () => {
     if (!tx) return 0;
     const inAmount = tx.inputs.reduce((acc, { value }) => acc + value, 0);
     const outAmount = tx.outputs.reduce((acc, { value }) => acc + value, 0);
-    return currency.btcToSatoshi(inAmount - outAmount);
+    // btcToSatoshi() floors (a spend amount must never round up), but this is a display value
+    // derived from float sums whose binary noise can land just below the true integer - round
+    // to the nearest satoshi instead of showing the fee 1 sat low.
+    return Math.round((inAmount - outAmount) * 100000000);
   }, [tx]);
 
   const stylesHook = StyleSheet.create({
@@ -111,8 +113,6 @@ const TransactionsStatus = () => {
 
   // re-fetching tx status periodically
   useEffect(() => {
-    console.log('transactionStatus - useEffect');
-
     if (!tx || tx?.confirmations) return;
     if (!hash) return;
 
@@ -122,15 +122,12 @@ const TransactionsStatus = () => {
       fetchTxInterval.current = undefined;
     }
 
-    console.log('setting up interval to check tx...');
     fetchTxInterval.current = setInterval(async () => {
       try {
         setIntervalMs(31000); // upon first execution we increase poll interval;
 
-        console.log('checking tx', hash, 'for confirmations...');
         const transactions = await BlueElectrum.multiGetTransactionByTxid([hash], 10, true);
         const txFromElectrum = transactions[hash];
-        console.log('got txFromElectrum=', txFromElectrum);
 
         const address = (txFromElectrum?.vout[0]?.scriptPubKey?.addresses || []).pop();
 
@@ -142,11 +139,9 @@ const TransactionsStatus = () => {
             if (tempTxM.tx_hash === hash) txFromMempool = tempTxM;
           }
           if (!txFromMempool) return;
-          console.log('txFromMempool=', txFromMempool);
 
           const satPerVbyte = Math.round(txFromMempool.fee / txFromElectrum.vsize);
           const fees = await NetworkTransactionFees.recommendedFees();
-          console.log('fees=', fees, 'satPerVbyte=', satPerVbyte);
           if (satPerVbyte >= fees.fastestFee) {
             setEta(loc.formatString(loc.transactions.eta_fastest));
           } else if (satPerVbyte >= fees.mediumFee) {
@@ -168,7 +163,7 @@ const TransactionsStatus = () => {
           wallet?.current?.getID() && fetchAndSaveWalletTransactions(wallet.current.getID());
         }
       } catch (error) {
-        console.log(error);
+        console.warn('transactionStatus: confirmation poll tick failed, retrying next tick', error);
       }
     }, intervalMs);
   }, [hash, intervalMs, tx, fetchAndSaveWalletTransactions]);
@@ -215,10 +210,6 @@ const TransactionsStatus = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallet.current]);
-
-  useEffect(() => {
-    console.log('transactionStatus - useEffect');
-  }, []);
 
   const checkPossibilityOfCPFP = async () => {
     if (!wallet.current.allowRBF()) {
@@ -372,6 +363,8 @@ const TransactionsStatus = () => {
       </SafeBlueArea>
     );
   }
+  // An OP_RETURN or other non-standard first output has no address.
+  const recipient = tx.outputs?.[0]?.scriptPubKey?.addresses?.[0];
   return (
     <SafeBlueArea>
       <HandoffComponent
@@ -384,7 +377,7 @@ const TransactionsStatus = () => {
       <View style={styles.container}>
         <BlueCard>
           <View style={styles.center}>
-            <Text style={[styles.value, stylesHook.value]}>
+            <Text testID="TransactionStatusValue" style={[styles.value, stylesHook.value]}>
               <PrivateText>{formatBalanceWithoutSuffix(tx.value, wallet.current.preferredBalanceUnit, true)}</PrivateText>{' '}
               {wallet.current.preferredBalanceUnit !== BitcoinUnit.LOCAL_CURRENCY && (
                 <Text style={[styles.valueUnit, stylesHook.valueUnit]}>
@@ -425,14 +418,14 @@ const TransactionsStatus = () => {
             </View>
           </View>
 
-          {tx.value < 0 && (
+          {tx.value < 0 && recipient && (
             <View style={styles.center}>
               <View>
                 <Text style={[styles.transactionDetailsTitle, stylesHook.transactionDetailsTitle]}>
                   <PrivateText>{loc.send.create_to}</PrivateText>
                 </Text>
-                <Text style={[styles.transactionDetailsSubtitle, stylesHook.transactionDetailsSubtitle]}>
-                  <PrivateText>{tx?.outputs[0]?.scriptPubKey?.addresses[0]}</PrivateText>
+                <Text testID="TransactionStatusTo" style={[styles.transactionDetailsSubtitle, stylesHook.transactionDetailsSubtitle]}>
+                  <PrivateText>{recipient}</PrivateText>
                 </Text>
               </View>
             </View>
@@ -440,7 +433,7 @@ const TransactionsStatus = () => {
 
           {feeSats && (
             <View style={styles.fee}>
-              <BlueText style={styles.feeText}>
+              <BlueText testID="TransactionStatusFee" style={styles.feeText}>
                 <PrivateText>
                   {loc.send.create_fee.toLowerCase()} {formatBalanceWithoutSuffix(feeSats, wallet.current.preferredBalanceUnit, true)}{' '}
                   {wallet.current.preferredBalanceUnit !== BitcoinUnit.LOCAL_CURRENCY && wallet.current.preferredBalanceUnit}
@@ -450,7 +443,7 @@ const TransactionsStatus = () => {
           )}
 
           <View style={styles.confirmations}>
-            <Text style={styles.confirmationsText}>
+            <Text testID="TransactionStatusConfirmations" style={styles.confirmationsText}>
               <PrivateText>
                 {loc.formatString(loc.transactions.confirmations_lowercase, {
                   confirmations: tx.confirmations > 6 ? '6+' : tx.confirmations,

@@ -1,7 +1,7 @@
 import legacyUrl from 'url';
 import { Chain } from '../models/bitcoinUnits';
 import Lnurl from './lnurl';
-import { OpenCryptoPayPaymentLink } from './open-crypto-pay';
+import { SparkWallet } from './wallets/spark-wallet';
 const bitcoin = require('bitcoinjs-lib');
 const bip21 = require('bip21');
 
@@ -15,7 +15,8 @@ class DeeplinkSchemaMatch {
       lowercaseString.startsWith('blue:') ||
       lowercaseString.startsWith('bluewallet:') ||
       lowercaseString.startsWith('lapp:') ||
-      lowercaseString.startsWith('dfxtaro:')
+      lowercaseString.startsWith('dfxtaro:') ||
+      lowercaseString.startsWith('spark:')
     );
   }
 
@@ -143,6 +144,16 @@ class DeeplinkSchemaMatch {
           screen: 'ScanLndInvoice',
           params: {
             uri: event.url.replace('://', ':'),
+          },
+        },
+      ]);
+    } else if (DeeplinkSchemaMatch.isSparkAddress(event.url) || DeeplinkSchemaMatch.isSparkPaymentUri(event.url)) {
+      completionHandler([
+        'SendDetailsRoot',
+        {
+          screen: 'ScanLndInvoice',
+          params: {
+            uri: event.url,
           },
         },
       ]);
@@ -396,6 +407,14 @@ class DeeplinkSchemaMatch {
     return isValidLightningInvoice;
   }
 
+  static isSparkPaymentUri(text) {
+    return SparkWallet.isSparkPaymentUri(text);
+  }
+
+  static isSparkAddress(address) {
+    return SparkWallet.isSparkAddress(address);
+  }
+
   static isTestnetLightningInvoice(invoice) {
     let isValidLightningInvoice = false;
     if (
@@ -439,7 +458,7 @@ class DeeplinkSchemaMatch {
             }
           }
         } catch (e) {
-          console.log(e);
+          console.error('DeeplinkSchemaMatch: failed to extract lightning invoice from BIP-21 URI', e);
         }
         if (btc && lndInvoice) break;
       }
@@ -505,6 +524,7 @@ class DeeplinkSchemaMatch {
     if (Lnurl.isLightningAddress(text)) return true;
     if (DeeplinkSchemaMatch.isLightningInvoice(text)) return true;
     if (DeeplinkSchemaMatch.isTestnetLightningInvoice(text)) return true;
+    if (DeeplinkSchemaMatch.isSparkAddress(text) || DeeplinkSchemaMatch.isSparkPaymentUri(text)) return true;
 
     if (options.includeDualFormats) {
       if (DeeplinkSchemaMatch.isBothBitcoinAndLightning(text)) return true;
@@ -527,69 +547,6 @@ class DeeplinkSchemaMatch {
     return false;
   }
 
-  static async assertNavigationByLnurl(text, context) {
-    const url = Lnurl.getUrlFromLnurl(text);
-    if (!url) return;
-
-    const tag = new URL(url).searchParams.get('tag');
-
-    if (tag === Lnurl.TAG_LOGIN_REQUEST) {
-      return [
-        'LnurlAuth',
-        {
-          lnurl: text,
-          walletID: context?.walletID,
-        },
-      ];
-    }
-
-    try {
-      const reply = await new Lnurl(url).fetchGet(url);
-
-      if (OpenCryptoPayPaymentLink.isOpenCryptoPayResponse(reply)) {
-        return [
-          'SendDetailsRoot',
-          {
-            screen: 'OpenCryptoPaySend',
-            params: {
-              plDetails: reply,
-              walletID: context?.walletID,
-            },
-          },
-        ];
-      }
-
-      if (reply.tag === Lnurl.TAG_PAY_REQUEST) {
-        return [
-          'SendDetailsRoot',
-          {
-            screen: 'ScanLndInvoice',
-            params: {
-              uri: text,
-              walletID: context?.walletID,
-            },
-          },
-        ];
-      }
-
-      if (reply.tag === Lnurl.TAG_WITHDRAW_REQUEST) {
-        return [
-          'ReceiveDetailsRoot',
-          {
-            screen: 'LNDCreateInvoice',
-            params: {
-              uri: text,
-              walletID: context?.walletID,
-            },
-          },
-        ];
-      }
-
-      throw new Error('Unsupported lnurl');
-    } catch (error) {
-      console.error(error);
-    }
-  }
 }
 
 export default DeeplinkSchemaMatch;

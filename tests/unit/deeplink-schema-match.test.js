@@ -1,5 +1,8 @@
 import assert from 'assert';
+import { bech32m } from 'bech32';
 import DeeplinkSchemaMatch from '../../class/deeplink-schema-match';
+
+const SPARK_ADDRESS = bech32m.encode('spark', bech32m.toWords(Buffer.from('spark-address-identity-key-32')), 10000);
 
 jest.mock('../../blue_modules/BlueElectrum', () => {
   return {
@@ -30,6 +33,11 @@ describe.each(['', '//'])('unit - DeepLinkSchemaMatch', function (suffix) {
         `bluewallet:lightning:${suffix}lnbc10u1pwjqwkkpp5vlc3tttdzhpk9fwzkkue0sf2pumtza7qyw9vucxyyeh0yaqq66yqdq5f38z6mmwd3ujqar9wd6qcqzpgxq97zvuqrzjqvgptfurj3528snx6e3dtwepafxw5fpzdymw9pj20jj09sunnqmwqz9hx5qqtmgqqqqqqqlgqqqqqqgqjq5duu3fs9xq9vn89qk3ezwpygecu4p3n69wm3tnl28rpgn2gmk5hjaznemw0gy32wrslpn3g24khcgnpua9q04fttm2y8pnhmhhc2gncplz0zde`,
       ),
     );
+
+    // An external spark: payment link must pass this gate, or a cold start never routes it.
+    assert.ok(DeeplinkSchemaMatch.hasSchema('spark:spark1pgssyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgp'));
+    assert.ok(DeeplinkSchemaMatch.hasSchema('SPARK:spark1pgssyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgp'));
+    assert.strictEqual(DeeplinkSchemaMatch.hasSchema('spark1pgssyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgp'), false);
   });
 
   it('isBitcoin Address', () => {
@@ -40,6 +48,15 @@ describe.each(['', '//'])('unit - DeepLinkSchemaMatch', function (suffix) {
     assert.ok(DeeplinkSchemaMatch.isBitcoinAddress(`bitcoin:${suffix}BC1QH6TF004TY7Z7UN2V5NTU4MKF630545GVHS45U7`));
     assert.ok(DeeplinkSchemaMatch.isBitcoinAddress(`BITCOIN:${suffix}BC1Q3RL0MKYK0ZRTXFMQN9WPCD3GNAZ00YV9YP0HXE`));
     assert.ok(DeeplinkSchemaMatch.isBitcoinAddress(`BITCOIN:${suffix}BC1Q3RL0MKYK0ZRTXFMQN9WPCD3GNAZ00YV9YP0HXE?amount=666&label=Yo`));
+  });
+
+  it('isSparkAddress', () => {
+    assert.ok(DeeplinkSchemaMatch.isSparkAddress(SPARK_ADDRESS));
+    assert.ok(!DeeplinkSchemaMatch.isSparkAddress(SPARK_ADDRESS.toUpperCase()));
+    assert.ok(!DeeplinkSchemaMatch.isSparkAddress('spark1not-a-valid-bech32m-value'));
+    assert.ok(!DeeplinkSchemaMatch.isSparkAddress('lnbc1invoice'));
+    assert.ok(DeeplinkSchemaMatch.isPossiblyLightningDestination(SPARK_ADDRESS));
+    assert.ok(!DeeplinkSchemaMatch.isPossiblyLightningDestination('spark1not-a-valid-bech32m-value'));
   });
 
   it('isLighting Invoice', () => {
@@ -104,6 +121,11 @@ describe.each(['', '//'])('unit - DeepLinkSchemaMatch', function (suffix) {
     assert.ok(
       DeeplinkSchemaMatch.isLnUrl(
         'LNURL1DP68GURN8GHJ7UM9WFMXJCM99E3K7MF0V9CXJ0M385EKVCENXC6R2C35XVUKXEFCV5MKVV34X5EKZD3EV56NYD3HXQURZEPEXEJXXEPNXSCRVWFNV9NXZCN9XQ6XYEFHVGCXXCMYXYMNSERXFQ5FNS',
+      ),
+    );
+    assert.ok(
+      DeeplinkSchemaMatch.isLnUrl(
+        'dfxtaro:lightning:LNURL1DP68GURN8GHJ7UM9WFMXJCM99E3K7MF0V9CXJ0M385EKVCENXC6R2C35XVUKXEFCV5MKVV34X5EKZD3EV56NYD3HXQURZEPEXEJXXEPNXSCRVWFNV9NXZCN9XQ6XYEFHVGCXXCMYXYMNSERXFQ5FNS',
       ),
     );
   });
@@ -179,6 +201,20 @@ describe.each(['', '//'])('unit - DeepLinkSchemaMatch', function (suffix) {
       },
       {
         argument: {
+          url: 'dfxtaro:lightning:LNURL1DP68GURN8GHJ7MRWVF5HGUEWVDHK6TMHD96XSERJV9MJ7CTSDYHHVVF0D3H82UNV9UM9JDENFPN5SMMK2359J5RKWVMKZ5ZVWAV4VJD63TM',
+        },
+        expected: [
+          'ReceiveDetailsRoot',
+          {
+            screen: 'LNDCreateInvoice',
+            params: {
+              uri: 'lnurl1dp68gurn8ghj7mrwvf5hguewvdhk6tmhd96xserjv9mj7ctsdyhhvvf0d3h82unv9um9jdenfpn5smmk2359j5rkwvmkz5zvwav4vjd63tm',
+            },
+          },
+        ],
+      },
+      {
+        argument: {
           url: 'lnaddress@zbd.gg',
         },
         expected: [
@@ -190,6 +226,10 @@ describe.each(['', '//'])('unit - DeepLinkSchemaMatch', function (suffix) {
             },
           },
         ],
+      },
+      {
+        argument: { url: `spark:${SPARK_ADDRESS}` },
+        expected: ['SendDetailsRoot', { screen: 'ScanLndInvoice', params: { uri: `spark:${SPARK_ADDRESS}` } }],
       },
     ];
 

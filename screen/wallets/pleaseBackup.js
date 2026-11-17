@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useContext } from 'react';
 import { ActivityIndicator, View, BackHandler, Text, ScrollView, StyleSheet, I18nManager } from 'react-native';
-import { useNavigation, useRoute, useTheme } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, useTheme } from '@react-navigation/native';
 
 import { SafeBlueArea, BlueButton } from '../../BlueComponents';
 import navigationStyle from '../../components/navigationStyle';
@@ -37,13 +37,23 @@ const PleaseBackup = () => {
     [navigation],
   );
 
+  // on focus, not on mount: the setting can change while this screen sits in the stack, and
+  // enableBlur() reads it at call time - a mount-only call would keep the stale decision
+  useFocusEffect(
+    useCallback(() => {
+      Privacy.enableBlur();
+
+      return () => {
+        Privacy.disableBlur();
+      };
+    }, []),
+  );
+
   useEffect(() => {
-    Privacy.enableBlur();
     setIsLoading(false);
     const listener = () => handleBackButton(false);
     const subscription = BackHandler.addEventListener('hardwareBackPress', listener);
     return () => {
-      Privacy.disableBlur();
       subscription.remove();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

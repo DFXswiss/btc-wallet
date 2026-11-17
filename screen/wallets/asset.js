@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { Icon } from 'react-native-elements';
 import { useRoute, useNavigation, useTheme, useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chain } from '../../models/bitcoinUnits';
 import navigationStyle from '../../components/navigationStyle';
 import { MultisigHDWallet, WatchOnlyWallet } from '../../class';
@@ -36,6 +37,7 @@ import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import Config from 'react-native-config';
 
 import { LightningLdsWallet } from '../../class/wallets/lightning-lds-wallet';
+import { SparkWallet } from '../../class/wallets/spark-wallet';
 import BoltCard from '../../class/boltcard';
 import scanqrHelper from '../../helpers/scan-qr';
 import DfxServicesButtons from '../../components/DfxServicesButtons';
@@ -60,10 +62,12 @@ const Asset = ({ navigation }) => {
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [limit, setLimit] = useState(15);
   const [pageSize, setPageSize] = useState(20);
-  const { setParams, setOptions, navigate } = useNavigation();
+  const { setParams, setOptions, navigate, goBack } = useNavigation();
   const { colors, scanImage } = useTheme();
   const walletActionButtonsRef = useRef();
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const headerOverlayHeight = insets.top + 44;
   const [fContainerHeight, setFContainerHeight] = useState(0);
   const elapsedTimeInterval = useRef(null);
 
@@ -165,7 +169,10 @@ const Asset = ({ navigation }) => {
     }, []),
   );
 
+  const isSpark = () => wallet?.type === SparkWallet.type;
+
   const isLightning = () => {
+    if (isSpark()) return false;
     const w = wallet;
     if (w && w.chain === Chain.OFFCHAIN) {
       return true;
@@ -214,7 +221,13 @@ const Asset = ({ navigation }) => {
   };
 
   const renderItem = item => (
-    <TransactionListItem item={item.item} itemPriceUnit={itemPriceUnit} timeElapsed={timeElapsed} walletID={walletID} />
+    <TransactionListItem
+      item={item.item}
+      itemPriceUnit={itemPriceUnit}
+      timeElapsed={timeElapsed}
+      walletID={walletID}
+      testID={`TransactionRow${item.index}`}
+    />
   );
 
   const importPsbt = base64Psbt => {
@@ -386,6 +399,7 @@ const Asset = ({ navigation }) => {
         navigation={navigation}
         wallet={wallet}
         width={width}
+        headerOverlayHeight={headerOverlayHeight}
         onWalletChange={passedWallet =>
           InteractionManager.runAfterInteractions(async () => {
             setItemPriceUnit(passedWallet.getPreferredBalanceUnit());
@@ -394,6 +408,22 @@ const Asset = ({ navigation }) => {
         }
         rightHeaderComponent={renderRightHeaderComponent()}
       />
+      {Platform.OS === 'android' && (
+        <View style={[styles.navHeader, { top: insets.top }]}>
+          <TouchableOpacity accessibilityRole="button" testID="NavigationGoBack" style={styles.walletDetails} onPress={() => goBack()}>
+            <Icon name="arrow-back" type="material" size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.navHeaderTitle}>{walletTransactionUpdateStatus === walletID ? loc.transactions.updating : ''}</Text>
+          <TouchableOpacity
+            accessibilityRole="button"
+            testID="Settings"
+            style={styles.walletDetails}
+            onPress={() => walletID && navigate('Settings', { walletID })}
+          >
+            <Icon name="more-horiz" type="material" size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      )}
       {!isMultiSig() && <DfxServicesButtons walletID={wallet.getID()} />}
       {isLightningTestnet() && (
         <View style={styles.testnetBanner}>
@@ -476,36 +506,58 @@ const Asset = ({ navigation }) => {
 
 export default Asset;
 
-Asset.navigationOptions = navigationStyle({}, (options, { navigation, route }) => ({
-  ...options,
-  headerStyle: {
-    backgroundColor: 'transparent',
-    borderBottomWidth: 0,
-    elevation: 0,
-    shadowOffset: { height: 0, width: 0 },
-  },
-  headerRight: () => (
-    <TouchableOpacity
-      accessibilityRole="button"
-      testID="Settings"
-      style={styles.walletDetails}
-      onPress={() => {
-        route?.params?.walletID &&
-          navigation.navigate('Settings', {
-            walletID: route?.params?.walletID,
-          });
-      }}
-    >
-      <Icon name="more-horiz" type="material" size={22} color="#FFFFFF" />
-    </TouchableOpacity>
-  ),
-}));
+Asset.navigationOptions = navigationStyle({}, (options, { navigation, route }) => {
+  if (Platform.OS === 'android') {
+    return {
+      ...options,
+      headerShown: false,
+    };
+  }
+
+  return {
+    ...options,
+    headerTransparent: true,
+    headerStyle: {
+      backgroundColor: 'transparent',
+    },
+    headerRight: () => (
+      <TouchableOpacity
+        accessibilityRole="button"
+        testID="Settings"
+        style={styles.walletDetails}
+        onPress={() => {
+          route?.params?.walletID &&
+            navigation.navigate('Settings', {
+              walletID: route?.params?.walletID,
+            });
+        }}
+      >
+        <Icon name="more-horiz" type="material" size={22} color="#FFFFFF" />
+      </TouchableOpacity>
+    ),
+  };
+});
 
 Asset.propTypes = {
   navigation: PropTypes.shape(),
 };
 
 const styles = StyleSheet.create({
+  navHeader: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    zIndex: 1,
+  },
+  navHeaderTitle: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
   payCardImage: {
     width: 1.3 * 30,
     height: 30,

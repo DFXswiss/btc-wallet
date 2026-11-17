@@ -1,6 +1,6 @@
 import React, { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
-import { Linking, Alert } from 'react-native';
-import { ApiError } from '../definitions/error';
+import { Linking } from 'react-native';
+import { reportError } from '../../../helpers/errors';
 import { useWalletContext } from '../../../contexts/wallet.context';
 import Config from 'react-native-config';
 import jwtDecode from 'jwt-decode';
@@ -15,8 +15,9 @@ import { useApi } from '../hooks/api.hook';
 import { User, UserUrl } from '../definitions/user';
 import { Auth } from '../definitions/auth';
 import { useLanguageContext } from './language.context';
-import { MultisigHDWallet } from '../../../class';
 import { TaprootLdsWallet } from '../../../class/wallets/taproot-lds-wallet';
+import { SparkWallet } from '../../../class/wallets/spark-wallet';
+import { dfxAvailabilityFromSettled, dfxConnectAtInit, dfxForbiddenWalletIds } from '../dfx-connect-at-init';
 
 export enum DfxService {
   BUY = 'buy',
@@ -29,6 +30,7 @@ export interface SessionInterface {
   resetAccessToken: (walletId: string) => void;
   isProcessing: boolean;
   isAvailable: boolean;
+  isAvailableFor: (walletId: string) => boolean;
   isInitialized: boolean;
   openServices: (walletId: string, balance: string, service: DfxService) => Promise<void>;
   isUnavailable: boolean;
@@ -41,6 +43,8 @@ export function useDfxSessionContext(): SessionInterface {
   return useContext(DfxSessionContext);
 }
 
+type ConnectableWallet = { type: string; getID(): string };
+
 export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.JSX.Element {
   const { wallets } = useContext(BlueStorageContext);
   const { walletID: mainWalletId, address: mainAddress, signMessage, getOwnershipProof } = useWalletContext();
@@ -52,6 +56,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
   const [sessions, setSessions] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAvailable, setIsAvailable] = useState(false);
+  const [forbiddenWalletIds, setForbiddenWalletIds] = useState<string[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isUnavailable, setIsUnavailable] = useState(false);
 
@@ -95,7 +100,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
         await call({ url: UserUrl.change, method: 'PUT', data: update }, token.accessToken);
       }
     } catch (e) {
-      console.error('Failed to update language:', e);
+      reportError('Failed to update language', e);
     }
 
     return token;
@@ -120,6 +125,13 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
 
         return await createSession(address.toUpperCase(), wallet.addressOwnershipProof);
       }
+      if (wallet.type === SparkWallet.type) {
+        const address = await wallet.getSparkAddress();
+        if (!address) throw new Error(loc.wallets.lightning_spark_address_unavailable);
+
+        const signature = await wallet.signCompactMessage(getSignMessage(address));
+        return await createSession(address, signature);
+      }
     }
 
     throw new Error('TODO (david): taproot?');
@@ -140,7 +152,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
   async function resetAccessToken(walletId: string) {
     updateSession(walletId);
   }
-  
+
   async function refreshAccessToken(walletId: string) {
     resetAccessToken(walletId);
     const session = await getAccessToken(walletId);
@@ -148,18 +160,34 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
   }
 
   async function connect(walletIds: string[]): Promise<void> {
-    await Promise.all(walletIds.map(id => getAccessToken(id)))
-      .then(() => setIsAvailable(true))
-      .catch((e: ApiError) => {
-        if (e.statusCode === 403) return setIsAvailable(false);
+    const results = await Promise.allSettled(walletIds.map(id => getAccessToken(id)));
+    setForbiddenWalletIds(dfxForbiddenWalletIds(walletIds, results));
+    const availability = dfxAvailabilityFromSettled(results);
+    if (availability === 'available') {
+      setIsAvailable(true);
+      return;
+    }
+    if (availability === 'forbidden') {
+      setIsAvailable(false);
+      return;
+    }
+    const first = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+    throw first?.reason;
+  }
 
-        throw e;
-      });
+  function isAvailableFor(walletId: string): boolean {
+    if (forbiddenWalletIds.includes(walletId)) return false;
+    const wallet = wallets?.find((w: ConnectableWallet) => w.getID() === walletId);
+    // A Spark wallet signs in on its own when opened, so the start-up result of other wallets does not decide it.
+    if (wallet?.type === SparkWallet.type) return true;
+    // Only wallets createAccessToken can sign in share the start-up result.
+    const signsIn = walletId === mainWalletId || wallet?.type === LightningLdsWallet.type || wallet?.type === TaprootLdsWallet.type;
+    return signsIn && isAvailable;
   }
 
   async function openServices(walletId: string, balance: string, service: DfxService): Promise<void> {
     try {
-      if (!isAvailable) return;
+      if (!isAvailableFor(walletId)) return;
 
       await refreshAccessToken(walletId);
       const token = encodeURIComponent(await getAccessToken(walletId));
@@ -167,9 +195,13 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
       const redirectUri = encodeURIComponent(`dfxtaro://?wallet-id=${walletId}`);
 
       const url = `${Config.REACT_APP_SRV_URL}/${service}?session=${token}&balances=${balance}@BTC&redirect-uri=${redirectUri}&lang=${lang}`;
-      return Linking.openURL(url);
+      // Both platforms put the whole URL in the rejection message, and this one carries the
+      // session token and the balance. Replace it before it can reach an alert or a report.
+      return await Linking.openURL(url).catch(() => {
+        throw new Error(`openURL rejected for ${service}`);
+      });
     } catch (e) {
-      console.error('Failed to open services:', e);
+      reportError('Failed to open services', e);
       setIsUnavailable(true);
       throw e;
     }
@@ -186,12 +218,19 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
       return;
     }
 
+    const startupWallets = wallets.filter((w: ConnectableWallet) => dfxConnectAtInit(w.type));
+    if (!startupWallets.length) {
+      setIsAvailable(wallets.some((w: ConnectableWallet) => w.type === SparkWallet.type));
+      setIsInitialized(false);
+      return;
+    }
+
     !isInitialized &&
       !isProcessing &&
-      connect(wallets.filter((w: any) => w.type !== MultisigHDWallet.type).map((w: any) => w.getID()))
+      connect(startupWallets.map((w: ConnectableWallet) => w.getID()))
         .then(() => setIsInitialized(true))
         .catch(e => {
-          console.error('DFX session init error: ', e.message?.toString());
+          reportError('DFX session init failed', e);
           setIsUnavailable(true);
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -202,6 +241,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
       getAccessToken,
       resetAccessToken,
       isAvailable,
+      isAvailableFor,
       isProcessing,
       isInitialized,
       isUnavailable,
@@ -219,6 +259,7 @@ export function DfxSessionContextProvider(props: PropsWithChildren<any>): React.
       sessions,
       isProcessing,
       isAvailable,
+      forbiddenWalletIds,
       isInitialized,
       isUnavailable,
     ],

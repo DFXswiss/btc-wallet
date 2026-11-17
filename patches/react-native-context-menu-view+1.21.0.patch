@@ -1,0 +1,27 @@
+diff --git a/node_modules/react-native-context-menu-view/android/src/main/java/com/mpiannucci/reactnativecontextmenu/ContextMenuView.java b/node_modules/react-native-context-menu-view/android/src/main/java/com/mpiannucci/reactnativecontextmenu/ContextMenuView.java
+index c6f5b9a..b2e721b 100644
+--- a/node_modules/react-native-context-menu-view/android/src/main/java/com/mpiannucci/reactnativecontextmenu/ContextMenuView.java
++++ b/node_modules/react-native-context-menu-view/android/src/main/java/com/mpiannucci/reactnativecontextmenu/ContextMenuView.java
+@@ -29,6 +29,7 @@ import com.facebook.react.bridge.ReadableArray;
+ import com.facebook.react.bridge.ReadableMap;
+ import com.facebook.react.bridge.WritableArray;
+ import com.facebook.react.bridge.WritableMap;
++import com.facebook.react.uimanager.events.NativeGestureUtil;
+ import com.facebook.react.uimanager.events.RCTEventEmitter;
+ import com.facebook.react.views.view.ReactViewGroup;
+ 
+@@ -124,7 +125,13 @@ public class ContextMenuView extends ReactViewGroup implements View.OnCreateCont
+ 
+                 if (!dropdownMenuMode && !disabled) {
+                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+-                        showContextMenu(e.getX(), e.getY());
++                        if (showContextMenu(e.getX(), e.getY())) {
++                            // The menu took over the gesture: cancel the JS touch, or a pressable child fires on release.
++                            MotionEvent cancel = MotionEvent.obtain(e);
++                            cancel.setAction(MotionEvent.ACTION_CANCEL);
++                            NativeGestureUtil.notifyNativeGestureStarted(ContextMenuView.this, cancel);
++                            cancel.recycle();
++                        }
+                     }
+                 }
+             }
