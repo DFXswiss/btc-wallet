@@ -651,7 +651,12 @@ module.exports.multiGetTransactionByTxid = async function (txids, batchsize, ver
     const jsonString = realm.objectForPrimaryKey('Cache', txid + cacheKeySuffix); // search for a realm object with a primary key
     if (jsonString && jsonString.cache_value) {
       try {
-        ret[txid] = JSON.parse(jsonString.cache_value);
+        const cached = JSON.parse(jsonString.cache_value);
+        if (verbose || txhexMatchesTxid(cached, txid)) {
+          ret[txid] = cached;
+        } else {
+          console.warn('multiGetTransactionByTxid: cached transaction hex does not match its txid, refetching', txid);
+        }
       } catch (error) {
         console.warn('multiGetTransactionByTxid: cached transaction failed to parse, refetching', error);
       }
@@ -747,6 +752,11 @@ module.exports.multiGetTransactionByTxid = async function (txids, batchsize, ver
         txdata.result = await mainClient.blockchainTransaction_get(txdata.param, false);
         // since we used VERBOSE=false, server sent us plain txhex which we must decode on our end:
         txdata.result = txhexToElectrumTransaction(txdata.result);
+      }
+      if (!verbose && typeof txdata.result === 'string' && !txhexMatchesTxid(txdata.result, txdata.param)) {
+        // a raw transaction is only usable when it hashes to the txid it was requested by
+        console.warn('multiGetTransactionByTxid: server returned a transaction hex that does not match the requested txid', txdata.param);
+        continue;
       }
       ret[txdata.param] = txdata.result;
       if (ret[txdata.param]) delete ret[txdata.param].hex; // compact
@@ -1037,6 +1047,24 @@ const semVerToInt = function (semver) {
 
   return ret;
 };
+
+/**
+ * Checks that a raw transaction hex decodes and hashes to the given txid.
+ *
+ * @param txhex {*}
+ * @param txid {string}
+ * @returns {boolean}
+ */
+function txhexMatchesTxid(txhex, txid) {
+  if (typeof txhex !== 'string') return false;
+  try {
+    return bitcoin.Transaction.fromHex(txhex).getId() === txid;
+  } catch (_) {
+    return false;
+  }
+}
+
+module.exports.txhexMatchesTxid = txhexMatchesTxid;
 
 function txhexToElectrumTransaction(txhex) {
   const tx = bitcoin.Transaction.fromHex(txhex);

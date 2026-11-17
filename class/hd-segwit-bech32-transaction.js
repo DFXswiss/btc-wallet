@@ -41,9 +41,13 @@ export class HDSegwitBech32Transaction {
    */
   async _fetchTxhexAndDecode() {
     const hexes = await BlueElectrum.multiGetTransactionByTxid([this._txid], 10, false);
-    this._txhex = hexes[this._txid];
-    if (!this._txhex) throw new Error("Transaction can't be found in mempool");
-    this._txDecoded = bitcoin.Transaction.fromHex(this._txhex);
+    const txhex = hexes[this._txid];
+    if (!txhex) throw new Error("Transaction can't be found in mempool");
+    const decoded = bitcoin.Transaction.fromHex(txhex);
+    // the hex comes from the server (or its cache); only use it when it is the transaction we asked for
+    if (decoded.getId() !== this._txid) throw new Error('Fetched transaction does not match the requested txid');
+    this._txhex = txhex;
+    this._txDecoded = decoded;
   }
 
   /**
@@ -145,7 +149,6 @@ export class HDSegwitBech32Transaction {
    */
   async getInfo() {
     if (!this._wallet) throw new Error('Wallet required for this method');
-    if (!this._remoteTx) await this._fetchRemoteTx();
     if (!this._txDecoded) await this._fetchTxhexAndDecode();
 
     const prevInputs = [];
@@ -183,12 +186,18 @@ export class HDSegwitBech32Transaction {
     let feeRate = Math.floor(fee / this._txDecoded.virtualSize());
     if (feeRate === 0) feeRate = 1;
 
+    // outputs are read from the decoded transaction, which is bound to its txid, so the
+    // replacement pays exactly the recipients of the original transaction
+    const outputs = this._txDecoded.outs.map((outp, n) => ({
+      n,
+      value: outp.value,
+      address: bitcoin.address.fromOutputScript(outp.script),
+    }));
+
     // lets take a look at change
     let changeAmount = 0;
     const targets = [];
-    for (const outp of this._remoteTx.vout) {
-      const address = outp.scriptPubKey.addresses[0];
-      const value = new BigNumber(outp.value).multipliedBy(100000000).toNumber();
+    for (const { value, address } of outputs) {
       if (this._wallet.weOwnAddress(address)) {
         changeAmount += value;
       } else {
@@ -199,12 +208,10 @@ export class HDSegwitBech32Transaction {
 
     // lets find outputs we own that current transaction creates. can be used in CPFP
     const unconfirmedUtxos = [];
-    for (const outp of this._remoteTx.vout) {
-      const address = outp.scriptPubKey.addresses[0];
-      const value = new BigNumber(outp.value).multipliedBy(100000000).toNumber();
+    for (const { n, value, address } of outputs) {
       if (this._wallet.weOwnAddress(address)) {
         unconfirmedUtxos.push({
-          vout: outp.n,
+          vout: n,
           value,
           txId: this._txid || this._txDecoded.getId(),
           address,
@@ -280,7 +287,6 @@ export class HDSegwitBech32Transaction {
    */
   async createRBFcancelTx(newFeerate) {
     if (!this._wallet) throw new Error('Wallet required for this method');
-    if (!this._remoteTx) await this._fetchRemoteTx();
 
     const { feeRate, utxos } = await this.getInfo();
 
@@ -305,7 +311,6 @@ export class HDSegwitBech32Transaction {
    */
   async createRBFbumpFee(newFeerate) {
     if (!this._wallet) throw new Error('Wallet required for this method');
-    if (!this._remoteTx) await this._fetchRemoteTx();
 
     const { feeRate, targets, changeAmount, utxos } = await this.getInfo();
 
@@ -335,7 +340,6 @@ export class HDSegwitBech32Transaction {
    */
   async createCPFPbumpFee(newFeerate) {
     if (!this._wallet) throw new Error('Wallet required for this method');
-    if (!this._remoteTx) await this._fetchRemoteTx();
 
     const { feeRate, fee: oldFee, unconfirmedUtxos } = await this.getInfo();
 

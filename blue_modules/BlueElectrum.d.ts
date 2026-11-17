@@ -65,6 +65,8 @@ export function multiGetTransactionByTxid(
 ): Promise<Record<string, ElectrumTransaction>>;
 export function multiGetTransactionByTxid(txIds: string[], batchsize: number, verbose: false): Promise<Record<string, string>>;
 
+export function txhexMatchesTxid(txhex: unknown, txid: string): boolean;
+
 export type MultiGetBalanceResponse = {
   balance: number;
   unconfirmed_balance: number;
