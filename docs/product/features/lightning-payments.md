@@ -124,9 +124,9 @@ Key derivation: LNDHub/LDS uses HMAC-SHA256(wallet secret, hostname) as a secp25
 
 **Known issues.** None recorded.
 
-**Tests.** tests/unit/lnurl-auth.test.js, tests/unit/spark-context.test.js, tests/unit/lnurl.test.js, tests/e2e-maestro/flows/10-lnurl-auth.yaml; CF-09.
+**Tests.** tests/unit/lnurl-auth.test.js, tests/unit/spark-context.test.js, tests/unit/spark-seed.test.js, tests/unit/lnurl.test.js, tests/e2e-maestro/flows/10-lnurl-auth.yaml; CF-09.
 
-**Source.** screen/lnd/lnurlAuth.js, class/lnurl.js, class/wallets/lightning-custodian-wallet.js, api/spark/contexts/spark.context.tsx, screen/lnd/lnurlNavigationForwarder.tsx, class/deeplink-schema-match.js.
+**Source.** screen/lnd/lnurlAuth.js, class/lnurl.js, class/wallets/lightning-custodian-wallet.js, api/spark/contexts/spark.context.tsx, api/spark/spark-seed.ts, screen/lnd/lnurlNavigationForwarder.tsx, class/deeplink-schema-match.js.
 
 ## L-15 LNURL routing and LNURL-withdraw
 

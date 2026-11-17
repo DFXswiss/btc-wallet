@@ -309,7 +309,7 @@ describe('LnurlAuth authenticate', () => {
     authenticateSigned.mockRestore();
   });
 
-  it('logs a Spark wallet in to DFX with its identity key, Spark address and DFX signature', async () => {
+  it('logs a Spark wallet in to DFX with its LNURL-auth signer, Spark address and DFX signature', async () => {
     const spark = {
       getID: () => 'spark-1',
       chain: Chain.OFFCHAIN,
