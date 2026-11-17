@@ -116,11 +116,11 @@ LNURL-pay protocol: Lightning address resolves to `https://<domain>/.well-known/
 
 **Behavior.** Prompt: "Would you like to {log in at | register an account at | link your account at | be authenticated at}" plus the hostname plus "using your Lightning wallet?" chosen by the LNURL `action` param (`lnurl_auth.*_question_part_1/2`), bold hostname, "Authenticate" button. Success: SuccessView and `lnurl_auth.*_answer`. Error: `lnurl_auth.could_not_auth` plus raw reason. No explicit cancel; header close pops the stack. DFX-domain logins (hostname `dfx.swiss` or subdomain) use the Lightning wallet they were started from; all other logins use the default Lightning wallet (LNDHub before Spark). No Lightning wallet → `wallets.add_ln_wallet_first`.
 
-Key derivation: LNDHub/LDS uses HMAC-SHA256(wallet secret, hostname) as a secp256k1 private key (BlueWallet scheme, not LUD-05 BIP32). DFX logins append `address` (LNURL of the Lightning address), `signature` (address ownership proof), and `wallet=DFX Bitcoin`. Spark supports only DFX-domain logins: k1 is signed with the Spark identity key from the source mnemonic (must match the wallet identity pubkey), and appends Spark address plus a compact signature of the DFX sign message. Non-DFX login with Spark → "This wallet cannot sign in with that code." (`wallets.lightning_spark_lnurl_auth_unsupported`).
+Key derivation: LNDHub/LDS uses HMAC-SHA256(wallet secret, hostname) as a secp256k1 private key (BlueWallet scheme, not LUD-05 BIP32). DFX logins append `address` (LNURL of the Lightning address), `signature` (address ownership proof), and `wallet=DFX Bitcoin`. Spark supports only DFX-domain logins: k1 is signed with the LUD-05 linking key of the login hostname (`m/138'/<four uint32 from HMAC-SHA256 of the hostname under the hashing key m/138'/0>` of the Spark phrase), never with the Spark identity key; the source mnemonic must still yield the wallet identity pubkey. The login appends Spark address plus a compact signature of the DFX sign message. Non-DFX login with Spark → "This wallet cannot sign in with that code." (`wallets.lightning_spark_lnurl_auth_unsupported`).
 
 **Not supported.** Spark LNURL-auth for non-DFX domains. LUD-05 BIP32 linking-key derivation for LNDHub (uses HMAC instead).
 
-**Depends on.** Default or source Lightning wallet; LNURL-auth protocol in `class/lnurl.js`; for Spark, identity key from the Spark context.
+**Depends on.** Default or source Lightning wallet; LNURL-auth protocol in `class/lnurl.js`; for Spark, the LUD-05 linking key from the Spark context.
 
 **Known issues.** None recorded.
 

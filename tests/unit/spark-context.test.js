@@ -172,8 +172,9 @@ describe('useSparkContext', () => {
 });
 
 describe('SparkContextProvider signLnurlAuthK1', () => {
-  const { sparkIdentityKey } = jest.requireActual('../../api/spark/spark-seed');
+  const { lnurlAuthLinkingKey, sparkIdentityKey } = jest.requireActual('../../api/spark/spark-seed');
   const K1 = 'e2af6254a8df433264fa23f67eb8188635d15ce883e8fc020989d5f82ae6f11e';
+  const DOMAIN = 'api.dfx.swiss';
 
   function stored(identityPubkey) {
     const spark = SparkWallet.create(identityPubkey);
@@ -184,31 +185,42 @@ describe('SparkContextProvider signLnurlAuthK1', () => {
     return spark;
   }
 
-  it('signs k1 with the identity key of the wallet', async () => {
+  it('signs k1 with the LUD-05 linking key of the domain, not with the identity key', async () => {
     const identity = sparkIdentityKey(SPARK_MNEMONIC).publicKey;
+    const linkingKey = lnurlAuthLinkingKey(SPARK_MNEMONIC, DOMAIN).publicKey;
     renderWith([hdWallet, stored(identity)]);
     await waitFor(() => assert.ok(latestCtx));
 
-    const signed = await latestCtx.signLnurlAuthK1(K1);
-    assert.strictEqual(signed.key, identity);
+    const signed = await latestCtx.signLnurlAuthK1(K1, DOMAIN);
+    assert.strictEqual(signed.key, linkingKey);
+    assert.notStrictEqual(signed.key, identity);
     const secp256k1 = require('secp256k1');
-    assert.ok(
-      secp256k1.verify(Buffer.from(K1, 'hex'), secp256k1.signatureImport(Buffer.from(signed.sig, 'hex')), Buffer.from(identity, 'hex')),
-    );
+    const sig = secp256k1.signatureImport(Buffer.from(signed.sig, 'hex'));
+    assert.ok(secp256k1.verify(Buffer.from(K1, 'hex'), sig, Buffer.from(linkingKey, 'hex')));
+    assert.ok(!secp256k1.verify(Buffer.from(K1, 'hex'), sig, Buffer.from(identity, 'hex')));
   });
 
-  it('refuses to sign when the derived key is not the identity of the wallet', async () => {
+  it('signs with a different key for another domain', async () => {
+    renderWith([hdWallet, stored(sparkIdentityKey(SPARK_MNEMONIC).publicKey)]);
+    await waitFor(() => assert.ok(latestCtx));
+
+    const signed = await latestCtx.signLnurlAuthK1(K1, 'dfx.swiss');
+    assert.strictEqual(signed.key, lnurlAuthLinkingKey(SPARK_MNEMONIC, 'dfx.swiss').publicKey);
+    assert.notStrictEqual(signed.key, lnurlAuthLinkingKey(SPARK_MNEMONIC, DOMAIN).publicKey);
+  });
+
+  it('refuses to sign when the phrase is not the one of the wallet', async () => {
     renderWith([hdWallet, stored('02' + '11'.repeat(32))]);
     await waitFor(() => assert.ok(latestCtx));
 
-    await assert.rejects(() => latestCtx.signLnurlAuthK1(K1), new RegExp(loc.wallets.lightning_spark_lnurl_auth_unsupported));
+    await assert.rejects(() => latestCtx.signLnurlAuthK1(K1, DOMAIN), new RegExp(loc.wallets.lightning_spark_lnurl_auth_unsupported));
   });
 
   it('refuses to sign without a Spark wallet', async () => {
     renderWith([hdWallet]);
     await waitFor(() => assert.ok(latestCtx));
 
-    await assert.rejects(() => latestCtx.signLnurlAuthK1(K1), new RegExp(loc.wallets.lightning_spark_lnurl_auth_unsupported));
+    await assert.rejects(() => latestCtx.signLnurlAuthK1(K1, DOMAIN), new RegExp(loc.wallets.lightning_spark_lnurl_auth_unsupported));
   });
 });
 

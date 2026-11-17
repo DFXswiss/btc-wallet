@@ -72,8 +72,8 @@ const LnurlAuth = () => {
       });
 
   const authenticate = useCallback(() => {
-    // DFX login for a Spark wallet: the identity key signs k1, and the Spark address with its DFX signature
-    // is the account, the same pair the in-app DFX sign-in uses.
+    // DFX login for a Spark wallet: the LUD-05 linking key of the domain signs k1, and the Spark address with its
+    // DFX signature is the account, the same pair the in-app DFX sign-in uses.
     if (wallet.type === SparkWallet.type && isDfxLogin) {
       onAuthResult(
         (async () => {

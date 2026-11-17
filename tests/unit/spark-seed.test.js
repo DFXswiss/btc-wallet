@@ -4,6 +4,9 @@ import * as bip39 from 'bip39';
 import ecc from '../../blue_modules/noble_ecc';
 import {
   deriveSparkMnemonic,
+  LNURL_AUTH_HASHING_PATH,
+  lnurlAuthLinkingKey,
+  lnurlAuthPathSuffix,
   sparkIdentityKey,
   sparkMnemonicFromRoot,
   SPARK_BIP85_PATH,
@@ -81,5 +84,48 @@ describe('sparkIdentityKey', () => {
     assert.strictEqual(key.publicKey, Buffer.from(node.publicKey).toString('hex'));
     assert.ok(key.privateKey.equals(Buffer.from(node.privateKey)));
     assert.match(key.publicKey, /^0[23][0-9a-f]{64}$/);
+  });
+});
+
+describe('lnurlAuthLinkingKey', () => {
+  const phrase = 'prosper short ramp prepare exchange stove life snack client enough purpose fold';
+  const root = BIP32Factory(ecc).fromSeed(bip39.mnemonicToSeedSync(phrase));
+  // BIP32 path notation for a uint32 index: values at or above 2^31 are hardened.
+  const pathOf = suffix => ["m/138'", ...suffix.map(i => (i >= 0x80000000 ? `${i - 0x80000000}'` : `${i}`))].join('/');
+
+  it('matches the LUD-05 path suffix test vector', () => {
+    const hashingKey = Buffer.from('7d417a6a5e9a6a4a879aeaba11a11838764c8fa2b959c242d43dea682b3e409b', 'hex');
+    assert.deepStrictEqual(lnurlAuthPathSuffix(hashingKey, 'site.com'), [1588488367, 2659270754, 38110259, 4136336762]);
+  });
+
+  it("derives the key at m/138'/<suffix> from the hashing key at m/138'/0 of the Spark phrase", () => {
+    assert.strictEqual(LNURL_AUTH_HASHING_PATH, "m/138'/0");
+    const hashingKey = Buffer.from(root.derivePath(LNURL_AUTH_HASHING_PATH).privateKey);
+    const node = root.derivePath(pathOf(lnurlAuthPathSuffix(hashingKey, 'api.dfx.swiss')));
+    const key = lnurlAuthLinkingKey(phrase, 'api.dfx.swiss');
+    assert.strictEqual(key.publicKey, Buffer.from(node.publicKey).toString('hex'));
+    assert.ok(key.privateKey.equals(Buffer.from(node.privateKey)));
+  });
+
+  it('is not the Spark identity key', () => {
+    const identity = sparkIdentityKey(phrase);
+    const key = lnurlAuthLinkingKey(phrase, 'api.dfx.swiss');
+    assert.notStrictEqual(key.publicKey, identity.publicKey);
+    assert.ok(!key.privateKey.equals(identity.privateKey));
+  });
+
+  it('gives each service domain its own key', () => {
+    assert.notStrictEqual(lnurlAuthLinkingKey(phrase, 'api.dfx.swiss').publicKey, lnurlAuthLinkingKey(phrase, 'dfx.swiss').publicKey);
+  });
+
+  it('uses the domain without a trailing full stop, case-insensitively', () => {
+    const expected = lnurlAuthLinkingKey(phrase, 'api.dfx.swiss').publicKey;
+    assert.strictEqual(lnurlAuthLinkingKey(phrase, 'api.dfx.swiss.').publicKey, expected);
+    assert.strictEqual(lnurlAuthLinkingKey(phrase, 'API.DFX.Swiss').publicKey, expected);
+  });
+
+  it('refuses a missing domain', () => {
+    assert.throws(() => lnurlAuthLinkingKey(phrase, ''), /domain is missing/);
+    assert.throws(() => lnurlAuthLinkingKey(phrase, '.'), /domain is missing/);
   });
 });

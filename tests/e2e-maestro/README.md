@@ -22,7 +22,7 @@ non-DFX service and says so: the prompt names `lightninglogin.live`, and after
 `Authentifizieren` the app shows `Authentifizierung bei lightninglogin.live
 fehlgeschlagen.` and `Dieses Wallet kann sich mit diesem Code nicht anmelden.`
 It does not test a successful login, and it does not test the DFX login path
-(signed with the Spark identity key). The refusal is decided in the app; no
+(signed with the LUD-05 linking key of the login domain). The refusal is decided in the app; no
 request reaches the service.
 
 **16 – DFX buy.** Proves that the buy form in the in-app browser shows the

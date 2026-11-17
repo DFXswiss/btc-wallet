@@ -807,7 +807,7 @@ describe('Lnurl LNURL-auth with a provided signer', () => {
 
     await LN.authenticateSigned(sign, { address: 'spark1address', signature: 'a+b/c', wallet: 'DFX Bitcoin' });
 
-    expect(sign).toHaveBeenCalledWith(K1);
+    expect(sign).toHaveBeenCalledWith(K1, 'api.dfx.swiss');
     expect(fetchGet).toHaveBeenCalledWith(
       `${AUTH_URL}&sig=deadbeef&key=02ab&address=spark1address&signature=a%2Bb%2Fc&wallet=DFX%20Bitcoin`,
     );

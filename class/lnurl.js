@@ -436,14 +436,15 @@ export default class Lnurl {
 
   /**
    * LNURL-auth with a caller-provided signer instead of the LndHub-derived key.
-   * sign(k1Hex) returns the DER signature over the raw k1 bytes and the compressed public key, both hex.
+   * sign(k1Hex, domain) returns the DER signature over the raw k1 bytes and the compressed public key, both hex;
+   * domain is the service hostname the linking key is derived for.
    */
   async authenticateSigned(sign, additionalParams) {
     if (!this._lnurl) throw new Error('this._lnurl is not set');
     const url = parse(Lnurl.getUrlFromLnurl(this._lnurl) || '', true);
     if (!url.hostname || !url.query.k1) throw new Error('Invalid LNURL-auth URL');
 
-    const { sig, key } = await sign(url.query.k1);
+    const { sig, key } = await sign(url.query.k1, url.hostname);
     let replyUrl = `${url.href}&sig=${sig}&key=${key}`;
     for (const [param, value] of Object.entries(additionalParams || {})) {
       replyUrl += `&${param}=${encodeURIComponent(value)}`;
