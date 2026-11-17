@@ -69,6 +69,7 @@ describe('useAuth auth', () => {
       address: 'lnurl-address',
       signature: 'compact-signature',
       wallet: 'DFX Bitcoin',
+      region: '3',
     });
     expect('key' in body).toBe(false);
   });
