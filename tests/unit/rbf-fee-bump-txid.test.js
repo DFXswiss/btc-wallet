@@ -284,6 +284,56 @@ describe('HDSegwitBech32Transaction txid binding', () => {
       assert.strictEqual(info.vsize, withoutUnverified.virtualSize());
       assert.ok(info.vsize < mixed.virtualSize() - 900);
       assert.strictEqual(info.feeRate, Math.floor(info.fee / withoutUnverified.virtualSize()));
+      assert.strictEqual(info.sizeVerified, false);
+
+      // the package fee rate of a CPFP child needs the real size, so CPFP refuses
+      const wallet = makeWallet();
+      await assert.rejects(
+        () => new HDSegwitBech32Transaction(null, mixed.getId(), wallet).createCPFPbumpFee(1000),
+        /size cannot be verified/,
+      );
+      expect(wallet.createTransaction).not.toHaveBeenCalled();
+    });
+
+    describe('P2TR key path input', () => {
+      const TR_KEY = ECPairFactory(ecc).fromPrivateKey(Buffer.alloc(32, 11));
+      const trParent = makeParent(4);
+      trParent.outs[1].script = bitcoin.script.compile([bitcoin.opcodes.OP_1, TR_KEY.publicKey.subarray(1, 33)]);
+
+      function spendWithTaproot(signWith) {
+        const tx = new bitcoin.Transaction();
+        tx.version = 2;
+        tx.addInput(parents[0].getHash(), 1, 0);
+        tx.addInput(trParent.getHash(), 1, 0);
+        tx.addOutput(bitcoin.address.toOutputScript(RECIPIENT), RECIPIENT_VALUE);
+        tx.addOutput(bitcoin.address.toOutputScript(CHANGE), CHANGE_VALUE);
+        signP2wpkhInputs(tx, [PREV_VALUE]);
+        const hash = tx.hashForWitnessV1(
+          1,
+          [parents[0].outs[1].script, trParent.outs[1].script],
+          [PREV_VALUE, PREV_VALUE],
+          bitcoin.Transaction.SIGHASH_DEFAULT,
+        );
+        tx.ins[1].witness = [Buffer.from(ecc.signSchnorr(hash, signWith.privateKey))];
+        mockServer({ [tx.getId()]: tx.toHex(), [parents[0].getId()]: parents[0].toHex(), [trParent.getId()]: trParent.toHex() });
+        return tx;
+      }
+
+      it('verifies the signature and counts the witness in the size', async () => {
+        const tx = spendWithTaproot(TR_KEY);
+        const wallet = makeWallet();
+        const info = await new HDSegwitBech32Transaction(null, tx.getId(), wallet).getInfo();
+        assert.strictEqual(info.sizeVerified, true);
+        assert.strictEqual(info.vsize, tx.virtualSize());
+
+        await new HDSegwitBech32Transaction(null, tx.getId(), wallet).createCPFPbumpFee(1000);
+        expect(wallet.createTransaction).toHaveBeenCalled();
+      });
+
+      it('rejects a signature by another key', async () => {
+        const tx = spendWithTaproot(ECPairFactory(ecc).fromPrivateKey(Buffer.alloc(32, 12)));
+        await assert.rejects(() => new HDSegwitBech32Transaction(null, tx.getId(), makeWallet()).getInfo(), /witness does not match/);
+      });
     });
   });
 
