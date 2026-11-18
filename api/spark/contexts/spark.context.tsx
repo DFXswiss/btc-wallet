@@ -15,7 +15,13 @@ import {
   syncSparkWallet,
   type SparkSessionLease,
 } from '../spark-sdk';
-import { BIP39_HD_WALLET_TYPES, sparkIdentityKey, sparkMnemonicFromWallet, type OnChainMnemonicWallet } from '../spark-seed';
+import {
+  BIP39_HD_WALLET_TYPES,
+  lnurlAuthLinkingKey,
+  sparkIdentityKey,
+  sparkMnemonicFromWallet,
+  type OnChainMnemonicWallet,
+} from '../spark-seed';
 import { applyOutgoingSdkEvent, getOutgoingPayment, subscribeOutgoingPayment, type OutgoingPayment } from '../outgoing-payment';
 
 const LIGHTNING_ADDRESS_USERNAME_LENGTH = 16;
@@ -83,8 +89,11 @@ export interface SparkContextInterface {
   isConnecting: boolean;
   isCreating: boolean;
   createSparkWallet: (source?: OnChainMnemonicWallet) => Promise<SparkWallet | null>;
-  /** Signs an LNURL-auth k1 with the Spark identity key: DER signature over the raw k1 bytes and the pubkey, hex. */
-  signLnurlAuthK1: (k1Hex: string) => Promise<{ sig: string; key: string }>;
+  /**
+   * Signs an LNURL-auth k1 with the LUD-05 linking key of the service domain, never with the Spark identity key:
+   * DER signature over the raw k1 bytes and the pubkey, hex.
+   */
+  signLnurlAuthK1: (k1Hex: string, domain: string) => Promise<{ sig: string; key: string }>;
   outgoingPayment: OutgoingPayment | null;
 }
 
@@ -441,14 +450,14 @@ export function SparkContextProvider(props: PropsWithChildren): React.JSX.Elemen
     [ensureConnected, addAndSaveWallet, refreshSparkWallet, deleteWallet],
   );
 
-  const signLnurlAuthK1 = useCallback(async (k1Hex: string): Promise<{ sig: string; key: string }> => {
+  const signLnurlAuthK1 = useCallback(async (k1Hex: string, domain: string): Promise<{ sig: string; key: string }> => {
     const spark = getSparkWallet(walletsRef.current);
     if (!spark?.identityPubkey) throw new Error(loc.wallets.lightning_spark_lnurl_auth_unsupported);
-    const { privateKey } = sparkIdentityKey(getSparkMnemonic(walletsRef.current, spark.sourceWalletId, spark.sourceWalletLabel));
-    const signed = Lnurl.signK1(k1Hex, privateKey);
-    // Sign only with the key whose public key is the identity inside the wallet's Spark address.
-    if (signed.key !== spark.identityPubkey) throw new Error(loc.wallets.lightning_spark_lnurl_auth_unsupported);
-    return signed;
+    const mnemonic = getSparkMnemonic(walletsRef.current, spark.sourceWalletId, spark.sourceWalletLabel);
+    // Sign only for the Spark wallet derived from this phrase.
+    if (sparkIdentityKey(mnemonic).publicKey !== spark.identityPubkey) throw new Error(loc.wallets.lightning_spark_lnurl_auth_unsupported);
+    // LNURL-auth uses its own per-domain key (LUD-05), kept apart from the Spark identity key.
+    return Lnurl.signK1(k1Hex, lnurlAuthLinkingKey(mnemonic, domain).privateKey);
   }, []);
 
   useEffect(() => {

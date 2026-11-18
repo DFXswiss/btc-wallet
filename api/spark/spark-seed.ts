@@ -66,3 +66,38 @@ export function sparkIdentityKey(sparkMnemonic: string): { privateKey: Buffer; p
   }
   return { privateKey: Buffer.from(node.privateKey), publicKey: Buffer.from(node.publicKey).toString('hex') };
 }
+
+// LUD-05 LNURL-auth hashing key; the per-service linking key sits under m/138'/<four uint32 from the domain>.
+export const LNURL_AUTH_HASHING_PATH = "m/138'/0";
+
+/** LUD-05 path suffix for a service: the first 16 bytes of HMAC-SHA256(hashingKey, domain) as four big-endian uint32. */
+export function lnurlAuthPathSuffix(hashingKey: Buffer, domain: string): number[] {
+  const material = createHmac('sha256', hashingKey).update(domain, 'utf8').digest();
+  return [0, 4, 8, 12].map(offset => material.readUInt32BE(offset));
+}
+
+/**
+ * LUD-05 linking key of a Spark wallet for one LNURL-auth service, derived from the Spark phrase.
+ * Each service domain gets its own key, separate from the Spark identity key.
+ */
+export function lnurlAuthLinkingKey(sparkMnemonic: string, domain: string): { privateKey: Buffer; publicKey: string } {
+  // LUD-05: the full domain name without a trailing full stop.
+  const serviceDomain = domain.replace(/\.$/, '').toLowerCase();
+  if (!serviceDomain) {
+    throw new Error('LNURL-auth domain is missing');
+  }
+  const root = bip32.fromSeed(bip39.mnemonicToSeedSync(sparkMnemonic));
+  const hashingKey = root.derivePath(LNURL_AUTH_HASHING_PATH).privateKey;
+  if (!hashingKey) {
+    throw new Error('LNURL-auth hashing key is not available');
+  }
+  // Indices at or above 2^31 derive hardened, as the uint32 values do in the LUD-05 reference.
+  const node = lnurlAuthPathSuffix(Buffer.from(hashingKey), serviceDomain).reduce(
+    (parent, index) => parent.derive(index),
+    root.deriveHardened(138),
+  );
+  if (!node.privateKey) {
+    throw new Error('LNURL-auth linking key is not available');
+  }
+  return { privateKey: Buffer.from(node.privateKey), publicKey: Buffer.from(node.publicKey).toString('hex') };
+}
