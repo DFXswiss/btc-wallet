@@ -11,6 +11,7 @@ import * as bitcoin from 'bitcoinjs-lib';
 
 const mockServerTxs = {};
 const mockCache = {};
+const mockTooLarge = new Set();
 
 jest.mock('realm', () => {
   const realm = {
@@ -35,7 +36,9 @@ jest.mock('electrum-client', () =>
     this.timeLastCall = 1;
     this.initElectrum = async () => ['Fulcrum 1.10.0', '1.4'];
     this.blockchainHeaders_subscribe = async () => ({ height: 1, hex: '00' });
-    this.blockchainTransaction_getBatch = async txids => txids.map(txid => ({ param: txid, result: mockServerTxs[txid] }));
+    this.blockchainTransaction_getBatch = async txids =>
+      txids.map(txid => (mockTooLarge.has(txid) ? { param: txid, error: { code: -32600 } } : { param: txid, result: mockServerTxs[txid] }));
+    this.blockchainTransaction_get = async txid => mockServerTxs[txid];
     this.close = () => {
       this.status = 0;
     };
@@ -70,6 +73,7 @@ afterAll(() => {
 beforeEach(() => {
   for (const key of Object.keys(mockServerTxs)) delete mockServerTxs[key];
   for (const key of Object.keys(mockCache)) delete mockCache[key];
+  mockTooLarge.clear();
 });
 
 describe('multiGetTransactionByTxid raw hex txid binding', () => {
@@ -93,6 +97,19 @@ describe('multiGetTransactionByTxid raw hex txid binding', () => {
     const ret = await BlueElectrum.multiGetTransactionByTxid([TXID], 10, false);
     assert.strictEqual(ret[TXID], TXHEX);
     assert.strictEqual(JSON.parse(mockCache[CACHE_KEY]), TXHEX);
+  });
+
+  it('returns the raw hex, checked against its txid, when the batch response is too large', async () => {
+    mockTooLarge.add(TXID);
+    mockServerTxs[TXID] = TXHEX;
+    const ret = await BlueElectrum.multiGetTransactionByTxid([TXID], 10, false);
+    assert.strictEqual(ret[TXID], TXHEX);
+
+    for (const key of Object.keys(mockCache)) delete mockCache[key];
+    mockServerTxs[TXID] = TAMPERED_HEX;
+    const ret2 = await BlueElectrum.multiGetTransactionByTxid([TXID], 10, false);
+    assert.strictEqual(ret2[TXID], undefined);
+    assert.strictEqual(mockCache[CACHE_KEY], undefined);
   });
 
   it('txhexMatchesTxid', () => {

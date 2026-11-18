@@ -750,12 +750,13 @@ module.exports.multiGetTransactionByTxid = async function (txids, batchsize, ver
         // response too large
         // lets do single call, that should go through okay:
         txdata.result = await mainClient.blockchainTransaction_get(txdata.param, false);
-        // since we used VERBOSE=false, server sent us plain txhex which we must decode on our end:
-        txdata.result = txhexToElectrumTransaction(txdata.result);
+        // since we used VERBOSE=false, server sent us plain txhex. callers asking for verbose txs get it decoded on our end,
+        // callers asking for raw hex get it as is:
+        if (verbose) txdata.result = txhexToElectrumTransaction(txdata.result);
       }
-      if (!verbose && typeof txdata.result === 'string' && !txhexMatchesTxid(txdata.result, txdata.param)) {
+      if (!verbose && !txhexMatchesTxid(txdata.result, txdata.param)) {
         // a raw transaction is only usable when it hashes to the txid it was requested by
-        console.warn('multiGetTransactionByTxid: server returned a transaction hex that does not match the requested txid', txdata.param);
+        console.warn('multiGetTransactionByTxid: server did not return a transaction hex matching the requested txid', txdata.param);
         continue;
       }
       ret[txdata.param] = txdata.result;

@@ -3,7 +3,6 @@ import { SegwitBech32Wallet } from './wallets/segwit-bech32-wallet';
 const bitcoin = require('bitcoinjs-lib');
 const BlueElectrum = require('../blue_modules/BlueElectrum');
 const reverse = require('buffer-reverse');
-const BigNumber = require('bignumber.js');
 
 /**
  * Represents transaction of a BIP84 wallet.
@@ -158,7 +157,15 @@ export class HDSegwitBech32Transaction {
       prevInputs.push(reversedHash);
     }
 
-    const prevTransactions = await BlueElectrum.multiGetTransactionByTxid(prevInputs);
+    // raw hexes of the previous transactions, so the input amounts are read from transactions bound to their txids
+    const prevHexes = await BlueElectrum.multiGetTransactionByTxid(prevInputs, 10, false);
+    const prevTransactions = {};
+    for (const prevTxid of prevInputs) {
+      if (!prevHexes[prevTxid] || prevTransactions[prevTxid]) continue;
+      const prevDecoded = bitcoin.Transaction.fromHex(prevHexes[prevTxid]);
+      if (prevDecoded.getId() !== prevTxid) throw new Error('Fetched transaction does not match the requested txid');
+      prevTransactions[prevTxid] = prevDecoded;
+    }
 
     // fetched, now lets count how much satoshis went in
     let wentIn = 0;
@@ -166,9 +173,8 @@ export class HDSegwitBech32Transaction {
     for (const inp of this._txDecoded.ins) {
       let reversedHash = Buffer.from(reverse(inp.hash));
       reversedHash = reversedHash.toString('hex');
-      if (prevTransactions[reversedHash] && prevTransactions[reversedHash].vout && prevTransactions[reversedHash].vout[inp.index]) {
-        let value = prevTransactions[reversedHash].vout[inp.index].value;
-        value = new BigNumber(value).multipliedBy(100000000).toNumber();
+      if (prevTransactions[reversedHash] && prevTransactions[reversedHash].outs[inp.index]) {
+        const value = prevTransactions[reversedHash].outs[inp.index].value;
         wentIn += value;
         const address = SegwitBech32Wallet.witnessToAddress(inp.witness[inp.witness.length - 1]);
         utxos.push({ vout: inp.index, value, txId: reversedHash, address });
@@ -188,16 +194,18 @@ export class HDSegwitBech32Transaction {
 
     // outputs are read from the decoded transaction, which is bound to its txid, so the
     // replacement pays exactly the recipients of the original transaction
+    // outputs without an address (e.g. OP_RETURN) are neither change nor a target we can pay again
     const outputs = this._txDecoded.outs.map((outp, n) => ({
       n,
       value: outp.value,
-      address: bitcoin.address.fromOutputScript(outp.script),
+      address: HDSegwitBech32Transaction._outputScriptToAddress(outp.script),
     }));
 
     // lets take a look at change
     let changeAmount = 0;
     const targets = [];
     for (const { value, address } of outputs) {
+      if (!address) continue;
       if (this._wallet.weOwnAddress(address)) {
         changeAmount += value;
       } else {
@@ -209,7 +217,7 @@ export class HDSegwitBech32Transaction {
     // lets find outputs we own that current transaction creates. can be used in CPFP
     const unconfirmedUtxos = [];
     for (const { n, value, address } of outputs) {
-      if (this._wallet.weOwnAddress(address)) {
+      if (address && this._wallet.weOwnAddress(address)) {
         unconfirmedUtxos.push({
           vout: n,
           value,
@@ -220,6 +228,19 @@ export class HDSegwitBech32Transaction {
     }
 
     return { fee, feeRate, targets, changeAmount, utxos, unconfirmedUtxos };
+  }
+
+  /**
+   * @param script {Buffer} output script
+   * @returns {string|null} address of the output script, or null when the script has none (e.g. OP_RETURN)
+   * @private
+   */
+  static _outputScriptToAddress(script) {
+    try {
+      return bitcoin.address.fromOutputScript(script);
+    } catch (_) {
+      return null;
+    }
   }
 
   /**
@@ -315,6 +336,10 @@ export class HDSegwitBech32Transaction {
     const { feeRate, targets, changeAmount, utxos } = await this.getInfo();
 
     if (newFeerate <= feeRate) throw new Error('New feerate should be bigger than the old one');
+    // the replacement can only pay outputs that have an address, so it could not reproduce this transaction
+    if (this._txDecoded.outs.some(outp => !HDSegwitBech32Transaction._outputScriptToAddress(outp.script))) {
+      throw new Error('Transaction has an output without an address and cannot be bumped');
+    }
     const myAddress = await this._wallet.getChangeAddressAsync();
 
     if (changeAmount === 0) delete targets[0].value;
