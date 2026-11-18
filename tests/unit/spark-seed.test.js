@@ -107,6 +107,14 @@ describe('lnurlAuthLinkingKey', () => {
     assert.ok(key.privateKey.equals(Buffer.from(node.privateKey)));
   });
 
+  it('derives path indices at or above 2^31 as hardened', () => {
+    const hashingKey = Buffer.from(root.derivePath(LNURL_AUTH_HASHING_PATH).privateKey);
+    const suffix = lnurlAuthPathSuffix(hashingKey, 'site.com');
+    assert.ok(suffix.some(i => i >= 0x80000000) && suffix.some(i => i < 0x80000000));
+    const node = root.derivePath(pathOf(suffix));
+    assert.strictEqual(lnurlAuthLinkingKey(phrase, 'site.com').publicKey, Buffer.from(node.publicKey).toString('hex'));
+  });
+
   it('is not the Spark identity key', () => {
     const identity = sparkIdentityKey(phrase);
     const key = lnurlAuthLinkingKey(phrase, 'api.dfx.swiss');
