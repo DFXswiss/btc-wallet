@@ -6,6 +6,8 @@
  */
 import assert from 'assert';
 import * as bitcoin from 'bitcoinjs-lib';
+import { ECPairFactory } from 'ecpair';
+import ecc from '../../blue_modules/noble_ecc';
 
 jest.mock('../../blue_modules/BlueElectrum', () => ({
   multiGetTransactionByTxid: jest.fn(),
@@ -15,10 +17,10 @@ const BlueElectrum = require('../../blue_modules/BlueElectrum');
 const { HDSegwitBech32Wallet, HDSegwitBech32Transaction } = require('../../class');
 
 const RECIPIENT = bitcoin.address.fromOutputScript(Buffer.from('a914e286d58e53f9247a4710e51232cce0686f16873c87', 'hex'));
-const CHANGE = bitcoin.address.fromOutputScript(Buffer.from('0014d3e2ecbf4d91321794e0297e0284c47527cf878b', 'hex'));
 const OTHER_ADDRESS = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq';
-// a compressed public key, used as the last witness item of each input
-const PUBKEY = Buffer.from('03af4b208608c75f38e78f6e5abfbcad9c360fb60d3e035193b2cd0cdc8fc0155c', 'hex');
+// the key that owns the spent outputs and signs the inputs
+const KEY = ECPairFactory(ecc).fromPrivateKey(Buffer.alloc(32, 7));
+const CHANGE = bitcoin.payments.p2wpkh({ pubkey: KEY.publicKey }).address;
 
 const PREV_VALUE = 200000;
 const RECIPIENT_VALUE = 200000;
@@ -33,17 +35,27 @@ function makeParent(seed) {
   return parent;
 }
 
+function signP2wpkhInputs(tx, values) {
+  const scriptCode = bitcoin.payments.p2pkh({ pubkey: KEY.publicKey }).output;
+  tx.ins.forEach((inp, i) => {
+    if (values[i] === undefined) return;
+    const hash = tx.hashForWitnessV0(i, scriptCode, values[i], bitcoin.Transaction.SIGHASH_ALL);
+    inp.witness = [bitcoin.script.signature.encode(KEY.sign(hash), bitcoin.Transaction.SIGHASH_ALL), KEY.publicKey];
+  });
+}
+
 // spends output 1 of two parents and pays the recipient plus change; extraOuts are appended
 function makeChild(parents, extraOuts = []) {
   const child = new bitcoin.Transaction();
   child.version = 2;
-  for (const parent of parents) {
-    child.addInput(parent.getHash(), 1, 0);
-    child.ins[child.ins.length - 1].witness = [Buffer.alloc(71, 1), PUBKEY];
-  }
+  for (const parent of parents) child.addInput(parent.getHash(), 1, 0);
   child.addOutput(bitcoin.address.toOutputScript(RECIPIENT), RECIPIENT_VALUE);
   child.addOutput(bitcoin.address.toOutputScript(CHANGE), CHANGE_VALUE);
   for (const { script, value } of extraOuts) child.addOutput(script, value);
+  signP2wpkhInputs(
+    child,
+    parents.map(() => PREV_VALUE),
+  );
   return child;
 }
 
@@ -187,6 +199,66 @@ describe('HDSegwitBech32Transaction txid binding', () => {
     await tx.createRBFbumpFee(1000);
     expect(wallet.createTransaction).toHaveBeenCalledTimes(1);
     assert.deepStrictEqual(wallet.createTransaction.mock.calls[0][1], [{ value: RECIPIENT_VALUE, address: RECIPIENT }]);
+  });
+
+  describe('witness data, which the txid does not cover', () => {
+    it('takes input addresses from the spent outputs and counts verified witnesses in the size', async () => {
+      honestServer();
+      const info = await new HDSegwitBech32Transaction(null, TXID, makeWallet()).getInfo();
+
+      assert.deepStrictEqual(
+        info.utxos.map(u => u.address),
+        [CHANGE, CHANGE],
+      );
+      assert.strictEqual(info.vsize, child.virtualSize());
+      assert.strictEqual(info.feeRate, Math.floor(info.fee / child.virtualSize()));
+    });
+
+    it('rejects a witness that was changed without changing the txid', async () => {
+      const padded = bitcoin.Transaction.fromHex(TXHEX);
+      padded.ins[0].witness = [...padded.ins[0].witness, Buffer.alloc(4000, 1)];
+      const otherKey = ECPairFactory(ecc).fromPrivateKey(Buffer.alloc(32, 9));
+      const resigned = bitcoin.Transaction.fromHex(TXHEX);
+      const hash = resigned.hashForWitnessV0(
+        0,
+        bitcoin.payments.p2pkh({ pubkey: KEY.publicKey }).output,
+        PREV_VALUE,
+        bitcoin.Transaction.SIGHASH_ALL,
+      );
+      resigned.ins[0].witness[0] = bitcoin.script.signature.encode(otherKey.sign(hash), bitcoin.Transaction.SIGHASH_ALL);
+
+      for (const mutated of [padded, resigned]) {
+        assert.strictEqual(mutated.getId(), TXID);
+        mockServer({ [TXID]: mutated.toHex(), [parents[0].getId()]: parents[0].toHex(), [parents[1].getId()]: parents[1].toHex() });
+        const wallet = makeWallet();
+
+        await assert.rejects(() => new HDSegwitBech32Transaction(null, TXID, wallet).getInfo(), /witness does not match/);
+        await assert.rejects(() => new HDSegwitBech32Transaction(null, TXID, wallet).createCPFPbumpFee(100), /witness does not match/);
+        expect(wallet.createTransaction).not.toHaveBeenCalled();
+      }
+    });
+
+    it('leaves a witness it cannot verify out of the size, so it cannot lower the fee rate', async () => {
+      const opTrue = bitcoin.script.compile([bitcoin.opcodes.OP_TRUE]);
+      const wshParent = makeParent(3);
+      wshParent.outs[1].script = bitcoin.payments.p2wsh({ redeem: { output: opTrue } }).output;
+      const mixed = new bitcoin.Transaction();
+      mixed.version = 2;
+      mixed.addInput(parents[0].getHash(), 1, 0);
+      mixed.addInput(wshParent.getHash(), 1, 0);
+      mixed.addOutput(bitcoin.address.toOutputScript(RECIPIENT), RECIPIENT_VALUE);
+      mixed.addOutput(bitcoin.address.toOutputScript(CHANGE), CHANGE_VALUE);
+      signP2wpkhInputs(mixed, [PREV_VALUE]);
+      mixed.ins[1].witness = [Buffer.alloc(4000, 1), opTrue];
+      mockServer({ [mixed.getId()]: mixed.toHex(), [parents[0].getId()]: parents[0].toHex(), [wshParent.getId()]: wshParent.toHex() });
+
+      const info = await new HDSegwitBech32Transaction(null, mixed.getId(), makeWallet()).getInfo();
+      const withoutUnverified = mixed.clone();
+      withoutUnverified.ins[1].witness = [];
+      assert.strictEqual(info.vsize, withoutUnverified.virtualSize());
+      assert.ok(info.vsize < mixed.virtualSize() - 900);
+      assert.strictEqual(info.feeRate, Math.floor(info.fee / withoutUnverified.virtualSize()));
+    });
   });
 
   describe('with an output that has no address (OP_RETURN)', () => {
