@@ -161,7 +161,9 @@ export class HDSegwitBech32Transaction {
     const prevHexes = await BlueElectrum.multiGetTransactionByTxid(prevInputs, 10, false);
     const prevTransactions = {};
     for (const prevTxid of prevInputs) {
-      if (!prevHexes[prevTxid] || prevTransactions[prevTxid]) continue;
+      if (prevTransactions[prevTxid]) continue;
+      // without every spent transaction the fee would be computed from a partial set of inputs
+      if (!prevHexes[prevTxid]) throw new Error("Previous transaction can't be fetched: " + prevTxid);
       const prevDecoded = bitcoin.Transaction.fromHex(prevHexes[prevTxid]);
       if (prevDecoded.getId() !== prevTxid) throw new Error('Fetched transaction does not match the requested txid');
       prevTransactions[prevTxid] = prevDecoded;
@@ -173,12 +175,12 @@ export class HDSegwitBech32Transaction {
     for (const inp of this._txDecoded.ins) {
       let reversedHash = Buffer.from(reverse(inp.hash));
       reversedHash = reversedHash.toString('hex');
-      if (prevTransactions[reversedHash] && prevTransactions[reversedHash].outs[inp.index]) {
-        const value = prevTransactions[reversedHash].outs[inp.index].value;
-        wentIn += value;
-        const address = SegwitBech32Wallet.witnessToAddress(inp.witness[inp.witness.length - 1]);
-        utxos.push({ vout: inp.index, value, txId: reversedHash, address });
-      }
+      const prevOut = prevTransactions[reversedHash].outs[inp.index];
+      if (!prevOut) throw new Error('Previous transaction has no output ' + inp.index + ': ' + reversedHash);
+      const value = prevOut.value;
+      wentIn += value;
+      const address = SegwitBech32Wallet.witnessToAddress(inp.witness[inp.witness.length - 1]);
+      utxos.push({ vout: inp.index, value, txId: reversedHash, address });
     }
 
     // counting how much went into actual outputs

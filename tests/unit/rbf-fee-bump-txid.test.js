@@ -154,6 +154,31 @@ describe('HDSegwitBech32Transaction txid binding', () => {
     await assert.rejects(() => tx.getInfo(), /does not match the requested txid/);
   });
 
+  it('refuses to compute the fee when a spent transaction is missing', async () => {
+    // what multiGetTransactionByTxid returns after it dropped a mismatching or absent hex
+    mockServer({ [TXID]: TXHEX, [parents[1].getId()]: parents[1].toHex() });
+    const wallet = makeWallet();
+
+    await assert.rejects(() => new HDSegwitBech32Transaction(null, TXID, wallet).getInfo(), /can't be fetched/);
+    await assert.rejects(() => new HDSegwitBech32Transaction(null, TXID, wallet).createCPFPbumpFee(100), /can't be fetched/);
+    await assert.rejects(() => new HDSegwitBech32Transaction(null, TXID, wallet).createRBFbumpFee(100), /can't be fetched/);
+    await assert.rejects(() => new HDSegwitBech32Transaction(null, TXID, wallet).createRBFcancelTx(100), /can't be fetched/);
+    expect(wallet.createTransaction).not.toHaveBeenCalled();
+  });
+
+  it('refuses to compute the fee when a spent output does not exist', async () => {
+    const shortParent = makeParent(1);
+    shortParent.outs.pop();
+    const spendsMissingOutput = makeChild([shortParent, parents[1]]);
+    mockServer({
+      [spendsMissingOutput.getId()]: spendsMissingOutput.toHex(),
+      [shortParent.getId()]: shortParent.toHex(),
+      [parents[1].getId()]: parents[1].toHex(),
+    });
+
+    await assert.rejects(() => new HDSegwitBech32Transaction(null, spendsMissingOutput.getId(), makeWallet()).getInfo(), /has no output 1/);
+  });
+
   it('passes the verified recipients to createTransaction for the bump', async () => {
     honestServer();
     const wallet = makeWallet();
