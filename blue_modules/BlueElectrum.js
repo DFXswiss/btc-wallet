@@ -792,6 +792,22 @@ module.exports.multiGetTransactionByTxid = async function (txids, batchsize, ver
 };
 
 /**
+ * Removes the cached raw hex of a transaction, so the next fetch with `verbose = false` asks the server again.
+ * The txid does not cover witness data, so a cached hex can match its txid and still carry a witness that fails
+ * verification.
+ *
+ * @param txid {string}
+ * @returns {Promise<void>}
+ */
+module.exports.forgetCachedTransactionHex = async function (txid) {
+  const realm = await _getRealm();
+  realm.write(() => {
+    const cached = realm.objectForPrimaryKey('Cache', txid + '_non_verbose');
+    if (cached) realm.delete(cached);
+  });
+};
+
+/**
  * Wait until main client is connected or timeout
  * register a flush function to be called when connected
  *

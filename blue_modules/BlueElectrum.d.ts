@@ -67,6 +67,8 @@ export function multiGetTransactionByTxid(txIds: string[], batchsize: number, ve
 
 export function txhexMatchesTxid(txhex: unknown, txid: string): boolean;
 
+export function forgetCachedTransactionHex(txid: string): Promise<void>;
+
 export type MultiGetBalanceResponse = {
   balance: number;
   unconfirmed_balance: number;

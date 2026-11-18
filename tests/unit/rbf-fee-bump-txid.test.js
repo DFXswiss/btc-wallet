@@ -11,6 +11,7 @@ import ecc from '../../blue_modules/noble_ecc';
 
 jest.mock('../../blue_modules/BlueElectrum', () => ({
   multiGetTransactionByTxid: jest.fn(),
+  forgetCachedTransactionHex: jest.fn(),
 }));
 
 const BlueElectrum = require('../../blue_modules/BlueElectrum');
@@ -104,6 +105,7 @@ function makeWallet() {
 
 afterEach(() => {
   BlueElectrum.multiGetTransactionByTxid.mockReset();
+  BlueElectrum.forgetCachedTransactionHex.mockReset();
 });
 
 describe('HDSegwitBech32Transaction txid binding', () => {
@@ -236,6 +238,30 @@ describe('HDSegwitBech32Transaction txid binding', () => {
         await assert.rejects(() => new HDSegwitBech32Transaction(null, TXID, wallet).createCPFPbumpFee(100), /witness does not match/);
         expect(wallet.createTransaction).not.toHaveBeenCalled();
       }
+      // each attempt dropped the cached hex once and fetched again before giving up
+      expect(BlueElectrum.forgetCachedTransactionHex).toHaveBeenCalledTimes(4);
+      expect(BlueElectrum.forgetCachedTransactionHex).toHaveBeenCalledWith(TXID);
+    });
+
+    it('drops a cached hex whose witness fails and uses the hex fetched again', async () => {
+      const padded = bitcoin.Transaction.fromHex(TXHEX);
+      padded.ins[0].witness = [...padded.ins[0].witness, Buffer.alloc(4000, 1)];
+      // the cache (or a previous server) delivered the padded hex; after it is forgotten the honest hex comes back
+      let rawTx = padded.toHex();
+      BlueElectrum.forgetCachedTransactionHex.mockImplementation(async () => {
+        rawTx = TXHEX;
+      });
+      BlueElectrum.multiGetTransactionByTxid.mockImplementation(async (txids, batchsize, verbose = true) => {
+        const raw = { [TXID]: rawTx, [parents[0].getId()]: parents[0].toHex(), [parents[1].getId()]: parents[1].toHex() };
+        const ret = {};
+        for (const txid of txids) if (verbose === false && raw[txid]) ret[txid] = raw[txid];
+        return ret;
+      });
+
+      const info = await new HDSegwitBech32Transaction(null, TXID, makeWallet()).getInfo();
+      expect(BlueElectrum.forgetCachedTransactionHex).toHaveBeenCalledTimes(1);
+      assert.strictEqual(info.vsize, child.virtualSize());
+      assert.deepStrictEqual(info.targets, [{ value: RECIPIENT_VALUE, address: RECIPIENT }]);
     });
 
     it('leaves a witness it cannot verify out of the size, so it cannot lower the fee rate', async () => {

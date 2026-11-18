@@ -149,6 +149,15 @@ export class HDSegwitBech32Transaction {
    * @returns {Promise<{fee: number, utxos: Array, unconfirmedUtxos: Array, changeAmount: number, feeRate: number, vsize: number, targets: Array}>}
    */
   async getInfo() {
+    return this._getInfo(false);
+  }
+
+  /**
+   * @param refetched {boolean} whether the transaction hex was already fetched again after a failed witness check
+   * @returns {Promise<{fee: number, utxos: Array, unconfirmedUtxos: Array, changeAmount: number, feeRate: number, vsize: number, targets: Array}>}
+   * @private
+   */
+  async _getInfo(refetched) {
     if (!this._wallet) throw new Error('Wallet required for this method');
     if (!this._txDecoded) await this._fetchTxhexAndDecode();
 
@@ -189,7 +198,16 @@ export class HDSegwitBech32Transaction {
       utxos.push({ vout: inp.index, value, txId: reversedHash, address });
 
       const witnessValid = HDSegwitBech32Transaction._verifyP2wpkhWitness(this._txDecoded, index, prevOut);
-      if (witnessValid === false) throw new Error('Transaction witness does not match the outputs it spends');
+      if (witnessValid === false) {
+        // a hex with a bad witness still matches its txid, so it may come from the cache: drop it and fetch once more
+        if (!refetched && this._txid) {
+          await BlueElectrum.forgetCachedTransactionHex(this._txid);
+          this._txhex = null;
+          this._txDecoded = null;
+          return this._getInfo(true);
+        }
+        throw new Error('Transaction witness does not match the outputs it spends');
+      }
       if (witnessValid === null) sizeTx.ins[index].witness = [];
     }
     const vsize = sizeTx.virtualSize();

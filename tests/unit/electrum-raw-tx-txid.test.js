@@ -25,6 +25,9 @@ jest.mock('realm', () => {
     create(_schema, obj) {
       mockCache[obj.cache_key] = obj.cache_value;
     },
+    delete(obj) {
+      delete mockCache[obj.cache_key];
+    },
   };
   const Realm = { open: jest.fn(() => realm), UpdateMode: { Modified: 'modified' } };
   return Realm;
@@ -110,6 +113,19 @@ describe('multiGetTransactionByTxid raw hex txid binding', () => {
     const ret2 = await BlueElectrum.multiGetTransactionByTxid([TXID], 10, false);
     assert.strictEqual(ret2[TXID], undefined);
     assert.strictEqual(mockCache[CACHE_KEY], undefined);
+  });
+
+  it('forgetCachedTransactionHex removes the cached hex, so the next call asks the server again', async () => {
+    const otherWitness = bitcoin.Transaction.fromHex(TXHEX);
+    otherWitness.ins[0].witness = [...otherWitness.ins[0].witness, Buffer.alloc(10, 1)];
+    mockCache[CACHE_KEY] = JSON.stringify(otherWitness.toHex());
+    mockServerTxs[TXID] = TXHEX;
+    // same txid, so the cached hex is served
+    assert.strictEqual((await BlueElectrum.multiGetTransactionByTxid([TXID], 10, false))[TXID], otherWitness.toHex());
+
+    await BlueElectrum.forgetCachedTransactionHex(TXID);
+    assert.strictEqual(mockCache[CACHE_KEY], undefined);
+    assert.strictEqual((await BlueElectrum.multiGetTransactionByTxid([TXID], 10, false))[TXID], TXHEX);
   });
 
   it('txhexMatchesTxid', () => {
