@@ -17,7 +17,12 @@ export default class RBFCancel extends CPFP {
       newFeeRate: '',
       nonReplaceable: false,
     });
-    await this.checkPossibilityOfRBFCancel();
+    try {
+      await this.checkPossibilityOfRBFCancel();
+    } catch (_) {
+      // if anything goes wrong we just show "this is not bumpable" message
+      this.setState({ nonReplaceable: true, isLoading: false });
+    }
   }
 
   async checkPossibilityOfRBFCancel() {

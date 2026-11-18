@@ -25,7 +25,12 @@ export default class RBFBumpFee extends CPFP {
       newFeeRate: '',
       nonReplaceable: false,
     });
-    await this.checkPossibilityOfRBFBumpFee();
+    try {
+      await this.checkPossibilityOfRBFBumpFee();
+    } catch (_) {
+      // if anything goes wrong we just show "this is not bumpable" message
+      this.setState({ nonReplaceable: true, isLoading: false });
+    }
   }
 
   async checkPossibilityOfRBFBumpFee() {
