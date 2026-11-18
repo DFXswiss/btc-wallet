@@ -1,9 +1,9 @@
 import { HDSegwitBech32Wallet } from './wallets/hd-segwit-bech32-wallet';
 import { SegwitBech32Wallet } from './wallets/segwit-bech32-wallet';
+import ecc from '../blue_modules/noble_ecc';
 const bitcoin = require('bitcoinjs-lib');
 const BlueElectrum = require('../blue_modules/BlueElectrum');
 const reverse = require('buffer-reverse');
-const BigNumber = require('bignumber.js');
 
 /**
  * Represents transaction of a BIP84 wallet.
@@ -41,9 +41,13 @@ export class HDSegwitBech32Transaction {
    */
   async _fetchTxhexAndDecode() {
     const hexes = await BlueElectrum.multiGetTransactionByTxid([this._txid], 10, false);
-    this._txhex = hexes[this._txid];
-    if (!this._txhex) throw new Error("Transaction can't be found in mempool");
-    this._txDecoded = bitcoin.Transaction.fromHex(this._txhex);
+    const txhex = hexes[this._txid];
+    if (!txhex) throw new Error("Transaction can't be found in mempool");
+    const decoded = bitcoin.Transaction.fromHex(txhex);
+    // the hex comes from the server (or its cache); only use it when it is the transaction we asked for
+    if (decoded.getId() !== this._txid) throw new Error('Fetched transaction does not match the requested txid');
+    this._txhex = txhex;
+    this._txDecoded = decoded;
   }
 
   /**
@@ -138,14 +142,24 @@ export class HDSegwitBech32Transaction {
    * * utxos - UTXOs current tx consumes
    * * changeAmount - amount of satoshis that sent to change address (or addresses) we control
    * * feeRate - sat/byte for current tx
+   * * vsize - virtual size used for feeRate (witnesses that cannot be verified against the outputs they spend are not counted)
+   * * sizeVerified - whether every witness was verified, i.e. vsize is the real virtual size and not a lower bound
    * * targets - destination(s) of funds (outputs we do not control)
    * * unconfirmedUtxos - UTXOs created by this transaction (only the ones we control)
    *
-   * @returns {Promise<{fee: number, utxos: Array, unconfirmedUtxos: Array, changeAmount: number, feeRate: number, targets: Array}>}
+   * @returns {Promise<{fee: number, utxos: Array, unconfirmedUtxos: Array, changeAmount: number, feeRate: number, vsize: number, sizeVerified: boolean, targets: Array}>}
    */
   async getInfo() {
+    return this._getInfo(false);
+  }
+
+  /**
+   * @param refetched {boolean} whether the transaction hex was already fetched again after a failed witness check
+   * @returns {Promise<{fee: number, utxos: Array, unconfirmedUtxos: Array, changeAmount: number, feeRate: number, vsize: number, sizeVerified: boolean, targets: Array}>}
+   * @private
+   */
+  async _getInfo(refetched) {
     if (!this._wallet) throw new Error('Wallet required for this method');
-    if (!this._remoteTx) await this._fetchRemoteTx();
     if (!this._txDecoded) await this._fetchTxhexAndDecode();
 
     const prevInputs = [];
@@ -155,22 +169,58 @@ export class HDSegwitBech32Transaction {
       prevInputs.push(reversedHash);
     }
 
-    const prevTransactions = await BlueElectrum.multiGetTransactionByTxid(prevInputs);
+    // raw hexes of the previous transactions, so the input amounts are read from transactions bound to their txids
+    const prevHexes = await BlueElectrum.multiGetTransactionByTxid(prevInputs, 10, false);
+    const prevTransactions = {};
+    for (const prevTxid of prevInputs) {
+      if (prevTransactions[prevTxid]) continue;
+      // without every spent transaction the fee would be computed from a partial set of inputs
+      if (!prevHexes[prevTxid]) throw new Error("Previous transaction can't be fetched: " + prevTxid);
+      const prevDecoded = bitcoin.Transaction.fromHex(prevHexes[prevTxid]);
+      if (prevDecoded.getId() !== prevTxid) throw new Error('Fetched transaction does not match the requested txid');
+      prevTransactions[prevTxid] = prevDecoded;
+    }
 
     // fetched, now lets count how much satoshis went in
     let wentIn = 0;
     const utxos = [];
+    // the txid does not cover the witness, so the size used for the fee rate only counts witnesses that are verified
+    // against the outputs they spend; a witness that cannot be verified here is left out, which makes the fee rate an
+    // upper bound rather than letting an unverified witness change it
+    const prevOuts = [];
     for (const inp of this._txDecoded.ins) {
       let reversedHash = Buffer.from(reverse(inp.hash));
       reversedHash = reversedHash.toString('hex');
-      if (prevTransactions[reversedHash] && prevTransactions[reversedHash].vout && prevTransactions[reversedHash].vout[inp.index]) {
-        let value = prevTransactions[reversedHash].vout[inp.index].value;
-        value = new BigNumber(value).multipliedBy(100000000).toNumber();
-        wentIn += value;
-        const address = SegwitBech32Wallet.witnessToAddress(inp.witness[inp.witness.length - 1]);
-        utxos.push({ vout: inp.index, value, txId: reversedHash, address });
+      const prevOut = prevTransactions[reversedHash].outs[inp.index];
+      if (!prevOut) throw new Error('Previous transaction has no output ' + inp.index + ': ' + reversedHash);
+      prevOuts.push(prevOut);
+      const value = prevOut.value;
+      wentIn += value;
+      const address = HDSegwitBech32Transaction._outputScriptToAddress(prevOut.script);
+      utxos.push({ vout: inp.index, value, txId: reversedHash, address });
+    }
+
+    const sizeTx = this._txDecoded.clone();
+    let sizeVerified = true;
+    for (const [index, inp] of this._txDecoded.ins.entries()) {
+      if (inp.witness.length === 0) continue; // no witness: the size of this input is covered by the txid
+      const witnessValid = HDSegwitBech32Transaction._verifyWitness(this._txDecoded, index, prevOuts);
+      if (witnessValid === false) {
+        // a hex with a bad witness still matches its txid, so it may come from the cache: drop it and fetch once more
+        if (!refetched && this._txid) {
+          await BlueElectrum.forgetCachedTransactionHex(this._txid);
+          this._txhex = null;
+          this._txDecoded = null;
+          return this._getInfo(true);
+        }
+        throw new Error('Transaction witness does not match the outputs it spends');
+      }
+      if (witnessValid === null) {
+        sizeTx.ins[index].witness = [];
+        sizeVerified = false;
       }
     }
+    const vsize = sizeTx.virtualSize();
 
     // counting how much went into actual outputs
 
@@ -180,15 +230,23 @@ export class HDSegwitBech32Transaction {
     }
 
     const fee = wentIn - wasSpent;
-    let feeRate = Math.floor(fee / this._txDecoded.virtualSize());
+    let feeRate = Math.floor(fee / vsize);
     if (feeRate === 0) feeRate = 1;
+
+    // outputs are read from the decoded transaction, which is bound to its txid, so the
+    // replacement pays exactly the recipients of the original transaction
+    // outputs without an address (e.g. OP_RETURN) are neither change nor a target we can pay again
+    const outputs = this._txDecoded.outs.map((outp, n) => ({
+      n,
+      value: outp.value,
+      address: HDSegwitBech32Transaction._outputScriptToAddress(outp.script),
+    }));
 
     // lets take a look at change
     let changeAmount = 0;
     const targets = [];
-    for (const outp of this._remoteTx.vout) {
-      const address = outp.scriptPubKey.addresses[0];
-      const value = new BigNumber(outp.value).multipliedBy(100000000).toNumber();
+    for (const { value, address } of outputs) {
+      if (!address) continue;
       if (this._wallet.weOwnAddress(address)) {
         changeAmount += value;
       } else {
@@ -199,12 +257,10 @@ export class HDSegwitBech32Transaction {
 
     // lets find outputs we own that current transaction creates. can be used in CPFP
     const unconfirmedUtxos = [];
-    for (const outp of this._remoteTx.vout) {
-      const address = outp.scriptPubKey.addresses[0];
-      const value = new BigNumber(outp.value).multipliedBy(100000000).toNumber();
-      if (this._wallet.weOwnAddress(address)) {
+    for (const { n, value, address } of outputs) {
+      if (address && this._wallet.weOwnAddress(address)) {
         unconfirmedUtxos.push({
-          vout: outp.n,
+          vout: n,
           value,
           txId: this._txid || this._txDecoded.getId(),
           address,
@@ -212,7 +268,111 @@ export class HDSegwitBech32Transaction {
       }
     }
 
-    return { fee, feeRate, targets, changeAmount, utxos, unconfirmedUtxos };
+    return { fee, feeRate, vsize, sizeVerified, targets, changeAmount, utxos, unconfirmedUtxos };
+  }
+
+  /**
+   * Verifies the witness of an input against the output it spends. Supported are P2WPKH (native or nested in P2SH)
+   * and P2TR key path spends.
+   *
+   * @param tx {Transaction} transaction the input belongs to
+   * @param index {number} input index
+   * @param prevOuts {Array<{script: Buffer, value: number}>} outputs spent by all inputs of tx, in input order
+   * @returns {boolean|null} validity of the witness, or null when this kind of spend cannot be verified here
+   * @private
+   */
+  static _verifyWitness(tx, index, prevOuts) {
+    const script = prevOuts[index].script;
+    if (script.length === 34 && script[0] === bitcoin.opcodes.OP_1 && script[1] === 0x20) {
+      return HDSegwitBech32Transaction._verifyP2trKeyPathWitness(tx, index, prevOuts);
+    }
+    return HDSegwitBech32Transaction._verifyP2wpkhWitness(tx, index, prevOuts[index]);
+  }
+
+  /**
+   * Verifies a P2TR key path spend: a single BIP340 signature by the output key over the BIP341 sighash.
+   *
+   * @param tx {Transaction}
+   * @param index {number}
+   * @param prevOuts {Array<{script: Buffer, value: number}>}
+   * @returns {boolean|null} validity of the witness, or null for a script path spend or a witness with an annex
+   * @private
+   */
+  static _verifyP2trKeyPathWitness(tx, index, prevOuts) {
+    const witness = tx.ins[index].witness;
+    if (witness.length !== 1) return null;
+    const sig = witness[0];
+    if (sig.length !== 64 && sig.length !== 65) return false;
+    const hashType = sig.length === 65 ? sig[64] : bitcoin.Transaction.SIGHASH_DEFAULT;
+    if (sig.length === 65 && hashType === bitcoin.Transaction.SIGHASH_DEFAULT) return false;
+    try {
+      const hash = tx.hashForWitnessV1(
+        index,
+        prevOuts.map(o => o.script),
+        prevOuts.map(o => o.value),
+        hashType,
+      );
+      return ecc.verifySchnorr(hash, prevOuts[index].script.subarray(2), sig.subarray(0, 64));
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /**
+   * Verifies the witness of a P2WPKH input (native or nested in P2SH) against the output it spends: one signature
+   * and one public key, the key hashing to the spent program, and the signature valid for the BIP143 sighash.
+   *
+   * @param tx {Transaction} transaction the input belongs to
+   * @param index {number} input index
+   * @param prevOut {{script: Buffer, value: number}} output the input spends
+   * @returns {boolean|null} validity of the witness, or null when the spent output is not P2WPKH
+   * @private
+   */
+  static _verifyP2wpkhWitness(tx, index, prevOut) {
+    let program = null;
+    if (prevOut.script.length === 22 && prevOut.script[0] === 0x00 && prevOut.script[1] === 0x14) {
+      program = prevOut.script;
+    } else if (prevOut.script.length === 23 && prevOut.script[0] === 0xa9 && prevOut.script[1] === 0x14 && prevOut.script[22] === 0x87) {
+      // nested P2WPKH: the script sig (covered by the txid) is a single push of the witness program
+      const chunks = bitcoin.script.decompile(tx.ins[index].script) || [];
+      const redeem = chunks.length === 1 && Buffer.isBuffer(chunks[0]) ? chunks[0] : null;
+      if (
+        redeem &&
+        redeem.length === 22 &&
+        redeem[0] === 0x00 &&
+        redeem[1] === 0x14 &&
+        bitcoin.crypto.hash160(redeem).equals(prevOut.script.subarray(2, 22))
+      ) {
+        program = redeem;
+      }
+    }
+    if (!program) return null;
+
+    const witness = tx.ins[index].witness;
+    if (witness.length !== 2 || witness[1].length !== 33) return false;
+    const pubkey = witness[1];
+    const pubkeyHash = program.subarray(2, 22);
+    if (!bitcoin.crypto.hash160(pubkey).equals(pubkeyHash)) return false;
+    try {
+      const { signature, hashType } = bitcoin.script.signature.decode(witness[0]);
+      const hash = tx.hashForWitnessV0(index, bitcoin.payments.p2pkh({ hash: pubkeyHash }).output, prevOut.value, hashType);
+      return ecc.verify(hash, pubkey, signature);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /**
+   * @param script {Buffer} output script
+   * @returns {string|null} address of the output script, or null when the script has none (e.g. OP_RETURN)
+   * @private
+   */
+  static _outputScriptToAddress(script) {
+    try {
+      return bitcoin.address.fromOutputScript(script);
+    } catch (_) {
+      return null;
+    }
   }
 
   /**
@@ -280,7 +440,6 @@ export class HDSegwitBech32Transaction {
    */
   async createRBFcancelTx(newFeerate) {
     if (!this._wallet) throw new Error('Wallet required for this method');
-    if (!this._remoteTx) await this._fetchRemoteTx();
 
     const { feeRate, utxos } = await this.getInfo();
 
@@ -305,11 +464,14 @@ export class HDSegwitBech32Transaction {
    */
   async createRBFbumpFee(newFeerate) {
     if (!this._wallet) throw new Error('Wallet required for this method');
-    if (!this._remoteTx) await this._fetchRemoteTx();
 
     const { feeRate, targets, changeAmount, utxos } = await this.getInfo();
 
     if (newFeerate <= feeRate) throw new Error('New feerate should be bigger than the old one');
+    // the replacement can only pay outputs that have an address, so it could not reproduce this transaction
+    if (this._txDecoded.outs.some(outp => !HDSegwitBech32Transaction._outputScriptToAddress(outp.script))) {
+      throw new Error('Transaction has an output without an address and cannot be bumped');
+    }
     const myAddress = await this._wallet.getChangeAddressAsync();
 
     if (changeAmount === 0) delete targets[0].value;
@@ -335,9 +497,10 @@ export class HDSegwitBech32Transaction {
    */
   async createCPFPbumpFee(newFeerate) {
     if (!this._wallet) throw new Error('Wallet required for this method');
-    if (!this._remoteTx) await this._fetchRemoteTx();
 
-    const { feeRate, fee: oldFee, unconfirmedUtxos } = await this.getInfo();
+    const { feeRate, fee: oldFee, vsize: oldVsize, sizeVerified, unconfirmedUtxos } = await this.getInfo();
+    // the package fee rate needs the real size of this transaction, which is only known when all its witnesses are verified
+    if (!sizeVerified) throw new Error('Transaction size cannot be verified, so it cannot be bumped with CPFP');
 
     if (newFeerate <= feeRate) throw new Error('New feerate should be bigger than the old one');
     const myAddress = await this._wallet.getChangeAddressAsync();
@@ -356,7 +519,7 @@ export class HDSegwitBech32Transaction {
         myAddress,
         HDSegwitBech32Wallet.defaultRBFSequence,
       );
-      const combinedFeeRate = (oldFee + fee) / (this._txDecoded.virtualSize() + tx.virtualSize()); // avg
+      const combinedFeeRate = (oldFee + fee) / (oldVsize + tx.virtualSize()); // avg
       if (Math.round(combinedFeeRate) < newFeerate) {
         add *= 2;
         if (!add) add = 2;

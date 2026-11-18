@@ -651,7 +651,12 @@ module.exports.multiGetTransactionByTxid = async function (txids, batchsize, ver
     const jsonString = realm.objectForPrimaryKey('Cache', txid + cacheKeySuffix); // search for a realm object with a primary key
     if (jsonString && jsonString.cache_value) {
       try {
-        ret[txid] = JSON.parse(jsonString.cache_value);
+        const cached = JSON.parse(jsonString.cache_value);
+        if (verbose || txhexMatchesTxid(cached, txid)) {
+          ret[txid] = cached;
+        } else {
+          console.warn('multiGetTransactionByTxid: cached transaction hex does not match its txid, refetching', txid);
+        }
       } catch (error) {
         console.warn('multiGetTransactionByTxid: cached transaction failed to parse, refetching', error);
       }
@@ -745,8 +750,14 @@ module.exports.multiGetTransactionByTxid = async function (txids, batchsize, ver
         // response too large
         // lets do single call, that should go through okay:
         txdata.result = await mainClient.blockchainTransaction_get(txdata.param, false);
-        // since we used VERBOSE=false, server sent us plain txhex which we must decode on our end:
-        txdata.result = txhexToElectrumTransaction(txdata.result);
+        // since we used VERBOSE=false, server sent us plain txhex. callers asking for verbose txs get it decoded on our end,
+        // callers asking for raw hex get it as is:
+        if (verbose) txdata.result = txhexToElectrumTransaction(txdata.result);
+      }
+      if (!verbose && !txhexMatchesTxid(txdata.result, txdata.param)) {
+        // a raw transaction is only usable when it hashes to the txid it was requested by
+        console.warn('multiGetTransactionByTxid: server did not return a transaction hex matching the requested txid', txdata.param);
+        continue;
       }
       ret[txdata.param] = txdata.result;
       if (ret[txdata.param]) delete ret[txdata.param].hex; // compact
@@ -778,6 +789,22 @@ module.exports.multiGetTransactionByTxid = async function (txids, batchsize, ver
   });
 
   return ret;
+};
+
+/**
+ * Removes the cached raw hex of a transaction, so the next fetch with `verbose = false` asks the server again.
+ * The txid does not cover witness data, so a cached hex can match its txid and still carry a witness that fails
+ * verification.
+ *
+ * @param txid {string}
+ * @returns {Promise<void>}
+ */
+module.exports.forgetCachedTransactionHex = async function (txid) {
+  const realm = await _getRealm();
+  realm.write(() => {
+    const cached = realm.objectForPrimaryKey('Cache', txid + '_non_verbose');
+    if (cached) realm.delete(cached);
+  });
 };
 
 /**
@@ -1037,6 +1064,24 @@ const semVerToInt = function (semver) {
 
   return ret;
 };
+
+/**
+ * Checks that a raw transaction hex decodes and hashes to the given txid.
+ *
+ * @param txhex {*}
+ * @param txid {string}
+ * @returns {boolean}
+ */
+function txhexMatchesTxid(txhex, txid) {
+  if (typeof txhex !== 'string') return false;
+  try {
+    return bitcoin.Transaction.fromHex(txhex).getId() === txid;
+  } catch (_) {
+    return false;
+  }
+}
+
+module.exports.txhexMatchesTxid = txhexMatchesTxid;
 
 function txhexToElectrumTransaction(txhex) {
   const tx = bitcoin.Transaction.fromHex(txhex);
